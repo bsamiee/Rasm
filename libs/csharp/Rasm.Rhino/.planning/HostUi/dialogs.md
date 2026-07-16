@@ -102,7 +102,7 @@ public sealed record FileFrame(
 
 ## [03]-[INQUIRY_RAIL]
 
-- Owner: `Inquiry` — the one closed native-intent discriminant; every case is a complete request — and `InquiryAnswer`, the mirrored typed result family. `Inquiries.Ask(DocumentSession, Inquiry, Op?)` is the sole dispatch: it demands `SessionNeed.Dialog` (interactive lane, live document, no active point acquisition) through `HostThread.OnSession` — the demand marshals and the answer rides the crossing seam — resolves the parent once as the document main window, and runs one total generated `Switch` whose every arm converts the host outcome — a `false`, a null, a `Guid.Empty`, a negative width, a `-1` menu index — into `UiFault.Dismissed`. One dismissal fault on every arm is the uniform-cancellation acceptance the census factories scattered.
+- Owner: `Inquiry` — the one closed native-intent discriminant; every case is a complete request — and `InquiryAnswer`, the mirrored typed result family. `Inquiries.Ask(DocumentSession, Inquiry, Op?)` is the sole dispatch: it demands `SessionNeed.Dialog` (interactive lane, live document, no active point acquisition) through `HostThread.OnSession` — the demand marshals and the answer rides the crossing seam — resolves the parent once as the document main window, and runs one total generated `Switch` whose every arm converts the host outcome — a `false`, a null, a `Guid.Empty`, a negative width, a `-1` menu index — into `UiFault.Dismissed` through one `Answered` projection. One dismissal fault on every arm is the uniform-cancellation acceptance the census factories scattered.
 - Law: the answer discriminant is recoverable from the request case — `Pick` answers `Chosen`, `Layer` answers `Layers`, `Files` answers `Files` — so a consumer switches the answer only at the arity its request already fixed, and a wrong-shaped answer marks a dispatch defect, never a consumer branch.
 - Law: seed clamping is request admission — the bounded number box clamps its seed into the window before the host call because the host bounds constrain the spinner, not the initial display; an inverted window is a typed rejection before any dialog exists.
 - Law: the layer-material chain is one arm — multi-layer pick then `ShowLayerMaterialDialog` — so partial completion (layers picked, material dismissed) folds to `Dismissed` and never leaks a half-answered composite.
@@ -207,61 +207,58 @@ public static class Inquiries {
                             ? Fin.Succ(value: ask.Rows.Map(static row => row.Name).Zip(toSeq(updated)).Strict())
                             : Fin.Fail<Seq<(string, string)>>(error: held.Op.InvalidResult())
                         select (InquiryAnswer)new InquiryAnswer.Valued(Rows: rows),
-                    menu: static (held, ask) =>
-                        from _ in guard(flag: !ask.Entries.IsEmpty, False: held.Op.InvalidInput()).ToFin()
-                        from index in Dialogs.ShowContextMenu(
+                    menu: static (held, ask) => guard(flag: !ask.Entries.IsEmpty, False: held.Op.InvalidInput()).ToFin().Bind(_ => {
+                        int at = Dialogs.ShowContextMenu(
                             items: ask.Entries.Map(static entry => entry.Caption).AsIterable(),
                             screenPoint: ask.ScreenPoint,
-                            modes: ask.Entries.Map(static entry => entry.Mode.Key).AsIterable()) switch {
-                                int at when at >= 0 => Fin.Succ(value: at),
-                                _ => Fin.Fail<int>(error: new UiFault.Dismissed(Key: held.Op)),
-                            }
-                        select (InquiryAnswer)new InquiryAnswer.MenuIndex(Index: index),
-                    edit: static (held, ask) =>
-                        Dialogs.ShowEditBox(title: ask.Title, message: ask.Prompt, defaultText: ask.Seed, multiline: ask.Multiline, text: out string text)
-                            ? Fin.Succ(value: (InquiryAnswer)new InquiryAnswer.Edited(Text: text))
-                            : Fin.Fail<InquiryAnswer>(error: new UiFault.Dismissed(Key: held.Op)),
+                            modes: ask.Entries.Map(static entry => entry.Mode.Key).AsIterable());
+                        return Answered(accepted: at >= 0, answer: () => new InquiryAnswer.MenuIndex(Index: at), op: held.Op);
+                    }),
+                    edit: static (held, ask) => {
+                        bool accepted = Dialogs.ShowEditBox(title: ask.Title, message: ask.Prompt, defaultText: ask.Seed, multiline: ask.Multiline, text: out string text);
+                        return Answered(accepted: accepted, answer: () => new InquiryAnswer.Edited(Text: text), op: held.Op);
+                    },
                     number: static (held, ask) => Numbered(held: held, ask: ask),
                     layer: static (held, ask) => Layered(held: held, ask: ask),
                     linetype: static (held, ask) => ask.Ask.Switch(
                         state: held,
-                        byId: static (held, pick) =>
-                            Dialogs.ShowLineTypes(title: pick.Title, message: pick.Message, doc: held.Document, selectedLineTypeId: pick.Selected.IfNone(Guid.Empty)) switch {
-                                Guid id when id != Guid.Empty => Fin.Succ(value: (InquiryAnswer)new InquiryAnswer.LinetypeId(Id: id)),
-                                _ => Fin.Fail<InquiryAnswer>(error: new UiFault.Dismissed(Key: held.Op)),
-                            },
+                        byId: static (held, pick) => {
+                            Guid id = Dialogs.ShowLineTypes(title: pick.Title, message: pick.Message, doc: held.Document, selectedLineTypeId: pick.Selected.IfNone(Guid.Empty));
+                            return Answered(accepted: id != Guid.Empty, answer: () => new InquiryAnswer.LinetypeId(Id: id), op: held.Op);
+                        },
                         byIndex: static (held, pick) => {
                             int index = pick.Seed;
-                            return Dialogs.ShowSelectLinetypeDialog(linetypeIndex: ref index, displayByLayer: pick.DisplayByLayer)
-                                ? Fin.Succ(value: (InquiryAnswer)new InquiryAnswer.LinetypeIndex(Index: index))
-                                : Fin.Fail<InquiryAnswer>(error: new UiFault.Dismissed(Key: held.Op));
+                            return Answered(
+                                accepted: Dialogs.ShowSelectLinetypeDialog(linetypeIndex: ref index, displayByLayer: pick.DisplayByLayer),
+                                answer: () => new InquiryAnswer.LinetypeIndex(Index: index),
+                                op: held.Op);
                         }),
-                    printWidth: static (held, ask) =>
-                        (ask.Selected.Match(
+                    printWidth: static (held, ask) => {
+                        double width = ask.Selected.Match(
                             Some: seed => Dialogs.ShowPrintWidths(title: ask.Title, message: ask.Prompt, selectedWidth: seed),
-                            None: () => Dialogs.ShowPrintWidths(title: ask.Title, message: ask.Prompt))) switch {
-                                double width when width >= 0d => Fin.Succ(value: (InquiryAnswer)new InquiryAnswer.Measured(Value: width)),
-                                _ => Fin.Fail<InquiryAnswer>(error: new UiFault.Dismissed(Key: held.Op)),
-                            },
+                            None: () => Dialogs.ShowPrintWidths(title: ask.Title, message: ask.Prompt));
+                        return Answered(accepted: width >= 0d, answer: () => new InquiryAnswer.Measured(Value: width), op: held.Op);
+                    },
                     sun: static (held, _) =>
-                        Dialogs.ShowSunDialog(sun: held.Document.Lights.Sun)
-                            ? Fin.Succ(value: (InquiryAnswer)new InquiryAnswer.Done())
-                            : Fin.Fail<InquiryAnswer>(error: new UiFault.Dismissed(Key: held.Op)),
+                        Answered(accepted: Dialogs.ShowSunDialog(sun: held.Document.Lights.Sun), answer: static () => new InquiryAnswer.Done(), op: held.Op),
                     color: static (held, ask) => {
                         Color4f color = ask.Ask.Initial;
-                        return Dialogs.ShowColorDialog(
-                            parent: held.Parent,
-                            color: ref color,
-                            allowAlpha: ask.Ask.AllowAlpha,
-                            namedColorList: ask.Ask.Named.IfNoneUnsafe((NamedColorList?)null),
-                            colorCallback: ask.Ask.Live.IfNoneUnsafe((Dialogs.OnColorChangedEvent?)null))
-                                ? Fin.Succ(value: (InquiryAnswer)new InquiryAnswer.Pigment(Value: color))
-                                : Fin.Fail<InquiryAnswer>(error: new UiFault.Dismissed(Key: held.Op));
+                        return Answered(
+                            accepted: Dialogs.ShowColorDialog(
+                                parent: held.Parent,
+                                color: ref color,
+                                allowAlpha: ask.Ask.AllowAlpha,
+                                namedColorList: ask.Ask.Named.IfNoneUnsafe((NamedColorList?)null),
+                                colorCallback: ask.Ask.Live.IfNoneUnsafe((Dialogs.OnColorChangedEvent?)null)),
+                            answer: () => new InquiryAnswer.Pigment(Value: color),
+                            op: held.Op);
                     },
-                    font: static (held, ask) => new FontDialog { Font = ask.Seed.IfNoneUnsafe((global::Eto.Drawing.Font?)null)! } switch {
-                        FontDialog dialog => dialog.ShowDialog(parent: held.Parent) == DialogResult.Ok
-                            ? Fin.Succ(value: (InquiryAnswer)new InquiryAnswer.Typeface(Value: dialog.Font))
-                            : Fin.Fail<InquiryAnswer>(error: new UiFault.Dismissed(Key: held.Op)),
+                    font: static (held, ask) => {
+                        FontDialog dialog = new() { Font = ask.Seed.IfNoneUnsafe((global::Eto.Drawing.Font?)null)! };
+                        return Answered(
+                            accepted: dialog.ShowDialog(parent: held.Parent) == DialogResult.Ok,
+                            answer: () => new InquiryAnswer.Typeface(Value: dialog.Font),
+                            op: held.Op);
                     },
                     files: static (held, ask) => Prompted(held: held, ask: ask.Ask));
             },
@@ -276,16 +273,18 @@ public static class Inquiries {
                 : Fin.Fail<InquiryAnswer>(error: held.Op.InvalidInput()),
             None: () => {
                 double value = ask.Seed;
-                return Dialogs.ShowNumberBox(title: ask.Title, message: ask.Prompt, number: ref value)
-                    ? Fin.Succ(value: (InquiryAnswer)new InquiryAnswer.Measured(Value: value))
-                    : Fin.Fail<InquiryAnswer>(error: new UiFault.Dismissed(Key: held.Op));
+                return Answered(
+                    accepted: Dialogs.ShowNumberBox(title: ask.Title, message: ask.Prompt, number: ref value),
+                    answer: () => new InquiryAnswer.Measured(Value: value),
+                    op: held.Op);
             });
 
     private static Fin<InquiryAnswer> Bounded(Inquiry.Number ask, (double Lower, double Upper) window, Op op) {
         double value = Math.Clamp(value: ask.Seed, min: window.Lower, max: window.Upper);
-        return Dialogs.ShowNumberBox(title: ask.Title, message: ask.Prompt, number: ref value, minimum: window.Lower, maximum: window.Upper)
-            ? Fin.Succ(value: (InquiryAnswer)new InquiryAnswer.Measured(Value: value))
-            : Fin.Fail<InquiryAnswer>(error: new UiFault.Dismissed(Key: op));
+        return Answered(
+            accepted: Dialogs.ShowNumberBox(title: ask.Title, message: ask.Prompt, number: ref value, minimum: window.Lower, maximum: window.Upper),
+            answer: () => new InquiryAnswer.Measured(Value: value),
+            op: op);
     }
 
     private static Fin<InquiryAnswer> Layered((RhinoDoc Document, Window? Parent, Op Op) held, Inquiry.Layer ask) =>
@@ -294,78 +293,82 @@ public static class Inquiries {
             one: static (frame, scope) => {
                 bool setCurrent = scope.InitialSetCurrent;
                 int index = frame.Request.Preselect.IsEmpty ? -1 : frame.Request.Preselect[0];
-                return frame.Request.Preselect.Count switch {
-                    > 1 => Fin.Fail<InquiryAnswer>(error: frame.Op.InvalidInput()),
-                    _ => Dialogs.ShowSelectLayerDialog(
+                return frame.Request.Preselect.Count > 1
+                    ? Fin.Fail<InquiryAnswer>(error: frame.Op.InvalidInput())
+                    : Answered(
+                        accepted: Dialogs.ShowSelectLayerDialog(
                             layerIndex: ref index, dialogTitle: frame.Request.Title,
                             showNewLayerButton: frame.Request.ShowNewLayer,
                             showSetCurrentButton: scope.ShowSetCurrent,
-                            initialSetCurrentState: ref setCurrent)
-                        ? Fin.Succ(value: (InquiryAnswer)new InquiryAnswer.Layers(Indices: Seq1(index), SetCurrent: setCurrent, MaterialAccepted: false))
-                        : Fin.Fail<InquiryAnswer>(error: new UiFault.Dismissed(Key: frame.Op)),
-                };
+                            initialSetCurrentState: ref setCurrent),
+                        answer: () => new InquiryAnswer.Layers(Indices: Seq(index), SetCurrent: setCurrent, MaterialAccepted: false),
+                        op: frame.Op);
             },
             many: static (frame, _) =>
                 ManyLayers(request: frame.Request, op: frame.Op)
                     .Map(indices => (InquiryAnswer)new InquiryAnswer.Layers(Indices: indices, SetCurrent: false, MaterialAccepted: false)),
             material: static (frame, _) =>
-                ManyLayers(request: frame.Request, op: frame.Op).Bind(indices =>
-                    Dialogs.ShowLayerMaterialDialog(doc: frame.Document, layerIndices: indices.AsIterable())
-                        ? Fin.Succ(value: (InquiryAnswer)new InquiryAnswer.Layers(Indices: indices, SetCurrent: false, MaterialAccepted: true))
-                        : Fin.Fail<InquiryAnswer>(error: new UiFault.Dismissed(Key: frame.Op))));
+                ManyLayers(request: frame.Request, op: frame.Op).Bind(indices => Answered(
+                    accepted: Dialogs.ShowLayerMaterialDialog(doc: frame.Document, layerIndices: indices.AsIterable()),
+                    answer: () => new InquiryAnswer.Layers(Indices: indices, SetCurrent: false, MaterialAccepted: true),
+                    op: frame.Op)));
 
     private static Fin<InquiryAnswer> Prompted((RhinoDoc Document, Window? Parent, Op Op) held, FileAsk ask) =>
         ask.Switch(
             state: held,
-            save: static (held, prompt) => new RhinoSaveDialog {
+            save: static (held, prompt) => {
+                RhinoSaveDialog dialog = new() {
                     Title = prompt.Frame.Title, Filter = prompt.Frame.Filter,
                     FileName = prompt.Frame.Seed.IfNone(string.Empty),
                     InitialDirectory = prompt.Frame.Directory.IfNone(string.Empty),
                     DefaultExt = prompt.Frame.Extension.IfNone(string.Empty),
-                } switch {
-                    RhinoSaveDialog dialog => dialog.ShowSaveDialog()
-                        ? Fin.Succ(value: (InquiryAnswer)new InquiryAnswer.Files(Paths: Seq1(dialog.FileName)))
-                        : Fin.Fail<InquiryAnswer>(error: new UiFault.Dismissed(Key: held.Op)),
-                },
+                };
+                return Answered(accepted: dialog.ShowSaveDialog(), answer: () => new InquiryAnswer.Files(Paths: Seq(dialog.FileName)), op: held.Op);
+            },
             openOne: static (held, prompt) => Opened(frame: prompt.Frame, multi: false, op: held.Op),
             openMany: static (held, prompt) => Opened(frame: prompt.Frame, multi: true, op: held.Op),
-            folder: static (held, prompt) => new SelectFolderDialog { Title = prompt.Title, Directory = prompt.Directory.IfNone(string.Empty) } switch {
-                SelectFolderDialog dialog => dialog.ShowDialog(parent: held.Parent) == DialogResult.Ok
-                    ? Fin.Succ(value: (InquiryAnswer)new InquiryAnswer.Files(Paths: Seq1(dialog.Directory)))
-                    : Fin.Fail<InquiryAnswer>(error: new UiFault.Dismissed(Key: held.Op)),
+            folder: static (held, prompt) => {
+                SelectFolderDialog dialog = new() { Title = prompt.Title, Directory = prompt.Directory.IfNone(string.Empty) };
+                return Answered(
+                    accepted: dialog.ShowDialog(parent: held.Parent) == DialogResult.Ok,
+                    answer: () => new InquiryAnswer.Files(Paths: Seq(dialog.Directory)),
+                    op: held.Op);
             });
 
-    private static Fin<InquiryAnswer> Opened(FileFrame frame, bool multi, Op op) =>
-        new RhinoOpenDialog {
+    private static Fin<InquiryAnswer> Opened(FileFrame frame, bool multi, Op op) {
+        RhinoOpenDialog dialog = new() {
             Title = frame.Title, Filter = frame.Filter,
             FileName = frame.Seed.IfNone(string.Empty),
             InitialDirectory = frame.Directory.IfNone(string.Empty),
             DefaultExt = frame.Extension.IfNone(string.Empty),
             MultiSelect = multi,
-        } switch {
-            RhinoOpenDialog dialog => dialog.ShowOpenDialog()
-                ? Fin.Succ(value: (InquiryAnswer)new InquiryAnswer.Files(Paths: multi ? toSeq(dialog.FileNames).Strict() : Seq1(dialog.FileName)))
-                : Fin.Fail<InquiryAnswer>(error: new UiFault.Dismissed(Key: op)),
         };
+        return Answered(
+            accepted: dialog.ShowOpenDialog(),
+            answer: () => new InquiryAnswer.Files(Paths: multi ? toSeq(dialog.FileNames).Strict() : Seq(dialog.FileName)),
+            op: op);
+    }
 
     private static Fin<Seq<int>> ManyLayers(Inquiry.Layer request, Op op) =>
         Dialogs.ShowSelectMultipleLayersDialog(
             defaultLayerIndices: request.Preselect.AsIterable(),
             dialogTitle: request.Title,
             showNewLayerButton: request.ShowNewLayer,
-            layerIndices: out int[] indices) switch {
-                true => toSeq(indices).Filter(static index => index >= 0).Distinct() switch {
-                    Seq<int> picked when !picked.IsEmpty => Fin.Succ(value: picked.Strict()),
-                    _ => Fin.Fail<Seq<int>>(error: op.InvalidResult()),
-                },
-                false => Fin.Fail<Seq<int>>(error: new UiFault.Dismissed(Key: op)),
-            };
+            layerIndices: out int[] indices)
+            ? toSeq(indices).Filter(static index => index >= 0).Distinct() switch {
+                Seq<int> picked when !picked.IsEmpty => Fin.Succ(value: picked.Strict()),
+                _ => Fin.Fail<Seq<int>>(error: op.InvalidResult()),
+            }
+            : Fin.Fail<Seq<int>>(error: new UiFault.Dismissed(Key: op));
 
     private static Fin<List<string>> Roster(Seq<string> entries, Op op) =>
         entries.IsEmpty ? Fin.Fail<List<string>>(error: op.InvalidInput()) : Fin.Succ(value: (List<string>)[.. entries]);
 
     private static Fin<T> Settled<T>(T? picked, Op op) where T : class =>
         Optional(picked).ToFin(Fail: new UiFault.Dismissed(Key: op));
+
+    private static Fin<InquiryAnswer> Answered(bool accepted, Func<InquiryAnswer> answer, Op op) =>
+        accepted ? Fin.Succ(value: answer()) : Fin.Fail<InquiryAnswer>(error: new UiFault.Dismissed(Key: op));
 }
 ```
 

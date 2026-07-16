@@ -88,7 +88,8 @@ This catalog owns the host-bound `GeometryBase` crossing — the native-geometry
 - `Rhino.Geometry.ClippingPlaneSurface.PlaneDepth : double` — the finite clip depth below the plane.
 - `Rhino.Geometry.ClippingPlaneSurface.PlaneDepthEnabled : bool` — whether the finite clip depth is active.
 - `Rhino.Geometry.ClippingPlaneSurface.ParticipationListsEnabled : bool` — whether the participation lists are active.
-- `Rhino.Geometry.ClippingPlaneSurface.AddClipViewportId(Guid viewportId) : void` — adds a clipped viewport.
+- `Rhino.Geometry.ClippingPlaneSurface.AddClipViewportId(Guid viewportId) : bool` — adds a clipped viewport.
+- `Rhino.Geometry.ClippingPlaneSurface.DimensionStyleId : Guid` — get/set label dimension style; `Guid.Empty` clears it.
 - `Rhino.Geometry.ClippingPlaneSurface.RemoveClipViewportId(Guid viewportId) : bool` — removes a clipped viewport.
 - `Rhino.Geometry.ClippingPlaneSurface.SetClipParticipation(IEnumerable<Guid> objectIds, IEnumerable<int> layerIndices, bool isExclusionList) : void` — sets the per-object and per-layer participation lists.
 - `Rhino.Geometry.ClippingPlaneSurface.GetClipParticipation(out IEnumerable<Guid> objectIds, out IEnumerable<int> layerIndices, out bool isExclusionList) : void` — reads the participation lists.

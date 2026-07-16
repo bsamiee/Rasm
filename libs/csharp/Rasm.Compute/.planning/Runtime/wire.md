@@ -19,9 +19,12 @@ Rasm.Compute owns the suite wire CONTRACT: the proto services compiled GrpcServi
 - Packages: Google.Protobuf, Grpc.Tools, Grpc.Net.Client, NodaTime.Serialization.Protobuf
 - Flagship: `WireDocument` is the `DocumentService`↔`DocumentTransaction` parity owner — `ExecuteTransaction` carries the in-process `DocumentTransaction` verb set field-for-field through one budget-bounded, fault-classified, receipt-emitting forwarder, so the same canonical operation set, the same `TransactionReceipt`, and the same wire choreography produce the identical typed receipt whether the transaction runs through the in-process handler or across the channel; the dedup window equals the `DeadlineClass.HopTotal` allotment so the one retry owner's horizon gates the idempotency edge on both legs, the response mirrors the typed receipt through `WireDocument.Receipt`, and a non-exceptional in-band conflict decodes through `WireDocument.Conflict` reading the `TransactionReceipt.conflict=5` slot onto the typed `WireFault` rail with no parallel response DTO and no hand-rolled per-consumer projection.
 - Growth: one rpc row on an existing service or one numbered message field absorbs a new wire fact; the browser collaboration decomposition (server-stream down, unary chunked up) is designed-only growth of one rpc row per direction; zero new surface.
-- Boundary: temporal values cross as Timestamp and protobuf Duration through `ToTimestamp`/`ToProtobufDuration` outward and `ToInstant`/`ToNodaDuration` inward — BCL DateTime never sits between wire and rail; calendar-bearing capture and schedule facts cross as `Google.Type` commons through `ToDate`/`ToTimeOfDay`/`ToProtobufDayOfWeek` outward and `ToLocalDate`/`ToLocalTime`/`ToIsoDayOfWeek` inward, so a serialized date string never sits between wire and rail; FieldMask carries the read projection and the partial-update write leg through one polymorphic `WireServices.Mask` entrypoint that discriminates on input shape — an `int`-span admits a field-number-validated NAME-path mask through `FieldMask.FromFieldNumbers<QueryResponse>` (the typed overload resolving each number to its field NAME via `FindFieldByNumber` against the generated descriptor, never a free string path) and a `string`-span admits a caller-path mask through the non-throwing `FieldMask.FromString` re-guarded by one load-bearing `FieldMask.IsValid(QueryResponse.Descriptor, mask)` gate against the generated descriptor, both `Normalize`d to canonical sorted-deduplicated form and unified on `Fin<FieldMask>` so an unknown path or number faults at the edge rather than silently dropping or throwing past it — the same partial-read mask the web-fed Query feed consumes, never a per-tile request DTO or a second mask carrier; Any with TypeRegistry carries polymorphic artifact envelopes through `WireServices.Unpack` over `Any.TryUnpack<T>` keyed by `Any.Is(descriptor)` projecting the typed fault, while outbound packing rides `Any.Pack` directly at the one staging site (`FrameEdge.Transaction`) — a rename-forward `Pack` wrapper is the deleted form; Empty carries signals; `JsonFormatter` and `JsonParser` with the same TypeRegistry are the dashboard edge over the identical generated messages — a parallel web DTO family is the deleted form; `ExecuteTransaction` defends its idempotency edge by `Clone` on the dedup-window receipt rather than mutating the cached message in place — a shared-mutable cached message is the deleted form; `OriginalNameAttribute` reconciles a proto field name to its diverged C# name at the descriptor surface so the contract-evolution key reads the proto name, never the generated identifier; the proto geometry family is the single binary wire geometry, with NetTopologySuite as the store boundary projection, GeoJSON as the JSON projection, and RhinoCommon as the host projection; ArtifactSync carries the wire leg only — sync state, diffing, and transfer manifests are store mechanics; the gaussian-splat scan crosses this ArtifactSync wire as a STANDALONE `GaussianSplatScan` artifact riding the generic `ArtifactFrame` bytes, never a `GeometryPayload` oneof case (that oneof carries point_cloud/mesh/voxel only) and admitted to the `Rasm.Compute/Runtime/payload#RESIDENCY` `SplatScan`; the `Solve`/`Generate` rpcs carry the numeric-lane decomposition and generative-run legs field-for-field with no second request shape, and the `GraphDiff`/`SubtreeFetch` rpcs carry the content-key delta wire shape only — the set-difference computation is `Rasm.Persistence/Version/ledger#CHANGEFEED` (the `TransferSet` closure-minus-held fold over the `Closure` descendant content-key manifest), so Compute owns the wire frame and Persistence's ledger owns the diff algebra.
+- Boundary: temporal values cross as Timestamp and protobuf Duration through `ToTimestamp`/`ToProtobufDuration` outward and `ToInstant`/`ToNodaDuration` inward — BCL DateTime never sits between wire and rail; calendar-bearing capture and schedule facts cross as `Google.Type` commons through `ToDate`/`ToTimeOfDay`/`ToProtobufDayOfWeek` outward and `ToLocalDate`/`ToLocalTime`/`ToIsoDayOfWeek` inward, so a serialized date string never sits between wire and rail; FieldMask carries the read projection and the partial-update write leg through ONE `WireServices.Mask(params ReadOnlySpan<FieldRef>)` entrypoint whose `FieldRef` `[Union<int,string>]` ad-hoc union absorbs numbers, caller paths, and mixed literals in one spread — a `Number` resolves to its field-NAME path through `FieldMask.FromFieldNumbers<QueryResponse>` (never a free string path), a `Path` admits through the non-throwing `FieldMask.FromString` re-guarded by the load-bearing `FieldMask.IsValid(QueryResponse.Descriptor, mask)` gate, both halves `Union` and `Normalize` to canonical sorted-deduplicated form on `Fin<FieldMask>`, and the empty spread faults typed — so an unknown path or number faults at the edge rather than silently dropping or throwing past it, and the retired per-element-type overload pair whose empty call was ambiguous never returns — the same partial-read mask the web-fed Query feed consumes, never a per-tile request DTO or a second mask carrier; Any with TypeRegistry carries polymorphic artifact envelopes through `WireServices.Unpack` over `Any.TryUnpack<T>` keyed by `Any.Is(descriptor)` projecting the typed fault, while outbound packing rides `Any.Pack` directly at the one staging site (`FrameEdge.Transaction`) — a rename-forward `Pack` wrapper is the deleted form; Empty carries signals; `JsonFormatter` and `JsonParser` with the same TypeRegistry are the dashboard edge over the identical generated messages — a parallel web DTO family is the deleted form; `ExecuteTransaction` defends its idempotency edge by `Clone` on the dedup-window receipt rather than mutating the cached message in place — a shared-mutable cached message is the deleted form; `OriginalNameAttribute` reconciles a proto field name to its diverged C# name at the descriptor surface so the contract-evolution key reads the proto name, never the generated identifier; the proto geometry family is the single binary wire geometry, with NetTopologySuite as the store boundary projection, GeoJSON as the JSON projection, and RhinoCommon as the host projection; ArtifactSync carries the wire leg only — sync state, diffing, and transfer manifests are store mechanics; the gaussian-splat scan crosses this ArtifactSync wire as a STANDALONE `GaussianSplatScan` artifact riding the generic `ArtifactFrame` bytes, never a `GeometryPayload` oneof case (that oneof carries point_cloud/mesh/voxel only) and admitted to the `Rasm.Compute/Runtime/payload#RESIDENCY` `SplatScan`; the `Solve`/`Generate` rpcs carry the numeric-lane decomposition and generative-run legs field-for-field with no second request shape, and the `GraphDiff`/`SubtreeFetch` rpcs carry the content-key delta wire shape only — the set-difference computation is `Rasm.Persistence/Version/ledger#CHANGEFEED` (the `TransferSet` closure-minus-held fold over the `Closure` descendant content-key manifest), so Compute owns the wire frame and Persistence's ledger owns the diff algebra.
 
 ```csharp signature
+[Union<int, string>(T1Name = "Number", T2Name = "Path")]
+public readonly partial struct FieldRef;
+
 public sealed record WireServices(
     GrpcChannel Channel,
     ComputeService.ComputeServiceClient Compute,
@@ -29,19 +32,36 @@ public sealed record WireServices(
     ControlService.ControlServiceClient Control,
     ArtifactSync.ArtifactSyncClient Artifacts,
     Health.HealthClient Health) : IDisposable {
-    public static Fin<FieldMask> Mask(params ReadOnlySpan<int> fieldNumbers) {
-        var numbers = fieldNumbers.ToArray();
-        return Try.lift(() => FieldMask.FromFieldNumbers<QueryResponse>(numbers).Normalize()).Run()
-            .MapFail(static error => new ComputeFault.PayloadOverBounds($"unknown query field-number: {error.Message}"));
+    // Mixed field references normalize through one descriptor-validated mask entry.
+    public static Fin<FieldMask> Mask(params ReadOnlySpan<FieldRef> fields) {
+        Seq<FieldRef> refs = toSeq(fields.ToArray());
+        return refs.IsEmpty
+            ? Fin.Fail<FieldMask>(new ComputeFault.PayloadOverBounds("<empty-mask>"))
+            : Numbered(refs.Choose(static field => field.IsNumber ? Some(field.AsNumber) : None))
+                .Bind(numbered => Pathed(refs.Choose(static field => field.IsPath ? Some(field.AsPath) : None))
+                    .Map(pathed => Joined(numbered, pathed)));
     }
 
-    public static Fin<FieldMask> Mask(params ReadOnlySpan<string> paths) =>
-        FieldMask.FromString(string.Join(',', paths.ToArray())) is var mask && FieldMask.IsValid(QueryResponse.Descriptor, mask)
-            ? Fin.Succ(mask.Normalize())
-            : Fin.Fail<FieldMask>(new ComputeFault.PayloadOverBounds($"unknown query path in [{string.Join(',', paths.ToArray())}]"));
+    private static Fin<Option<FieldMask>> Numbered(Seq<int> numbers) =>
+        numbers.IsEmpty
+            ? Fin.Succ(Option<FieldMask>.None)
+            : Try.lift(() => Some(FieldMask.FromFieldNumbers<QueryResponse>(numbers))).Run()
+                .MapFail(static error => (Error)new ComputeFault.PayloadOverBounds($"unknown query field-number: {error.Message}"));
+
+    private static Fin<Option<FieldMask>> Pathed(Seq<string> paths) =>
+        paths.IsEmpty
+            ? Fin.Succ(Option<FieldMask>.None)
+            : FieldMask.FromString(string.Join(',', paths)) is FieldMask mask && FieldMask.IsValid(QueryResponse.Descriptor, mask)
+                ? Fin.Succ(Some(mask))
+                : Fin.Fail<Option<FieldMask>>(new ComputeFault.PayloadOverBounds($"unknown query path in [{string.Join(',', paths)}]"));
+
+    private static FieldMask Joined(Option<FieldMask> numbered, Option<FieldMask> pathed) =>
+        numbered.Match(
+            Some: resolved => pathed.Match(Some: guarded => resolved.Union(guarded).Normalize(), None: () => resolved.Normalize()),
+            None: () => pathed.Map(static guarded => guarded.Normalize()).IfNone(new FieldMask()));
 
     public static Fin<T> Unpack<T>(Any envelope) where T : class, IMessage<T>, new() =>
-        envelope.TryUnpack<T>(out var artifact)
+        envelope.TryUnpack<T>(out T artifact)
             ? Fin.Succ(artifact)
             : Fin.Fail<T>(new ComputeFault.PayloadOverBounds($"any-envelope {Any.GetTypeName(envelope.TypeUrl)} not {new T().Descriptor.FullName}"));
 
@@ -49,24 +69,37 @@ public sealed record WireServices(
 }
 
 public static class WireDocument {
-    public static Task<Fin<TransactionReceipt>> ExecuteTransaction(WireServices services, TransactionRequest request, Instant deadline, CancellationToken token) =>
+    public static IO<Fin<TransactionReceipt>> ExecuteTransaction(WireServices services, CallSpine spine, AdmittedIntent intent, TransactionRequest request, CancellationToken token) =>
         CallSpine.Bounded(request).Match(
-            Succ: bounded => CallSpine.Awaited(services.Document.ExecuteTransactionAsync(bounded, CallSpine.Options(deadline, token)).ResponseAsync),
-            Fail: static error => Task.FromResult(Fin.Fail<TransactionReceipt>(error)));
+            Succ: bounded => IO.liftAsync(async _ =>
+                    await CallSpine.Awaited(services.Document.ExecuteTransactionAsync(bounded, spine.Options(intent, token)).ResponseAsync).ConfigureAwait(false))
+                .Map(result => result.Bind(receipt => Receipt(receipt, request.IdempotencyKey))),
+            Fail: static error => IO.pure(Fin.Fail<TransactionReceipt>(error)));
 
-    public static Task<Fin<QueryResponse>> Query(WireServices services, QueryRequest request, FieldMask projection, Instant deadline, CancellationToken token) =>
-        CallSpine.Awaited(services.Document.QueryAsync(request with { Mask = projection }, CallSpine.Options(deadline, token)).ResponseAsync);
+    public static IO<Fin<QueryResponse>> Query(WireServices services, CallSpine spine, AdmittedIntent intent, QueryRequest request, FieldMask projection, CancellationToken token) =>
+        IO.lift(() => {
+            QueryRequest projected = request.Clone();
+            projected.Mask = projection;
+            return projected;
+        }).Bind(projected => CallSpine.Bounded(projected).Match(
+            Succ: bounded => IO.liftAsync(async _ =>
+                await CallSpine.Awaited(services.Document.QueryAsync(bounded, spine.Options(intent, token)).ResponseAsync).ConfigureAwait(false)),
+            Fail: static error => IO.pure(Fin.Fail<QueryResponse>(error))));
 
-    public static IAsyncEnumerable<DocumentEvent> Watch(WireServices services, WatchRequest request, Instant deadline, CancellationToken token) =>
-        services.Document.DocumentEvents(request, CallSpine.Options(deadline, token)).ResponseStream.ReadAllAsync(token);
+    public static IAsyncEnumerable<DocumentEvent> Watch(WireServices services, CallSpine spine, AdmittedIntent intent, WatchRequest request, CancellationToken token) =>
+        services.Document.DocumentEvents(request, spine.Options(intent, token)).ResponseStream.ReadAllAsync(token);
 
-    public static TransactionReceipt Receipt(TransactionReceipt wire, ByteString idempotencyKey) =>
-        wire.IdempotencyKey == idempotencyKey ? wire : wire.Clone();
+    public static Fin<TransactionReceipt> Receipt(TransactionReceipt wire, ByteString idempotencyKey) =>
+        wire.IdempotencyKey == idempotencyKey
+            ? Fin.Succ(wire.Clone())
+            : Fin.Fail<TransactionReceipt>(new WireFault.Conflict($"idempotency:{idempotencyKey.ToBase64()}:{wire.IdempotencyKey.ToBase64()}"));
 
-    public static Option<WireFault> Conflict(TransactionReceipt receipt) =>
-        receipt.Committed || receipt.Conflict is null
-            ? None
-            : Some(WireFault.Decode(receipt.Conflict));
+    public static Fin<Option<WireFault>> Conflict(TransactionReceipt receipt) =>
+        (receipt.Committed, receipt.Conflict) switch {
+            (true, null) => Fin.Succ(Option<WireFault>.None),
+            (false, { } detail) => Fin.Succ(Some(WireFault.DecodeConflict(detail))),
+            _ => Fin.Fail<Option<WireFault>>(new WireFault.InvalidRequest("transaction-receipt-disposition")),
+        };
 }
 ```
 
@@ -143,7 +176,7 @@ Each message carries its proto field set and wire role:
 - Entry: `AdditiveOnly(Seq<ByteString> local, Func<string, Fin<Seq<ByteString>>> peerSetOf)` — the delegate `Discovery.Compatible` consumes; checksum equality or additive drift admits, breaking drift rejects on the hop fault rail.
 - Packages: Google.Protobuf, Thinktecture.Runtime.Extensions, LanguageExt.Core, System.IO.Hashing, Rasm.AppHost (project), BCL inbox
 - Growth: a removed field becomes one reserved row carrying its number range — `message.ToProto().ReservedRange` projects each `Start`-`End` span into the surface set so numbers never return to use and a removed-then-reclaimed number classifies Breaking; one surface-projection row absorbs a new descriptor dimension — packed-encoding flip, nested-type retype, oneof-membership change; the host↔companion capability negotiation and per-node EP-option bag ride the `Struct`/`Value`/`ListValue` open-envelope column under the same additive-only contract — open within an additive-only contract, never a drift escape hatch; zero new surface.
-- Boundary: contract identity is the serialized descriptor set built through `FileDescriptor.BuildFromByteStrings` at startup and published beside the discovery manifest at `DescriptorPath`; the descriptor key reads the proto field name reconciled through `OriginalNameAttribute` so a diverged C# identifier never enters the surface set; the manifest checksum is the canonical projection digest — `ContractGuard.Checksum` builds the descriptors, folds the ordered `Surface(...)` `FrozenSet<string>` the classifier already computes through `InDeclarationOrder()` into one UTF-8 byte stream, and `XxHash128.Hash`es that, so two generators emitting semantically-identical descriptors checksum-match while the doctrine-rejected raw `SerializedData` hash (non-canonical across generator versions) never enters; the `AdditiveOnly` gate admits on checksum equality before any descriptor parse and only descends into `Build`+`Classify` when the digests diverge, so an equal-descriptor peer never pays the surface-set diff and a checksum mismatch never admits on its own — descriptor-diff is the second gate behind the checksum gate, never a replacement for it; the surface fold reads seven diff-relevant dimensions, recursing nested types so a phase enum nested in a message and a nested-message field retype are both visible — field number-type-cardinality-packing-oneof-jsonname through `MessageDescriptor.Fields.InDeclarationOrder()` with `FieldDescriptor.IsPacked`, the reserved-range set through `MessageDescriptor.ToProto().ReservedRange`, oneof membership through `Oneofs`, the enum value set through `EnumTypes`/`NestedTypes` recursion with `EnumValueDescriptor.Number`, and rpc input-output-streaming shape through `ServiceDescriptor.Methods` with `MethodDescriptor.InputType`/`OutputType`/`IsClientStreaming`/`IsServerStreaming` — so a duplex→unary flip, a request-message retyping, a oneof-membership change, an enum-value removal (top-level or nested), a `[packed=true]`→`[packed=false]` flip on a repeated scalar, and a removed-then-reclaimed field number each detect as breaking, never only a removed message; `UnknownFieldSet` retention stays at the generated-parser default so forward-decoded payloads re-serialize with unknown fields intact — a discard-configured parser is the rejected form; `ParseGuard.Read` gates the untrusted payload by an O(1) `ReadOnlySequence<byte>.Length` check against `SizeLimitBytes` BEFORE any decode — an over-bound payload faults on the `PayloadOverBounds` rail without ever materializing, symmetric with the send-side pre-check — then decodes on the buffer fast path through `MessageParser<T>.ParseFrom(ReadOnlySequence<byte>)` so a fragmented pooled payload parses with no contiguous copy (the `Runtime/transport#ARTIFACT_FRAMES` `FrameEdge.Drain` decode-mirror), the buffer parse context upholding recursion at the protobuf default the `RecursionLimit` pins; the proto2 `ExtensionRegistry` resolves declared extensions at that same boundary through `parser.WithExtensionRegistry(Extensions)`, and the `Struct` open envelope admits a forward-compatible option bag without a proto regen per option — an eager `payload.ToArray()` that copies the whole sequence before the size gate and a per-call `CodedInputStream`/`MemoryStream` construction are the deleted forms.
+- Boundary: contract identity is the serialized descriptor set built through `FileDescriptor.BuildFromByteStrings` at startup; an empty descriptor set faults before hashing. `ContractGuard.Checksum` folds the ordered `Surface(...)` set into one UTF-8 stream and applies `XxHash128.Hash`, so semantically identical generators agree without hashing unstable raw `SerializedData`. `AdditiveOnly` admits checksum equality and otherwise classifies the descriptor diff; checksum mismatch never admits alone. `Surface` recurses messages and enums and projects message and service declarations, field number, type, cardinality, map shape, packing, oneof membership, JSON name, reserved ranges, enum values, and RPC input, output, and streaming shape, so adding an empty declaration still changes identity. `UnknownFieldSet` retention stays at the generated-parser default. `ParseGuard.Read` checks `ReadOnlySequence<byte>.Length` before `MessageParser<T>.ParseFrom(ReadOnlySequence<byte>)`, and `ExtensionRegistry` resolves declared proto2 extensions at the same boundary.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -155,10 +188,9 @@ public abstract partial record ContractDrift {
     public sealed record Breaking(Seq<string> Missing) : ContractDrift;
 }
 
-public sealed record ParseGuard(int SizeLimitBytes, int RecursionLimit, ExtensionRegistry Extensions) {
+public sealed record ParseGuard(int SizeLimitBytes, ExtensionRegistry Extensions) {
     public static readonly ParseGuard Canonical = new(
         SizeLimitBytes: GrpcChannelPolicy.Canonical.MaxReceiveBytes,
-        RecursionLimit: 100,
         Extensions: new ExtensionRegistry());
 
     public Fin<T> Read<T>(MessageParser<T> parser, ReadOnlySequence<byte> payload) where T : IBufferMessage, IMessage<T> =>
@@ -172,63 +204,68 @@ public sealed record ParseGuard(int SizeLimitBytes, int RecursionLimit, Extensio
 }
 
 public static class ContractGuard {
-    public static string DescriptorPath(ProfileRoots roots, int pid) =>
-        Path.Join(roots.AppRoot, "discovery", $"rasm-{pid}.pb");
-
     public static Fin<string> Checksum(Seq<ByteString> serialized) =>
         Build(serialized).Map(static files => Convert.ToHexStringLower(
             XxHash128.Hash(Encoding.UTF8.GetBytes(string.Join(';', Surface(files).OrderBy(static row => row, StringComparer.Ordinal))))));
 
     public static Fin<Seq<FileDescriptor>> Build(Seq<ByteString> serialized) =>
-        Try.lift(() => FileDescriptor.BuildFromByteStrings(serialized).ToSeq())
-            .Run()
-            .MapFail(static error => new HopFault.ChecksumBreaking(error.Message));
+        serialized.IsEmpty
+            ? Fin.Fail<Seq<FileDescriptor>>(new ComputeFault.EquivalenceMiss("empty-descriptor-set"))
+            : Try.lift(() => FileDescriptor.BuildFromByteStrings(serialized).ToSeq())
+                .Run()
+                .MapFail(static error => new ComputeFault.EquivalenceMiss(error.Message));
 
-    public static ContractDrift Classify(Seq<FileDescriptor> local, Seq<FileDescriptor> peer) =>
-        (Required: Surface(local), Offered: Surface(peer)) switch {
-            var sets when sets.Required.Except(sets.Offered).ToSeq() is { IsEmpty: false } missing => new ContractDrift.Breaking(missing),
-            var sets when sets.Offered.Except(sets.Required).ToSeq() is { IsEmpty: false } added => new ContractDrift.Additive(added),
-            _ => new ContractDrift.Identical(),
-        };
+    public static ContractDrift Classify(Seq<FileDescriptor> local, Seq<FileDescriptor> peer) {
+        FrozenSet<string> required = Surface(local);
+        FrozenSet<string> offered = Surface(peer);
+        Seq<string> missing = required.Except(offered).ToSeq();
+        Seq<string> added = offered.Except(required).ToSeq();
+        return !missing.IsEmpty ? new ContractDrift.Breaking(missing)
+            : !added.IsEmpty ? new ContractDrift.Additive(added)
+            : new ContractDrift.Identical();
+    }
 
-    public static Func<string, string, bool> AdditiveOnly(Seq<ByteString> local, Func<string, Fin<Seq<ByteString>>> peerSetOf) =>
+    public static Func<string, string, Fin<bool>> AdditiveOnly(Seq<ByteString> local, Func<string, Fin<Seq<ByteString>>> peerSetOf) =>
         (localChecksum, peerChecksum) =>
-            (Checksum(local).Map(digest => digest == localChecksum && peerChecksum == localChecksum).IfFail(false)) ||
-            (from peerBytes in peerSetOf(peerChecksum) from peerFiles in Build(peerBytes) from localFiles in Build(local) select Classify(localFiles, peerFiles))
-                .Map(static drift => drift is not ContractDrift.Breaking)
-                .IfFail(false);
+            Checksum(local).Bind(digest => digest == localChecksum && peerChecksum == localChecksum
+                ? Fin.Succ(true)
+                : from peerBytes in peerSetOf(peerChecksum)
+                  from peerFiles in Build(peerBytes)
+                  from localFiles in Build(local)
+                  select Classify(localFiles, peerFiles) is not ContractDrift.Breaking);
 
-    static FrozenSet<string> Surface(Seq<FileDescriptor> files) =>
+    private static FrozenSet<string> Surface(Seq<FileDescriptor> files) =>
         files.Bind(static file => file.MessageTypes.ToSeq().Bind(MessageSurface)
                 .Concat(file.EnumTypes.ToSeq().Map(EnumSurface))
                 .Concat(RpcSurface(file)))
             .ToFrozenSet(StringComparer.Ordinal);
 
-    static Seq<string> MessageSurface(MessageDescriptor message) =>
-        message.Fields.InDeclarationOrder().ToSeq()
-            .Map(field => $"{message.FullName}.{field.Name}={field.FieldNumber}:{field.FieldType}:{(field.IsRepeated ? "R" : "S")}:{(field.IsPacked ? "P" : "-")}:{field.ContainingOneof?.Name ?? "-"}:{field.JsonName}")
+    private static Seq<string> MessageSurface(MessageDescriptor message) =>
+        Seq($"{message.FullName}:message")
+            .Concat(message.Fields.InDeclarationOrder().ToSeq()
+            .Map(field => $"{message.FullName}.{field.Name}={field.FieldNumber}:{field.FieldType}:{(field.IsRepeated ? "R" : "S")}:{(field.IsMap ? "M" : "-")}:{(field.IsPacked ? "P" : "-")}:{field.ContainingOneof?.Name ?? "-"}:{field.JsonName}")
             .Concat(message.Oneofs.ToSeq().Map(oneof => $"{message.FullName}~{oneof.Name}=[{string.Join(',', oneof.Fields.OrderBy(static f => f.FieldNumber).Select(static f => f.FieldNumber))}]"))
             .Concat(message.ToProto().ReservedRange.ToSeq().Map(range => $"{message.FullName}.reserved:{range.Start}-{range.End}"))
             .Concat(message.NestedTypes.ToSeq().Bind(MessageSurface))
-            .Concat(message.EnumTypes.ToSeq().Map(EnumSurface));
+            .Concat(message.EnumTypes.ToSeq().Map(EnumSurface)));
 
-    static string EnumSurface(EnumDescriptor enumeration) =>
+    private static string EnumSurface(EnumDescriptor enumeration) =>
         $"{enumeration.FullName}=[{string.Join(',', enumeration.Values.OrderBy(static v => v.Number).Select(static v => $"{v.Name}:{v.Number}"))}]";
 
-    static Seq<string> RpcSurface(FileDescriptor file) =>
-        file.Services.ToSeq().Bind(static service => service.Methods.ToSeq()
-            .Map(method => $"{service.FullName}/{method.Name}:{method.InputType.FullName}->{method.OutputType.FullName}:{(method.IsClientStreaming ? "C" : "U")}{(method.IsServerStreaming ? "S" : "U")}"));
+    private static Seq<string> RpcSurface(FileDescriptor file) =>
+        file.Services.ToSeq().Bind(static service => Seq($"{service.FullName}:service")
+            .Concat(service.Methods.ToSeq().Map(method => $"{service.FullName}/{method.Name}:{method.InputType.FullName}->{method.OutputType.FullName}:{(method.IsClientStreaming ? "C" : "U")}{(method.IsServerStreaming ? "S" : "U")}")));
 }
 ```
 
 ## [04]-[FAULT_PROJECTION]
 
-- Owner: `WireFault` `[Union]` — the client-edge typed rail that the one FaultDetail message family decodes onto from both the trailer path and the in-band receipt slot; the server edge packs FaultDetail at app roots; `WireFault.PackConflict` mints the FaultDetail the flagship transaction-conflict receipt carries and `WireFault.Decode(FaultDetail)` is the inverse arm reading it back onto the typed rail; `FaultWire` — the BAND-COMPLETE `ComputeFault` → `FaultDetail` projection: ONE uniform pack over the `Expected` base (code, case name, message), total over EVERY 2200-band case BY CONSTRUCTION (a new case inherits the projection with zero wire edit), with the `Bands` registry mirroring the `Runtime/admission#DISPATCH_SPINE` custody map (core 2200–2212, symbolic 2213–2216, analysis 2217–2219 — the `AnalysisFailed` case in its 2219 slot — and scheduling 2220 `GraphCyclic` all cross the wire) so a fault code outside every band row fails the composition `Probe` — the count-vs-band drift class (a "seventeen-code taxonomy" prose over a fifteen-row rail) cannot recur because the rail derives from the band, never from a hand-counted list.
+- Owner: `WireFault` is the client-edge typed rail for trailer and in-band `FaultDetail` values. `FaultWire` admits every `ComputeFault` against the mirrored core 2200–2212, symbolic 2213–2216, analysis 2217–2219, and scheduling 2220–2223 bands before packing.
 - Cases: `Cancelled`, `DeadlineExpired`, `Unreachable` (carrying the residual `StatusCode`), `InvalidRequest`, `NotFound`, `Conflict`, `PermissionDenied`, `Exhausted`, `Unauthenticated`, `Internal`, `OutOfRange`, `DataLoss`, `Unimplemented` — thirteen union arms deriving `Expected` so the typed rail lifts into `Fin`/`Eff` with no bridge, each carrying its own code in the wire-fault sub-band 4520-4532 (distinct from the HopFault 4500 hop band); every typed wire-fault family — ComputeFault (band 2200), HopFault (band 4500), store faults at their app roots — packs into the same FaultDetail rows and the client decodes them back, while `Classify` lands the residual `StatusCode` taxonomy on these arms with no fallthrough but the structurally-non-fault `OK`/`Unknown` codes.
-- Entry: `Decode(RpcException error)` — `Option<FaultDetail>` from the status-details trailer; `Decode(FaultDetail detail)` — the in-band arm projecting a receipt-carried FaultDetail onto the typed `Conflict` arm (the transaction-conflict slot is definitionally a conflict, the band code, package, and case preserved in the detail string); `Classify` converts the residual StatusCode taxonomy into the typed rail through the `StatusRail` `FrozenDictionary<StatusCode, Func<string, WireFault>>` fold keyed by the non-sequential numeric code, never 17 hand arms.
+- Entry: `Decode(RpcException error)` returns `Fin<Option<FaultDetail>>`, so malformed status detail bytes fault typed; `Decode(FaultDetail detail)` handles the in-band conflict; `Classify` projects residual `StatusCode` values through `StatusRail`.
 - Packages: Google.Protobuf, Grpc.Net.Client, LanguageExt.Core, Thinktecture.Runtime.Extensions
 - Growth: a new `ComputeFault` case is one band row + one wire crossing in the SAME declaration motion — the uniform `FaultWire.Pack` already carries it and the band registry row (mirrored in the `admission.md` custody map) is the single edit, mirroring the receipts `[JsonDerivedType]` registry discipline; one evidence map row per new fault family; one `StatusRail` entry per residual code reclassification; the in-band `Decode(FaultDetail)` arm reads any new FaultDetail-bearing receipt slot onto the typed rail; zero new surface.
-- Boundary: a gRPC status code plus string is never the terminal error shape — the server edge packs FaultDetail into `google.rpc.Status` details, the client edge unpacks back onto the typed rail from the trailer, and TS reconstructs the identical literal-discriminated union; the Conflict receipt is the retry-owner complement of this law and the flagship transaction-conflict path is its consumer — `WireFault.PackConflict` builds the FaultDetail the `TransactionReceipt.conflict` slot carries through the message body (not a trailer) and `WireFault.Decode(FaultDetail)` reads it back onto the typed `Conflict` arm so the retry owner reads the typed conflict off the receipt rather than re-deriving it from a status string or hand-rolling a per-consumer projection — the non-exceptional in-band conflict and the exceptional trailer fault both terminate on the one typed rail; the `StatusCode` taxonomy is non-sequential by value (`OK=0`..`Unauthenticated=16`, `Aborted=10`, `Unavailable=14`, `OutOfRange=11`, `DataLoss=15`) so the fold keys by the numeric value through a `FrozenDictionary`, never by ordinal position — an ordinal-indexed table is the deleted form; fourteen of the seventeen codes resolve to a typed non-`Unreachable` arm — `AlreadyExists`/`Aborted`/`FailedPrecondition` collapse onto the one `Conflict` arm, so twelve distinct arms cover the fourteen — while the explicitly-mapped `Unavailable` plus the two unmapped success/indeterminate codes (`OK`, `Unknown`) resolve to `Unreachable` carrying the spelled code, so the rail is total over the seventeen-code taxonomy without enumerating `OK` as a typed fault; the `WireFault` 4520–4532 sub-band is Compute's SECOND custody — distinct from the `ComputeFault` 2200 band and from the AppHost `HopFault` 4500 hop band — RECORDED beside the `Runtime/admission#DISPATCH_SPINE` custody map and PINNED as a reciprocal mirror row in the AppHost/AppUi/Persistence registries (AppHost re-bands `CoordinationFault` to 4540 around it), so cross-package band disjointness is checkable from BOTH ends and a foreign band change is a row edit on both ends, never prose; the Mapperly `[Mapper]`/`[MapDerivedType]` per-case transcription owns any `oneof`-envelope boundary where a case carries fields the protobuf runtime does not transcribe (the union's generated total `Switch` dispatches, Mapperly transcribes), and `[Equatable]` owns structural equality wherever a class-root wire shape surrenders the record-root compare — hand-written transcription or `Equals`/`GetHashCode` where the generator reaches is the deleted form.
+- Boundary: a gRPC status code plus string is never the terminal error shape — the server edge packs FaultDetail into `google.rpc.Status` details, the client edge unpacks back onto the typed rail from the trailer, and TS reconstructs the identical literal-discriminated union; the Conflict receipt is the retry-owner complement of this law and the flagship transaction-conflict path is its consumer — `WireFault.PackConflict` builds the FaultDetail the `TransactionReceipt.conflict` slot carries through the message body (not a trailer) and `WireFault.DecodeConflict(FaultDetail)` reads that conflict-only slot onto the typed `Conflict` arm, while trailer decoding stays on `Decode(RpcException)` — the non-exceptional in-band conflict and the exceptional trailer fault both terminate on the one typed rail; the `StatusCode` taxonomy is non-sequential by value (`OK=0`..`Unauthenticated=16`, `Aborted=10`, `Unavailable=14`, `OutOfRange=11`, `DataLoss=15`) so the fold keys by the numeric value through a `FrozenDictionary`, never by ordinal position — an ordinal-indexed table is the deleted form; fourteen of the seventeen codes resolve to a typed non-`Unreachable` arm — `AlreadyExists`/`Aborted`/`FailedPrecondition` collapse onto the one `Conflict` arm, so twelve distinct arms cover the fourteen — while the explicitly-mapped `Unavailable` plus the two unmapped success/indeterminate codes (`OK`, `Unknown`) resolve to `Unreachable` carrying the spelled code, so the rail is total over the seventeen-code taxonomy without enumerating `OK` as a typed fault; the `WireFault` 4520–4532 sub-band is Compute's SECOND custody — distinct from the `ComputeFault` 2200 band and from the AppHost `HopFault` 4500 hop band — RECORDED beside the `Runtime/admission#DISPATCH_SPINE` custody map and PINNED as a reciprocal mirror row in the AppHost/AppUi/Persistence registries (AppHost re-bands `CoordinationFault` to 4540 around it), so cross-package band disjointness is checkable from BOTH ends and a foreign band change is a row edit on both ends, never prose; the Mapperly `[Mapper]`/`[MapDerivedType]` per-case transcription owns any `oneof`-envelope boundary where a case carries fields the protobuf runtime does not transcribe (the union's generated total `Switch` dispatches, Mapperly transcribes), and `[Equatable]` owns structural equality wherever a class-root wire shape surrenders the record-root compare — hand-written transcription or `Equals`/`GetHashCode` where the generator reaches is the deleted form.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -253,23 +290,26 @@ public abstract partial record WireFault : Expected, IValidationError<WireFault>
 
     public const string DetailsTrailer = "grpc-status-details-bin";
 
-    public static Option<FaultDetail> Decode(RpcException error) =>
-        Optional(error.Trailers.GetValueBytes(DetailsTrailer))
-            .Map(static bytes => Google.Rpc.Status.Parser.ParseFrom(bytes))
-            .Bind(static rich => rich.Details.ToSeq()
-                .Filter(static any => any.Is(FaultDetail.Descriptor)).Head
-                .Map(static any => any.Unpack<FaultDetail>()));
+    public static Fin<Option<FaultDetail>> Decode(RpcException error) =>
+        Optional(error.Trailers.GetValueBytes(DetailsTrailer)).Match(
+            None: static () => Fin.Succ(Option<FaultDetail>.None),
+            Some: static bytes => Try.lift(() => Google.Rpc.Status.Parser.ParseFrom(bytes))
+                .Run()
+                .Map(static rich => rich.Details.ToSeq()
+                    .Filter(static any => any.Is(FaultDetail.Descriptor)).Head
+                    .Map(static any => any.Unpack<FaultDetail>()))
+                .MapFail(static fault => new InvalidRequest(fault.Message)));
 
-    public static WireFault Decode(FaultDetail detail) =>
+    public static WireFault DecodeConflict(FaultDetail detail) =>
         new Conflict($"{detail.Package}#{detail.Case}({detail.Code}): {detail.Message}");
 
-    public static FaultDetail PackConflict(string package, int code, string @case, string message, CorrelationId correlation, Instant hlc) =>
+    public static FaultDetail PackConflict(string package, Expected fault, CorrelationId correlation, (Instant Physical, ulong Logical) stamp) =>
         new() {
-            Package = package, Code = code, Case = @case, Message = message,
-            Correlation = correlation.ToString(), HlcPhysical = hlc.ToTimestamp(), HlcLogical = 0,
+            Package = package, Code = fault.Code, Case = fault.GetType().Name, Message = fault.Message,
+            Correlation = correlation.ToString(), HlcPhysical = stamp.Physical.ToTimestamp(), HlcLogical = stamp.Logical,
         };
 
-    static readonly FrozenDictionary<StatusCode, Func<string, WireFault>> StatusRail =
+    private static readonly FrozenDictionary<StatusCode, Func<string, WireFault>> StatusRail =
         new Dictionary<StatusCode, Func<string, WireFault>> {
             [StatusCode.Cancelled] = static detail => new Cancelled(detail),
             [StatusCode.DeadlineExceeded] = static detail => new DeadlineExpired(detail),
@@ -289,29 +329,24 @@ public abstract partial record WireFault : Expected, IValidationError<WireFault>
         }.ToFrozenDictionary();
 
     public static WireFault Classify(RpcException error) =>
-        StatusRail.TryGetValue(error.StatusCode, out var make)
+        StatusRail.TryGetValue(error.StatusCode, out Func<string, WireFault>? make)
             ? make(error.Status.Detail)
             : new Unreachable(error.StatusCode, error.Status.Detail);
 }
 
-// The band-complete ComputeFault -> FaultDetail rail: ONE uniform pack over the Expected base, total over
-// every 2200-band case by construction; the Bands registry mirrors the admission.md custody map so the
-// analysis lane (2217-2219, AnalysisFailed in the 2219 slot) and the scheduling lane (2220 GraphCyclic)
-// provably cross the wire, and a case code outside every band row fails the composition Probe.
 public static class FaultWire {
     public const string Package = "rasm.compute";
 
-    // Mirror of the admission custody map — a band change edits BOTH rows in one motion, never prose.
     public static readonly Seq<(int From, int To, string Lane)> Bands = Seq(
-        (2200, 2212, "core"), (2213, 2216, "symbolic"), (2217, 2219, "analysis"), (2220, 2220, "scheduling"));
+        (2200, 2212, "core"), (2213, 2216, "symbolic"), (2217, 2219, "analysis"), (2220, 2223, "scheduling"));
 
-    public static FaultDetail Pack(ComputeFault fault, CorrelationId correlation, Instant hlc) =>
-        new() {
+    public static Fin<FaultDetail> Pack(ComputeFault fault, CorrelationId correlation, (Instant Physical, ulong Logical) stamp) =>
+        Probe(fault.Code).Map(_ => new FaultDetail {
             Package = Package, Code = fault.Code, Case = fault.GetType().Name, Message = fault.Message,
-            Correlation = correlation.ToString(), HlcPhysical = hlc.ToTimestamp(), HlcLogical = 0,
-        };
+            Correlation = correlation.ToString(), HlcPhysical = stamp.Physical.ToTimestamp(), HlcLogical = stamp.Logical,
+        });
 
-    public static Fin<Unit> Probe(int code) =>
+    private static Fin<Unit> Probe(int code) =>
         Bands.Exists(band => code >= band.From && code <= band.To)
             ? Fin.Succ(unit)
             : ComputeFault.Create($"<fault-wire-outside-band:{code}>");
@@ -348,15 +383,17 @@ type ArtifactSyncShape = { sync: MethodShape<"bidi", "ArtifactFrame", "ArtifactF
 
 type HealthShape = { check: MethodShape<"unary", "HealthCheckRequest", "HealthCheckResponse">; watch: MethodShape<"serverStream", "HealthCheckRequest", "HealthCheckResponse">; };
 
-interface FaultDetailWire { package: RasmPackage; code: number; case: string; message: string; evidence: Record<string, string>; correlation: string; hlcPhysical: string; hlcLogical: number; }
+type FaultDetailWire<TCase extends string = string> = { package: RasmPackage; code: number; case: TCase; message: string; evidence: Record<string, string>; correlation: string; hlcPhysical: string; hlcLogical: bigint; };
 
-interface TransactionRequestWire { idempotencyKey: Uint8Array; ops: { typeUrl: string; value: Uint8Array }[]; expectedEpoch: number; hlcPhysical: string; hlcLogical: number; correlation: string; }
+type WireFaultCase = "Cancelled" | "DeadlineExpired" | "Unreachable" | "InvalidRequest" | "NotFound" | "Conflict" | "PermissionDenied" | "Exhausted" | "Unauthenticated" | "Internal" | "OutOfRange" | "DataLoss" | "Unimplemented";
 
-interface TransactionReceiptWire { idempotencyKey: Uint8Array; committed: boolean; newEpoch: number; applied: string[]; conflict: FaultDetailWire | null; hlcPhysical: string; hlcLogical: number; }
+interface TransactionRequestWire { idempotencyKey: Uint8Array; ops: { typeUrl: string; value: Uint8Array }[]; expectedEpoch: bigint; hlcPhysical: string; hlcLogical: bigint; correlation: string; }
+
+interface TransactionReceiptWire { idempotencyKey: Uint8Array; committed: boolean; newEpoch: bigint; applied: string[]; conflict: FaultDetailWire | null; hlcPhysical: string; hlcLogical: bigint; }
 
 interface QueryRequestWire { scope: string; predicate: Record<string, unknown>; cursor: string; fieldMask: string[]; }
 
-interface ArtifactFrameWire { artifactId: string; artifactBytes: number; offset: number; frameCrc: number; payload: Uint8Array; }
+interface ArtifactFrameWire { artifactId: string; artifactBytes: bigint; offset: bigint; frameCrc: number; payload: Uint8Array; }
 ```
 
 ## [06]-[RESEARCH]

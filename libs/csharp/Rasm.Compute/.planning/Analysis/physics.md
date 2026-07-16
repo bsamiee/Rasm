@@ -1,27 +1,27 @@
 # [COMPUTE_PHYSICS]
 
-Rasm.Compute closed-form building-physics runner collapses the `Discipline.Thermal`/`Discipline.Acoustic`/`Discipline.Fire` arms of the `Analysis/assessment` rail onto one `BuildingPhysics` kernel — all three are closed-form ISO/EN folds over an assembly or section read directly from the concrete `Rasm.Element` `ElementGraph`, no external solver and no subprocess. Thermal reads the multi-ply `UValueWM2K` from `AssemblyAggregator.Aggregate` (the one ISO 6946 series-resistance owner) and runs the EN ISO 13788 Glaser interstitial-condensation profile, computing the condensation mass rate through the genuine lower-convex-hull tangent construction rather than a bare boolean; a window assembly instead composes `AssemblyAggregator.AggregateWindow` for the EN ISO 10077-1 area-and-perimeter-weighted whole-window `Uw` the through-thickness series cannot reach. Acoustic reads the layered mass-law `StcWeighted` (ASTM E413) from the aggregator for a `LayerSet` and the intrinsic seam `Nrc`/`Rw` (ISO 717-1) for a single material; Fire folds the EN 1993-1-2 unprotected-steel critical-temperature march and the EN 1992-1-2 concrete tabulated minimum-dimension check, dispatched by the fire route.
+Rasm.Compute closed-form building-physics runner collapses the `Discipline.Thermal`/`Discipline.Acoustic`/`Discipline.Fire` arms of the `Analysis/assessment` rail onto one `BuildingPhysics` kernel — all three are closed-form ISO/EN folds over an assembly or section read directly from the concrete `Rasm.Element` `ElementGraph`, no external solver and no subprocess. Thermal reads the multi-ply `UValueWM2K` from `AssemblyAggregator.Aggregate` (the one ISO 6946 series-resistance owner) and runs the EN ISO 13788 Glaser interstitial-condensation profile, computing the condensation mass rate through the genuine lower-convex-hull tangent construction rather than a bare boolean; a window assembly instead composes `AssemblyAggregator.AggregateWindow` for the EN ISO 10077-1 area-and-perimeter-weighted whole-window `Uw` the through-thickness series cannot reach. Acoustic dispatches its route the way fire does: the `iso12354` transmission arm reads the layered mass-law `StcWeighted` (ASTM E413) from the aggregator for a `LayerSet` and the intrinsic seam `Nrc`/`Rw` (ISO 717-1) for a single material, while the `iso3382` room arm folds the EN 12354-6 Sabine/Eyring reverberation time over each space's bounding surfaces and the seam eighteen-band `AbsorptionSpectrum`; Fire folds the EN 1993-1-2 unprotected-steel critical-temperature march and the EN 1992-1-2 concrete tabulated minimum-dimension check, dispatched by the fire route.
 
 Each runner returns one `AssessmentResult` fact stream, the governing ratio threaded through the fold accumulator (`U / U_target` and the vapour utilization for thermal, `RequiredMinutes / achieved` for fire) so the verdict derives from the in-scope governing quantity, never a re-parse of the emitted facts. Every measured fact is SI-native through the seam `Properties/quantity#MEASURE_VALUE` `MeasureValue.OfSi(Dimension, si)` or the raw `MeasureValue` record for a domain-labelled scalar, never the phantom 2-arg `MeasureValue.Of(value, unit)` the seam factory does not expose. This runner composes the settled seam vocabulary — `MaterialComposition`/`MaterialLayer`, the `MaterialPropertySet.Thermal`/`Acoustic` cases through `MaterialPropertyAccess`, `SectionProperties`, `MeasureValue`/`Dimension` — plus the `Analysis/aggregator` engine; the single-material pure acoustic folds stay seam-owned, the multi-ply layered physics this runner, whose acoustic mass-law fold rides the seam `Composition/acoustic#ACOUSTIC_FOLDS` `RatingContour.Stc.Fit` contour — one contour owner, never a second algorithm.
 
 ## [01]-[INDEX]
 
 - [01]-[THERMAL_ENVELOPE]: the ISO 6946 series-`U` and EN ISO 13788 Glaser condensation profile for an envelope, and the EN ISO 10077-1 whole-window `Uw` for a window.
-- [02]-[ACOUSTIC_RATING]: the ISO 12354 layered `StcWeighted` and the single-material seam `Nrc`/`Rw` (ISO 717-1).
+- [02]-[ACOUSTIC_RATING]: the ISO 12354 layered `StcWeighted`, the single-material seam `Nrc`/`Rw` (ISO 717-1), and the EN 12354-6 Sabine/Eyring room-reverberation fold over the seam `AbsorptionSpectrum`, dispatched by the acoustic route.
 - [03]-[FIRE_RESISTANCE]: the EN 1993-1-2 steel critical-temperature march and the EN 1992-1-2 concrete tabulated check, dispatched by the fire route.
 
 ## [02]-[THERMAL_ENVELOPE]
 
 - Owner: `BuildingPhysics.RunThermal` the thermal runner; `BoundaryClimate` the interior/exterior temperature-and-humidity boundary carried on the request; `GlaserProfile` the per-interface temperature/saturation/actual-vapour-pressure receipt; `GlaserResult` the condensation summary (the vapour utilization, the lower-hull condensation rate, the worst interface) the fold derives; `WindowFields` the Op-free window-assembly resolver that reads a window's glazed/frame `WindowField` set off its `Compose` parts + baked `Qto`/`Pset` bags.
-- Entry: `public static Fin<AssessmentResult> RunThermal(ElementGraph graph, AssessmentRequest.Thermal request, ClockPolicy clocks)` resolves the WINDOW path first (a window carries glazed/frame `WindowField`s): a non-empty field set composes `AggregateWindow` for the whole-window `Uw` and emits the `whole-window-u`/`glazed-u`/`frame-u`/`edge-bridge`/`glazed-fraction` facts threading `Uw / U_target`; else it falls to the envelope path — the `UValueWM2K` from `Aggregate` for a `LayerSet` (the intrinsic `Thermal.UValue` for a `Single`), the EN ISO 13788 Glaser fold over the `LayerSet`, and the `u-value`/`condensation-risk`/`vapour-utilization`/`condensation-rate`/`condensation-plane` facts threading `max(U / U_target, vapour-utilization)`; `Fin<T>` aborting onto `ComputeFault.AssessmentInputMissing` when a layer material is absent or lacks a thermal property, or a window part lacks its `Thermal.UValue`.
-- Auto: the per-interface temperature, Magnus saturation pressure, and straight actual-vapour line fold over the cumulative thermal and vapour resistances (including the `Rsi`/`Rse` films); the EN ISO 13788 condensation construction is the lower convex hull of the `(Z, p)` points, its interior vertices the condensation planes and `g_c` the flux discontinuity between adjacent vertices; the window path resolves each `Compose` part Op-free — the glazed `Ug`/frame `Uf` off `graph.PropertiesOf(part).Thermal.UValue.Si`, the glazed/frame areas off the window's `Qto_*BaseQuantities`, the spacer `Ψg` off its `Pset` thermal-bridge property — assembling the `WindowField.Glazed`/`Frame` set `AggregateWindow` folds.
+- Entry: `public static Fin<AssessmentResult> RunThermal(ElementGraph graph, AssessmentRequest.Thermal request, ClockPolicy clocks)` resolves the window path first: a non-empty `WindowField` set composes `AggregateWindow` for whole-window `Uw` and emits `whole-window-u`/`glazed-u`/`edge-bridge`/`glazed-fraction` plus `frame-u` when frame area exists, threading `Uw / U_target`; otherwise it runs the envelope path and emits the `UValueWM2K`/Glaser facts. `Fin<T>` aborts onto `ComputeFault.AssessmentInputMissing` when a required layer, glazing, or positive-area frame lacks `Thermal.UValue`.
+- Auto: the per-interface temperature, Magnus saturation pressure, and actual-vapour line fold over cumulative thermal and vapour resistances; the EN ISO 13788 construction derives condensation planes and `g_c` from the lower convex hull. Window resolution discriminates `Compose` parts by `MaterialComposition`: `LayerSet`/`Single` supplies `WindowField.Glazed`, and `ProfileSet` supplies `WindowField.Frame` only when residual frame area is positive.
 - Packages: LanguageExt.Core (`Fin`/`Seq`/`Option`), Rasm.Element (project — `MaterialComposition`, `MaterialLayer`, `MaterialPropertySet.Thermal` via `MaterialPropertyAccess`, `MaterialId`, `MeasureValue`, `Dimension`, `NodeId`, the `Node.Object`/`Node.QuantitySet`/`Node.PropertySet` cases + `Relationship.Compose`/`Relationship.Assign`/`ComposeKind`/`AssignKind` the window-part/bag incidence read resolves, `PropertyName`, `PropertyValue`, `QuantityBag`/`PropertyBag`), the `Analysis/aggregator` `AssemblyAggregator` (the `Aggregate` series-U AND the `AggregateWindow` whole-window fold + the `WindowField`/`WindowU` shapes), BCL inbox (`Math`, span/array hull kernel).
 - Growth: a new thermal check (a dynamic decrement/admittance pair) is one fold over the same `LayerSet` reading the aggregator's `ArealHeatCapacityKJM2K`/`VapourResistanceSdM`, never a parallel envelope owner; the moisture model deepens to the EN 15026 transient form as one fold swap reading the same layer resistances; a 12-month annual condensation/evaporation balance is one fold over a climate series once `BoundaryClimate` carries one; the whole-window `Uw` is the `AssemblyAggregator.AggregateWindow` compose (the EN ISO 10077-1 area-and-perimeter weighting the through-thickness series cannot reach), and a richer EN ISO 10077-2 numerical frame model is one deeper `WindowField` resolution (a per-frame-profile measured `Uf`/`Ψg`) the runner supplies, never a parallel window owner.
-- Boundary: the multi-ply `U` composes `AssemblyAggregator.Aggregate` so the thermal envelope and the aggregator share one series-resistance owner, never a re-derived U; the Glaser fold independently reads each layer's `Thermal.Conductivity.Si` and `VapourResistanceFactor` for the per-interface profile the aggregator's total `Sd` cannot carry — a layer missing the thermal property rails the typed fault; the resolver is keyed on the composition's native `MaterialId`, never a graph `NodeId`; the condensation construction is the genuine EN ISO 13788 lower-hull method computing the condensation mass rate `g_c`, not a bare crossing flag. Whole-window `Uw` composes `AssemblyAggregator.AggregateWindow` (the EN ISO 10077-1 owner) — the runner resolves the glazed `Ug` and frame `Uf` seam-direct off each part's `Thermal.UValue.Si` and area-weights them with the spacer linear bridge rather than reporting the raw glazing `Ug` as the window U. Spacer `Ψg` reads off the window's `Pset` thermal-bridge property (`SpacerType.PsiWmK` lowers there — the seam `Thermal` carries no perimeter-bridge column, so a `Ψ`-on-`Thermal` read is the phantom the runner never takes), the areas off its `Qto_*BaseQuantities`; the window path is tried first, so a wall/slab with no window parts takes the series-U+Glaser path unchanged. Governing ratio is `max(Uw / U_target)` for a window and `max(U / U_target, vapour-utilization)` for an envelope, threaded through the accumulator so the verdict never re-parses the emitted facts; every measured fact is SI-native, never the phantom 2-arg `MeasureValue.Of(value, unit)`.
+- Boundary: multi-ply `U` composes `AssemblyAggregator.Aggregate`; Glaser independently reads each layer's `Thermal.Conductivity.Si` and `VapourResistanceFactor` for the per-interface profile. Whole-window `Uw` composes `AssemblyAggregator.AggregateWindow`; frameless glazing carries no synthetic `Frame` case or non-finite `frame-u` fact. Spacer `Ψg` reads the window `Pset`, areas read `Qto_*BaseQuantities`, and non-window targets retain the series-`U` path. Missing acceptance targets propagate `double.NaN` as `NotApplicable`, never a `0.0` satisfied ratio.
 
 ```csharp signature
 // --- [MODELS] ------------------------------------------------------------------------------
-// The interior/exterior boundary the AssessmentRequest.Thermal case carries; the five fields the
+// Interior/exterior boundary travels on AssessmentRequest.Thermal; its five fields
 // Analysis/assessment CanonicalBytes folds. The vapour partial pressures derive from the Magnus
 // saturation curve and the boundary relative humidities, so the climate carries no redundant pressure field.
 public readonly record struct BoundaryClimate(double InteriorTempC, double InteriorRh, double ExteriorTempC, double ExteriorRh, double TargetUValueWM2K) {
@@ -31,15 +31,15 @@ public readonly record struct BoundaryClimate(double InteriorTempC, double Inter
     public static double SaturationPa(double tC) => 610.5 * Math.Exp(17.269 * tC / (237.3 + tC));
 }
 
-// The per-internal-interface Glaser receipt: the interface ordinal (1-based, between layer k and k+1),
-// the steady-state temperature, the saturation pressure at that temperature, the un-redistributed straight
+// Per-interface Glaser receipt carries the 1-based interface ordinal,
+// steady-state temperature, saturation pressure, and unredistributed straight
 // actual vapour pressure, and the cumulative vapour resistance Z. Condensing/Utilization are derived reads.
 public readonly record struct GlaserProfile(int Interface, double TempC, double SaturationPa, double ActualPa, double VapourResistanceCum) {
     public bool Condensing => ActualPa >= SaturationPa;
     public double Utilization => SaturationPa > 0.0 ? ActualPa / SaturationPa : 0.0;
 }
 
-// The condensation summary the Glaser fold derives: whether condensation occurs (a positive lower-hull rate or a
+// Condensation summary derives from the Glaser fold: positive lower-hull rate or a
 // saturated interface), the worst-interface vapour-pressure utilization (the governing condensation ratio), the
 // EN ISO 13788 condensation MASS rate, and the worst interface index + label. None is the clean (no-condensation) seed.
 public readonly record struct GlaserResult(bool Condensing, double VapourUtilization, double CondensationRateKgM2S, int PlaneIndex, string PlaneLabel) {
@@ -60,11 +60,11 @@ public static partial class BuildingPhysics {
     static readonly Dimension TemperatureDim = Dimension.Create(0, 0, 0, 0, 1, 0, 0);
     static readonly Dimension PerLengthDim = Dimension.Dimensionless.Divide(Dimension.LengthDim);
     static readonly Dimension VapourFluxDim = Dimension.MassDim.Divide(Dimension.AreaDim).Divide(Dimension.DurationDim);
-    // The EN ISO 10077-1 edge-seal bridge Σ lg·Ψg is a thermal conductance W/K = [M·L²·T⁻³·K⁻¹] (the area-U ThermalTransmittance
+    // EN ISO 10077-1 edge-seal bridge Σ lg·Ψg is a thermal conductance W/K = [M·L²·T⁻³·K⁻¹] (the area-U ThermalTransmittance
     // W·m⁻²·K⁻¹ times area m²) — the perimeter linear-bridge term the whole-window fact carries beside the area-U facts.
     static readonly Dimension EdgeBridgeDim = Dimension.ThermalTransmittanceDim.Multiply(Dimension.AreaDim);
 
-    // The seam-keyed resolver every layered fold shares: a ply MaterialId -> its material node's property set,
+    // Seam-keyed resolver maps each ply MaterialId to its material node's property set,
     // railing the missing-input fault on an absent material node so a fold reads the composition's OWN plies by
     // native key (graph.Material(MaterialId)), never a graph NodeId lookup.
     static Func<MaterialId, Fin<Seq<MaterialPropertySet>>> Resolver(ElementGraph graph) =>
@@ -75,15 +75,15 @@ public static partial class BuildingPhysics {
     public static Fin<AssessmentResult> RunThermal(ElementGraph graph, AssessmentRequest.Thermal request, ClockPolicy clocks) =>
         request.Targets.Fold(
             Fin.Succ((Facts: Seq<AssessmentFact>(), Governing: 0.0)),
-            // The window path is tried FIRST: a window assembly resolves a non-empty glazed/frame WindowField set, and
+            // Window path runs first: a window assembly resolves a non-empty glazed/frame WindowField set, and
             // AggregateWindow composes the EN ISO 10077-1 whole-window Uw; a NON-window target (empty field set) falls
             // through to the through-thickness envelope path (series-U + Glaser). The two are mutually exclusive per target.
             (acc, id) => acc.Bind(state => WindowFields(graph, id).Bind(fields =>
                 fields.IsEmpty ? Envelope(graph, request, id, state) : Window(fields, request, id, state))))
             .Map(state => AssessmentResult.Of(request.Route, state.Facts, state.Governing,
-                new Provenance("BuildingPhysics", request.Route.Standard, "closed-form", clocks.Now)));
+                new Provenance("BuildingPhysics", request.Route.Standard, request.Route.SolverVersion, clocks.Now)));
 
-    // The EN ISO 10077-1 whole-window branch: AggregateWindow folds the resolved glazed/frame fields into the area-and-
+    // EN ISO 10077-1 whole-window branch folds resolved glazed/frame fields through AggregateWindow into the area-and-
     // perimeter-weighted Uw, and the runner emits the whole-window-u plus the glazed/frame/edge-bridge/glazed-fraction
     // breakdown, threading Uw/U_target (a LOWER Uw is better, so achieved-over-target like the envelope U). A degenerate
     // window (zero total area) rails inside AggregateWindow; a window with a non-empty field set always yields a Uw fact.
@@ -91,19 +91,21 @@ public static partial class BuildingPhysics {
         from w in AssemblyAggregator.AggregateWindow(fields)
         from uw in MeasureValue.OfSi(Dimension.ThermalTransmittanceDim, w.UwWM2K)
         from ug in MeasureValue.OfSi(Dimension.ThermalTransmittanceDim, w.UgWM2K)
-        from uf in MeasureValue.OfSi(Dimension.ThermalTransmittanceDim, w.UfWM2K)
+        from uf in double.IsFinite(w.UfWM2K)
+            ? MeasureValue.OfSi(Dimension.ThermalTransmittanceDim, w.UfWM2K)
+                .Map(value => Seq(AssessmentFact.Measure($"{id.Value}/frame-u", value)))
+            : Fin.Succ(Seq<AssessmentFact>())
         from edge in MeasureValue.OfSi(QuantityType.OfDimension(EdgeBridgeDim), EdgeBridgeDim, w.EdgeBridgeW_K, "W/K")
         from fraction in AssessmentFact.Ratio($"{id.Value}/glazed-fraction", w.GlazedFraction)
-        let uRatio = request.Climate.TargetUValueWM2K > 0.0 ? w.UwWM2K / request.Climate.TargetUValueWM2K : 0.0
+        let uRatio = request.Climate.TargetUValueWM2K > 0.0 ? w.UwWM2K / request.Climate.TargetUValueWM2K : double.NaN
         select (Facts: state.Facts
                 .Add(AssessmentFact.Measure($"{id.Value}/whole-window-u", uw))
                 .Add(AssessmentFact.Measure($"{id.Value}/glazed-u", ug))
-                .Add(AssessmentFact.Measure($"{id.Value}/frame-u", uf))
                 .Add(AssessmentFact.Measure($"{id.Value}/edge-bridge", edge))
-                .Add(fraction),
+                .Add(fraction) + uf,
             Governing: Math.Max(state.Governing, uRatio));
 
-    // The through-thickness envelope branch (the prior RunThermal body): the ISO 6946 series-U from AssemblyAggregator
+    // Through-thickness envelope branch reads ISO 6946 series-U from AssemblyAggregator
     // .Aggregate (a LayerSet) or the intrinsic Thermal.UValue (a Single), plus the EN ISO 13788 Glaser condensation fold.
     static Fin<(Seq<AssessmentFact> Facts, double Governing)> Envelope(ElementGraph graph, AssessmentRequest.Thermal request, NodeId id, (Seq<AssessmentFact> Facts, double Governing) state) =>
         from composition in graph.CompositionOf(id).ToFin(Missing($"<thermal-element-missing-composition:{id.Value}>"))
@@ -114,7 +116,7 @@ public static partial class BuildingPhysics {
         from uMeasure in MeasureValue.OfSi(Dimension.ThermalTransmittanceDim, u)
         from vapour in AssessmentFact.Ratio($"{id.Value}/vapour-utilization", glaser.VapourUtilization)
         from rate in MeasureValue.OfSi(QuantityType.OfDimension(VapourFluxDim), VapourFluxDim, glaser.CondensationRateKgM2S, "kg/(m2.s)")
-        let uRatio = request.Climate.TargetUValueWM2K > 0.0 ? u / request.Climate.TargetUValueWM2K : 0.0
+        let uRatio = request.Climate.TargetUValueWM2K > 0.0 ? u / request.Climate.TargetUValueWM2K : double.NaN
         select (Facts: state.Facts
                 .Add(AssessmentFact.Measure($"{id.Value}/u-value", uMeasure))
                 .Add(AssessmentFact.Flag($"{id.Value}/condensation-risk", glaser.Condensing))
@@ -123,7 +125,7 @@ public static partial class BuildingPhysics {
                 .Add(AssessmentFact.Text($"{id.Value}/condensation-plane", glaser.PlaneLabel)),
             Governing: Math.Max(state.Governing, Math.Max(uRatio, glaser.VapourUtilization)));
 
-    // The U-value owner: a LayerSet reads the ISO 6946 series U from the relocated aggregator (one owner), a Single
+    // U-value owner routes LayerSet through aggregator-owned ISO 6946 series U, while Single
     // its material's intrinsic Thermal.UValue; a ProfileSet/ConstituentSet rails (no through-thickness envelope). The
     // generated total Switch breaks at compile time if the seam adds a composition case, never a runtime-silent _ arm.
     static Fin<double> UValue(MaterialComposition composition, Func<MaterialId, Fin<Seq<MaterialPropertySet>>> resolve) =>
@@ -134,7 +136,7 @@ public static partial class BuildingPhysics {
             constituentSet: _   => Fin.Fail<double>(Missing("<thermal-requires-layerset-or-single>")));
 
     // --- [WINDOW_ASSEMBLY] ---------------------------------------------------------------
-    // The EN ISO 10077-1 window-field resolver: read the window's Compose parts and its baked Qto/Pset bags Op-free,
+    // EN ISO 10077-1 window-field resolver reads Compose parts and baked Qto/Pset bags Op-free,
     // assembling the glazed/frame WindowField set. A target with no GlazingArea quantity is not a window (an empty set
     // falling through to the envelope path) — GlazingArea is the seam-direct discriminant. A window component whose
     // material lacks its Thermal.UValue rails the typed fault; the frame area is Area − GlazingArea, the edge length GlazingPerimeter.
@@ -146,32 +148,26 @@ public static partial class BuildingPhysics {
         double af = Math.Max(totalArea - ag, 0.0);
         double edgeLength = Quantity(graph, window, "GlazingPerimeter").IfNone(0.0);
         double psi = Property(graph, window, "GlazingEdgePsi").IfNone(0.0);
-        // The glazing-infill part carries the EN 673 Ug, the frame part the Uf — each discriminated by its composition
-        // shape (glazing a LayerSet/Single IGU, frame a ProfileSet member). Ag is the Qto GlazingArea, Af the residual
-        // Area − GlazingArea, lg the GlazingPerimeter, Ψg the element Pset property.
-        return PartU(graph, window, isGlazing: true).Bind(ug =>
-            PartU(graph, window, isGlazing: false).Map(uf =>
-                Seq(WindowField.Glazed(ug, ag, edgeLength, psi), WindowField.Frame(uf, af))));
+        Seq<NodeId> parts = WindowParts(graph, window);
+        return parts.Find(part => graph.CompositionOf(part).Exists(static composition => composition is MaterialComposition.LayerSet or MaterialComposition.Single))
+            .ToFin(Missing($"<window-missing-glazing-part:{window.Value}>"))
+            .Bind(glazing => PartU(graph, glazing, "glazing").Bind(ug =>
+                af <= 0.0
+                    ? Fin.Succ(Seq<WindowField>(new WindowField.Glazed(ug, ag, edgeLength, psi)))
+                    : parts.Find(part => graph.CompositionOf(part).Exists(static composition => composition is MaterialComposition.ProfileSet))
+                        .ToFin(Missing($"<window-missing-frame-part:{window.Value}>"))
+                        .Bind(frame => PartU(graph, frame, "frame").Map(uf =>
+                            Seq<WindowField>(new WindowField.Glazed(ug, ag, edgeLength, psi), new WindowField.Frame(uf, af))))));
     }
 
-    // The glazed-or-frame part's transmittance: the Compose child whose material carries the glazed or frame
-    // Thermal.UValue, resolved Op-free — glazing a LayerSet/Single composition, frame a ProfileSet. A missing part, or a
-    // part missing its Thermal.UValue, rails the typed fault (an under-specified window assembly).
-    static Fin<double> PartU(ElementGraph graph, NodeId window, bool isGlazing) =>
-        WindowPart(graph, window, isGlazing)
-            .ToFin(Missing($"<window-missing-{(isGlazing ? "glazing" : "frame")}-part:{window.Value}>"))
-            .Bind(part => graph.PropertiesOf(part).Thermal.Map(static t => t.UValue.Si)
-                .ToFin(Missing($"<window-{(isGlazing ? "glazing" : "frame")}-missing-u-value:{part.Value}>")));
+    static Fin<double> PartU(ElementGraph graph, NodeId part, string role) =>
+        graph.PropertiesOf(part).Thermal.Map(static thermal => thermal.UValue.Si)
+            .ToFin(Missing($"<window-{role}-missing-u-value:{part.Value}>"));
 
-    // The window's glazing-infill (LayerSet/Single composition — the IGU) or frame (ProfileSet composition — the profile)
-    // Compose child: the OWNING Compose parts (Aggregate/Nest) off the incidence index, discriminated by the part's
-    // composition shape, never a baked Element (the runner holds no Op) and never a host type.
-    static Option<NodeId> WindowPart(ElementGraph graph, NodeId window, bool isGlazing) =>
+    static Seq<NodeId> WindowParts(ElementGraph graph, NodeId window) =>
         toSeq(graph.EdgesAt(window))
             .Choose(e => e is Relationship.Compose c && c.Whole == window && (c.SubKind == ComposeKind.Aggregate || c.SubKind == ComposeKind.Nest) ? Some(c.Part) : None)
-            .Find(part => graph.CompositionOf(part).Match(
-                Some: comp => isGlazing ? comp is MaterialComposition.LayerSet or MaterialComposition.Single : comp is MaterialComposition.ProfileSet,
-                None: () => false));
+            .Distinct();
 
     // A window's Qto_*BaseQuantities value read Op-free off the Assign.PropertyDefinition-bound QuantitySet node (the SI
     // magnitude of the measured quantity); None when the window carries no such quantity (the non-window fall-through).
@@ -193,7 +189,7 @@ public static partial class BuildingPhysics {
             .Head.Bind(static v => v is PropertyValue.Measure m ? Some(m.Value.Si) : None);
 
     // --- [GLASER_TANGENT] ----------------------------------------------------------------
-    // The EN ISO 13788 steady-state interstitial-condensation fold over the LayerSet plies: each layer's thermal
+    // EN ISO 13788 steady-state interstitial-condensation fold walks LayerSet plies; each layer's thermal
     // resistance R = t/lambda and vapour resistance Z = mu.t/delta0 resolved through the native-key resolver, then the
     // per-interface temperature/saturation/actual profile and the lower-hull condensation-rate construction.
     static Fin<GlaserResult> GlaserOf(MaterialComposition.LayerSet set, Func<MaterialId, Fin<Seq<MaterialPropertySet>>> resolve, BoundaryClimate climate) =>
@@ -207,7 +203,7 @@ public static partial class BuildingPhysics {
                     Name: layer.LayerName)))))
             .Map(steps => Condensation(steps, climate));
 
-    // The local fold state: one ply's thermal + vapour resistance plus its layer name for the condensation-plane label.
+    // Local fold state carries one ply's thermal and vapour resistance plus its condensation-plane label.
     readonly record struct LayerResistance(double R, double Z, string Name);
 
     static GlaserResult Condensation(Seq<LayerResistance> steps, BoundaryClimate climate) {
@@ -236,9 +232,9 @@ public static partial class BuildingPhysics {
             None: () => GlaserResult.None);
     }
 
-    // The EN ISO 13788 condensation rate as the lower-convex-hull construction (Exemption: array hull kernel): the
+    // EN ISO 13788 condensation rate uses the lower-convex-hull construction (Exemption: array hull kernel):
     // realized vapour line is the lower hull of the (Z, p) points, its interior vertices the condensation planes and g_c
-    // the inflow-minus-outflow flux discontinuity at each, summed over the planes.
+    // Inflow-minus-outflow flux discontinuity sums over every plane.
     static double CondensationRate(Seq<GlaserProfile> profile, double zTot, double pInt, double pExt) {
         int m = profile.Count;
         double[] z = new double[m + 2], y = new double[m + 2];
@@ -274,35 +270,74 @@ public static partial class BuildingPhysics {
 
 ## [03]-[ACOUSTIC_RATING]
 
-- Owner: `BuildingPhysics.RunAcoustic` the acoustic runner; the weighted single-number sound-reduction projection over the aggregator's layered mass-law `StcWeighted` (ASTM E413) and the single-material seam `Nrc`/`Rw` (ISO 717-1).
-- Entry: `public static Fin<AssessmentResult> RunAcoustic(ElementGraph graph, AssessmentRequest.Acoustic request, ClockPolicy clocks)` reads the layered mass-law single number from `Aggregate` (whose per-band SRI folds through the seam `RatingContour.Stc.Fit` ASTM E413 contour, yielding `StcWeighted`) for a `LayerSet`, and the intrinsic seam `Nrc`/`Rw` (the `RatingContour.Rw.Fit` ISO 717-1 contour over the material's measured SRI spectrum) off the `PrimaryMaterial` for a single material, emits the `sound-reduction-index`/`nrc` facts, and threads `request.RequiredRw / Rw` through the accumulator when the request carries a `RequiredRw`. A deliberate cross-standard asymmetry: the single material has a measured spectrum yielding a true ISO 717-1 `Rw`, the layered assembly only a mass-law estimate whose ASTM E413 `StcWeighted` is all its areal-mass data admits — so the ISO `RequiredRw` demand judges the single-material path against `Rw` and the assembly against its `StcWeighted`, never an ISO demand against an ASTM rating on one path.
-- Auto: the assembly weighted index is the aggregator's `StcWeighted` (the mass-law per-band SRI folded once through the seam `RatingContour.Stc.Fit` contour — the assembly carrier exposes no `Rw`); the single-material `Nrc`/`Rw` read the seam `Acoustic` projections off the `PrimaryMaterial` (the `RatingContour.Rw.Fit` ISO 717-1 contour over the measured SRI spectrum, differing from `StcWeighted` only by the contour row, never recomputed here); both contour rows share one `RatingContour` owner; the single-number rating is a dimensionless dB-weighted `MeasureValue`.
-- Packages: LanguageExt.Core, Rasm.Element (project — `MaterialComposition`, `MaterialPropertySet.Acoustic` via `MaterialPropertyAccess`, `MeasureValue`, `Dimension`, `NodeId`), the `Analysis/aggregator` `AssemblyAggregator`, BCL inbox.
-- Growth: the airborne spectrum-adaptation deepening (flanking `Dn,f,w`, the ISO 717-1 `C`/`Ctr` terms) is one fold over the same per-band SRI; the impact `Ln,w` (ISO 717-2 / IIC) is the descending sibling that lands once this runner carries the assembly normalized-impact spectrum — the EN 12354-2 floating-floor `ΔL_w` computed from the resilient layer's seam `Acoustic.DynamicStiffnessMNPerM3` and rated through the deferred descending `RatingContour` row via the shared sign-agnostic `RatingContour.Fit`, the seam `Composition/acoustic#ACOUSTIC_FOLDS` note carrying the counterpart.
-- Boundary: the multi-ply index composes `Aggregate` so the layered sound reduction is the seam-owned `RatingContour.Stc.Fit` ASTM E413 mass-law estimate (the assembly carrier models no `Rw`), never a second STC/`Rw` algorithm; the single-material `Nrc`/`Rw` are the seam intrinsic folds off the `Acoustic` case (the ISO 717-1 `RatingContour.Rw.Fit`, judged against the ISO `RequiredRw` demand, the matched-standard pairing the assembly's `StcWeighted` cannot offer), never recomputed; the single-material branch resolves through the composition's `PrimaryMaterial`, never the element `NodeId`, and a target with no acoustic property reports the `absent` text fact rather than a fabricated rating. A `RequiredRw` acceptance target yields the governing ratio `RequiredRw / Rw` (a higher Rw is better) and a genuine pass/fail, while a `RequiredRw <= 0` request reverts to the informational rating (governing `double.NaN`, propagated by `Math.Max` across the fold → `NotApplicable`, the no-target convention, never a misleading `0.0`-ratio `Satisfied`).
+- Owner: `BuildingPhysics.RunAcoustic` the acoustic runner dispatching the acoustic route — `Transmission` the weighted single-number sound-reduction projection over the aggregator's layered mass-law `StcWeighted` (ASTM E413) and the single-material seam `Nrc`/`Rw` (ISO 717-1); `Room` the EN 12354-6 / ISO 3382-1 Sabine/Eyring reverberation fold over each space's bounding surfaces and the seam eighteen-band `AbsorptionSpectrum`.
+- Entry: `public static Fin<AssessmentResult> RunAcoustic(ElementGraph graph, AssessmentRequest.Acoustic request, ClockPolicy clocks)` dispatches `iso12354` to `Transmission` and `iso3382` to `Room`, railing an unrecognized acoustic route typed (the fire-runner dispatch pattern). `Transmission` reads the layered mass-law single number from `Aggregate` (whose per-band SRI folds through the seam `RatingContour.Stc.Fit` ASTM E413 contour, yielding `StcWeighted`) for a `LayerSet`, and the intrinsic seam `Nrc`/`Rw` (the `RatingContour.Rw.Fit` ISO 717-1 contour over the material's measured SRI spectrum) off the `PrimaryMaterial` for a single material, emits the `sound-reduction-index`/`nrc` facts, and threads `request.RequiredRw / Rw` through the accumulator when the request carries a `RequiredRw`. A deliberate cross-standard asymmetry: the single material has a measured spectrum yielding a true ISO 717-1 `Rw`, the layered assembly only a mass-law estimate whose ASTM E413 `StcWeighted` is all its areal-mass data admits — so the ISO `RequiredRw` demand judges the single-material path against `Rw` and the assembly against its `StcWeighted`, never an ISO demand against an ASTM rating on one path. `Room` folds per space target the per-band absorption area `A(b) = Σ S_i·α_i(b)` over the bounding surfaces (the `Analysis/energy` `EnergyGraphReads.BoundingSurfacesOf` owner), the Sabine `T = 0.161·V/A` and Eyring `T = 0.161·V/(−S·ln(1−ᾱ))` mid-frequency (500/1000 Hz mean) reverberation times, emits the `reverberation-time-mid`/`reverberation-time-eyring`/`mean-absorption-mid` facts, and threads `T_mf / TargetReverberationS` when the request carries a target.
+- Auto: the assembly weighted index is the aggregator's `StcWeighted` (the mass-law per-band SRI folded once through the seam `RatingContour.Stc.Fit` contour — the assembly carrier exposes no `Rw`); the single-material `Nrc`/`Rw` read the seam `Acoustic` projections off the `PrimaryMaterial` (the `RatingContour.Rw.Fit` ISO 717-1 contour over the measured SRI spectrum, differing from `StcWeighted` only by the contour row, never recomputed here); both contour rows share one `RatingContour` owner; the single-number rating is a dimensionless dB-weighted `MeasureValue`; the room fold reads its volume and per-surface areas off the baked `Qto` evidence (`NetVolume`, the `NetSideArea`/`NetArea`/`GrossSideArea` chain) and each surface's absorption off `props.Acoustic.At(band)`.
+- Packages: LanguageExt.Core, Rasm.Element (project — `MaterialComposition`, `MaterialPropertySet.Acoustic` via `MaterialPropertyAccess`, `AcousticBand`, `MeasureValue`, `Dimension`, `NodeId`), the `Analysis/aggregator` `AssemblyAggregator`, the `Analysis/energy` `EnergyGraphReads` (the `BoundingSurfacesOf` space-surface owner the room fold composes), BCL inbox.
+- Growth: the airborne spectrum-adaptation deepening (flanking `Dn,f,w`, the ISO 717-1 `C`/`Ctr` terms) is one fold over the same per-band SRI; the impact `Ln,w` (ISO 717-2 / IIC) is the descending sibling that lands once this runner carries the assembly normalized-impact spectrum — the EN 12354-2 floating-floor `ΔL_w` computed from the resilient layer's seam `Acoustic.DynamicStiffnessMNPerM3` and rated through the deferred descending `RatingContour` row via the shared sign-agnostic `RatingContour.Fit`, the seam `Composition/acoustic#ACOUSTIC_FOLDS` note carrying the counterpart; a per-band reverberation `List` fact or a derived speech-clarity metric is one projection over the same `Room` band fold.
+- Boundary: the multi-ply index composes `Aggregate` so the layered sound reduction is the seam-owned `RatingContour.Stc.Fit` ASTM E413 mass-law estimate (the assembly carrier models no `Rw`), never a second STC/`Rw` algorithm; the single-material `Nrc`/`Rw` are the seam intrinsic folds off the `Acoustic` case (the ISO 717-1 `RatingContour.Rw.Fit`, judged against the ISO `RequiredRw` demand, the matched-standard pairing the assembly's `StcWeighted` cannot offer), never recomputed; the single-material branch resolves through the composition's `PrimaryMaterial`, never the element `NodeId`, and a target with no acoustic property reports the `absent` text fact rather than a fabricated rating. A `RequiredRw` acceptance target yields the governing ratio `RequiredRw / Rw` (a higher Rw is better) and a genuine pass/fail, while a `RequiredRw <= 0` request reverts to the informational rating (governing `double.NaN`, propagated by `Math.Max` across the fold → `NotApplicable`, the no-target convention, never a misleading `0.0`-ratio `Satisfied`). The room fold reads the space-surface incidence through the ONE `EnergyGraphReads.BoundingSurfacesOf` owner (a physics-local `IfcRelSpaceBoundary` walk is the deleted duplicate); a surface material with no `Acoustic` case, an absent volume/area quantity, or an empty bounding-surface set rails typed (an unknown absorber or missing geometry invalidates the sum, never a defaulted `α`); reverberation governs `T_mf / TargetReverberationS` — an OVER-reverberant room exceeds — with `None`/non-positive targets informational (`double.NaN` → `NotApplicable`); the Eyring time rides beside the Sabine fact as evidence, the target judged against Sabine (the EN 12354-6 form).
 
 ```csharp signature
 // --- [OPERATIONS] --------------------------------------------------------------------------
 public static partial class BuildingPhysics {
+    const double SabineConstant = 0.161;   // s/m — the Sabine/Eyring reverberation coefficient at 20 °C
+
+    // Explicit dispatch over the two acoustic routes (the fire-runner pattern): iso12354 the transmission fold,
+    // iso3382 the room-reverberation fold; an unrecognized acoustic route rails typed rather than defaulting to transmission.
     public static Fin<AssessmentResult> RunAcoustic(ElementGraph graph, AssessmentRequest.Acoustic request, ClockPolicy clocks) =>
         request.Targets.Fold(
             Fin.Succ((Facts: Seq<AssessmentFact>(), Governing: 0.0)),
-            (acc, id) => acc.Bind(state => graph.CompositionOf(id).ToFin(Missing($"<acoustic-element-missing-composition:{id.Value}>"))
-                .Bind(composition => composition is MaterialComposition.LayerSet set
-                    ? AssemblyAggregator.Aggregate(set, Resolver(graph)).Bind(property => RateAcoustic(id, property.StcWeighted, None, request, state))
-                    : graph.Material(composition.PrimaryMaterial).Map(static m => m.Properties).ToFin(Missing($"<acoustic-material-absent:{id.Value}>"))
-                        .Bind(props => props.Acoustic.Match(
-                            Some: a => RateAcoustic(id, a.Rw, Some(a.Nrc), request, state),   // ISO 717-1 Rw (the SEAM Acoustic carrier's RatingContour.Rw.Fit over the measured SRI spectrum) — judged against the ISO RequiredRw demand, NOT the ASTM E413 StcWeighted contour the assembly mass-law estimate yields
-                            None: () => FinSucc((state.Facts.Add(AssessmentFact.Text($"{id.Value}/acoustic", "absent")), state.Governing))))))
+            (acc, id) => acc.Bind(state =>
+                request.Route == AssessmentRoute.Iso12354
+                    ? Transmission(graph, request, id, state)
+                    : request.Route == AssessmentRoute.Iso3382
+                        ? Room(graph, request, id, state)
+                        : Fin.Fail<(Seq<AssessmentFact> Facts, double Governing)>(Missing($"<acoustic-route-unhandled:{request.Route.Key}>"))))
             .Map(state => AssessmentResult.Of(request.Route, state.Facts, state.Governing,
-                new Provenance("BuildingPhysics", request.Route.Standard, "closed-form", clocks.Now)));
+                new Provenance("BuildingPhysics", request.Route.Standard, request.Route.SolverVersion, clocks.Now)));
 
-    // The single-number sound-reduction fact (+ the single-material Nrc when present) plus the RequiredRw/rating governing
+    static Fin<(Seq<AssessmentFact> Facts, double Governing)> Transmission(ElementGraph graph, AssessmentRequest.Acoustic request, NodeId id, (Seq<AssessmentFact> Facts, double Governing) state) =>
+        graph.CompositionOf(id).ToFin(Missing($"<acoustic-element-missing-composition:{id.Value}>"))
+            .Bind(composition => composition is MaterialComposition.LayerSet set
+                ? AssemblyAggregator.Aggregate(set, Resolver(graph)).Bind(property => RateAcoustic(id, property.StcWeighted, None, request, state))
+                : graph.Material(composition.PrimaryMaterial).Map(static m => m.Properties).ToFin(Missing($"<acoustic-material-absent:{id.Value}>"))
+                    .Bind(props => props.Acoustic.Match(
+                        Some: a => RateAcoustic(id, a.Rw, Some(a.Nrc), request, state),   // ISO 717-1 Rw (the SEAM Acoustic carrier's RatingContour.Rw.Fit over the measured SRI spectrum) — judged against the ISO RequiredRw demand, NOT the ASTM E413 StcWeighted contour the assembly mass-law estimate yields
+                        None: () => Fin.Succ((state.Facts.Add(AssessmentFact.Text($"{id.Value}/acoustic", "absent")), state.Governing)))));
+
+    // EN 12354-6 / ISO 3382-1 room-reverberation fold over the seam eighteen-band AbsorptionSpectrum: per band the
+    // absorption area A(b) = Σ S_i·α_i(b) over the space's bounding surfaces (the EnergyGraphReads IfcRelSpaceBoundary
+    // owner — one space-surface read, never a second), Sabine T(b) = 0.161·V/A(b), the Eyring
+    // T = 0.161·V/(−S·ln(1−ᾱ_mf)) correction beside it for the high-absorption room Sabine over-predicts; T_mf is the
+    // 500/1000 Hz mean the target judges. Volume and per-surface areas are baked Qto evidence; a surface material with no
+    // Acoustic case rails typed (an unknown absorber invalidates the sum), never a defaulted α.
+    static Fin<(Seq<AssessmentFact> Facts, double Governing)> Room(ElementGraph graph, AssessmentRequest.Acoustic request, NodeId id, (Seq<AssessmentFact> Facts, double Governing) state) =>
+        from volume in Quantity(graph, id, "NetVolume").Filter(static v => v > 0.0).ToFin(Missing($"<room-volume-absent:{id.Value}>"))
+        from panels in graph.BoundingSurfacesOf(id).TraverseM(surface =>
+            from area in (Quantity(graph, surface.Id, "NetSideArea") | Quantity(graph, surface.Id, "NetArea") | Quantity(graph, surface.Id, "GrossSideArea"))
+                .Filter(static a => a > 0.0).ToFin(Missing($"<room-surface-area-absent:{surface.Id.Value}>"))
+            from composition in graph.CompositionOf(surface.Id).ToFin(Missing($"<room-surface-missing-composition:{surface.Id.Value}>"))
+            from props in graph.Material(composition.PrimaryMaterial).Map(static m => m.Properties).ToFin(Missing($"<room-material-absent:{surface.Id.Value}>"))
+            from acoustic in props.Acoustic.ToFin(Missing($"<room-surface-missing-absorption:{surface.Id.Value}>"))
+            select (AreaM2: area, Absorber: acoustic)).As()
+        from _ in panels.IsEmpty ? Fin.Fail<Unit>(Missing($"<room-no-bounding-surfaces:{id.Value}>")) : Fin.Succ(unit)
+        let surfaceArea = panels.Sum(static p => p.AreaM2)
+        let absorptionMid = panels.Sum(p => p.AreaM2 * (p.Absorber.At(AcousticBand.Hz500) + p.Absorber.At(AcousticBand.Hz1000)) / 2.0)
+        let meanAlpha = absorptionMid / surfaceArea
+        let sabineMid = SabineConstant * volume / Math.Max(absorptionMid, 1e-9)
+        let eyringMid = meanAlpha < 1.0 ? SabineConstant * volume / Math.Max(-surfaceArea * Math.Log(1.0 - meanAlpha), 1e-9) : 0.0
+        from sabineFact in AssessmentFact.Measure($"{id.Value}/reverberation-time-mid", Dimension.DurationDim, sabineMid)
+        from eyringFact in AssessmentFact.Measure($"{id.Value}/reverberation-time-eyring", Dimension.DurationDim, eyringMid)
+        from alphaFact in AssessmentFact.Ratio($"{id.Value}/mean-absorption-mid", meanAlpha)
+        let ratio = request.TargetReverberationS.Filter(static t => t > 0.0).Map(t => sabineMid / t).IfNone(double.NaN)
+        select (state.Facts.Add(sabineFact).Add(eyringFact).Add(alphaFact), Math.Max(state.Governing, ratio));
+
+    // Single-number sound-reduction fact and optional single-material Nrc combine with the RequiredRw/rating governing
     // ratio: a HIGHER rating is better, so the demand/capacity ratio is required-over-achieved (the same orientation as the
     // fire RequiredMinutes/achieved) — RequiredRw <= 0 is informational (ratio double.NaN, which Math.Max propagates across
-    // the multi-target fold so the run bands NotApplicable, never a misleading 0.0-ratio Satisfied — the energy/carbon/cost
+    // Multi-target fold therefore bands no-target runs NotApplicable rather than 0.0-ratio Satisfied, matching energy/carbon/cost
     // no-target convention), a real RequiredRw target yields a genuine pass/fail the spine bands through AssessmentVerdict.FromRatio.
-    // The `rating` slot is the SINGLE-material ISO 717-1 Rw (caller passes a.Rw over the measured SRI spectrum, the matched
+    // `rating` holds single-material ISO 717-1 Rw from a.Rw over the measured SRI spectrum, while the matched
     // standard for the ISO RequiredRw demand) or the ASSEMBLY ASTM E413 StcWeighted mass-law estimate (the layered buildup
     // exposes no Rw) — a dual-standard single-number slot, never an ISO demand judged against an ASTM rating on the same path.
     static Fin<(Seq<AssessmentFact> Facts, double Governing)> RateAcoustic(NodeId id, int rating, Option<double> nrc, AssessmentRequest.Acoustic request, (Seq<AssessmentFact> Facts, double Governing) state) =>
@@ -310,7 +345,7 @@ public static partial class BuildingPhysics {
         from facts in nrc.Match(
             Some: n => AssessmentFact.Ratio($"{id.Value}/nrc", n)
                 .Map(fact => state.Facts.Add(AssessmentFact.Measure($"{id.Value}/sound-reduction-index", sri)).Add(fact)),
-            None: () => FinSucc(state.Facts.Add(AssessmentFact.Measure($"{id.Value}/sound-reduction-index", sri))))
+            None: () => Fin.Succ(state.Facts.Add(AssessmentFact.Measure($"{id.Value}/sound-reduction-index", sri))))
         let ratio = request.RequiredRw > 0.0 ? request.RequiredRw / Math.Max(rating, double.Epsilon) : double.NaN
         select (facts, Math.Max(state.Governing, ratio));
 }
@@ -323,7 +358,7 @@ public static partial class BuildingPhysics {
 - Auto: the steel fold marches the exposure's gas curve and the net convective+radiative flux over the section factor `Am/V` at a 5 s step with the EN 1993-1-2 temperature-dependent specific heat `c_a(θ_a)` and the I-section shadow factor `k_sh`, the achieved resistance the time the steel reaches the critical temperature for the degree of utilization `μ0`; the concrete fold reads the EN 1992-1-2 member-type table (column/beam/slab/wall, keyed off the `Object` `Classification.Code`) for the required rating's `(min dimension, min axis distance)` pair and checks both against the section's `LeastDimension` and `AxisDistance` cover, the achieved resistance the worse-governed of the two.
 - Packages: LanguageExt.Core, Thinktecture.Runtime.Extensions (`[SmartEnum<string>]` + `[UseDelegateFromConstructor]` gas-curve rows), Rasm.Element (project — `SectionProperties` incl. `AxisDistance`, the seam `ElementGraph.SectionOf` Op-free section accessor, `Node.Object` for the `Classification.Code` member-type read, `MeasureValue`, `Dimension`, `NodeId`), BCL inbox (`Math`, `FrozenDictionary`).
 - Growth: a new fire model (a parametric EN 1991-1-2 natural fire, an EN 1995-1-2 timber charring rate, an EN 1993-1-2 PROTECTED-steel march with an insulation `λ_p`/`d_p` term) is one route plus one fold plus one explicit dispatch arm reading the same section (the two-route fire dispatch rails an unrecognized route — `<fire-route-unhandled>` — until its arm lands, never silently charging a timber member against the concrete table); a new exposure is one `FireExposure` row carrying its gas-curve delegate and convection coefficient; the concrete axis-distance (cover-to-rebar) criterion and the member-type-specific (column/beam/slab/wall) tables are now LIVE (the seam `SectionProperties.AxisDistance` cover column + the `Object` `Classification.Code` member type), the 500 °C isotherm method deepening as a fold over the section thermal field where the tabulated check is insufficient.
-- Boundary: the section factor `Am/V` reads the seam `SectionProperties.HeatedPerimeter`/`Area` so fire and ambient design share one section source; the section resolves through the seam's Op-free `SectionOf` accessor (the M7-baked read off the member's `ProfileSet`), never re-resolving a `ProfileRef` or admitting VividOrange; the degree of utilization `μ0` is the ambient governing ratio carried on the request, never re-solved here. Steel marches a genuine incremental integration with EN 1993-1-2 temperature-dependent specific heat and exposure-dependent convection, never a tabulated approximation or a fixed heat capacity, the receipt resistance the marched time; the concrete check is the full EN 1992-1-2 tabulated method — the member-type `(min dimension, min axis distance)` pair checked against both the section's `LeastDimension` and `AxisDistance` cover, the achieved resistance the worse-governed so a thin-cover section governs; a member with no `ProfileSet` section rails the typed input fault. Governing ratio is `RequiredMinutes / achieved` threaded through the accumulator so an under-resistant member governs, never a re-parse of the emitted facts; every measured fact is SI-native.
+- Boundary: the section factor `Am/V` reads the seam `SectionProperties.HeatedPerimeter`/`Area` REDUCED by the exposure's `Sides` column — a 3-sided exposure shields the top flange, so the exposed perimeter drops by the section width and the standard/external rows genuinely differ in the marched heating rate, never a decorative side count — so fire and ambient design share one section source; the section resolves through the seam's Op-free `SectionOf` accessor (the M7-baked read off the member's `ProfileSet`), never re-resolving a `ProfileRef` or admitting VividOrange; the degree of utilization `μ0` is the ambient governing ratio carried on the request, never re-solved here. Steel marches a genuine incremental integration with EN 1993-1-2 temperature-dependent specific heat and exposure-dependent convection, never a tabulated approximation or a fixed heat capacity, the receipt resistance the marched time; the concrete check is the full EN 1992-1-2 tabulated method — the member-type `(min dimension, min axis distance)` pair checked against both the section's `LeastDimension` and `AxisDistance` cover, the achieved resistance the worse-governed so a thin-cover section governs; a member with no `ProfileSet` section rails the typed input fault. Governing ratio is `RequiredMinutes / achieved` threaded through the accumulator so an under-resistant member governs, never a re-parse of the emitted facts; every measured fact is SI-native.
 
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
@@ -337,7 +372,7 @@ public sealed partial class FireExposure {
     public int Sides { get; }
     public double ConvectionWM2K { get; }   // EN 1991-1-2: alpha_c = 25 (standard/external), 50 (hydrocarbon)
 
-    // The nominal gas-temperature-time curve (EN 1991-1-2 §3.2) as a per-row delegate — POLICY_VALUES, never a Key
+    // Nominal gas-temperature-time curve (EN 1991-1-2 §3.2) is a per-row delegate, never a Key
     // switch: a new exposure is one row carrying its own curve, never a parallel arm in a shared method.
     [UseDelegateFromConstructor]
     public partial double GasTempC(double minutes);
@@ -371,7 +406,7 @@ public static partial class BuildingPhysics {
         }.ToFrozenDictionary();
 
     // Explicit dispatch over the two fire routes — an unrecognized route rails the typed fault rather than defaulting to
-    // the concrete arm, so the EN 1995-1-2 timber-charring growth lands as one added dispatch arm broken loudly, never a
+    // Concrete arm stays distinct, so EN 1995-1-2 timber-charring growth lands as one dispatch arm, never a
     // timber member silently charged against the concrete table.
     public static Fin<AssessmentResult> RunFire(ElementGraph graph, AssessmentRequest.Fire request, ClockPolicy clocks) =>
         request.Targets.Fold(
@@ -383,21 +418,27 @@ public static partial class BuildingPhysics {
                         ? ConcreteFire(section, MemberClass(graph, id), request, id, state)
                         : Fin.Fail<(Seq<AssessmentFact> Facts, double Governing)>(Missing($"<fire-route-unhandled:{request.Route.Key}>")))))
             .Map(state => AssessmentResult.Of(request.Route, state.Facts, state.Governing,
-                new Provenance("BuildingPhysics", request.Route.Standard, "closed-form", clocks.Now)));
+                new Provenance("BuildingPhysics", request.Route.Standard, request.Route.SolverVersion, clocks.Now)));
 
-    // The member's IFC class (IfcColumn/IfcBeam/IfcSlab/IfcWall) off its Object node Classification.Code — the EN 1992-1-2
+    // Member IFC class (IfcColumn/IfcBeam/IfcSlab/IfcWall) reads Object.Classification.Code for EN 1992-1-2
     // member-type table selector (the seam Classification.Code is the IFC entity class, not the PredefinedType sub-type);
     // an absent Object or unrecognised class reads the conservative beam table.
     static string MemberClass(ElementGraph graph, NodeId id) => graph.Find<Node.Object>(id).Map(static o => o.Classification.Code).IfNone("");
 
-    // The member section off the seam's Op-free SectionOf accessor (the M7-baked read off the member's ProfileSet, no
+    // Member section reads seam Op-free SectionOf from the M7-baked ProfileSet, with no
     // Bake): a member with no resolved section rails the typed fault. The seam owns the section read, so this runner
     // composes it one-hop rather than re-deriving the match locally, the same read Analysis/structural takes.
     static Fin<SectionProperties> MemberSection(ElementGraph graph, NodeId id) =>
         graph.SectionOf(id).ToFin(Missing($"<fire-member-section-unresolved:{id.Value}>"));
 
+    // Exposure side count governs section factor: a 3-sided exposure (a beam under a slab, the External
+    // row) shields the top flange, so the exposed perimeter drops by the section width — Am/V reads the EXPOSED
+    // perimeter, never the full heated perimeter regardless of exposure (the decorative-Sides defect this deletes).
+    static double ExposedPerimeter(SectionProperties section, FireExposure exposure) =>
+        exposure.Sides >= 4 ? section.HeatedPerimeter.Si : Math.Max(section.HeatedPerimeter.Si - (4 - exposure.Sides) * section.Width.Si, section.Width.Si);
+
     static Fin<(Seq<AssessmentFact> Facts, double Governing)> SteelFire(SectionProperties section, AssessmentRequest.Fire request, NodeId id, (Seq<AssessmentFact> Facts, double Governing) state) {
-        double sectionFactor = section.HeatedPerimeter.Si / Math.Max(section.Area.Si, double.Epsilon);
+        double sectionFactor = ExposedPerimeter(section, request.Exposure) / Math.Max(section.Area.Si, double.Epsilon);
         double criticalTempC = CriticalTemperature(request.Utilization);
         double cap = request.RequiredMinutes + CapMarginMinutes;
         SteelFireState march = March(request.Exposure, sectionFactor, criticalTempC, cap);
@@ -412,7 +453,7 @@ public static partial class BuildingPhysics {
                 Governing: Math.Max(state.Governing, request.RequiredMinutes / Math.Max(achieved, double.Epsilon)));
     }
 
-    // The EN 1993-1-2 §4.2.5.1 unprotected-steel march: a genuine forward integration of the net convective+radiative
+    // EN 1993-1-2 §4.2.5.1 unprotected-steel march integrates net convective+radiative
     // flux over the section factor with the temperature-dependent specific heat c_a(theta_a) (the 735 C latent-heat
     // spike delays heating) and the exposure's convection coefficient + gas curve; never a tabulated approximation.
     static SteelFireState March(FireExposure exposure, double sectionFactor, double criticalTempC, double capMinutes) {
@@ -447,9 +488,9 @@ public static partial class BuildingPhysics {
     static Fin<(Seq<AssessmentFact> Facts, double Governing)> ConcreteFire(SectionProperties section, string memberClass, AssessmentRequest.Fire request, NodeId id, (Seq<AssessmentFact> Facts, double Governing) state) {
         (double MinDimM, double AxisDistanceM) limits = ConcreteFireLimits(memberClass, request.RequiredMinutes);
         double leastM = section.LeastDimension.Si, axisM = section.AxisDistance.Si;
-        // The full EN 1992-1-2 tabulated method: BOTH the minimum cross-section dimension AND the axis distance
+        // EN 1992-1-2 tabulated method checks both minimum cross-section dimension and axis distance
         // (cover-to-reinforcement) must meet the required-rating row, so the achieved resistance is the WORSE-governed of
-        // the two — an otherwise-adequate section with thin cover still governs, the GOVERNING criterion the prior
+        // Worse ratio governs, so an otherwise adequate section with thin cover still fails the criterion the prior
         // minimum-dimension-only check could not reach.
         double dimAchieved  = leastM >= limits.MinDimM ? request.RequiredMinutes : request.RequiredMinutes * leastM / Math.Max(limits.MinDimM, double.Epsilon);
         double axisAchieved = axisM >= limits.AxisDistanceM ? request.RequiredMinutes : request.RequiredMinutes * axisM / Math.Max(limits.AxisDistanceM, double.Epsilon);
@@ -468,12 +509,12 @@ public static partial class BuildingPhysics {
                 Governing: Math.Max(state.Governing, request.RequiredMinutes / Math.Max(achieved, double.Epsilon)));
     }
 
-    // The EN 1992-1-2 (min cross-section dimension, min axis distance) pair for the required rating and member type: the
+    // EN 1992-1-2 pair carries minimum section dimension and axis distance for the required rating and member type;
     // first band whose threshold covers the requirement, else the top band; an unrecognised class reads the conservative
     // beam table — a member-type-keyed frozen-table lookup, never a ternary cascade.
     static (double MinDimM, double AxisDistanceM) ConcreteFireLimits(string memberClass, double requiredMinutes) {
         (double Minutes, double MinDimM, double AxisDistanceM)[] table = ConcreteFireTable.GetValueOrDefault(memberClass, ConcreteFireTable["IfcBeam"]);
-        var row = table.FirstOrDefault(r => r.Minutes >= requiredMinutes, table[^1]);
+        (double Minutes, double MinDimM, double AxisDistanceM) row = table.FirstOrDefault(r => r.Minutes >= requiredMinutes, table[^1]);
         return (row.MinDimM, row.AxisDistanceM);
     }
 }

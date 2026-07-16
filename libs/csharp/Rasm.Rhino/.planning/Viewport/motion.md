@@ -1,16 +1,16 @@
 # [RASM_RHINO_MOTION]
 
-The host motion-pacing adapter (`Rasm.Rhino.Viewport`). Every temporal number is kernel-owned — `Easing` curves, `CyclePlan` repeat/yoyo phases, `SpringShape` damped-spring evaluation and stepping, `PerceptualColor` tween sampling all arrive from `Rasm.Parametric` and `Rasm.Numerics` — and this page owns only what a host can own: where a frame lands (`RedrawTarget` rows over view, document, overlay-scoped viewport, and Eto canvas invalidation), what clock paces it (`FrameClock` rows over the macOS `CADisplayLink` vsync driver built from `NSScreen.GetDisplayLink`, the portable `Eto.Forms.UITimer`, and the `RhinoApp.Idle` fallback), which accessibility and screen facts gate it (`MotionGate` over the `NSWorkspace` reduce-motion family, `FrameRatePolicy` bounded by `NSScreen.MaximumFramesPerSecond`, re-bound on `ObserveDidChangeScreenParameters`), and the `MotionPump` that folds clock ticks through a kernel-sampled script into one consumer apply plus one redraw. Frame advance reads the display link's `TargetTimestamp` — never wall clock — and the census-era in-folder easing catalogue, spring integrator, Oklab conversion, and cycle arithmetic are dead by composition.
+The host motion-pacing adapter (`Rasm.Rhino.Viewport`). Every temporal number is kernel-owned — `Easing` curves, `CyclePlan` repeat/yoyo phases, `SpringShape` damped-spring evaluation and stepping, `PerceptualColor` tween sampling all arrive from `Rasm.Parametric` and `Rasm.Numerics` — and this page owns only what a host can own: where a frame lands (`RedrawTarget` rows over view, document, and Eto canvas invalidation), what clock paces it (`FrameClock` rows over the macOS `CADisplayLink` vsync driver built from `NSScreen.GetDisplayLink`, the portable `Eto.Forms.UITimer`, and the `RhinoApp.Idle` fallback), which accessibility and screen facts gate it (`MotionGate` over the `NSWorkspace` reduce-motion family, `FrameRatePolicy` bounded by `NSScreen.MaximumFramesPerSecond`, re-bound on `ObserveDidChangeScreenParameters`), and the `MotionPump` that folds clock ticks through a kernel-sampled script into one consumer apply plus one redraw. Frame advance reads the display link's `TargetTimestamp` — never wall clock — and the census-era in-folder easing catalogue, spring integrator, Oklab conversion, and cycle arithmetic are dead by composition.
 
 ## [01]-[INDEX]
 
-- [02]-[REDRAW_TARGETS]: `RedrawTarget` — the four frame-landing rows and their one invalidation dispatch.
+- [02]-[REDRAW_TARGETS]: `RedrawTarget` — the frame-landing rows and their one invalidation dispatch.
 - [03]-[CLOCKS_AND_GATES]: `FrameClock` rows, `FrameRatePolicy`, `MotionGate` accessibility state, and the macOS display-link pacer with screen-parameter rebinding.
 - [04]-[PUMP]: `MotionScript` the kernel-sampled timeline, `MotionSample`, the `MotionPump` drive fold with retargeting, and the reduced-motion collapse.
 
 ## [02]-[REDRAW_TARGETS]
 
-- Owner: `RedrawTarget` `[Union]` — where an advanced frame becomes pixels: `ViewCase(ViewportTarget)` redrawing the addressed view through `RhinoView.Redraw`, `DocumentCase` redrawing every view through `RhinoDoc.Views.Redraw`, `OverlayCase(ViewportTarget)` redrawing the conduit-bound viewport's view (the same host call scoped by the conduit's binding, so an overlay animation invalidates only its participant), and `CanvasCase(Action)` invoking an Eto canvas invalidation callback — the canvas owner hands its own `Drawable.Invalidate` closure, so this page never references the Eto control tree.
+- Owner: `RedrawTarget` `[Union]` — where an advanced frame becomes pixels: `ViewCase(ViewportTarget)` redrawing the addressed view through `RhinoView.Redraw` — a conduit-bound overlay animation lands here too, addressing its participant viewport, because the host repaints per view and a distinct overlay case would wear the identical call — `DocumentCase` redrawing every view through `RhinoDoc.Views.Redraw`, and `CanvasCase(Action)` invoking an Eto canvas invalidation callback — the canvas owner hands its own `Drawable.Invalidate` closure, so this page never references the Eto control tree.
 - Entry: `Invalidate(DocumentSession, Op) : Fin<Unit>` — the one dispatch; view-addressed rows resolve through the `ViewportLease` per invalidation so a closed view refuses instead of redrawing a dead handle.
 - Law: a target is data on the drive, never a branch in the tick body — the pump invalidates whatever row it holds, and adding a landing surface is one case with the pump untouched.
 - Boundary: invalidation requests a repaint and returns; paint itself happens on the host's draw pass — a target that blocks until pixels land inverts the host contract and is unrepresentable here.
@@ -24,6 +24,7 @@ using Rasm.Domain;
 using Rasm.Numerics;
 using Rasm.Parametric;
 using Rasm.Rhino.Document;
+using Rasm.Rhino.HostUi;
 
 namespace Rasm.Rhino.Viewport;
 
@@ -33,23 +34,19 @@ public abstract partial record RedrawTarget {
     private RedrawTarget() { }
     public sealed record ViewCase(ViewportTarget Target) : RedrawTarget;
     public sealed record DocumentCase : RedrawTarget;
-    public sealed record OverlayCase(ViewportTarget Target) : RedrawTarget;
     public sealed record CanvasCase(Action Invalidate) : RedrawTarget;
 
     internal Fin<Unit> Invalidate(DocumentSession session, Op key) =>
         Switch(
             state: (Session: session, Op: key),
-            viewCase: static (ctx, target) => Redraw(session: ctx.Session, target: target.Target, key: ctx.Op),
-            documentCase: static (ctx, _) => ctx.Session.Demand(
-                use: static document => Fin.Succ(value: new Borrowed<Unit>(Value: Op.Side(document.Views.Redraw))),
-                key: ctx.Op,
-                needs: [SessionNeed.Redraw]).Map(static carried => carried.Value),
-            overlayCase: static (ctx, target) => Redraw(session: ctx.Session, target: target.Target, key: ctx.Op),
+            viewCase: static (ctx, target) => ViewportLease.Of(session: ctx.Session, target: target.Target, key: ctx.Op)
+                .Bind(lease => lease.Use(borrow: static row => Fin.Succ(value: Op.Side(row.View.Redraw)), key: ctx.Op)),
+            documentCase: static (ctx, _) => HostThread.OnSession(
+                session: ctx.Session,
+                body: static document => Fin.Succ(value: Op.Side(document.Views.Redraw)),
+                op: ctx.Op,
+                needs: [SessionNeed.Redraw]),
             canvasCase: static (ctx, canvas) => ctx.Op.Catch(() => Fin.Succ(value: Op.Side(canvas.Invalidate))));
-
-    private static Fin<Unit> Redraw(DocumentSession session, ViewportTarget target, Op key) =>
-        ViewportLease.Of(session: session, target: target, key: key)
-            .Bind(lease => lease.Use(borrow: static row => Fin.Succ(value: Op.Side(row.View.Redraw)), key: key));
 }
 ```
 
@@ -57,7 +54,7 @@ public abstract partial record RedrawTarget {
 
 - Owner: `FrameClock` `[Union]` — the pacing rows: `DisplayLinkCase(Option<FrameRatePolicy>)` the macOS vsync driver, `TimerCase(double)` the portable `Eto.Forms.UITimer` interval driver, `IdleCase` the `RhinoApp.Idle` opportunistic driver. `FrameRatePolicy` — a `(Min, Max, Preferred)` value the macOS edge mints into `CAFrameRateRange.Create(minimum:, maximum:, preferred:)`, its ceiling read from `NSScreen.MaximumFramesPerSecond`. `MotionGate` — the accessibility fact read once per drive start from `NSWorkspace.SharedWorkspace`: `AccessibilityDisplayShouldReduceMotion` plus the increase-contrast, differentiate-without-color, and reduce-transparency siblings; off-macOS every gate reads permissive. `FrameTick` — the per-frame fact: the driver's timestamp seconds and the derived delta.
 - Entry: `FrameClock.Resolve(Option<FrameRatePolicy>)` selects the strongest available row — display link where the process is macOS and a key-window or main screen is reachable, else the timer at the policy's preferred rate — with `IdleCase` as the explicit opt-in for background-tolerant drives; `Start(onTick, Op) : Fin<IDisposable>` runs the row and the disposer detaches it.
-- Law: the display link is built from the SCREEN — `NSScreen.GetDisplayLink(target, selector)` reached through `NSView.Window.Screen` — and its callback advances on `CADisplayLink.TargetTimestamp`, the next presentation time; a wall-clock read inside a vsync tick double-advances across rebinds and is the deleted form.
+- Law: the display link is built from the SCREEN — `NSScreen.GetDisplayLink(target, selector)` on the key window's screen with `NSScreen.MainScreen` as the windowless fallback — and its callback advances on `CADisplayLink.TargetTimestamp`, the next presentation time; a wall-clock read inside a vsync tick double-advances across rebinds and is the deleted form.
 - Law: the link lifecycle is create → `AddToRunLoop(NSRunLoop.Main, NSRunLoopMode.Common)` → `Paused` toggling → `Invalidate` — an invalidated link is dead and rebuilt, never resumed; `ObserveDidChangeScreenParameters` fires on display reconfiguration and the pacer re-reads `MaximumFramesPerSecond` and rebinds the link, so a monitor swap re-rates a running animation instead of orphaning it.
 - Law: tick delivery is already on the UI loop for every row — the display link attaches to the main run loop, `UITimer.Elapsed` raises on the UI thread, and `RhinoApp.Idle` is main-thread by contract — so the pump body never marshals.
 - Law: the timer and idle rows derive every elapsed interval through one kernel `MonotonicTimeline` beat chain per drive — `Capture` seeds the origin, `Beat` advances ordinal, elapsed, and delta evidence — so no clock row reads or subtracts raw provider timestamps; the display-link row alone reads `TargetTimestamp`, the host's own presentation clock.
@@ -94,7 +91,7 @@ public abstract partial record FrameClock {
     private const double DefaultHertz = 60.0;
 
     public static FrameClock Resolve(Option<FrameRatePolicy> rate = default) =>
-        MacPacer.ScreenReachable
+        OperatingSystem.IsMacOS() && MacPacer.ScreenReachable
             ? new DisplayLinkCase(Rate: rate)
             : new TimerCase(IntervalSeconds: 1.0 / rate.Match(Some: static policy => (double)policy.Preferred, None: static () => DefaultHertz));
 
@@ -146,10 +143,12 @@ internal sealed class MacPacer : NSObject {
     private NSObject? screenObserver;
     private double last = double.NaN;
 
-    private MacPacer(Action<FrameTick> onTick, Option<FrameRatePolicy> rate, CADisplayLink link) {
+    private MacPacer(Action<FrameTick> onTick, Option<FrameRatePolicy> rate, NSScreen screen) {
         this.onTick = onTick;
         this.rate = rate;
-        this.link = link;
+        link = Configured(link: screen.GetDisplayLink(this, TickSelector), screen: screen);
+        link.AddToRunLoop(NSRunLoop.Main, NSRunLoopMode.Common);
+        screenObserver = NSApplication.Notifications.ObserveDidChangeScreenParameters((_, _) => Rebind());
     }
 
     internal static bool ScreenReachable =>
@@ -158,14 +157,7 @@ internal sealed class MacPacer : NSObject {
     internal static Fin<IDisposable> Start(Option<FrameRatePolicy> rate, Action<FrameTick> onTick, Op key) =>
         from _ in guard(OperatingSystem.IsMacOS(), key.MissingContext()).ToFin()
         from screen in Optional(NSApplication.SharedApplication.KeyWindow?.Screen ?? NSScreen.MainScreen).ToFin(Fail: key.MissingContext())
-        from pacer in key.Catch(() => {
-            MacPacer built = null!;
-            CADisplayLink bound = screen.GetDisplayLink(built = new MacPacer(onTick: onTick, rate: rate, link: null!), TickSelector);
-            built.link = built.Configured(link: bound, screen: screen);
-            built.link.AddToRunLoop(NSRunLoop.Main, NSRunLoopMode.Common);
-            built.screenObserver = NSApplication.Notifications.ObserveDidChangeScreenParameters((_, _) => built.Rebind());
-            return Fin.Succ<IDisposable>(built);
-        })
+        from pacer in key.Catch(() => Fin.Succ<IDisposable>(new MacPacer(onTick: onTick, rate: rate, screen: screen)))
         select pacer;
 
     [Export("pacerTick:")]

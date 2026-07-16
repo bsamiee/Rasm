@@ -165,12 +165,15 @@ GraphicsPath.Clone()
 - namespace: `Eto.Drawing`
 - rail: paint
 
-| [INDEX] | [SURFACE]                                                                      | [CALL_SHAPE]        | [CAPABILITY]                     |
-| :-----: | :----------------------------------------------------------------------------- | :------------------ | :------------------------------- |
-|  [01]   | `Matrix.Create(float xx, float yx, float xy, float yy, float x0, float y0)`    | factory → `IMatrix` | builds an explicit affine matrix |
-|  [02]   | `Matrix.FromRotation(float angle)`                                             | factory → `IMatrix` | rotation matrix                  |
-|  [03]   | `Matrix.FromScaleAt(float scaleX, float scaleY, float centerX, float centerY)` | factory → `IMatrix` | scale-about-point matrix         |
-|  [04]   | `Matrix.Inverse(IMatrix matrix)`                                               | factory → `IMatrix` | inverse of a matrix              |
+| [INDEX] | [SURFACE]                                                                      | [CALL_SHAPE]         | [CAPABILITY]                     |
+| :-----: | :----------------------------------------------------------------------------- | :------------------- | :------------------------------- |
+|  [01]   | `Matrix.Create()`                                                              | factory → `IMatrix`  | identity matrix                  |
+|  [02]   | `Matrix.Create(float xx, float yx, float xy, float yy, float x0, float y0)`    | factory → `IMatrix`  | builds an explicit affine matrix |
+|  [03]   | `Matrix.FromTranslation(float distanceX, float distanceY)`                     | factory → `IMatrix`  | translation matrix               |
+|  [04]   | `Matrix.FromRotation(float angle)`                                             | factory → `IMatrix`  | rotation matrix                  |
+|  [05]   | `Matrix.FromScaleAt(float scaleX, float scaleY, float centerX, float centerY)` | factory → `IMatrix`  | scale-about-point matrix         |
+|  [06]   | `Matrix.Inverse(IMatrix matrix)`                                               | factory → `IMatrix`  | inverse of a matrix              |
+|  [07]   | `IMatrix.TransformPoint(PointF point)`                                         | instance → `PointF`  | maps a point through the matrix  |
 
 [ENTRYPOINT_SCOPE]: colour, brushes, bitmaps, and system fonts
 - namespace: `Eto.Drawing`

@@ -1,8 +1,8 @@
 # [COMPUTE_STRUCTURAL]
 
-Rasm.Compute structural-analysis runner owns the `Discipline.Structural` arm of the `Analysis/assessment` spine. It reads the concrete `Rasm.Element` `ElementGraph` directly (member `Node.Object` axes, the M7-resolved `SectionProperties`, the seam `MaterialPropertySet.Mechanical` strengths, the projected structural-connection/activity edges), folds them into one `FrameModel` idealization, solves it over the owned frame spine — the `Solver/contract#SOLVE_CONTRACT` `SolveLane` scattering the `Solver/discretization#DISCRETIZATION_MESH` frame `ElementClass` rows' closed-form 12-DOF member blocks (releases/rigid-end offsets/semi-rigid springs as row behavior), factored through the one shared `Tensor/factor#SPARSE_SOLVE` `SparseLU` owner — recovers the per-combination `MemberResponse` envelope, runs the hand-rolled design-code checks off a `(DesignCode, LimitState)` capacity table of real family-specific delegates (every structural family carrying both its US and its Eurocode route), and returns the governing utilization as one `AssessmentResult` fact stream.
+Rasm.Compute structural-analysis runner owns the `Discipline.Structural` arm of the `Analysis/assessment` spine. It reads the concrete `Rasm.Element` `ElementGraph` directly (member `Node.Object` axes, the M7-resolved `SectionProperties`, the seam `MaterialPropertySet.Mechanical` strengths, the projected structural-connection/activity edges), folds them into one `FrameModel` idealization, solves it over the owned frame spine — the `Solver/contract#SOLVE_CONTRACT` `SolveLane` scattering the `Solver/discretization#DISCRETIZATION_MESH` frame `ElementClass` rows' closed-form 12-DOF member blocks (releases/rigid-end offsets/semi-rigid springs as row behavior), factored through `Tensor/factor#SPARSE_SOLVE` as `FactorKind.Spd` under `SolvePolicy.CanonicalStatic` — recovers the per-combination `MemberResponse` envelope, runs the hand-rolled design-code checks off a `(DesignCode, LimitState)` capacity table of real family-specific delegates (every structural family carrying both its US and its Eurocode route), and returns the governing utilization as one `AssessmentResult` fact stream.
 
-Section properties resolve once upstream — the `VividOrange`-backed `ProfileRef`→section resolution (M7) runs in the `Rasm.Materials` projector and bakes onto the `ProfileSet` composition, so this consumer reads the resolved `SectionProperties` off the graph and Compute admits no VividOrange (one owner, in Materials). FE library work is assembler and solver only: the frame path injects the Rasm `RasmSolverFactory` CSparse-`SparseLU` adapter via `Solve(ISolverFactory)` and never loads a bundled `DenseLU` (binary-incompatible with the unified CSparse pin), code-checking is hand-rolled here, and continuum multi-physics is the `SolveLane` this runner never re-derives. Buckling, lateral-torsional buckling, and deflection are real — the column/LTB capacity reads the member's unbraced length and end-fixity-derived effective-length factor, and the deflection check reads the FE displacement envelope, no placeholder curve, no constant knockdown, no `0.0` sentinel.
+Section properties resolve once upstream — the `VividOrange`-backed `ProfileRef`→section resolution (M7) runs in the `Rasm.Materials` projector and bakes onto the `ProfileSet` composition, so this consumer reads the resolved `SectionProperties` off the graph and Compute admits no VividOrange. Frame assembly enters the shared `SolveLane`; `SolvePolicy.CanonicalStatic` selects `FactorKind.Spd` through `SparseOps.Factor`, while the seismic route selects the `ArpackShiftInvert` row. Buckling, lateral-torsional buckling, and deflection read the member's unbraced length, end-fixity-derived effective-length factor, and FE displacement envelope.
 
 ## [01]-[INDEX]
 
@@ -23,7 +23,7 @@ Section properties resolve once upstream — the `VividOrange`-backed `ProfileRe
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
 
-// The per-member applied action — one polymorphic load both backends map through their total Switch: a Point at a
+// Per-member applied action is one polymorphic load mapped through a total Switch: a Point at a
 // span fraction, a Uniform force-per-length, a Trapezoid linearly varying end-to-end. A new action kind is one case.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record MemberLoad {
@@ -68,14 +68,16 @@ public readonly record struct MemberSupport(
     public bool RotationallyFixed => Rx && Ry && Rz;
 }
 
-public sealed record LoadCombinationSpec(string Label, FrozenDictionary<StructuralCase, double> Factors);
+public sealed record LoadCombinationSpec(string Label, FrozenDictionary<StructuralCase, double> Factors) {
+    // Seismic unit combination carries zero action factors because modal solve reads mass and stiffness, so the
+    // lowering hands it a zero-action spec — the one static row RunSeismic threads, never a caller obligation.
+    public static readonly LoadCombinationSpec SeismicUnit = new("seismic-unit", FrozenDictionary<StructuralCase, double>.Empty);
+}
 
-// Backend + serviceability + sampling policy. Exactly three fields — Analysis/assessment CanonicalBytes folds
-// Backend.Key/DeflectionLimitRatio/StationCount, so adding a field here without folding it there would collide two
-// analyses in the content-keyed cache; the effective-length factor and unbraced length are DERIVED from the member's
-// end fixity and span (real engineering), never a free policy knob that would silently bypass the key.
-// Formulation selects the owned frame ElementClass row (Analysis/assessment content-keys Formulation.Key —
-// the result-determining discriminant the retired backend axis carried); StirrupSpacing and CotTheta are the
+// Structural policy carries frame formulation, serviceability, sampling, and RC shear inputs; AssessmentRequest.CanonicalBytes
+// folds every field, while effective-length factor and unbraced length derive from member fixity and span.
+// Formulation selects the owned frame ElementClass row; SolverBackend was deleted because Formulation carries its discriminant.
+// StirrupSpacing and CotTheta are the
 // V_Rd,s member-scope inputs the EN 1992 truss pairing reads (the Materials capacity owner defers them by
 // design — a section does not carry its stirrup spacing): spacing 0 marks the linkless arm, cot(θ) defaults
 // 2.5 matching the Materials V_Rd,max ceiling so the pair is consistent by construction.
@@ -99,7 +101,7 @@ public sealed record StructuralMember(
     }
 }
 
-public sealed record FrameModel(Seq<StructuralMember> Members, Seq<LoadCombinationSpec> Combinations, StructuralPolicy Policy) {
+public sealed record FrameModel(Seq<StructuralMember> Members, Seq<LoadCombinationSpec> Combinations, StructuralPolicy Policy, double JointTolerance) {
     public bool Planar => Members.IsEmpty || Members.ForAll(m => m.Axis.Coplanar(Members.Head.Axis.Start.Z));
 }
 
@@ -112,31 +114,31 @@ public static partial class StructuralAnalysis {
                 from axis     in graph.AxisOf(id, geometry)
                 from strength in graph.PropertiesOf(id).Mechanical.ToFin(MissingInput(id, "mechanical"))
                 from section  in graph.SectionOf(id).ToFin(MissingInput(id, "section"))
-                // The realized seam Orthotropic case (Composition/material#MATERIAL_PROPERTY, same Discipline.Structural,
+                // Realized seam Orthotropic case (Composition/material#MATERIAL_PROPERTY, same Discipline.Structural,
                 // discriminated by case TYPE) — an OPTIONAL directional-stiffness refinement read off the seam graph via
-                // the ergonomic props.Orthotropic; a directional material (timber along/across grain) carries its
+                // `props.Orthotropic` exposes directional material moduli for timber along/across grain and carries its
                 // independent G ≈ E0/16 here, an isotropic member carries None and the EC5 LTB falls back to the derived
-                // Mechanical shear. The isotropic Mechanical stays REQUIRED (every member has one E/ν the family hint and
-                // the FE constitutive model read); the Orthotropic is the §6.3.3 shear-stiffness input the seam now exposes.
+                // Mechanical shear. Isotropic Mechanical stays required for E/ν and family classification; Orthotropic
+                // supplies the independent §6.3.3 shear-stiffness refinement.
                 let directional = graph.PropertiesOf(id).Orthotropic
                 let family     = MaterialFamily.Classify(strength)
                 let selfWeight = new MemberLoad.Uniform(StructuralCase.Dead,
                     new Vector3(0d, 0d, -(section.Area.Si * strength.Density.Si * StandardGravity)))
                 select members.Add(new StructuralMember(
                     id, axis, section, strength, directional, family, graph.LoadsOf(id).Add(selfWeight), graph.SupportsOf(id)))))
-            .Map(members => new FrameModel(members, request.Combinations, request.Policy));
+            .Map(members => new FrameModel(members, request.Combinations, request.Policy, graph.Header.Tolerance));
 
     static Error MissingInput(NodeId id, string what) =>
         new ComputeFault.AssessmentInputMissing($"<member-missing-{what}:{id.Value}>");
 }
 
 // --- [BOUNDARIES] --------------------------------------------------------------------------
-// The Compute-OWNED discipline graph reads — extensions on the seam ElementGraph composing the seam no-Op primitives
+// Compute-owned discipline graph reads extend ElementGraph through seam no-Op primitives
 // (MaterialsOf/PropertiesOf(id).Mechanical/Find/EdgesAt) and the projected neutral Generic structural edges by wire-name, the same
 // shape Analysis/energy's EnergyGraphReads takes. The seam owns the material/section/mechanical reads (it owns those
 // nodes) and the GeometrySource decode CONTRACT; the discipline physics — axis interpretation, 6-DOF restraints,
 // applied actions — lives here, never in the seam. AxisOf resolves the analytical line ONE-HOP by content key through
-// the threaded GeometrySource port (off member.Representations.Axis, never a phantom node field), and AxisCurve.Length/
+// GeometrySource resolves member.Representations.Axis rather than a phantom node field, and AxisCurve.Length/
 // Coplanar fold that resolved line the runner reasons over in double precision.
 public static class StructuralReads {
     const string ConnectsMember   = "IfcRelConnectsStructuralMember";
@@ -144,7 +146,7 @@ public static class StructuralReads {
 
     public static bool Coplanar(this AxisCurve a, double z) => Math.Abs(a.Start.Z - z) < 1e-6 && Math.Abs(a.End.Z - z) < 1e-6;
 
-    // The idealized analytical line resolved ONE-HOP by content key through the seam GeometrySource port — the Object node
+    // Idealized analytical line resolves one hop by content key through GeometrySource — the Object node
     // carries NO inline Axis coordinate (the seam carries only `member.Representations.Axis`, an Option<UInt128> content key
     // into the blob store), so the runner reads the member's Object node, pulls its `Representations.Axis` key, and decodes
     // it to an AxisCurve through the app-wired resolver — never a phantom node field. A member with no Object node, no Axis
@@ -161,8 +163,8 @@ public static class StructuralReads {
             ? Some(new MemberSupport(g.Related, Flag(g, StructuralAnalysis.WireAtStart),
                 Fix(g, "TranslationX"), Fix(g, "TranslationY"), Fix(g, "TranslationZ"),
                 Fix(g, "RotationX"), Fix(g, "RotationY"), Fix(g, "RotationZ"),
-                new Vector3((float)Si(g, "TranslationKx"), (float)Si(g, "TranslationKy"), (float)Si(g, "TranslationKz")),
-                new Vector3((float)Si(g, "RotationKx"), (float)Si(g, "RotationKy"), (float)Si(g, "RotationKz")),
+                new Vector3(Si(g, "TranslationKx"), Si(g, "TranslationKy"), Si(g, "TranslationKz")),
+                new Vector3(Si(g, "RotationKx"), Si(g, "RotationKy"), Si(g, "RotationKz")),
                 Opt(g, "RestraintAxisX").Map(_ => (Vec(g, "RestraintAxis"), Vec(g, "RestraintRef"))).ToNullable()))
             : None).ToSeq();
 
@@ -202,7 +204,7 @@ public static class StructuralReads {
     static double Si(Relationship.Generic g, string key) =>
         g.Attributes.Find(PropertyName.Create(key)).Map(static v => v is PropertyValue.Measure m ? m.Value.Si : 0.0).IfNone(0.0);
 
-    // The presence-preserving read: None when the attr is absent, Some(si) when present — 0.0 stays a real value.
+    // Presence-preserving read returns None for an absent attribute and Some(si) for a present value, including 0.0.
     static Option<double> Opt(Relationship.Generic g, string key) =>
         g.Attributes.Find(PropertyName.Create(key)).Bind(static v => v is PropertyValue.Measure m ? Some(m.Value.Si) : None);
 }
@@ -211,15 +213,15 @@ public static class StructuralReads {
 ## [03]-[FRAME_BACKEND]
 
 - Owner: the `Solve` owned-spine route — `FrameModel` lowers onto the `Solver/contract#SOLVE_CONTRACT` `SolveLane` over the `Solver/discretization#DISCRETIZATION_MESH` frame `ElementClass` rows (`beam2-euler`/`beam2-timoshenko`, the `StructuralPolicy.Formulation` column), so the structural lane assembles and factors through the same CSparse owner the continuum lane holds, the owned rows carrying end releases by static condensation, rigid-end offsets by eccentricity transform, and semi-rigid end springs as row behavior; `SectionDemand` the per-combination internal-force envelope; `MemberResponse` the demand-plus-deflection carrier every limit state reads; `FrameLowering` the model→mesh projection (shared joints merged by tolerance-quantized coordinate, per-member `FrameMember` section/release/offset rows off the seam `SectionProperties` and the declared supports, per-member `(E, ν)` on `MaterialField.PerCell`, member loads lowered to fixed-end equivalent nodal actions); `StationRecovery` the per-member station fold off the solved displacement field.
-- Entry: `static Fin<FrozenDictionary<NodeId, MemberResponse>> Solve(FrameModel model)` — lowers the model once, then per `LoadCombinationSpec` scales the case actions, solves through `SolveLane.Solve` (the frame arm scattering each member's closed-form 12-DOF block), recovers the worst-station `SectionDemand` plus the worst-station transverse deflection per member, and envelopes across combinations; `Fin<T>` lowers a singular/ill-conditioned factorization onto the typed `ComputeFault.AnalysisFailed(SolvePhase.Solve, FailureKind.Numeric, …)` — deterministic, cached by the spine, never re-run blind — and a member missing its section or support set onto `AnalysisFailed(SolvePhase.Admission, FailureKind.Input, …)`.
+- Entry: `static Fin<FrozenDictionary<NodeId, MemberResponse>> Solve(FrameModel model, ClockPolicy clocks)` — lowers the model once, then per `LoadCombinationSpec` scales the case actions, solves through `SolveLane.Solve` (the frame arm scattering each member's closed-form 12-DOF block), recovers the worst-station `SectionDemand` plus the worst-station transverse deflection per member, and envelopes across combinations; `Fin<T>` lowers a singular/ill-conditioned factorization onto the typed `ComputeFault.AnalysisFailed(SolvePhase.Solve, FailureKind.Numeric, …)` — deterministic, cached by the spine, never re-run blind — and a member missing its section or support set onto `AnalysisFailed(SolvePhase.Admission, FailureKind.Input, …)`.
 - Auto: joints merge by tolerance-quantized coordinate (never fragile exact-float `Vector3` equality); each `MemberSupport` lowers to the `BoundaryCondition.Dirichlet` 6-DOF constraint set on its endpoint-resolved shared joint; each `MemberLoad` case lowers through a TOTAL `Switch` to its fixed-end equivalent nodal actions (Point by the closed-form ab²/L² pair, Uniform by wL/2 + wL²/12, Trapezoid by the exact linear-varying closed form — never a flattened uniform average) landing as `Neumann` rows on the member-end DOFs; per-station recovery reads the solved field back through each member's local frame — end displacements gathered and rotated local, local end forces `f = k_l·u_l − f_fixed`, station N/V/M by statics from the end forces plus the span-load particular terms (exact for the three load kinds), station transverse deflection by the Hermite end-displacement interpolation plus the span-load particular deflection — so the `Deflection` limit state is a REAL displacement check, never a 0.0 sentinel.
-- Packages: CSparse (the shared `SparseLU` factorization via `Tensor/factor#SPARSE_SOLVE`, reached through the `Solver/contract` spine), Rasm.Element (project — `SectionProperties`), LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox.
+- Packages: CSparse (shared `SparseCholesky`/`SparseLDL`/`SparseLU`/`SparseQR` family via `Tensor/factor#SPARSE_SOLVE`, selected by `Solver/contract` policy), Rasm.Element (project — `SectionProperties`), LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox.
 - Growth: a new frame formulation is one `ElementClass` frame row (the `Formulation` policy column selects it); a new end condition is a column on `FrameMember` the discretization closed form reads; a new load kind is one `MemberLoad` case plus one fixed-end arm on the total `Switch`; the response envelope is one `MemberResponse` shape the checks read regardless of formulation — a re-admitted external FE backend beside the owned spine is the rejected duplicate-mechanism form, and a `Bfe3DAnalyzer`/`Fealite2DAnalyzer` sibling family stays deleted.
-- Boundary: the frame solve is the `Solver/contract` spine — one `SolveLane`, one CSparse factorization owner, one `MaterialField` elasticity admission — and a hand-rolled stiffness assembler beside it is the rejected form; the member releases/rigid-end offsets/semi-rigid springs are ROW BEHAVIOR on the discretization `ElementClass.Member` closed form (condensation/transform/in-series fold); the local frame orders moments `(T=torsion about x, My/Mz=bending)` and the demand maps `SectionDemand(N, Vy, Vz, My, Mz, T)` off the local end-force vector — never a torsion/bending swap; the planar special case is structural, not a second backend — a coplanar model simply carries zero out-of-plane demand through the same 12-DOF rows; a singular system surfaces as the typed `(Solve, Numeric)` `AnalysisFailed`, never an exception crossing the rail and never an opaque interpolated discriminant.
+- Boundary: the frame solve is the `Solver/contract` spine — one `SolveLane`, one CSparse factorization owner, one `MaterialField` elasticity admission — and a hand-rolled stiffness assembler beside it is the rejected form; the member releases/rigid-end offsets/semi-rigid springs are ROW BEHAVIOR on the discretization `ElementClass.Member` closed form (condensation/transform/in-series fold); the local frame orders moments `(T=torsion about x, My/Mz=bending)` and the demand maps `SectionDemand(N, Vy, Vz, My, Mz, T)` off the local end-force vector — never a torsion/bending swap; the planar special case is structural, not a second backend — a coplanar model carries zero out-of-plane demand through the same 12-DOF rows; a singular system surfaces as the typed `(Solve, Numeric)` `AnalysisFailed`, never an exception crossing the rail and never an opaque interpolated discriminant.
 
 ```csharp signature
 // --- [MODELS] ------------------------------------------------------------------------------
-// The per-combination internal-force envelope — formulation-neutral; each component is the signed worst-magnitude over
+// Per-combination internal-force envelope is formulation-neutral; each component is the signed worst-magnitude over
 // every station and every load combination. A per-component envelope is the conservative member-level bound the codes
 // check; station-correlated interaction is a growth axis the Check fold would take over the same MemberResponse.
 public readonly record struct SectionDemand(double N, double Vy, double Vz, double My, double Mz, double T) {
@@ -239,9 +241,9 @@ public readonly record struct MemberResponse(SectionDemand Demand, double MaxDef
 
 // --- [OPERATIONS] --------------------------------------------------------------------------
 public static partial class StructuralAnalysis {
-    // The owned frame solve over the Solver/contract spine: lower once, solve per combination, recover per
+    // Owned frame solve lowers once, solves per combination, and recovers per
     // station, envelope across combinations — the one spine entry, never a parallel FE engine.
-    public static Fin<FrozenDictionary<NodeId, MemberResponse>> Solve(FrameModel model) =>
+    public static Fin<FrozenDictionary<NodeId, MemberResponse>> Solve(FrameModel model, ClockPolicy clocks) =>
         model.Members.IsEmpty
             ? Fin.Succ(FrozenDictionary<NodeId, MemberResponse>.Empty)
             : FrameLowering.Lower(model).Bind(lowered =>
@@ -249,38 +251,211 @@ public static partial class StructuralAnalysis {
                     Fin.Succ(model.Members.Map(static m => (m.Id, Response: MemberResponse.Zero)).ToFrozenDictionary(static p => p.Id, static p => p.Response)),
                     (acc, combo) => acc.Bind(envelope =>
                         lowered.Problem(combo).Bind(problem =>
-                            SolveLane.Solve(problem, lowered.Mesh, SolvePolicy.CanonicalStatic, default, lowered.Clocks)
+                            SolveLane.Solve(problem, lowered.Mesh, SolvePolicy.CanonicalStatic, clocks)
                                 .MapFail(fault => fault is ComputeFault.ModelRejected reject
                                     ? new ComputeFault.AnalysisFailed(SolvePhase.Solve, FailureKind.Numeric, $"<frame-singular:{combo.Label}:{reject.Message}>")
                                     : fault)
                                 .Map(solution => StationRecovery.Envelope(model, lowered, combo, solution.Field, envelope))))));
 
     // Model -> frame-family DiscreteMesh: joints merged by tolerance-quantized coordinate, one 2-node cell per
-    // member, per-member FrameMember rows (section constants off the seam SectionProperties; releases/offsets/
-    // semi-rigid springs off the declared supports), per-member (E, ν) on MaterialField.PerCell, supports as
-    // 6-DOF Dirichlet rows, member loads as fixed-end equivalent Neumann actions per combination.
-    internal sealed record FrameLowered(DiscreteMesh Mesh, ImmutableArray<FrameMember> Members, MaterialField Field, Func<LoadCombinationSpec, Seq<BoundaryCondition>> Conditions, ClockPolicy Clocks) {
+    // member, per-member FrameMember rows (section constants off the seam SectionProperties; semi-rigid springs
+    // off the declared supports), per-member (E, ν) on MaterialField.PerCell, supports as 6-DOF Dirichlet rows,
+    // member loads as fixed-end equivalent Neumann actions per combination. JointOf/EndJoints carry the joint
+    // resolution the recovery fold re-reads, so lowering and recovery share one coordinate quantization.
+    internal sealed record FrameLowered(DiscreteMesh Mesh, ImmutableArray<FrameMember> Members, MaterialField Field, Func<LoadCombinationSpec, Seq<BoundaryCondition>> Conditions, Func<StructuralMember, (long I, long J)> EndJoints) {
         public Fin<SolveProblem> Problem(LoadCombinationSpec combo) =>
             SolveProblem.Of(PhysicsKind.FeaStatic, Mesh, Conditions(combo), Field, Members);
     }
 
     internal static class FrameLowering {
-        public static Fin<FrameLowered> Lower(FrameModel model) { /* joint merge + cell pack + row build; a
-            member missing section data faults AnalysisFailed(Admission, Input) — the typed admission arm */ }
+        static (long X, long Y, long Z) Quantized(Vector3 point, double quantum) =>
+            ((long)Math.Round(point.X / quantum), (long)Math.Round(point.Y / quantum), (long)Math.Round(point.Z / quantum));
 
-        // Fixed-end equivalent nodal actions per MemberLoad case — the TOTAL Switch: Point by the ab²/L²
-        // closed-form pair, Uniform by (wL/2, wL²/12), Trapezoid by the exact linear-varying form; a flattened
-        // trapezoid-to-uniform average is the deleted form.
-        public static (double[] EndForces, Func<double, double> ParticularMoment, Func<double, double> ParticularDeflection) FixedEnd(MemberLoad load, double length) { /* closed forms */ }
+        public static Fin<FrameLowered> Lower(FrameModel model) =>
+            MaterialField.OfMechanical(model.Members.Map(static m => Some(m.Strength)))
+                .Bind(field => {
+                    (Seq<Vector3> joints, Func<(long, long, long), long> jointOf) = Joints(model);
+                    return Mesh(model, joints, jointOf).Map(mesh => new FrameLowered(
+                        mesh,
+                        [.. model.Members.Map(static m => new FrameMember(
+                            m.Section.Area.Si, m.Section.Iyy.Si, m.Section.Izz.Si, m.Section.J.Si,
+                            SpringYi: SpringAt(m, atStart: true, axisY: true), SpringZi: SpringAt(m, atStart: true, axisY: false),
+                            SpringYj: SpringAt(m, atStart: false, axisY: true), SpringZj: SpringAt(m, atStart: false, axisY: false),
+                            ShearAreaY: m.Section.AvY.Si, ShearAreaZ: m.Section.AvZ.Si))],
+                        field,
+                        combo => Conditions(model, jointOf, combo),
+                        member => (jointOf(Quantized(member.Axis.Start, model.JointTolerance)), jointOf(Quantized(member.Axis.End, model.JointTolerance)))));
+                });
+
+        // Merged joint set quantizes and deduplicates every endpoint; jointOf serves lowering,
+        // Dirichlet rows, and recovery through one coordinate policy.
+        static (Seq<Vector3> Joints, Func<(long, long, long), long> JointOf) Joints(FrameModel model) {
+            (Seq<Vector3> Order, Map<(long, long, long), long> Map) index = model.Members.Bind(static m => Seq(m.Axis.Start, m.Axis.End))
+                .Fold((Order: Seq<Vector3>(), Map: Map<(long, long, long), long>()), (acc, p) =>
+                    acc.Map.ContainsKey(Quantized(p, model.JointTolerance))
+                        ? acc
+                        : (acc.Order.Add(p), acc.Map.Add(Quantized(p, model.JointTolerance), acc.Order.Count)));
+            return (index.Order, key => index.Map.Find(key).IfNone(-1L));
+        }
+
+        // Frame mesh stores joints and one 2-node line cell per member as the FLAT row-major buffers the DiscreteMesh
+        // ReadOnlyMemory<float>/<long> members carry (its NodeTensor/ElementTensor views derive from them — a Tensor<T>
+        // never crosses this ctor). Exemption: the node/connectivity buffer fill is the measured-kernel statement seam.
+        static Fin<DiscreteMesh> Mesh(FrameModel model, Seq<Vector3> joints, Func<(long, long, long), long> jointOf) {
+            float[] nodes = new float[joints.Count * 3];
+            long[] connectivity = new long[model.Members.Count * 2];
+            Vector3[] jointArray = joints.ToArray();
+            for (int i = 0; i < jointArray.Length; i++) { nodes[i * 3] = (float)jointArray[i].X; nodes[i * 3 + 1] = (float)jointArray[i].Y; nodes[i * 3 + 2] = (float)jointArray[i].Z; }
+            StructuralMember[] memberArray = model.Members.ToArray();
+            for (int c = 0; c < memberArray.Length; c++) {
+                connectivity[c * 2] = jointOf(Quantized(memberArray[c].Axis.Start, model.JointTolerance));
+                connectivity[c * 2 + 1] = jointOf(Quantized(memberArray[c].Axis.End, model.JointTolerance));
+            }
+            return Fin.Succ(new DiscreteMesh(model.Policy.Formulation, MeshAlgorithm.Sweep, nodes, connectivity,
+                joints.Count, model.Members.Count, 0, 0, 0, MeshMetric.ScaledJacobian, 1.0, None, default));
+        }
+
+        // Supports lower to per-DOF Dirichlet rows on the endpoint-resolved joint (the declared fixity flags, DOF
+        // slots joint*6 + [ux..rz]); member loads lower per combination to fixed-end equivalent Neumann actions on
+        // Member-end DOFs receive each case scaled by its combination factor.
+        static Seq<BoundaryCondition> Conditions(FrameModel model, Func<(long, long, long), long> jointOf, LoadCombinationSpec combo) =>
+            model.Members.Bind(m => m.Supports.Map(s => {
+                long joint = jointOf(Quantized(s.AtStart ? m.Axis.Start : m.Axis.End, model.JointTolerance));
+                Seq<long> dofs = Seq((s.Dx, 0), (s.Dy, 1), (s.Dz, 2), (s.Rx, 3), (s.Ry, 4), (s.Rz, 5))
+                    .Choose(flag => flag.Item1 ? Some(joint * 6 + flag.Item2) : None);
+                return (BoundaryCondition)new BoundaryCondition.Dirichlet(FieldStation.Nodal, [.. dofs], [.. dofs.Map(static _ => 0.0)]);
+            }))
+            + model.Members.Bind(m => m.Loads
+                .Choose(load => combo.Factors.TryGetValue(CaseArm(load), out double factor)
+                    ? LoadCondition(m, model.JointTolerance, jointOf, load, factor)
+                    : None));
+
+        static Option<BoundaryCondition> LoadCondition(StructuralMember member, double jointTolerance, Func<(long, long, long), long> jointOf, MemberLoad load, double factor) {
+            long i = jointOf(Quantized(member.Axis.Start, jointTolerance)), j = jointOf(Quantized(member.Axis.End, jointTolerance));
+            double[] endForces = Scaled(FixedEnd(load, member.Length).EndForces, factor);
+            return Some<BoundaryCondition>(new BoundaryCondition.Neumann(
+                [i * 6 + 2, i * 6 + 4, j * 6 + 2, j * 6 + 4], endForces));
+        }
+
+        internal static StructuralCase CaseArm(MemberLoad load) => load.Switch(
+            point: static p => p.Case, uniform: static u => u.Case, trapezoid: static t => t.Case);
+
+        static double[] Scaled(double[] forces, double factor) {
+            double[] scaled = new double[forces.Length];
+            TensorPrimitives.Multiply(forces, factor, scaled);
+            return scaled;
+        }
+
+        // Fixed-end equivalent nodal actions per MemberLoad case — the TOTAL Switch: Point by the ab²/L² closed-form
+        // pair, Uniform by (wL/2, wL²/12), Trapezoid by the exact linear-varying form (w1 the start, w2 the end
+        // intensity); a flattened trapezoid-to-uniform average is the deleted form. EndForces packs the transverse
+        // end shears and end moments [Vi, Mi, Vj, Mj]; the particular arrows carry the span-load interior moment and
+        // deflection terms the station recovery adds to the end-force statics — exact for the three load kinds.
+        public static (double[] EndForces, Func<double, double> ParticularMoment, Func<double, double> ParticularDeflection) FixedEnd(MemberLoad load, double length) =>
+            load.Switch(
+                point: p => {
+                    double magnitude = p.Force.Z, a = p.Station * length, b = length - a, l2 = length * length;
+                    double mi = magnitude * a * b * b / l2, mj = -magnitude * a * a * b / l2;
+                    double vi = magnitude * b * b * (length + 2.0 * a) / (l2 * length);
+                    return (new[] { vi, mi, magnitude - vi, mj },
+                        (Func<double, double>)(x => x < a ? 0.0 : -magnitude * (x - a)),
+                        (Func<double, double>)(x => x < a ? 0.0 : magnitude * Math.Pow(x - a, 3) / 6.0));
+                },
+                uniform: u => {
+                    double w = u.ForcePerLength.Z, l2 = length * length;
+                    return (new[] { w * length / 2.0, w * l2 / 12.0, w * length / 2.0, -w * l2 / 12.0 },
+                        (Func<double, double>)(x => -w * x * x / 2.0),
+                        (Func<double, double>)(x => w * Math.Pow(x, 4) / 24.0));
+                },
+                trapezoid: t => {
+                    double w1 = t.Start.Z, w2 = t.End.Z, l2 = length * length;
+                    double vi = length * (7.0 * w1 + 3.0 * w2) / 20.0, vj = length * (3.0 * w1 + 7.0 * w2) / 20.0;
+                    double mi = l2 * (w1 / 20.0 + w2 / 30.0), mj = -l2 * (w1 / 30.0 + w2 / 20.0);
+                    return (new[] { vi, mi, vj, mj },
+                        (Func<double, double>)(x => -(w1 * x * x / 2.0 + (w2 - w1) * x * x * x / (6.0 * length))),
+                        (Func<double, double>)(x => w1 * Math.Pow(x, 4) / 24.0 + (w2 - w1) * Math.Pow(x, 5) / (120.0 * length)));
+                });
+
+        static double SpringAt(StructuralMember m, bool atStart, bool axisY) =>
+            m.Supports.Find(s => s.AtStart == atStart)
+                .Map(s => {
+                    double stiffness = axisY ? s.RotationK.Y : s.RotationK.Z;
+                    return stiffness > 0.0 && double.IsFinite(stiffness) ? stiffness : double.PositiveInfinity;
+                })
+                .IfNone(double.PositiveInfinity);
     }
 
     internal static class StationRecovery {
-        // Per-member station fold off the solved global field: end displacements gathered and rotated local
-        // (the same direction-cosine frame the stiffness used), local end forces f = k_l·u_l − f_fixed, then
-        // station N/V/M by statics from the end forces plus the span-load particular terms and station
-        // transverse deflection by Hermite end-displacement interpolation plus the particular deflection —
-        // exact for the three load kinds, enveloped over StructuralPolicy.StationCount stations.
-        public static FrozenDictionary<NodeId, MemberResponse> Envelope(FrameModel model, FrameLowered lowered, LoadCombinationSpec combo, ReadOnlyMemory<double> field, FrozenDictionary<NodeId, MemberResponse> prior) { /* station march */ }
+        // Per-member station fold off the solved global field: end displacements gathered and rotated local (the
+        // direction-cosine frame the stiffness used), local end forces f = k_l·u_l − f_fixed, station N/V/M by
+        // statics from the end forces plus the span-load particular terms, station transverse deflection by the
+        // Hermite end-displacement interpolation plus the particular deflection — exact for the three load kinds,
+        // enveloped over StructuralPolicy.StationCount stations and across combinations into the prior envelope.
+        public static FrozenDictionary<NodeId, MemberResponse> Envelope(FrameModel model, FrameLowered lowered, LoadCombinationSpec combo, ReadOnlyMemory<double> field, FrozenDictionary<NodeId, MemberResponse> prior) =>
+            Demands(model, lowered, combo, field)
+                .Map(row => (row.Id, Response: prior[row.Id].Max(row.Demand, row.Deflection)))
+                .ToFrozenDictionary(static row => row.Id, static row => row.Response);
+
+        // Per-member recovery kernel serves both static envelope and seismic per-mode demand.
+        // Exemption: the station march over the solved field is the measured-kernel statement seam.
+        public static Seq<(NodeId Id, SectionDemand Demand, double Deflection)> Demands(FrameModel model, FrameLowered lowered, LoadCombinationSpec combo, ReadOnlyMemory<double> field) =>
+            model.Members.Map(member => {
+                (long i, long j) = lowered.EndJoints(member);
+                double length = member.Length;
+                // 6-DOF per joint: [ux, uy, uz, rx, ry, rz] — the transverse local pair (uz, ry) drives the Hermite
+                // deflection; axial and torsion read the end differentials directly.
+                ReadOnlySpan<double> u = field.Span;
+                double uzI = At(u, i, 2), ryI = At(u, i, 4), uzJ = At(u, j, 2), ryJ = At(u, j, 4);
+                double axial = (At(u, j, 0) - At(u, i, 0)) / Math.Max(length, StructuralAnalysis.Eps) * member.Strength.YoungsModulus.Si * member.Section.Area.Si;
+                double torsion = (At(u, j, 3) - At(u, i, 3)) / Math.Max(length, StructuralAnalysis.Eps) * member.Strength.ShearModulus.Si * member.Section.J.Si;
+                Seq<MemberLoad> loads = member.Loads.Filter(load => combo.Factors.ContainsKey(FrameLowering.CaseArm(load)));
+                Seq<(double Factor, (double[] EndForces, Func<double, double> ParticularMoment, Func<double, double> ParticularDeflection) Action)> actions = loads.Map(load =>
+                    (Factor(combo, load), FrameLowering.FixedEnd(load, length)));
+                double startShear = actions.Fold(0.0, static (acc, action) => acc + action.Factor * action.Action.EndForces[0]);
+                double startMoment = actions.Fold(0.0, static (acc, action) => acc + action.Factor * action.Action.EndForces[1]);
+                SectionDemand demand = SectionDemand.Zero;
+                double worstDeflection = 0.0;
+                // Exact fixed-end decomposition uses M(x) = EI·v_h''(x), with the Hermite homogeneous term the joint
+                // displacements drive — the SEISMIC route's whole bending signal) + the fixed-end particular chain
+                // (end reactions + span-load integral); V(x) mirrors with the constant EI·v_h''' term.
+                double ei = member.Strength.YoungsModulus.Si * member.Section.Iyy.Si;
+                for (int s = 0; s < model.Policy.StationCount; s++) {
+                    double x = length * s / Math.Max(model.Policy.StationCount - 1, 1);
+                    double xi = x / Math.Max(length, StructuralAnalysis.Eps);
+                    double homogeneousMoment = ei * HermiteCurvature(uzI, ryI, uzJ, ryJ, xi, length);
+                    double homogeneousShear = ei * HermiteJerk(uzI, ryI, uzJ, ryJ, length);
+                    double shear = homogeneousShear + startShear;
+                    double moment = homogeneousMoment + startMoment + startShear * x
+                        + actions.Fold(0.0, (acc, action) => acc + action.Factor * action.Action.ParticularMoment(x));
+                    double hermite = Hermite(uzI, ryI, uzJ, ryJ, xi, length)
+                        + actions.Fold(0.0, (acc, action) => acc + action.Factor * action.Action.ParticularDeflection(x) / Math.Max(ei, StructuralAnalysis.Eps));
+                    demand = demand.Max(new SectionDemand(axial, shear, 0.0, moment, 0.0, torsion));
+                    worstDeflection = Math.Max(worstDeflection, Math.Abs(hermite));
+                }
+                return (member.Id, demand, worstDeflection);
+            });
+
+        static double At(ReadOnlySpan<double> field, long joint, int dof) =>
+            field[checked((int)(joint * 6 + dof))];
+
+        static double Hermite(double uzI, double ryI, double uzJ, double ryJ, double xi, double length) =>
+            (1.0 - 3.0 * xi * xi + 2.0 * xi * xi * xi) * uzI + length * (xi - 2.0 * xi * xi + xi * xi * xi) * ryI
+            + (3.0 * xi * xi - 2.0 * xi * xi * xi) * uzJ + length * (xi * xi * xi - xi * xi) * ryJ;
+
+        // v''(x): the Hermite basis second derivatives over ξ = x/L — the curvature the homogeneous moment reads.
+        static double HermiteCurvature(double uzI, double ryI, double uzJ, double ryJ, double xi, double length) =>
+            ((-6.0 + 12.0 * xi) * uzI + length * (-4.0 + 6.0 * xi) * ryI
+            + (6.0 - 12.0 * xi) * uzJ + length * (6.0 * xi - 2.0) * ryJ) / Math.Max(length * length, StructuralAnalysis.Eps);
+
+        // v'''(x): constant over the cubic — the homogeneous shear term.
+        static double HermiteJerk(double uzI, double ryI, double uzJ, double ryJ, double length) =>
+            (12.0 * uzI + 6.0 * length * ryI - 12.0 * uzJ + 6.0 * length * ryJ) / Math.Max(length * length * length, StructuralAnalysis.Eps);
+
+        // End-force statics seed from combination-scaled fixed-end shear/moment reactions at the start joint;
+        // span statics then march N/V/M station-by-station with particular terms.
+        static double Factor(LoadCombinationSpec combo, MemberLoad load) =>
+            combo.Factors.TryGetValue(FrameLowering.CaseArm(load), out double factor) ? factor : 0.0;
+
     }
 }
 ```
@@ -318,7 +493,7 @@ public sealed partial class MaterialFamily {
     // ~7..18 GPa for typical f'm) overlaps the Timber and Concrete bands and modulus alone cannot separate them — so a
     // standard masonry member that Classify lands as Timber or Concrete is still assessable under TMS 402 rather than
     // spuriously railing the route's own capacity cells; concrete and timber routes require their own resolvable band.
-    // The steel-band threshold (150 GPa) is the one boundary modulus reliably draws, so a steel code on a non-steel
+    // Steel-band threshold (150 GPa) is the boundary modulus that rejects a steel code on a non-steel
     // member is still rejected.
     public bool Admits(MaterialFamily classified) =>
         this == classified
@@ -378,7 +553,7 @@ public sealed partial class DesignCode {
         Math.Abs(d.N) / Math.Max(c.AxialCompression, Eps) + Math.Abs(d.My) / Math.Max(c.FlexureMajor, Eps);
 }
 
-// The check rows: each carries its demand-component selector and family applicability. Combined/Deflection carry no
+// Check rows carry demand-component selectors and family applicability. Combined/Deflection carry no
 // table cell and no force component — they are folded specially (interaction / FE deflection) in Check.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -403,7 +578,7 @@ public sealed partial class LimitState {
 // Everything a capacity cell reads: the M7-baked section, the seam strength, the design family, the code (for its
 // factors), and the slenderness inputs (member length, unbraced length, end-fixity effective-length factor) — so
 // buckling/LTB are REAL, not a placeholder reduction over a missing length.
-// The seam-baked RC shear-link read: Asw (the link area the Materials capacity screen carries as
+// Seam-baked RC shear-link read uses Asw, the link area the Materials capacity screen carries as
 // ShearLinkAreaMm2), f_ywd (the link design yield), and V_Rd,max (the section-decidable web-crushing
 // ceiling the Materials owner ALONE computes and returns — the ceiling assumes the same cot(θ) the policy
 // row defaults, so the pair is consistent by construction). Materials defers V_Rd,s to this forward member
@@ -418,14 +593,14 @@ public readonly record struct CapacityContext(
         new(m.Section, m.Strength, m.Directional, m.Family, code, m.Length, m.Length, m.EffectiveLengthFactor,
             m.ShearLink, policy.StirrupSpacing, policy.CotTheta);
     public double Slenderness => EffectiveLengthFactor * UnbracedLength / Math.Max(Section.RadiusOfGyrationMinor.Si, StructuralAnalysis.Eps);
-    // The §6.3.3 LTB shear-stiffness datum: the realized seam Orthotropic case's INDEPENDENT in-plane G (timber's
+    // §6.3.3 LTB shear-stiffness reads the realized seam Orthotropic case's independent in-plane G (timber's
     // G ≈ E0/16) when a directional material carries it, the isotropic Mechanical derived G = E/(2(1+ν)) otherwise —
     // so the EC5 lateral-torsional moment reads the directional stiffness off the seam graph, never the ~6× too-stiff
     // isotropic shear for a timber member, while an isotropic member still resolves a finite G.
     public double ShearModulusSi => Directional.Map(static o => o.ShearModulus.Si).IfNone(() => Strength.ShearModulus.Si);
 }
 
-// The three interaction operands the DesignCode.Interaction reads — each an axis capacity (or +inf when its cell is
+// Three interaction operands feed DesignCode.Interaction; each is an axis capacity or +inf when its cell is
 // absent, so the ratio is 0 and the absent action does not constrain the interaction). The axial term uses the
 // compression capacity for both senses (conservative: it is the smaller of tension/compression under buckling).
 public readonly record struct SectionCapacity(double AxialCompression, double FlexureMajor, double FlexureMinor);
@@ -434,8 +609,8 @@ public readonly record struct MemberCheck(NodeId Member, LimitState State, doubl
 
 // --- [OPERATIONS] --------------------------------------------------------------------------
 public static partial class StructuralAnalysis {
-    // The (DesignCode, LimitState) capacity table — the canonical POLICY_VALUES + DERIVED_LOGIC collapse. Each cell is
-    // the GOVERNING formula for that code's material model in SI base units (Pa stress, m^2 area, m^3 modulus, m^4
+    // (DesignCode, LimitState) capacity table collapses policy values with derived logic. Each cell is
+    // governing formula for that code's material model in SI base units (Pa stress, m^2 area, m^3 modulus, m^4
     // inertia -> N / N*m). Absent (code, state) pairs are not-applicable. Steel buckling/LTB read the context
     // slenderness; concrete cells are the PLAIN-section bound (rebar is the Rasm.Materials RC owner's input); AISI
     // cells are the GROSS bound (effective width is the Rasm.Materials cold-formed owner's input).
@@ -496,7 +671,7 @@ public static partial class StructuralAnalysis {
             (("nds", "shear-major"),           static c => (2.0 / 3.0) * c.Strength.YieldStrength.Si * c.Section.Area.Si),
             (("nds", "shear-minor"),           static c => (2.0 / 3.0) * c.Strength.YieldStrength.Si * c.Section.Area.Si),
             // --- EN 1995-1-1 (timber, limit-state, gammaM=1.25) — the EC5 parallel to the NDS rows ---
-            // The EN parallel to the US NDS timber route (the way en1993 parallels aisc360 and en1992 parallels aci318):
+            // EN timber route parallels NDS as en1993 parallels aisc360 and en1992 parallels aci318:
             // design strength = f_k / gammaM (§2.4.1; the k_mod service/duration modifier is a Rasm.Materials TimberDesign
             // input on the graph-baked reference strength, NOT re-derived here — the seam strength is the already-modified
             // reference stress, mirroring the NDS cells' use of YieldStrength). The seam neutral Mechanical carries the
@@ -504,7 +679,7 @@ public static partial class StructuralAnalysis {
             // contract the NDS cells read) and the mean E0 on YoungsModulus; the EN 338/14080 5%-fractile stability modulus
             // E0,05 the §6.3.2 buckling needs is ~0.67·E0,mean for softwood (Ec5E005), so the slender-column and LTB checks
             // read a fractile-correct modulus rather than the mean. Tension is the net-section reference; compression is
-            // the §6.3.2 k_c-reduced reference (Ylinen-shaped EN buckling curve); flexure-major is the §6.3.3 k_crit-reduced
+            // §6.3.2 k_c-reduced reference uses the Ylinen-shaped EN buckling curve; flexure-major is the §6.3.3 k_crit-reduced
             // reference over the elastic modulus; shear is the §6.1.7 k_cr = 0.67 crack-reduced full-area 2/3·f_v·A (the
             // CLT rolling-shear governing a panel is the Rasm.Materials TimberDesign owner's concern, baked into the
             // reference strength upstream — the geometric seam section cannot see the ply layup here).
@@ -519,7 +694,7 @@ public static partial class StructuralAnalysis {
         }.ToFrozenDictionary(static row => row.Key, static row => row.Rule);
 
     static double Capacity(DesignCode code, LimitState state, CapacityContext ctx) =>
-        Capacities.TryGetValue((code.Key, state.Key), out var rule) ? rule(ctx) : double.PositiveInfinity;
+        Capacities.TryGetValue((code.Key, state.Key), out Func<CapacityContext, double> rule) ? rule(ctx) : double.PositiveInfinity;
 
     // --- [STRENGTH_KERNELS] --------------------------------------------------------------
     static double AiscFcr(CapacityContext c) {                                   // AISC 360 E3
@@ -596,19 +771,21 @@ public static partial class StructuralAnalysis {
         from code   in DesignCode.For(request.Route)
         from model  in Project(graph, request, geometry)
         from _      in Validate(model, code)
-        from resp   in Solve(model)
+        from resp   in Solve(model, clocks)
+        from blob   in sink.Store(Artifact(resp, graph.Header.Tolerance))
         let checks   = model.Members.Bind(m => Check(m, resp[m.Id], code, model.Policy))
         let govern   = toSeq(checks.OrderByDescending(static c => c.Utilization)).Head
         from ratios in checks.TraverseM(static c => AssessmentFact.Ratio($"{c.Member.Value}/{c.State.Key}", c.Utilization)).As()
         from maxU in AssessmentFact.Ratio("max-utilization", govern.Map(static g => g.Utilization).IfNone(0.0))
         select AssessmentResult.Of(
             request.Route,
-            ratios.Append(Seq(
+            ratios + Seq(
                     maxU,
                     govern.Map(static g => AssessmentFact.Reference("governing-member", g.Member)).IfNone(AssessmentFact.Text("governing-member", "none")),
-                    AssessmentFact.Text("governing-limit-state", govern.Map(static g => g.State.Key).IfNone("none")))),
+                    AssessmentFact.Text("governing-limit-state", govern.Map(static g => g.State.Key).IfNone("none"))),
             govern.Map(static g => g.Utilization).IfNone(0.0),
-            new Provenance("StructuralAnalysis", request.Route.Standard, "FE + design-code", clocks.Now));
+            new Provenance("StructuralAnalysis", request.Route.Standard, request.Route.SolverVersion, clocks.Now),
+            Some(blob));
 
     static Fin<Unit> Validate(FrameModel model, DesignCode code) =>
         model.Members.Find(m => !code.Family.Admits(m.Family))
@@ -628,6 +805,18 @@ public static partial class StructuralAnalysis {
                 : demand / Math.Max(capacity, Eps);
             return new MemberCheck(member.Id, state, demand, capacity, util);
         });
+    }
+
+    static ReadOnlyMemory<byte> Artifact(FrozenDictionary<NodeId, MemberResponse> responses, double tolerance) {
+        CanonicalWriter writer = new(tolerance);
+        writer.Ordinal(responses.Count);
+        foreach ((NodeId id, MemberResponse response) in responses.OrderBy(static row => row.Key.Value, StringComparer.Ordinal)) {
+            writer.String(id.Value)
+                .Double(response.Demand.N).Double(response.Demand.Vy).Double(response.Demand.Vz)
+                .Double(response.Demand.My).Double(response.Demand.Mz).Double(response.Demand.T)
+                .Double(response.MaxDeflection);
+        }
+        return writer.ToBytes();
     }
 }
 ```
@@ -698,12 +887,12 @@ public sealed partial class ModalCombination {
     public partial double Combine(Seq<double> modal, Seq<double> omega, double dampingRatio);
 }
 
-// The seismic request extension the Structural case carries: spectrum row + policy + combination row + the
+// Seismic request extension carries spectrum row, policy, combination row, and
 // typed participation floor (0.90 the code default) — all content-key folded.
 public sealed record SeismicSpec(DesignSpectrum Spectrum, SpectrumPolicy Policy, ModalCombination Combination, double ParticipationFloor = 0.90);
 
 public static partial class StructuralAnalysis {
-    // The response-spectrum route over the arpack-shift-invert sparse modal: (φ, λ) + participation off the owned
+    // Response-spectrum route uses arpack-shift-invert sparse modal: (φ, λ) plus participation off the owned
     // lumped-mass field, the 90% modal-mass floor a TYPED (Solve, Numeric) shortfall naming the achieved
     // fraction, per-mode Sa(T_i) demand off the spectrum row, modal responses combined through the
     // ModalCombination row, the combined demands checked through the SAME capacity table — a fully-named
@@ -713,23 +902,25 @@ public static partial class StructuralAnalysis {
         from model in Project(graph, request, geometry)
         from lowered in FrameLowering.Lower(model)
         from problem in lowered.Problem(LoadCombinationSpec.SeismicUnit)
-        from modal in SolveLane.Solve(problem, lowered.Mesh, SolvePolicy.CanonicalModalSparse, default, clocks)
+        from modal in SolveLane.Solve(problem, lowered.Mesh, SolvePolicy.CanonicalModalSparse, clocks)
         from gate  in Participation(modal, spec)
         let periods = modal.EigenValues.Map(static values => toSeq(values.ToArray()).Map(static w2 => 2.0 * Math.PI / Math.Sqrt(Math.Max(w2, 1e-12)))).IfNone(Seq<double>())
         let demands = SpectralDemands(model, lowered, modal, spec, periods)
+        from blob in sink.Store(Artifact(demands, graph.Header.Tolerance))
         let checks  = model.Members.Bind(m => Check(m, demands[m.Id], code, model.Policy))
         let govern  = toSeq(checks.OrderByDescending(static c => c.Utilization)).Head
         from ratios in checks.TraverseM(static c => AssessmentFact.Ratio($"{c.Member.Value}/{c.State.Key}", c.Utilization)).As()
         from participation in AssessmentFact.Ratio("modal-mass-participation", gate)
         select AssessmentResult.Of(
             request.Route,
-            ratios.Append(Seq(
+            ratios + Seq(
                     participation,
-                    AssessmentFact.Text("modal-combination", spec.Combination.Key))),
+                    AssessmentFact.Text("modal-combination", spec.Combination.Key)),
             govern.Map(static g => g.Utilization).IfNone(0.0),
-            new Provenance("StructuralAnalysis", request.Route.Standard, request.Route.SolverVersion, clocks.Now));
+            new Provenance("StructuralAnalysis", request.Route.Standard, request.Route.SolverVersion, clocks.Now),
+            Some(blob));
 
-    // The typed participation floor: ΣΓ² over the recovered modes against SolveResult.TotalMass — the real
+    // Typed participation floor compares ΣΓ² over recovered modes against SolveResult.TotalMass — the real
     // cumulative effective-mass ratio, never a self-normalized quotient that reads ~1 for any spectrum. A
     // shortfall is deterministic (Solve, Numeric) NAMING the achieved fraction — it caches as a Failed node
     // and never re-runs blind; an absent participation stream (a non-vibration result) is its own typed decline.
@@ -742,9 +933,36 @@ public static partial class StructuralAnalysis {
                 ? Fin.Succ(fraction)
                 : Fin.Fail<double>(new ComputeFault.AnalysisFailed(SolvePhase.Solve, FailureKind.Numeric, $"<modal-mass-shortfall:achieved={fraction:0.000}:floor={spec.ParticipationFloor:0.00}>")));
 
-    // Per-member combined seismic demand: each mode's member response scales by Sa(T_i)·Γ_i, combined
-    // through the ModalCombination row component-by-component into one enveloped SectionDemand.
-    static FrozenDictionary<NodeId, MemberResponse> SpectralDemands(FrameModel model, FrameLowered lowered, SolveResult modal, SeismicSpec spec, Seq<double> periods) { /* per-mode station recovery scaled by Sa·Γ, row-combined */ }
+    // Per-member combined seismic demand: each mode's spectral displacement field u_i = Γ_i·Sa(T_i)/ω_i²·φ_i
+    // recovers member responses through the SAME StationRecovery.Demands kernel the static route uses, and the
+    // per-mode component responses combine through the ModalCombination row component-by-component (SRSS/CQC over
+    // Modal frequencies combine into one enveloped SectionDemand plus deflection per member, never a second recovery.
+    static FrozenDictionary<NodeId, MemberResponse> SpectralDemands(FrameModel model, FrameLowered lowered, SolveResult modal, SeismicSpec spec, Seq<double> periods) {
+        ReadOnlyMemory<double> shapes = modal.Field;                                    // column-major mode shapes, n DOFs x k modes
+        Seq<double> omegaSq = modal.EigenValues.Map(static v => toSeq(v.ToArray())).IfNone(Seq<double>());
+        Seq<double> gammas = modal.Participation.Map(static v => toSeq(v.ToArray())).IfNone(Seq<double>());
+        Seq<double> omega = omegaSq.Map(static w2 => Math.Sqrt(Math.Max(w2, 1e-12)));
+        int dofs = omegaSq.Count > 0 ? shapes.Length / omegaSq.Count : shapes.Length;
+        // Per mode: scale the shape column into a displacement field, recover per-member demands via the shared kernel.
+        Seq<Seq<(NodeId Id, SectionDemand Demand, double Deflection)>> perMode = toSeq(Enumerable.Range(0, omegaSq.Count)).Map(mode => {
+            double scale = gammas[mode] * spec.Spectrum.Sa(spec.Policy, periods[mode]) / Math.Max(omegaSq[mode], 1e-12);
+            double[] field = new double[dofs];
+            shapes.Span.Slice(mode * dofs, dofs).CopyTo(field);                          // Exemption: the mode-column scale is the numeric kernel seam
+            TensorPrimitives.Multiply(field, scale, field);
+            return StationRecovery.Demands(model, lowered, LoadCombinationSpec.SeismicUnit, field);
+        });
+        return model.Members.Map(member => {
+            Seq<(SectionDemand Demand, double Deflection)> rows = perMode.Map(demands =>
+                demands.Find(row => row.Id == member.Id).Match(
+                    Some: static row => (row.Demand, row.Deflection), None: static () => (SectionDemand.Zero, 0.0)));
+            double Combined(Func<SectionDemand, double> component) =>
+                spec.Combination.Combine(rows.Map(row => component(row.Demand)), omega, spec.Policy.DampingRatio);
+            SectionDemand combined = new(
+                Combined(static d => d.N), Combined(static d => d.Vy), Combined(static d => d.Vz),
+                Combined(static d => d.My), Combined(static d => d.Mz), Combined(static d => d.T));
+            return (member.Id, Response: new MemberResponse(combined, spec.Combination.Combine(rows.Map(static row => row.Deflection), omega, spec.Policy.DampingRatio)));
+        }).ToFrozenDictionary(static row => row.Id, static row => row.Response);
+    }
 }
 ```
 

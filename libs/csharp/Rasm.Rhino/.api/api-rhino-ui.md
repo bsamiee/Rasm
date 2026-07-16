@@ -89,6 +89,7 @@ The `Rhino.UI` boundary owns host integration for native chrome: panel and page 
 |  [06]   | `DrawingUtilities`             | resource loader  | native UI resource utilities     |
 |  [07]   | `RhinoApp` (UI-thread members) | thread marshal   | main-thread dispatch             |
 |  [08]   | `RhinoView.ShowToast`          | transient notice | viewport toast                   |
+|  [09]   | `Localization`                 | locale service   | language id + unit formatting    |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -167,6 +168,9 @@ The `Rhino.UI` boundary owns host integration for native chrome: panel and page 
 |  [68]   | `EtoCollapsibleSectionHolder.Add(ICollapsibleSection)`                    | section      | append section                 |
 |  [69]   | `EtoCollapsibleSectionHolder.UseScrollbars`                               | section      | configure scrollbars           |
 |  [70]   | `EtoCollapsibleSectionHolder.UseCheckBoxes`                               | section      | configure check boxes          |
+|  [71]   | `StackedDialogPage.SetEnglishPageTitle(string)`                           | page         | retitle page                   |
+|  [72]   | `StackedDialogPage.Modified` (get/set)                                    | page         | dirty-state flag               |
+|  [73]   | `StackedDialogPage.RemovePage()`                                          | page         | remove own page                |
 
 `ThemeSettings.ThemeChanged` is a public static `EventHandler` field subscribed through `+=`; the notifier behind `EtoExtensions` is private.
 
@@ -257,6 +261,36 @@ The trailing `kind` channel of `DrawingUtilities.CreateLinetypePreviewGeometryEx
 |  [17]   | `RhinoApp.InvokeAndWait(Action)`                                                                 | thread   | marshal synchronously   |
 |  [18]   | `RhinoApp.IsOnMainThread`                                                                        | thread   | test main thread        |
 |  [19]   | `RhinoView.ShowToast(...)`                                                                       | thread   | show viewport toast     |
+|  [20]   | `ToolbarFileCollection.FindByName(string, bool)`                                                 | toolbar  | find `.rui` by name     |
+|  [21]   | `ToolbarFileCollection.SidebarIsVisible` / `MruSidebarIsVisible` (static get/set)                | toolbar  | sidebar visibility      |
+|  [22]   | `ToolbarFile.Save()` / `SaveAs(string)` / `Close(bool prompt)` (each `→ bool`)                   | toolbar  | persist or close file   |
+|  [23]   | `ToolbarFile.GetGroup(int)` / `GetGroup(string)`                                                 | toolbar  | index or name a group   |
+|  [24]   | `ToolbarGroup.Visible` (get/set) / `IsDocked`                                                    | toolbar  | group visibility state  |
+|  [25]   | `Toolbar.BitmapSize` / `TabSize` (static `Size` get/set)                                         | toolbar  | global toolbar sizing   |
+|  [26]   | `StatusBar.SetMessagePane(string)` / `ClearMessagePane()`                                        | status   | message pane write      |
+|  [27]   | `StatusBar.SetDistancePane(double)` / `SetNumberPane(double)` / `SetPointPane(Point3d)`          | status   | value pane writes       |
+
+[ENTRYPOINT_SCOPE]: `Localization` — locale identity and unit-aware formatting
+- rail: host-boundary native-ui
+
+`Localization` is a `RhinoCommon.dll` static in the `Rhino.UI` namespace. The `LocalizeString`/`LocalizeCommandName`/`LocalizeDialogItem`/`LocalizeForm` family resolves plug-in XML string tables and returns the English input unchanged when none ship; the locale-identity and unit-formatting members are table-free. Unit-aware `FormatNumber` overloads order `(value, units, mode, precision, appendUnitSystemName)`.
+
+| [INDEX] | [SURFACE]                                                                                 | [KIND]     | [CAPABILITY]                   |
+| :-----: | :---------------------------------------------------------------------------------------- | :--------- | :----------------------------- |
+|  [01]   | `CurrentLanguageId : int`                                                                 | locale     | host language LCID (1033 = en) |
+|  [02]   | `RunningAsEnglish : bool`                                                                 | locale     | English-locale discriminant    |
+|  [03]   | `LogicalSort(string string1, string string2) : int`                                       | locale     | digit-aware string comparison  |
+|  [04]   | `UnitSystemName(UnitSystem, bool capitalize, bool singular, bool abbreviate) : string`    | formatting | localized unit-system name     |
+|  [05]   | `FormatNumber(double, UnitSystem, DistanceDisplayMode, int, bool) : string`               | formatting | unit-aware number text         |
+|  [06]   | `FormatNumber(double, LengthUnit, DistanceDisplayMode, int, bool) : string`               | formatting | length-unit number text        |
+|  [07]   | `FormatNumber(double x) : string`                                                         | formatting | locale number text             |
+|  [08]   | `FormatDistanceAndTolerance(double, UnitSystem, DimensionStyle, bool alternate) : string` | formatting | style-driven distance text     |
+|  [09]   | `FormatArea(double, UnitSystem, DimensionStyle, bool alternate) : string`                 | formatting | style-driven area text         |
+|  [10]   | `FormatVolume(double, UnitSystem, DimensionStyle, bool alternate) : string`               | formatting | style-driven volume text       |
+|  [11]   | `LocalizeString(string english, int contextId) : string`                                  | string map | plug-in string-table lookup    |
+|  [12]   | `LocalizeCommandName(string english) : string`                                            | string map | command-name lookup            |
+|  [13]   | `LocalizeCommandOptionName(string english, int contextId) : LocalizeStringPair`           | string map | option-name pair               |
+|  [14]   | `LocalizeCommandOptionValue(string english, int contextId) : LocalizeStringPair`          | string map | option-value pair              |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

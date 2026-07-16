@@ -138,55 +138,47 @@ public sealed partial class EventFamily {
     public static readonly EventFamily LayerTable = new(key: 60, band: EventBand.Tables, cadence: Cadence.Changed, bind: Table<LayerTableEventArgs>(
         subscribe: h => RhinoDoc.LayerTableEvent += h, unsubscribe: h => RhinoDoc.LayerTableEvent -= h, kind: TableKind.Layers,
         document: static a => a.Document, index: static a => a.LayerIndex, transition: static a => ComponentTransition.Of(a.EventType),
-        previous: static a => a.OldState, current: static a => a.NewState));
+        previous: static a => ComponentState.Of(a.OldState), current: static a => ComponentState.Of(a.NewState)));
     public static readonly EventFamily MaterialTable = new(key: 61, band: EventBand.Tables, cadence: Cadence.Changed, bind: Table<MaterialTableEventArgs>(
         subscribe: h => RhinoDoc.MaterialTableEvent += h, unsubscribe: h => RhinoDoc.MaterialTableEvent -= h, kind: TableKind.Materials,
         document: static a => a.Document, index: static a => a.Index, transition: static a => ComponentTransition.Of(a.EventType),
-        previous: static a => a.OldSettings, current: static a => a.Document.Materials[a.Index]));
+        previous: static a => ComponentState.Of(a.OldSettings), current: static a => ComponentState.Of(a.Document.Materials[a.Index])));
     public static readonly EventFamily GroupTable = new(key: 62, band: EventBand.Tables, cadence: Cadence.Changed, bind: Table<GroupTableEventArgs>(
         subscribe: h => RhinoDoc.GroupTableEvent += h, unsubscribe: h => RhinoDoc.GroupTableEvent -= h, kind: TableKind.Groups,
         document: static a => a.Document, index: static a => a.GroupIndex, transition: static a => ComponentTransition.Of(a.EventType),
-        previous: static a => a.OldState, current: static a => a.NewState));
+        previous: static a => ComponentState.Of(a.OldState), current: static a => ComponentState.Of(a.NewState)));
     public static readonly EventFamily LinetypeTable = new(key: 63, band: EventBand.Tables, cadence: Cadence.Changed, bind: Table<LinetypeTableEventArgs>(
         subscribe: h => RhinoDoc.LinetypeTableEvent += h, unsubscribe: h => RhinoDoc.LinetypeTableEvent -= h, kind: TableKind.Linetypes,
         document: static a => a.Document, index: static a => a.LinetypeIndex, transition: static a => ComponentTransition.Of(a.EventType),
-        previous: static a => a.OldState, current: static a => a.NewState));
-    public static readonly EventFamily LightTable = new(key: 64, band: EventBand.Tables, cadence: Cadence.Changed, bind: OnFallible<LightTableEventArgs>(
-        subscribe: h => RhinoDoc.LightTableEvent += h,
-        unsubscribe: h => RhinoDoc.LightTableEvent -= h,
-        project: static (_, a, scope) => ComponentTransition.Of(a.EventType).Map(transition => Gate(
-            document: a.Document,
-            scope: scope,
-            payload: new EventPayload.Component(
-                Kind: TableKind.Lights,
-                Index: a.LightIndex,
-                Transition: transition,
-                Previous: transition.CarriesPrevious ? ComponentState.Of(a.OldState) : Option<ComponentState>.None,
-                Current: transition.CarriesCurrent ? ComponentState.Of(a.NewState) : Option<ComponentState>.None)))));
+        previous: static a => ComponentState.Of(a.OldState), current: static a => ComponentState.Of(a.NewState)));
+    public static readonly EventFamily LightTable = new(key: 64, band: EventBand.Tables, cadence: Cadence.Changed, bind: Table<LightTableEventArgs>(
+        subscribe: h => RhinoDoc.LightTableEvent += h, unsubscribe: h => RhinoDoc.LightTableEvent -= h, kind: TableKind.Lights,
+        document: static a => a.Document, index: static a => a.LightIndex, transition: static a => ComponentTransition.Of(a.EventType),
+        previous: static a => ComponentState.Of(a.OldState), current: static a => ComponentState.Of(a.NewState)));
     public static readonly EventFamily DimensionStyleTable = new(key: 65, band: EventBand.Tables, cadence: Cadence.Changed, bind: Table<DimStyleTableEventArgs>(
         subscribe: h => RhinoDoc.DimensionStyleTableEvent += h, unsubscribe: h => RhinoDoc.DimensionStyleTableEvent -= h, kind: TableKind.DimStyles,
         document: static a => a.Document, index: static a => a.Index, transition: static a => ComponentTransition.Of(a.EventType),
-        previous: static a => a.OldState, current: static a => a.NewState));
+        previous: static a => ComponentState.Of(a.OldState), current: static a => ComponentState.Of(a.NewState)));
     public static readonly EventFamily InstanceDefinitionTable = new(key: 66, band: EventBand.Tables, cadence: Cadence.Changed, bind: Table<InstanceDefinitionTableEventArgs>(
         subscribe: h => RhinoDoc.InstanceDefinitionTableEvent += h, unsubscribe: h => RhinoDoc.InstanceDefinitionTableEvent -= h, kind: TableKind.InstanceDefinitions,
         document: static a => a.Document, index: static a => a.InstanceDefinitionIndex, transition: static a => ComponentTransition.Of(a.EventType),
-        previous: static a => a.OldState, current: static a => a.NewState));
+        previous: static a => ComponentState.Of(a.OldState), current: static a => ComponentState.Of(a.NewState)));
     public static readonly EventFamily SectionStyleTable = new(key: 67, band: EventBand.Tables, cadence: Cadence.Changed, bind: Table<SectionStyleTableEventArgs>(
         subscribe: h => RhinoDoc.SectionStyleTableEvent += h, unsubscribe: h => RhinoDoc.SectionStyleTableEvent -= h, kind: TableKind.SectionStyles,
         document: static a => a.Document, index: static a => a.Index, transition: static a => ComponentTransition.Of(a.EventType),
-        previous: static a => a.OldState, current: static a => a.NewState));
+        previous: static a => ComponentState.Of(a.OldState), current: static a => ComponentState.Of(a.NewState)));
     public static readonly EventFamily MarkupTable = new(key: 68, band: EventBand.Tables, cadence: Cadence.Changed, bind: Table<MarkupTableEventArgs>(
         subscribe: h => RhinoDoc.MarkupTableEvent += h, unsubscribe: h => RhinoDoc.MarkupTableEvent -= h, kind: TableKind.Markups,
         document: static a => a.Document, index: static a => a.Index, transition: static a => ComponentTransition.Of(a.EventType),
-        previous: static a => a.OldState, current: static a => a.NewState));
+        previous: static a => ComponentState.Of(a.OldState), current: static a => ComponentState.Of(a.NewState)));
     public static readonly EventFamily PageViewGroupTable = new(key: 69, band: EventBand.Tables, cadence: Cadence.Changed, bind: Table<PageViewGroupTableEventArgs>(
         subscribe: h => RhinoDoc.PageViewGroupTableEvent += h, unsubscribe: h => RhinoDoc.PageViewGroupTableEvent -= h, kind: TableKind.PageViewGroups,
         document: static a => a.Document, index: static a => a.PageViewGroupIndex, transition: static a => ComponentTransition.Of(a.EventType),
-        previous: static a => a.OldState, current: static a => a.NewState));
+        previous: static a => ComponentState.Of(a.OldState), current: static a => ComponentState.Of(a.NewState)));
     public static readonly EventFamily HatchPatternTable = new(key: 70, band: EventBand.Tables, cadence: Cadence.Changed, bind: Table<HatchPatternTableEventArgs>(
         subscribe: h => RhinoDoc.HatchPatternTableEvent += h, unsubscribe: h => RhinoDoc.HatchPatternTableEvent -= h, kind: TableKind.HatchPatterns,
         document: static a => a.Document, index: static a => a.HatchPatternIndex, transition: static a => ComponentTransition.Of(a.EventType),
-        previous: static a => a.OldState, current: static a => a.NewState));
+        previous: static a => ComponentState.Of(a.OldState), current: static a => ComponentState.Of(a.NewState)));
     public static readonly EventFamily RenderMaterialTable = new(key: 71, band: EventBand.Tables, cadence: Cadence.Changed, bind: Render(
         subscribe: h => RhinoDoc.RenderMaterialsTableEvent += h, unsubscribe: h => RhinoDoc.RenderMaterialsTableEvent -= h, kind: TableKind.RenderMaterials));
     public static readonly EventFamily RenderEnvironmentTable = new(key: 72, band: EventBand.Tables, cadence: Cadence.Changed, bind: Render(
@@ -305,8 +297,8 @@ public sealed partial class EventFamily {
         Func<TArgs, RhinoDoc> document,
         Func<TArgs, int> index,
         Func<TArgs, Fin<ComponentTransition>> transition,
-        Func<TArgs, ModelComponent?> previous,
-        Func<TArgs, ModelComponent?> current) where TArgs : EventArgs =>
+        Func<TArgs, Option<ComponentState>> previous,
+        Func<TArgs, Option<ComponentState>> current) where TArgs : EventArgs =>
         OnFallible(subscribe: subscribe, unsubscribe: unsubscribe, project: (_, args, scope) => transition(arg: args).Map(change => Gate(
                 document: document(arg: args),
                 scope: scope,
@@ -314,8 +306,8 @@ public sealed partial class EventFamily {
                     Kind: kind,
                     Index: index(arg: args),
                     Transition: change,
-                    Previous: change.CarriesPrevious ? ComponentState.Of(previous(arg: args)) : Option<ComponentState>.None,
-                    Current: change.CarriesCurrent ? ComponentState.Of(current(arg: args)) : Option<ComponentState>.None))));
+                    Previous: change.CarriesPrevious ? previous(arg: args) : Option<ComponentState>.None,
+                    Current: change.CarriesCurrent ? current(arg: args) : Option<ComponentState>.None))));
 
     private static Func<EventScope, ReceiptJournal, Func<EventEnvelope, Fin<Unit>>, Action<Error>, Fin<Subscription>> Render(
         Action<EventHandler<RhinoDoc.RenderContentTableEventArgs>> subscribe,
@@ -370,11 +362,11 @@ public sealed partial class EventFamily {
                 Op.Of(name: nameof(BeforeTransform)).Catch(() => Fin.Succ(value: TransformDocument(args).Map(key => Op.Side(() => {
                     documents[key: args.TransformEventId] = new TransformLink(Key: key, Sequence: Interlocked.Increment(ref sequence));
                     while (documents.Count > journal.Policy.CorrelationCapacity) {
-                        KeyValuePair<uint, TransformLink>[] oldest = documents.OrderBy(static pair => pair.Value.Sequence).Take(1).ToArray();
-                        if (oldest.Length == 0 || !documents.TryRemove(key: oldest[0].Key, value: out _)) {
+                        KeyValuePair<uint, TransformLink> oldest = documents.MinBy(static pair => pair.Value.Sequence);
+                        if (!documents.TryRemove(key: oldest.Key, value: out _)) {
                             break;
                         }
-                        _ = journal.Post(new StreamReceipt.TransformEvicted(Watch: journal.Watch, EventId: oldest[0].Key));
+                        _ = journal.Post(new StreamReceipt.TransformEvicted(Watch: journal.Watch, EventId: oldest.Key));
                     }
                 })))).MapFail(error => { reject(obj: error); return error; }));
             EventHandler<RhinoAfterTransformObjectsEventArgs> after = (_, args) => ignore(
@@ -493,114 +485,54 @@ public sealed partial class EventFamily {
 - Owner: `EventPayload` is the closed detached-evidence family. `EventEnvelope` is the internal projection product; `DocEvent` adds its family row at delivery.
 - Law: every reference-like host member is projected inside the callback. Documents become `DocKey`, views and viewports become runtime identities, transform participants become `(Guid, runtime serial)` products, and component states become detached identity/name/deletion facts.
 - Law: `Active` preserves the no-active-document transition. `AfterTransform` is the sole conditionally unkeyed host event because its argument contains only `TransformEventId`; an `AnyDocument` observer still receives an unmatched completion.
+- Law: every host transition enum spells a subset of its owning vocabulary's member names — table events over `Added`/`Deleted`/`Undeleted`/`Modified`/`Sorted`/`Current`, worksession kinds, render-content kinds — so each transition `[SmartEnum<string>]` keys rows on those names and one generic name-keyed `ComponentTransition.Named<T, TEvent>` admits every host transition enum; a new host value lands as one row with zero new conversion arm, and an unmapped or undefined value fails typed instead of falling to a default.
 - Law: render-material assignment preserves its layer-or-object target and old/new material identities; loaded, clearing, and cleared render-table transitions remain distinct typed rows.
 - Law: object-id projection is a total generated `Switch`. A new payload case fails the projection at compile time until its contribution is declared.
 
 ```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
-[SmartEnum<int>]
-public sealed partial class WorksessionChange {
-    public static readonly WorksessionChange Attached = new(key: 0);
-    public static readonly WorksessionChange Detached = new(key: 1);
-    public static readonly WorksessionChange BeforeDetach = new(key: 2);
-
-    internal static Fin<WorksessionChange> Of(RhinoDoc.WorksessionFileChangeKind value) => value switch {
-        RhinoDoc.WorksessionFileChangeKind.Attached => Attached,
-        RhinoDoc.WorksessionFileChangeKind.Detached => Detached,
-        RhinoDoc.WorksessionFileChangeKind.BeforeDetach => BeforeDetach,
-        _ => Fin.Fail<WorksessionChange>(error: Op.Of(name: nameof(WorksessionChange)).InvalidResult()),
-    };
-}
-
-[SmartEnum<int>]
+[SmartEnum<string>]
 public sealed partial class ComponentTransition {
-    public static readonly ComponentTransition Added = new(key: 0, carriesPrevious: false, carriesCurrent: true);
-    public static readonly ComponentTransition Deleted = new(key: 1, carriesPrevious: true, carriesCurrent: false);
-    public static readonly ComponentTransition Undeleted = new(key: 2, carriesPrevious: true, carriesCurrent: true);
-    public static readonly ComponentTransition Modified = new(key: 3, carriesPrevious: true, carriesCurrent: true);
-    public static readonly ComponentTransition Sorted = new(key: 4, carriesPrevious: false, carriesCurrent: false);
-    public static readonly ComponentTransition Current = new(key: 5, carriesPrevious: true, carriesCurrent: true);
+    public static readonly ComponentTransition Added = new(key: nameof(Added), carriesPrevious: false, carriesCurrent: true);
+    public static readonly ComponentTransition Deleted = new(key: nameof(Deleted), carriesPrevious: true, carriesCurrent: false);
+    public static readonly ComponentTransition Undeleted = new(key: nameof(Undeleted), carriesPrevious: true, carriesCurrent: true);
+    public static readonly ComponentTransition Modified = new(key: nameof(Modified), carriesPrevious: true, carriesCurrent: true);
+    public static readonly ComponentTransition Sorted = new(key: nameof(Sorted), carriesPrevious: false, carriesCurrent: false);
+    public static readonly ComponentTransition Current = new(key: nameof(Current), carriesPrevious: true, carriesCurrent: true);
 
     public bool CarriesPrevious { get; }
     public bool CarriesCurrent { get; }
 
-    internal static Fin<ComponentTransition> Of(LayerTableEventType value) => value switch {
-        LayerTableEventType.Added => Added, LayerTableEventType.Deleted => Deleted, LayerTableEventType.Undeleted => Undeleted,
-        LayerTableEventType.Modified => Modified, LayerTableEventType.Sorted => Sorted, LayerTableEventType.Current => Current,
-        _ => Fin.Fail<ComponentTransition>(error: Op.Of(name: nameof(ComponentTransition)).InvalidResult()),
-    };
-    internal static Fin<ComponentTransition> Of(MaterialTableEventType value) => value switch {
-        MaterialTableEventType.Added => Added, MaterialTableEventType.Deleted => Deleted, MaterialTableEventType.Undeleted => Undeleted,
-        MaterialTableEventType.Modified => Modified, MaterialTableEventType.Sorted => Sorted, MaterialTableEventType.Current => Current,
-        _ => Fin.Fail<ComponentTransition>(error: Op.Of(name: nameof(ComponentTransition)).InvalidResult()),
-    };
-    internal static Fin<ComponentTransition> Of(GroupTableEventType value) => value switch {
-        GroupTableEventType.Added => Added, GroupTableEventType.Deleted => Deleted, GroupTableEventType.Undeleted => Undeleted,
-        GroupTableEventType.Modified => Modified, GroupTableEventType.Sorted => Sorted,
-        _ => Fin.Fail<ComponentTransition>(error: Op.Of(name: nameof(ComponentTransition)).InvalidResult()),
-    };
-    internal static Fin<ComponentTransition> Of(LinetypeTableEventType value) => value switch {
-        LinetypeTableEventType.Added => Added, LinetypeTableEventType.Deleted => Deleted, LinetypeTableEventType.Undeleted => Undeleted,
-        LinetypeTableEventType.Modified => Modified, LinetypeTableEventType.Sorted => Sorted, LinetypeTableEventType.Current => Current,
-        _ => Fin.Fail<ComponentTransition>(error: Op.Of(name: nameof(ComponentTransition)).InvalidResult()),
-    };
-    internal static Fin<ComponentTransition> Of(LightTableEventType value) => value switch {
-        LightTableEventType.Added => Added, LightTableEventType.Deleted => Deleted, LightTableEventType.Undeleted => Undeleted,
-        LightTableEventType.Modified => Modified, LightTableEventType.Sorted => Sorted,
-        _ => Fin.Fail<ComponentTransition>(error: Op.Of(name: nameof(ComponentTransition)).InvalidResult()),
-    };
-    internal static Fin<ComponentTransition> Of(DimStyleTableEventType value) => value switch {
-        DimStyleTableEventType.Added => Added, DimStyleTableEventType.Deleted => Deleted, DimStyleTableEventType.Undeleted => Undeleted,
-        DimStyleTableEventType.Modified => Modified, DimStyleTableEventType.Sorted => Sorted, DimStyleTableEventType.Current => Current,
-        _ => Fin.Fail<ComponentTransition>(error: Op.Of(name: nameof(ComponentTransition)).InvalidResult()),
-    };
-    internal static Fin<ComponentTransition> Of(InstanceDefinitionTableEventType value) => value switch {
-        InstanceDefinitionTableEventType.Added => Added, InstanceDefinitionTableEventType.Deleted => Deleted,
-        InstanceDefinitionTableEventType.Undeleted => Undeleted, InstanceDefinitionTableEventType.Modified => Modified,
-        InstanceDefinitionTableEventType.Sorted => Sorted, _ => Fin.Fail<ComponentTransition>(error: Op.Of(name: nameof(ComponentTransition)).InvalidResult()),
-    };
-    internal static Fin<ComponentTransition> Of(SectionStyleTableEventType value) => value switch {
-        SectionStyleTableEventType.Added => Added, SectionStyleTableEventType.Deleted => Deleted,
-        SectionStyleTableEventType.Undeleted => Undeleted, SectionStyleTableEventType.Modified => Modified,
-        SectionStyleTableEventType.Sorted => Sorted, _ => Fin.Fail<ComponentTransition>(error: Op.Of(name: nameof(ComponentTransition)).InvalidResult()),
-    };
-    internal static Fin<ComponentTransition> Of(MarkupTableEventType value) => value switch {
-        MarkupTableEventType.Added => Added, MarkupTableEventType.Deleted => Deleted, MarkupTableEventType.Undeleted => Undeleted,
-        MarkupTableEventType.Modified => Modified, MarkupTableEventType.Sorted => Sorted,
-        _ => Fin.Fail<ComponentTransition>(error: Op.Of(name: nameof(ComponentTransition)).InvalidResult()),
-    };
-    internal static Fin<ComponentTransition> Of(PageViewGroupTableEventType value) => value switch {
-        PageViewGroupTableEventType.Added => Added, PageViewGroupTableEventType.Deleted => Deleted,
-        PageViewGroupTableEventType.Undeleted => Undeleted, PageViewGroupTableEventType.Modified => Modified,
-        PageViewGroupTableEventType.Sorted => Sorted, _ => Fin.Fail<ComponentTransition>(error: Op.Of(name: nameof(ComponentTransition)).InvalidResult()),
-    };
-    internal static Fin<ComponentTransition> Of(HatchPatternTableEventType value) => value switch {
-        HatchPatternTableEventType.Added => Added, HatchPatternTableEventType.Deleted => Deleted,
-        HatchPatternTableEventType.Undeleted => Undeleted, HatchPatternTableEventType.Modified => Modified,
-        HatchPatternTableEventType.Sorted => Sorted, HatchPatternTableEventType.Current => Current,
-        _ => Fin.Fail<ComponentTransition>(error: Op.Of(name: nameof(ComponentTransition)).InvalidResult()),
-    };
-    internal static Fin<ComponentTransition> Of(RhinoDoc.TextureMappingEventType value) => value switch {
-        RhinoDoc.TextureMappingEventType.Added => Added, RhinoDoc.TextureMappingEventType.Deleted => Deleted,
-        RhinoDoc.TextureMappingEventType.Undeleted => Undeleted, RhinoDoc.TextureMappingEventType.Modified => Modified,
-        _ => Fin.Fail<ComponentTransition>(error: Op.Of(name: nameof(ComponentTransition)).InvalidResult()),
-    };
+    internal static Fin<ComponentTransition> Of<TEvent>(TEvent value) where TEvent : struct, Enum =>
+        Named<ComponentTransition, TEvent>(value: value);
+
+    internal static Fin<T> Named<T, TEvent>(TEvent value)
+        where T : class, ISmartEnum<string, T, ValidationError>
+        where TEvent : struct, Enum =>
+        T.TryGet(value.ToString(), out T? row)
+            ? Fin.Succ(value: row)
+            : Fin.Fail<T>(error: Op.Of(name: typeof(T).Name).InvalidResult(detail: value.ToString()));
 }
 
-[SmartEnum<int>]
-public sealed partial class RenderTransition {
-    public static readonly RenderTransition Loaded = new(key: 0);
-    public static readonly RenderTransition Clearing = new(key: 1);
-    public static readonly RenderTransition Cleared = new(key: 2);
-    public static readonly RenderTransition MaterialAssignmentChanged = new(key: 3);
+[SmartEnum<string>]
+public sealed partial class WorksessionChange {
+    public static readonly WorksessionChange Attached = new(key: nameof(Attached));
+    public static readonly WorksessionChange Detached = new(key: nameof(Detached));
+    public static readonly WorksessionChange BeforeDetach = new(key: nameof(BeforeDetach));
 
-    internal static Fin<RenderTransition> Of(RhinoDoc.RenderContentTableEventType value) => value switch {
-        RhinoDoc.RenderContentTableEventType.Loaded => Loaded,
-        RhinoDoc.RenderContentTableEventType.Clearing => Clearing,
-        RhinoDoc.RenderContentTableEventType.Cleared => Cleared,
-        RhinoDoc.RenderContentTableEventType.MaterialAssignmentChanged => MaterialAssignmentChanged,
-        _ => Fin.Fail<RenderTransition>(error: Op.Of(name: nameof(RenderTransition)).InvalidResult()),
-    };
+    internal static Fin<WorksessionChange> Of(RhinoDoc.WorksessionFileChangeKind value) =>
+        ComponentTransition.Named<WorksessionChange, RhinoDoc.WorksessionFileChangeKind>(value: value);
+}
+
+[SmartEnum<string>]
+public sealed partial class RenderTransition {
+    public static readonly RenderTransition Loaded = new(key: nameof(Loaded));
+    public static readonly RenderTransition Clearing = new(key: nameof(Clearing));
+    public static readonly RenderTransition Cleared = new(key: nameof(Cleared));
+    public static readonly RenderTransition MaterialAssignmentChanged = new(key: nameof(MaterialAssignmentChanged));
+
+    internal static Fin<RenderTransition> Of(RhinoDoc.RenderContentTableEventType value) =>
+        ComponentTransition.Named<RenderTransition, RhinoDoc.RenderContentTableEventType>(value: value);
 }
 
 [Union]
@@ -692,7 +624,6 @@ public abstract partial record EventPayload {
     public sealed record Frame(Guid ViewportId, uint ChangeCounter, Option<uint> ViewSerial) : EventPayload;
     public sealed record Panel(Guid PanelId, PanelState State) : EventPayload;
     public sealed record Files(Seq<FileEdge> Edges, long Overflow) : EventPayload;
-
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -752,7 +683,7 @@ public sealed partial class FileChangeKind {
     public static readonly FileChangeKind Renamed = new(key: (int)WatcherChangeTypes.Renamed);
 
     internal static Fin<FileChangeKind> Of(WatcherChangeTypes native, Op key) =>
-        toSeq(Items).Find(kind => kind.Key == (int)native).ToFin(key.InvalidInput());
+        TryGet((int)native, out var kind) ? Fin.Succ(value: kind) : Fin.Fail<FileChangeKind>(error: key.InvalidInput());
 }
 
 public readonly record struct FileEdge(FileChangeKind Kind, string Path, Option<string> PreviousPath);
@@ -770,24 +701,9 @@ public readonly record struct FileEdge(FileChangeKind Kind, string Path, Option<
 public sealed partial class StreamLane {
     private const int Window = 1024;
 
-    public static readonly StreamLane Mailbox = new(
-        key: 0,
-        dropping: true,
-        open: static dropped => Channel.CreateBounded<DocEvent>(
-            new BoundedChannelOptions(capacity: 1) { FullMode = BoundedChannelFullMode.DropOldest, SingleReader = true },
-            itemDropped: dropped));
-    public static readonly StreamLane Shed = new(
-        key: 1,
-        dropping: true,
-        open: static dropped => Channel.CreateBounded<DocEvent>(
-            new BoundedChannelOptions(capacity: Window) { FullMode = BoundedChannelFullMode.DropOldest, SingleReader = true },
-            itemDropped: dropped));
-    public static readonly StreamLane Ordered = new(
-        key: 2,
-        dropping: true,
-        open: static dropped => Channel.CreateBounded<DocEvent>(
-            new BoundedChannelOptions(capacity: Window) { FullMode = BoundedChannelFullMode.DropWrite, SingleReader = true },
-            itemDropped: dropped));
+    public static readonly StreamLane Mailbox = new(key: 0, dropping: true, open: Bounded(capacity: 1, mode: BoundedChannelFullMode.DropOldest));
+    public static readonly StreamLane Shed = new(key: 1, dropping: true, open: Bounded(capacity: Window, mode: BoundedChannelFullMode.DropOldest));
+    public static readonly StreamLane Ordered = new(key: 2, dropping: true, open: Bounded(capacity: Window, mode: BoundedChannelFullMode.DropWrite));
     public static readonly StreamLane Firehose = new(
         key: 3,
         dropping: false,
@@ -798,6 +714,11 @@ public sealed partial class StreamLane {
 
     [UseDelegateFromConstructor]
     internal partial Channel<DocEvent> Open(Action<DocEvent> dropped);
+
+    private static Func<Action<DocEvent>, Channel<DocEvent>> Bounded(int capacity, BoundedChannelFullMode mode) =>
+        dropped => Channel.CreateBounded<DocEvent>(
+            new BoundedChannelOptions(capacity: capacity) { FullMode = mode, SingleReader = true },
+            itemDropped: dropped);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -1006,7 +927,6 @@ public static class DocumentStream {
     private static Fin<Watch> ObserveHost(Observation.Host request, Op key) =>
         from scope in Optional(request.Scope).ToFin(Fail: key.InvalidInput())
         from delivery in Optional(request.Delivery).ToFin(Fail: key.InvalidInput())
-        from policy in Optional(request.Receipts).ToFin(Fail: key.InvalidInput())
         from families in request.Families
             .TraverseM(family => Optional(family).ToFin(Fail: key.InvalidInput()))
             .As()
@@ -1015,13 +935,26 @@ public static class DocumentStream {
         from _ in families.TraverseM(family => family.Cadence.Admits(delivery: delivery)
             ? Fin.Succ(value: unit)
             : Fin.Fail<Unit>(error: key.Unsupported(geometryType: typeof(EventFamily), outputType: typeof(Delivery)))).As()
+        from watch in Mount(
+            delivery: delivery,
+            policy: request.Receipts,
+            attach: (emission, journal) => Attach(scope: scope, families: families, emission: emission, journal: journal),
+            key: key)
+        select watch;
+
+    private static Fin<Watch> Mount(
+        Delivery delivery,
+        ReceiptPolicy policy,
+        Func<Emission, ReceiptJournal, Fin<Subscription>> attach,
+        Op key) =>
+        from bounds in Optional(policy).ToFin(Fail: key.InvalidInput())
         let journal = new ReceiptJournal(
             watch: WatchKey.Create(value: Interlocked.Increment(location: ref sequence)),
-            policy: policy)
+            policy: bounds)
         from emission in Emission.Open(delivery: delivery, journal: journal, key: key)
-        from handlers in Attach(scope: scope, families: families, emission: emission, journal: journal)
+        from subscription in attach(emission, journal)
             .MapFail(error => { emission.Cancel(); emission.Complete(); return error; })
-        select Watch.Of(subscription: handlers, emission: emission, journal: journal);
+        select Watch.Of(subscription: subscription, emission: emission, journal: journal);
 
     private static Fin<Subscription> Attach(
         EventScope scope,
@@ -1039,17 +972,14 @@ public static class DocumentStream {
     private static Fin<Watch> ObserveFile(Observation.File request, Op key) =>
         from path in key.AcceptText(value: request.Path)
         from clock in Optional(request.Clock).ToFin(Fail: key.InvalidInput())
-        from delivery in Optional(request.Delivery).ToFin(Fail: key.InvalidInput())
-        from policy in Optional(request.Receipts).ToFin(Fail: key.InvalidInput())
         from _ in guard(request.Debounce > TimeSpan.Zero, key.InvalidInput())
-        let journal = new ReceiptJournal(
-            watch: WatchKey.Create(value: Interlocked.Increment(location: ref sequence)),
-            policy: policy)
-        from emission in Emission.Open(delivery: delivery, journal: journal, key: key)
-        from subscription in AttachFile(
-            path: path, debounce: request.Debounce, clock: clock, emission: emission, journal: journal, key: key)
-            .MapFail(error => { emission.Cancel(); emission.Complete(); return error; })
-        select Watch.Of(subscription: subscription, emission: emission, journal: journal);
+        from watch in Mount(
+            delivery: request.Delivery,
+            policy: request.Receipts,
+            attach: (emission, journal) => AttachFile(
+                path: path, debounce: request.Debounce, clock: clock, emission: emission, journal: journal, key: key),
+            key: key)
+        select watch;
 
     private static Fin<Subscription> AttachFile(
         string path,
@@ -1113,21 +1043,16 @@ public static class DocumentStream {
                     from kind in FileChangeKind.Of(native: args.ChangeType, key: key)
                     from _ in Capture(new FileEdge(Kind: kind, Path: args.FullPath, PreviousPath: Option<string>.None))
                     select unit;
-                FileSystemEventHandler change = (_, args) => ignore(Capture(args).MapFail(error => {
+                Fin<Unit> Logged(Fin<Unit> outcome) => outcome.MapFail(error => {
                     _ = journal.Post(new StreamReceipt.SinkFault(Watch: journal.Watch, Origin: origin, Detail: error.Message));
                     return error;
-                }));
-                RenamedEventHandler rename = (_, args) => ignore(Capture(new FileEdge(
+                });
+                FileSystemEventHandler change = (_, args) => ignore(Logged(outcome: Capture(args)));
+                RenamedEventHandler rename = (_, args) => ignore(Logged(outcome: Capture(new FileEdge(
                     Kind: FileChangeKind.Renamed,
                     Path: args.FullPath,
-                    PreviousPath: Optional(args.OldFullPath))).MapFail(error => {
-                        _ = journal.Post(new StreamReceipt.SinkFault(Watch: journal.Watch, Origin: origin, Detail: error.Message));
-                        return error;
-                    }));
-                ErrorEventHandler failure = (_, args) => ignore(CaptureOverflow(failure: args.GetException()).MapFail(error => {
-                    _ = journal.Post(new StreamReceipt.SinkFault(Watch: journal.Watch, Origin: origin, Detail: error.Message));
-                    return error;
-                }));
+                    PreviousPath: Optional(args.OldFullPath)))));
+                ErrorEventHandler failure = (_, args) => ignore(Logged(outcome: CaptureOverflow(failure: args.GetException())));
                 Subscription owner = Subscription.Of(detach: () => { createdTimer.Dispose(); createdWatcher.Dispose(); });
                 return Subscription.AttachAll(Seq<Func<Fin<Subscription>>>(
                         () => Subscription.Attach(

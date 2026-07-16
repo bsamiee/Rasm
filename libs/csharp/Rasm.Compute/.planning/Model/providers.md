@@ -1,8 +1,8 @@
 # [COMPUTE_PROVIDERS]
 
-Rasm.Compute model execution-provider axis: `ExecutionProvider` rows span CPU and the Apple-silicon CoreML row, autoEP `OrtEpDevice` discovery ranks hardware by the row's own affinity under an optional policy delegate, and `ModelPrecision` folds int8/int4 quantization into both the CoreML `AllowLowPrecisionAccumulationOnGPU` flag and the EP-agnostic `session.qdq_matmulnbits_accuracy_level` MatMulNBits knob. A two-step typed `OrtCompiledModelCompatibility` probe gates the warm-start read and emits an `OrtDeviceEpIncompatibilityReason` veto receipt for each device a row cannot claim.
+Rasm.Compute model execution-provider axis: `ExecutionProvider` rows span every admitted ONNX Runtime registration family, autoEP `OrtEpDevice` discovery ranks hardware deterministically by each row's affinity, and row-owned `HostGate` predicates compose provider discovery with OS capability. `ProviderLibrary` brackets and content-keys an out-of-tree EP registration, and `External` mints its row on the same axis. `ModelPrecision` folds fp16/bf16/int8/int4 policy into provider and EP-agnostic session options. A two-step typed `OrtCompiledModelCompatibility` probe reads the compatibility info a COMPILED EP-context artifact embeds against the same device snapshot registration uses, and gates warm-start only when that artifact exists and the selected device reports `EP_SUPPORTED_OPTIMAL` — probing the uncompiled source model carries no embedded compat info and answers `EP_NOT_APPLICABLE`, the dead-warm-start defect.
 
-`ComparerAccessors.StringOrdinal`, the `ExecutionProvider` rows (probe, OS gate, EP-option, session-key, device-policy, hardware-affinity, register columns), the `ModelPrecision` rows (accumulation, accuracy-level, negative-TTL columns), and the `Devices`/`AutoSelect`/`Veto`/`OptionsFor`/`Register`/`Compatible`/`WarmStartAdmissible`/`ResultKey` fold are the owned surface. Provider, device, and compatibility surfaces ride `Microsoft.ML.OnnxRuntime`, the option fingerprint the `Model/identity#MODEL_IDENTITY` `ModelFingerprint.Of` projection, the negative-TTL posture `NodaTime` `Duration`; the GPU `Cuda`/`DirectMl` member spellings stay the design record. `ExecutionProvider`/`ModelPrecision` crosses to `Model/sessions#SESSION_CAPSULE`, `Model/inference#RESULT_CACHE`, and `Model/generative#GENERATIVE_RUN` as settled vocabulary.
+`ExecutionProvider` rows, `ModelPrecision` rows, and the `Devices`/`AutoSelect`/`Veto`/`OptionsFor`/`Register`/`Compatible`/`WarmStartAdmissible`/`ResultKey` fold are the owned surface; the Thinktecture `ComparerAccessors.StringOrdinal` key accessor arrives settled. Provider, device, and compatibility members ride `Microsoft.ML.OnnxRuntime`; option identity composes `ModelFingerprint.Of`, and negative-cache posture uses `NodaTime.Duration`. `ExecutionProvider` and `ModelPrecision` cross to sessions, inference, and generative owners as settled vocabulary.
 
 ## [01]-[INDEX]
 
@@ -10,12 +10,12 @@ Rasm.Compute model execution-provider axis: `ExecutionProvider` rows span CPU an
 
 ## [02]-[EP_AXIS]
 
-- Owner: `ComparerAccessors.StringOrdinal`; `ExecutionProvider` `[SmartEnum<string>]` rows (provider name, macOS gate, precision-keyed EP-option projection, session-key table, CoreML flag, device policy, hardware-affinity, register delegate); `ModelPrecision` `[SmartEnum<string>]` int8/int4 rows (low-precision-accumulation, `session.qdq_matmulnbits_accuracy_level`, negative-TTL); the `Devices`/`AutoSelect`/`Veto`/`Register` discovery-and-register fold over `OrtEpDevice`.
-- Cases: `ExecutionProvider` rows `Cpu`, `CoreMl`; `ModelPrecision` rows `Full` · `Int8` · `Int4`.
-- Auto: `Available` reads the `GetAvailableProviders` probe plus the macOS gate on `MinMacOsMajor`; `AutoSelect` ranks `Devices` by the row's OWN `HardwareAffinity` — affinity type first, `CPU` terminal, every other accelerator between — so `CoreMl` ranks an `NPU` first and a future GPU-affinity row a `GPU` with zero rank re-coding, and a hardcoded `NPU≻GPU≻CPU` switch ignoring `HardwareAffinity` misranks the GPU EP and is the deleted form. `Register(options, cacheDir, precision)` is ONE polymorphic registration — it folds the session-key table and precision `QdqKeys` through `AddSessionConfigEntry`, then on `AutoSelect.IsEmpty` either registers the non-empty device list through `AppendExecutionProvider(env, devices, EpOptions(precision))` or drives the row's `RegisterRow` delegate, never two parallel register surfaces. `Compatible(modelPath)` reads `GetCompatibilityInfoFromModel(modelPath, ProviderName)` then `GetModelCompatibilityForEpDevices(AutoSelect, info)` for the typed verdict, and `WarmStartAdmissible` keeps the EP-context path enabled unless an existing blob is `EP_UNSUPPORTED`/`EP_SUPPORTED_PREFER_RECOMPILATION` — only those recompile fresh, while a missing blob, `EP_SUPPORTED_OPTIMAL`, and `EP_NOT_APPLICABLE` keep it enabled. `Veto` folds `GetHardwareDeviceEpIncompatibilityDetails` into the typed reason+notes receipt per device. `ResultKey(ortVersion, precision)` stamps EP key, ORT version, the `ModelPrecision` key, and `ModelFingerprint.Of(OptionsFor(precision))` for the deterministic cache key. Precision folds at TWO sinks — the CoreML `AllowLowPrecisionAccumulationOnGPU` flips from `LowPrecisionAccumulation`, the EP-agnostic `session.qdq_matmulnbits_accuracy_level` carries `AccuracyLevel` — both through `OptionsFor` so a quantized session keys distinctly.
-- Packages: Microsoft.ML.OnnxRuntime, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
-- Growth: a new accelerator is one `ExecutionProvider` row with its provider name, OS gate, `HardwareAffinity`, EP-option/session-key projections, and register delegate; a new quantization posture is one `ModelPrecision` row folded into the same registration and fingerprint rails, never a second session-options owner; a custom device-rank strategy is one `SetEpSelectionPolicyDelegate` arm on `AutoSelect`, never a second selection owner; the generative token-streaming successor lands as the `Model/generative#GENERATIVE_RUN` cluster composing this axis, never a chat-client surface.
-- Boundary: `AppendExecutionProvider_CoreML(CoreMLFlags)` is the typed registration carrying `CoreMlFlag`, and `AppendExecutionProvider("CoreMLExecutionProvider", options)` is the option-rich fallback for `ModelCacheDirectory`/`MLComputeUnits`/`SpecializationStrategy` — a bare `"CoreML"` name faults `InvalidArgument`. `AppendExecutionProvider(OrtEnv, IReadOnlyList<OrtEpDevice>, IReadOnlyDictionary<string,string>)` is the direct-device registration `Register` drives once `AutoSelect` is non-empty, and `SetEpSelectionPolicyDelegate(EpSelectionDelegate)` overrides the enum `SetEpSelectionPolicy(ExecutionProviderDevicePolicy)` for a custom ranking — the delegate receives `(IReadOnlyList<OrtEpDevice>, OrtKeyValuePairs, OrtKeyValuePairs, uint)` and returns the ranked `List<OrtEpDevice>`. Live axis is `Cpu` and `CoreMl` on a no-GPU host; the `Cuda`/`DirectMl` rows carry `AppendExecutionProvider_CUDA(0)`/`AppendExecutionProvider_DML(0)` as the design record on `[EP_EXECUTION]`, re-entering only behind a GPU-carrying RID. macOS gate rides `MinMacOsMajor` because the legacy NeuralNetwork format reaches back to macOS 10.15. `MLComputeUnits` domain is `ALL`/`CPUAndGPU`/`CPUAndNeuralEngine`/`CPUOnly` and `SpecializationStrategy` is `Default`/`FastPrediction`; the default flag is `COREML_FLAG_USE_NONE`, `COREML_FLAG_CREATE_MLPROGRAM` matches `ModelFormat=MLProgram`, and `COREML_FLAG_USE_CPU_AND_GPU` (`UInt32` 32) opens the CPU-and-GPU path. `ModelCacheDirectory` binds at registration to the blob-lane artifact directory so compiled CoreML caches are catalogued. Precision folds at TWO sinks, never one — the int4/int8 WEIGHT quantization is the packaged ONNX graph's own property (ORT executes the exported quantized operators, never a runtime re-quantization pass) and `Int8`/`Int4` carry accuracy `4`, the runtime default; a managed re-quantization kernel, a single-knob claim, or a second session-options owner is the rejected form. `mlas.enable_gemm_fastmath_arm64_bfloat16` is the `Cpu` row's Apple-silicon fp32-GEMM bf16 knob. Compatibility is the typed `OrtCompiledModelCompatibility` enum read through the two-step contract — a `verdict.ToString().Contains("Incompatible")` substring match (no enum name carries that substring), a model path where the compat-info string is required, and an `Option<string>` verdict are the named defects. Option fingerprint rides `ModelFingerprint.Of(OptionsFor(precision))` — a re-derived `XxHash3` body, or a precision-independent hash XORed with a per-precision overlay, is the deleted form. `Cpu` (`MinMacOsMajor` 0, always `Available`) is the implicit terminal of the degrade chain. Per-row `Available` is what a composition root AGGREGATES into the single `onnx` substrate-capability key on `Runtime/admission#SUBSTRATE_AXIS` `SelectionContext.Providers` — present iff at least one `ExecutionProvider.Available` holds; a populator pushing the raw ORT EP names (`CPUExecutionProvider`/`CoreMLExecutionProvider`) into `Providers`, or inferring `onnx` from a `Providers` emptiness test, is the deleted contribution form, and dylib-presence heuristics are the deleted probe form.
+- Owner: `ExecutionProvider` `[SmartEnum<string>]` rows (provider name, host gate, precision-keyed EP options, location options, session keys, device policy, hardware affinity, register delegate); `ModelPrecision` `[SmartEnum<string>]` rows (low-precision accumulation, BF16 fast math, `session.qdq_matmulnbits_accuracy_level`, negative TTL); the `Devices`/`AutoSelect`/`Veto`/`OptionsFor`/`Register`/`Compatible`/`WarmStartAdmissible`/`ResultKey` fold over `OrtEpDevice`.
+- Cases: `ExecutionProvider` rows `Cpu`, `Cuda`, `DirectMl`, `TensorRt`, `Rocm`, `CoreMl`, `OpenVino`, `MiGraphX`, `Nnapi`, `Dnnl`; `ModelPrecision` rows `Full`, `Fp16`, `Bf16`, `Int8`, `Int4`.
+- Auto: `Available` short-circuits on `HostGate` before `GetAvailableProviders`; `AutoSelect` ranks devices by row-owned `HardwareAffinity`, then CPU last, then provider/vendor/device identity for deterministic ties. One selected-device snapshot passes through `Register`, `Compatible`, and `WarmStartAdmissible`. `Register` folds session keys and precision `QdqKeys`, composes row-owned EP and location option tables, then uses direct autoEP registration when the snapshot is non-empty or the row's verified fallback registration otherwise. Only `CoreMl.LocationOptions` contributes `ModelCacheDirectory`; no foreign provider receives that key. `Compatible` runs the two-step probe over the same snapshot against the compiled artifact's embedded compat info. `WarmStartAdmissible` requires an existing context artifact and exactly `EP_SUPPORTED_OPTIMAL` read from that artifact; `EP_UNSUPPORTED`, `EP_SUPPORTED_PREFER_RECOMPILATION`, and `EP_NOT_APPLICABLE` compile fresh. `Veto` folds incompatibility reason, notes, and code per hardware device. `ResultKey` stamps provider, runtime, precision, and the shared behavior-option fingerprint; external-library bytes participate through `ProviderLibrary.ContentKey`.
+- Packages: Microsoft.ML.OnnxRuntime, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm (project, `Domain.ContentHash`), BCL inbox
+- Growth: a built-in accelerator is one `ExecutionProvider` row with its provider name, OS gate, `HardwareAffinity`, EP-option/session-key projections, and register delegate. An out-of-tree accelerator enters through `External`, which brackets `RegisterExecutionProviderLibrary`/`UnregisterExecutionProviderLibrary` in one `ProviderLibrary` and returns a row using the same generic registration path. A quantization posture is one `ModelPrecision` row folded into the same registration and fingerprint rails; a custom device-rank strategy is one `SetEpSelectionPolicyDelegate` arm on `AutoSelect`.
+- Boundary: each row owns one provider-specific fallback registration and one autoEP device registration path selected by a caller-held device snapshot, so one lease appends one provider. `CoreMl` alone uses the generic `AppendExecutionProvider("CoreMLExecutionProvider", options)` spelling because its row owns `ModelFormat`, compute units, specialization, cache directory, and precision; the flags overload never runs beside it. Location options affect native artifact placement but stay out of result identity, while EP/session/precision options enter `OptionsFor`. `ProviderLibrary` rejects blank identities or an absent asset, hashes the registered bytes, unregisters once through `Interlocked.Exchange`, and threads its content identity into the dynamic row's behavior options. `HostGate` expresses row-specific OS capability while `GetAvailableProviders` proves the loaded native provider. `Full` leaves `mlas.enable_gemm_fastmath_arm64_bfloat16` disabled; `Bf16` alone sets it. Precision also reaches CoreML low-precision accumulation and MatMulNBits accuracy, and every behavior option participates in `ModelFingerprint.Of`. Compatibility consumes `OrtCompiledModelCompatibility` directly and admits reuse only for an existing `EP_SUPPORTED_OPTIMAL` artifact.
 
 ```csharp signature
 
@@ -23,11 +23,14 @@ Rasm.Compute model execution-provider axis: `ExecutionProvider` rows span CPU an
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ModelPrecision {
-    public static readonly ModelPrecision Full = new("full", lowPrecisionAccumulation: false, accuracyLevel: Option<int>.None, negativeTtl: Duration.FromMinutes(15));
-    public static readonly ModelPrecision Int8 = new("int8", lowPrecisionAccumulation: true, accuracyLevel: 4, negativeTtl: Duration.FromMinutes(5));
-    public static readonly ModelPrecision Int4 = new("int4", lowPrecisionAccumulation: true, accuracyLevel: 4, negativeTtl: Duration.FromMinutes(2));
+    public static readonly ModelPrecision Full = new("full", lowPrecisionAccumulation: false, bfloat16FastMath: false, accuracyLevel: Option<int>.None, negativeTtl: Duration.FromMinutes(15));
+    public static readonly ModelPrecision Fp16 = new("fp16", lowPrecisionAccumulation: true, bfloat16FastMath: false, accuracyLevel: Option<int>.None, negativeTtl: Duration.FromMinutes(10));
+    public static readonly ModelPrecision Bf16 = new("bf16", lowPrecisionAccumulation: true, bfloat16FastMath: true, accuracyLevel: Option<int>.None, negativeTtl: Duration.FromMinutes(10));
+    public static readonly ModelPrecision Int8 = new("int8", lowPrecisionAccumulation: true, bfloat16FastMath: false, accuracyLevel: 4, negativeTtl: Duration.FromMinutes(5));
+    public static readonly ModelPrecision Int4 = new("int4", lowPrecisionAccumulation: true, bfloat16FastMath: false, accuracyLevel: 4, negativeTtl: Duration.FromMinutes(2));
 
     public bool LowPrecisionAccumulation { get; }
+    public bool Bfloat16FastMath { get; }
     public Option<int> AccuracyLevel { get; }
     public Duration NegativeTtl { get; }
 
@@ -43,6 +46,31 @@ public sealed partial class ModelPrecision {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ExecutionProvider {
+    public sealed class ProviderLibrary : IDisposable {
+        readonly string registrationName;
+        int released;
+
+        ProviderLibrary(string registrationName, UInt128 contentKey) =>
+            (this.registrationName, ContentKey) = (registrationName, contentKey);
+
+        public UInt128 ContentKey { get; }
+
+        public static Fin<ProviderLibrary> Admit(string registrationName, string libraryPath) =>
+            string.IsNullOrWhiteSpace(registrationName) || string.IsNullOrWhiteSpace(libraryPath) || !File.Exists(libraryPath)
+                ? Fin.Fail<ProviderLibrary>(new ComputeFault.ExtensionAssetMissing(libraryPath))
+                : Try.lift(() => {
+                    UInt128 contentKey = ContentHash.Of(File.ReadAllBytes(libraryPath));
+                    OrtEnv.Instance().RegisterExecutionProviderLibrary(registrationName, libraryPath);
+                    return new ProviderLibrary(registrationName, contentKey);
+                }).Run().MapFail(error => new ComputeFault.ModelRejected(error.Message));
+
+        public void Dispose() {
+            if (Interlocked.Exchange(ref released, 1) is 0) {
+                OrtEnv.Instance().UnregisterExecutionProviderLibrary(registrationName);
+            }
+        }
+    }
+
     static readonly FrozenDictionary<string, string> CoreMlRows = new Dictionary<string, string>(StringComparer.Ordinal) {
         ["ModelFormat"] = "MLProgram",
         ["MLComputeUnits"] = "ALL",
@@ -53,9 +81,10 @@ public sealed partial class ExecutionProvider {
         ["AllowLowPrecisionAccumulationOnGPU"] = "0",
     }.ToFrozenDictionary(StringComparer.Ordinal);
 
-    static readonly FrozenDictionary<string, string> CpuSessionKeys = new Dictionary<string, string>(StringComparer.Ordinal) {
-        ["mlas.enable_gemm_fastmath_arm64_bfloat16"] = "1",
-    }.ToFrozenDictionary(StringComparer.Ordinal);
+    static FrozenDictionary<string, string> CpuSessionKeys(ModelPrecision precision) =>
+        new Dictionary<string, string>(StringComparer.Ordinal) {
+            ["mlas.enable_gemm_fastmath_arm64_bfloat16"] = precision.Bfloat16FastMath ? "1" : "0",
+        }.ToFrozenDictionary(StringComparer.Ordinal);
 
     static FrozenDictionary<string, string> CoreMlOptions(ModelPrecision precision) =>
         new Dictionary<string, string>(CoreMlRows, StringComparer.Ordinal) {
@@ -63,33 +92,65 @@ public sealed partial class ExecutionProvider {
         }.ToFrozenDictionary(StringComparer.Ordinal);
 
     public static readonly ExecutionProvider Cpu = new(
-        "cpu", providerName: "CPUExecutionProvider", minMacOsMajor: 0,
-        epOptions: static _ => FrozenDictionary<string, string>.Empty, sessionKeys: static _ => CpuSessionKeys,
-        coreMlFlag: CoreMLFlags.COREML_FLAG_USE_NONE, devicePolicy: Option<ExecutionProviderDevicePolicy>.None, hardwareAffinity: OrtHardwareDeviceType.CPU,
-        registerRow: static (_, options, _, _) => options.AppendExecutionProvider_CPU(1));
+        "cpu", providerName: "CPUExecutionProvider", hostGate: static () => true,
+        epOptions: static _ => FrozenDictionary<string, string>.Empty, locationOptions: static _ => FrozenDictionary<string, string>.Empty,
+        sessionKeys: CpuSessionKeys,
+        devicePolicy: Option<ExecutionProviderDevicePolicy>.None, hardwareAffinity: OrtHardwareDeviceType.CPU,
+        registerRow: static (options, _) => options.AppendExecutionProvider_CPU(1));
+
+    public static readonly ExecutionProvider Cuda = Accelerator(
+        "cuda", "CUDAExecutionProvider", OrtHardwareDeviceType.GPU, static () => true,
+        static options => options.AppendExecutionProvider_CUDA(0));
+
+    public static readonly ExecutionProvider DirectMl = Accelerator(
+        "directml", "DmlExecutionProvider", OrtHardwareDeviceType.GPU, OperatingSystem.IsWindows,
+        static options => options.AppendExecutionProvider_DML(0));
+
+    public static readonly ExecutionProvider TensorRt = Accelerator(
+        "tensorrt", "TensorrtExecutionProvider", OrtHardwareDeviceType.GPU, static () => true,
+        static options => options.AppendExecutionProvider_Tensorrt(0));
+
+    public static readonly ExecutionProvider Rocm = Accelerator(
+        "rocm", "ROCMExecutionProvider", OrtHardwareDeviceType.GPU, OperatingSystem.IsLinux,
+        static options => options.AppendExecutionProvider_ROCm(0));
 
     public static readonly ExecutionProvider CoreMl = new(
-        "coreml", providerName: "CoreMLExecutionProvider", minMacOsMajor: 12,
-        epOptions: CoreMlOptions, sessionKeys: static _ => FrozenDictionary<string, string>.Empty,
-        coreMlFlag: CoreMLFlags.COREML_FLAG_USE_NONE, devicePolicy: Some(ExecutionProviderDevicePolicy.PREFER_NPU), hardwareAffinity: OrtHardwareDeviceType.NPU,
-        registerRow: static (self, options, cacheDir, precision) => {
-            options.AppendExecutionProvider_CoreML(self.CoreMlFlag);
-            options.AppendExecutionProvider(self.ProviderName,
-                new Dictionary<string, string>(self.EpOptions(precision), StringComparer.Ordinal) { ["ModelCacheDirectory"] = cacheDir });
-        });
+        "coreml", providerName: "CoreMLExecutionProvider", hostGate: static () => OperatingSystem.IsMacOSVersionAtLeast(12),
+        epOptions: CoreMlOptions,
+        locationOptions: static cacheDir => new Dictionary<string, string>(StringComparer.Ordinal) { ["ModelCacheDirectory"] = cacheDir }.ToFrozenDictionary(StringComparer.Ordinal),
+        sessionKeys: static _ => FrozenDictionary<string, string>.Empty,
+        devicePolicy: Some(ExecutionProviderDevicePolicy.PREFER_NPU), hardwareAffinity: OrtHardwareDeviceType.NPU,
+        registerRow: static (options, rows) => options.AppendExecutionProvider(
+            "CoreMLExecutionProvider", new Dictionary<string, string>(rows, StringComparer.Ordinal)));
+
+    public static readonly ExecutionProvider OpenVino = Accelerator(
+        "openvino", "OpenVINOExecutionProvider", OrtHardwareDeviceType.NPU, static () => true,
+        static options => options.AppendExecutionProvider_OpenVINO(string.Empty));
+
+    public static readonly ExecutionProvider MiGraphX = Accelerator(
+        "migraphx", "MIGraphXExecutionProvider", OrtHardwareDeviceType.GPU, OperatingSystem.IsLinux,
+        static options => options.AppendExecutionProvider_MIGraphX(0));
+
+    public static readonly ExecutionProvider Nnapi = Accelerator(
+        "nnapi", "NnapiExecutionProvider", OrtHardwareDeviceType.NPU, OperatingSystem.IsAndroid,
+        static options => options.AppendExecutionProvider_Nnapi(NnapiFlags.NNAPI_FLAG_USE_NONE));
+
+    public static readonly ExecutionProvider Dnnl = Accelerator(
+        "dnnl", "DnnlExecutionProvider", OrtHardwareDeviceType.CPU, static () => true,
+        static options => options.AppendExecutionProvider_Dnnl(1));
 
     public string ProviderName { get; }
-    public int MinMacOsMajor { get; }
+    public Func<bool> HostGate { get; }
     public Func<ModelPrecision, FrozenDictionary<string, string>> EpOptions { get; }
+    public Func<string, FrozenDictionary<string, string>> LocationOptions { get; }
     public Func<ModelPrecision, FrozenDictionary<string, string>> SessionKeys { get; }
-    public CoreMLFlags CoreMlFlag { get; }
     public Option<ExecutionProviderDevicePolicy> DevicePolicy { get; }
     public OrtHardwareDeviceType HardwareAffinity { get; }
-    public Action<ExecutionProvider, SessionOptions, string, ModelPrecision> RegisterRow { get; }
+    public Action<SessionOptions, IReadOnlyDictionary<string, string>> RegisterRow { get; }
 
     public bool Available =>
-        OrtEnv.Instance().GetAvailableProviders().Contains(ProviderName, StringComparer.Ordinal)
-        && (MinMacOsMajor is 0 || OperatingSystem.IsMacOSVersionAtLeast(MinMacOsMajor));
+        HostGate()
+        && OrtEnv.Instance().GetAvailableProviders().Contains(ProviderName, StringComparer.Ordinal);
 
     public Seq<OrtEpDevice> Devices =>
         toSeq(OrtEnv.Instance().GetEpDevices()).Filter(device => StringComparer.Ordinal.Equals(device.EpName, ProviderName));
@@ -98,11 +159,16 @@ public sealed partial class ExecutionProvider {
         Devices.OrderByDescending(device =>
             device.HardwareDevice.Type == HardwareAffinity ? 2
             : device.HardwareDevice.Type == OrtHardwareDeviceType.CPU ? 0
-            : 1).ToSeq();
+            : 1)
+        .ThenBy(static device => device.EpName, StringComparer.Ordinal)
+        .ThenBy(static device => device.EpVendor, StringComparer.Ordinal)
+        .ThenBy(static device => device.HardwareDevice.VendorId)
+        .ThenBy(static device => device.HardwareDevice.DeviceId)
+        .ToSeq();
 
     public Seq<(OrtHardwareDeviceType Device, OrtDeviceEpIncompatibilityReason Reason, string Notes, int Code)> Veto =>
         toSeq(OrtEnv.Instance().GetHardwareDevices()).Map(device => {
-            using var details = OrtEnv.Instance().GetHardwareDeviceEpIncompatibilityDetails(ProviderName, device);
+            using OrtDeviceEpIncompatibilityDetails details = OrtEnv.Instance().GetHardwareDeviceEpIncompatibilityDetails(ProviderName, device);
             return (Device: device.Type, Reason: details.ReasonsBitmask, Notes: details.Notes, Code: details.ErrorCode);
         }).Filter(static row => row.Reason != OrtDeviceEpIncompatibilityReason.None);
 
@@ -110,43 +176,72 @@ public sealed partial class ExecutionProvider {
         EpOptions(precision).Concat(SessionKeys(precision)).Concat(precision.QdqKeys)
             .ToFrozenDictionary(static row => row.Key, static row => row.Value, StringComparer.Ordinal);
 
-    public void Register(SessionOptions options, string cacheDir, ModelPrecision precision) {
+    public void Register(SessionOptions options, string cacheDir, ModelPrecision precision, Seq<OrtEpDevice> devices) {
         toSeq(SessionKeys(precision).Concat(precision.QdqKeys)).Iter(entry => options.AddSessionConfigEntry(entry.Key, entry.Value));
-        if (AutoSelect.IsEmpty) { RegisterRow(this, options, cacheDir, precision); }
+        Dictionary<string, string> registerOptions = new(EpOptions(precision), StringComparer.Ordinal);
+        toSeq(LocationOptions(cacheDir)).Iter(entry => registerOptions[entry.Key] = entry.Value);
+        if (devices.IsEmpty) { RegisterRow(options, registerOptions); }
         else {
-            options.AppendExecutionProvider(
-                OrtEnv.Instance(), AutoSelect.ToList(),
-                new Dictionary<string, string>(EpOptions(precision), StringComparer.Ordinal) { ["ModelCacheDirectory"] = cacheDir });
+            options.AppendExecutionProvider(OrtEnv.Instance(), devices.ToList(), registerOptions);
         }
     }
 
-    public Option<OrtCompiledModelCompatibility> Compatible(string modelPath) =>
-        AutoSelect.IsEmpty
+    // Compat info is embedded at compile time: the probe reads the COMPILED EP-context artifact, never the uncompiled source model.
+    public Option<OrtCompiledModelCompatibility> Compatible(string compiledModelPath, Seq<OrtEpDevice> devices) =>
+        devices.IsEmpty
             ? None
             : Some(OrtEnv.Instance().GetModelCompatibilityForEpDevices(
-                AutoSelect.ToList(), OrtEnv.Instance().GetCompatibilityInfoFromModel(modelPath, ProviderName)));
+                devices.ToList(), OrtEnv.Instance().GetCompatibilityInfoFromModel(compiledModelPath, ProviderName)));
 
-    public bool WarmStartAdmissible(string modelPath, string contextPath) =>
-        !File.Exists(contextPath)
-        || Compatible(modelPath).Case is not OrtCompiledModelCompatibility verdict
-        || verdict is not (OrtCompiledModelCompatibility.EP_UNSUPPORTED or OrtCompiledModelCompatibility.EP_SUPPORTED_PREFER_RECOMPILATION);
+    public bool WarmStartAdmissible(string contextPath, Seq<OrtEpDevice> devices) =>
+        File.Exists(contextPath)
+        && Compatible(contextPath, devices).Case is OrtCompiledModelCompatibility.EP_SUPPORTED_OPTIMAL;
 
     public string ResultKey(string ortVersion, ModelPrecision precision) =>
         $"{Key}:{ortVersion}:{precision.Key}:{ModelFingerprint.Of(OptionsFor(precision)):x16}";
+
+    public static Fin<(ExecutionProvider Provider, ProviderLibrary Library)> External(
+        string key,
+        string providerName,
+        string registrationName,
+        string libraryPath,
+        OrtHardwareDeviceType affinity) =>
+        string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(providerName)
+            ? Fin.Fail<(ExecutionProvider Provider, ProviderLibrary Library)>(new ComputeFault.ModelRejected("<external-provider-identity>"))
+            : ProviderLibrary.Admit(registrationName, libraryPath).Map(library => (
+                new ExecutionProvider(
+                    key,
+                    providerName,
+                    static () => true,
+                    _ => new Dictionary<string, string>(StringComparer.Ordinal) {
+                        ["external.library.content"] = library.ContentKey.ToString("x32", CultureInfo.InvariantCulture),
+                    }.ToFrozenDictionary(StringComparer.Ordinal),
+                    static _ => FrozenDictionary<string, string>.Empty,
+                    static _ => FrozenDictionary<string, string>.Empty,
+                    Option<ExecutionProviderDevicePolicy>.None,
+                    affinity,
+                    (options, rows) => options.AppendExecutionProvider(
+                        providerName, new Dictionary<string, string>(rows, StringComparer.Ordinal))),
+                library));
+
+    static ExecutionProvider Accelerator(
+        string key,
+        string providerName,
+        OrtHardwareDeviceType affinity,
+        Func<bool> hostGate,
+        Action<SessionOptions> register) =>
+        new(
+            key,
+            providerName,
+            hostGate,
+            static _ => FrozenDictionary<string, string>.Empty,
+            static _ => FrozenDictionary<string, string>.Empty,
+            static _ => FrozenDictionary<string, string>.Empty,
+            Option<ExecutionProviderDevicePolicy>.None,
+            affinity,
+            (options, _) => register(options));
 }
 ```
-
-`CoreMlFlag` binds the package `Microsoft.ML.OnnxRuntime.CoreMLFlags` `[Flags]` enum (`UInt32`) values:
-
-| [INDEX] | [FLAG]                                       | [VALUE] |
-| :-----: | :------------------------------------------- | :-----: |
-|  [01]   | `COREML_FLAG_USE_NONE`                       |    0    |
-|  [02]   | `COREML_FLAG_USE_CPU_ONLY`                   |    1    |
-|  [03]   | `COREML_FLAG_ENABLE_ON_SUBGRAPH`             |    2    |
-|  [04]   | `COREML_FLAG_ONLY_ENABLE_DEVICE_WITH_ANE`    |    4    |
-|  [05]   | `COREML_FLAG_ONLY_ALLOW_STATIC_INPUT_SHAPES` |    8    |
-|  [06]   | `COREML_FLAG_CREATE_MLPROGRAM`               |   16    |
-|  [07]   | `COREML_FLAG_USE_CPU_AND_GPU`                |   32    |
 
 `OrtEpDevice` (enumerated through `OrtEnv.GetEpDevices()`) carries the columns the `Devices`/`AutoSelect` fold reads:
 
@@ -176,4 +271,4 @@ public sealed partial class ExecutionProvider {
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 
-- [EP_EXECUTION]-[BLOCKED]: the `Cuda`/`DirectMl` GPU rows register through `AppendExecutionProvider_CUDA(int)`/`AppendExecutionProvider_DML(int)` (device id `0`) and re-enter as one `ExecutionProvider` row each only behind a GPU-carrying RID — verify GPU device registration and the `GetCompatibilityInfoFromModel`→`GetModelCompatibilityForEpDevices` warm-start verdict against live GPU hardware; blocked on a GPU-carrying host.
+(none)

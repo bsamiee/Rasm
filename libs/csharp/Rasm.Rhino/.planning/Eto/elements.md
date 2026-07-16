@@ -79,17 +79,11 @@ public sealed record ElementSpec(
             _ = ToolTip.Iter(tip => control.ToolTip = tip);
             _ = Style.Iter(row => control.Style = row.Value);
             return Fin.Succ(value: unit);
-        }).Bind(_ => {
-            Fin<Unit> wired = Binds.Fold(
-                Fin.Succ(value: unit),
-                (accepted, attachment) => accepted.Bind(_ => attachment.Wire(control).Map(static _ => unit)));
-            return wired.Match(
-                Succ: static _ => Fin.Succ(value: unit),
-                Fail: fault => {
-                    _ = Bind.Release(control);
-                    return Fin.Fail<Unit>(error: fault);
-                });
-        });
+        }).Bind(_ => Binds
+            .TraverseM(attachment => attachment.Wire(control))
+            .As()
+            .Map(static _ => unit)
+            .MapFail(fault => (Bind.Release(control), fault).Item2));
 }
 ```
 
@@ -157,14 +151,12 @@ public sealed partial class ChoiceKind {
         return bar;
     }
     private static StackLayout Bank(ChoicePolicy policy) {
-        RadioButton? controller = null;
         StackLayout run = new() { Orientation = policy.Flow, Spacing = 4 };
-        _ = policy.Entries.Map((entry, index) => {
-            RadioButton button = new(controller: controller) { Text = entry, Checked = policy.InitialIndex.Map(chosen => chosen == index).IfNone(false) };
-            controller ??= button;
+        _ = policy.Entries.Fold((Index: 0, Controller: (RadioButton?)null), (state, entry) => {
+            RadioButton button = new(controller: state.Controller) { Text = entry, Checked = policy.InitialIndex.Map(chosen => chosen == state.Index).IfNone(false) };
             run.Items.Add(new StackLayoutItem(button));
-            return unit;
-        }).Strict();
+            return (state.Index + 1, state.Controller ?? button);
+        });
         return run;
     }
 }
@@ -219,7 +211,7 @@ public sealed partial class PressKind {
 [SmartEnum<int>]
 public sealed partial class StaticKind {
     public static readonly StaticKind Caption = new(key: 0, mint: static content => new Label { Text = content.Text.IfNone(string.Empty), Wrap = content.Wrap, TextAlignment = content.Alignment });
-    public static readonly StaticKind Picture = new(key: 1, mint: static content => content.Image.Match(Some: image => new ImageView { Image = image }, None: static () => (Control)new ImageView()));
+    public static readonly StaticKind Picture = new(key: 1, mint: static content => new ImageView { Image = content.Image.IfNoneUnsafe((Image?)null) });
     [UseDelegateFromConstructor]
     internal partial Control Mint(StaticContent content);
 }
@@ -247,7 +239,7 @@ public sealed record BoxDress(Padding Padding, Option<string> Title, bool Open =
 ## [05]-[ELEMENT_TREE]
 
 - Owner: `Element` — the recursive closed `[Union]` screen tree. Leaf cases carry a kind row plus its policy; structural cases carry children; `Painted` composes the `canvas.md` surface owner, `Embedded` the `platform.md` native mount, `Tabular` the `[06]` grid family, and `Laid` the `[07]` arrangement algebra. ONE `Realize(Op? key = null)` is the sole construction entry — the total generated `Switch` mints through the kind rows, folds `ElementSpec.Apply` over every product, and recurses `TraverseM` over children, so a screen realizes or fails as one rail value and a new case breaks this dispatch loudly at compile time.
-- Cases: `Text(TextKind, ElementSpec, TextPolicy)` · `Choice(ChoiceKind, ElementSpec, ChoicePolicy)` · `Scalar(ScalarKind, ElementSpec, ScalarPolicy)` · `Pick(PickKind, ElementSpec, PickPolicy)` · `Press(PressKind, ElementSpec, string Caption, Func<Fin<Unit>> Effect)` · `Toggle(ElementSpec, string Caption, Option<bool> Seed, bool ThreeState)` (`CheckBox` — `Seed` `None` realizes indeterminate under `ThreeState`, unchecked otherwise; the value channel is a `CheckedBinding` attachment) · `Static(StaticKind, ElementSpec, StaticContent)` · `Boxed(BoxKind, ElementSpec, BoxDress, Element Child)` · `Tabs(ElementSpec, TabStyle, Seq<(string Title, Element Body)> Pages, int Selected)` · `Split(ElementSpec, Orientation, SplitterFixedPanel, Element First, Element Second, Option<double> Relative)` · `Tabular(ElementSpec, GridPlan)` · `Laid(ElementSpec, Arrangement)` · `Painted(ElementSpec, SurfaceSpec)` · `Embedded(ElementSpec, NativeMount)` · `Web(ElementSpec, Uri)` · `Inspector(ElementSpec, object Subject, bool Categories)` — sixteen cases; `TabStyle` selects `TabControl` (fixed) versus `DocumentControl` (closable, reorderable).
+- Cases: `Text(TextKind, ElementSpec, TextPolicy)` · `Choice(ChoiceKind, ElementSpec, ChoicePolicy)` · `Scalar(ScalarKind, ElementSpec, ScalarPolicy)` · `Pick(PickKind, ElementSpec, PickPolicy)` · `Press(PressKind, ElementSpec, string Caption, Func<Fin<Unit>> Effect)` · `Toggle(ElementSpec, string Caption, Option<bool> Seed, bool ThreeState)` (`CheckBox` — `Seed` `None` realizes indeterminate under `ThreeState`, unchecked otherwise; the value channel is a `CheckedBinding` attachment) · `Static(StaticKind, ElementSpec, StaticContent)` · `Boxed(BoxKind, ElementSpec, BoxDress, Element Child)` · `Tabs(ElementSpec, TabStyle, Seq<(string Title, Element Body)> Pages, int Selected)` · `Split(ElementSpec, Orientation, SplitterFixedPanel, Element First, Element Second, Option<double> Relative)` · `Tabular(ElementSpec, GridPlan)` · `Laid(ElementSpec, Arrangement)` · `Painted(ElementSpec, SurfaceSpec)` · `Embedded(ElementSpec, NativeMount)` · `Web(ElementSpec, Uri)` · `Inspector(ElementSpec, object Subject, bool Categories)` — sixteen cases; `TabStyle` rows carry the page-host mint column — `Fixed` mints `TabControl`, `Closable` a reorderable `DocumentControl` — so the tab host is a row fact like every `[04]` kind.
 - Law: `Press.Effect` is the one event-shaped leaf — the `Click` subscription is the named platform-forced seam, its body routed through `Op.Catch`, and a press that participates in menus, toolbars, or gestures graduates to a `chrome.md` intent row realized here as a `Press` bound to the row's `Command.Execute`; two parallel effect paths for one verb is the deleted form.
 - Law: realization composes, never orchestrates — a consumer holds an `Element` value and calls `Realize` once; reaching into a realized tree to mutate structure is the deleted form, because structure changes are a new `Element` value realized into a container's `Content`.
 - Law: each `Control` returned by a recursive `Realize` call is its exact binding lifecycle key. Consumers inspect, refresh, or release that control's receipts through `Bind.Owned`, `Bind.Refresh`, and `Bind.Release`; realization never accumulates or transports a second receipt collection.
@@ -259,8 +251,20 @@ public sealed record BoxDress(Padding Padding, Option<string> Title, bool Open =
 // --- [TYPES] --------------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class TabStyle {
-    public static readonly TabStyle Fixed = new(key: 0);
-    public static readonly TabStyle Closable = new(key: 1);
+    public static readonly TabStyle Fixed = new(key: 0, mint: static (pages, selected) => {
+        TabControl tabs = new();
+        _ = pages.Iter(page => tabs.Pages.Add(new TabPage(page.Body) { Text = page.Title }));
+        tabs.SelectedIndex = selected;
+        return (Control)tabs;
+    });
+    public static readonly TabStyle Closable = new(key: 1, mint: static (pages, selected) => {
+        DocumentControl documents = new() { AllowReordering = true };
+        _ = pages.Iter(page => documents.Pages.Add(new DocumentPage(page.Body) { Text = page.Title }));
+        documents.SelectedIndex = selected;
+        return (Control)documents;
+    });
+    [UseDelegateFromConstructor]
+    internal partial Control Mint(Seq<(string Title, Control Body)> pages, int selected);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -295,7 +299,7 @@ public abstract partial record Element {
             toggle: static (op, node) => Minted(op, node.Spec, () => (Control)new CheckBox {
                 Text = node.Caption,
                 ThreeState = node.ThreeState,
-                Checked = node.Seed.Match(Some: static held => (bool?)held, None: () => node.ThreeState ? null : (bool?)false),
+                Checked = node.Seed.ToNullable() ?? (node.ThreeState ? null : (bool?)false),
             }),
             @static: static (op, node) => Minted(op, node.Spec, () => node.Kind.Mint(content: node.Content)),
             boxed: static (op, node) => node.Child.Realize(key: op).Bind(body => Minted(op, node.Spec, () => node.Kind.Mint(body: body, dress: node.Dress))),
@@ -328,20 +332,9 @@ public abstract partial record Element {
 
     private static Fin<Control> Paged(Op op, Tabs node) =>
         node.Pages.TraverseM(page => page.Body.Realize(key: op).Map(body => (page.Title, Body: body))).As().Bind(realized =>
-            Minted(op, node.Spec, () => node.Style.Switch(
-                state: (Pages: realized, node.Selected),
-                @fixed: static held => {
-                    TabControl tabs = new();
-                    _ = held.Pages.Iter(page => tabs.Pages.Add(new TabPage(page.Body) { Text = page.Title }));
-                    tabs.SelectedIndex = Math.Clamp(value: held.Selected, min: 0, max: Math.Max(val1: 0, val2: (int)held.Pages.Count - 1));
-                    return (Control)tabs;
-                },
-                closable: static held => {
-                    DocumentControl documents = new() { AllowReordering = true };
-                    _ = held.Pages.Iter(page => documents.Pages.Add(new DocumentPage(page.Body) { Text = page.Title }));
-                    documents.SelectedIndex = Math.Clamp(value: held.Selected, min: 0, max: Math.Max(val1: 0, val2: (int)held.Pages.Count - 1));
-                    return (Control)documents;
-                })));
+            Minted(op, node.Spec, () => node.Style.Mint(
+                pages: realized,
+                selected: Math.Clamp(value: node.Selected, min: 0, max: Math.Max(val1: 0, val2: (int)realized.Count - 1)))));
 }
 ```
 
@@ -465,37 +458,37 @@ public abstract partial record FlowRegion {
     internal Fin<(Control Control, bool? XScale, bool? YScale)> Realize(Padding padding, Size spacing, Op key) => Switch(
         state: (Padding: padding, Spacing: spacing, Key: key),
         leaf: static (frame, region) => region.Item.Realize(key: frame.Key).Map(control =>
-            (control, region.XScale.Match(Some: static held => (bool?)held, None: static () => null), region.YScale.Match(Some: static held => (bool?)held, None: static () => null))),
-        row: static (frame, region) =>
-            region.Cells.TraverseM(cell => cell.Realize(padding: frame.Padding, spacing: frame.Spacing, key: frame.Key)).As().Bind(cells =>
-                frame.Key.Catch(() => {
-                    DynamicLayout flow = new() { Padding = frame.Padding, Spacing = frame.Spacing };
-                    _ = flow.BeginHorizontal();
-                    _ = cells.Iter(cell => _ = flow.Add(control: cell.Control, xscale: cell.XScale, yscale: cell.YScale));
-                    flow.EndHorizontal();
-                    return Fin.Succ(value: ((Control)flow, (bool?)null, (bool?)null));
-                })),
-        columnStack: static (frame, region) =>
-            region.Cells.TraverseM(cell => cell.Realize(padding: frame.Padding, spacing: frame.Spacing, key: frame.Key)).As().Bind(cells =>
-                frame.Key.Catch(() => {
-                    DynamicLayout flow = new() { Padding = frame.Padding, Spacing = frame.Spacing };
-                    _ = cells.Iter(cell => _ = flow.Add(control: cell.Control, xscale: cell.XScale, yscale: cell.YScale));
-                    return Fin.Succ(value: ((Control)flow, (bool?)null, (bool?)null));
-                })),
+            (control, region.XScale.ToNullable(), region.YScale.ToNullable())),
+        row: static (frame, region) => Cells(frame: frame, cells: region.Cells, fill: static (flow, cells) => {
+            _ = flow.BeginHorizontal();
+            _ = cells.Iter(cell => _ = flow.Add(control: cell.Control, xscale: cell.XScale, yscale: cell.YScale));
+            flow.EndHorizontal();
+        }),
+        columnStack: static (frame, region) => Cells(frame: frame, cells: region.Cells, fill: static (flow, cells) =>
+            _ = cells.Iter(cell => _ = flow.Add(control: cell.Control, xscale: cell.XScale, yscale: cell.YScale))),
         centered: static (frame, region) =>
             region.Body.Realize(padding: frame.Padding, spacing: frame.Spacing, key: frame.Key).Bind(body =>
-                frame.Key.Catch(() => {
-                    DynamicLayout flow = new() { Padding = frame.Padding, Spacing = frame.Spacing };
-                    flow.AddCentered(control: body.Control, padding: frame.Padding, spacing: frame.Spacing, xscale: body.XScale, yscale: body.YScale);
-                    return Fin.Succ(value: ((Control)flow, (bool?)null, (bool?)null));
-                })),
+                Framed(frame: frame, fill: flow =>
+                    flow.AddCentered(control: body.Control, padding: frame.Padding, spacing: frame.Spacing, xscale: body.XScale, yscale: body.YScale))),
         autoSized: static (frame, region) =>
             region.Body.Realize(padding: frame.Padding, spacing: frame.Spacing, key: frame.Key).Bind(body =>
-                frame.Key.Catch(() => {
-                    DynamicLayout flow = new() { Padding = frame.Padding, Spacing = frame.Spacing };
-                    flow.AddAutoSized(control: body.Control, padding: frame.Padding, xscale: body.XScale, yscale: body.YScale);
-                    return Fin.Succ(value: ((Control)flow, (bool?)null, (bool?)null));
-                })));
+                Framed(frame: frame, fill: flow =>
+                    flow.AddAutoSized(control: body.Control, padding: frame.Padding, xscale: body.XScale, yscale: body.YScale))));
+
+    private static Fin<(Control Control, bool? XScale, bool? YScale)> Cells(
+        (Padding Padding, Size Spacing, Op Key) frame,
+        Seq<FlowRegion> cells,
+        Action<DynamicLayout, Seq<(Control Control, bool? XScale, bool? YScale)>> fill) =>
+        cells.TraverseM(cell => cell.Realize(padding: frame.Padding, spacing: frame.Spacing, key: frame.Key)).As()
+            .Bind(realized => Framed(frame: frame, fill: flow => fill(flow, realized)));
+
+    private static Fin<(Control Control, bool? XScale, bool? YScale)> Framed(
+        (Padding Padding, Size Spacing, Op Key) frame, Action<DynamicLayout> fill) =>
+        frame.Key.Catch(() => {
+            DynamicLayout flow = new() { Padding = frame.Padding, Spacing = frame.Spacing };
+            fill(flow);
+            return Fin.Succ(value: ((Control)flow, (bool?)null, (bool?)null));
+        });
 }
 
 public sealed record TablePlanCell(Element Item, bool ScaleWidth = false);

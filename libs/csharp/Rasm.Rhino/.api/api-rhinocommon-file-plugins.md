@@ -39,6 +39,14 @@
 - `FileType.FileType(string extension, string description)` — construct one extension/description pair
 - `FileType.Description : string` / `FileType.Extension : string` — the registered identity
 
+[ENTRYPOINT_SCOPE]: dispatch-mode carriers
+- rail: host
+
+- `FileReadOptions.FileReadOptions()` — public construction for package-driven reads; `Dispose()` releases the native carrier
+- `FileReadOptions.ImportMode` / `OpenMode` / `NewMode` / `InsertMode` / `ImportReferenceMode` / `BatchMode : bool` (get/set) — the host intent axes an engine consults for merge-versus-open behavior
+- `FileReadOptions.UseScaleGeometry` / `ScaleGeometry : bool` (get/set) — unit-scale participation for the incoming payload
+- `FileReadOptions.OptionsDictionary : ArchivableDictionary` — the per-format option payload the dialog lane threads
+
 [ENTRYPOINT_SCOPE]: plug-in dispatch contract
 - rail: host
 

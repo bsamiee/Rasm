@@ -101,11 +101,11 @@ public abstract partial record Pose {
     public sealed record Inverted(Pose Body) : Pose;
 
     internal IMatrix ToMatrix() => Switch(
-        shift: static pose => Matrix.Create(xx: 1f, yx: 0f, xy: 0f, yy: 1f, x0: pose.OffsetX, y0: pose.OffsetY),
+        shift: static pose => Matrix.FromTranslation(distanceX: pose.OffsetX, distanceY: pose.OffsetY),
         turn: static pose => Matrix.FromRotation(angle: pose.Angle),
         grow: static pose => Matrix.FromScaleAt(scaleX: pose.ScaleX, scaleY: pose.ScaleY, centerX: pose.About.X, centerY: pose.About.Y),
         @explicit: static pose => Matrix.Create(xx: pose.XX, yx: pose.YX, xy: pose.XY, yy: pose.YY, x0: pose.X0, y0: pose.Y0),
-        stacked: static pose => pose.Poses.Map(static part => part.ToMatrix()).Fold(Matrix.Create(xx: 1f, yx: 0f, xy: 0f, yy: 1f, x0: 0f, y0: 0f), static (folded, next) => (Op.Side(() => folded.Append(next)), folded).Item2),
+        stacked: static pose => pose.Poses.Fold(Matrix.Create(), static (folded, part) => (Op.Side(() => folded.Append(part.ToMatrix())), folded).Item2),
         inverted: static pose => Matrix.Inverse(matrix: pose.Body.ToMatrix()));
 }
 
@@ -147,16 +147,12 @@ public sealed record PathSpec(Seq<Figure> Figures, bool Closed = false, Option<P
 
     public bool Hits(PointF point, Option<StrokeSpec> stroke = default) {
         using GraphicsPath path = Build();
-        return Closed
-            ? path.FillContains(point: point)
-            : stroke.Match(
-                Some: spec => Probed(path: path, probe: spec.Mint(), point: point),
-                None: () => path.FillContains(point: point));
-    }
-
-    private static bool Probed(GraphicsPath path, Pen probe, PointF point) {
-        using Pen live = probe;
-        return path.StrokeContains(pen: live, point: point);
+        return stroke.Filter(_ => !Closed).Match(
+            Some: spec => {
+                using Pen probe = spec.Mint();
+                return path.StrokeContains(pen: probe, point: point);
+            },
+            None: () => path.FillContains(point: point));
     }
 }
 ```
@@ -220,7 +216,7 @@ public sealed record GlyphBlock(
 
 - Owner: `Mark` — the closed `[Union]` draw tree (`Stroked`, `Filled`, `Bordered` fill-then-stroke, `Written` glyph block, `Blit` image, `Grouped` transform/clip/children) — and `Scene`, the retained value whose ONE `Render(Graphics, Op)` fold issues the entire host command stream and whose ONE `HitTest(PointF)` fold answers pointer containment over the identical geometry. Render state is a strict discipline: `Grouped` pushes `SaveTransformState()` (the host returns the restore handle as `IDisposable`), applies its pose through `MultiplyTransform`, clips through `SetClip` so descendants render bounded, and the `using` window is the named platform-forced seam.
 - Cases: `Stroked(PathSpec, StrokeSpec)` · `Filled(PathSpec, FillSpec)` · `Bordered(PathSpec, FillSpec, StrokeSpec)` · `Written(GlyphBlock, PointF)` · `Blit(Image, RectangleF Source, RectangleF Target)` · `Grouped(Option<Pose>, Option<PathSpec> Clip, Seq<Mark> Children)`.
-- Law: paint objects live exactly one draw — each arm mints its brush/pen inside its own `using` window, and the `Written` arm brackets its shaped `FormattedText` the same way (`FormattedText` derives `Widget` and is disposable); `HitTest` returns the FIRST hit in reverse paint order (topmost wins) as `Option<Mark>`, and marks needing identity ride a `Grouped` wrapper keyed by the consumer.
+- Law: paint objects live exactly one draw — each arm mints its brush/pen inside its own `using` window, and the `Written` arm brackets its shaped `FormattedText` the same way (`FormattedText` derives `Widget` and is disposable); `HitTest` returns the FIRST hit in reverse paint order (topmost wins) as `Option<Mark>`, the grouped probe maps the point through the group pose's inverse and gates on the clip so hit truth shares the paint's transform frame, and marks needing identity ride a `Grouped` wrapper keyed by the consumer.
 - Law: quality knobs (`AntiAlias`, `ImageInterpolation`, `PixelOffsetMode`) are `ScenePolicy` values applied once at render entry, never per-mark toggles.
 - Boundary: this fold is the shared paint spine — `chrome.md`'s print pages and this page's `Surface` both hand it a `Graphics`; Rhino viewport HUD drawing is the Display unit's conduit and never enters here.
 
@@ -257,9 +253,12 @@ public abstract partial record Mark {
         grouped: static (g, mark) => Op.Side(() => {
             using IDisposable window = g.SaveTransformState();
             _ = mark.Pose.Iter(pose => g.MultiplyTransform(matrix: pose.ToMatrix()));
-            _ = mark.Clip.Iter(clip => g.SetClip(path: clip.Build()));
+            _ = mark.Clip.Iter(clip => { using GraphicsPath built = clip.Build(); g.SetClip(path: built); });
             _ = mark.Children.Iter(child => child.Draw(graphics: g));
         }));
+
+    internal static Option<Mark> Topmost(Seq<Mark> marks, PointF point) =>
+        marks.Rev().Map(mark => mark.Probe(point: point)).Somes().HeadOrNone();
 
     internal Option<Mark> Probe(PointF point) => Switch(
         state: point,
@@ -268,7 +267,10 @@ public abstract partial record Mark {
         bordered: static (at, mark) => mark.Path.Hits(point: at, stroke: Some(mark.Stroke)) ? Some((Mark)mark) : None,
         written: static (at, mark) => new RectangleF(mark.At, mark.Block.Measure()).Contains(at) ? Some((Mark)mark) : None,
         blit: static (at, mark) => mark.Target.Contains(at) ? Some((Mark)mark) : None,
-        grouped: static (at, mark) => mark.Children.Rev().Map(child => child.Probe(point: at)).Somes().HeadOrNone());
+        grouped: static (at, mark) => {
+            PointF local = mark.Pose.Map(pose => Matrix.Inverse(matrix: pose.ToMatrix()).TransformPoint(point: at)).IfNone(at);
+            return mark.Clip.Map(clip => clip.Hits(point: local)).IfNone(true) ? Topmost(marks: mark.Children, point: local) : None;
+        });
 }
 
 public sealed record Scene(Seq<Mark> Marks, ScenePolicy Policy) {
@@ -283,7 +285,7 @@ public sealed record Scene(Seq<Mark> Marks, ScenePolicy Policy) {
             return Fin.Succ(value: unit);
         });
 
-    public Option<Mark> HitTest(PointF point) => Marks.Rev().Map(mark => mark.Probe(point: point)).Somes().HeadOrNone();
+    public Option<Mark> HitTest(PointF point) => Mark.Topmost(marks: Marks, point: point);
 }
 ```
 
@@ -291,6 +293,7 @@ public sealed record Scene(Seq<Mark> Marks, ScenePolicy Policy) {
 
 - Owner: `SurfaceSpec` + `Surface` — the `Drawable` lifecycle owner: `Mount` constructs the host, subscribes `Paint` once (the named platform-forced event seam), and holds the live scene in an `Atom<Scene>` so a scene swap plus an invalidation row is the whole redraw protocol — plus `Redraw`, the invalidation union (`Whole` full-surface, `Region(Rectangle)` bounded, `Immediate(Rectangle)` synchronous `Update`), `Acquire`, the off-event graphics lease riding the kernel `Lease<Graphics>.Owned` so an out-of-band draw disposes deterministically, and `PixelLease`, the `Bitmap.Lock` window under the same rail with the unlocked `GetPixel`/`SetPixel` pair and `ToByteArray(ImageFormat)` egress beside it.
 - Law: the paint handler renders the CURRENT atom value — no captured scene, no dirty flags: swap then invalidate, and the host replays the whole stream on the next paint; pointer wiring reads `Surface.HitTest` over the same value, so paint and hit truth cannot diverge.
+- Law: the realized `Drawable` is its surface handle — `Surface.Of(host)` recovers the mounted owner from the control the way `Bind.Owned` recovers receipts, so an `Element.Painted` consumer swaps scenes and hit-tests through the one control `Realize` returned, and a parallel surface registry is the deleted form.
 - Law: IME composition rides the host verbs — `CancelComposition`/`CommitComposition` project `CancelTextComposition`/`CommitTextComposition` — and a text-editing overlay that ignores composition state is the named defect.
 - Law: `Acquire` succeeds only where the host advertises it — `SupportsCreateGraphics` gates the lease with a typed `UiFault.Unavailable`, never a downstream null.
 - Growth: a new invalidation modality is one `Redraw` case; frame pacing, display-link cadence, and animation clocks are the Viewport unit's motion owner — this surface exposes swap-and-invalidate and nothing temporal.
@@ -311,6 +314,7 @@ public sealed record SurfaceSpec(Scene Initial, bool LargeCanvas = false, bool F
 
 // --- [SERVICES] -----------------------------------------------------------------------------
 public sealed class Surface {
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Drawable, Surface> Mounted = new();
     private readonly Atom<Scene> scene;
     private Surface(Drawable host, Atom<Scene> scene) { Host = host; this.scene = scene; }
 
@@ -322,9 +326,14 @@ public sealed class Surface {
             Atom<Scene> held = Atom(spec.Initial);
             Drawable host = new(largeCanvas: spec.LargeCanvas) { CanFocus = spec.Focusable };
             host.Paint += (_, args) => ignore(held.Value.Render(graphics: args.Graphics, key: op));
-            return Fin.Succ(value: new Surface(host: host, scene: held));
+            Surface surface = new(host: host, scene: held);
+            Mounted.Add(host, surface);
+            return Fin.Succ(value: surface);
         });
     }
+
+    public static Option<Surface> Of(Drawable host) =>
+        Mounted.TryGetValue(host, out Surface? held) ? Some(held) : None;
 
     public Unit Swap(Func<Scene, Scene> next, Redraw redraw) {
         _ = scene.Swap(next);

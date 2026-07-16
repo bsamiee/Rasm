@@ -8,7 +8,8 @@
 - [03]-[CAPABILITY]: `SessionMode` and the behavior-bearing `SessionNeed` capability vocabulary.
 - [04]-[SOURCE_AND_SESSION]: `DocumentPath`, the flattened `SessionSource` admission family, and the lease-retaining `DocumentSession` owner.
 - [05]-[REGIME]: `DocumentSpace`, the kernel-composed tolerance regime, and the one `RegimeChange` mutation rail.
-- [06]-[SURFACE_LEDGER]: the page-owned surface registry.
+- [06]-[REGIME_TEXT]: the locale-aware unit-text correspondence — `UnitPhrase` parse and `UnitScript` render over one regime.
+- [07]-[SURFACE_LEDGER]: the page-owned surface registry.
 
 ## [02]-[IDENTITY_AND_STATE]
 
@@ -23,9 +24,11 @@
 using System.IO;
 using System.Threading;
 using Rasm.Domain;
+using Rasm.Rhino.Persistence;
 using Rhino;
-using Rhino.Collections;
 using Rhino.Commands;
+using Rhino.DocObjects;
+using Rhino.Input;
 
 namespace Rasm.Rhino.Document;
 
@@ -47,9 +50,7 @@ public readonly partial struct DocKey : IDetachedDocumentResult {
         Op op = key.OrDefault();
         return op.Catch(() => Optional(document)
             .ToFin(Fail: op.MissingContext())
-            .Bind(candidate => candidate.RuntimeSerialNumber is 0u
-                ? Fin.Fail<DocKey>(error: op.MissingContext())
-                : Fin.Succ(value: Create(value: candidate.RuntimeSerialNumber))));
+            .Bind(candidate => OpExtensions.AcceptValidated<uint, DocKey>(op: op, candidate: candidate.RuntimeSerialNumber)));
     }
 
     public static Fin<Seq<DocKey>> Census(DocumentSet scope, Op? key = null) {
@@ -94,59 +95,33 @@ public sealed partial class SessionPhase {
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
-public sealed record SessionSnapshot : IDetachedDocumentResult {
-    private SessionSnapshot(
-        SessionPhase phase,
-        bool readOnly,
-        bool locked,
-        bool undoRecording,
-        bool undoing,
-        bool redoing,
-        bool headless,
-        bool modified,
-        bool pointing,
-        int commandDepth,
-        Option<Guid> activeCommand) {
-        Phase = phase;
-        ReadOnly = readOnly;
-        Locked = locked;
-        UndoRecording = undoRecording;
-        Undoing = undoing;
-        Redoing = redoing;
-        Headless = headless;
-        Modified = modified;
-        Pointing = pointing;
-        CommandDepth = commandDepth;
-        ActiveCommand = activeCommand;
-    }
-
-    public SessionPhase Phase { get; }
-    public bool ReadOnly { get; }
-    public bool Locked { get; }
-    public bool UndoRecording { get; }
-    public bool Undoing { get; }
-    public bool Redoing { get; }
-    public bool Headless { get; }
-    public bool Modified { get; }
-    public bool Pointing { get; }
-    public int CommandDepth { get; }
-    public Option<Guid> ActiveCommand { get; }
-
+public sealed record SessionSnapshot(
+    SessionPhase Phase,
+    bool ReadOnly,
+    bool Locked,
+    bool UndoRecording,
+    bool Undoing,
+    bool Redoing,
+    bool Headless,
+    bool Modified,
+    bool Pointing,
+    int CommandDepth,
+    Option<Guid> ActiveCommand) : IDetachedDocumentResult {
     internal static Fin<SessionSnapshot> Of(RhinoDoc document, Op? key = null) {
         Op op = key.OrDefault();
         return from active in Optional(document).ToFin(Fail: op.MissingContext())
                from snapshot in op.Catch(() => Fin.Succ(value: new SessionSnapshot(
-                   phase: SessionPhase.Of(document: active),
-                   readOnly: active.IsReadOnly,
-                   locked: active.IsLocked,
-                   undoRecording: active.UndoRecordingEnabled,
-                   undoing: active.UndoActive,
-                   redoing: active.RedoActive,
-                   headless: active.IsHeadless,
-                   modified: active.Modified,
-                   pointing: active.InGetPoint,
-                   commandDepth: active.InCommand(bIgnoreScriptRunnerCommands: false),
-                   activeCommand: Optional(active.ActiveCommandId).Filter(static id => id != Guid.Empty))))
+                   Phase: SessionPhase.Of(document: active),
+                   ReadOnly: active.IsReadOnly,
+                   Locked: active.IsLocked,
+                   UndoRecording: active.UndoRecordingEnabled,
+                   Undoing: active.UndoActive,
+                   Redoing: active.RedoActive,
+                   Headless: active.IsHeadless,
+                   Modified: active.Modified,
+                   Pointing: active.InGetPoint,
+                   CommandDepth: active.InCommand(bIgnoreScriptRunnerCommands: false),
+                   ActiveCommand: Optional(active.ActiveCommandId).Filter(static id => id != Guid.Empty))))
                select snapshot;
     }
 }
@@ -226,11 +201,12 @@ public sealed partial class SessionNeed {
 ## [04]-[SOURCE_AND_SESSION]
 
 - Owner: `DocumentPath` admits absolute nonblank path text once, while `DocumentFile` carries existing-file versus existing-`.3dm` resolution as behavior rows. `SessionSource` is one flat `[Union]` over borrowed live/active/keyed/opened documents and owned empty/template/archive/configured headless documents; source depth is case data, so admission performs one generated dispatch, and the ambient `RhinoDoc.ActiveDoc` static crosses the boundary only through the `Active` case.
-- Entry: `SessionSource.Acquire` returns `Fin<Lease<RhinoDoc>>`; every deterministic source/mode refusal, file requirement, and configured-option snapshot completes before its host call. `DocumentSession.Of` rejects empty, duplicate, or mode-incompatible capabilities, acquires, snapshots, checks lane/document agreement, validates the kernel context, and only then adopts the lease.
+- Entry: `SessionSource.Acquire` returns `Fin<Lease<RhinoDoc>>`; every deterministic source/mode refusal and file requirement completes before its host call, and the `Configured` case carries a typed `ArchiveMap` (Persistence/dictionary.md) minted into the native option payload inside the acquire arm, so the host receives a fresh dictionary no caller can mutate. `DocumentSession.Of` rejects empty, duplicate, or mode-incompatible capabilities, acquires, snapshots, checks lane/document agreement, validates the kernel context, and only then adopts the lease.
 - Law: a failed admission releases an owned lease before returning its original fault. A successful admission never calls `Lease.Use`, because `Use` closes `Owned` when its projection returns; the session retains the lease and releases it exactly once through `Dispose`.
 - Law: `Demand<TResult>` is the capability surface. It validates a nonempty unique capability set and the consumer, re-resolves `Key`, proves every granted row against one fresh snapshot, and executes the host body through `Op.Catch`; its result constraint excludes a raw `RhinoDoc` from the result rail.
+- Law: `Demand` is re-entrant on the demanding thread — the reentrant `Lock` plus the demand-depth counter admit a nested demand inside a running host body, and each nesting proves its own grants against its own fresh snapshot. `Dispose` issued during any demand defers to the outermost demand's exit, and a pending disposal refuses every new demand, nested included.
 - Law: `Context()` re-enters `Context.Of(RhinoDoc)` on every call, so model-unit and tolerance changes cannot stale the context consumed by later geometry work.
-- Boundary: `Lock` plus deferred reentrant disposal serializes handle resolution, evidence, callbacks, and owned cleanup. Live acquisition and demand enter the Rhino UI thread through `InvokeRequired` and `InvokeAndWait`; headless work remains on the caller thread.
+- Boundary: `Lock` plus deferred reentrant disposal serializes handle resolution, evidence, callbacks, and owned cleanup. Live acquisition and demand discriminate on `RhinoApp.IsOnMainThread` and marshal through `InvokeAndWait`; headless work remains on the caller thread.
 - Boundary: `IDetachedDocumentResult` marks the admitted result census: detached facts and explicit lifetime capsules. `Demand` forbids a raw `RhinoDoc`, and each capsule owns every live handle it carries beyond the callback.
 
 ```csharp signature
@@ -278,77 +254,65 @@ public abstract partial record SessionSource {
     public sealed record Empty : SessionSource;
     public sealed record Template(DocumentPath Path) : SessionSource;
     public sealed record Archive(DocumentPath Path) : SessionSource;
-    public sealed record Configured(DocumentPath Path, ArchivableDictionary Options) : SessionSource;
+    public sealed record Configured(DocumentPath Path, ArchiveMap Options) : SessionSource;
 
     internal Fin<Lease<RhinoDoc>> Acquire(SessionMode mode, Op key) =>
         from modeAdmitted in Admits(mode: mode, key: key)
         from lease in Switch(
             state: key,
-            live: static (op, source) => Optional(source.Document)
-                .ToFin(Fail: op.MissingContext())
-                .Map(static document => (Lease<RhinoDoc>)new Lease<RhinoDoc>.Borrowed(Value: document)),
-            active: static (op, _) => op.Catch(() => Optional(RhinoDoc.ActiveDoc)
-                .ToFin(Fail: op.MissingContext())
-                .Map(static document => (Lease<RhinoDoc>)new Lease<RhinoDoc>.Borrowed(Value: document))),
-            keyed: static (op, source) => source.Key.Resolve(key: op)
-                .Map(static document => (Lease<RhinoDoc>)new Lease<RhinoDoc>.Borrowed(Value: document)),
+            live: static (op, source) => Borrowed(document: Optional(source.Document).ToFin(Fail: op.MissingContext())),
+            active: static (op, _) => op.Catch(() =>
+                Borrowed(document: Optional(RhinoDoc.ActiveDoc).ToFin(Fail: op.MissingContext()))),
+            keyed: static (op, source) => Borrowed(document: source.Key.Resolve(key: op)),
             opened: static (op, source) =>
                 from path in source.Path.Resolve(file: DocumentFile.ThreeDm, key: op)
-                from document in op.Catch(() => Optional(RhinoDoc.Open(
+                from acquired in op.Catch(() => Borrowed(document: Optional(RhinoDoc.Open(
                         filePath: path,
                         wasAlreadyOpen: out _))
-                    .ToFin(Fail: op.InvalidResult(detail: path)))
-                select (Lease<RhinoDoc>)new Lease<RhinoDoc>.Borrowed(Value: document),
+                    .ToFin(Fail: op.InvalidResult(detail: path))))
+                select acquired,
             empty: static (op, _) => op.Catch(() => Minted(
                 document: RhinoDoc.CreateHeadless(file3dmTemplatePath: string.Empty),
                 key: op)),
-            template: static (op, source) =>
-                from path in source.Path.Resolve(file: DocumentFile.ThreeDm, key: op)
-                from lease in op.Catch(() => Minted(
-                    document: RhinoDoc.CreateHeadless(file3dmTemplatePath: path),
-                    key: op))
-                select lease,
-            archive: static (op, source) =>
-                from path in source.Path.Resolve(file: DocumentFile.ThreeDm, key: op)
-                from lease in op.Catch(() => Minted(
-                    document: RhinoDoc.OpenHeadless(file3dmPath: path),
-                    key: op))
-                select lease,
+            template: static (op, source) => Headless(
+                path: source.Path,
+                open: static resolved => RhinoDoc.CreateHeadless(file3dmTemplatePath: resolved),
+                key: op),
+            archive: static (op, source) => Headless(
+                path: source.Path,
+                open: static resolved => RhinoDoc.OpenHeadless(file3dmPath: resolved),
+                key: op),
             configured: static (op, source) =>
                 from path in source.Path.Resolve(file: DocumentFile.Existing, key: op)
                 from options in Optional(source.Options).ToFin(Fail: op.InvalidInput())
-                from frozen in op.Catch(() => Fin.Succ(value: options.Clone()))
+                from minted in options.Mint(key: op)
                 from lease in op.Catch(() => Minted(
-                    document: RhinoDoc.OpenHeadless(filePath: path, options: frozen),
+                    document: RhinoDoc.OpenHeadless(filePath: path, options: minted),
                     key: op))
                 select lease)
         select lease;
 
     private Fin<Unit> Admits(SessionMode mode, Op key) =>
-        Switch(
-            state: (Mode: mode, Op: key),
-            live: static (context, _) => guard(
-                flag: context.Mode.Live,
-                False: context.Op.InvalidInput()).ToFin(),
-            active: static (context, _) => guard(
-                flag: context.Mode.Live,
-                False: context.Op.InvalidInput()).ToFin(),
-            keyed: static (_, _) => Fin.Succ(value: unit),
-            opened: static (context, _) => guard(
-                flag: context.Mode.Live,
-                False: context.Op.InvalidInput()).ToFin(),
-            empty: static (context, _) => guard(
-                flag: !context.Mode.Live,
-                False: context.Op.InvalidInput()).ToFin(),
-            template: static (context, _) => guard(
-                flag: !context.Mode.Live,
-                False: context.Op.InvalidInput()).ToFin(),
-            archive: static (context, _) => guard(
-                flag: !context.Mode.Live,
-                False: context.Op.InvalidInput()).ToFin(),
-            configured: static (context, _) => guard(
-                flag: !context.Mode.Live,
-                False: context.Op.InvalidInput()).ToFin());
+        guard(
+            flag: Switch(
+                state: mode,
+                live: static (lane, _) => lane.Live,
+                active: static (lane, _) => lane.Live,
+                keyed: static (_, _) => true,
+                opened: static (lane, _) => lane.Live,
+                empty: static (lane, _) => !lane.Live,
+                template: static (lane, _) => !lane.Live,
+                archive: static (lane, _) => !lane.Live,
+                configured: static (lane, _) => !lane.Live),
+            False: key.InvalidInput()).ToFin();
+
+    private static Fin<Lease<RhinoDoc>> Borrowed(Fin<RhinoDoc> document) =>
+        document.Map(static value => (Lease<RhinoDoc>)new Lease<RhinoDoc>.Borrowed(Value: value));
+
+    private static Fin<Lease<RhinoDoc>> Headless(DocumentPath path, Func<string, RhinoDoc?> open, Op key) =>
+        from resolved in path.Resolve(file: DocumentFile.ThreeDm, key: key)
+        from lease in key.Catch(() => Minted(document: open(arg: resolved), key: key))
+        select lease;
 
     private static Fin<Lease<RhinoDoc>> Minted(RhinoDoc? document, Op key) =>
         Optional(document)
@@ -546,7 +510,7 @@ public sealed class DocumentSession : IDisposable {
         from lane in Optional(mode).ToFin(Fail: op.InvalidInput())
         from body in Optional(use).ToFin(Fail: op.InvalidInput())
         from result in op.Catch(() => {
-            if (!lane.Live || !RhinoApp.InvokeRequired) {
+            if (!lane.Live || RhinoApp.IsOnMainThread) {
                 return body();
             }
 
@@ -677,11 +641,8 @@ public abstract partial record RegimeChange {
     private RegimeChange() { }
 
     public sealed record Units : RegimeChange {
-        private Units(LengthUnit native, ModelUnit unit, UnitScaling scaling) {
-            Native = native;
-            Unit = unit;
-            Scaling = scaling;
-        }
+        private Units(LengthUnit native, ModelUnit unit, UnitScaling scaling) =>
+            (Native, Unit, Scaling) = (native, unit, scaling);
 
         internal LengthUnit Native { get; }
         public ModelUnit Unit { get; }
@@ -691,21 +652,9 @@ public abstract partial record RegimeChange {
             new(native: native, unit: unit, scaling: scaling);
     }
 
-    public sealed record Tolerances : RegimeChange {
-        private Tolerances(ToleranceRegime value) => Value = value;
+    public sealed record Tolerances(ToleranceRegime Value) : RegimeChange;
 
-        public ToleranceRegime Value { get; }
-
-        internal static Tolerances Of(ToleranceRegime value) => new(value: value);
-    }
-
-    public sealed record Precision : RegimeChange {
-        private Precision(DisplayPrecision value) => Value = value;
-
-        public DisplayPrecision Value { get; }
-
-        internal static Precision Of(DisplayPrecision value) => new(value: value);
-    }
+    public sealed record Precision(DisplayPrecision Value) : RegimeChange;
 
     public static Fin<RegimeChange> Of(
         UnitSystem system,
@@ -756,13 +705,13 @@ public abstract partial record RegimeChange {
                 relative: relative,
                 angle: angle,
                 key: op)
-            .Map(static value => (RegimeChange)Tolerances.Of(value: value));
+            .Map(static value => (RegimeChange)new Tolerances(Value: value));
     }
 
     public static Fin<RegimeChange> Of(int precision, Op? key = null) {
         Op op = key.OrDefault();
         return op.AcceptValidated<DisplayPrecision>(candidate: precision)
-            .Map(static value => (RegimeChange)Precision.Of(value: value));
+            .Map(static value => (RegimeChange)new Precision(Value: value));
     }
 
     internal Fin<Unit> Apply(
@@ -856,20 +805,20 @@ public abstract partial record RegimeChange {
         UnitRegime before,
         Option<UnitScaling> reversal,
         Op op) {
-        Fin<Unit> units = reversal.Match(
+        K<Validation<Error>, Unit> units = reversal.Match(
             Some: scaling => op.Catch(() => op.Confirm(
                 success: document.AdjustLengthUnits(
                     modelUnits: space.ModelUnits,
                     units: before.Native,
                     scale: scaling.HostScale))),
-            None: () => Fin.Succ(value: unit));
-        Fin<Unit> tolerances = op.Catch(() => Fin.Succ(value: space.SetTolerances(
+            None: () => Fin.Succ(value: unit)).ToValidation();
+        K<Validation<Error>, Unit> tolerances = op.Catch(() => Fin.Succ(value: space.SetTolerances(
             document: document,
-            tolerances: before.Tolerances)));
-        Fin<Unit> precision = op.Catch(() => Fin.Succ(value: space.SetPrecision(
+            tolerances: before.Tolerances))).ToValidation();
+        K<Validation<Error>, Unit> precision = op.Catch(() => Fin.Succ(value: space.SetPrecision(
             document: document,
-            precision: before.Precision)));
-        return (units.ToValidation(), tolerances.ToValidation(), precision.ToValidation())
+            precision: before.Precision))).ToValidation();
+        return (units, tolerances, precision)
             .Apply(static (_, _, _) => unit)
             .As()
             .ToFin();
@@ -877,20 +826,10 @@ public abstract partial record RegimeChange {
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
-public sealed record ToleranceRegime : IDetachedDocumentResult {
-    private ToleranceRegime(
-        AbsoluteTolerance absolute,
-        RelativeTolerance relative,
-        AngleTolerance angle) {
-        Absolute = absolute;
-        Relative = relative;
-        Angle = angle;
-    }
-
-    public AbsoluteTolerance Absolute { get; }
-    public RelativeTolerance Relative { get; }
-    public AngleTolerance Angle { get; }
-
+public sealed record ToleranceRegime(
+    AbsoluteTolerance Absolute,
+    RelativeTolerance Relative,
+    AngleTolerance Angle) : IDetachedDocumentResult {
     public static Fin<ToleranceRegime> Of(
         double absolute,
         double relative,
@@ -901,9 +840,9 @@ public sealed record ToleranceRegime : IDetachedDocumentResult {
                from admittedRelative in op.AcceptValidated<RelativeTolerance>(candidate: relative)
                from admittedAngle in op.AcceptValidated<AngleTolerance>(candidate: angle)
                select new ToleranceRegime(
-                   absolute: admittedAbsolute,
-                   relative: admittedRelative,
-                   angle: admittedAngle);
+                   Absolute: admittedAbsolute,
+                   Relative: admittedRelative,
+                   Angle: admittedAngle);
     }
 }
 
@@ -912,12 +851,8 @@ public sealed record UnitRegime : IDetachedDocumentResult {
         LengthUnit native,
         ModelUnit unit,
         ToleranceRegime tolerances,
-        DisplayPrecision precision) {
-        Native = native;
-        Unit = unit;
-        Tolerances = tolerances;
-        Precision = precision;
-    }
+        DisplayPrecision precision) =>
+        (Native, Unit, Tolerances, Precision) = (native, unit, tolerances, precision);
 
     internal LengthUnit Native { get; }
     public ModelUnit Unit { get; }
@@ -945,33 +880,12 @@ public sealed record UnitRegime : IDetachedDocumentResult {
             precision: admittedPrecision);
 }
 
-public sealed record RegimeReceipt : IDetachedDocumentResult {
-    internal RegimeReceipt(
-        DocumentSpace space,
-        RegimeChange change,
-        UnitRegime before,
-        UnitRegime after,
-        uint undoRecord = 0u) {
-        Space = space;
-        Change = change;
-        Before = before;
-        After = after;
-        UndoRecord = undoRecord;
-    }
-
-    public DocumentSpace Space { get; }
-    public RegimeChange Change { get; }
-    public UnitRegime Before { get; }
-    public UnitRegime After { get; }
-    public uint UndoRecord { get; }
-
-    internal RegimeReceipt Stamp(uint undoRecord) => new(
-        space: Space,
-        change: Change,
-        before: Before,
-        after: After,
-        undoRecord: undoRecord);
-}
+public sealed record RegimeReceipt(
+    DocumentSpace Space,
+    RegimeChange Change,
+    UnitRegime Before,
+    UnitRegime After,
+    uint UndoRecord = 0u) : IDetachedDocumentResult;
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static class SessionRegimes {
@@ -1017,13 +931,13 @@ public static class SessionRegimes {
                                    failure: error,
                                    op: op))
                                select new RegimeReceipt(
-                                   space: axis,
-                                   change: request,
-                                   before: before,
-                                   after: after));
+                                   Space: axis,
+                                   Change: request,
+                                   Before: before,
+                                   After: after));
                            return undo.Seal(
                                outcome: executed,
-                               stamp: static (result, serial) => result.Stamp(undoRecord: serial),
+                               stamp: static (result, serial) => result with { UndoRecord = serial },
                                key: op);
                        },
                        key: op,
@@ -1034,14 +948,185 @@ public static class SessionRegimes {
 }
 ```
 
-## [06]-[SURFACE_LEDGER]
+## [06]-[REGIME_TEXT]
 
-| [INDEX] | [CONCERN]          | [OWNER]           | [FORM]                           | [ENTRY]                      |
-| :-----: | :----------------- | :---------------- | :------------------------------- | :--------------------------- |
-|  [01]   | document identity  | `DocKey`          | positive generated value         | `Of` / `Census`              |
-|  [02]   | lifecycle evidence | `SessionSnapshot` | detached host-state product      | `DocumentSession.Snapshot`   |
-|  [03]   | capability policy  | `SessionNeed`     | keyless behavior rows            | `DocumentSession.Demand`     |
-|  [04]   | source admission   | `SessionSource`   | flat closed source family        | `DocumentSession.Of`         |
-|  [05]   | scoped lifetime    | `DocumentSession` | retained kernel lease            | `DocumentSession.Of`         |
-|  [06]   | space regime       | `DocumentSpace`   | model/page behavior rows         | `Regime` / `Adjust`          |
-|  [07]   | regime mutation    | `RegimeChange`    | units/tolerances/precision union | `RegimeChange.Of` / `Adjust` |
+- Owner: `UnitDialect` — behavior rows handing back the host parse-settings presets, one per admitted numeric grammar; `AngleGrammar` rows own the bare-number angle interpretation, each parsing through its host expression member and landing canonical radians. `UnitForm` and `UnitNotation` re-close the foreign `LengthValue.StringFormat` and `DistanceDisplayMode` ordinals. `UnitPhrase` `[Union]` admits length, scale, and angle text; `UnitReading` `[Union]` is the detached parse evidence; `UnitScript` `[Union]` carries the render requests — exact round-trip text, locale display formatting, and the unit-system name. Parse and render are the two directions of one regime-text correspondence on one owner pair, never direction-named siblings.
+- Entry: `session.Parse(space, phrase)` resolves the regime through the capability rail, then parses against it; `session.Render(space, script)` reads the same regime and projects text. Both compose `Regime`, so every text operation prices the live regime, never a cached unit.
+- Law: dialect rows return the host preset statics — process-shared constants whose `Dispose` is inert — and never mutate one: a preset setter writes through to the shared native object and poisons every later parse, and `new StringParserSettings()` seeds a different ambiguous grammar, so neither is a dialect base.
+- Law: a length parse admits only a whole-string parse of a set value — `parsedAll` and `!IsUnset()` gate together — and converts on egress through `Length(LengthUnit)` into regime units; a unitless phrase resolves under the dialect's `DefaultLengthUnitSystem` before that conversion. A unitless scale ("1:100") parses to `LengthUnit.None` on both sides, so `UnitReading.ScaleCase` carries `Unitless` as evidence and the consumer substitutes the document unit where a host write rejects `None`.
+- Law: an angle phrase parses through `StringParser.ParseAngleExpressionRadians` or `ParseAngleExpressionDegrees` under its `AngleGrammar` row; the degrees row converts through `RhinoMath.ToRadians` at the seam, so `UnitReading.AngleCase` always carries canonical radians and no consumer re-derives the angular unit.
+- Law: every parsed `LengthValue`/`ScaleValue` is a native disposable bracketed inside its arm; text leaves as detached values and rendered strings, never as a live parse handle. Exact rendering round-trips through `LengthValue.LengthString` under the ambient host locale; display rendering and unit naming ride `global::Rhino.UI.Localization.FormatNumber`/`UnitSystemName` with precision drawn from the regime.
+
+```csharp signature
+// --- [TYPES] ------------------------------------------------------------------------------
+[SmartEnum<int>]
+public sealed partial class UnitDialect {
+    public static readonly UnitDialect Standard = new(key: 0, settings: static () => StringParserSettings.DefaultParseSettings);
+    public static readonly UnitDialect Integers = new(key: 1, settings: static () => StringParserSettings.ParseSettingsIntegerNumber);
+    public static readonly UnitDialect Rationals = new(key: 2, settings: static () => StringParserSettings.ParseSettingsRationalNumber);
+    public static readonly UnitDialect Reals = new(key: 3, settings: static () => StringParserSettings.ParseSettingsRealNumber);
+
+    [UseDelegateFromConstructor]
+    internal partial StringParserSettings Settings();
+}
+
+[SmartEnum<int>]
+public sealed partial class AngleGrammar {
+    public static readonly AngleGrammar Radians = new(key: 0, parse: static (text, op) =>
+        StringParser.ParseAngleExpressionRadians(text, out double value)
+            ? Fin.Succ(value: value)
+            : Fin.Fail<double>(error: op.InvalidInput()));
+    public static readonly AngleGrammar Degrees = new(key: 1, parse: static (text, op) =>
+        StringParser.ParseAngleExpressionDegrees(text, out double value)
+            ? Fin.Succ(value: RhinoMath.ToRadians(value))
+            : Fin.Fail<double>(error: op.InvalidInput()));
+
+    [UseDelegateFromConstructor]
+    internal partial Fin<double> Parse(string text, Op op);
+}
+
+[SmartEnum<int>]
+public sealed partial class UnitForm {
+    public static readonly UnitForm ExactDecimal = new(key: 0, native: LengthValue.StringFormat.ExactDecimal);
+    public static readonly UnitForm ExactProperFraction = new(key: 1, native: LengthValue.StringFormat.ExactProperFraction);
+    public static readonly UnitForm ExactImproperFraction = new(key: 2, native: LengthValue.StringFormat.ExactImproperFraction);
+    public static readonly UnitForm CleanDecimal = new(key: 3, native: LengthValue.StringFormat.CleanDecimal);
+    public static readonly UnitForm CleanProperFraction = new(key: 4, native: LengthValue.StringFormat.CleanProperFraction);
+    public static readonly UnitForm CleanImproperFraction = new(key: 5, native: LengthValue.StringFormat.CleanImproperFraction);
+
+    internal LengthValue.StringFormat Native { get; }
+}
+
+[SmartEnum<int>]
+public sealed partial class UnitNotation {
+    public static readonly UnitNotation Decimal = new(key: 0, native: global::Rhino.UI.DistanceDisplayMode.Decimal);
+    public static readonly UnitNotation Fractional = new(key: 1, native: global::Rhino.UI.DistanceDisplayMode.Fractional);
+    public static readonly UnitNotation FeetInches = new(key: 2, native: global::Rhino.UI.DistanceDisplayMode.FeetInches);
+
+    internal global::Rhino.UI.DistanceDisplayMode Native { get; }
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record UnitReading : IDetachedDocumentResult {
+    private UnitReading() { }
+
+    public sealed record LengthCase(double Value, ModelUnit Unit, UnitSystem Source) : UnitReading;
+    public sealed record ScaleCase(double LeftToRight, double RightToLeft, bool Unitless) : UnitReading;
+    public sealed record AngleCase(double Radians) : UnitReading;
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record UnitPhrase {
+    private UnitPhrase() { }
+
+    internal sealed record LengthCase(string Text, UnitDialect Dialect) : UnitPhrase;
+    internal sealed record ScaleCase(string Text) : UnitPhrase;
+    internal sealed record AngleCase(string Text, AngleGrammar Grammar) : UnitPhrase;
+
+    public static Fin<UnitPhrase> Length(string text, Option<UnitDialect> dialect = default, Op? key = null) =>
+        key.OrDefault().AcceptText(value: text)
+            .Map(admitted => (UnitPhrase)new LengthCase(Text: admitted, Dialect: dialect.IfNone(UnitDialect.Standard)));
+
+    public static Fin<UnitPhrase> Scale(string text, Op? key = null) =>
+        key.OrDefault().AcceptText(value: text)
+            .Map(static admitted => (UnitPhrase)new ScaleCase(Text: admitted));
+
+    public static Fin<UnitPhrase> Angle(string text, Option<AngleGrammar> grammar = default, Op? key = null) =>
+        key.OrDefault().AcceptText(value: text)
+            .Map(admitted => (UnitPhrase)new AngleCase(Text: admitted, Grammar: grammar.IfNone(AngleGrammar.Radians)));
+
+    internal Fin<UnitReading> Parse(UnitRegime regime, Op key) => Switch(
+        state: (Regime: regime, Op: key),
+        lengthCase: static (ctx, phrase) => ctx.Op.Catch(() => {
+            using LengthValue parsed = LengthValue.Create(s: phrase.Text, ps: phrase.Dialect.Settings(), parsedAll: out bool parsedAll);
+            return from _whole in guard(flag: parsedAll && !parsed.IsUnset(), False: ctx.Op.InvalidInput()).ToFin()
+                   from value in ctx.Op.Catch(() => Fin.Succ(value: parsed.Length(units: ctx.Regime.Native)))
+                   select (UnitReading)new UnitReading.LengthCase(Value: value, Unit: ctx.Regime.Unit, Source: parsed.UnitSystem);
+        }),
+        scaleCase: static (ctx, phrase) => ctx.Op.Catch(() => {
+            using ScaleValue parsed = ScaleValue.Create(s: phrase.Text, ps: StringParserSettings.DefaultParseSettings);
+            using LengthValue left = parsed.LeftLengthValue();
+            using LengthValue right = parsed.RightLengthValue();
+            return from _set in guard(flag: !parsed.IsUnset(), False: ctx.Op.InvalidInput()).ToFin()
+                   select (UnitReading)new UnitReading.ScaleCase(
+                       LeftToRight: parsed.LeftToRightScale,
+                       RightToLeft: parsed.RightToLeftScale,
+                       Unitless: LengthUnit.IsNone(left.Units) && LengthUnit.IsNone(right.Units));
+        }),
+        angleCase: static (ctx, phrase) => phrase.Grammar.Parse(text: phrase.Text, op: ctx.Op)
+            .Map(static radians => (UnitReading)new UnitReading.AngleCase(Radians: radians)));
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record UnitScript {
+    private UnitScript() { }
+
+    internal sealed record ExactCase(double Value, UnitForm Form) : UnitScript;
+    internal sealed record DisplayCase(double Value, UnitNotation Notation, bool AppendUnitName) : UnitScript;
+    internal sealed record NameCase(bool Capitalize, bool Singular, bool Abbreviate) : UnitScript;
+
+    public static Fin<UnitScript> Exact(double value, Option<UnitForm> form = default, Op? key = null) =>
+        guard(flag: double.IsFinite(value), False: key.OrDefault().InvalidInput()).ToFin()
+            .Map(_ => (UnitScript)new ExactCase(Value: value, Form: form.IfNone(UnitForm.CleanDecimal)));
+
+    public static Fin<UnitScript> Display(double value, Option<UnitNotation> notation = default, bool appendUnitName = false, Op? key = null) =>
+        guard(flag: double.IsFinite(value), False: key.OrDefault().InvalidInput()).ToFin()
+            .Map(_ => (UnitScript)new DisplayCase(Value: value, Notation: notation.IfNone(UnitNotation.Decimal), AppendUnitName: appendUnitName));
+
+    public static UnitScript Name(bool capitalize = true, bool singular = true, bool abbreviate = false) =>
+        new NameCase(Capitalize: capitalize, Singular: singular, Abbreviate: abbreviate);
+
+    internal Fin<string> Render(UnitRegime regime, Op key) => Switch(
+        state: (Regime: regime, Op: key),
+        exactCase: static (ctx, script) => ctx.Op.Catch(() => {
+            using LengthValue value = LengthValue.Create(length: script.Value, units: ctx.Regime.Native, format: script.Form.Native);
+            return guard(flag: !value.IsUnset(), False: ctx.Op.InvalidResult()).ToFin().Map(_ => value.LengthString);
+        }),
+        displayCase: static (ctx, script) => ctx.Op.Catch(() => Fin.Succ(value: global::Rhino.UI.Localization.FormatNumber(
+            x: script.Value,
+            units: ctx.Regime.Native,
+            mode: script.Notation.Native,
+            precision: ctx.Regime.Precision.Value,
+            appendUnitSystemName: script.AppendUnitName))),
+        nameCase: static (ctx, script) => ctx.Op.Catch(() => Fin.Succ(value: global::Rhino.UI.Localization.UnitSystemName(
+            units: ctx.Regime.Unit.System,
+            capitalize: script.Capitalize,
+            singular: script.Singular,
+            abbreviate: script.Abbreviate))));
+}
+
+// --- [OPERATIONS] ---------------------------------------------------------------------------
+public static class RegimeText {
+    extension(DocumentSession session) {
+        public Fin<UnitReading> Parse(DocumentSpace space, UnitPhrase phrase, Op? key = null) {
+            Op op = key.OrDefault();
+            return from request in Optional(phrase).ToFin(Fail: op.InvalidInput())
+                   from regime in session.Regime(space: space, key: op)
+                   from reading in request.Parse(regime: regime, key: op)
+                   select reading;
+        }
+
+        public Fin<string> Render(DocumentSpace space, UnitScript script, Op? key = null) {
+            Op op = key.OrDefault();
+            return from request in Optional(script).ToFin(Fail: op.InvalidInput())
+                   from regime in session.Regime(space: space, key: op)
+                   from text in request.Render(regime: regime, key: op)
+                   select text;
+        }
+    }
+}
+```
+
+## [07]-[SURFACE_LEDGER]
+
+| [INDEX] | [CONCERN]          | [OWNER]           | [FORM]                           | [ENTRY]                       |
+| :-----: | :----------------- | :---------------- | :------------------------------- | :---------------------------- |
+|  [01]   | document identity  | `DocKey`          | positive generated value         | `Of` / `Census`               |
+|  [02]   | lifecycle evidence | `SessionSnapshot` | detached host-state product      | `DocumentSession.Snapshot`    |
+|  [03]   | capability policy  | `SessionNeed`     | keyless behavior rows            | `DocumentSession.Demand`      |
+|  [04]   | source admission   | `SessionSource`   | flat closed source family        | `DocumentSession.Of`          |
+|  [05]   | scoped lifetime    | `DocumentSession` | retained kernel lease            | `DocumentSession.Of`          |
+|  [06]   | space regime       | `DocumentSpace`   | model/page behavior rows         | `Regime` / `Adjust`           |
+|  [07]   | regime mutation    | `RegimeChange`    | units/tolerances/precision union | `RegimeChange.Of` / `Adjust`  |
+|  [08]   | unit-text parse    | `UnitPhrase`      | length/scale/angle phrase union  | `UnitPhrase.Length` / `Parse` |
+|  [09]   | unit-text render   | `UnitScript`      | exact/display/name render union  | `UnitScript.Exact` / `Render` |

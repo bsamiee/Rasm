@@ -1,20 +1,6 @@
 # [RASM_COMPUTE_API_MATHNET_PROVIDERS]
 
-`MathNet.Numerics` supplies dense and sparse linear algebra, the RID-keyed
-native-provider selection façade over MKL and OpenBLAS, the CSR sparse storage
-surface with its CSC/COO/indexed ingestion conversions, the matrix
-factorization family, the in-assembly `IntegralTransforms.Fourier` discrete
-Fourier transform with its `FourierOptions` scaling and `Window` taper family the
-signal lane marshals and windows, and the in-assembly probability
-`Distributions` and descriptive `Statistics` surfaces the uncertainty,
-estimator, and hypothesis-test lanes sample, reduce, and read CDFs from;
-`CSparse` supplies direct sparse Cholesky, LU, and QR factorizations beside the
-MathNet iterative solvers for the numeric lane. This catalog owns provider
-selection, dense algebra, factorization, sparse ingestion, iterative solve,
-signal transform, distribution, and statistics scopes for the Compute Tensor,
-Stats, and Solver lanes; `libs/csharp/.api/api-mathnet-numerics.md` retains the
-shared non-provider MathNet functions, and `libs/csharp/.api/api-csparse.md`
-retains the direct sparse-solver catalog.
+`MathNet.Numerics` supplies dense and sparse linear algebra, RID-keyed native-provider selection over MKL and OpenBLAS, CSR storage with CSC/COO/indexed ingestion conversions, matrix factorizations, `IntegralTransforms.Fourier` with `FourierOptions`, `Window` tapers, probability `Distributions`, and descriptive `Statistics`; `CSparse` supplies direct sparse Cholesky, LU, and QR beside MathNet iterative solvers. This catalog owns provider selection, dense algebra, factorization, sparse ingestion, iterative solve, signal transform, distribution, and statistics for Compute Tensor, Stats, and Solver; `libs/csharp/.api/api-mathnet-numerics.md` retains shared non-provider MathNet functions, and `libs/csharp/.api/api-csparse.md` retains direct sparse solvers.
 
 ## [01]-[PROVIDER_STACK]
 
@@ -51,10 +37,12 @@ retains the direct sparse-solver catalog.
 |  [05]   | `Dirichlet`                                                                            | rectangular all-ones taper (over hand-rolled) |
 |  [06]   | `Bartlett` / `BartlettHann` / `Tukey` / `FlatTop` / `Gauss` / `Nuttall` / `Triangular` | single-form taper family                      |
 
+`Gauss(int width, double sigma)` takes sigma RELATIVE to the half-width — the exponent is `((i−c)/(σ·c))²` with `c = (width−1)/2` — so an absolute sample-count sigma flattens the taper to rectangular; `Tukey(int width, double r = 0.5)` takes the taper fraction.
+
 [ENTRYPOINT_SCOPE]: probability distributions — namespace `MathNet.Numerics.Distributions`
 - rail: numeric
 
-The `Distributions` and `Statistics` surfaces ship inside the admitted `MathNet.Numerics` assembly (no separate package); the uncertainty lane samples the forward-UQ continuous distributions, the estimator lane fits per-class moments and reads the IRLS variance function, and the hypothesis-test lane reads the test-statistic CDF from the inference distributions. Each `IContinuousDistribution` carries a `RandomSource` `System.Random` for seeded draws; each distribution also exposes the static `CDF`/`InvCDF`/`Sample` form (parameters + value) beside the instance `CumulativeDistribution`/`InverseCumulativeDistribution`/`Sample`.
+`Distributions` and `Statistics` ship inside `MathNet.Numerics`; uncertainty samples forward-UQ distributions, estimator rows fit per-class moments and read IRLS variance functions, and hypothesis rows read inference CDFs. Each `IContinuousDistribution` carries a `RandomSource` `System.Random` for seeded draws and exposes static `CDF`/`InvCDF`/`Sample` forms beside instance `CumulativeDistribution`/`InverseCumulativeDistribution`/`Sample`.
 
 | [INDEX] | [SYMBOL]                                                   | [CAPABILITY]                                                     |
 | :-----: | :--------------------------------------------------------- | :--------------------------------------------------------------- |
@@ -76,12 +64,14 @@ The `Distributions` and `Statistics` surfaces ship inside the admitted `MathNet.
 [ENTRYPOINT_SCOPE]: descriptive statistics — namespace `MathNet.Numerics.Statistics`
 - rail: numeric
 
-| [INDEX] | [SYMBOL]                                                           | [CAPABILITY]                                         |
-| :-----: | :----------------------------------------------------------------- | :--------------------------------------------------- |
-|  [01]   | `Statistics.Mean` / `Variance` / `StandardDeviation`               | sample moments over an `IEnumerable<double>`         |
-|  [02]   | `Statistics.Quantile(data, tau)` / `QuantileCustom` / `Percentile` | sample quantile / percentile estimate                |
-|  [03]   | `Statistics.Covariance` / `Correlation.Pearson` / `Spearman`       | pairwise covariance / Pearson + Spearman correlation |
-|  [04]   | `DescriptiveStatistics(data)`                                      | one-pass mean/variance/skewness/kurtosis carrier     |
+| [INDEX] | [SYMBOL]                                                           | [CAPABILITY]                                          |
+| :-----: | :----------------------------------------------------------------- | :---------------------------------------------------- |
+|  [01]   | `Statistics.Mean` / `Variance` / `StandardDeviation`               | sample moments over an `IEnumerable<double>`          |
+|  [02]   | `Statistics.MeanVariance(data)`                                    | one-pass `(double Mean, double Variance)` tuple       |
+|  [03]   | `Statistics.Quantile(data, tau)` / `QuantileCustom` / `Percentile` | sample quantile / percentile estimate                 |
+|  [04]   | `Statistics.Covariance` / `Correlation.Pearson` / `Spearman`       | pairwise covariance / Pearson + Spearman correlation  |
+|  [05]   | `DescriptiveStatistics(data)`                                      | one-pass mean/variance/skewness/kurtosis carrier      |
+|  [06]   | `GoodnessOfFit.CoefficientOfDetermination(modelled, observed)`     | R² fit quality; `RSquared` is the squared correlation |
 
 ## [03]-[IMPLEMENTATION_LAW]
 
@@ -134,6 +124,7 @@ The `Distributions` and `Statistics` surfaces ship inside the admitted `MathNet.
 [SPARSE_SOLVE]:
 - namespace: `MathNet.Numerics.LinearAlgebra.Storage`, `CSparse.Double.Factorization`
 - storage: `SparseCompressedRowMatrixStorage<T>` is the only native MathNet sparse matrix form (CSR); CSC/COO/DOK are ingestion conversions via the `Of*` factories, never separate storage types
+- ingestion factories (decompile-verified): `OfCompressedSparseRowFormat(int rows, int columns, int valueCount, int[] rowPointers, int[] columnIndices, T[] values)`, `OfCompressedSparseColumnFormat(int rows, int columns, int valueCount, int[] rowIndices, int[] columnPointers, T[] values)` — row INDICES precede column POINTERS, the argument-order trap — `OfCoordinateFormat(int rows, int columns, int valueCount, int[] rowIndices, int[] columnIndices, T[] values)`, and `OfIndexedEnumerable(int rows, int columns, IEnumerable<Tuple<int,int,T>>)` with a value-tuple `(int, int, T)` twin
 - direct solvers: `CSparse.Double.Factorization.SparseCholesky`/`SparseLU`/`SparseQR` factor a CSparse `CompressedColumnStorage<double>` (CSC) and solve in place
 - iterative solvers: `BiCgStab`/`GpBiCg`/`TFQMR`/`MlkBiCgStab` over MathNet sparse matrices with an `Iterator<T>` stop-criteria control
 
@@ -145,9 +136,9 @@ The `Distributions` and `Statistics` surfaces ship inside the admitted `MathNet.
 - not shipped: MathNet has no DWT/wavelet surface and no analog-prototype IIR design — the `dwt` QMF cascade and the Butterworth/Chebyshev/elliptic bilinear design ground in-fence at the signal-lane design gate; only the FFT and window tapers ride this package
 
 [LOCAL_ADMISSION]:
-- The numeric lane selects the provider once at composition through `LinearProvider.Select()`; a per-call-site `Control.UseNativeMKL()` is the named defect.
+- Numeric composition selects the provider once through `LinearProvider.Select()`; per-call-site `Control.UseNativeMKL()` is rejected.
 - Dense and sparse solves emit the `Factorization` `ComputeReceipt` case; provider rank is claim-gated through `BenchmarkRow.Claim`, never a static default.
-- The sparse format axis is an ingestion discriminant over CSR-backed storage, not four storage types.
+- Sparse format is an ingestion discriminant over CSR-backed storage, not four storage types.
 
 [UNCERTAINTY_LAW]:
 - namespace: `MathNet.Numerics.Distributions`, `MathNet.Numerics.Statistics`

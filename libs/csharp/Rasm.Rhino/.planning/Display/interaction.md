@@ -1,19 +1,19 @@
 # [RASM_RHINO_INTERACTION]
 
-The in-viewport interaction owner (`Rasm.Rhino.Display`). Three host tiers become three typed owners on one fact vocabulary: `ViewportPointer` adapts the document-wide `MouseCallback` hook — the six paired begin/end overrides plus enter/hover/leave — into a `PointerFact` stream delivered through a bounded channel so a per-move callback submits and returns; `GumballRig` owns the manipulator lifecycle — one `GumballSeat` `[Union]` collapsing the `GumballObject.SetFrom*` family, `GumballAppearanceSettings` as policy, the `GumballDisplayConduit` seat/pick/update drag fold over `PickGumball` and both `UpdateGumball` overloads; and `WidgetHost` registers the Rhino 9 `UserInterfaceObjectBase` families — grip, direction grip, rotation grip, text dot, SVG control, and slider — as typed `WidgetSpec` rows whose events fold into one `WidgetFact` stream and whose hit facts come from the picked `MouseState` (`Button`, `FrustumLine`, curve/line `IsMouseOver` tests). Every fact carries kernel-neutral values — screen points as `Point2d`, world rays as `Line`, identities as `Guid` — and no live host handle, `MouseCallbackEventArgs`, or `MouseState` crosses into a consumer.
+The in-viewport interaction owner (`Rasm.Rhino.Display`). Three host tiers become three typed owners on one fact vocabulary: `Pointers` adapts the document-wide `MouseCallback` hook — the six paired begin/end overrides plus enter/hover/leave — into a `PointerFact` stream delivered through a bounded channel so a per-move callback submits and returns; `GumballRig` owns the manipulator lifecycle — one `GumballSeat` `[Union]` collapsing the `GumballObject.SetFrom*` family, `GumballAppearanceSettings` as policy, the `GumballDisplayConduit` seat/pick/update drag fold over `PickGumball` and both `UpdateGumball` overloads; and `WidgetHost` registers the Rhino 9 `UserInterfaceObjectBase` families — grip, direction grip, rotation grip, text dot, SVG control, and slider — as typed `WidgetSpec` rows whose events fold into one `WidgetFact` stream and whose hit facts come from the picked `MouseState` (`Button`, `FrustumLine`, curve/line `IsMouseOver` tests). Every fact carries kernel-neutral values — screen points as `Point2d`, world rays as `Line`, identities as `Guid` — and no live host handle, `MouseCallbackEventArgs`, or `MouseState` crosses into a consumer.
 
 ## [01]-[INDEX]
 
-- [02]-[POINTER_STREAM]: `PointerPhase` rows, `PointerFact`, and the `ViewportPointer` mouse-hook adapter with channel handoff.
+- [02]-[POINTER_STREAM]: `PointerPhase` rows, `PointerFact`, and the `Pointers` mouse-hook adapter with channel handoff.
 - [03]-[GUMBALL]: `GumballSeat` seating union, `GumballRig` the conduit lifecycle with the pick/update drag fold and transform evidence.
 - [04]-[WIDGETS]: `WidgetSpec` rows over the Rhino 9 in-viewport UI-object families, `WidgetFact`, and the `WidgetHost` registration lifecycle.
 
 ## [02]-[POINTER_STREAM]
 
-- Owner: `PointerPhase` `[SmartEnum<int>]` — the hook phases with their host pairing as a column: `Move`/`EndMove`, `Down`/`EndDown`, `Up`/`EndUp`, `DoubleClick`, `Enter`, `Hover`, `Leave` — the `Paired` column marks the begin/end pairs Rhino 9 delivers, so a consumer distinguishing raw from post-processed mouse traffic reads the row, never a naming convention. `PointerFact` — the typed fact: phase, viewport id, screen point as `Point2d`, the `PointerButton` row re-closed from the host `MouseButton` with the shift/control modifier flags, the over-gumball flag, and the capture timestamp. `ViewportPointer` — the ONE `MouseCallback` subclass: overrides project args into facts and `TryWrite` them into a bounded channel; `Enabled` is the mount bit.
-- Entry: `ViewportPointer.Mount(Option<int> capacity, Op?) : Fin<(ChannelReader<PointerFact>, IDisposable)>` — the reader is the consumer seam, the disposer disables the hook and completes the writer.
+- Owner: `PointerPhase` `[SmartEnum<int>]` — the hook phases with their host pairing as a column: `Move`/`EndMove`, `Down`/`EndDown`, `Up`/`EndUp`, `DoubleClick`, `Enter`, `Hover`, `Leave` — the `Paired` column marks the begin/end pairs Rhino 9 delivers, so a consumer distinguishing raw from post-processed mouse traffic reads the row, never a naming convention. `PointerFact` — the typed fact: phase, viewport id, screen point as `Point2d`, the `PointerButton` row re-closed from the host `MouseButton` with the shift/control modifier flags, the over-gumball flag, and the capture timestamp. `Pointers` — the public pointer rail whose ONE private `MouseCallback` hook projects args into facts and `TryWrite`s them into a bounded channel; `Enabled` is the mount bit, and the host attaches each event only where an override exists, so the hook overrides all ten.
+- Entry: `Pointers.Mount(Option<int> capacity, Op?) : Fin<(ChannelReader<PointerFact>, IDisposable)>` — the reader is the consumer seam, the disposer disables the hook and completes the writer.
 - Law: the callback submits and returns — a full channel drops the oldest (`BoundedChannelFullMode.DropOldest`) because pointer traffic is latest-wins for every consumer this package serves; blocking the host mouse thread is unrepresentable.
-- Law: tooltip text rides the one `ViewportPointer.Tooltip` verb over `MouseCursor.SetToolTip(string)` — a fact-driven response beside the stream, never an ambient static call scattered at consumers.
+- Law: tooltip text rides the one `Pointers.Tooltip` verb over `MouseCursor.SetToolTip(string)` — a fact-driven response beside the stream, never an ambient static call scattered at consumers.
 - Boundary: a fact carries `IsOverGumball()` as data so a drag consumer yields to the manipulator without probing host state; the gumball itself is `[03]`'s owner.
 
 ```csharp
@@ -71,60 +71,62 @@ public readonly record struct PointerFact(
     long Timestamp);
 
 // --- [SERVICES] -----------------------------------------------------------------------------
-internal sealed class ViewportPointer : Rhino.UI.MouseCallback {
-    private readonly ChannelWriter<PointerFact> sink;
-
-    private ViewportPointer(ChannelWriter<PointerFact> sink) => this.sink = sink;
-
-    internal static Fin<Unit> Tooltip(string text, Op? key = null) {
+public static class Pointers {
+    public static Fin<Unit> Tooltip(string text, Op? key = null) {
         Op op = key.OrDefault();
         return from valid in op.AcceptText(value: text)
                from _ in op.Catch(() => Fin.Succ(value: Op.Side(() => Rhino.UI.MouseCursor.SetToolTip(valid))))
                select unit;
     }
 
-    internal static Fin<(ChannelReader<PointerFact> Facts, IDisposable Mount)> Mount(Option<int> capacity = default, Op? key = null) =>
+    public static Fin<(ChannelReader<PointerFact> Facts, IDisposable Mount)> Mount(Option<int> capacity = default, Op? key = null) =>
         key.OrDefault().Catch(() => {
             Channel<PointerFact> channel = Channel.CreateBounded<PointerFact>(new BoundedChannelOptions(capacity.IfNone(256)) {
                 FullMode = BoundedChannelFullMode.DropOldest,
                 SingleReader = false,
                 SingleWriter = true,
             });
-            ViewportPointer hook = new(sink: channel.Writer) { Enabled = true };
+            Hook hook = new(sink: channel.Writer) { Enabled = true };
             return Fin.Succ<(ChannelReader<PointerFact>, IDisposable)>((channel.Reader, Subscription.Of(detach: () => {
                 hook.Enabled = false;
                 _ = channel.Writer.TryComplete();
             })));
         });
 
-    protected override void OnMouseMove(Rhino.UI.MouseCallbackEventArgs e) => Emit(phase: PointerPhase.Move, e: e);
-    protected override void OnEndMouseMove(Rhino.UI.MouseCallbackEventArgs e) => Emit(phase: PointerPhase.EndMove, e: e);
-    protected override void OnMouseDown(Rhino.UI.MouseCallbackEventArgs e) => Emit(phase: PointerPhase.Down, e: e);
-    protected override void OnEndMouseDown(Rhino.UI.MouseCallbackEventArgs e) => Emit(phase: PointerPhase.EndDown, e: e);
-    protected override void OnMouseUp(Rhino.UI.MouseCallbackEventArgs e) => Emit(phase: PointerPhase.Up, e: e);
-    protected override void OnEndMouseUp(Rhino.UI.MouseCallbackEventArgs e) => Emit(phase: PointerPhase.EndUp, e: e);
-    protected override void OnMouseDoubleClick(Rhino.UI.MouseCallbackEventArgs e) => Emit(phase: PointerPhase.DoubleClick, e: e);
-    protected override void OnMouseEnter(Rhino.UI.MouseCallbackEventArgs e) => Emit(phase: PointerPhase.Enter, e: e);
-    protected override void OnMouseHover(Rhino.UI.MouseCallbackEventArgs e) => Emit(phase: PointerPhase.Hover, e: e);
-    protected override void OnMouseLeave(Rhino.UI.MouseCallbackEventArgs e) => Emit(phase: PointerPhase.Leave, e: e);
+    private sealed class Hook : Rhino.UI.MouseCallback {
+        private readonly ChannelWriter<PointerFact> sink;
 
-    private void Emit(PointerPhase phase, Rhino.UI.MouseCallbackEventArgs e) =>
-        _ = sink.TryWrite(new PointerFact(
-            Phase: phase,
-            ViewportId: e.View.ActiveViewport.Id,
-            At: new Point2d(e.ViewportPoint.X, e.ViewportPoint.Y),
-            Button: PointerButton.Of(button: e.MouseButton),
-            Shift: e.ShiftKeyDown,
-            Control: e.CtrlKeyDown,
-            OverGumball: e.IsOverGumball() != Rhino.UI.Gumball.GumballMode.None,
-            Timestamp: Environment.TickCount64));
+        internal Hook(ChannelWriter<PointerFact> sink) => this.sink = sink;
+
+        protected override void OnMouseMove(Rhino.UI.MouseCallbackEventArgs e) => Emit(phase: PointerPhase.Move, e: e);
+        protected override void OnEndMouseMove(Rhino.UI.MouseCallbackEventArgs e) => Emit(phase: PointerPhase.EndMove, e: e);
+        protected override void OnMouseDown(Rhino.UI.MouseCallbackEventArgs e) => Emit(phase: PointerPhase.Down, e: e);
+        protected override void OnEndMouseDown(Rhino.UI.MouseCallbackEventArgs e) => Emit(phase: PointerPhase.EndDown, e: e);
+        protected override void OnMouseUp(Rhino.UI.MouseCallbackEventArgs e) => Emit(phase: PointerPhase.Up, e: e);
+        protected override void OnEndMouseUp(Rhino.UI.MouseCallbackEventArgs e) => Emit(phase: PointerPhase.EndUp, e: e);
+        protected override void OnMouseDoubleClick(Rhino.UI.MouseCallbackEventArgs e) => Emit(phase: PointerPhase.DoubleClick, e: e);
+        protected override void OnMouseEnter(Rhino.UI.MouseCallbackEventArgs e) => Emit(phase: PointerPhase.Enter, e: e);
+        protected override void OnMouseHover(Rhino.UI.MouseCallbackEventArgs e) => Emit(phase: PointerPhase.Hover, e: e);
+        protected override void OnMouseLeave(Rhino.UI.MouseCallbackEventArgs e) => Emit(phase: PointerPhase.Leave, e: e);
+
+        private void Emit(PointerPhase phase, Rhino.UI.MouseCallbackEventArgs e) =>
+            _ = sink.TryWrite(new PointerFact(
+                Phase: phase,
+                ViewportId: e.View.ActiveViewport.Id,
+                At: new Point2d(e.ViewportPoint.X, e.ViewportPoint.Y),
+                Button: PointerButton.Of(button: e.MouseButton),
+                Shift: e.ShiftKeyDown,
+                Control: e.CtrlKeyDown,
+                OverGumball: e.IsOverGumball() != Rhino.UI.Gumball.GumballMode.None,
+                Timestamp: Environment.TickCount64));
+    }
 }
 ```
 
 ## [03]-[GUMBALL]
 
-- Owner: `GumballSeat` `[Union]` — one seating vocabulary over the `GumballObject.SetFrom*` family: `BoundsCase(BoundingBox, Option<Plane>)` through `SetFromBoundingBox(boundingBox:)` or the framed `SetFromBoundingBox(frame:, frameBoundingBox:)`, plus `LineCase`, `PlaneCase`, `ArcCase`, `CircleCase`, `EllipseCase`, `CurveCase`, `ExtrusionCase`, `LightCase`, `HatchCase` — each one host call, so seating any geometry family is one union case. `GumballRig` — the lifecycle capsule: constructs the `GumballObject` and `GumballDisplayConduit`, applies the `GumballAppearanceSettings` policy through `SetBaseGumball`, mounts, and folds the drag: `Pick(PickContext, GetPoint)` through `PickGumball`, `Drag(Point3d, Line)` and `Drag(Plane)` through the two `UpdateGumball` overloads, and `Evidence()` projecting the drag's transform state as a value.
-- Entry: `GumballRig.Mount(GumballSeat, Option<GumballAppearanceSettings>, Op?) : Fin<GumballRig>`; the rig is `IDisposable` and disposal disables the conduit.
+- Owner: `GumballSeat` `[Union]` — one seating vocabulary over the `GumballObject.SetFrom*` family: `BoundsCase(BoundingBox, Option<Plane>)` through `SetFromBoundingBox(boundingBox:)` or the framed `SetFromBoundingBox(frame:, frameBoundingBox:)`, plus `LineCase`, `PlaneCase`, `ArcCase`, `CircleCase`, `EllipseCase`, `CurveCase`, `ExtrusionCase`, `LightCase`, `HatchCase` — each one host call, so seating any geometry family is one union case. `GumballRig` — the lifecycle capsule: constructs the `GumballObject` and `GumballDisplayConduit`, applies the `GumballAppearanceSettings` policy through `SetBaseGumball`, mounts, and folds the drag: `Pick(PickContext, GetPoint)` through `PickGumball`, `Drag(Point3d, Line)` and `Drag(Plane)` through the two `UpdateGumball` overloads, and `Evidence()` projecting the drag's total and incremental transforms (`TotalTransform`/`GumballTransform`) as values.
+- Entry: `GumballRig.Mount(GumballSeat, Option<GumballAppearanceSettings>, ActiveSpace, Op?) : Fin<GumballRig>` — the conduit constructs space-bound through `GumballDisplayConduit(ActiveSpace)`, the parameterless host constructor being obsolete; the rig is `IDisposable` and disposal disables the conduit.
 - Law: the drag is a fold over host updates — pick seats the drag, each update recomputes the conduit's transform, and `Evidence` reads it as a `Transform` value with the seat echo; a consumer never mutates geometry from inside the drag — it applies the evidence transform through its own transaction rail after the drag commits.
 - Law: appearance is policy data applied once at `SetBaseGumball`; per-drag appearance mutation re-seats the rig.
 - Boundary: `PickContext` and `GetPoint` arrive from the interaction unit's acquisition rail as borrowed host values inside the pick call — the rig holds neither.
@@ -163,7 +165,7 @@ public abstract partial record GumballSeat {
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------
-public readonly record struct GumballEvidence(Transform Total, GumballSeat Seat, bool Dragging);
+public readonly record struct GumballEvidence(Transform Total, Transform Incremental, GumballSeat Seat, bool Dragging);
 
 // --- [SERVICES] -----------------------------------------------------------------------------
 public sealed class GumballRig : IDisposable {
@@ -179,12 +181,12 @@ public sealed class GumballRig : IDisposable {
         this.seat = seat;
     }
 
-    public static Fin<GumballRig> Mount(GumballSeat seat, Option<Rhino.UI.Gumball.GumballAppearanceSettings> appearance = default, Op? key = null) {
+    public static Fin<GumballRig> Mount(GumballSeat seat, Option<Rhino.UI.Gumball.GumballAppearanceSettings> appearance = default, ActiveSpace space = ActiveSpace.ModelSpace, Op? key = null) {
         Op op = key.OrDefault();
         return from request in Optional(seat).ToFin(Fail: op.InvalidInput())
                from rig in op.Catch(() => {
                    Rhino.UI.Gumball.GumballObject ball = new();
-                   Rhino.UI.Gumball.GumballDisplayConduit pipe = new();
+                   Rhino.UI.Gumball.GumballDisplayConduit pipe = new(space: space);
                    return Fin.Succ(new GumballRig(gumball: ball, conduit: pipe, seat: request));
                })
                from _ in request.Seat(gumball: rig.gumball, key: op)
@@ -211,7 +213,7 @@ public sealed class GumballRig : IDisposable {
     public Fin<Unit> Drag(Plane frame, Op? key = null) =>
         key.OrDefault().Confirm(success: conduit.UpdateGumball(frame: frame));
 
-    public GumballEvidence Evidence() => new(Total: conduit.TotalTransform, Seat: seat, Dragging: dragging);
+    public GumballEvidence Evidence() => new(Total: conduit.TotalTransform, Incremental: conduit.GumballTransform, Seat: seat, Dragging: dragging);
 
     public Unit Commit() => ignore(dragging = false);
 
@@ -226,9 +228,9 @@ public sealed class GumballRig : IDisposable {
 
 ## [04]-[WIDGETS]
 
-- Owner: `WidgetSpec` `[Union]` — the Rhino 9 in-viewport widget rows: `GripCase(Point3d, double, Option<Curve>, Seq<Point3d>, bool)` a constrained snap-point grip (the location constructor plus `GripRadius`/`Constrain`/`SetSnapPoints`/`ObjectSnapPermitted`), `DirectionCase(Point3d, Vector3d, double)` a direction-arrow grip (the location-direction constructor plus `ArrowRadius`), `RotationCase(Plane, double)` a rotation-arc grip (the plane-radius constructor) with the `OnRotationDrag(double, MouseState)` hook, `TextDotCase(string, int, Point3d)` (the location-text constructor plus `TextHeight`), `SvgCase(string, Point2d, Size2i)` an SVG-backed control (the screen location-size constructor plus `SetSvg`), and `SliderCase(Interval, double)` a ranged slider (`Range`/`Value`/`ValueChanged`). `WidgetFact` `[Union]` — the event stream: `PressedCase(Line)` carrying the pick ray, `MovedCase(Point3d)`, `RotatedCase(double)`, `SlidCase(double)`, `HitCase(Option<double>)` from the picked `MouseState` curve/line tests. `WidgetHost` — the registration lifecycle: mints the internal host adapter per row, registers through `UserInterfaceObjectBase.RegisterForAllDocuments()`, retires through `Unregister()`, and folds every widget's events into one channel; `BoundToActiveView` and `Visible` are mount policy bits.
-- Law: a widget's draw override receives the pipeline `DrawEventArgs` and composes the draw page's mark algebra — an in-viewport widget is a pipeline participant, never a private renderer; its mouse overrides receive the picked `MouseState` and project `Button`, `FrustumLine`, and `IsMouseOver(Curve, out double)`/`IsMouseOver(Line)` into `WidgetFact` rows before any consumer sees them.
-- Law: one host adapter class per host base is an internal fact; the public surface is the spec union plus the fact stream, so a new widget family is one spec case, one internal adapter, and one fact projection — consumers never subclass host bases.
+- Owner: `WidgetSpec` `[Union]` — the Rhino 9 in-viewport widget rows: `GripCase` a constrained snap-point grip (the location constructor plus `GripRadius`/`Constrain`/`SetSnapPoints`/`ObjectSnapPermitted`, with an optional chrome tuple over `GripShape`/`GripColor`/`GripFillColor`/`GripStrokeWidth`/`GripShapeRotationRadians`), `DirectionCase` a direction-arrow grip (the location-direction constructor plus `ArrowRadius`, `OneWay`, and the optional `DirectionLineLength`), `RotationCase(Plane, double)` a rotation-arc grip (the plane-radius constructor) with the `OnRotationDrag(double, MouseState)` hook, `TextDotCase` (the location-text constructor plus `TextHeight`, an optional ink triple over `TextColor`/`DotBackgroundColor`/`DotBorderColor`, and `MouseOverTextHeight`), `SvgCase(string, Point2d, Size2i)` an SVG-backed control (the protected screen location-size constructor plus `SetSvg`), and `SliderCase` a ranged slider (`Range`/`Value`/`HorizontalOrientation`/`DisplayValue`/`DigitPrecision` with the `OnValueChanged` hook). `WidgetFact` `[Union]` — the event stream: `PressedCase(Line)` carrying the pick ray, `ClickedCase(bool)` single-versus-double, `HoverCase(bool)` from the enter/leave pair, `MovedCase(Point3d)` from the grip's `OnDrag(Point3d, MouseState)` drag hook, `RotatedCase(double)`, `SlidCase(double)`, `HitCase(Option<double>)` from the picked `MouseState` curve/line tests. `WidgetSink` — the internal projection record every adapter shares: identity, channel writer, and the optional painter, so a fact spelling exists exactly once and an adapter override is one verb call. `WidgetHost` — the registration lifecycle: mints the internal host adapter per row, registers through `UserInterfaceObjectBase.RegisterForAllDocuments()`, retires through `Unregister()`, and folds every widget's events into one channel; `BoundToActiveView` and `Visible` are mount policy bits.
+- Law: every family's `OnDraw(DrawEventArgs)` rides `UserInterfaceObjectBase`, so `Mount`'s optional paint composes the draw page's mark algebra over any widget kind — an in-viewport widget is a pipeline participant, never a private renderer; mouse overrides receive the picked `MouseState` and project `Button`, `FrustumLine`, and `IsMouseOver(Curve, out double)`/`IsMouseOver(Line)` into `WidgetFact` rows before any consumer sees them.
+- Law: one host adapter class per host base is an internal fact; the public surface is the spec union plus the fact stream, so a new widget family is one spec case, one internal adapter over the shared `WidgetSink`, and one fact projection — consumers never subclass host bases.
 - Growth: the Rhino 9 `UserInterfaceControl` SVG surface makes custom chrome one `SvgCase` payload; a richer custom widget is a new spec case over `UserInterfaceObjectBase`, never a parallel registration path.
 - Boundary: widget geometry is world-space host drawing under the active view binding; HUD-space chrome belongs to the draw page's screen band inside a conduit, and the two do not mix on one spec.
 
@@ -237,18 +239,24 @@ public sealed class GumballRig : IDisposable {
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record WidgetSpec {
     private WidgetSpec() { }
-    public sealed record GripCase(Point3d At, double Radius, Option<Curve> Constraint, Seq<Point3d> SnapPoints, bool ObjectSnap) : WidgetSpec;
-    public sealed record DirectionCase(Point3d At, Vector3d Direction, double ArrowRadius) : WidgetSpec;
+    public sealed record GripCase(
+        Point3d At, double Radius, Option<Curve> Constraint, Seq<Point3d> SnapPoints, bool ObjectSnap,
+        Option<(Rhino.UI.GripUserInterfaceObjectShape Shape, PerceptualColor Stroke, PerceptualColor Fill, float StrokeWidth, double RotationRadians)> Chrome = default) : WidgetSpec;
+    public sealed record DirectionCase(Point3d At, Vector3d Direction, double ArrowRadius, Option<double> LineLength = default, bool OneWay = false) : WidgetSpec;
     public sealed record RotationCase(Plane Arc, double Radius) : WidgetSpec;
-    public sealed record TextDotCase(string Text, int Height, Point3d At) : WidgetSpec;
+    public sealed record TextDotCase(
+        string Text, int Height, Point3d At,
+        Option<(PerceptualColor Text, PerceptualColor Back, PerceptualColor Border)> Ink = default, Option<int> HoverHeight = default) : WidgetSpec;
     public sealed record SvgCase(string Svg, Point2d At, Size2i Extent) : WidgetSpec;
-    public sealed record SliderCase(Interval Range, double Value) : WidgetSpec;
+    public sealed record SliderCase(Interval Range, double Value, bool Horizontal = true, bool DisplayValue = true, Option<int> Precision = default) : WidgetSpec;
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record WidgetFact {
     private WidgetFact() { }
     public sealed record PressedCase(Guid Widget, Line PickRay) : WidgetFact;
+    public sealed record ClickedCase(Guid Widget, bool Double) : WidgetFact;
+    public sealed record HoverCase(Guid Widget, bool Over) : WidgetFact;
     public sealed record MovedCase(Guid Widget, Point3d To) : WidgetFact;
     public sealed record RotatedCase(Guid Widget, double Angle) : WidgetFact;
     public sealed record SlidCase(Guid Widget, double Value) : WidgetFact;
@@ -256,113 +264,172 @@ public abstract partial record WidgetFact {
 }
 
 // --- [SERVICES] -----------------------------------------------------------------------------
+internal sealed record WidgetSink(Guid Identity, System.Threading.Channels.ChannelWriter<WidgetFact> Writer, Option<Func<ConduitFrame, Fin<Unit>>> Painter) {
+    internal Unit Paint(DrawEventArgs args) =>
+        ignore(Painter.Iter(body => ignore(body(new ConduitFrame(
+            Pipeline: args.Display, Viewport: args.Viewport, Context: FrameContext.Of(pipeline: args.Display), Phase: ConduitPhase.PostObjects)))));
+
+    internal Unit Pressed(Rhino.UI.MouseState mouse) => ignore(Writer.TryWrite(new WidgetFact.PressedCase(Widget: Identity, PickRay: mouse.FrustumLine)));
+
+    internal Unit Clicked(bool doubled) => ignore(Writer.TryWrite(new WidgetFact.ClickedCase(Widget: Identity, Double: doubled)));
+
+    internal Unit Hover(bool over) => ignore(Writer.TryWrite(new WidgetFact.HoverCase(Widget: Identity, Over: over)));
+
+    internal Unit Moved(Point3d to) => ignore(Writer.TryWrite(new WidgetFact.MovedCase(Widget: Identity, To: to)));
+
+    internal Unit Rotated(double angle) => ignore(Writer.TryWrite(new WidgetFact.RotatedCase(Widget: Identity, Angle: angle)));
+
+    internal Unit Slid(double value) => ignore(Writer.TryWrite(new WidgetFact.SlidCase(Widget: Identity, Value: value)));
+
+    internal Unit Hit(Option<double> parameter) => ignore(Writer.TryWrite(new WidgetFact.HitCase(Widget: Identity, CurveParameter: parameter)));
+}
+
 internal sealed class GripWidget : Rhino.UI.GripUserInterfaceObject {
-    private readonly Guid identity;
-    private readonly System.Threading.Channels.ChannelWriter<WidgetFact> sink;
-    private readonly Func<ConduitFrame, Fin<Unit>> paint;
+    private readonly WidgetSink sink;
     private readonly Option<Curve> constraint;
 
-    internal GripWidget(Guid identity, WidgetSpec.GripCase spec, System.Threading.Channels.ChannelWriter<WidgetFact> sink, Func<ConduitFrame, Fin<Unit>> paint)
+    internal GripWidget(WidgetSpec.GripCase spec, WidgetSink sink)
         : base(spec.At) {
-        this.identity = identity;
         this.sink = sink;
-        this.paint = paint;
         constraint = spec.Constraint;
         GripRadius = (float)spec.Radius;
         ObjectSnapPermitted = spec.ObjectSnap;
         _ = spec.Constraint.Iter(curve => Constrain(curve: curve));
         _ = Op.SideWhen(!spec.SnapPoints.IsEmpty, () => SetSnapPoints(points: spec.SnapPoints.AsEnumerable()));
+        _ = spec.Chrome.Iter(chrome => {
+            GripShape = chrome.Shape;
+            GripColor = Quant.Sys(chrome.Stroke);
+            GripFillColor = Quant.Sys(chrome.Fill);
+            GripStrokeWidth = chrome.StrokeWidth;
+            GripShapeRotationRadians = (float)chrome.RotationRadians;
+        });
     }
 
-    protected override void OnDraw(DrawEventArgs e) =>
-        _ = paint(new ConduitFrame(Pipeline: e.Display, Viewport: e.Viewport, Context: FrameContext.Of(pipeline: e.Display), Phase: ConduitPhase.PostObjects));
+    protected override void OnDraw(DrawEventArgs args) => sink.Paint(args: args);
 
-    protected override void OnMouseDown(Rhino.UI.MouseState state) =>
-        _ = sink.TryWrite(new WidgetFact.PressedCase(Widget: identity, PickRay: state.FrustumLine));
+    protected override void OnMouseDown(Rhino.UI.MouseState mouse) => sink.Pressed(mouse: mouse);
 
-    protected override void OnMouseMove(Rhino.UI.MouseState state) {
-        _ = sink.TryWrite(new WidgetFact.MovedCase(Widget: identity, To: GripLocation));
-        _ = constraint.Iter(curve => ignore(sink.TryWrite(new WidgetFact.HitCase(
-            Widget: identity,
-            CurveParameter: state.IsMouseOver(curve, out double t) ? Some(t) : Option<double>.None))));
-    }
+    protected override void OnDrag(Point3d newLocation, Rhino.UI.MouseState mouse) => sink.Moved(to: newLocation);
 
-    protected override void OnMouseUp(Rhino.UI.MouseState state) =>
-        _ = sink.TryWrite(new WidgetFact.MovedCase(Widget: identity, To: GripLocation));
+    protected override void OnMouseMove(Rhino.UI.MouseState mouse) =>
+        _ = constraint.Iter(curve => sink.Hit(parameter: mouse.IsMouseOver(curve, out double t) ? Some(t) : Option<double>.None));
+
+    protected override void OnMouseUp(Rhino.UI.MouseState mouse) => sink.Moved(to: GripLocation);
+
+    protected override void OnMouseEnter(Rhino.UI.MouseState mouse) => sink.Hover(over: true);
+
+    protected override void OnMouseLeave(Rhino.UI.MouseState mouse) => sink.Hover(over: false);
+
+    protected override void OnMouseClick(Rhino.UI.MouseState mouse) => sink.Clicked(doubled: false);
+
+    protected override void OnMouseDoubleClick(Rhino.UI.MouseState mouse) => sink.Clicked(doubled: true);
 }
 
 internal sealed class DirectionWidget : Rhino.UI.DirectionGripUserInterfaceObject {
-    private readonly Guid identity;
-    private readonly System.Threading.Channels.ChannelWriter<WidgetFact> sink;
+    private readonly WidgetSink sink;
 
-    internal DirectionWidget(Guid identity, WidgetSpec.DirectionCase spec, System.Threading.Channels.ChannelWriter<WidgetFact> sink)
+    internal DirectionWidget(WidgetSpec.DirectionCase spec, WidgetSink sink)
         : base(spec.At, spec.Direction) {
-        this.identity = identity;
         this.sink = sink;
         ArrowRadius = (float)spec.ArrowRadius;
+        OneWay = spec.OneWay;
+        _ = spec.LineLength.Iter(length => DirectionLineLength = (float)length);
     }
 
-    protected override void OnMouseDown(Rhino.UI.MouseState state) =>
-        _ = sink.TryWrite(new WidgetFact.PressedCase(Widget: identity, PickRay: state.FrustumLine));
-}
+    protected override void OnDraw(DrawEventArgs args) => sink.Paint(args: args);
 
-internal sealed class SliderWidget : Rhino.UI.UserInterfaceSlider {
-    private readonly Guid identity;
-    private readonly System.Threading.Channels.ChannelWriter<WidgetFact> sink;
+    protected override void OnMouseDown(Rhino.UI.MouseState mouse) => sink.Pressed(mouse: mouse);
 
-    internal SliderWidget(Guid identity, WidgetSpec.SliderCase spec, System.Threading.Channels.ChannelWriter<WidgetFact> sink) {
-        this.identity = identity;
-        this.sink = sink;
-        Range = spec.Range;
-        Value = spec.Value;
-    }
+    protected override void OnMouseEnter(Rhino.UI.MouseState mouse) => sink.Hover(over: true);
 
-    protected override void OnValueChanged() =>
-        _ = sink.TryWrite(new WidgetFact.SlidCase(Widget: identity, Value: Value));
+    protected override void OnMouseLeave(Rhino.UI.MouseState mouse) => sink.Hover(over: false);
+
+    protected override void OnMouseClick(Rhino.UI.MouseState mouse) => sink.Clicked(doubled: false);
 }
 
 internal sealed class RotationWidget : Rhino.UI.RotationGripUserInterfaceObject {
-    private readonly Guid identity;
-    private readonly System.Threading.Channels.ChannelWriter<WidgetFact> sink;
+    private readonly WidgetSink sink;
 
-    internal RotationWidget(Guid identity, WidgetSpec.RotationCase spec, System.Threading.Channels.ChannelWriter<WidgetFact> sink)
-        : base(spec.Arc, spec.Radius) {
-        this.identity = identity;
+    internal RotationWidget(WidgetSpec.RotationCase spec, WidgetSink sink)
+        : base(spec.Arc, spec.Radius) =>
         this.sink = sink;
+
+    protected override void OnDraw(DrawEventArgs args) => sink.Paint(args: args);
+
+    protected override void OnMouseDown(Rhino.UI.MouseState mouse) => sink.Pressed(mouse: mouse);
+
+    protected override void OnRotationDrag(double angle, Rhino.UI.MouseState mouse) => sink.Rotated(angle: angle);
+
+    protected override void OnMouseEnter(Rhino.UI.MouseState mouse) => sink.Hover(over: true);
+
+    protected override void OnMouseLeave(Rhino.UI.MouseState mouse) => sink.Hover(over: false);
+}
+
+internal sealed class TextDotWidget : Rhino.UI.TextDotUserInterfaceObject {
+    private readonly WidgetSink sink;
+
+    internal TextDotWidget(WidgetSpec.TextDotCase spec, WidgetSink sink)
+        : base(spec.At, spec.Text) {
+        this.sink = sink;
+        TextHeight = spec.Height;
+        _ = spec.Ink.Iter(ink => {
+            TextColor = Quant.Sys(ink.Text);
+            DotBackgroundColor = Quant.Sys(ink.Back);
+            DotBorderColor = Quant.Sys(ink.Border);
+        });
+        _ = spec.HoverHeight.Iter(height => MouseOverTextHeight = height);
     }
 
-    protected override void OnRotationDrag(double angle, Rhino.UI.MouseState mouse) =>
-        _ = sink.TryWrite(new WidgetFact.RotatedCase(Widget: identity, Angle: angle));
+    protected override void OnDraw(DrawEventArgs args) => sink.Paint(args: args);
+
+    protected override void OnMouseDown(Rhino.UI.MouseState mouse) => sink.Pressed(mouse: mouse);
+
+    protected override void OnMouseEnter(Rhino.UI.MouseState mouse) => sink.Hover(over: true);
+
+    protected override void OnMouseLeave(Rhino.UI.MouseState mouse) => sink.Hover(over: false);
+
+    protected override void OnMouseClick(Rhino.UI.MouseState mouse) => sink.Clicked(doubled: false);
+
+    protected override void OnMouseDoubleClick(Rhino.UI.MouseState mouse) => sink.Clicked(doubled: true);
 }
 
 internal sealed class SvgWidget : Rhino.UI.UserInterfaceControl {
-    private readonly Guid identity;
-    private readonly System.Threading.Channels.ChannelWriter<WidgetFact> sink;
+    private readonly WidgetSink sink;
 
-    internal SvgWidget(Guid identity, WidgetSpec.SvgCase spec, System.Threading.Channels.ChannelWriter<WidgetFact> sink)
+    internal SvgWidget(WidgetSpec.SvgCase spec, WidgetSink sink)
         : base(new System.Drawing.Point((int)spec.At.X, (int)spec.At.Y), spec.Extent.Native) {
-        this.identity = identity;
         this.sink = sink;
         SetSvg(svg: spec.Svg);
     }
 
-    protected override void OnMouseDown(Rhino.UI.MouseState state) =>
-        _ = sink.TryWrite(new WidgetFact.PressedCase(Widget: identity, PickRay: state.FrustumLine));
+    protected override void OnDraw(DrawEventArgs args) => sink.Paint(args: args);
+
+    protected override void OnMouseDown(Rhino.UI.MouseState mouse) => sink.Pressed(mouse: mouse);
+
+    protected override void OnMouseEnter(Rhino.UI.MouseState mouse) => sink.Hover(over: true);
+
+    protected override void OnMouseLeave(Rhino.UI.MouseState mouse) => sink.Hover(over: false);
+
+    protected override void OnMouseClick(Rhino.UI.MouseState mouse) => sink.Clicked(doubled: false);
+
+    protected override void OnMouseDoubleClick(Rhino.UI.MouseState mouse) => sink.Clicked(doubled: true);
 }
 
-internal sealed class TextDotWidget : Rhino.UI.TextDotUserInterfaceObject {
-    private readonly Guid identity;
-    private readonly System.Threading.Channels.ChannelWriter<WidgetFact> sink;
+internal sealed class SliderWidget : Rhino.UI.UserInterfaceSlider {
+    private readonly WidgetSink sink;
 
-    internal TextDotWidget(Guid identity, WidgetSpec.TextDotCase spec, System.Threading.Channels.ChannelWriter<WidgetFact> sink)
-        : base(spec.At, spec.Text) {
-        this.identity = identity;
+    internal SliderWidget(WidgetSpec.SliderCase spec, WidgetSink sink) {
         this.sink = sink;
-        TextHeight = spec.Height;
+        Range = spec.Range;
+        Value = spec.Value;
+        HorizontalOrientation = spec.Horizontal;
+        DisplayValue = spec.DisplayValue;
+        _ = spec.Precision.Iter(digits => DigitPrecision = digits);
     }
 
-    protected override void OnMouseDown(Rhino.UI.MouseState state) =>
-        _ = sink.TryWrite(new WidgetFact.PressedCase(Widget: identity, PickRay: state.FrustumLine));
+    protected override void OnDraw(DrawEventArgs args) => sink.Paint(args: args);
+
+    protected override void OnValueChanged() => sink.Slid(value: Value);
 }
 
 public sealed class WidgetHost : IDisposable {
@@ -379,23 +446,23 @@ public sealed class WidgetHost : IDisposable {
             FullMode = System.Threading.Channels.BoundedChannelFullMode.DropOldest,
         }));
 
-    public Fin<Guid> Mount(WidgetSpec spec, Func<ConduitFrame, Fin<Unit>> paint, bool activeViewOnly = true, Op? key = null) {
+    public Fin<Guid> Mount(WidgetSpec spec, Option<Func<ConduitFrame, Fin<Unit>>> paint = default, bool activeViewOnly = true, Op? key = null) {
         Op op = key.OrDefault();
-        Guid identity = Guid.NewGuid();
+        WidgetSink sink = new(Identity: Guid.NewGuid(), Writer: channel.Writer, Painter: paint);
         return from widget in spec.Switch<Fin<Rhino.UI.UserInterfaceObjectBase>>(
-                   gripCase: row => op.Catch(() => Fin.Succ((Rhino.UI.UserInterfaceObjectBase)new GripWidget(identity: identity, spec: row, sink: channel.Writer, paint: paint))),
-                   directionCase: row => op.Catch(() => Fin.Succ((Rhino.UI.UserInterfaceObjectBase)new DirectionWidget(identity: identity, spec: row, sink: channel.Writer))),
-                   rotationCase: row => op.Catch(() => Fin.Succ((Rhino.UI.UserInterfaceObjectBase)new RotationWidget(identity: identity, spec: row, sink: channel.Writer))),
-                   textDotCase: row => op.Catch(() => Fin.Succ((Rhino.UI.UserInterfaceObjectBase)new TextDotWidget(identity: identity, spec: row, sink: channel.Writer))),
-                   svgCase: row => op.Catch(() => Fin.Succ((Rhino.UI.UserInterfaceObjectBase)new SvgWidget(identity: identity, spec: row, sink: channel.Writer))),
-                   sliderCase: row => op.Catch(() => Fin.Succ((Rhino.UI.UserInterfaceObjectBase)new SliderWidget(identity: identity, spec: row, sink: channel.Writer))))
+                   gripCase: row => op.Catch(() => Fin.Succ((Rhino.UI.UserInterfaceObjectBase)new GripWidget(spec: row, sink: sink))),
+                   directionCase: row => op.Catch(() => Fin.Succ((Rhino.UI.UserInterfaceObjectBase)new DirectionWidget(spec: row, sink: sink))),
+                   rotationCase: row => op.Catch(() => Fin.Succ((Rhino.UI.UserInterfaceObjectBase)new RotationWidget(spec: row, sink: sink))),
+                   textDotCase: row => op.Catch(() => Fin.Succ((Rhino.UI.UserInterfaceObjectBase)new TextDotWidget(spec: row, sink: sink))),
+                   svgCase: row => op.Catch(() => Fin.Succ((Rhino.UI.UserInterfaceObjectBase)new SvgWidget(spec: row, sink: sink))),
+                   sliderCase: row => op.Catch(() => Fin.Succ((Rhino.UI.UserInterfaceObjectBase)new SliderWidget(spec: row, sink: sink))))
                from _ in op.Catch(() => {
                    widget.BoundToActiveView = activeViewOnly;
                    widget.Visible = true;
                    return op.Confirm(success: widget.RegisterForAllDocuments());
                })
-               from __ in Fin.Succ(ignore(mounted.Swap(held => held.AddOrUpdate(identity, widget))))
-               select identity;
+               from __ in Fin.Succ(ignore(mounted.Swap(held => held.AddOrUpdate(sink.Identity, widget))))
+               select sink.Identity;
     }
 
     public Fin<Unit> Retire(Guid widget, Op? key = null) {
@@ -418,7 +485,7 @@ public sealed class WidgetHost : IDisposable {
 
 ```mermaid
 flowchart LR
-    Hook["ViewportPointer : MouseCallback — paired begin/end overrides"] -->|PointerFact channel| Consumers["drag folds · hover chrome · acquisition rails"]
+    Hook["Pointers hook : MouseCallback — paired begin/end overrides"] -->|PointerFact channel| Consumers["drag folds · hover chrome · acquisition rails"]
     Seat["GumballSeat — SetFrom* union"] --> Rig["GumballRig — SetBaseGumball · PickGumball · UpdateGumball"]
     Rig -->|GumballEvidence Transform| Commit["document transaction rail"]
     Specs["WidgetSpec rows — grip · direction · rotation · text dot · svg · slider"] --> Host["WidgetHost — RegisterForAllDocuments / Unregister"]

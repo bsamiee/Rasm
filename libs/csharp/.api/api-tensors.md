@@ -46,28 +46,29 @@
 [PUBLIC_MEMBER_SCOPE]: native indexing and layout
 - rail: tensor
 
-| [INDEX] | [OWNER]       | [SURFACE]               | [CAPABILITY]              |
-| :-----: | :------------ | :---------------------- | :------------------------ |
-|  [01]   | `NIndex`      | `FromStart`             | creates start index       |
-|  [02]   | `NIndex`      | `FromEnd`               | creates end index         |
-|  [03]   | `NIndex`      | `Start`                 | addresses first element   |
-|  [04]   | `NIndex`      | `End`                   | addresses terminal bound  |
-|  [05]   | `NIndex`      | `GetOffset`             | resolves dimension offset |
-|  [06]   | `NIndex`      | `Index` conversion      | bridges BCL indexing      |
-|  [07]   | `NRange`      | `StartAt`               | creates open-ended range  |
-|  [08]   | `NRange`      | `EndAt`                 | creates prefix range      |
-|  [09]   | `NRange`      | `All`                   | spans full dimension      |
-|  [10]   | `NRange`      | `GetOffsetAndLength`    | resolves range bounds     |
-|  [11]   | `NRange`      | `Range` conversion      | bridges BCL ranges        |
-|  [12]   | `TensorShape` | `Rank`                  | reads dimension count     |
-|  [13]   | `TensorShape` | `Lengths`               | reads dimension lengths   |
-|  [14]   | `TensorShape` | `Strides`               | reads dimension strides   |
-|  [15]   | `TensorShape` | `IsDense`               | tests dense layout        |
-|  [16]   | `TensorShape` | `HasAnyDenseDimensions` | tests partial density     |
-|  [17]   | `TensorShape` | `FlattenedLength`       | reads flattened length    |
-|  [18]   | `TensorFlags` | `None`                  | marks no layout state     |
-|  [19]   | `TensorFlags` | `IsDense`               | marks dense layout        |
-|  [20]   | `TensorFlags` | `IsPinned`              | marks pinned layout       |
+| [INDEX] | [OWNER]       | [SURFACE]                | [CAPABILITY]              |
+| :-----: | :------------ | :----------------------- | :------------------------ |
+|  [01]   | `NIndex`      | `FromStart`              | creates start index       |
+|  [02]   | `NIndex`      | `FromEnd`                | creates end index         |
+|  [03]   | `NIndex`      | `Start`                  | addresses first element   |
+|  [04]   | `NIndex`      | `End`                    | addresses terminal bound  |
+|  [05]   | `NIndex`      | `GetOffset`              | resolves dimension offset |
+|  [06]   | `NIndex`      | `Index` conversion       | bridges BCL indexing      |
+|  [07]   | `NRange`      | `NRange(NIndex, NIndex)` | constructs bounded range  |
+|  [08]   | `NRange`      | `StartAt`                | creates open-ended range  |
+|  [09]   | `NRange`      | `EndAt`                  | creates prefix range      |
+|  [10]   | `NRange`      | `All`                    | spans full dimension      |
+|  [11]   | `NRange`      | `GetOffsetAndLength`     | resolves range bounds     |
+|  [12]   | `NRange`      | `Range` conversion       | bridges BCL ranges        |
+|  [13]   | `TensorShape` | `Rank`                   | reads dimension count     |
+|  [14]   | `TensorShape` | `Lengths`                | reads dimension lengths   |
+|  [15]   | `TensorShape` | `Strides`                | reads dimension strides   |
+|  [16]   | `TensorShape` | `IsDense`                | tests dense layout        |
+|  [17]   | `TensorShape` | `HasAnyDenseDimensions`  | tests partial density     |
+|  [18]   | `TensorShape` | `FlattenedLength`        | reads flattened length    |
+|  [19]   | `TensorFlags` | `None`                   | marks no layout state     |
+|  [20]   | `TensorFlags` | `IsDense`                | marks dense layout        |
+|  [21]   | `TensorFlags` | `IsPinned`               | marks pinned layout       |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -284,6 +285,9 @@
 |  [16]   | `IsRealNumber`       | `INumberBase<T>`   |
 |  [17]   | `IsSubnormal`        | `INumberBase<T>`   |
 |  [18]   | `IsZero`             | `INumberBase<T>`   |
+|  [19]   | `IsFiniteAll`        | `INumberBase<T>`   |
+
+`IsFiniteAll<T>(ReadOnlySpan<T>)` returns one `bool` and returns `false` for an empty span.
 
 [ENTRYPOINT_SCOPE]: marshalling operations
 - rail: tensor

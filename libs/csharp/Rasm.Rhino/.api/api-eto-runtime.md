@@ -50,7 +50,7 @@
 | :-----: | :-------------- | :--------- | :------------------------------------------------------------ |
 |  [01]   | `Clipboard`     | singleton  | typed clipboard read/write keyed by MIME `type`, plus `Clear` |
 |  [02]   | `DataObject`    | payload    | typed drag/transfer payload keyed by MIME `type`              |
-|  [03]   | `IDataObject`   | interface  | the read contract a drop handler consumes                     |
+|  [03]   | `IDataObject`   | interface  | the full typed get+set contract both carriers implement       |
 |  [04]   | `DragEffects`   | flags enum | `Copy`/`Move`/`Link` allowed-effect negotiation               |
 |  [05]   | `DragEventArgs` | event args | drop location, `Data`, `AllowedEffects`, resolved `Effects`   |
 
@@ -133,6 +133,7 @@ The three dispatch shapes are the boundary between a background thread and the c
 
 [TRANSFER_CONTRACT]:
 - `Clipboard` and `DataObject` are the same typed-payload shape under two lifetimes: the clipboard is process-external and persistent, the data object is drag-scoped. A payload is always keyed by a MIME `type` string, and `SetString`/`SetData`/`SetDataStream`/`SetObject` pair one-to-one with the `Get*` readers plus `Contains`. Drag negotiation carries the `DataObject` on `DragEventArgs.Data`, declares `AllowedEffects`, and resolves the committed `Effects`.
+- Both carriers declare `Clipboard : Widget, IDataObject` and `DataObject : Widget, IDataObject`, and `IDataObject` carries the whole keyed contract — `Contains`/`GetString`/`GetData`/`GetObject<T>`, `SetString`/`SetData`/`SetObject`, `Text`/`Html`/`Image`/`Uris` get+set, `ContainsText`/`ContainsHtml`/`ContainsImage`/`ContainsUris`, `Types`, `Clear` — so one interface-typed body serves both lifetimes; only the stream pair (`GetDataStream(string)`/`SetDataStream(Stream, string)`) is class-level on each carrier and off the interface.
 
 [STACKING]:
 - `LanguageExt`(`.api/api-languageext`): a UI-thread dispatch wraps into `Eff<A>`/`IO<A>` so the boundary composes marshalled work as an effect and folds the outcome to `Fin<A>` — `Application.Invoke<T>`/`InvokeAsync<T>` become effectful reads, never raw blocking calls threaded through domain code. `Option<A>` lifts every nullable transfer read (`Clipboard.GetString(type)`, `DataObject.GetObject<T>(type)` gated by `Contains(type)`) so an absent MIME payload is `None`, not a null. `UITimer` and `TrayIndicator` are resource-scoped through the `use` rail: `Start`/`Show` acquire, `Stop`/`Hide` release, so the clock and the tray icon never leak past their owning scope.

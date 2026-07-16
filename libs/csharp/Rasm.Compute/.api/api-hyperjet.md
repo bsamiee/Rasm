@@ -33,27 +33,29 @@
 - namespace: `HyperJet`
 - rail: autodiff
 
-| [INDEX] | [SURFACE]                            | [CALL_SHAPE]                                                                                      |
-| :-----: | :----------------------------------- | :------------------------------------------------------------------------------------------------ |
-|  [01]   | `DDScalarN.Variables`                | `static (DDScalarN, …) Variables(double v0, …)` (tuple-deconstructable up to 15)                  |
-|  [02]   | `DDScalar.Variables`                 | `static DDScalar[] Variables(double[] values)` (deconstructable)                                  |
-|  [03]   | `DDScalarSpan.Variable`              | `static DDScalarSpan Variable(Span<double> buffer, int index, double value, int size, int order)` |
-|  [04]   | `DDScalarSpan.ctor`                  | `new DDScalarSpan(Span<double> buffer, int size, int order)`                                      |
-|  [05]   | `f.Value` / `f.G(i)` / `f.H(i, j)`   | field/method reads on the result scalar                                                           |
-|  [06]   | `f.GetGradient()` / `f.GetHessian()` | `→ MathNet.Numerics.LinearAlgebra` vector / matrix                                                |
+| [INDEX] | [SURFACE]                            | [CALL]                                                                                 |
+| :-----: | :----------------------------------- | :------------------------------------------------------------------------------------- |
+|  [01]   | `DDScalarN.Variables`                | `Variables(double v0, …)`; tuple-deconstructable up to `15`                            |
+|  [02]   | `DDScalar.Variables`                 | `Variables(double[] values, int order = 2)`; `order: 1` omits Hessians                  |
+|  [03]   | `DDScalar.Constant`                  | `Constant(double value, int size, int order = 2)`                                      |
+|  [04]   | `DDScalarSpan.Variable`              | `Variable(Span<double> buffer, int index, double value, int size, int order)`           |
+|  [05]   | `DDScalarSpan.ctor`                  | `new DDScalarSpan(Span<double> buffer, int size, int order)`                            |
+|  [06]   | `f.Value` / `f.G(i)` / `f.H(i, j)`   | result value, gradient component, and Hessian component                                |
+|  [07]   | `f.GetGradient()` / `f.GetHessian()` | `MathNet.Numerics.LinearAlgebra` vector and matrix exports                              |
 
 - [01]-[SEED_COMPILE]: seed a compile-time model's active variables; each returned scalar carries its unit seed derivative.
 - [02]-[SEED_DYNAMIC]: seed a dynamic active-variable vector.
-- [03]-[SEED_SPAN]: seed ONE active variable of a dynamic span model into its buffer.
-- [04]-[SPAN_CTOR]: the result accumulator a span computation writes into, over a `stackalloc double[Kernel.GetDataLength(size, order)]`.
-- [05]-[READS]: the function value, gradient component, and Hessian component.
-- [06]-[EXPORT]: export the full gradient and Hessian as MathNet structures — the bridge into the numeric-spine consumers.
+- [03]-[SEED_CONSTANT]: seed a zero-derivative data read — the post-fit re-evaluation seeding an order-compatible constant array.
+- [04]-[SEED_SPAN]: seed ONE active variable of a dynamic span model into its buffer.
+- [05]-[SPAN_CTOR]: the result accumulator a span computation writes into, over a `stackalloc double[Kernel.GetDataLength(size, order)]`.
+- [06]-[READS]: the function value, gradient component, and Hessian component.
+- [07]-[EXPORT]: export the full gradient and Hessian as MathNet structures — the bridge into the numeric-spine consumers.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [MODEL_SELECTION]:
 - KNOWN small variable count (≤15) on a hot inner loop → `DDScalarN` (compile-time, zero-alloc, the fastest and GC-free path); RUNTIME-dynamic count with no heap budget → `DDScalarSpan` over a `stackalloc` buffer sized by `Kernel.GetDataLength(size, order)`; arbitrary/large dynamic size → `DDScalar` (heap). Second-order needs are declared through `order: 2`; a gradient-only need sets `order: 1` and skips the Hessian storage.
-- the generic-math integration is load-bearing: a differentiated routine is written ONCE over `T : IFloatingPoint<T>` (or `Vector3D<T>`) and instantiated with `double` for the plain evaluation and `DDScalarN`/`DDScalar` for the sensitivity — never a hand-forked derivative body.
+- Generic-math integration is load-bearing: one differentiated routine over `T : IFloatingPoint<T>` or `Vector3D<T>` instantiates with `double` for plain evaluation and `DDScalarN`/`DDScalar` for sensitivity; a hand-forked derivative body is rejected.
 
 [STACKING]:
 - `Tensor/dispatch#SENSITIVITY` (the ONE `Sensitivity`/`Chain` family): HyperJet is the hyperdual LEG beside the geometry-adjoint tape (`Sensitivity.Operator` over the kernel `MeshAdjointSnapshot`/`OperatorRow`) and the `Symbolic/lowering` symbolic tape — all under the one `Chain` contract. A general smooth scalar objective routes here; a fourth parallel gradient mechanism is the deleted form.

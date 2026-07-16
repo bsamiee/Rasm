@@ -1,6 +1,6 @@
 # [RASM_RHINO_ARCHITECTURE]
 
-`Rasm.Rhino` maps the Rhino 9 host boundary over the RhinoCommon document, command, block, viewport, display, and exchange surfaces, owning the native Eto UI sub-domain and the `Rhino.UI` shell above it and composing the `Rasm` kernel for every host-neutral computation. Each sub-domain folder maps to exactly one namespace; the folder references only the kernel and lowers every host mutation onto the one document-session demand and the shared `UndoBracket`. Seam map names only the contracts crossing the boundary — each a frozen-name value type consumed down from the kernel — while all host-internal wiring graduates to the `[03]` mutation spine.
+`Rasm.Rhino` maps the Rhino 9 host boundary over the RhinoCommon document, persistence, object, command, block, annotation, modeling, viewport, display, render, and exchange surfaces, owning the native Eto UI sub-domain and the `Rhino.UI` shell above it and composing the `Rasm` kernel for every host-neutral computation. Each sub-domain folder maps to exactly one namespace; the folder references only the kernel and lowers every host mutation onto the one document-session demand and the shared `UndoBracket`. Seam map names only the contracts crossing the boundary — each a frozen-name value type consumed down from the kernel — while all host-internal wiring graduates to the `[03]` mutation spine.
 
 ## [01]-[DOMAIN_MAP]
 
@@ -11,6 +11,19 @@ Rasm.Rhino/             # Rhino host boundary over the Rasm kernel
 │   ├── Geometry.cs     # Native GeometryBase custody crossing and kernel transform
 │   ├── Tables.cs       # Table mutation, the shared UndoBracket, and redraw compensation
 │   └── Events.cs       # Event observation and the transactional DocumentStream
+├── Persistence/        # Typed serialization, settings custody, attached data, user text, saved-state presets
+│   ├── Dictionary.cs   # ArchiveValue union and the ArchiveMap detach/mint round trip
+│   ├── Settings.cs     # Settings custody scopes, typed value rail, guards, and the change ledger
+│   ├── UserData.cs     # ArchiveIo spine, TypedUserData template, roster census, custody transfer
+│   ├── UserText.cs     # TextStore rail over document and per-object user strings
+│   ├── Presets.cs      # CPlane, named-position, and layer-state preset rail under one mask vocabulary
+│   └── Snapshots.cs    # Scripted snapshot ops, SnapShotsClient participant, worksession facts
+├── Objects/            # Live document-object domain over the table rail
+│   ├── State.cs        # Live-object window: snapshot, frames, component touch, section custody
+│   ├── Attributes.cs   # Typed attribute program feeding the table rail's Amend path
+│   ├── Materials.cs    # Object materials, mappings, and mesh caches behind one commit
+│   ├── History.cs      # History record/replay triad, linkage topology, and governance
+│   └── Authoring.cs    # Custom-object and grip programs behind forwarding adapters
 ├── Commands/           # Native command lifecycle, input acquisition, and picked-reference projection
 │   ├── Command.cs      # Staged command algebra over one immutable model and its host adapter
 │   ├── Acquisition.cs  # Parameterized input-acquisition matrix and its receipt
@@ -21,6 +34,21 @@ Rasm.Rhino/             # Rhino host boundary over the Rasm kernel
 │   ├── Graph.cs        # Definition-graph topology, queries, and archive closure
 │   ├── Lifecycle.cs    # Definition ingress, the preview vault, deferred refresh, and eviction
 │   └── Operations.cs   # Block operation and query rail, geometry intake, and receipts
+├── Modeling/           # Host-fidelity native construction compute over the custody seam
+│   ├── Solids.cs       # Brep boolean/fillet/offset/join rail and the ModelGate + Built spine
+│   ├── Lofting.cs      # Sweep, loft, patch, and developable construction policies
+│   ├── Surfaces.cs     # Freeform surface constructors with fit evidence
+│   ├── Curves.cs       # Curve offset, refine, extend, split, and construction host ops
+│   ├── Meshing.cs      # Parameter-carried meshing, remesh, booleans, and mesh edits
+│   ├── SubD.cs         # SubD creation, crease authoring, and brep conversion
+│   └── Deform.cs       # Space morphs and the unroll/squish/unwrap flatteners
+├── Annotation/         # Drafting annotation domain over the resource tables
+│   ├── Style.cs        # StyleField schema, patch fold, override mint, and the DimStyle rail
+│   ├── Text.cs         # Text and leader construction, run edits, field formulas, outlining
+│   ├── Dimension.cs    # Six-kind dimension family over one override algebra
+│   ├── Hatch.cs        # Hatch construction and the pattern line-definition model
+│   ├── Linetype.cs     # Stroke segment/shape/taper model and .lin interchange
+│   └── Typeface.cs     # Face resolution and section-cut presentation resources
 ├── Viewport/           # Camera model, operation rail, capture spec, and motion pacing
 │   ├── Camera.cs       # Camera-pose altitudes over the kernel vector frame
 │   ├── Operations.cs   # Camera-operation union applied behind the viewport lease
@@ -30,9 +58,18 @@ Rasm.Rhino/             # Rhino host boundary over the Rasm kernel
 │   ├── Conduit.cs      # Conduit-pipeline algebra and display-mode participation
 │   ├── Draw.cs         # Two-backend mark union dispatched over the canvas
 │   ├── Interaction.cs  # Pointer, gumball, and widget hooks folded onto fact streams
-│   └── Render.cs       # Render-job session and realtime engine participant
+│   ├── Render.cs       # Render-job session and realtime engine participant
+│   └── Modes.cs        # Display-mode appearance profile, mode policy, viewport assignment, and analysis attachment
+├── Render/             # RDK content model and document render configuration
+│   ├── Content.cs      # Content address, kind axis, change bracket, snapshot, hash, leased ingress
+│   ├── Kinds.cs        # Material bridge, texture configuration, and environment bake
+│   ├── Fields.cs       # One polymorphic field-value owner, declaration, binding, parameter routes
+│   ├── Registry.cs     # Factory vocabulary, content operation rail, receipts, event stream
+│   ├── Settings.cs     # Render-settings duality, sub-owner states, sun astronomy, edit rail
+│   └── Mapping.cs      # Texture-mapping specs, evaluation, and per-object channel binding
 ├── Exchange/           # Document interchange and publication surface
 │   ├── Formats.cs      # File-codec matrix: detection, filters, and dispatch
+│   ├── Options.cs      # Per-format option dial family, shared axes, and host option minting
 │   ├── Archive.cs      # Standalone archive programs over one detached File3dm lease
 │   ├── Operations.cs   # Exchange-operation rail and headless convert sessions
 │   ├── Sheets.cs       # Sheet plans, live selectors, and declarative detail state

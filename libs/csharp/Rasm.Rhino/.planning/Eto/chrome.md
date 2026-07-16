@@ -65,8 +65,8 @@ public sealed record BoundIntent(IntentRow Row, Command Command);
 // --- [SERVICES] -----------------------------------------------------------------------------
 public sealed class IntentTable {
     private readonly Seq<BoundIntent> bound;
-    private readonly Atom<Seq<IntentReceipt>> receipts = Atom(Seq<IntentReceipt>());
-    private IntentTable(Seq<BoundIntent> bound) => this.bound = bound;
+    private readonly Atom<Seq<IntentReceipt>> receipts;
+    private IntentTable(Seq<BoundIntent> bound, Atom<Seq<IntentReceipt>> receipts) { this.bound = bound; this.receipts = receipts; }
 
     public Seq<IntentReceipt> Receipts => receipts.Value;
 
@@ -74,10 +74,11 @@ public sealed class IntentTable {
         Op op = key.OrDefault();
         return Distinct(rows: rows, op: op).Bind(_ => op.Catch(() => {
             System.Collections.Generic.Dictionary<string, RadioCommand> controllers = new(StringComparer.Ordinal);
-            IntentTable table = null!;
-            Seq<BoundIntent> minted = rows.Map(row => new BoundIntent(Row: row, Command: Mint(row: row, controllers: controllers, op: op, stamp: cause => table!.Stamp(cause: cause)))).Strict();
-            table = new IntentTable(bound: minted);
-            return Fin.Succ(value: table);
+            Atom<Seq<IntentReceipt>> receipts = Atom(Seq<IntentReceipt>());
+            Unit Stamp(IntentKey cause) => ignore(receipts.Swap(held => held.Add(new IntentReceipt(Key: cause, Ordinal: held.Count + 1))));
+            return Fin.Succ(value: new IntentTable(
+                bound: rows.Map(row => new BoundIntent(Row: row, Command: Mint(row: row, controllers: controllers, op: op, stamp: Stamp))).Strict(),
+                receipts: receipts));
         }));
     }
 
@@ -86,7 +87,7 @@ public sealed class IntentTable {
         _ = entry.Row.Kind.Switch(
             state: entry.Command,
             act: static (_, _) => unit,
-            toggle: static (host, kind) => Op.SideWhen(host is CheckCommand, () => ((CheckCommand)host).Checked = kind.Read()),
+            toggle: static (host, kind) => host is CheckCommand check ? Op.Side(() => check.Checked = kind.Read()) : unit,
             pick: static (_, _) => unit);
     }));
 
@@ -97,46 +98,38 @@ public sealed class IntentTable {
                 ? op.OrDefault().Catch(() => { entry.Command.Execute(); return Fin.Succ(value: unit); })
                 : Fin.Fail<Unit>(error: new UiFault.Unavailable(Key: op.OrDefault(), Capability: key.Value)));
 
-    public MenuBar MenuOf(string place) {
-        MenuBar bar = new();
-        _ = Grouped(place: place).Iter(item => bar.Items.Add(item));
-        return bar;
-    }
+    public MenuBar MenuOf(string place) => Chromed(host: new MenuBar(), place: place);
 
-    public ContextMenu PopupOf(string place) {
-        ContextMenu popup = new();
-        _ = Grouped(place: place).Iter(item => popup.Items.Add(item));
-        return popup;
-    }
+    public ContextMenu PopupOf(string place) => Chromed(host: new ContextMenu(), place: place);
 
     public ToolBar BarOf(string place) {
         ToolBar bar = new();
-        Seq<(PlacementSlot Slot, BoundIntent Entry)> placed = Placed(place: place);
-        _ = placed.Map((pair, index) => {
-            _ = Op.SideWhen(index > 0 && placed[index - 1].Slot.Group != pair.Slot.Group, () => bar.Items.Add(new SeparatorToolItem()));
+        _ = Placed(place: place).Fold(Option<int>.None, (group, pair) => {
+            _ = Op.SideWhen(group.Map(held => held != pair.Slot.Group).IfNone(false), () => bar.Items.Add(new SeparatorToolItem()));
             bar.Items.Add(pair.Entry.Command.CreateToolItem());
-            return unit;
-        }).Strict();
+            return Some(pair.Slot.Group);
+        });
         return bar;
     }
 
-    private Seq<MenuItem> Grouped(string place) {
-        Seq<(PlacementSlot Slot, BoundIntent Entry)> placed = Placed(place: place);
-        System.Collections.Generic.Dictionary<string, ButtonMenuItem> menus = new(StringComparer.Ordinal);
-        Seq<MenuItem> items = Seq<MenuItem>();
-        _ = placed.Map((pair, index) => {
+    private THost Chromed<THost>(THost host, string place) where THost : Menu, ISubmenu {
+        System.Collections.Generic.Dictionary<string, ButtonMenuItem> branches = new(StringComparer.Ordinal);
+        _ = Placed(place: place).Fold(Option<int>.None, (group, pair) => {
             MenuItem item = pair.Entry.Command.CreateMenuItem();
-            _ = Op.SideWhen(index > 0 && placed[index - 1].Slot.Group != pair.Slot.Group && pair.Slot.SubMenu.IsNone, () => items = items.Add(new SeparatorMenuItem()));
+            _ = Op.SideWhen(
+                group.Map(held => held != pair.Slot.Group).IfNone(false) && pair.Slot.SubMenu.IsNone,
+                () => host.Items.Add(new SeparatorMenuItem()));
             _ = pair.Slot.SubMenu.Match(
-                Some: title => Op.Side(() => {
-                    ButtonMenuItem branch = menus.TryGetValue(title, out ButtonMenuItem? held) ? held : new ButtonMenuItem { Text = title };
-                    _ = Op.SideWhen(!menus.ContainsKey(title), () => { menus[title] = branch; items = items.Add(branch); });
-                    branch.Items.Add(item);
-                }),
-                None: () => Op.Side(() => items = items.Add(item)));
-            return unit;
-        }).Strict();
-        return items;
+                Some: title => {
+                    ref ButtonMenuItem? seat = ref System.Runtime.InteropServices.CollectionsMarshal.GetValueRefOrAddDefault(branches, title, out bool chained);
+                    ButtonMenuItem branch = seat ??= new ButtonMenuItem { Text = title };
+                    _ = Op.SideWhen(!chained, () => host.Items.Add(branch));
+                    return Op.Side(() => branch.Items.Add(item));
+                },
+                None: () => Op.Side(() => host.Items.Add(item)));
+            return Some(pair.Slot.Group);
+        });
+        return host;
     }
 
     private Seq<(PlacementSlot Slot, BoundIntent Entry)> Placed(string place) =>
@@ -145,17 +138,16 @@ public sealed class IntentTable {
                 .Map(slot => (Slot: slot, Entry: entry)))
             .OrderBy(static pair => (pair.Slot.Group, pair.Slot.Rank)));
 
-    private Unit Stamp(IntentKey cause) =>
-        ignore(receipts.Swap(held => held.Add(new IntentReceipt(Key: cause, Ordinal: held.Count + 1))));
-
     private static Command Mint(IntentRow row, System.Collections.Generic.Dictionary<string, RadioCommand> controllers, Op op, Func<IntentKey, Unit> stamp) {
         Command command = row.Kind.Switch(
             act: static _ => new Command(),
             toggle: static kind => (Command)new CheckCommand { Checked = kind.Read() },
             pick: kind => {
                 RadioCommand radio = new();
-                _ = Op.SideWhen(controllers.TryGetValue(kind.Group, out RadioCommand? controller), () => radio.Controller = controller!);
-                _ = Op.SideWhen(!controllers.ContainsKey(kind.Group), () => controllers[kind.Group] = radio);
+                ref RadioCommand? seat = ref System.Runtime.InteropServices.CollectionsMarshal.GetValueRefOrAddDefault(controllers, kind.Group, out bool chained);
+                RadioCommand? controller = seat;
+                seat ??= radio;
+                _ = Op.SideWhen(chained, () => radio.Controller = controller!);
                 return (Command)radio;
             });
         command.ID = row.Key.Value;
@@ -291,19 +283,8 @@ public sealed record Prompt<TResult>(
             Atom<Option<Fin<TResult>>> verdict = Atom(Option<Fin<TResult>>.None);
             Dialog<TResult> dialog = new() { Title = Title, Content = body };
             _ = ClientSize.Iter(size => dialog.ClientSize = size);
-            Button affirm = new() { Text = AffirmCaption };
-            affirm.Click += (_, _) => ignore(Affirm().Match(
-                Succ: result => Op.Side(() => { _ = verdict.Swap(_ => Some(Fin.Succ(value: result))); dialog.Close(result: result); }),
-                Fail: fault => Op.Side(() => ignore(verdict.Swap(_ => Some(Fin.Fail<TResult>(error: fault)))))));
-            dialog.PositiveButtons.Add(affirm);
-            dialog.DefaultButton = affirm;
-            _ = Extra.Iter(row => {
-                Button choice = new() { Text = row.Caption };
-                choice.Click += (_, _) => ignore(row.Project().Match(
-                    Succ: result => Op.Side(() => { _ = verdict.Swap(_ => Some(Fin.Succ(value: result))); dialog.Close(result: result); }),
-                    Fail: fault => Op.Side(() => ignore(verdict.Swap(_ => Some(Fin.Fail<TResult>(error: fault)))))));
-                dialog.PositiveButtons.Add(choice);
-            });
+            dialog.DefaultButton = Answered(dialog: dialog, verdict: verdict, caption: AffirmCaption, project: Affirm);
+            _ = Extra.Iter(row => ignore(Answered(dialog: dialog, verdict: verdict, caption: row.Caption, project: row.Project)));
             _ = NegateCaption.Iter(caption => {
                 Button negate = new() { Text = caption };
                 negate.Click += (_, _) => dialog.Close();
@@ -312,6 +293,15 @@ public sealed record Prompt<TResult>(
             });
             return Fin.Succ(value: (Dialog: dialog, Verdict: verdict));
         }));
+
+    private static Button Answered(Dialog<TResult> dialog, Atom<Option<Fin<TResult>>> verdict, string caption, Func<Fin<TResult>> project) {
+        Button choice = new() { Text = caption };
+        choice.Click += (_, _) => ignore(project().Match(
+            Succ: result => Op.Side(() => { _ = verdict.Swap(_ => Some(Fin.Succ(value: result))); dialog.Close(result: result); }),
+            Fail: fault => Op.Side(() => ignore(verdict.Swap(_ => Some(Fin.Fail<TResult>(error: fault)))))));
+        dialog.PositiveButtons.Add(choice);
+        return choice;
+    }
 }
 ```
 
@@ -373,14 +363,13 @@ public sealed record PrintPlan(string Name, Seq<Scene> Pages, PrintSpec Spec, Pr
             return Route.Switch(
                 state: (Document: document, Key: op),
                 silent: static (held, _) => held.Key.Catch(() => { held.Document.Print(); return Fin.Succ(value: unit); }),
-                chooser: static (held, route) => new PrintDialog { PrintSettings = held.Document.PrintSettings }.ShowDialog(parent: route.Parent, document: held.Document) == DialogResult.Ok
-                    ? Fin.Succ(value: unit)
-                    : Fin.Fail<Unit>(error: new UiFault.Dismissed(Key: held.Key)),
-                preview: static (held, route) => new PrintPreviewDialog(document: held.Document).ShowDialog(parent: route.Parent) == DialogResult.Ok
-                    ? Fin.Succ(value: unit)
-                    : Fin.Fail<Unit>(error: new UiFault.Dismissed(Key: held.Key)))
+                chooser: static (held, route) => Presented(verdict: new PrintDialog { PrintSettings = held.Document.PrintSettings }.ShowDialog(parent: route.Parent, document: held.Document), op: held.Key),
+                preview: static (held, route) => Presented(verdict: new PrintPreviewDialog(document: held.Document).ShowDialog(parent: route.Parent), op: held.Key))
                 .Map(_ => progress.Value switch { { } held => new PrintReceipt(Name: Name, PagesRun: held.Rendered, Completed: held.Done) });
         });
     }
+
+    private static Fin<Unit> Presented(DialogResult verdict, Op op) =>
+        verdict == DialogResult.Ok ? Fin.Succ(value: unit) : Fin.Fail<Unit>(error: new UiFault.Dismissed(Key: op));
 }
 ```

@@ -1,6 +1,6 @@
 # [COMPUTE_DISCRETIZATION]
 
-Rasm.Compute solver discretization: one volumetric `MeshKernel` owner generating tet/hex/boundary-layer meshes from a boundary `BoundaryShell` through real Delaunay/octree/sweep/inflation cores with adaptive h/p/hp refinement, one `ElementClass` `[SmartEnum<string>]` element-topology axis carrying its reference-node table, its monomial polynomial space, and a `ShapeFamily` discriminant that drives one isoparametric `Sample` so twelve continuum element types collapse onto a Vandermonde coefficient mechanism plus an explicit serendipity arm and a rational pyramid arm — and the owned Frame family (`beam2-euler`/`beam2-timoshenko`, the 2-node 12-DOF member rows whose `Member` closed form carries end releases by static condensation, rigid-end offsets by eccentricity transform, and semi-rigid end springs by exact in-series condensation — the owned replacement for the retired BFE/FEALiTE frame backends, exceeding their consumed set), one closed `MeshMetric` Verdict quality vocabulary read once per element over the real edge/face topology, and one `FieldSpace` over `FieldStation` rows as the solve-native scalar/vector/tensor representation. The page owns the `ComparerAccessors.StringOrdinal` accessor, the `Monomial`/`ShapeSample`/`Aabb` value types, the `ElementClass`/`MeshAlgorithm`/`MeshMetric`/`FieldStation` vocabulary, the `QuadratureRule` owned-build Gauss tables, the `BoundaryShell`/`MeshPolicy`/`DiscreteMesh`/`FieldSpace` carriers, and the `MeshKernel` generation+refinement fold; the `Tensor<long>` element-node tables and the `SparseCompressedRowMatrixStorage<double>` adjacency the assembly consumes ride `Tensor/factor#SPARSE_SOLVE`, the metric reductions ride the `Tensor/dispatch#KERNEL_DISPATCH` `TensorPrimitives` folds, MathNet `Matrix<double>.Inverse` factors the one-time per-class Vandermonde, every Delaunay SIGN DECISION routes the kernel exact-predicate floor through the coordinate-level `Predicate.Orient3D`/`Predicate.InSphere` cores (`Rasm/Numerics/predicates` — raw double tuples, so no kernel value type enters a lane signature; the hand-rolled Bowyer-Watson TOPOLOGY stays owned, only the sign path is the kernel's), and the `ComputeReceipt` rail, `WorkLane`/`Substrate`/`AllocationClass`, `CorrelationId`, and `ClockPolicy` arrive settled. The `DiscreteMesh` and `FieldSpace` cross to `Solver/contract#SOLVE_CONTRACT` as the assembly substrate, and the surface-mesh boundary triangulation is the host `Mesh.CreateFromBrep`→`Rasm.Meshing` `MeshSpace.Of(Mesh, Context)` wire flattened to the `BoundaryShell` triangle soup, composed never re-derived.
+Rasm.Compute solver discretization: one volumetric `MeshKernel` owner generating tet/hex/boundary-layer meshes from a boundary `BoundaryShell` through real Delaunay/octree/sweep/inflation cores with adaptive h/p/hp refinement, one `ElementClass` `[SmartEnum<string>]` element-topology axis carrying its reference-node table, its monomial polynomial space, and a `ShapeFamily` discriminant that drives one isoparametric `Sample` so twelve continuum element types collapse onto a Vandermonde coefficient mechanism plus an explicit serendipity arm and a rational pyramid arm — and the owned Frame family (`beam2-euler`/`beam2-timoshenko`, the 2-node 12-DOF member rows whose `Member` closed form carries end releases by static condensation, rigid-end offsets by eccentricity transform, and semi-rigid end springs by exact in-series condensation — the owned replacement for the retired BFE/FEALiTE frame backends, exceeding their consumed set), one closed `MeshMetric` Verdict quality vocabulary read once per element over the real edge/face topology, and one `FieldSpace` over `FieldStation` rows as the solve-native scalar/vector/tensor representation. This page owns the `ComparerAccessors.StringOrdinal` accessor, the `Monomial`/`ShapeSample`/`Aabb` value types, the `ElementClass`/`MeshAlgorithm`/`MeshMetric`/`FieldStation` vocabulary, the `QuadratureRule` owned-build Gauss tables, the `BoundaryShell`/`MeshPolicy`/`DiscreteMesh`/`FieldSpace` carriers, and the `MeshKernel` generation+refinement fold; raw element-node memory projects through `TensorMarshal.CreateReadOnlyTensorSpan` without an owner copy, and assembly emits `SparseCompressedRowMatrixStorage<double>` through `Tensor/factor`, metric reductions ride `Tensor/dispatch` `TensorPrimitives` folds, MathNet `Matrix<double>.Inverse` factors the one-time per-class Vandermonde, every Delaunay SIGN DECISION routes the kernel exact-predicate floor through the coordinate-level `Predicate.Orient3D`/`Predicate.InSphere` cores (`Rasm/Numerics/predicates` — raw double tuples, so no kernel value type enters a lane signature; the hand-rolled Bowyer-Watson TOPOLOGY stays owned, only the sign path is the kernel's), and the `ComputeReceipt` rail, `WorkLane`/`Substrate`/`AllocationClass`, `CorrelationId`, and `ClockPolicy` arrive settled. `DiscreteMesh` and `FieldSpace` cross to `Solver/contract` as the assembly substrate, and surface-mesh boundary triangulation is the host `Mesh.CreateFromBrep`→`Rasm.Meshing` `MeshSpace.Of(Mesh, Context)` wire flattened to the `BoundaryShell` triangle soup, composed never re-derived.
 
 ## [01]-[INDEX]
 
@@ -10,8 +10,8 @@ Rasm.Compute solver discretization: one volumetric `MeshKernel` owner generating
 
 - Owner: `ComparerAccessors.StringOrdinal` accessor; `ElementClass` `[SmartEnum<string>]` element-topology rows carrying a `ShapeFamily` discriminant, the reference-node natural-coordinate table, the `Monomial` polynomial-space basis, the corner/edge/face topology tables, and the quadrature rule, all driving one isoparametric `Sample` returning shape values, physical gradients, and the Jacobian determinant; `MeshAlgorithm` `[SmartEnum<string>]` generation-strategy rows carrying a `MeshStrategy` core selector, a `PointSource` interior-seed column, and a conforming flag; `MeshMetric` `[SmartEnum<string>]` closed Verdict quality vocabulary (scaled-Jacobian, aspect-ratio, skewness, min-dihedral, condition) reading the real corner/edge/face topology; `FieldStation` `[SmartEnum<string>]` nodal/integration-point/cell/boundary rows carrying their count derivation; `MeshKernel` static surface generating a `DiscreteMesh` from a boundary `BoundaryShell` then refining it adaptively; `DiscreteMesh` the conforming/non-conforming volumetric mesh carrier; `FieldSpace` the integration-point/nodal scalar/vector/tensor field the solve writes; `QuadratureRule` the owned-build Gauss table the element class indexes; `BoundaryShell` the boundary-triangulation carrier with the ray-cast inclusion test; `Aabb`/`Monomial`/`ShapeSample` the value types.
 - Cases: `ElementClass` rows tet4 · tet10 · hex8 · hex20 · hex27 · wedge6 · wedge18 · pyramid5 · tri3 · tri6 · quad4 · quad8 · beam2-euler · beam2-timoshenko over four `ShapeFamily` arms (Polynomial via the Vandermonde monomial mechanism, Reduced via the explicit serendipity corner/midside formulas, Pyramid via the rational apex basis, Frame via the closed-form 12-DOF `Member` stiffness the solve contract scatters — releases/offsets/semi-rigid springs as row behavior, the `Shear` column selecting the Timoshenko Φ terms); `MeshAlgorithm` rows delaunay · frontal-delaunay · advancing-front · octree · sweep · boundary-layer over four `MeshStrategy` cores (Delaunay/Octree/Sweep/Inflation) and four `PointSource` seeds (boundary/lattice/frontal/front); `MeshMetric` rows scaled-jacobian · aspect-ratio · skewness · min-dihedral · condition; `FieldStation` rows nodal · integration-point · cell · boundary; `FieldSpace` rank rows scalar · vector · tensor over `FieldStation` positions.
-- Entry: `public static Fin<DiscreteMesh> Discretize(BoundaryShell boundary, MeshPolicy policy, CorrelationId correlation, ClockPolicy clocks)` — `Fin<T>` aborts on a non-manifold boundary or an element failing the metric's directional quality threshold (`MeshMetric.Admits`, correct for ascending- and descending-better rows alike); `Refine(DiscreteMesh, MeshPolicy, ReadOnlySpan<double> cellError, ClockPolicy)` re-meshes the Dörfler-marked cell set by the `RefineKind` `H` (red subdivision), `P` (order elevation), or `Hp` (graded) axis returning the adapted mesh and the carried error estimator; `Quality(DiscreteMesh, MeshMetric)` reads the per-element metric once; `ElementClass.Sample((double, double, double) natural, ReadOnlySpan<double> nodalXyz)` is the isoparametric evaluation the assembly consumes and `ShapeGrad` is its gradient projection.
-- Auto: `Discretize` routes the `MeshStrategy` core by the algorithm row — a closed manifold solid routes the Bowyer-Watson `Delaunay` tetrahedralization over the boundary surface nodes plus the `PointSource` interior seeds, a feature-graded fill routes the `Octree` hex recursion, a sweepable prism routes `Sweep` extrusion of the boundary cross-section, and a viscous wall routes the `Inflation` wall-normal anisotropic graded hex; every core filters cells by the `BoundaryShell.Encloses` ray-cast and packs the conforming `DiscreteMesh`; `Sample` evaluates the `ShapeFamily` arm — Polynomial reads the lazily-memoized per-class Vandermonde coefficient matrix `(N_i = Σ_m C[m,i]·P_m(ξ))` and its monomial derivatives, Reduced reads the explicit serendipity corner/midside formulas, Pyramid the rational apex basis — then maps reference derivatives through the inline `dim×dim` Jacobian inverse to physical `∂N/∂x` and the determinant; `Refine` reads the per-cell error estimator and marks the cells whose estimator exceeds the policy fraction by the Dörfler bulk criterion, then either red-subdivides (h) only the marked set or globally order-elevates (p) the element order — the marked set drives the hp routing decision while a uniform-order mesh elevates wholesale — through the shared edge-midpoint map so the interior stays conforming and a hanging node rides the mortar column only when the policy sets it; `Quality` folds the requested `MeshMetric` over the element set through the element class's `Metric` delegate, never a per-call recompute.
+- Entry: `public static Fin<DiscreteMesh> Discretize(BoundaryShell boundary, MeshPolicy policy, ClockPolicy clocks)` — `BoundaryShell.Validate` rejects malformed buffers, invalid indices, degenerate triangles, open edges, and inconsistent winding before generation; `MeshPolicy.Validate` rejects incoherent strategy/element and numeric policy values; `Fin<T>` then aborts on generation failure or an element failing the metric's directional quality threshold through `MeshMetric.Admits`; `Refine(DiscreteMesh, MeshPolicy, ReadOnlySpan<double> cellError, ClockPolicy)` re-meshes the Dörfler-marked cell set by the keyless `RefineKind` `H` (red subdivision), `P` (order elevation), or `Hp` (graded) axis returning the adapted mesh and the carried error estimator; `Quality(DiscreteMesh, MeshMetric)` reads the per-element metric once; `ElementClass.Sample((double, double, double) natural, ReadOnlySpan<double> nodalXyz)` is the isoparametric evaluation the assembly consumes and `ShapeGrad` is its gradient projection.
+- Auto: `Discretize` routes the `MeshStrategy` core by the algorithm row — a closed manifold solid routes the Bowyer-Watson `Delaunay` tetrahedralization over the boundary surface nodes plus the `PointSource` interior seeds, a feature-graded fill routes the `Octree` hex recursion, a sweepable prism routes `Sweep` extrusion of the boundary cross-section, and a viscous wall routes the `Inflation` wall-normal anisotropic graded hex; every core filters cells by the `BoundaryShell.Encloses` ray-cast and packs the conforming `DiscreteMesh`; `Sample` evaluates the `ShapeFamily` arm — Polynomial reads the lazily-memoized per-class Vandermonde coefficient matrix `(N_i = Σ_m C[m,i]·P_m(ξ))` and its monomial derivatives, Reduced reads the explicit serendipity corner/midside formulas, Pyramid the rational apex basis — then maps reference derivatives through the inline `dim×dim` Jacobian inverse to physical `∂N/∂x` and the determinant; `Refine` reads the per-cell error estimator and marks the cells whose estimator exceeds the policy fraction by the Dörfler bulk criterion, then either red-subdivides (h) the marked set expanded to its edge-conforming closure — any cell sharing a split edge joins the set to a fixpoint unless the mortar column carries the hanging node — or globally order-elevates (p) the element order — the marked set drives the hp routing decision while a uniform-order mesh elevates wholesale — through the shared edge-midpoint map so the interior stays conforming and a hanging node rides the mortar column only when the policy sets it; `Quality` folds the requested `MeshMetric` over the element set through the element class's `Metric` delegate, never a per-call recompute.
 - Receipt: the `Discretization` `ComputeReceipt` case carries the algorithm key, element-class key, node and element counts, the boundary-layer count, the worst-element quality scalar, the chosen metric key, and elapsed; `Refine` stamps the refinement level, the marked-cell count, the marking fraction, and the post-refine error estimator on the same case so an adaptive sweep is one receipt chain by correlation.
 - Packages: Rasm (project), MathNet.Numerics, CommunityToolkit.HighPerformance, System.Numerics.Tensors, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: a new element topology is one `ElementClass` row carrying its `ShapeFamily`, reference-node table, monomial space, and corner/edge/face tables; a new generation strategy is one `MeshAlgorithm` row carrying its `MeshStrategy`/`PointSource` columns plus its core; a new quality measure is one `MeshMetric` row carrying its per-element delegate; a new field rank is one `FieldSpace` rank row; a new Gauss order is one `QuadratureRule` entry; zero new surface.
@@ -20,10 +20,46 @@ Rasm.Compute solver discretization: one volumetric `MeshKernel` owner generating
 ```csharp signature
 // --- [TYPES] ----------------------------------------------------------------------------
 
-public enum ShapeFamily { Polynomial, Reduced, Pyramid, Frame }
-public enum MeshStrategy { Delaunay, Octree, Sweep, Inflation }
-public enum PointSource { Boundary, Lattice, Frontal, Front }
-public enum RefineKind { H, P, Hp }
+[SmartEnum]
+public sealed partial class ShapeFamily {
+    public static readonly ShapeFamily Polynomial = new(static (element, natural, nodalXyz) => element.PolynomialSample(natural, nodalXyz));
+    public static readonly ShapeFamily Reduced = new(static (element, natural, nodalXyz) => element.ReducedSample(natural, nodalXyz));
+    public static readonly ShapeFamily Pyramid = new(static (element, natural, nodalXyz) =>
+        Topology.Iso(element.PyramidShape(natural), element.PyramidGrad(natural), nodalXyz, element.Nodes, element.Dim));
+    public static readonly ShapeFamily Frame = new(static (_, natural, nodalXyz) => ElementClass.LineSample(natural, nodalXyz));
+
+    [UseDelegateFromConstructor]
+    public partial ShapeSample Sample(ElementClass element, (double X, double Y, double Z) natural, ReadOnlySpan<double> nodalXyz);
+}
+
+[SmartEnum]
+public sealed partial class MeshStrategy {
+    public static readonly MeshStrategy Delaunay = new(static (boundary, policy) => DelaunayCore.Fill(boundary, policy));
+    public static readonly MeshStrategy Octree = new(static (boundary, policy) => OctreeCore.Fill(boundary, policy));
+    public static readonly MeshStrategy Sweep = new(static (boundary, policy) => SweepCore.Fill(boundary, policy));
+    public static readonly MeshStrategy Inflation = new(static (boundary, policy) => InflationCore.Fill(boundary, policy));
+
+    [UseDelegateFromConstructor]
+    public partial MeshBuild Fill(BoundaryShell boundary, MeshPolicy policy);
+}
+
+[SmartEnum]
+public sealed partial class PointSource {
+    public static readonly PointSource Boundary = new(static (target, _) => target);
+    public static readonly PointSource Lattice = new(static (target, _) => target);
+    public static readonly PointSource Frontal = new(static (target, _) => target * 0.75);
+    public static readonly PointSource Front = new(static (target, grading) => target * grading);
+
+    [UseDelegateFromConstructor]
+    public partial double Spacing(double target, double grading);
+}
+
+[SmartEnum]
+public sealed partial class RefineKind {
+    public static readonly RefineKind H = new();
+    public static readonly RefineKind P = new();
+    public static readonly RefineKind Hp = new();
+}
 
 public readonly record struct Monomial(int I, int J, int K) {
     public double Eval((double X, double Y, double Z) p) => Pow(p.X, I) * Pow(p.Y, J) * Pow(p.Z, K);
@@ -43,7 +79,7 @@ public readonly record struct Aabb(Vector3 Lo, Vector3 Hi) {
 
     public static Aabb Of(ReadOnlySpan<float> vertices) {
         Vector3 lo = new(float.MaxValue), hi = new(float.MinValue);
-        for (int v = 0; v < vertices.Length; v += 3) {
+        for (int v = 0; v + 2 < vertices.Length; v += 3) {
             Vector3 p = new(vertices[v], vertices[v + 1], vertices[v + 2]);
             lo = Vector3.Min(lo, p); hi = Vector3.Max(hi, p);
         }
@@ -76,16 +112,14 @@ public readonly record struct QuadratureRule(int Order, int Dimension, Immutable
     public static readonly QuadratureRule Wedge18 = PrismProduct(Tri3, Gauss3);
     public static readonly QuadratureRule Pyramid5 = Conical(2);
 
-    // Symmetric 4-point tet rule: the four (a,b,b,b) permutations of the Keast abscissa pair, weight 1/24 each.
     static IEnumerable<(double, double, double, double)> Simplex3(double[] ab) {
         (double a, double b) = (ab[0], ab[1]);
         yield return (a, b, b, 1.0 / 24.0); yield return (b, a, b, 1.0 / 24.0);
         yield return (b, b, a, 1.0 / 24.0); yield return (b, b, b, 1.0 / 24.0);
     }
 
-    // Tensor product of the 1-D Gauss table over [-1,1]^dim; one builder serves quad and hex (and the prism line axis).
     static QuadratureRule TensorCube(int dim, ImmutableArray<(double Node, double Weight)> line) {
-        var rows = new List<(double, double, double, double)>();
+        List<(double, double, double, double)> rows = [];
         int n = line.Length;
         for (int k = 0; k < (dim == 3 ? n : 1); k++)
             for (int j = 0; j < n; j++)
@@ -96,22 +130,21 @@ public readonly record struct QuadratureRule(int Order, int Dimension, Immutable
         return new(2 * n - 1, dim, [.. rows]);
     }
 
-    // Prism rule: the triangle area-coordinate rule crossed with the [-1,1] line Gauss table.
     static QuadratureRule PrismProduct(QuadratureRule tri, ImmutableArray<(double Node, double Weight)> line) {
-        var rows = new List<(double, double, double, double)>();
-        foreach (var t in tri.Points) foreach (var (node, weight) in line) { rows.Add((t.X, t.Y, node, t.Weight * weight)); }
+        List<(double, double, double, double)> rows = [];
+        foreach ((double X, double Y, double Z, double Weight) point in tri.Points)
+            foreach ((double node, double weight) in line) { rows.Add((point.X, point.Y, node, point.Weight * weight)); }
         return new(tri.Order + line.Length, 3, [.. rows]);
     }
 
-    // Conical pyramid rule: ζ from 3-point Gauss-Legendre on [0,1) so the rational apex denominator (1−ζ) never reaches
-    // the singular apex, base Gauss scaled by (1−ζ) with the (1−ζ)² conical Jacobian folded into the weight.
     static QuadratureRule Conical(int n) {
         ImmutableArray<(double Node, double Weight)> baseLine = n == 2 ? Gauss2 : Gauss3;
         (double, double)[] zeta = [(0.1127016653792583, 0.2777777777777778), (0.5, 0.4444444444444444), (0.8872983346207417, 0.2777777777777778)];
-        var rows = new List<(double, double, double, double)>();
-        foreach (var (z, wz) in zeta) {
+        List<(double, double, double, double)> rows = [];
+        foreach ((double z, double wz) in zeta) {
             double scale = 1.0 - z;
-            foreach (var (bj, wj) in baseLine) foreach (var (bi, wi) in baseLine) { rows.Add((bi * scale, bj * scale, z, wi * wj * wz * scale * scale)); }
+            foreach ((double bj, double wj) in baseLine)
+                foreach ((double bi, double wi) in baseLine) { rows.Add((bi * scale, bj * scale, z, wi * wj * wz * scale * scale)); }
         }
         return new(5, 3, [.. rows]);
     }
@@ -145,10 +178,6 @@ public sealed partial class ElementClass {
         QuadratureRule.Quad4, Topology.QuadRef4, Topology.QuadQ1, Topology.QuadEdges, Topology.QuadFaces, [.. Enumerable.Range(0, 4)], () => Quad8);
     public static readonly ElementClass Quad8 = new("quad8", ShapeFamily.Reduced, dim: 2, order: 2, volumetric: false,
         QuadratureRule.Quad9, Topology.QuadRef8, ImmutableArray<Monomial>.Empty, Topology.QuadEdges, Topology.QuadFaces, [.. Enumerable.Range(0, 4)], () => Quad8);
-    // The owned 2-node 12-DOF frame rows: Euler-Bernoulli and the shear-flexible Timoshenko variant — the
-    // closed-form member stiffness with end releases (static condensation), rigid-end offsets
-    // (eccentricity transform), and semi-rigid end springs as row behavior; the retired BFE/FEALiTE
-    // backends' consumed feature set (assemble-solve, rigid supports, per-station recovery) is a strict subset.
     public static readonly ElementClass Beam2Euler = new("beam2-euler", ShapeFamily.Frame, dim: 1, order: 1, volumetric: false,
         QuadratureRule.Line2, Topology.LineRef2, Topology.LineP1, Topology.LineEdges, ImmutableArray<ImmutableArray<int>>.Empty, [0, 1], () => Beam2Euler, shear: false);
     public static readonly ElementClass Beam2Timoshenko = new("beam2-timoshenko", ShapeFamily.Frame, dim: 1, order: 1, volumetric: false,
@@ -173,17 +202,9 @@ public sealed partial class ElementClass {
     private double[,]? coefficients;
     private double[,] Coefficients => coefficients ??= Topology.Vandermonde(Reference, Basis);
 
-    public ShapeSample Sample((double X, double Y, double Z) natural, ReadOnlySpan<double> nodalXyz) =>
-        Family switch {
-            ShapeFamily.Reduced => ReducedSample(natural, nodalXyz),
-            ShapeFamily.Pyramid => Topology.Iso(PyramidShape(natural), PyramidGrad(natural), nodalXyz, Nodes, Dim),
-            ShapeFamily.Frame => LineSample(natural, nodalXyz),
-            _ => PolynomialSample(natural, nodalXyz),
-        };
+    public ShapeSample Sample((double X, double Y, double Z) natural, ReadOnlySpan<double> nodalXyz) => Family.Sample(this, natural, nodalXyz);
 
-    // Frame per-station recovery: linear 2-node interpolation along the member axis with DetJ = L/2 — the
-    // stiffness never rides this (the Member closed form owns it); station field reads and the lumped mass do.
-    static ShapeSample LineSample((double X, double Y, double Z) nat, ReadOnlySpan<double> xyz) {
+    internal static ShapeSample LineSample((double X, double Y, double Z) nat, ReadOnlySpan<double> xyz) {
         double dx = xyz[3] - xyz[0], dy = xyz[4] - xyz[1], dz = xyz[5] - xyz[2];
         double l = Math.Sqrt(dx * dx + dy * dy + dz * dz);
         double[] grad = [-dx / (l * l), -dy / (l * l), -dz / (l * l), dx / (l * l), dy / (l * l), dz / (l * l)];
@@ -194,18 +215,9 @@ public sealed partial class ElementClass {
 
     public double Metric(MeshMetric metric, ReadOnlySpan<double> nodalXyz) => metric.Measure(this, nodalXyz);
 
-    // The Frame-family closed-form 12-DOF member stiffness in GLOBAL coordinates — the owned replacement for
-    // the retired BFE/FEALiTE assemble path, exceeding its consumed set: local Euler-Bernoulli stiffness with
-    // the Timoshenko shear-flexibility terms on the `Shear` row (Φ = 12EI/(G·A_s·L²) folding into the bending
-    // block denominators), SEMI-RIGID end springs folded through the spring-in-series stiffness modification,
-    // RELEASED local DOFs condensed out statically (K_cc − K_cr·K_rr⁻¹·K_rc over the release-mask set — a
-    // released DOF transmits nothing, exactly), RIGID-END offsets applied through the eccentricity transform
-    // K ← Eᵀ·K·E, then the 12×12 rotated through the direction-cosine block transform K_g = Tᵀ·K_l·T.
     public Fin<Unit> Member(ReadOnlySpan<double> xyz, in FrameMember member, double e, double nu, Span<double> local) {
         double dx = xyz[3] - xyz[0], dy = xyz[4] - xyz[1], dz = xyz[5] - xyz[2];
         double length = Math.Sqrt(dx * dx + dy * dy + dz * dz) - member.OffsetI - member.OffsetJ;
-        // Rigid-end offsets eating the whole span leave a non-positive effective length whose L²/L³ denominators in
-        // phi and LocalFrame emit NaN/Inf stiffness the solve would silently scatter — reject on the typed rail first.
         if (!(length > 0.0)) {
             return Fin.Fail<Unit>(new ComputeFault.ModelRejected($"<frame-degenerate-length:{Key}:L={length:e3}:offI={member.OffsetI:e3}:offJ={member.OffsetJ:e3}>"));
         }
@@ -221,7 +233,7 @@ public sealed partial class ElementClass {
         return Fin.Succ(unit);
     }
 
-    ShapeSample PolynomialSample((double X, double Y, double Z) nat, ReadOnlySpan<double> xyz) {
+    internal ShapeSample PolynomialSample((double X, double Y, double Z) nat, ReadOnlySpan<double> xyz) {
         int n = Nodes;
         double[,] c = Coefficients;
         double[] shape = new double[n];
@@ -236,19 +248,18 @@ public sealed partial class ElementClass {
         return Topology.Iso(shape, dnRef, xyz, n, Dim);
     }
 
-    ShapeSample ReducedSample((double X, double Y, double Z) nat, ReadOnlySpan<double> xyz) {
+    internal ShapeSample ReducedSample((double X, double Y, double Z) nat, ReadOnlySpan<double> xyz) {
         int n = Nodes;
         double[] shape = new double[n];
         double[,] dn = new double[n, 3];
         for (int i = 0; i < n; i++) {
-            var r = Reference[i];
-            (double s, double dx, double dy, double dz) = Dim == 2 ? Serendipity2(nat, r) : Serendipity3(nat, r);
+            (double X, double Y, double Z) reference = Reference[i];
+            (double s, double dx, double dy, double dz) = Dim == 2 ? Serendipity2(nat, reference) : Serendipity3(nat, reference);
             shape[i] = s; dn[i, 0] = dx; dn[i, 1] = dy; dn[i, 2] = dz;
         }
         return Topology.Iso(shape, dn, xyz, n, Dim);
     }
 
-    // quad8 serendipity: corner (ξ_i,η_i=±1) carries the (ξξ_i+ηη_i−1) factor; an axis-midside (that coord 0) carries (1−ξ²).
     static (double, double, double, double) Serendipity2((double X, double Y, double Z) p, (double X, double Y, double Z) r) {
         (double xi, double eta) = (p.X, p.Y);
         if (r.X != 0.0 && r.Y != 0.0) {
@@ -259,7 +270,6 @@ public sealed partial class ElementClass {
         double sx = r.X, gx = 1 + xi * sx; return (0.5 * gx * (1 - eta * eta), 0.5 * sx * (1 - eta * eta), 0.5 * gx * -2 * eta, 0.0);
     }
 
-    // hex20 serendipity: corner (±1,±1,±1) carries the (Σξξ_i−2) factor; an axis-midside carries (1−ξ²) on its zero axis.
     static (double, double, double, double) Serendipity3((double X, double Y, double Z) p, (double X, double Y, double Z) r) {
         (double xi, double eta, double ze) = (p.X, p.Y, p.Z);
         if (r.X != 0.0 && r.Y != 0.0 && r.Z != 0.0) {
@@ -271,23 +281,25 @@ public sealed partial class ElementClass {
         return (0.25 * mx * my * mz, 0.25 * dmx * my * mz, 0.25 * mx * dmy * mz, 0.25 * mx * my * dmz);
     }
 
-    // 5-node rational pyramid (Bedrosian): base corners at (±1,±1,0), apex at (0,0,1); N4=ζ, base carries the ξη/(1−ζ) term.
-    double[] PyramidShape((double X, double Y, double Z) p) {
+    internal double[] PyramidShape((double X, double Y, double Z) p) {
         double[] n = new double[5];
         double inv = 1.0 / Math.Max(1e-12, 1.0 - p.Z);
-        for (int i = 0; i < 4; i++) { var r = Reference[i]; n[i] = 0.25 * ((1 - p.Z) + r.X * p.X + r.Y * p.Y + r.X * r.Y * p.X * p.Y * inv); }
+        for (int i = 0; i < 4; i++) {
+            (double X, double Y, double Z) reference = Reference[i];
+            n[i] = 0.25 * ((1 - p.Z) + reference.X * p.X + reference.Y * p.Y + reference.X * reference.Y * p.X * p.Y * inv);
+        }
         n[4] = p.Z;
         return n;
     }
 
-    double[,] PyramidGrad((double X, double Y, double Z) p) {
+    internal double[,] PyramidGrad((double X, double Y, double Z) p) {
         double[,] dn = new double[5, 3];
         double inv = 1.0 / Math.Max(1e-12, 1.0 - p.Z), inv2 = inv * inv;
         for (int i = 0; i < 4; i++) {
-            var r = Reference[i];
-            dn[i, 0] = 0.25 * (r.X + r.X * r.Y * p.Y * inv);
-            dn[i, 1] = 0.25 * (r.Y + r.X * r.Y * p.X * inv);
-            dn[i, 2] = 0.25 * (-1 + r.X * r.Y * p.X * p.Y * inv2);
+            (double X, double Y, double Z) reference = Reference[i];
+            dn[i, 0] = 0.25 * (reference.X + reference.X * reference.Y * p.Y * inv);
+            dn[i, 1] = 0.25 * (reference.Y + reference.X * reference.Y * p.X * inv);
+            dn[i, 2] = 0.25 * (-1 + reference.X * reference.Y * p.X * p.Y * inv2);
         }
         dn[4, 2] = 1.0;
         return dn;
@@ -312,17 +324,12 @@ public sealed partial class MeshMetric {
     public double Worst(ReadOnlySpan<double> perElement) =>
         perElement.IsEmpty ? 0.0 : AscendingBetter ? TensorPrimitives.Min(perElement) : TensorPrimitives.Max(perElement);
 
-    // Acceptance is directional on the same flag `Worst` reads: an ascending-better metric (scaled-jacobian /
-    // min-dihedral) admits a worst ABOVE the threshold, a descending-better metric (aspect / skewness / condition,
-    // whose `Worst` is a Max where large is bad) admits a worst BELOW it — so the one quality gate is correct for
-    // every row instead of the prior `worst > floor` test that trivially passed every descending-better mesh.
     public bool Admits(double worst, double threshold) => AscendingBetter ? worst > threshold : worst < threshold;
 
-    // Verdict scaled Jacobian: min over corners of the corner-Jacobian determinant normalized by its three incident edge lengths.
     static double ScaledJacobianMeasure(ElementClass element, ReadOnlySpan<double> xyz) {
         double worst = double.MaxValue;
         foreach (int corner in element.Corners) {
-            var (e1, e2, e3) = Topology.CornerFrame(element, corner, xyz);
+            (Vector3 e1, Vector3 e2, Vector3 e3) = Topology.CornerFrame(element, corner, xyz);
             double det = Vector3.Dot(Vector3.Cross(e1, e2), e3);
             double scale = (double)e1.Length() * e2.Length() * e3.Length();
             worst = Math.Min(worst, scale > 1e-12 ? det / scale : 0.0);
@@ -330,20 +337,18 @@ public sealed partial class MeshMetric {
         return worst == double.MaxValue ? 0.0 : worst;
     }
 
-    // Verdict aspect: longest incident edge over shortest, walked over the real edge table, never all node pairs.
     static double AspectRatioMeasure(ElementClass element, ReadOnlySpan<double> xyz) {
         double longest = 0.0, shortest = double.MaxValue;
-        foreach (var (a, b) in element.Edges) {
+        foreach ((int a, int b) in element.Edges) {
             double length = (Topology.Node(xyz, b) - Topology.Node(xyz, a)).Length();
             longest = Math.Max(longest, length); shortest = Math.Min(shortest, length);
         }
         return shortest > 1e-12 ? longest / shortest : double.MaxValue;
     }
 
-    // Equiangle skewness: max relative deviation of a face corner angle from the topology's ideal angle.
     static double SkewnessMeasure(ElementClass element, ReadOnlySpan<double> xyz) {
         double worst = 0.0;
-        foreach (var face in element.Faces) {
+        foreach (ImmutableArray<int> face in element.Faces) {
             double ideal = face.Length == 3 ? 60.0 : 90.0;
             for (int i = 0; i < face.Length; i++) {
                 Vector3 o = Topology.Node(xyz, face[i]);
@@ -355,11 +360,10 @@ public sealed partial class MeshMetric {
         return worst;
     }
 
-    // Minimum dihedral over every edge, read from the two faces incident on that edge.
     static double MinDihedralMeasure(ElementClass element, ReadOnlySpan<double> xyz) {
         double smallest = 180.0;
-        foreach (var (a, b) in element.Edges) {
-            var incident = Topology.FacesOnEdge(element, a, b);
+        foreach ((int a, int b) in element.Edges) {
+            ImmutableArray<ImmutableArray<int>> incident = Topology.FacesOnEdge(element, a, b);
             if (incident.Length < 2) { continue; }
             Vector3 n1 = Topology.FaceNormal(incident[0], xyz), n2 = Topology.FaceNormal(incident[1], xyz);
             double angle = 180.0 - Math.Acos(Math.Clamp(Vector3.Dot(Vector3.Normalize(n1), Vector3.Normalize(n2)), -1.0, 1.0)) * 180.0 / Math.PI;
@@ -389,10 +393,6 @@ public sealed partial class MeshAlgorithm {
     public MeshStrategy Strategy { get; }
     public PointSource Seed { get; }
 
-    // The LINEAR base topology this algorithm's core actually emits — Delaunay tetrahedralizes to `Tet4`, every hex
-    // strategy (octree/sweep/inflation) to `Hex8`. The generation cores hardcode this cell shape, so a `MeshPolicy`
-    // pairing a different `Element` (a 10-node Tet10 or an 8-node Hex8 under Delaunay) would mis-stride the cell array;
-    // `Discretize` admits against this row. Higher-order elements arrive only through `Refine`'s p-elevation, never generation.
     public ElementClass BaseElement => Strategy == MeshStrategy.Delaunay ? ElementClass.Tet4 : ElementClass.Hex8;
 }
 
@@ -413,6 +413,10 @@ public sealed record FieldSpace(FieldStation Station, int Rank, int Components, 
     public static FieldSpace Scalar(FieldStation station, long count) => new(station, 0, 1, count);
     public static FieldSpace Vector(FieldStation station, int dim, long count) => new(station, 1, dim, count);
     public static FieldSpace Tensor(FieldStation station, int dim, long count) => new(station, 2, dim * dim, count);
+    public static Fin<FieldSpace> OfKey(DiscreteMesh mesh, string station, int rank, int dim) =>
+        FieldStation.TryGet(station, out FieldStation resolved)
+            ? Fin.Succ(mesh.FieldOf(resolved, rank, dim))
+            : Fin.Fail<FieldSpace>(new ComputeFault.ModelRejected($"<field-station-key:{station}>"));
 
     public long Cardinality => Count * Components;
 }
@@ -422,11 +426,53 @@ public sealed record BoundaryShell(ReadOnlyMemory<float> Vertices, ReadOnlyMemor
 
     public int VertexCount => Vertices.Length / 3;
     public int TriangleCount => Triangles.Length / 3;
-    public Vector3 Vertex(int i) { var v = Vertices.Span; return new(v[i * 3], v[i * 3 + 1], v[i * 3 + 2]); }
+    public Vector3 Vertex(int i) {
+        ReadOnlySpan<float> vertices = Vertices.Span;
+        return new(vertices[i * 3], vertices[i * 3 + 1], vertices[i * 3 + 2]);
+    }
 
-    // Inclusion by Möller–Trumbore ray-parity: a +X ray from p crosses the boundary an odd number of times when inside.
+    public Fin<Unit> Validate() {
+        if (Vertices.Length < 12 || Vertices.Length % 3 != 0) {
+            return Fin.Fail<Unit>(new ComputeFault.ModelRejected($"<mesh-boundary-vertex-buffer:{Vertices.Length}>"));
+        }
+        if (Triangles.Length < 12 || Triangles.Length % 3 != 0) {
+            return Fin.Fail<Unit>(new ComputeFault.ModelRejected($"<mesh-boundary-index-buffer:{Triangles.Length}>"));
+        }
+        ReadOnlySpan<float> coordinates = Vertices.Span;
+        for (int coordinate = 0; coordinate < coordinates.Length; coordinate++) {
+            if (!float.IsFinite(coordinates[coordinate])) {
+                return Fin.Fail<Unit>(new ComputeFault.ModelRejected($"<mesh-boundary-nonfinite-coordinate:{coordinate}>"));
+            }
+        }
+        Dictionary<(int Lo, int Hi), (int Count, int Balance)> edges = [];
+        ReadOnlySpan<int> triangles = Triangles.Span;
+        for (int offset = 0; offset < triangles.Length; offset += 3) {
+            int a = triangles[offset], b = triangles[offset + 1], c = triangles[offset + 2];
+            if ((uint)a >= VertexCount || (uint)b >= VertexCount || (uint)c >= VertexCount) {
+                return Fin.Fail<Unit>(new ComputeFault.ModelRejected($"<mesh-boundary-index-range:{offset / 3}>"));
+            }
+            if (a == b || b == c || c == a || Vector3.Cross(Vertex(b) - Vertex(a), Vertex(c) - Vertex(a)).LengthSquared() <= 1e-20f) {
+                return Fin.Fail<Unit>(new ComputeFault.ModelRejected($"<mesh-boundary-degenerate-face:{offset / 3}>"));
+            }
+            AddEdge(edges, a, b); AddEdge(edges, b, c); AddEdge(edges, c, a);
+        }
+        foreach (KeyValuePair<(int Lo, int Hi), (int Count, int Balance)> edge in edges) {
+            if (edge.Value.Count != 2 || edge.Value.Balance != 0) {
+                return Fin.Fail<Unit>(new ComputeFault.ModelRejected($"<mesh-boundary-nonmanifold-edge:{edge.Key.Lo}:{edge.Key.Hi}:count={edge.Value.Count}:winding={edge.Value.Balance}>"));
+            }
+        }
+        return Fin.Succ(unit);
+
+        static void AddEdge(Dictionary<(int Lo, int Hi), (int Count, int Balance)> edges, int from, int to) {
+            (int Lo, int Hi) key = from < to ? (from, to) : (to, from);
+            int direction = from < to ? 1 : -1;
+            (int Count, int Balance) current = edges.GetValueOrDefault(key);
+            edges[key] = (current.Count + 1, current.Balance + direction);
+        }
+    }
+
     public bool Encloses(Vector3 p) {
-        var tri = Triangles.Span;
+        ReadOnlySpan<int> tri = Triangles.Span;
         Vector3 dir = Vector3.UnitX;
         int crossings = 0;
         for (int t = 0; t < tri.Length; t += 3) {
@@ -444,10 +490,6 @@ public sealed record BoundaryShell(ReadOnlyMemory<float> Vertices, ReadOnlyMemor
     }
 }
 
-
-// Per-member frame data the Frame ElementClass rows read: section constants, the 12-bit local release
-// mask, rigid-end offsets along the member axis, semi-rigid rotational end springs (+∞ = rigid), and the
-// Timoshenko shear areas (0 = shear-rigid). Canonical bytes feed the SolveProblem content key.
 public sealed record FrameMember(
     double Area, double Iy, double Iz, double J,
     int ReleaseMask = 0,
@@ -484,16 +526,38 @@ public sealed record MeshPolicy(
         FirstLayerThickness: 0.001, RefineFraction: 0.1, RefineAxis: RefineKind.H, MaxRefineLevel: 4, QualityFloor: 0.02, Mortar: false);
     public static readonly MeshPolicy CanonicalViscous = CanonicalTet with {
         Algorithm = MeshAlgorithm.BoundaryLayer, Element = ElementClass.Hex8, BoundaryLayerCount = 12 };
-    // Condition is descending-better, so its QualityFloor is a CEILING, not a floor: 50 is the directional dual of
-    // the 0.02 scaled-jacobian floor (condition = 1/|scaled-jacobian|), admitted via MeshMetric.Admits.
     public static readonly MeshPolicy CanonicalHp = CanonicalTet with { RefineAxis = RefineKind.Hp, Metric = MeshMetric.Condition, QualityFloor = 50.0 };
+
+    public static Fin<MeshPolicy> OfKeys(MeshPolicy template, string algorithm, string element, string metric) {
+        if (!MeshAlgorithm.TryGet(algorithm, out MeshAlgorithm resolvedAlgorithm)
+            || !ElementClass.TryGet(element, out ElementClass resolvedElement)
+            || !MeshMetric.TryGet(metric, out MeshMetric resolvedMetric)) {
+            return Fin.Fail<MeshPolicy>(new ComputeFault.ModelRejected(
+                $"<mesh-vocabulary-key:{algorithm}/{element}/{metric}:algorithms={MeshAlgorithm.Items.Count}:elements={ElementClass.Items.Count}:metrics={MeshMetric.Items.Count}>"));
+        }
+        MeshPolicy resolved = template with { Algorithm = resolvedAlgorithm, Element = resolvedElement, Metric = resolvedMetric };
+        return resolved.Validate().Map(_ => resolved);
+    }
+
+    public Fin<Unit> Validate() =>
+        Element != Algorithm.BaseElement
+            ? Fin.Fail<Unit>(new ComputeFault.ModelRejected($"<mesh-element-strategy-mismatch:{Element.Key}≠{Algorithm.BaseElement.Key}@{Algorithm.Key}>"))
+            : !double.IsFinite(TargetEdgeLength) || TargetEdgeLength <= 0.0
+                ? Fin.Fail<Unit>(new ComputeFault.ModelRejected($"<mesh-target-edge:{TargetEdgeLength}>"))
+                : !double.IsFinite(GradingRatio) || GradingRatio < 1.0
+                    ? Fin.Fail<Unit>(new ComputeFault.ModelRejected($"<mesh-grading-ratio:{GradingRatio}>"))
+                    : BoundaryLayerCount < 0 || !double.IsFinite(BoundaryLayerGrowth) || BoundaryLayerGrowth < 1.0 || !double.IsFinite(FirstLayerThickness) || FirstLayerThickness <= 0.0
+                        ? Fin.Fail<Unit>(new ComputeFault.ModelRejected("<mesh-boundary-layer-policy>"))
+                        : !double.IsFinite(RefineFraction) || RefineFraction is <= 0.0 or > 1.0 || MaxRefineLevel < 0 || !double.IsFinite(QualityFloor)
+                            ? Fin.Fail<Unit>(new ComputeFault.ModelRejected("<mesh-refinement-policy>"))
+                            : Fin.Succ(unit);
 }
 
 public sealed record DiscreteMesh(
     ElementClass Element,
     MeshAlgorithm Algorithm,
-    Tensor<float> Nodes,
-    Tensor<long> Connectivity,
+    ReadOnlyMemory<float> Nodes,
+    ReadOnlyMemory<long> Connectivity,
     long NodeCount,
     long ElementCount,
     long BoundaryCount,
@@ -505,15 +569,16 @@ public sealed record DiscreteMesh(
     Instant At) {
     public FieldSpace FieldOf(FieldStation station, int rank, int dim) => new(station, rank, Components(rank, dim), station.Count(this));
 
-    // The dense node/connectivity tensors expose their contiguous backing as flat spans through the one verified
-    // System.Numerics.Tensors accessor — `ref GetPinnableReference()` over `FlattenedLength` (the corpus
-    // `Tensor/dispatch`/`Tensor/residency` spelling) — never a phantom `Tensor<T>.AsSpan()`, which the type does not declare.
-    public ReadOnlySpan<float> Coordinates => MemoryMarshal.CreateSpan(ref Nodes.GetPinnableReference(), checked((int)Nodes.FlattenedLength));
-    public ReadOnlySpan<long> Indices => MemoryMarshal.CreateSpan(ref Connectivity.GetPinnableReference(), checked((int)Connectivity.FlattenedLength));
+    public ReadOnlyTensorSpan<float> NodeTensor =>
+        TensorMarshal.CreateReadOnlyTensorSpan(ref MemoryMarshal.GetReference(Nodes.Span), Nodes.Length, [(nint)NodeCount, 3], [], pinned: false);
+    public ReadOnlyTensorSpan<long> ElementTensor =>
+        TensorMarshal.CreateReadOnlyTensorSpan(ref MemoryMarshal.GetReference(Connectivity.Span), Connectivity.Length, [(nint)ElementCount, Element.Nodes], [], pinned: false);
+    public ReadOnlySpan<float> Coordinates => Nodes.Span;
+    public ReadOnlySpan<long> Indices => Connectivity.Span;
 
     public ReadOnlySpan<double> NodalXyz(long element) {
-        var conn = Indices;
-        var pos = Coordinates;
+        ReadOnlySpan<long> conn = Indices;
+        ReadOnlySpan<float> pos = Coordinates;
         int per = Element.Nodes;
         double[] xyz = new double[per * 3];
         for (int v = 0; v < per; v++) {
@@ -529,27 +594,35 @@ public sealed record DiscreteMesh(
 // --- [OPERATIONS] -----------------------------------------------------------------------
 
 public static class MeshKernel {
-    public static Fin<DiscreteMesh> Discretize(BoundaryShell boundary, MeshPolicy policy, CorrelationId correlation, ClockPolicy clocks) =>
-        policy.Element != policy.Algorithm.BaseElement
-            ? Fin.Fail<DiscreteMesh>(new ComputeFault.ModelRejected($"<mesh-element-strategy-mismatch:{policy.Element.Key}≠{policy.Algorithm.BaseElement.Key}@{policy.Algorithm.Key}>"))
-            : Try.lift(() => Generate(boundary, policy)).Run()
-                .MapFail(static error => (Error)new ComputeFault.ModelRejected($"<mesh-generation-failed:{error.Message}>"))
-                .Bind(built => policy.Metric.Admits(built.Quality, policy.QualityFloor)
-                    ? Fin.Succ(Pack(built, policy, refineLevel: 0, None, clocks.Now))
-                    : Fin.Fail<DiscreteMesh>(new ComputeFault.ModelRejected($"<mesh-inverted-element:{policy.Element.Key}:q={built.Quality:e3}>")));
+    public static Fin<DiscreteMesh> Discretize(BoundaryShell boundary, MeshPolicy policy, ClockPolicy clocks) =>
+        from boundaryValid in boundary.Validate()
+        from policyValid in policy.Validate()
+        from built in Try.lift(() => Generate(boundary, policy)).Run()
+            .MapFail(static error => (Error)new ComputeFault.ModelRejected($"<mesh-generation-failed:{error.Message}>"))
+        from admitted in policy.Metric.Admits(built.Quality, policy.QualityFloor)
+            ? Fin.Succ(Pack(built, policy, refineLevel: 0, None, clocks.Now))
+            : Fin.Fail<DiscreteMesh>(new ComputeFault.ModelRejected($"<mesh-quality-rejected:{policy.Element.Key}:q={built.Quality:e3}>"))
+        select admitted;
 
     public static Fin<DiscreteMesh> Refine(DiscreteMesh mesh, MeshPolicy policy, ReadOnlySpan<double> cellError, ClockPolicy clocks) {
         if (mesh.RefineLevel >= policy.MaxRefineLevel) { return Fin.Succ(mesh); }
+        if (cellError.Length != mesh.ElementCount) {
+            return Fin.Fail<DiscreteMesh>(new ComputeFault.ModelRejected($"<refine-estimator-cardinality:{cellError.Length}!={mesh.ElementCount}>"));
+        }
+        for (int cell = 0; cell < cellError.Length; cell++) {
+            if (!double.IsFinite(cellError[cell]) || cellError[cell] < 0.0) {
+                return Fin.Fail<DiscreteMesh>(new ComputeFault.ModelRejected($"<refine-estimator-value:{cell}:{cellError[cell]}>"));
+            }
+        }
         double threshold = DorflerThreshold(cellError, policy.RefineFraction);
-        var marked = Marked(cellError, threshold);
-        var built = policy.RefineAxis switch {
-            RefineKind.P => Elevate(mesh, policy),
-            RefineKind.Hp => marked.Count > mesh.ElementCount / 4 ? Elevate(mesh, policy) : Subdivide(mesh, marked, policy),
-            _ => Subdivide(mesh, marked, policy),
-        };
-        // A genuine no-op carry — nothing marked, the order-family is exhausted (Hex27/Tet10/…), or the element carries no
-        // red template (only Tet4/Hex8/Tri3/Quad4 do) — returns the mesh UNCHANGED, never an incremented RefineLevel + a
-        // threshold receipt over an untouched grid: the level/estimator stamp is reserved for a real h/p refinement.
+        Seq<int> marked = Marked(cellError, threshold);
+        MeshBuild built = policy.RefineAxis.Switch(
+            state: (Mesh: mesh, Policy: policy, Marked: marked),
+            h: static state => Subdivide(state.Mesh, state.Marked, state.Policy),
+            p: static state => Elevate(state.Mesh, state.Policy),
+            hp: static state => state.Marked.Count > state.Mesh.ElementCount / 4
+                ? Elevate(state.Mesh, state.Policy)
+                : Subdivide(state.Mesh, state.Marked, state.Policy));
         bool refined = built.ElementCount > mesh.ElementCount || built.NodeCount > mesh.NodeCount;
         if (!refined) { return Fin.Succ(mesh); }
         return policy.Metric.Admits(built.Quality, policy.QualityFloor)
@@ -568,17 +641,13 @@ public static class MeshKernel {
             Correlation = correlation, Lane = WorkLane.Background, Substrate = Substrate.CpuTensor, AllocationClass = AllocationClass.PooledMemory, Elapsed = elapsed,
         };
 
-    static MeshBuild Generate(BoundaryShell boundary, MeshPolicy policy) =>
-        policy.Algorithm.Strategy switch {
-            MeshStrategy.Octree => OctreeCore.Fill(boundary, policy),
-            MeshStrategy.Sweep => SweepCore.Fill(boundary, policy),
-            MeshStrategy.Inflation => InflationCore.Fill(boundary, policy),
-            _ => DelaunayCore.Fill(boundary, policy),
-        };
+    static MeshBuild Generate(BoundaryShell boundary, MeshPolicy policy) => policy.Algorithm.Strategy.Fill(boundary, policy);
 
     static double DorflerThreshold(ReadOnlySpan<double> cellError, double bulkFraction) {
         if (cellError.Length == 0) { return double.MaxValue; }
-        double target = bulkFraction * TensorPrimitives.Sum(cellError), accumulated = 0.0;
+        double total = TensorPrimitives.Sum(cellError);
+        if (total <= 0.0) { return double.MaxValue; }
+        double target = bulkFraction * total, accumulated = 0.0;
         double[] sorted = cellError.ToArray();
         Array.Sort(sorted);
         for (int i = sorted.Length - 1; i >= 0; i--) {
@@ -589,33 +658,28 @@ public static class MeshKernel {
     }
 
     static Seq<int> Marked(ReadOnlySpan<double> cellError, double threshold) {
-        var marked = Seq<int>();
+        Seq<int> marked = Seq<int>();
         for (int cell = 0; cell < cellError.Length; cell++) { if (cellError[cell] >= threshold) { marked = marked.Add(cell); } }
         return marked;
     }
 
     static DiscreteMesh Pack(MeshBuild built, MeshPolicy policy, int refineLevel, Option<double> error, Instant at) {
-        var nodes = Tensor.CreateFromShape<float>([built.NodeCount, 3]);
-        built.Nodes.AsSpan().CopyTo(MemoryMarshal.CreateSpan(ref nodes.GetPinnableReference(), checked((int)nodes.FlattenedLength)));
-        var connectivity = Tensor.CreateFromShape<long>([built.ElementCount, built.Element.Nodes]);
-        CollectionsMarshal.AsSpan(built.Cells).CopyTo(MemoryMarshal.CreateSpan(ref connectivity.GetPinnableReference(), checked((int)connectivity.FlattenedLength)));
+        ReadOnlyMemory<float> nodes = built.Nodes.AsMemory();
+        ReadOnlyMemory<long> connectivity = CollectionsMarshal.AsSpan(built.Cells).ToArray().AsMemory();
         return new(built.Element, policy.Algorithm, nodes, connectivity, built.NodeCount, built.ElementCount, built.BoundaryCount,
             built.Layers, refineLevel, policy.Metric, built.Quality, error, at);
     }
 
-    // p-refinement elevates the WHOLE mesh's element order to the next family member: a uniform-order DiscreteMesh
-    // carries one ElementClass, so selective per-cell elevation is not representable and the Dörfler-marked set
-    // drives only the h/hp routing decision, never a per-cell order — global elevation is the honest p arm.
     static MeshBuild Elevate(DiscreteMesh mesh, MeshPolicy policy) {
         ElementClass elevated = mesh.Element.Elevate;
         if (elevated == mesh.Element) { return Carry(mesh, policy); }
-        var refine = new Refinement(mesh.Coordinates, mesh.NodeCount);
-        var conn = mesh.Indices;
+        Refinement refine = new(mesh.Coordinates, mesh.NodeCount);
+        ReadOnlySpan<long> conn = mesh.Indices;
         int per = mesh.Element.Nodes;
-        var cells = new List<long>(checked((int)mesh.ElementCount) * elevated.Nodes);
+        List<long> cells = new(checked((int)mesh.ElementCount) * elevated.Nodes);
         for (int cell = 0; cell < mesh.ElementCount; cell++) {
             for (int v = 0; v < per; v++) { cells.Add(conn[cell * per + v]); }
-            foreach (var (a, b) in mesh.Element.Edges) { cells.Add(refine.EdgeMid(conn[cell * per + a], conn[cell * per + b])); }
+            foreach ((int a, int b) in mesh.Element.Edges) { cells.Add(refine.EdgeMid(conn[cell * per + a], conn[cell * per + b])); }
         }
         return new(elevated, refine.Nodes(), cells, cells.Count / elevated.Nodes, refine.Count, mesh.BoundaryLayers).Scored(policy.Metric);
     }
@@ -623,30 +687,61 @@ public static class MeshKernel {
     static MeshBuild Subdivide(DiscreteMesh mesh, Seq<int> marked, MeshPolicy policy) {
         ImmutableArray<ImmutableArray<int>> template = Topology.RedTemplate(mesh.Element);
         if (template.IsEmpty) { return Carry(mesh, policy); }
-        var refine = new Refinement(mesh.Coordinates, mesh.NodeCount);
-        var conn = mesh.Indices;
+        Seq<int> closed = policy.Mortar ? marked : Closed(mesh, marked);
+        Refinement refine = new(mesh.Coordinates, mesh.NodeCount);
+        ReadOnlySpan<long> conn = mesh.Indices;
         int per = mesh.Element.Nodes;
-        var cells = new List<long>(conn.Length * 2);
+        List<long> cells = new(conn.Length * 2);
         for (int cell = 0; cell < mesh.ElementCount; cell++) {
-            if (!marked.Contains(cell)) { for (int v = 0; v < per; v++) { cells.Add(conn[cell * per + v]); } continue; }
+            if (!closed.Contains(cell)) { for (int v = 0; v < per; v++) { cells.Add(conn[cell * per + v]); } continue; }
             Span<long> child = refine.RedNodes(mesh.Element, conn.Slice(cell * per, per));
-            foreach (var sub in template) foreach (int local in sub) { cells.Add(child[local]); }
+            foreach (ImmutableArray<int> sub in template) foreach (int local in sub) { cells.Add(child[local]); }
         }
         return new(mesh.Element, refine.Nodes(), cells, cells.Count / per, refine.Count, mesh.BoundaryLayers).Scored(policy.Metric);
+    }
+
+    static Seq<int> Closed(DiscreteMesh mesh, Seq<int> marked) {
+        ReadOnlySpan<long> conn = mesh.Indices;
+        int per = mesh.Element.Nodes;
+        HashSet<int> active = [.. marked];
+        HashSet<(long Lo, long Hi)> split = [];
+        foreach (int cell in marked) {
+            foreach ((int a, int b) in mesh.Element.Edges) {
+                long lo = conn[cell * per + a], hi = conn[cell * per + b];
+                split.Add(lo < hi ? (lo, hi) : (hi, lo));
+            }
+        }
+        for (bool grew = true; grew;) {
+            grew = false;
+            for (int cell = 0; cell < mesh.ElementCount; cell++) {
+                if (active.Contains(cell)) { continue; }
+                foreach ((int a, int b) in mesh.Element.Edges) {
+                    long lo = conn[cell * per + a], hi = conn[cell * per + b];
+                    if (!split.Contains(lo < hi ? (lo, hi) : (hi, lo))) { continue; }
+                    active.Add(cell);
+                    foreach ((int c, int d) in mesh.Element.Edges) {
+                        long fromNode = conn[cell * per + c], toNode = conn[cell * per + d];
+                        split.Add(fromNode < toNode ? (fromNode, toNode) : (toNode, fromNode));
+                    }
+                    grew = true;
+                    break;
+                }
+            }
+        }
+        return toSeq(active.OrderBy(static cell => cell));
     }
 
     static MeshBuild Carry(DiscreteMesh mesh, MeshPolicy policy) =>
         new(mesh.Element, [.. mesh.Coordinates], [.. mesh.Indices], mesh.ElementCount, mesh.NodeCount, mesh.BoundaryLayers).Scored(policy.Metric);
 }
 
-// Bowyer-Watson incremental Delaunay over the boundary surface nodes plus the policy point seeds; boundary-filtered by Encloses.
 public static class DelaunayCore {
     public static MeshBuild Fill(BoundaryShell boundary, MeshPolicy policy) {
-        var points = Seed(boundary, policy);
-        var tets = Triangulate(points);
-        var kept = new List<long>(tets.Count * 4);
+        List<Vector3> points = Seed(boundary, policy);
+        List<(int A, int B, int C, int D)> tets = Triangulate(points);
+        List<long> kept = new(tets.Count * 4);
         int cells = 0;
-        foreach (var (a, b, c, d) in tets) {
+        foreach ((int a, int b, int c, int d) in tets) {
             Vector3 centroid = (points[a] + points[b] + points[c] + points[d]) * 0.25f;
             if (!boundary.Encloses(centroid)) { continue; }
             (int x, int y) = Topology.Orient(points[a], points[b], points[c], points[d]) ? (b, c) : (c, b);
@@ -658,10 +753,10 @@ public static class DelaunayCore {
     }
 
     static List<Vector3> Seed(BoundaryShell boundary, MeshPolicy policy) {
-        var points = new List<Vector3>(boundary.VertexCount);
+        List<Vector3> points = new(boundary.VertexCount);
         for (int v = 0; v < boundary.VertexCount; v++) { points.Add(boundary.Vertex(v)); }
         Aabb box = boundary.Bounds;
-        double edge = policy.Seed switch { PointSource.Front => policy.TargetEdgeLength * policy.GradingRatio, PointSource.Frontal => policy.TargetEdgeLength * 0.75, _ => policy.TargetEdgeLength };
+        double edge = policy.Seed.Spacing(policy.TargetEdgeLength, policy.GradingRatio);
         for (float z = box.Lo.Z + (float)edge; z < box.Hi.Z; z += (float)edge)
             for (float y = box.Lo.Y + (float)edge; y < box.Hi.Y; y += (float)edge)
                 for (float x = box.Lo.X + (float)edge; x < box.Hi.X; x += (float)edge) {
@@ -672,22 +767,27 @@ public static class DelaunayCore {
     }
 
     static List<(int A, int B, int C, int D)> Triangulate(List<Vector3> points) {
-        Aabb box = Aabb.Of(System.Runtime.InteropServices.MemoryMarshal.Cast<Vector3, float>(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(points)));
+        Aabb box = Aabb.Of(MemoryMarshal.Cast<Vector3, float>(CollectionsMarshal.AsSpan(points)));
         Vector3 mid = box.Center; float span = Math.Max(box.Span.X, Math.Max(box.Span.Y, box.Span.Z)) * 8f + 1f;
         int n = points.Count;
         points.Add(mid + new Vector3(-span, -span, -span)); points.Add(mid + new Vector3(span * 3, 0, 0));
         points.Add(mid + new Vector3(0, span * 3, 0)); points.Add(mid + new Vector3(0, 0, span * 3));
-        var tets = new List<(int, int, int, int)> { (n, n + 1, n + 2, n + 3) };
+        List<(int, int, int, int)> tets = [(n, n + 1, n + 2, n + 3)];
         for (int p = 0; p < n; p++) {
-            var faces = new Dictionary<(int, int, int), int>();
+            Dictionary<(int, int, int), int> faces = [];
             tets.RemoveAll(t => {
                 if (Topology.InSphere(points[t.Item1], points[t.Item2], points[t.Item3], points[t.Item4], points[p])) {
-                    foreach (var f in Topology.TetFaceTriples(t)) { var key = Topology.SortTriple(f); faces[key] = faces.TryGetValue(key, out int c) ? c + 1 : 1; }
+                    foreach ((int, int, int) face in Topology.TetFaceTriples(t)) {
+                        (int, int, int) key = Topology.SortTriple(face);
+                        faces[key] = faces.TryGetValue(key, out int count) ? count + 1 : 1;
+                    }
                     return true;
                 }
                 return false;
             });
-            foreach (var (key, count) in faces) { if (count == 1) { tets.Add(Topology.OrientedTet(points, key, p)); } }
+            foreach (KeyValuePair<(int, int, int), int> face in faces) {
+                if (face.Value == 1) { tets.Add(Topology.OrientedTet(points, face.Key, p)); }
+            }
         }
         tets.RemoveAll(t => t.Item1 >= n || t.Item2 >= n || t.Item3 >= n || t.Item4 >= n);
         points.RemoveRange(n, 4);
@@ -695,12 +795,11 @@ public static class DelaunayCore {
     }
 }
 
-// Graded octree: recurse the root box, subdivide while the cell straddles the boundary above the target edge, emit enclosed hexes.
 public static class OctreeCore {
     public static MeshBuild Fill(BoundaryShell boundary, MeshPolicy policy) {
-        var nodes = new Dictionary<(int, int, int), int>();
-        var cells = new List<long>();
-        var verts = new List<Vector3>();
+        Dictionary<(int, int, int), int> nodes = [];
+        List<long> cells = [];
+        List<Vector3> verts = [];
         int count = Recurse(boundary, boundary.Bounds, policy, nodes, verts, cells, depth: 0);
         float[] flat = new float[verts.Count * 3];
         for (int i = 0; i < verts.Count; i++) { flat[i * 3] = verts[i].X; flat[i * 3 + 1] = verts[i].Y; flat[i * 3 + 2] = verts[i].Z; }
@@ -712,31 +811,34 @@ public static class OctreeCore {
         bool straddles = boundary.Encloses(box.Center) ^ boundary.Encloses(box.Lo);
         if (size > policy.TargetEdgeLength && depth < policy.MaxRefineLevel + 6 && (straddles || size > policy.TargetEdgeLength * policy.GradingRatio)) {
             Vector3 c = box.Center; int emitted = 0;
-            foreach (var child in Topology.OctreeChildren(box, c)) { emitted += Recurse(boundary, child, policy, nodes, verts, cells, depth + 1); }
+            foreach (Aabb child in Topology.OctreeChildren(box, c)) { emitted += Recurse(boundary, child, policy, nodes, verts, cells, depth + 1); }
             return emitted;
         }
         if (!boundary.Encloses(box.Center)) { return 0; }
-        foreach (var corner in Topology.HexCorners(box)) { cells.Add(Node(corner, nodes, verts)); }
+        foreach ((float X, float Y, float Z) corner in Topology.HexCorners(box)) { cells.Add(Node(corner, nodes, verts)); }
         return 1;
     }
 
     static long Node((float X, float Y, float Z) p, Dictionary<(int, int, int), int> nodes, List<Vector3> verts) {
-        var key = ((int)MathF.Round(p.X * 1e5f), (int)MathF.Round(p.Y * 1e5f), (int)MathF.Round(p.Z * 1e5f));
+        (int, int, int) key = ((int)MathF.Round(p.X * 1e5f), (int)MathF.Round(p.Y * 1e5f), (int)MathF.Round(p.Z * 1e5f));
         if (nodes.TryGetValue(key, out int id)) { return id; }
         id = verts.Count; nodes[key] = id; verts.Add(new(p.X, p.Y, p.Z));
         return id;
     }
 }
 
-// Sweep: extrude the boundary base cross-section along Z into stacked hex layers graded by the target edge.
 public static class SweepCore {
     public static MeshBuild Fill(BoundaryShell boundary, MeshPolicy policy) {
         Aabb box = boundary.Bounds;
         int layers = Math.Max(1, (int)Math.Ceiling((box.Hi.Z - box.Lo.Z) / policy.TargetEdgeLength));
-        var (nx, ny, plane) = BasePlane(boundary, policy, box);
-        var verts = new List<Vector3>((layers + 1) * plane.Count);
-        for (int l = 0; l <= layers; l++) { float z = box.Lo.Z + (box.Hi.Z - box.Lo.Z) * l / layers; foreach (var p in plane) { verts.Add(new(p.X, p.Y, z)); } }
-        var cells = new List<long>(); int count = 0; int stride = plane.Count;
+        (int nx, int ny, List<(float X, float Y)> plane) = BasePlane(boundary, policy, box);
+        List<Vector3> verts = new((layers + 1) * plane.Count);
+        for (int l = 0; l <= layers; l++) {
+            float z = box.Lo.Z + (box.Hi.Z - box.Lo.Z) * l / layers;
+            foreach ((float X, float Y) point in plane) { verts.Add(new(point.X, point.Y, z)); }
+        }
+        List<long> cells = [];
+        int count = 0, stride = plane.Count;
         for (int l = 0; l < layers; l++)
             for (int j = 0; j < ny - 1; j++)
                 for (int i = 0; i < nx - 1; i++) {
@@ -747,27 +849,27 @@ public static class SweepCore {
                 }
         float[] flat = new float[verts.Count * 3];
         for (int v = 0; v < verts.Count; v++) { flat[v * 3] = verts[v].X; flat[v * 3 + 1] = verts[v].Y; flat[v * 3 + 2] = verts[v].Z; }
-        return new(policy.Element, flat, cells, count, plane.Count, layers).Scored(policy.Metric);
+        return new(policy.Element, flat, cells, count, verts.Count, layers).Scored(policy.Metric);
     }
 
     public static (int Nx, int Ny, List<(float X, float Y)> Plane) BasePlane(BoundaryShell boundary, MeshPolicy policy, Aabb box) {
         int nx = Math.Max(2, (int)Math.Ceiling((box.Hi.X - box.Lo.X) / policy.TargetEdgeLength) + 1);
         int ny = Math.Max(2, (int)Math.Ceiling((box.Hi.Y - box.Lo.Y) / policy.TargetEdgeLength) + 1);
-        var plane = new List<(float, float)>(nx * ny);
+        List<(float, float)> plane = new(nx * ny);
         for (int j = 0; j < ny; j++) for (int i = 0; i < nx; i++) { plane.Add((box.Lo.X + (box.Hi.X - box.Lo.X) * i / (nx - 1), box.Lo.Y + (box.Hi.Y - box.Lo.Y) * j / (ny - 1))); }
         return (nx, ny, plane);
     }
 }
 
-// Inflation: anisotropic wall-normal graded hex — thin geometric layers off the floor wall, isotropic core above.
 public static class InflationCore {
     public static MeshBuild Fill(BoundaryShell boundary, MeshPolicy policy) {
         Aabb box = boundary.Bounds;
-        var levels = WallNormal(box, policy);
-        var (nx, ny, plane) = SweepCore.BasePlane(boundary, policy, box);
-        var verts = new List<Vector3>(levels.Count * plane.Count);
-        foreach (float z in levels) { foreach (var p in plane) { verts.Add(new(p.X, p.Y, z)); } }
-        var cells = new List<long>(); int count = 0; int stride = plane.Count;
+        List<float> levels = WallNormal(box, policy);
+        (int nx, int ny, List<(float X, float Y)> plane) = SweepCore.BasePlane(boundary, policy, box);
+        List<Vector3> verts = new(levels.Count * plane.Count);
+        foreach (float z in levels) foreach ((float X, float Y) point in plane) { verts.Add(new(point.X, point.Y, z)); }
+        List<long> cells = [];
+        int count = 0, stride = plane.Count;
         for (int l = 0; l < levels.Count - 1; l++)
             for (int j = 0; j < ny - 1; j++)
                 for (int i = 0; i < nx - 1; i++) {
@@ -777,11 +879,11 @@ public static class InflationCore {
                 }
         float[] flat = new float[verts.Count * 3];
         for (int v = 0; v < verts.Count; v++) { flat[v * 3] = verts[v].X; flat[v * 3 + 1] = verts[v].Y; flat[v * 3 + 2] = verts[v].Z; }
-        return new(policy.Element, flat, cells, count, plane.Count, policy.BoundaryLayerCount).Scored(policy.Metric);
+        return new(policy.Element, flat, cells, count, verts.Count, policy.BoundaryLayerCount).Scored(policy.Metric);
     }
 
     static List<float> WallNormal(Aabb box, MeshPolicy policy) {
-        var levels = new List<float> { box.Lo.Z };
+        List<float> levels = [box.Lo.Z];
         float z = box.Lo.Z, thickness = (float)policy.FirstLayerThickness;
         for (int layer = 0; layer < policy.BoundaryLayerCount && z < box.Hi.Z; layer++) {
             z += thickness; levels.Add(Math.Min(z, box.Hi.Z)); thickness *= (float)policy.BoundaryLayerGrowth;
@@ -792,14 +894,13 @@ public static class InflationCore {
     }
 }
 
-// Mutable build carrier: the raw node/cell arrays a strategy emits before Pack freezes them into a DiscreteMesh.
 public sealed record MeshBuild(ElementClass Element, float[] Nodes, List<long> Cells, long ElementCount, long NodeCount, int Layers) {
     public long BoundaryCount { get; init; }
     public double Quality { get; init; } = 1.0;
 
     public MeshBuild Scored(MeshMetric metric) {
         if (ElementCount == 0) { return this with { Quality = 0.0, BoundaryCount = BoundaryFold() }; }
-        double[] perElement = new double[ElementCount];
+        double[] perElement = new double[checked((int)ElementCount)];
         int per = Element.Nodes;
         for (int cell = 0; cell < ElementCount; cell++) {
             double[] xyz = new double[per * 3];
@@ -809,26 +910,26 @@ public sealed record MeshBuild(ElementClass Element, float[] Nodes, List<long> C
         return this with { Quality = metric.Worst(perElement), BoundaryCount = BoundaryFold() };
     }
 
-    // Boundary nodes = those incident on a face appearing exactly once across all cells (the hull), keyed by the full sorted face.
     long BoundaryFold() {
-        var faceCount = new Dictionary<string, (int Count, long[] Nodes)>();
+        Dictionary<string, (int Count, long[] Nodes)> faceCount = [];
         int per = Element.Nodes;
         for (int cell = 0; cell < ElementCount; cell++)
-            foreach (var face in Element.Faces) {
+            foreach (ImmutableArray<int> face in Element.Faces) {
                 if (face.Length < 3) { continue; }
                 long[] ids = new long[face.Length];
                 for (int i = 0; i < face.Length; i++) { ids[i] = Cells[cell * per + face[i]]; }
                 long[] sorted = (long[])ids.Clone(); Array.Sort(sorted);
                 string key = string.Join(',', sorted);
-                faceCount[key] = faceCount.TryGetValue(key, out var entry) ? (entry.Count + 1, entry.Nodes) : (1, ids);
+                faceCount[key] = faceCount.TryGetValue(key, out (int Count, long[] Nodes) entry) ? (entry.Count + 1, entry.Nodes) : (1, ids);
             }
-        var hull = new HashSet<long>();
-        foreach (var (_, value) in faceCount) { if (value.Count == 1) { foreach (long node in value.Nodes) { hull.Add(node); } } }
+        HashSet<long> hull = [];
+        foreach (KeyValuePair<string, (int Count, long[] Nodes)> face in faceCount) {
+            if (face.Value.Count == 1) foreach (long node in face.Value.Nodes) { hull.Add(node); }
+        }
         return hull.Count;
     }
 }
 
-// Refinement node pool: shared edge-midpoint map keeping h/p refinement conforming across cells.
 public sealed class Refinement {
     readonly List<float> nodes;
     readonly Dictionary<(long, long), long> edgeMid = [];
@@ -838,7 +939,7 @@ public sealed class Refinement {
     public Refinement(ReadOnlySpan<float> seed, long seedCount) { nodes = [.. seed.ToArray()]; count = seedCount; }
 
     public long EdgeMid(long a, long b) {
-        var key = a < b ? (a, b) : (b, a);
+        (long, long) key = a < b ? (a, b) : (b, a);
         if (edgeMid.TryGetValue(key, out long mid)) { return mid; }
         mid = count++;
         for (int d = 0; d < 3; d++) { nodes.Add(0.5f * (nodes[(int)a * 3 + d] + nodes[(int)b * 3 + d])); }
@@ -846,14 +947,16 @@ public sealed class Refinement {
         return mid;
     }
 
-    // Red split node set: corner nodes, then shared edge midpoints, then shared face centres (hex/quad) and the hex body centre.
     public Span<long> RedNodes(ElementClass element, ReadOnlySpan<long> corners) {
         int extra = element == ElementClass.Hex8 ? 7 : element == ElementClass.Quad4 ? 1 : 0;
-        var pool = new long[corners.Length + element.Edges.Length + extra];
+        long[] pool = new long[corners.Length + element.Edges.Length + extra];
         corners.CopyTo(pool);
         int next = corners.Length;
-        foreach (var (a, b) in element.Edges) { pool[next++] = EdgeMid(corners[a], corners[b]); }
-        if (element == ElementClass.Hex8) { foreach (var face in element.Faces) { pool[next++] = FaceMid(corners, face); } pool[next] = Centre(corners); }
+        foreach ((int a, int b) in element.Edges) { pool[next++] = EdgeMid(corners[a], corners[b]); }
+        if (element == ElementClass.Hex8) {
+            foreach (ImmutableArray<int> face in element.Faces) { pool[next++] = FaceMid(corners, face); }
+            pool[next] = Centre(corners);
+        }
         else if (element == ElementClass.Quad4) { pool[next] = FaceMid(corners, element.Faces[0]); }
         return pool;
     }
@@ -884,8 +987,6 @@ public sealed class Refinement {
     public long Count => count;
 }
 
-// Reference data + isoparametric/predicate kernels: the per-element node tables, polynomial spaces, topology, and the
-// inline dim×dim Jacobian inverse, orientation, and in-sphere determinants (this page's named kernel exemption).
 public static class Topology {
     public static readonly ImmutableArray<(double, double, double)> LineRef2 = [(-1, 0, 0), (1, 0, 0)];
     public static readonly ImmutableArray<Monomial> LineP1 = [new(0, 0, 0), new(1, 0, 0)];
@@ -934,10 +1035,10 @@ public static class Topology {
 
     public static double[,] Vandermonde(ImmutableArray<(double X, double Y, double Z)> nodes, ImmutableArray<Monomial> basis) {
         int n = nodes.Length;
-        var v = Matrix<double>.Build.Dense(n, n, (i, m) => basis[m].Eval(nodes[i]));
-        var inv = v.Inverse();
+        Matrix<double> vandermonde = Matrix<double>.Build.Dense(n, n, (i, m) => basis[m].Eval(nodes[i]));
+        Matrix<double> inverse = vandermonde.Inverse();
         double[,] c = new double[n, n];
-        for (int m = 0; m < n; m++) for (int i = 0; i < n; i++) { c[m, i] = inv[m, i]; }
+        for (int m = 0; m < n; m++) for (int i = 0; i < n; i++) { c[m, i] = inverse[m, i]; }
         return c;
     }
 
@@ -969,8 +1070,8 @@ public static class Topology {
 
     public static (Vector3 E1, Vector3 E2, Vector3 E3) CornerFrame(ElementClass element, int corner, ReadOnlySpan<double> xyz) {
         Vector3 o = Node(xyz, corner);
-        var incident = new List<Vector3>(3);
-        foreach (var (a, b) in element.Edges) { if (a == corner) { incident.Add(Node(xyz, b) - o); } else if (b == corner) { incident.Add(Node(xyz, a) - o); } }
+        List<Vector3> incident = new(3);
+        foreach ((int a, int b) in element.Edges) { if (a == corner) { incident.Add(Node(xyz, b) - o); } else if (b == corner) { incident.Add(Node(xyz, a) - o); } }
         return (incident[0], incident.Count > 1 ? incident[1] : incident[0], incident.Count > 2 ? incident[2] : Vector3.Cross(incident[0], incident.Count > 1 ? incident[1] : Vector3.UnitZ));
     }
 
@@ -980,16 +1081,9 @@ public static class Topology {
     public static Vector3 FaceNormal(ImmutableArray<int> face, ReadOnlySpan<double> xyz) =>
         Vector3.Cross(Node(xyz, face[1]) - Node(xyz, face[0]), Node(xyz, face[2]) - Node(xyz, face[0]));
 
-    // Every SIGN DECISION on the Delaunay path routes the kernel exact-predicate floor through the
-    // coordinate-level cores (raw double tuples — the Compute-consumable entries; no kernel value type
-    // enters a lane signature): the adaptive ErrorBound ?? Refine ?? Exact ladder decides near-coplanar
-    // and near-cospherical building geometry exactly, so a flipped sign never emits an inverted or
-    // non-Delaunay cell the FE solve then trusts. The float Orient/InSphere/Det4 sign path is deleted.
     public static bool Orient(Vector3 a, Vector3 b, Vector3 c, Vector3 d) =>
         Predicate.Orient3D(a.X, a.Y, a.Z, b.X, b.Y, b.Z, c.X, c.Y, c.Z, d.X, d.Y, d.Z) == Sign.Positive;
 
-    // Insphere: p lies inside the circumsphere of tet (a,b,c,d) iff the orientation-normalized exact
-    // in-sphere verdict is positive — the Sign.Times algebra folds the two exact verdicts.
     public static bool InSphere(Vector3 a, Vector3 b, Vector3 c, Vector3 d, Vector3 p) =>
         Predicate.Orient3D(a.X, a.Y, a.Z, b.X, b.Y, b.Z, c.X, c.Y, c.Z, d.X, d.Y, d.Z)
             .Times(Predicate.InSphere(a.X, a.Y, a.Z, b.X, b.Y, b.Z, c.X, c.Y, c.Z, d.X, d.Y, d.Z, p.X, p.Y, p.Z)) == Sign.Positive;
@@ -1006,7 +1100,10 @@ public static class Topology {
         return (a, b, c);
     }
 
-    public static (int, int, int) SortTriple((int, int, int) f) { var s = SortTriple(((long)f.Item1, f.Item2, f.Item3)); return ((int)s.Item1, (int)s.Item2, (int)s.Item3); }
+    public static (int, int, int) SortTriple((int, int, int) f) {
+        (long, long, long) sorted = SortTriple(((long)f.Item1, f.Item2, f.Item3));
+        return ((int)sorted.Item1, (int)sorted.Item2, (int)sorted.Item3);
+    }
 
     public static (int, int, int, int) OrientedTet(List<Vector3> points, (int, int, int) face, int apex) =>
         Orient(points[face.Item1], points[face.Item2], points[face.Item3], points[apex])
@@ -1014,9 +1111,6 @@ public static class Topology {
 
 
     // --- [FRAME_STIFFNESS]
-    // The local 12×12 Euler-Bernoulli/Timoshenko member stiffness in the member frame (x axial, y/z
-    // bending): axial EA/L, torsion GJ/L, and the shear-flexible bending block 12EI/((1+Φ)L³) family —
-    // Φ = 0 recovers Euler-Bernoulli exactly, so ONE closed form owns both rows.
     public static void LocalFrame(Span<double> k, double e, double g, in FrameMember m, double l, double phiY, double phiZ) {
         k.Clear();
         double ax = e * m.Area / l, tor = g * m.J / l;
@@ -1035,10 +1129,6 @@ public static class Topology {
         Set(8, 8, by); Set(8, 10, cy); Set(10, 10, dyy);
     }
 
-    // Exact single-DOF spring-in-series condensation per semi-rigid end rotation: eliminating the
-    // member-end rotation behind a finite spring S scales its row/column couplings by α = S/(S + k_dd)
-    // and the diagonal to α·k_dd; S = +∞ is the rigid identity, S = 0 degenerates to a release (the mask
-    // owns that case, never a zero-spring special).
     public static void SemiRigid(Span<double> k, in FrameMember m, double e, double l) {
         Fold(k, 4, m.SpringYi); Fold(k, 5, m.SpringZi); Fold(k, 10, m.SpringYj); Fold(k, 11, m.SpringZj);
         static void Fold(Span<double> k, int d, double spring) {
@@ -1049,9 +1139,6 @@ public static class Topology {
         }
     }
 
-    // Static condensation over the released local DOFs: K_cc − K_cr·K_rr⁻¹·K_rc through one Gauss
-    // elimination pass per released DOF, the released row/col zeroed afterward — a released DOF transmits
-    // nothing, exactly, never an approximate soft spring.
     public static void CondenseReleases(Span<double> k, int releaseMask) {
         for (int d = 0; d < 12; d++) {
             if ((releaseMask & (1 << d)) == 0 || Math.Abs(k[d * 12 + d]) < 1e-30) { continue; }
@@ -1062,8 +1149,6 @@ public static class Topology {
         }
     }
 
-    // Rigid-end eccentricity E: a joint rotation at an offset end carries θ×r into the member-end
-    // translation (r along the member axis), so K ← Eᵀ·K·E restores equilibrium at the joint line.
     public static void Eccentric(Span<double> k, double offsetI, double offsetJ) {
         if (offsetI == 0.0 && offsetJ == 0.0) { return; }
         Span<double> e = stackalloc double[144];
@@ -1073,8 +1158,6 @@ public static class Topology {
         Congruence(k, e);
     }
 
-    // Direction-cosine block rotation K_g = Tᵀ·K_l·T: local y derives from the global-Z up vector, the
-    // vertical-member degeneracy falling to global X — the standard frame convention, one arm.
     public static void RotateFrame(Span<double> k, double dx, double dy, double dz, Span<double> global) {
         double l = Math.Sqrt(dx * dx + dy * dy + dz * dz);
         double cx = dx / l, cy = dy / l, cz = dz / l;
@@ -1111,14 +1194,14 @@ public static class Topology {
             : element == ElementClass.Tri3 ? TriRed : element == ElementClass.Quad4 ? QuadRed : [];
 
     public static IEnumerable<Aabb> OctreeChildren(Aabb box, Vector3 c) {
-        foreach (var corner in HexRef8) {
+        foreach ((double X, double Y, double Z) corner in HexRef8) {
             Vector3 lo = new(corner.Item1 < 0 ? box.Lo.X : c.X, corner.Item2 < 0 ? box.Lo.Y : c.Y, corner.Item3 < 0 ? box.Lo.Z : c.Z);
             yield return new(lo, lo + (box.Span * 0.5f));
         }
     }
 
     public static IEnumerable<(float X, float Y, float Z)> HexCorners(Aabb box) {
-        foreach (var corner in HexRef8) {
+        foreach ((double X, double Y, double Z) corner in HexRef8) {
             yield return (corner.Item1 < 0 ? box.Lo.X : box.Hi.X, corner.Item2 < 0 ? box.Lo.Y : box.Hi.Y, corner.Item3 < 0 ? box.Lo.Z : box.Hi.Z);
         }
     }
@@ -1126,7 +1209,7 @@ public static class Topology {
     static bool Contains(ImmutableArray<int> face, int node) { foreach (int v in face) { if (v == node) { return true; } } return false; }
 
     static IEnumerable<(double, double, double)> EdgeMidsRef(ImmutableArray<(double X, double Y, double Z)> nodes, ImmutableArray<(int A, int B)> edges) {
-        foreach (var (a, b) in edges) { yield return ((nodes[a].X + nodes[b].X) * 0.5, (nodes[a].Y + nodes[b].Y) * 0.5, (nodes[a].Z + nodes[b].Z) * 0.5); }
+        foreach ((int a, int b) in edges) { yield return ((nodes[a].X + nodes[b].X) * 0.5, (nodes[a].Y + nodes[b].Y) * 0.5, (nodes[a].Z + nodes[b].Z) * 0.5); }
     }
 
     static IEnumerable<(double, double, double)> Grid(double[] axis, int dim) {
@@ -1138,11 +1221,11 @@ public static class Topology {
     }
 
     static IEnumerable<(double, double, double)> WedgePrismRef() {
-        foreach (double z in (double[])[-1, 0, 1]) foreach (var t in TriRef6) { yield return (t.X, t.Y, z); }
+        foreach (double z in (double[])[-1, 0, 1]) foreach ((double X, double Y, double Z) point in TriRef6) { yield return (point.X, point.Y, z); }
     }
 
     static IEnumerable<Monomial> WedgePrismMonomials() {
-        foreach (int c in (int[])[0, 1, 2]) foreach (var t in TriP2) { yield return new(t.I, t.J, c); }
+        foreach (int c in (int[])[0, 1, 2]) foreach (Monomial term in TriP2) { yield return new(term.I, term.J, c); }
     }
 
     static IEnumerable<ImmutableArray<int>> HexOctants() {
@@ -1154,6 +1237,8 @@ public static class Topology {
 ```
 
 ```mermaid
+accTitle: Solver discretization flow
+accDescr: Boundary shells become discrete meshes, fields, element samples, quality verdicts, and adaptive refinements.
 flowchart LR
     BoundaryShell -->|Discretize| MeshKernel
     MeshKernel -->|Delaunay/Octree/Sweep/Inflation| MeshBuild
@@ -1170,4 +1255,7 @@ flowchart LR
 
 ## [03]-[RESEARCH]
 
-- [BOUNDARY_TRIANGULATION]: the producer that lowers a B-rep/NURBS boundary to the `BoundaryShell` triangle soup (`Vertices`/`Triangles`) the inclusion ray-cast consumes is SETTLED — a host `Brep` (a NURBS surface / `Extrusion` / `SubD` first coerced to a `Brep` through the `Rasm` `Domain` `GeometryRequest.BrepForm` host-coercion owner, composed never re-derived) is tessellated to a render `Mesh` by the host `Mesh.CreateFromBrep(brep, MeshingParameters.QualityRenderMesh)` boundary adapter, wrapped as the `Rasm.Meshing` `BoundaryShell.Of(Mesh native, Context)` discrete-mesh owner, and flattened at the boundary into the host-neutral soup this `BoundaryShell.Of(ReadOnlyMemory<float> Vertices, ReadOnlyMemory<int> Triangles)` carries — `DuplicateNative().Vertices.ToFloatArray()` for `Vertices`, `DuplicateNative().Faces.ToIntArray(asTriangles: true)` for the triangulated `Triangles` index buffer the Möller–Trumbore `Encloses` ray-cast requires. The host owns parametric→discrete tessellation (the same parametric/discrete split the `Rasm` kernel already draws — host owns the NURBS/Brep surface, the kernel owns the discrete mesh), so this owner never re-derives a surface mesher and the host `Brep`/`Mesh` type never crosses a solve signature; the tessellation lives at the host/kernel wire (an app/HOST-BOUNDARY composition concern, never inside host-neutral Compute). The isoparametric `ElementClass.Sample`, the owned-build `QuadratureRule` tables, and the Bowyer-Watson/octree/sweep/inflation cores are authored in the cluster fence, and the element-assembly `Bᵀ·D·B` handoff weighting each Gauss point by `Sample.DetJ` is the consuming `Solver/contract#SOLVE_CONTRACT` owner.
+- [BOUNDARY_TRIANGULATION]: host `Brep` input first coerces through the `Rasm` `GeometryRequest.BrepForm` host-coercion owner, then `Mesh.CreateFromBrep(brep, MeshingParameters.QualityRenderMesh)` tessellates it to a render `Mesh`.
+- [BOUNDARY_TRIANGULATION]: `Rasm.Meshing` `MeshSpace.Of(Mesh native, Context)` owns the discrete host mesh, and this page's `BoundaryShell.Of(ReadOnlyMemory<float> Vertices, ReadOnlyMemory<int> Triangles)` carries its flattened host-neutral soup through `DuplicateNative().Vertices.ToFloatArray()` and `DuplicateNative().Faces.ToIntArray(asTriangles: true)`.
+- [BOUNDARY_TRIANGULATION]: host/kernel composition owns parametric→discrete tessellation, so Compute never re-derives a surface mesher and no host `Brep`/`Mesh` crosses a solve signature.
+- [BOUNDARY_TRIANGULATION]: `ElementClass.Sample`, owned-build `QuadratureRule` tables, and Bowyer-Watson/octree/sweep/inflation cores remain cluster-owned; `Solver/contract` consumes the `Bᵀ·D·B` handoff weighted by `Sample.DetJ`.

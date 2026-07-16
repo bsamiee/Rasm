@@ -46,20 +46,23 @@
 - namespace: `Microsoft.Z3`
 - rail: satisfaction
 
-| [INDEX] | [SURFACE]                                              | [CALL_SHAPE]                                                |
-| :-----: | :----------------------------------------------------- | :---------------------------------------------------------- |
-|  [01]   | `ctx.MkRealConst` / `MkIntConst` / `MkBoolConst`       | `(string name)` → `RealExpr`/`IntExpr`/`BoolExpr`           |
-|  [02]   | `ctx.MkReal` / `MkInt`                                 | `(string / int / long)` → `RatNum`/`IntNum`                 |
-|  [03]   | `ctx.MkAdd` / `MkMul` / `MkSub` / `MkDiv` / `MkPower`  | `(params ArithExpr[])` → `ArithExpr`                        |
-|  [04]   | `ctx.MkGe` / `MkLe` / `MkGt` / `MkLt` / `MkEq`         | `(Expr, Expr)` → `BoolExpr`                                 |
-|  [05]   | `ctx.MkAnd` / `MkOr` / `MkNot` / `MkImplies` / `MkIff` | `(params BoolExpr[])` / `(BoolExpr, BoolExpr)` → `BoolExpr` |
-|  [06]   | `ctx.MkSolver` / `MkOptimize`                          | `()` / `(string logic)` → `Solver` / `Optimize`             |
+| [INDEX] | [SURFACE]                                              | [CALL_SHAPE]                                                    |
+| :-----: | :----------------------------------------------------- | :-------------------------------------------------------------- |
+|  [01]   | `ctx.MkRealConst` / `MkIntConst` / `MkBoolConst`       | `(string name)` → `RealExpr`/`IntExpr`/`BoolExpr`               |
+|  [02]   | `ctx.MkReal` / `MkInt`                                 | `(string / int / long)` → `RatNum`/`IntNum`                     |
+|  [03]   | `ctx.MkAdd` / `MkMul` / `MkSub` / `MkDiv` / `MkPower`  | `(params ArithExpr[])` → `ArithExpr`                            |
+|  [04]   | `ctx.MkGe` / `MkLe` / `MkGt` / `MkLt` / `MkEq`         | `(Expr, Expr)` → `BoolExpr`                                     |
+|  [05]   | `ctx.MkAnd` / `MkOr` / `MkNot` / `MkImplies` / `MkIff` | `(params BoolExpr[])` / `(BoolExpr, BoolExpr)` → `BoolExpr`     |
+|  [06]   | `ctx.MkXor`                                            | `(BoolExpr, BoolExpr)` / `(IEnumerable<BoolExpr>)` → `BoolExpr` |
+|  [07]   | `ctx.MkITE` / `MkUnaryMinus`                           | `(BoolExpr, Expr, Expr)` → `Expr` / `(ArithExpr)` → `ArithExpr` |
+|  [08]   | `ctx.MkSolver` / `MkOptimize`                          | `()` / `(string logic)` → `Solver` / `Optimize`                 |
 
 - [01]-[CONST]: mint a free variable of the given sort — the rule-variable seeds.
 - [02]-[LITERAL]: numeric literals (a rational from a `"num/den"` string is exact).
 - [03]-[ARITH]: arithmetic terms — NONLINEAR `MkMul`/`MkPower` drive the NRA/NIA theory Z3 owns and CP-SAT cannot.
 - [04]-[RELATION]: the relational atoms a rule constraint is built from.
 - [05]-[BOOLEAN]: the boolean combinators composing a rule set.
+- [07]-[RECTIFIER]: `MkITE` lowers `abs`/`signum`/`min`/`max` rectifiers as guarded terms; the result downcasts to `ArithExpr` at the caller.
 - [06]-[ENGINE]: the solve engine (a named logic e.g. `"QF_NRA"` selects the theory fragment).
 
 [ENTRYPOINT_SCOPE]: assert, check, explain — `Solver`

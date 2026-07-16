@@ -52,17 +52,23 @@ public readonly partial struct PanelKey {
 
 [SmartEnum<int>]
 public sealed partial class PanelLife {
-    public static readonly PanelLife Shown = new(key: 0, emit: static (panel, document, op) =>
-        op.Catch(() => { Panels.OnShowPanel(panelId: panel, documentSerialNumber: document.Match(Some: serial => (uint)serial, None: () => 0u), show: true); return Fin.Succ(value: unit); }));
-    public static readonly PanelLife Hidden = new(key: 1, emit: static (panel, document, op) =>
-        op.Catch(() => { Panels.OnShowPanel(panelId: panel, documentSerialNumber: document.Match(Some: serial => (uint)serial, None: () => 0u), show: false); return Fin.Succ(value: unit); }));
-    public static readonly PanelLife Closing = new(key: 2, emit: static (panel, document, op) =>
-        op.Catch(() => { Panels.OnClosePanel(panelId: panel, documentSerialNumber: document.Match(Some: serial => (uint)serial, None: () => 0u)); return Fin.Succ(value: unit); }));
+    public static readonly PanelLife Shown = new(key: 0, emit: Announced(show: Some(true)));
+    public static readonly PanelLife Hidden = new(key: 1, emit: Announced(show: Some(false)));
+    public static readonly PanelLife Closing = new(key: 2, emit: Announced(show: None));
 
     public static PanelLife OfReason(ShowPanelReason reason) => Panels.IsShowing(reason: reason) ? Shown : Hidden;
 
     [UseDelegateFromConstructor]
     internal partial Fin<Unit> Emit(PanelKey panel, Option<DocKey> document, Op op);
+
+    private static Func<PanelKey, Option<DocKey>, Op, Fin<Unit>> Announced(Option<bool> show) =>
+        (panel, document, op) => op.Catch(() => {
+            uint serial = document.Match(Some: static held => (uint)held, None: static () => 0u);
+            _ = show.Match(
+                Some: polarity => Op.Side(() => Panels.OnShowPanel(panelId: panel, documentSerialNumber: serial, show: polarity)),
+                None: () => Op.Side(() => Panels.OnClosePanel(panelId: panel, documentSerialNumber: serial)));
+            return Fin.Succ(value: unit);
+        });
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------
@@ -256,11 +262,13 @@ public static class PanelHost {
                 Scope: new EventScope.AnyDocument(),
                 Families: Seq(EventFamily.PanelVisibility, EventFamily.PanelClosed),
                 Delivery: new Delivery.Inline(Sink: fact => op.Catch(() => {
-                    _ = Op.SideWhen(fact.Payload is EventPayload.Panel, () => observer(new PanelFact(
-                        Panel: PanelKey.Create(value: ((EventPayload.Panel)fact.Payload).PanelId),
-                        Life: ((EventPayload.Panel)fact.Payload).State.Switch(
-                            shown: static () => PanelLife.Shown, hidden: static () => PanelLife.Hidden, closed: static () => PanelLife.Closing),
-                        Document: fact.Key)));
+                    _ = fact.Payload is EventPayload.Panel panel
+                        ? Op.Side(() => observer(new PanelFact(
+                            Panel: PanelKey.Create(value: panel.PanelId),
+                            Life: panel.State.Switch(
+                                shown: static () => PanelLife.Shown, hidden: static () => PanelLife.Hidden, closed: static () => PanelLife.Closing),
+                            Document: fact.Key)))
+                        : unit;
                     return Fin.Succ(value: unit);
                 })),
                 Receipts: ReceiptPolicy.Operational))
@@ -386,11 +394,10 @@ public static class Rui {
                 select unit,
             groupVisible: static (op, mutation) =>
                 from file in mutation.File.Resolve(op: op)
-                from group in toSeq(Enumerable.Range(start: 0, count: file.GroupCount))
-                    .Choose(index => Optional(file.GetGroup(index)))
+                from found in Indexed(count: file.GroupCount, read: file.GetGroup)
                     .Find(candidate => candidate.Id == mutation.Group)
                     .ToFin(Fail: op.MissingContext())
-                select Op.Side(() => group.Visible = mutation.Visible),
+                select Op.Side(() => found.Visible = mutation.Visible),
             sidebar: static (op, mutation) => op.Catch(() => Fin.Succ(value: mutation.Mru
                 ? Op.Side(() => ToolbarFileCollection.MruSidebarIsVisible = mutation.Visible)
                 : Op.Side(() => ToolbarFileCollection.SidebarIsVisible = mutation.Visible))),
@@ -410,17 +417,18 @@ public static class Rui {
             Seq<ToolbarFile> files = toSeq(RhinoApp.ToolbarFiles).Choose(Optional).Strict();
             return Fin.Succ(value: new RuiSnapshot(
                 Files: files.Map(static file => new RuiFileFact(Id: file.Id, Name: file.Name, Path: file.Path, Groups: file.GroupCount, Toolbars: file.ToolbarCount)).Strict(),
-                Groups: files.Bind(static file => toSeq(Enumerable.Range(start: 0, count: file.GroupCount))
-                    .Choose(index => Optional(file.GetGroup(index))
-                        .Map(group => new RuiGroupFact(File: file.Id, Group: group.Id, Name: group.Name, Visible: group.Visible, Docked: group.IsDocked)))).Strict(),
-                Toolbars: files.Bind(static file => toSeq(Enumerable.Range(start: 0, count: file.ToolbarCount))
-                    .Choose(index => Optional(file.GetToolbar(index))
-                        .Map(toolbar => new RuiToolbarFact(File: file.Id, Toolbar: toolbar.Id, Name: toolbar.Name)))).Strict(),
+                Groups: files.Bind(static file => Indexed(count: file.GroupCount, read: file.GetGroup)
+                    .Map(held => new RuiGroupFact(File: file.Id, Group: held.Id, Name: held.Name, Visible: held.Visible, Docked: held.IsDocked))).Strict(),
+                Toolbars: files.Bind(static file => Indexed(count: file.ToolbarCount, read: file.GetToolbar)
+                    .Map(held => new RuiToolbarFact(File: file.Id, Toolbar: held.Id, Name: held.Name))).Strict(),
                 Sidebar: ToolbarFileCollection.SidebarIsVisible,
                 MruSidebar: ToolbarFileCollection.MruSidebarIsVisible,
                 Bitmap: Toolbar.BitmapSize,
                 Tab: Toolbar.TabSize));
         });
+
+    private static Seq<T> Indexed<T>(int count, Func<int, T?> read) where T : class =>
+        toSeq(Enumerable.Range(start: 0, count: count)).Choose(index => Optional(read(index))).Strict();
 }
 
 public static class MenuLinks {

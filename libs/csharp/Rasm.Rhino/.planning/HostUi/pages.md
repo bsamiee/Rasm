@@ -36,21 +36,22 @@ namespace Rasm.Rhino.HostUi;
 // --- [TYPES] --------------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class PageKind {
-    public static readonly PageKind Options = new(key: 0, stacked: true,
-        reveal: static (_, op) => Fin.Fail<Window>(error: new UiFault.Unavailable(Key: op, Capability: nameof(Options))));
-    public static readonly PageKind DocumentProperties = new(key: 1, stacked: true,
-        reveal: static (page, op) => op.Catch(() => Optional(RhinoEtoApp.DocumentPropertiesWindowForPage(page)).ToFin(Fail: op.MissingContext())));
-    public static readonly PageKind Preferences = new(key: 2, stacked: true,
-        reveal: static (page, op) => op.Catch(() => Optional(RhinoEtoApp.ApplicationPreferencesWindowForPage(page)).ToFin(Fail: op.MissingContext())));
-    public static readonly PageKind ObjectProperties = new(key: 3, stacked: false,
-        reveal: static (_, op) => Fin.Fail<Window>(error: new UiFault.Unavailable(Key: op, Capability: nameof(ObjectProperties))));
-    public static readonly PageKind Child = new(key: 4, stacked: true,
-        reveal: static (_, op) => Fin.Fail<Window>(error: new UiFault.Unavailable(Key: op, Capability: nameof(Child))));
+    public static readonly PageKind Options = new(key: 0, stacked: true, reveal: Denied(capability: nameof(Options)));
+    public static readonly PageKind DocumentProperties = new(key: 1, stacked: true, reveal: Windowed(RhinoEtoApp.DocumentPropertiesWindowForPage));
+    public static readonly PageKind Preferences = new(key: 2, stacked: true, reveal: Windowed(RhinoEtoApp.ApplicationPreferencesWindowForPage));
+    public static readonly PageKind ObjectProperties = new(key: 3, stacked: false, reveal: Denied(capability: nameof(ObjectProperties)));
+    public static readonly PageKind Child = new(key: 4, stacked: true, reveal: Denied(capability: nameof(Child)));
 
     public bool Stacked { get; }
 
     [UseDelegateFromConstructor]
     internal partial Fin<Window> Reveal(OptionsDialogPage page, Op op);
+
+    private static Func<OptionsDialogPage, Op, Fin<Window>> Denied(string capability) =>
+        (_, op) => Fin.Fail<Window>(error: new UiFault.Unavailable(Key: op, Capability: capability));
+
+    private static Func<OptionsDialogPage, Op, Fin<Window>> Windowed(Func<OptionsDialogPage, Window?> resolve) =>
+        (page, op) => op.Catch(() => Optional(resolve(page)).ToFin(Fail: op.MissingContext()));
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------
@@ -154,30 +155,26 @@ public sealed class HostPage {
 
     public Fin<Unit> Navigate(PageNav nav, Op? key = null) {
         Op op = key.OrDefault();
-        return leaf.Match(
-            Left: page => nav.Apply(page: page, op: op),
-            Right: _ => Fin.Fail<Unit>(error: new UiFault.Unavailable(Key: op, Capability: nameof(StackedDialogPage))));
+        return StackedLeaf.ToFin(Fail: new UiFault.Unavailable(Key: op, Capability: nameof(StackedDialogPage)))
+            .Bind(page => nav.Apply(page: page, op: op));
     }
 
     public Fin<Window> Reveal(Op? key = null) {
         Op op = key.OrDefault();
-        return leaf.Match(
-            Left: page => plan.Kind.Reveal(page: page, op: op),
-            Right: _ => Fin.Fail<Window>(error: new UiFault.Unavailable(Key: op, Capability: nameof(RhinoEtoApp))));
+        return StackedLeaf.ToFin(Fail: new UiFault.Unavailable(Key: op, Capability: nameof(RhinoEtoApp)))
+            .Bind(page => plan.Kind.Reveal(page: page, op: op));
     }
 
     public Fin<Seq<Guid>> Selection(ObjectType filter, Op? key = null) {
         Op op = key.OrDefault();
-        return leaf.Match(
-            Left: _ => Fin.Fail<Seq<Guid>>(error: new UiFault.Unavailable(Key: op, Capability: nameof(ObjectPropertiesPage.GetSelectedObjects))),
-            Right: page => op.Catch(() => Fin.Succ(value: toSeq(page.GetSelectedObjects(filter)).Map(static held => held.Id).Strict())));
+        return PropertiesLeaf.ToFin(Fail: new UiFault.Unavailable(Key: op, Capability: nameof(ObjectPropertiesPage.GetSelectedObjects)))
+            .Bind(page => op.Catch(() => Fin.Succ(value: toSeq(page.GetSelectedObjects(filter)).Map(static held => held.Id).Strict())));
     }
 
     public Fin<Unit> Modify(Func<Fin<Unit>> change, Op? key = null) {
         Op op = key.OrDefault();
-        return leaf.Match(
-            Left: _ => Fin.Fail<Unit>(error: new UiFault.Unavailable(Key: op, Capability: nameof(ObjectPropertiesPage.ModifyPage))),
-            Right: page => op.Catch(() => {
+        return PropertiesLeaf.ToFin(Fail: new UiFault.Unavailable(Key: op, Capability: nameof(ObjectPropertiesPage.ModifyPage)))
+            .Bind(page => op.Catch(() => {
                 Fin<Unit> outcome = Fin.Fail<Unit>(error: op.InvalidResult());
                 page.ModifyPage(callbackAction: _ => outcome = op.Catch(change));
                 return outcome;
@@ -330,7 +327,7 @@ public abstract partial record PageBasket {
 public static class PageMount {
     public static Fin<Unit> Land(PageBasket basket, params ReadOnlySpan<HostPage> pages) {
         Op op = Op.Of();
-        return toSeq(pages.ToArray())
+        return Iterable<HostPage>.FromSpan(pages)
             .TraverseM(page => Landed(page: page, basket: basket, op: op))
             .As()
             .Map(static _ => unit);

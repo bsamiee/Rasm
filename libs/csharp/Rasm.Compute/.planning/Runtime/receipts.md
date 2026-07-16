@@ -2,7 +2,7 @@
 
 `ComputeReceipt` is the package's only fact vocabulary for measured execution: every operational view derives as a fold over that one stream, NodaTime-protobuf bridges own the instant/duration/calendar wire edge, and fingerprint-gated benchmark claims decide every performance-motivated route in the suite. Cases declare inline here save `Assessment`, a `partial` the `Analysis/assessment` discipline page declares on this owner while this owning index keeps its `[JsonDerivedType]` registration and widened wire projection so the whole union round-trips through the one Strict resolver.
 
-`ComputeWireContext` joins the suite Strict-resolver merge, so the polymorphic `kind` discriminator and every Thinktecture key-scalar spine field round-trip through one shared `JsonSerializerOptions` with `Seq<string>` collections intact and `UnmappedMemberHandling.Disallow` rejecting drift at the edge. `ReceiptSinkPort`, `ReceiptEnvelope`, `ClockPolicy`, `ScheduleEntry`, `TelemetryContributorPort`, `TenantContext` (AppHost-minted), and the Persistence benchmark and artifact-index contracts compose as settled vocabulary; clusters below own the fold-projection family, the NodaTime wire-stamp bridges, the fingerprint-gated claim table, and the TS payload projection.
+`ComputeWireContext` joins the suite Strict-resolver merge, so the polymorphic `kind` discriminator and every Thinktecture key-scalar spine field round-trip through one shared `JsonSerializerOptions` with `Seq<string>` collections intact and `UnmappedMemberHandling.Disallow` rejecting drift at the edge. `ReceiptSinkPort`, `ReceiptEnvelope`, `ScheduleEntry`, `TelemetryContributorPort`, `TenantContext`, and the Persistence benchmark and artifact-index contracts compose as settled vocabulary; clusters below own fold projections, temporal wire bridges, fingerprint-gated claims, and the TS payload projection.
 
 ## [01]-[INDEX]
 
@@ -14,16 +14,53 @@
 
 ## [02]-[RECEIPT_UNION]
 
-- Owner: `ComputeReceipt`, `ComputeWireContext`, `ReceiptSurface` — the fact union, the package's one `JsonSerializerContext` partial joining the suite Strict resolver merge, and the emission-plus-telemetry surface.
+- Owner: `ReceiptScope`, `SelectionDecision`, `SelectionMode`, `ComputeReceipt`, `ComputeWireContext`, `ReceiptSurface` — the scope and selection evidence families, fact union, strict serializer context, and sink-bound emission-plus-telemetry surface.
 - Cases: selection · tensor-run · model-load · warmup · model-run · remote-call · stream-segment · allocation · copy · cache · unit-projection · backpressure · drain · conflict · factorization · generate · discretization · solve · optimization · sweep · clash · twin · uncertainty · fit · assessment (the last declared as a partial on this owner by `Analysis/assessment`)
-- Entry: `public IO<ReceiptEnvelope> Emit(ReceiptSinkPort sink, JsonSerializerOptions wire)` — `IO` carries the sink effect; the returned envelope is the emission evidence.
+- Entry: `public IO<ReceiptEnvelope> ReceiptSurface.Emit(ComputeReceipt fact)` — the surface binds sink and serializer aspects once at composition; `IO` carries the sink effect and returns the envelope evidence.
 - Auto: wire kind derives from the polymorphic metadata pinned on the union; the HLC stamp and `SkewBound` derive inside `Send`, and ambient `TenantContext.Current` threads into `Send` so the envelope `Tenant` field partitions evidence by the AppHost tenancy primitive; instrument rows register once at composition through `TelemetryContributorPort`, and `TelemetrySource.Compute` mints the activity spine so receipt correlation joins the OTel rail with zero call-site ceremony.
 - Receipt: union cases materialize at the sink edge only; hot-path capsules upstream stay allocation-free.
 - Packages: Thinktecture.Runtime.Extensions, Thinktecture.Runtime.Extensions.Json, LanguageExt.Core, NodaTime, Rasm.AppHost (project), BCL inbox
-- Growth: a new measured concern is one case row on `ComputeReceipt` plus one `[JsonDerivedType]` row and one TS payload row, zero new surface; a discipline rail in another folder declares its case as a `partial` record on this owner (the `Analysis/assessment` `Assessment` case) while this owning index keeps the `[JsonDerivedType]` registration and the TS payload row so the polymorphic registry stays single-sited — a parallel receipt union or a second discriminator registry is the deleted form.
-- Boundary: receipts are process-local and HLC-correlated — the envelope stamp is the only cross-process causal primitive, and a generic `IReceipt`/ledger abstraction, a second correlation or HLC stamp, and emission bypassing the sink port are the rejected forms. Every solver, statistical-learning, generative, and residency outcome rides this one union under its correlation — a `SolveReceipt`, `GenerationReceipt`, `MeshReceipt`, `OptimizerReceipt`, `ClashReceipt`, `TwinReceipt`, `UncertaintyReceipt`, `EstimatorReceipt`, or `BatchReceipt` standalone type is the rejected form, a batch a `Seq<ComputeReceipt>` under one correlation tag and an `Embed` run the `Generate` slot. `Factorization`'s `RouteVariant`/`DeterminismTag`/`SymbolicFill`/`ResidualCap`/`TrueResidual` are optional `init` evidence the dense (`Tensor/blas#DENSE_ALGEBRA` `DenseOps.Receipt`) and sparse (`Tensor/factor#SPARSE_SOLVE` `SparseOps.Receipt`, shard-fan-out `Materialize`) factories stamp, each absent on the lane that does not measure it — a dense solve carries no symbolic fill, a sparse solve no route variant, a cache-hit shard no residual cap — declared once on the union rather than required params or a parallel `SolveReceipt`/`FactorizationDetail`. `Copy` is the `Tensor/residency#ORT_BRIDGE` C-data residency-crossing fact carrying the `OrtResidency` gate, byte count, and residency-device name — model and tensor lanes both emit it, multiple crossings fold back through `Provenance`/`Crossings`, and the gate a bytes-and-device-only `ModelRun` cannot attribute becomes a first-class union column, not a standalone copy-receipt type. `Conflict` is the receipt complement of the wire fault projection carrying retry-owner and contract-checksum evidence; `Uncertainty` is the forward-UQ/reliability complement of the deterministic `Optimization`/`Sweep` cases, emitted once by the `Solver/uncertainty#UNCERTAINTY_LANE` `Propagate` fold with a content-keyed body whose round-trip is a golden-bytes fixture and a Sobol vector crossing as `Seq<double>`; `Fit` is the statistical-learning complement of the FEA `Solver/contract#SOLVE_CONTRACT` `Solve` case, emitted once by the `Stats/estimator#ESTIMATOR_LANE` `EstimatorFold.Receipt` so a non-converged fit lands as a `Fit` fact `ReceiptFolds.Nonconverged` reads back apart from the solver `Diverged` extraction and its fit-quality stays operator-visible through the fold rather than write-only on the carrier. `TensorRun.Partitions` makes a partitioned kernel operator-attributable on the existing receipt; spine fields serialize as Thinktecture key scalars and the format members make every receipt span-writable without runtime format strings.
+- Growth: a new measured concern is one case row on `ComputeReceipt` plus one `[JsonDerivedType]` row and one TS payload row, zero new surface; a discipline rail in another folder declares its case as a `partial` record on this owner (the `Analysis/assessment` `Assessment` case) while this owning index keeps the `[JsonDerivedType]` registration and the TS payload row so the polymorphic registry stays single-sited — the `[JsonDerivedType]` roster is the ONE primary correspondence: `ReceiptSurface.Kinds` projects it from the context's polymorphism metadata, the TS `ComputeReceiptKind` union generates from `Kinds` during descriptor emit under the suite schema hash, and `ReceiptSurface.Probe` proves roster-versus-case bijection at boot, so a parallel receipt union, a second discriminator registry, or a hand-maintained TS mirror that can silently go stale is the deleted form.
+- Boundary: receipts are HLC-correlated through the envelope and emit only through the sink-bound `ReceiptSurface`. `ReceiptScope.Execution` carries lane, substrate, allocation, and elapsed evidence, while `Process` carries only correlation and allocation; process facts never fabricate execution context or bypass the union. Every solver, statistical-learning, generative, residency, and allocation outcome rides this union. `Selection` projects ordered hops onto `SelectionDecision` and forced presence onto `SelectionMode`, avoiding parallel rosters and nullable policy. `Allocation` carries the complete `AllocationEvidence` projection, including typed `StagingEventKind`, requested/granted bytes, detail, allocator, reservation, and pool gauges. `Uncertainty` carries distribution moments, sensitivity indices, interactions, reliability search coordinates, and explicit null moments for methods that do not estimate them. `Factorization` optional wire evidence remains case-local. Spine values serialize as Thinktecture key scalars and format without runtime format strings.
 
 ```csharp signature
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+[JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
+[JsonDerivedType(typeof(Execution), "execution")]
+[JsonDerivedType(typeof(Process), "process")]
+public abstract partial record ReceiptScope {
+    private ReceiptScope() { }
+
+    public sealed record Execution(
+        CorrelationId Correlation,
+        WorkLane Lane,
+        Substrate Substrate,
+        AllocationClass AllocationClass,
+        Duration Elapsed) : ReceiptScope;
+
+    public sealed record Process(CorrelationId Correlation, AllocationClass AllocationClass) : ReceiptScope;
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+[JsonPolymorphic(TypeDiscriminatorPropertyName = "outcome")]
+[JsonDerivedType(typeof(Chosen), "chosen")]
+[JsonDerivedType(typeof(Rejected), "rejected")]
+public abstract partial record SelectionDecision {
+    private SelectionDecision() { }
+    public sealed record Chosen(Substrate Row) : SelectionDecision;
+    public sealed record Rejected(Substrate Row, string Reason) : SelectionDecision;
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+[JsonPolymorphic(TypeDiscriminatorPropertyName = "mode")]
+[JsonDerivedType(typeof(Ranked), "ranked")]
+[JsonDerivedType(typeof(Forced), "forced")]
+public abstract partial record SelectionMode {
+    private SelectionMode() { }
+    public sealed record Ranked : SelectionMode;
+    public sealed record Forced(Substrate Row) : SelectionMode;
+}
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
 [JsonDerivedType(typeof(Selection), "selection")]
@@ -54,17 +91,53 @@
 public abstract partial record ComputeReceipt : ISpanFormattable, IUtf8SpanFormattable {
     private ComputeReceipt() { }
 
-    public required CorrelationId Correlation { get; init; }
+    public required ReceiptScope Scope { get; init; }
 
-    public required WorkLane Lane { get; init; }
+    [JsonIgnore]
+    public CorrelationId Correlation => Scope.Switch(
+        execution: static execution => execution.Correlation,
+        process: static process => process.Correlation);
 
-    public required Substrate Substrate { get; init; }
+    [JsonIgnore]
+    public Option<WorkLane> Lane => Scope.Switch(
+        execution: static execution => Some(execution.Lane),
+        process: static _ => None);
 
-    public required AllocationClass AllocationClass { get; init; }
+    [JsonIgnore]
+    public Option<Substrate> Substrate => Scope.Switch(
+        execution: static execution => Some(execution.Substrate),
+        process: static _ => None);
 
-    public required Duration Elapsed { get; init; }
+    [JsonIgnore]
+    public AllocationClass AllocationClass => Scope.Switch(
+        execution: static execution => execution.AllocationClass,
+        process: static process => process.AllocationClass);
 
-    public sealed record Selection(Seq<string> Evaluated, Seq<string> Rejected, int FallbackHops, Substrate? Forced) : ComputeReceipt;
+    [JsonIgnore]
+    public Option<Duration> Elapsed => Scope.Switch(
+        execution: static execution => Some(execution.Elapsed),
+        process: static _ => None);
+
+    public sealed record Selection(Seq<SelectionDecision> Decisions, SelectionMode Mode, bool WarmAffinity) : ComputeReceipt {
+        public static Fin<Selection> Of(SelectionReceipt receipt, AdmittedIntent admitted, Duration elapsed) =>
+            receipt.Correlation != admitted.Correlation || elapsed < Duration.Zero
+                ? Fin.Fail<Selection>(new ComputeFault.EquivalenceMiss($"selection-context:{receipt.Correlation}:{admitted.Correlation}:{elapsed}"))
+                : Fin.Succ(new Selection(
+                receipt.Hops.Map(static hop => hop.Rejection.Match<SelectionDecision>(
+                    Some: reason => new SelectionDecision.Rejected(hop.Row, reason),
+                    None: () => new SelectionDecision.Chosen(hop.Row))),
+                receipt.Forced.Match<SelectionMode>(
+                    Some: static row => new SelectionMode.Forced(row),
+                    None: static () => new SelectionMode.Ranked()),
+                receipt.WarmAffinity) {
+                Scope = new ReceiptScope.Execution(
+                    receipt.Correlation,
+                    admitted.Spec.Lane,
+                    receipt.Route,
+                    admitted.Spec.Allocation,
+                    elapsed),
+            });
+    }
 
     public sealed record TensorRun(TensorOpFamily Family, string Dtype, long Elements, string SimdWidth, int Partitions) : ComputeReceipt;
 
@@ -78,7 +151,28 @@ public abstract partial record ComputeReceipt : ISpanFormattable, IUtf8SpanForma
 
     public sealed record StreamSegment(string ArtifactId, int Segments, long Bytes) : ComputeReceipt;
 
-    public sealed record Allocation(string Event, long Bytes, string? Reason) : ComputeReceipt;
+    public sealed record Allocation(
+        StagingEventKind Event,
+        long RequestedBytes,
+        long GrantedBytes,
+        string? Detail,
+        string? NativeAllocator,
+        long? NativeReservedBytes,
+        long? SmallPoolFreeBytes,
+        long? LargePoolFreeBytes) : ComputeReceipt {
+        public static Allocation Of(AllocationEvidence evidence) =>
+            new(
+                evidence.Kind,
+                evidence.RequestedBytes,
+                evidence.GrantedBytes,
+                evidence.Detail.Match(Some: static value => value, None: static () => null),
+                evidence.NativeAllocator.Match(Some: static value => value, None: static () => null),
+                evidence.NativeReservedBytes.Match<long?>(Some: static value => value, None: static () => null),
+                evidence.SmallPoolFreeBytes.Match<long?>(Some: static value => value, None: static () => null),
+                evidence.LargePoolFreeBytes.Match<long?>(Some: static value => value, None: static () => null)) {
+                Scope = new ReceiptScope.Process(evidence.Correlation, evidence.Class),
+            };
+    }
 
     public sealed record Copy(OrtResidency Gate, long Bytes, string Device) : ComputeReceipt;
 
@@ -114,30 +208,79 @@ public abstract partial record ComputeReceipt : ISpanFormattable, IUtf8SpanForma
 
     public sealed record Twin(string SignalId, double Predicted, double Measured, double Residual, bool Anomaly, double ControlDelta) : ComputeReceipt;
 
-    public sealed record Uncertainty(string Method, int Samples, double Mean, double Variance, Seq<double> Quantiles, Seq<double> SobolTotal, double FailureProbability, double ReliabilityIndex) : ComputeReceipt;
+    public sealed record Uncertainty(
+        string Method,
+        int Samples,
+        double? Mean,
+        double? Variance,
+        double? Skewness,
+        double? Kurtosis,
+        Seq<double> Quantiles,
+        Seq<double> SobolFirst,
+        Seq<double> SobolTotal,
+        Seq<double> Interaction,
+        Seq<double> MostProbablePoint,
+        double FailureProbability,
+        double ReliabilityIndex) : ComputeReceipt;
 
     public sealed record Fit(string Family, string Method, long Parameters, int Iterations, double Residual, bool Converged, double Quality, string QualityMetric, int RetainedRank) : ComputeReceipt;
 
     public string ToString(string? format, IFormatProvider? formatProvider) => ToString();
 
     public bool TryFormat(Span<char> destination, out int charsWritten, ReadOnlySpan<char> format, IFormatProvider? provider) =>
-        destination.TryWrite($"{Correlation}:{Lane}:{Substrate}:{Elapsed}", out charsWritten);
+        destination.TryWrite($"{Correlation}:{Lane.Map(static row => row.Key).IfNone("process")}:{Substrate.Map(static row => row.Key).IfNone("process")}:{Elapsed.Map(static value => value.ToString()).IfNone("process")}", out charsWritten);
 
     public bool TryFormat(Span<byte> utf8Destination, out int bytesWritten, ReadOnlySpan<char> format, IFormatProvider? provider) =>
-        Utf8.TryWrite(utf8Destination, $"{Correlation}:{Lane}:{Substrate}:{Elapsed}", out bytesWritten);
+        Utf8.TryWrite(utf8Destination, $"{Correlation}:{Lane.Map(static row => row.Key).IfNone("process")}:{Substrate.Map(static row => row.Key).IfNone("process")}:{Elapsed.Map(static value => value.ToString()).IfNone("process")}", out bytesWritten);
+}
+
+public sealed class Int64StringJsonConverter : JsonConverter<long> {
+    public override long Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        reader.TokenType == JsonTokenType.String && long.TryParse(reader.GetString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out long value)
+            ? value
+            : throw new JsonException("Expected an invariant Int64 string.");
+
+    public override void Write(Utf8JsonWriter writer, long value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(value.ToString(CultureInfo.InvariantCulture));
 }
 
 [JsonSourceGenerationOptions(
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
     UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
     RespectNullableAnnotations = true,
-    RespectRequiredConstructorParameters = true)]
+    RespectRequiredConstructorParameters = true,
+    Converters = [typeof(ThinktectureJsonConverterFactory), typeof(Int64StringJsonConverter)])]
 [JsonSerializable(typeof(ComputeReceipt))]
+[JsonSerializable(typeof(ReceiptScope))]
+[JsonSerializable(typeof(SelectionDecision))]
+[JsonSerializable(typeof(SelectionMode))]
 [JsonSerializable(typeof(BenchmarkClaim))]
+[JsonSerializable(typeof(BenchmarkInput))]
 [JsonSerializable(typeof(HostFingerprint))]
 public partial class ComputeWireContext : JsonSerializerContext;
 
-public static class ReceiptSurface {
+public sealed class ReceiptSurface(ReceiptSinkPort sink, ComputeWireContext wire) {
+    private static Seq<(Type Type, string Kind)> Rows =>
+        ComputeWireContext.Default.ComputeReceipt.PolymorphismOptions is { } options
+            ? toSeq(options.DerivedTypes).Choose(static row => row.TypeDiscriminator is string kind ? Some((row.DerivedType, kind)) : None)
+            : Seq<(Type, string)>();
+
+    public static Seq<string> Kinds => Rows.Map(static row => row.Kind);
+
+    public static Fin<Unit> Probe() {
+        FrozenSet<Type> cases = typeof(ComputeReceipt)
+            .GetNestedTypes(BindingFlags.Public | BindingFlags.NonPublic)
+            .Where(static nested => nested.IsAssignableTo(typeof(ComputeReceipt)) && !nested.IsAbstract)
+            .ToFrozenSet();
+        FrozenSet<Type> registered = Rows.Map(static row => row.Type).ToFrozenSet();
+        bool uniqueKinds = Kinds.ToFrozenSet(StringComparer.Ordinal).Count == Kinds.Count;
+        bool stringDiscriminators = ComputeWireContext.Default.ComputeReceipt.PolymorphismOptions is { } options
+            && options.DerivedTypes.Count == Rows.Count;
+        return stringDiscriminators && uniqueKinds && cases.SetEquals(registered)
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(ComputeFault.Create($"<kind-registry-drift:cases={cases.Count}:types={registered.Count}:kinds={Kinds.Count}>"));
+    }
+
     public static readonly Seq<InstrumentRow> Instruments = Seq(
         new InstrumentRow(TelemetrySource.Compute, "rasm.compute.receipts.emitted", "{receipt}", "receipts emitted through the sink port",
             static (meter, name, unit, text) => meter.CreateCounter<long>(name, unit, text)),
@@ -164,11 +307,9 @@ public static class ReceiptSurface {
 
     public static TelemetryContributorPort Telemetry(string version) => new(TelemetrySource.Compute, version, Instruments);
 
-    extension(ComputeReceipt fact) {
-        public IO<ReceiptEnvelope> Emit(ReceiptSinkPort sink, JsonSerializerOptions wire) =>
-            IO.lift(() => JsonSerializer.SerializeToElement(fact, typeof(ComputeReceipt), wire))
-                .Bind(payload => sink.Send(fact.Correlation, TenantContext.Current, "Rasm.Compute", payload.GetProperty("kind").ToString(), payload));
-    }
+    public IO<ReceiptEnvelope> Emit(ComputeReceipt fact) =>
+        IO.lift(() => JsonSerializer.SerializeToElement(fact, wire.ComputeReceipt))
+            .Bind(payload => sink.Send(fact.Correlation, TenantContext.Current, TelemetrySource.Compute.Key, payload.GetProperty("kind").ToString(), payload));
 }
 ```
 
@@ -179,34 +320,45 @@ public static class ReceiptSurface {
 - Auto: per-lane counts, route histograms, hot-path totals, leak indicators, conflict evidence, solver-divergence and twin-anomaly extractions, numeric-provider attribution, residency-gate crossings, and provenance chains derive on read from the identical stream the dashboards consume.
 - Packages: LanguageExt.Core, NodaTime, BCL inbox
 - Growth: a new operational view is one fold member row over the same fact stream, zero new surface.
-- Boundary: leak indicators read the double-dispose and finalized allocation events as diagnostics, never log noise; `DiscardTaxonomy` folds the stream-pool `BufferDiscardedEventArgs.Reason` (carried on `Allocation.Reason`) into a reason-keyed count so an `EnoughFree`-dominant tally reads as caps-below-workload and an oversize-dominant tally as payloads-exceeding-`MaximumBufferSize` — opposite tuning moves the fold separates, never a merged counter. Every rich per-lane extraction (`Diverged`/`Nonconverged` splitting solver stalls from statistical-learning stalls, `Anomalies`, `Providers`, `Crossings`) reads its evidence back through a fold rather than letting it die write-only on the receipt; a mutable accumulator, a per-view repository, and a second fact stream are the deleted forms.
+- Boundary: leak indicators read `StagingEventKind.StreamDoubleDisposed` and `StreamFinalized`, while `Diagnostics` reads the row's `Diagnostic` column. `DiscardTaxonomy` folds `BufferDiscarded` detail into a reason-keyed count. Execution projections choose only facts carrying their `Option` spine values; process-scoped allocation evidence remains in provenance and diagnostic folds without a fabricated lane or route. Mutable accumulators, per-view repositories, and second fact streams reject.
 
 ```csharp signature
 public static class ReceiptFolds {
     extension(Seq<ComputeReceipt> facts) {
-        public HashMap<WorkLane, int> LaneCounts =>
-            facts.Fold(HashMap<WorkLane, int>(), static (acc, fact) => acc.AddOrUpdate(fact.Lane, static n => n + 1, 1));
+        public HashMap<WorkLane, long> LaneCounts =>
+            facts.Choose(static fact => fact.Lane.Map(lane => (Lane: lane, Count: 1L)))
+                .Fold(HashMap<WorkLane, long>(), static (acc, row) => acc.AddOrUpdate(row.Lane, static count => count + 1L, row.Count));
 
-        public HashMap<Substrate, int> RouteHistogram =>
-            facts.Fold(HashMap<Substrate, int>(), static (acc, fact) => acc.AddOrUpdate(fact.Substrate, static n => n + 1, 1));
+        public HashMap<Substrate, long> RouteHistogram =>
+            facts.Choose(static fact => fact.Substrate.Map(route => (Route: route, Count: 1L)))
+                .Fold(HashMap<Substrate, long>(), static (acc, row) => acc.AddOrUpdate(row.Route, static count => count + 1L, row.Count));
 
         public HashMap<Substrate, Duration> HotPathTotals =>
-            facts.Fold(HashMap<Substrate, Duration>(), static (acc, fact) => acc.AddOrUpdate(fact.Substrate, total => total + fact.Elapsed, fact.Elapsed));
+            facts.Choose(static fact => fact.Substrate.Bind(route => fact.Elapsed.Map(elapsed => (Route: route, Elapsed: elapsed))))
+                .Fold(HashMap<Substrate, Duration>(), static (acc, row) => acc.AddOrUpdate(row.Route, total => total + row.Elapsed, row.Elapsed));
 
         public Seq<ComputeReceipt.Allocation> Leaks =>
-            facts.Bind(static fact => fact is ComputeReceipt.Allocation { Event: "double-dispose" or "finalized" } leak
-                ? Seq(leak)
+            facts.Bind(static fact => fact is ComputeReceipt.Allocation allocation
+                && (allocation.Event == StagingEventKind.StreamDoubleDisposed || allocation.Event == StagingEventKind.StreamFinalized)
+                ? Seq(allocation)
                 : Seq<ComputeReceipt.Allocation>());
 
-        public HashMap<string, int> DiscardTaxonomy =>
-            facts.Fold(HashMap<string, int>(), static (acc, fact) =>
-                fact is ComputeReceipt.Allocation { Event: "discard", Reason: { } reason }
-                    ? acc.AddOrUpdate(reason, static n => n + 1, 1)
-                    : acc);
+        public Seq<ComputeReceipt.Allocation> Diagnostics =>
+            facts.Bind(static fact => fact is ComputeReceipt.Allocation { Event: { Diagnostic: true } } diagnostic
+                ? Seq(diagnostic)
+                : Seq<ComputeReceipt.Allocation>());
 
-        public HashMap<OrtResidency, int> Crossings =>
-            facts.Fold(HashMap<OrtResidency, int>(), static (acc, fact) =>
-                fact is ComputeReceipt.Copy crossing ? acc.AddOrUpdate(crossing.Gate, static n => n + 1, 1) : acc);
+        public HashMap<string, long> DiscardTaxonomy =>
+            facts.Choose(static fact => fact is ComputeReceipt.Allocation allocation
+                    && allocation.Event == StagingEventKind.BufferDiscarded
+                    && allocation.Detail is string reason
+                    ? Some(reason)
+                    : None)
+                .Fold(HashMap<string, long>(), static (acc, reason) => acc.AddOrUpdate(reason, static count => count + 1L, 1L));
+
+        public HashMap<OrtResidency, long> Crossings =>
+            facts.Fold(HashMap<OrtResidency, long>(), static (acc, fact) =>
+                fact is ComputeReceipt.Copy crossing ? acc.AddOrUpdate(crossing.Gate, static count => count + 1L, 1L) : acc);
 
         public Seq<ComputeReceipt.Conflict> Conflicts =>
             facts.Bind(static fact => fact is ComputeReceipt.Conflict conflict ? Seq(conflict) : Seq<ComputeReceipt.Conflict>());
@@ -220,9 +372,9 @@ public static class ReceiptFolds {
         public Seq<ComputeReceipt.Twin> Anomalies =>
             facts.Bind(static fact => fact is ComputeReceipt.Twin { Anomaly: true } flagged ? Seq(flagged) : Seq<ComputeReceipt.Twin>());
 
-        public HashMap<string, int> Providers =>
-            facts.Fold(HashMap<string, int>(), static (acc, fact) =>
-                fact is ComputeReceipt.Factorization factorization ? acc.AddOrUpdate(factorization.Provider, static n => n + 1, 1) : acc);
+        public HashMap<string, long> Providers =>
+            facts.Fold(HashMap<string, long>(), static (acc, fact) =>
+                fact is ComputeReceipt.Factorization factorization ? acc.AddOrUpdate(factorization.Provider, static count => count + 1L, 1L) : acc);
 
         public HashMap<CorrelationId, Seq<ComputeReceipt>> Provenance =>
             facts.Fold(HashMap<CorrelationId, Seq<ComputeReceipt>>(), static (acc, fact) => acc.AddOrUpdate(fact.Correlation, chain => chain.Add(fact), Seq(fact)));
@@ -286,19 +438,18 @@ public static class WireStamps {
 
 ## [05]-[BENCHMARK_CLAIMS]
 
-- Owner: `BenchmarkClaim`, `HostFingerprint` — the input-class claim row and the host identity that gates it; a claim is a row, never prose.
-- Cases: micro · small · medium · large payload-size bands, declared as the `Bands` rows.
+- Owner: `BenchmarkInput`, `BenchmarkClaim`, `HostFingerprint` — the admitted tensor-shape/stride/density class, measured claim row, and effective-host identity that gates it; a claim is data, never prose.
 - Entry: `public Option<BenchmarkRow> Claim(Seq<BenchmarkRow> rows)` — `Option` carries fingerprint admission; `None` is the fall-through to the static cost rank on the substrate row.
-- Auto: `BandOf` classifies payload bytes onto the band rows; `Persist` projects the claim onto the persisted benchmark row; `Stale` derives from stamp drift so any admitted-package bump marks dependent claims stale as operator-visible evidence; `Sweep` registers the compute-equivalence-sweep cadence row whose runs execute on the `WorkLane.Benchmark` row.
+- Auto: `BenchmarkInput.Admit` validates payload size, dtype, shape, strides, batch, and density, derives rank and contiguity, and classifies the payload band. `Key` includes the full input class, route, provider, and tolerance class. `Persist` projects the claim onto the persisted row; `Stale` compares the full effective fingerprint, including container-limited processors. `Sweep` registers the equivalence cadence row on `WorkLane.Benchmark`.
 - Receipt: every sweep run emits `TensorRun`/`ModelRun` receipts beside the persisted row; artifacts — chrome-trace profiles, BenchmarkDotNet exports, EP-context caches — land as `ArtifactIndexRow` paths on the blob lane and ride the `Artifacts` rows on the claim.
 - Packages: BenchmarkDotNet, NodaTime, LanguageExt.Core, Rasm.AppHost (project), Rasm.Persistence (project), BCL inbox
 - Growth: a new performance surface is one claim row; a new claim dimension is one column on `BenchmarkClaim`; zero new surface.
-- Boundary: the claim-gate law — a SIMD default route, compression enable, ParallelHelper partitioning, a DATAS knob, or a numeric BLAS provider rank (managed vs native-openblas) binds only behind a winning claim row whose fingerprint matches the running host; the `Provider` column carries the winning numeric-lane `LinearProvider` key so a native-BLAS selection is fingerprint-gated exactly like a SIMD route and the `Substrate` column stays the substrate discriminant; the `LinearProvider.DeterminismTag` (active `ILinearAlgebraProvider` type plus degree-of-parallelism) enters the `HostFingerprint.Stamps` map as a `blas-provider` stamp, so a provider swap or a degree-of-parallelism change marks dependent claims `Stale` through the same `StampLine` comparison that catches an admitted-package bump — a benchmark claimed under managed never wins on a host that resolved native-MKL because the determinism tag drifts the fingerprint, and the provider tag is the bridge between the benchmark gate and the numeric-lane `SolveDedupKey` so the speed claim and the result-cache key partition on the same provider identity; tolerance classes arrive settled from the operation-family rows and loosening one to pass equivalence is the named production-slack defect; `Claim` resolves the most-recent fingerprint-matching `BenchmarkRow` against the recency horizon read by reference from the Persistence `ModelResultIndex` index owner — the single horizon owner — so a stale benchmark never wins and Compute never mints a second `Duration horizon` beside the claim; a second benchmark store, BenchmarkDotNet profiler add-ons, and prose performance claims are the rejected forms.
+- Boundary: SIMD routes, compression, partitioning, DATAS values, and numeric-provider ranks bind only behind a winning claim whose full fingerprint and input class match. `Provider` carries the numeric-lane key while `Substrate` remains the execution discriminant. `Stamps` includes the provider determinism tag, admitted package versions, device identity, and runtime posture; `Processors` uses `CpuBudget.Total`, never ambient host count under a container limit. Shape, strides, batch, density, route, and tolerance participate in identity, preventing a contiguous micro-vector claim from winning for a strided batched tensor. Samples, warmups, mean, deviation, median, and P95 remain claim evidence while Persistence owns recency.
 
 ```csharp signature
 public sealed record HostFingerprint(string Os, string Arch, int Processors, FrozenDictionary<string, string> Stamps) : ISpanFormattable, IUtf8SpanFormattable {
-    public static HostFingerprint Current(FrozenDictionary<string, string> stamps) =>
-        new(RuntimeInformation.OSDescription, RuntimeInformation.ProcessArchitecture.ToString(), Environment.ProcessorCount, stamps);
+    public static HostFingerprint Current(FrozenDictionary<string, string> stamps, CpuBudget budget) =>
+        new(RuntimeInformation.OSDescription, RuntimeInformation.ProcessArchitecture.ToString(), budget.Total, stamps);
 
     public Option<BenchmarkRow> Claim(Seq<BenchmarkRow> rows) => BenchmarkRow.Claim(rows, ToString());
 
@@ -316,21 +467,113 @@ public sealed record HostFingerprint(string Os, string Arch, int Processors, Fro
         Utf8.TryWrite(utf8Destination, $"{Os}|{Arch}|{Processors}|{StampLine()}", out bytesWritten);
 }
 
-public sealed record BenchmarkClaim(
-    string Band,
-    string Dtype,
-    Substrate Substrate,
-    string Family,
-    string Route,
-    string Provider,
-    Duration Median,
-    Duration P95,
-    long AllocatedBytes,
-    double EquivalenceMaxDeviation,
-    string ToleranceClass,
-    HostFingerprint Fingerprint,
-    Seq<string> Artifacts,
-    Instant At) {
+public sealed record BenchmarkInput {
+    private BenchmarkInput(long payloadBytes, string band, string dtype, Seq<long> shape, Seq<long> strides, int batch, double density) {
+        PayloadBytes = payloadBytes;
+        Band = band;
+        Dtype = dtype;
+        Shape = shape;
+        Strides = strides;
+        Batch = batch;
+        Density = density;
+    }
+
+    public long PayloadBytes { get; }
+    public string Band { get; }
+    public string Dtype { get; }
+    public Seq<long> Shape { get; }
+    public Seq<long> Strides { get; }
+    public int Batch { get; }
+    public double Density { get; }
+    public int Rank => Shape.Count;
+    public bool Contiguous => ContiguousShape(Shape, Strides);
+
+    public static Fin<BenchmarkInput> Admit(long payloadBytes, string dtype, Seq<long> shape, Seq<long> strides, int batch, double density) {
+        Seq<string> violations =
+            (payloadBytes < 0L ? Seq("payload") : Seq<string>())
+            + (string.IsNullOrWhiteSpace(dtype) ? Seq("dtype") : Seq<string>())
+            + (shape.IsEmpty || shape.Exists(static dimension => dimension <= 0L) ? Seq("shape") : Seq<string>())
+            + (shape.Count != strides.Count || strides.Exists(static stride => stride <= 0L) ? Seq("strides") : Seq<string>())
+            + (!ExtentFits(shape) ? Seq("extent") : Seq<string>())
+            + (batch <= 0 ? Seq("batch") : Seq<string>())
+            + (!double.IsFinite(density) || density is <= 0d or > 1d ? Seq("density") : Seq<string>());
+        return violations.IsEmpty
+            ? Fin.Succ(new BenchmarkInput(payloadBytes, BenchmarkClaim.BandOf(payloadBytes), dtype, shape, strides, batch, density))
+            : Fin.Fail<BenchmarkInput>(new ComputeFault.PayloadOverBounds($"benchmark-input:{string.Join(',', violations)}"));
+    }
+
+    public string Key() =>
+        string.Create(CultureInfo.InvariantCulture, $"{Band}|{Dtype}|{string.Join("x", Shape)}|{string.Join("x", Strides)}|{Batch}|{Density:R}");
+
+    private static bool ExtentFits(Seq<long> shape) =>
+        Try.lift(() => shape.Fold(1L, static (extent, dimension) => checked(extent * dimension))).Run()
+            .Match(Succ: static _ => true, Fail: static _ => false);
+
+    private static bool ContiguousShape(Seq<long> shape, Seq<long> strides) =>
+        Try.lift(() => shape.Rev().Zip(strides.Rev())
+            .Fold(
+                (Expected: 1L, Valid: true),
+                static (state, axis) => (checked(state.Expected * axis.Item1), state.Valid && axis.Item2 == state.Expected))
+            .Valid).Run()
+            .Match(Succ: static valid => valid, Fail: static _ => false);
+}
+
+public sealed record BenchmarkClaim {
+    private BenchmarkClaim(
+        BenchmarkInput input,
+        Substrate substrate,
+        string family,
+        string route,
+        string provider,
+        Duration mean,
+        Duration median,
+        Duration p95,
+        Duration stdDev,
+        int samples,
+        int warmups,
+        long allocatedBytes,
+        double equivalenceMaxDeviation,
+        string toleranceClass,
+        HostFingerprint fingerprint,
+        Seq<string> artifacts,
+        Instant at) {
+        Input = input;
+        Substrate = substrate;
+        Family = family;
+        Route = route;
+        Provider = provider;
+        Mean = mean;
+        Median = median;
+        P95 = p95;
+        StdDev = stdDev;
+        Samples = samples;
+        Warmups = warmups;
+        AllocatedBytes = allocatedBytes;
+        EquivalenceMaxDeviation = equivalenceMaxDeviation;
+        ToleranceClass = toleranceClass;
+        Fingerprint = fingerprint;
+        Artifacts = artifacts;
+        At = at;
+    }
+
+    public BenchmarkInput Input { get; }
+    public Substrate Substrate { get; }
+    public string Family { get; }
+    public string Route { get; }
+    public string Provider { get; }
+    public Duration Mean { get; }
+    public Duration Median { get; }
+    public Duration P95 { get; }
+    public Duration StdDev { get; }
+    public int Samples { get; }
+    public int Warmups { get; }
+    public long AllocatedBytes { get; }
+    public double EquivalenceMaxDeviation { get; }
+    public string ToleranceClass { get; }
+    public HostFingerprint Fingerprint { get; }
+    public Seq<string> Artifacts { get; }
+    public Instant At { get; }
+
     public static readonly Seq<(string Band, long MaxBytes)> Bands = Seq(
         ("micro", 4L << 10),
         ("small", 256L << 10),
@@ -343,11 +586,47 @@ public sealed record BenchmarkClaim(
     public static ScheduleEntry Sweep(Func<IO<Unit>> work) =>
         new("compute-equivalence-sweep", new OccurrenceSpec.Every(Duration.FromDays(7)), DeadlineClass.SupportWindow, None, work);
 
-    public string Key() => string.Create(CultureInfo.InvariantCulture, $"{Band}|{Dtype}|{Substrate}|{Family}|{Provider}");
+    public static Fin<BenchmarkClaim> Admit(
+        BenchmarkInput input,
+        Substrate substrate,
+        string family,
+        string route,
+        string provider,
+        Duration mean,
+        Duration median,
+        Duration p95,
+        Duration stdDev,
+        int samples,
+        int warmups,
+        long allocatedBytes,
+        double equivalenceMaxDeviation,
+        string toleranceClass,
+        HostFingerprint fingerprint,
+        Seq<string> artifacts,
+        Instant at) {
+        Seq<string> violations =
+            (string.IsNullOrWhiteSpace(family) ? Seq("family") : Seq<string>())
+            + (string.IsNullOrWhiteSpace(route) ? Seq("route") : Seq<string>())
+            + (string.IsNullOrWhiteSpace(provider) ? Seq("provider") : Seq<string>())
+            + (mean < Duration.Zero || median < Duration.Zero || p95 < median || stdDev < Duration.Zero ? Seq("distribution") : Seq<string>())
+            + (samples < 2 || warmups < 0 ? Seq("protocol") : Seq<string>())
+            + (allocatedBytes < 0L ? Seq("allocation") : Seq<string>())
+            + (!double.IsFinite(equivalenceMaxDeviation) || equivalenceMaxDeviation < 0d ? Seq("equivalence") : Seq<string>())
+            + (string.IsNullOrWhiteSpace(toleranceClass) ? Seq("tolerance") : Seq<string>())
+            + (fingerprint.Processors <= 0 ? Seq("fingerprint") : Seq<string>())
+            + (artifacts.Exists(string.IsNullOrWhiteSpace) ? Seq("artifact") : Seq<string>());
+        return violations.IsEmpty
+            ? Fin.Succ(new BenchmarkClaim(
+                input, substrate, family, route, provider, mean, median, p95, stdDev, samples, warmups,
+                allocatedBytes, equivalenceMaxDeviation, toleranceClass, fingerprint, artifacts, at))
+            : Fin.Fail<BenchmarkClaim>(new ComputeFault.EquivalenceMiss($"benchmark-claim:{string.Join(',', violations)}"));
+    }
+
+    public string Key() => string.Create(CultureInfo.InvariantCulture, $"{Input.Key()}|{Substrate.Key}|{Family}|{Route}|{Provider}|{ToleranceClass}");
 
     public BenchmarkRow Persist() => new(Key(), Route, Median, P95, AllocatedBytes, Fingerprint.ToString(), BenchmarkRow.BenchmarkRowClass, At);
 
-    public bool Stale(HostFingerprint current) => !StringComparer.Ordinal.Equals(Fingerprint.StampLine(), current.StampLine());
+    public bool Stale(HostFingerprint current) => !StringComparer.Ordinal.Equals(Fingerprint.ToString(), current.ToString());
 }
 ```
 
@@ -356,7 +635,7 @@ public sealed record BenchmarkClaim(
 - Owner: `ComputeReceiptKind`, `ComputeReceiptSpineWire`, `ComputeReceiptWire`, `ComputeReceiptEnvelopeWire`, `HostFingerprintWire`, `BenchmarkClaimWire` — the receipt payload union and the claim row as the dashboard consumes them.
 - Packages: BCL inbox
 - Growth: a new receipt case lands as one payload row on `ComputeReceiptWire`, zero new surface.
-- Boundary: payloads bind as `TPayload` through `ReceiptEnvelopeWire` with the envelope `kind` mirroring the payload discriminator; smart-enum spine fields cross as their key scalars; `Instant` and `Duration` values cross as ISO-8601 and roundtrip-pattern strings; absent evidence crosses as explicit null, never as an omitted member.
+- Boundary: `ComputeReceiptKind` is a generated projection of `ReceiptSurface.Kinds` — emitted during the descriptor build and gated by the suite schema hash, never a hand-maintained mirror; payloads bind as `TPayload` through `ReceiptEnvelopeWire` with the envelope `kind` mirroring the payload discriminator; smart-enum spine fields cross as their key scalars; `long` values cross as invariant decimal strings through `Int64StringJsonConverter`, while `Instant` and `Duration` cross as ISO-8601 and roundtrip-pattern strings; absent evidence crosses as explicit null, never as an omitted member.
 
 ```ts signature
 type ComputeReceiptKind =
@@ -365,27 +644,33 @@ type ComputeReceiptKind =
   | "factorization" | "generate"
   | "discretization" | "solve" | "optimization" | "sweep" | "clash" | "twin" | "uncertainty" | "fit" | "assessment";
 
-interface ComputeReceiptSpineWire { kind: ComputeReceiptKind; correlation: string; lane: string; substrate: string; allocationClass: string; elapsed: string; }
+type ReceiptScopeWire =
+  | { kind: "execution"; correlation: string; lane: string; substrate: string; allocationClass: string; elapsed: string }
+  | { kind: "process"; correlation: string; allocationClass: string };
 
-interface SelectionWire extends ComputeReceiptSpineWire { kind: "selection"; evaluated: string[]; rejected: string[]; fallbackHops: number; forced: string | null; }
+interface ComputeReceiptSpineWire { kind: ComputeReceiptKind; scope: ReceiptScopeWire; }
 
-interface TensorRunWire extends ComputeReceiptSpineWire { kind: "tensor-run"; family: string; dtype: string; elements: number; simdWidth: string; partitions: number; }
+type SelectionDecisionWire = { outcome: "chosen"; row: string } | { outcome: "rejected"; row: string; reason: string };
+type SelectionModeWire = { mode: "ranked" } | { mode: "forced"; row: string };
+interface SelectionWire extends ComputeReceiptSpineWire { kind: "selection"; decisions: SelectionDecisionWire[]; mode: SelectionModeWire; warmAffinity: boolean; }
 
-interface ModelLoadWire extends ComputeReceiptSpineWire { kind: "model-load"; modelChecksum: string; source: string; ep: string; version: number; }
+interface TensorRunWire extends ComputeReceiptSpineWire { kind: "tensor-run"; family: string; dtype: string; elements: string; simdWidth: string; partitions: number; }
+
+interface ModelLoadWire extends ComputeReceiptSpineWire { kind: "model-load"; modelChecksum: string; source: string; ep: string; version: string; }
 
 interface WarmupWire extends ComputeReceiptSpineWire { kind: "warmup"; modelChecksum: string; ep: string; shape: string; }
 
-interface ModelRunWire extends ComputeReceiptSpineWire { kind: "model-run"; modelChecksum: string; ep: string; mode: string; batchSize: number; peakBytes: number; arenaAllocator: string | null; profileArtifact: string | null; }
+interface ModelRunWire extends ComputeReceiptSpineWire { kind: "model-run"; modelChecksum: string; ep: string; mode: string; batchSize: number; peakBytes: string; arenaAllocator: string | null; profileArtifact: string | null; }
 
-interface RemoteCallWire extends ComputeReceiptSpineWire { kind: "remote-call"; transport: string; method: string; status: string; requestBytes: number; responseBytes: number; outcome: string; }
+interface RemoteCallWire extends ComputeReceiptSpineWire { kind: "remote-call"; transport: string; method: string; status: string; requestBytes: string; responseBytes: string; outcome: string; }
 
-interface StreamSegmentWire extends ComputeReceiptSpineWire { kind: "stream-segment"; artifactId: string; segments: number; bytes: number; }
+interface StreamSegmentWire extends ComputeReceiptSpineWire { kind: "stream-segment"; artifactId: string; segments: number; bytes: string; }
 
-interface AllocationWire extends ComputeReceiptSpineWire { kind: "allocation"; event: string; bytes: number; reason: string | null; }
+interface AllocationWire extends ComputeReceiptSpineWire { kind: "allocation"; event: string; requestedBytes: string; grantedBytes: string; detail: string | null; nativeAllocator: string | null; nativeReservedBytes: string | null; smallPoolFreeBytes: string | null; largePoolFreeBytes: string | null; }
 
-interface CopyWire extends ComputeReceiptSpineWire { kind: "copy"; gate: string; bytes: number; device: string; }
+interface CopyWire extends ComputeReceiptSpineWire { kind: "copy"; gate: string; bytes: string; device: string; }
 
-interface CacheWire extends ComputeReceiptSpineWire { kind: "cache"; outcome: "hit" | "miss" | "store" | "evict"; key: string; bytes: number; }
+interface CacheWire extends ComputeReceiptSpineWire { kind: "cache"; outcome: "hit" | "miss" | "store" | "evict"; key: string; bytes: string; }
 
 interface UnitProjectionWire extends ComputeReceiptSpineWire { kind: "unit-projection"; family: string; originalUnit: string; originalValue: number; canonicalValue: number; }
 
@@ -395,25 +680,25 @@ interface DrainWire extends ComputeReceiptSpineWire { kind: "drain"; drained: nu
 
 interface ConflictWire extends ComputeReceiptSpineWire { kind: "conflict"; subject: "retry-owner" | "contract-checksum"; evidence: string; }
 
-interface FactorizationWire extends ComputeReceiptSpineWire { kind: "factorization"; provider: string; decomposition: string; rows: number; cols: number; nnz: number; format: string; routeVariant: string | null; determinismTag: string | null; symbolicFill: number | null; residualCap: number | null; trueResidual: number | null; }
+interface FactorizationWire extends ComputeReceiptSpineWire { kind: "factorization"; provider: string; decomposition: string; rows: number; cols: number; nnz: string; format: string; routeVariant: string | null; determinismTag: string | null; symbolicFill: number | null; residualCap: number | null; trueResidual: number | null; }
 
 interface GenerateWire extends ComputeReceiptSpineWire { kind: "generate"; modelChecksum: string; ep: string; modelType: string; tokens: number; tokensPerSecond: number; guidanceKind: string; constrainedTokens: number; toolCalls: number; }
 
-interface DiscretizationWire extends ComputeReceiptSpineWire { kind: "discretization"; algorithm: string; element: string; nodes: number; elements: number; boundaryLayers: number; refineLevel: number; worstQuality: number; metric: string; }
+interface DiscretizationWire extends ComputeReceiptSpineWire { kind: "discretization"; algorithm: string; element: string; nodes: string; elements: string; boundaryLayers: number; refineLevel: number; worstQuality: number; metric: string; }
 
-interface SolveWire extends ComputeReceiptSpineWire { kind: "solve"; physics: string; method: string; dofs: number; iterations: number; residual: number; converged: boolean; }
+interface SolveWire extends ComputeReceiptSpineWire { kind: "solve"; physics: string; method: string; dofs: string; iterations: number; residual: number; converged: boolean; }
 
 interface OptimizationWire extends ComputeReceiptSpineWire { kind: "optimization"; optimizer: string; generations: number; evaluations: number; surrogateHits: number; frontSize: number; hypervolume: number; }
 
-interface SweepWire extends ComputeReceiptSpineWire { kind: "sweep"; gridPoints: number; completed: number; onFront: number; dominated: number; }
+interface SweepWire extends ComputeReceiptSpineWire { kind: "sweep"; gridPoints: string; completed: number; onFront: number; dominated: number; }
 
 interface ClashWire extends ComputeReceiptSpineWire { kind: "clash"; indexKind: "bvh" | "octree" | "sdf"; candidates: number; hardClashes: number; clearanceViolations: number; totalPairs: number; }
 
 interface TwinWire extends ComputeReceiptSpineWire { kind: "twin"; signalId: string; predicted: number; measured: number; residual: number; anomaly: boolean; controlDelta: number; }
 
-interface UncertaintyWire extends ComputeReceiptSpineWire { kind: "uncertainty"; method: string; samples: number; mean: number; variance: number; quantiles: number[]; sobolTotal: number[]; failureProbability: number; reliabilityIndex: number; }
+interface UncertaintyWire extends ComputeReceiptSpineWire { kind: "uncertainty"; method: string; samples: number; mean: number | null; variance: number | null; skewness: number | null; kurtosis: number | null; quantiles: number[]; sobolFirst: number[]; sobolTotal: number[]; interaction: number[]; mostProbablePoint: number[]; failureProbability: number; reliabilityIndex: number; }
 
-interface FitWire extends ComputeReceiptSpineWire { kind: "fit"; family: string; method: string; parameters: number; iterations: number; residual: number; converged: boolean; quality: number; qualityMetric: string; retainedRank: number; }
+interface FitWire extends ComputeReceiptSpineWire { kind: "fit"; family: string; method: string; parameters: string; iterations: number; residual: number; converged: boolean; quality: number; qualityMetric: string; retainedRank: number; }
 
 interface AssessmentWire extends ComputeReceiptSpineWire { kind: "assessment"; discipline: string; route: string; key: string; verdict: string; governingRatio: number; admitted: boolean; phase: string | null; failureKind: string | null; transient: boolean; attempt: number; participation: number | null; combination: string | null; }
 
@@ -426,7 +711,9 @@ type ComputeReceiptEnvelopeWire = ReceiptEnvelopeWire<ComputeReceiptWire>;
 
 interface HostFingerprintWire { os: string; arch: string; processors: number; stamps: Record<string, string>; }
 
-interface BenchmarkClaimWire { band: "micro" | "small" | "medium" | "large"; dtype: string; substrate: string; family: string; route: string; provider: string; median: string; p95: string; allocatedBytes: number; equivalenceMaxDeviation: number; toleranceClass: string; fingerprint: HostFingerprintWire; artifacts: string[]; at: string; }
+interface BenchmarkInputWire { payloadBytes: string; band: "micro" | "small" | "medium" | "large"; dtype: string; shape: string[]; strides: string[]; batch: number; density: number; rank: number; contiguous: boolean; }
+
+interface BenchmarkClaimWire { input: BenchmarkInputWire; substrate: string; family: string; route: string; provider: string; mean: string; median: string; p95: string; stdDev: string; samples: number; warmups: number; allocatedBytes: string; equivalenceMaxDeviation: number; toleranceClass: string; fingerprint: HostFingerprintWire; artifacts: string[]; at: string; }
 ```
 
 ## [07]-[RESEARCH]
@@ -435,5 +722,4 @@ interface BenchmarkClaimWire { band: "micro" | "small" | "medium" | "large"; dty
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 
-- [WIRE_EMISSION]-[OPEN]: does the merged resolver chain order `ComputeWireContext` after the Thinktecture key-scalar resolver so the polymorphic `kind` discriminator and every smart-enum spine field round-trip to the identical case, and do `Seq<string>` members on `Selection` survive the merge without a LanguageExt-collection `JsonConverter`; implementation-time round-trip against the merged `JsonSerializerOptions`.
-- [CALENDAR_BRIDGE]-[OPEN]: which `Google.Type.Date`/`TimeOfDay`/`DayOfWeek` types, carrying assembly, and `ToDate`/`ToLocalDate`/`ToTimeOfDay`/`ToLocalTime`/`ToProtobufDayOfWeek`/`ToIsoDayOfWeek` members do the calendar wire-stamp columns bind; `libs/csharp/.api` NodaTime.Serialization.Protobuf catalogue.
+(none)

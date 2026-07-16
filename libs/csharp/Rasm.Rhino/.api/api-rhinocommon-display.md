@@ -53,7 +53,7 @@ The `Rhino.Display` boundary owns everything between document geometry and pixel
 [PUBLIC_TYPE_SCOPE]: draw appearance, effect, and attribute vocabulary
 - rail: host-boundary display
 
-`DisplayPen` constructs through `FromLinetype(Linetype, Color[, double])`; `CapStyle`/`JoinStyle`, `SetPattern(IEnumerable<float> dashesAndGaps)`, `HaloThickness`/`HaloColor`, `SetTaper`, `ThicknessSpace`, and `PatternAutoscale`/`PatternScale`/`PatternLengthInWorldUnits` own its stroke. `DisplayPipelineAttributes` carries `ShowEdges`/`ShowCreases`/`ShowSeams`/`ShowSilhouttes`/`ShowIntersections`/`ShowHiddenLines`/`ShowLighting`.
+`DisplayPen` constructs through `FromLinetype(Linetype, Color[, double])`; `CapStyle`/`JoinStyle`, `SetPattern(IEnumerable<float> dashesAndGaps)` (eight entries maximum), `HaloThickness`/`HaloColor`, `SetTaper(float startThickness, float endThickness, Point2f taperPoint)`, `ThicknessSpace`, and `PatternAutoscale`/`PatternScale`/`PatternOffset`/`PatternBySegment`/`PatternLengthInWorldUnits` own its stroke. `DisplayPipelineAttributes` carries `ShowEdges`/`ShowCreases`/`ShowSeams`/`ShowSilhouttes`/`ShowIntersections`/`ShowHiddenLines`/`ShowLighting`.
 
 `DisplayMaterial` carries diffuse, specular, emission, and transparency channels. `DisplayBitmap` draws as a screen or world sprite; `LineCapStyle` carries `Round`/`Flat`/`Square`, and `LineJoinStyle` carries `Round`/`Miter`/`Bevel`.
 
@@ -85,8 +85,9 @@ The `Rhino.Display` boundary owns everything between document geometry and pixel
 |  [02]   | `VisualAnalysisMode`  | analysis overlay | per-object false-color mesh    |
 |  [03]   | `ViewCapture`         | capture facade   | settings-driven capture egress |
 |  [04]   | `ViewCaptureSettings` | capture spec     | capture-layout mapping         |
+|  [05]   | `ZBufferCapture`      | depth capture    | per-pixel z-buffer field       |
 
-`ViewCaptureSettings` owns media size, layout, margins, model scale, color mode, and view-area window mapping.
+`ViewCaptureSettings` owns media size, layout, margins, model scale, color mode, and view-area window mapping. `ZBufferCapture` is the `IDisposable` per-viewport depth-buffer capsule — channel toggles, per-pixel depth reads, screen-to-world recovery, and a grayscale rendering.
 
 ## [03]-[ENTRYPOINTS]
 
@@ -164,6 +165,8 @@ The static events admit frame-phase participation without a conduit subclass.
 |  [44]   | `NestLevel`                                                                    | pass state    | nesting depth                |
 |  [45]   | `DpiScale`                                                                     | pass state    | display scale                |
 |  [46]   | `FrameBuffer`                                                                  | pass state    | active framebuffer           |
+|  [47]   | `DrawCurve(Curve, DisplayPen)`                                                 | vector draw   | pen-stroked curve            |
+|  [48]   | `DisplayBitmapDrawList.SetPoints(IEnumerable<Point3d>[, IEnumerable<Color>])`  | sprite draw   | cloud points, per-point tint |
 
 [ENTRYPOINT_SCOPE]: view, viewport, and page-view
 - rail: host-boundary display
@@ -200,68 +203,238 @@ The static events admit frame-phase participation without a conduit subclass.
 |  [26]   | `DetailView.PageToModelRatio`                                                      | detail scale  | live scale ratio         |
 |  [27]   | `DetailView.SetScale(double, LengthUnit, double, LengthUnit)`                      | detail scale  | detail scale write       |
 
+[ENTRYPOINT_SCOPE]: camera pose, frustum, depth, and gesture families
+- rail: host-boundary display
+
+`PopViewProjection`/`NextViewProjection`/`PreviousViewProjection`/`PopConstructionPlane` return `false` at the stack boundary or when the popped projection equals the current one — a benign no-op, never an error. `ViewportInfo.GetXform` returns `Transform.Unset` on failure where `RhinoViewport.GetTransform` returns `Identity`, so `GetXform` is the rail-detectable transform read. `ChangeToTwoPointPerspectiveProjection` orders `(targetDistance, up, lensLength)`.
+
+| [INDEX] | [SURFACE]                                                                                                      | [CALL_SHAPE]  | [CAPABILITY]                                         |
+| :-----: | :------------------------------------------------------------------------------------------------------------- | :------------ | :--------------------------------------------------- |
+|  [01]   | `RhinoViewport.GetCameraFrame(out Plane frame)`                                                                | camera read   | pose frame, `bool`                                   |
+|  [02]   | `RhinoViewport.CameraTarget` / `CameraUp`                                                                      | camera state  | target and up vectors                                |
+|  [03]   | `RhinoViewport.SetCameraLocations(Point3d targetLocation, Point3d cameraLocation)`                             | camera set    | atomic target+location, `void`                       |
+|  [04]   | `RhinoViewport.SetCameraDirection(Vector3d, bool updateTargetLocation)`                                        | camera set    | direction write, `void`                              |
+|  [05]   | `RhinoViewport.GetDepth(Point3d point, out double distance)`                                                   | depth read    | single-point depth                                   |
+|  [06]   | `RhinoViewport.GetDepth(BoundingBox bbox, out double nearDistance, out double farDistance)`                    | depth read    | box near/far pair                                    |
+|  [07]   | `RhinoViewport.GetDepth(Sphere sphere, out double nearDistance, out double farDistance)`                       | depth read    | sphere near/far pair                                 |
+|  [08]   | `RhinoViewport.IsVisible(Point3d)` / `IsVisible(BoundingBox)`                                                  | visibility    | frustum containment probes                           |
+|  [09]   | `RhinoViewport.GetFrustum(out double left, right, bottom, top, nearDistance, farDistance)`                     | frustum read  | six-plane read, `bool`                               |
+|  [10]   | `RhinoViewport.FrustumAspect` / `GetFrustumBoundingBox()`                                                      | frustum read  | aspect and frustum bounds                            |
+|  [11]   | `RhinoViewport.GetFrustumLine(double screenX, double screenY, out Line worldLine)`                             | frustum read  | screen-point world ray                               |
+|  [12]   | `RhinoViewport.GetWorldToScreenScale(Point3d pointInFrustum, out double pixelsPerUnit)`                        | frustum read  | pixels-per-unit scale                                |
+|  [13]   | `RhinoViewport.GetConstructionPlane()`                                                                         | cplane read   | live construction plane                              |
+|  [14]   | `RhinoViewport.SetConstructionPlane(ConstructionPlane)`                                                        | cplane write  | non-stack cplane set, `void`                         |
+|  [15]   | `RhinoViewport.PushConstructionPlane(ConstructionPlane)` / `PopConstructionPlane()`                            | cplane stack  | push `void`, pop benign `bool`                       |
+|  [16]   | `RhinoViewport.PushViewProjection()`                                                                           | view stack    | projection push, `void`                              |
+|  [17]   | `RhinoViewport.PopViewProjection()` / `NextViewProjection()` / `PreviousViewProjection()`                      | view stack    | benign-`false` stack moves                           |
+|  [18]   | `RhinoViewport.KeyboardRotate(bool leftRight, double angleRadians)`                                            | gesture       | keyboard rotate, `bool`                              |
+|  [19]   | `RhinoViewport.KeyboardDolly(bool leftRight, double amount)`                                                   | gesture       | keyboard dolly, `bool`                               |
+|  [20]   | `RhinoViewport.KeyboardDollyInOut(double amount)`                                                              | gesture       | keyboard in/out dolly, `bool`                        |
+|  [21]   | `RhinoViewport.MouseRotateAroundTarget(Point mousePreviousPoint, Point mouseCurrentPoint)`                     | gesture       | drag orbit, `bool`                                   |
+|  [22]   | `RhinoViewport.MouseRotateCamera` / `MouseTilt` / `MouseMagnify`                                               | gesture       | drag rotate/tilt/magnify                             |
+|  [23]   | `RhinoViewport.MouseInOutDolly` / `MouseDollyZoom` / `MouseLateralDolly`                                       | gesture       | drag dolly family                                    |
+|  [24]   | `RhinoViewport.LockedProjection`                                                                               | projection    | mutable projection lock                              |
+|  [25]   | `RhinoViewport.ChangeToParallelProjection(bool symmetricFrustum)`                                              | projection    | parallel change, `bool`                              |
+|  [26]   | `RhinoViewport.ChangeToPerspectiveProjection(double targetDistance, bool symmetricFrustum, double lensLength)` | projection    | perspective change                                   |
+|  [27]   | `RhinoViewport.ChangeToTwoPointPerspectiveProjection(double targetDistance, Vector3d up, double lensLength)`   | projection    | two-point change                                     |
+|  [28]   | `RhinoViewport.ChangeToParallelReflectedProjection()`                                                          | projection    | reflected change, `bool`                             |
+|  [29]   | `RhinoViewport.SetProjection(DefinedViewportProjection, string viewName, bool updateConstructionPlane)`        | projection    | defined preset, `bool`                               |
+|  [30]   | `RhinoViewport.ZoomBoundingBox(BoundingBox box)`                                                               | framing       | subject framing, `bool`                              |
+|  [31]   | `RhinoViewport.ChangeCounter`                                                                                  | staleness     | `uint` mutation serial                               |
+|  [32]   | `ViewportInfo.GetFramePlaneCorners(double depth)`                                                              | snapshot read | quad: bottom-left, bottom-right, top-left, top-right |
+|  [33]   | `ViewportInfo.CalculateCameraUpDirection(Point3d location, Vector3d direction, double angle)`                  | snapshot read | static up derivation                                 |
+|  [34]   | `ViewportInfo.GetXform(CoordinateSystem sourceSystem, CoordinateSystem destinationSystem)`                     | snapshot read | Unset-on-failure transform                           |
+|  [35]   | `ViewInfo.FocalBlurMode`                                                                                       | dof state     | `ViewInfoFocalBlurModes` row                         |
+|  [36]   | `ViewInfo.FocalBlurDistance` / `FocalBlurAperture` / `FocalBlurJitter`                                         | dof state     | focal-blur scalars                                   |
+|  [37]   | `ViewInfo.FocalBlurSampleCount`                                                                                | dof state     | `uint` sample count                                  |
+|  [38]   | `Rhino.ApplicationSettings.ViewSettings.DefinedViewSetCPlane`                                                  | restore scope | static defined-view cplane flag                      |
+|  [39]   | `Rhino.ApplicationSettings.ViewSettings.DefinedViewSetProjection`                                              | restore scope | static defined-view projection flag                  |
+|  [40]   | `Rhino.ApplicationSettings.ViewSettings.DefinedViewSetClippingPlanes`                                          | restore scope | static defined-view clipping flag                    |
+|  [41]   | `Rhino.ApplicationSettings.ViewSettings.DefinedViewSetDisplayMode`                                             | restore scope | static defined-view mode flag                        |
+|  [42]   | `RhinoViewport.IsParallelProjection` / `IsPerspectiveProjection` / `IsTwoPointPerspectiveProjection`           | camera read   | `bool` read predicates; no reflected read exists     |
+
+`ViewInfo` lives in `Rhino.DocObjects`; `ViewTypeFilter` (`Model`/`Page`/`ModelStyleViews`/`All`/`None`) lives in `Rhino.Display` and feeds `ViewTable.GetViewList`.
+
 [ENTRYPOINT_SCOPE]: display modes, retained overlays, and capture
 - rail: host-boundary display
 
-`ViewCaptureSettings.RasterMode` selects raster or vector egress.
+`ViewCaptureSettings.RasterMode` selects raster or vector egress. Grid/axis decor spells differently per owner — `ViewCaptureSettings.DrawAxis` singular, instance `ViewCapture.DrawAxes` plural — and transparency exists only on the instance facade. `SetUpDisplayAttributes` takes `(RhinoObject, DisplayPipelineAttributes)`.
 
-| [INDEX] | [SURFACE]                                                                           | [CALL_SHAPE] | [CAPABILITY]              |
-| :-----: | :---------------------------------------------------------------------------------- | :----------- | :------------------------ |
-|  [01]   | `DisplayModeDescription.GetDisplayModes()`                                          | mode read    | mode enumeration          |
-|  [02]   | `DisplayModeDescription.GetDisplayMode(Guid)`                                       | mode read    | identifier resolution     |
-|  [03]   | `DisplayModeDescription.FindByName(string)`                                         | mode read    | name resolution           |
-|  [04]   | `DisplayModeDescription.AddDisplayMode(DisplayModeDescription)`                     | mode write   | mode creation             |
-|  [05]   | `DisplayModeDescription.UpdateDisplayMode(...)`                                     | mode write   | mode update               |
-|  [06]   | `DisplayModeDescription.ImportFromFile(string, bool)`                               | mode write   | `.ini` import             |
-|  [07]   | `DisplayModeDescription.ExportToFile(DisplayModeDescription, string)`               | mode write   | `.ini` export             |
-|  [08]   | `IsoDrawEffect.GetBandColor(int)`                                                   | effect       | band-color read           |
-|  [09]   | `IsoDrawEffect.SetBandColor(int, Color)`                                            | effect       | band-color write          |
-|  [10]   | `new CustomDisplay(bool)`                                                           | retained     | overlay construction      |
-|  [11]   | `CustomDisplay.Clear()`                                                             | retained     | overlay clearing          |
-|  [12]   | `CustomDisplay.AddPoints(IEnumerable<Point3d>, Color, PointStyle, int)`             | retained     | point accumulation        |
-|  [13]   | `CustomDisplay.AddPolygon(IEnumerable<Point3d>, Color, Color, bool, bool)`          | retained     | polygon accumulation      |
-|  [14]   | `CustomDisplay.AddText(Text3d, Color)`                                              | retained     | text accumulation         |
-|  [15]   | `CustomDisplay.Dispose()`                                                           | retained     | overlay retirement        |
-|  [16]   | `VisualAnalysisMode.Register(Type)`                                                 | analysis     | mode registration         |
-|  [17]   | `VisualAnalysisMode.Find(Guid)`                                                     | analysis     | mode resolution           |
-|  [18]   | `VisualAnalysisMode.SetUpDisplayAttributes(RhinoObject, DisplayPipelineAttributes)` | analysis     | display attributes        |
-|  [19]   | `VisualAnalysisMode.UpdateVertexColors(RhinoObject, Mesh[])`                        | analysis     | false-color vertex update |
-|  [20]   | `VisualAnalysisMode.DrawMesh(RhinoObject, Mesh, DisplayPipeline)`                   | analysis     | analysis mesh draw        |
-|  [21]   | `RhinoDirectionAnalysisModeId`                                                      | analysis id  | built-in direction mode   |
-|  [22]   | `RhinoEndAnalysisModeId`                                                            | analysis id  | built-in end mode         |
-|  [23]   | `ViewCapture.CaptureToBitmap(ViewCaptureSettings)`                                  | capture      | raster egress             |
-|  [24]   | `ViewCapture.CaptureToSvg(ViewCaptureSettings)`                                     | capture      | vector egress             |
-|  [25]   | `ViewCapture.SendToPrinter(string, ViewCaptureSettings[], int)`                     | capture      | printer egress copy count |
-|  [26]   | `new ViewCaptureSettings(RhinoView, Size, double)`                                  | capture spec | view settings             |
-|  [27]   | `new ViewCaptureSettings(RhinoPageView, double)`                                    | capture spec | page settings             |
-|  [28]   | `ViewCaptureSettings.CreatePreviewSettings(Size)`                                   | capture spec | preview-scaled derivation |
-|  [29]   | `ViewCaptureSettings.SetViewport(RhinoViewport)`                                    | capture spec | viewport binding          |
-|  [30]   | `ViewCaptureSettings.SetLayout(Size, Rectangle)`                                    | capture spec | page layout               |
-|  [31]   | `ViewCaptureSettings.SetModelScaleToValue(double)`                                  | capture spec | fixed model scale         |
-|  [32]   | `ViewCaptureSettings.SetModelScaleToFit(bool)`                                      | capture spec | fit model scale           |
-|  [33]   | `ViewCaptureSettings.SetWindowRect(Point2d, Point2d)`                               | capture spec | screen window             |
-|  [34]   | `ViewCaptureSettings.SetWindowRect(Point3d, Point3d)`                               | capture spec | world window              |
-|  [35]   | `ViewCaptureSettings.RasterMode`                                                    | capture spec | egress mode               |
-|  [36]   | `ViewCaptureSettings.OutputColor`                                                   | capture spec | color mode                |
-|  [37]   | `ViewCaptureSettings.OffsetAnchor`                                                  | capture spec | offset anchor             |
-|  [38]   | `ViewCaptureSettings.DrawGrid`                                                      | capture flag | grid draw                 |
-|  [39]   | `ViewCaptureSettings.DrawAxis`                                                      | capture flag | axis draw                 |
-|  [40]   | `ViewCaptureSettings.DrawBackground`                                                | capture flag | background draw           |
-|  [41]   | `ViewCaptureSettings.DrawBackgroundBitmap`                                          | capture flag | bitmap draw               |
-|  [42]   | `ViewCaptureSettings.DrawWallpaper`                                                 | capture flag | wallpaper draw            |
-|  [43]   | `ViewCaptureSettings.DrawLockedObjects`                                             | capture flag | locked-object draw        |
-|  [44]   | `ViewCaptureSettings.DrawSelectedObjectsOnly`                                       | capture flag | selected-object filter    |
-|  [45]   | `ViewCaptureSettings.DrawClippingPlanes`                                            | capture flag | clipping-plane draw       |
-|  [46]   | `ViewCaptureSettings.DrawLights`                                                    | capture flag | light draw                |
-|  [47]   | `ViewCaptureSettings.DrawMargins`                                                   | capture flag | margin draw               |
-|  [48]   | `ViewCaptureSettings.HeaderText`                                                    | capture spec | page header               |
-|  [49]   | `ViewCaptureSettings.FooterText`                                                    | capture spec | page footer               |
-|  [50]   | `ViewCaptureSettings.UsePrintWidths`                                                | capture spec | print-width selection     |
-|  [51]   | `ViewCaptureSettings.WireThicknessScale`                                            | capture spec | wire-width scale          |
-|  [52]   | `ViewCaptureSettings.PointSizeMillimeters`                                          | capture spec | point size                |
-|  [53]   | `ViewCaptureSettings.ArrowheadSizeMillimeters`                                      | capture spec | arrowhead size            |
-|  [54]   | `ViewCaptureSettings.TextDotPointSize`                                              | capture spec | text-dot size             |
-|  [55]   | `ViewCaptureSettings.DefaultPrintWidthMillimeters`                                  | capture spec | default print width       |
+| [INDEX] | [SURFACE]                                                                    | [CALL_SHAPE]   | [CAPABILITY]                          |
+| :-----: | :--------------------------------------------------------------------------- | :------------- | :------------------------------------ |
+|  [01]   | `DisplayModeDescription.GetDisplayModes()`                                   | mode read      | mode enumeration                      |
+|  [02]   | `DisplayModeDescription.GetDisplayMode(Guid)`                                | mode read      | identifier resolution                 |
+|  [03]   | `DisplayModeDescription.FindByName(string)`                                  | mode read      | name resolution                       |
+|  [04]   | `DisplayModeDescription.AddDisplayMode(DisplayModeDescription)`              | mode write     | mode creation                         |
+|  [05]   | `DisplayModeDescription.UpdateDisplayMode(...)`                              | mode write     | mode update                           |
+|  [06]   | `DisplayModeDescription.ImportFromFile(string, bool)`                        | mode write     | `.ini` import                         |
+|  [07]   | `DisplayModeDescription.ExportToFile(DisplayModeDescription, string)`        | mode write     | `.ini` export                         |
+|  [08]   | `IsoDrawEffect.GetBandColor(int)`                                            | effect         | band-color read                       |
+|  [09]   | `IsoDrawEffect.SetBandColor(int, Color)`                                     | effect         | band-color write                      |
+|  [10]   | `new CustomDisplay(bool)`                                                    | retained       | overlay construction                  |
+|  [11]   | `CustomDisplay.Clear()`                                                      | retained       | overlay clearing                      |
+|  [12]   | `CustomDisplay.AddPoints(IEnumerable<Point3d>, Color, PointStyle, int)`      | retained       | point accumulation                    |
+|  [13]   | `CustomDisplay.AddPolygon(IEnumerable<Point3d>, Color, Color, bool, bool)`   | retained       | polygon accumulation                  |
+|  [14]   | `CustomDisplay.AddText(Text3d, Color)`                                       | retained       | text accumulation                     |
+|  [15]   | `CustomDisplay.Dispose()`                                                    | retained       | overlay retirement                    |
+|  [16]   | `VisualAnalysisMode.Register(Type)`                                          | analysis       | mode registration                     |
+|  [17]   | `VisualAnalysisMode.Find(Guid)`                                              | analysis       | mode resolution                       |
+|  [18]   | `VisualAnalysisMode.SetUpDisplayAttributes(…)`                               | analysis       | display attributes                    |
+|  [19]   | `VisualAnalysisMode.UpdateVertexColors(RhinoObject, Mesh[])`                 | analysis       | false-color vertex update             |
+|  [20]   | `VisualAnalysisMode.DrawMesh(RhinoObject, Mesh, DisplayPipeline)`            | analysis       | analysis mesh draw                    |
+|  [21]   | `RhinoDirectionAnalysisModeId`                                               | analysis id    | built-in direction mode               |
+|  [22]   | `RhinoEndAnalysisModeId`                                                     | analysis id    | built-in end mode                     |
+|  [23]   | `ViewCapture.CaptureToBitmap(ViewCaptureSettings)`                           | capture        | raster egress                         |
+|  [24]   | `ViewCapture.CaptureToSvg(ViewCaptureSettings)`                              | capture        | vector egress                         |
+|  [25]   | `ViewCapture.SendToPrinter(string, ViewCaptureSettings[], int)`              | capture        | printer egress copy count             |
+|  [26]   | `new ViewCaptureSettings(RhinoView, Size, double)`                           | capture spec   | view settings                         |
+|  [27]   | `new ViewCaptureSettings(RhinoPageView, double)`                             | capture spec   | page settings                         |
+|  [28]   | `ViewCaptureSettings.CreatePreviewSettings(Size)`                            | capture spec   | preview-scaled derivation             |
+|  [29]   | `ViewCaptureSettings.SetViewport(RhinoViewport)`                             | capture spec   | viewport binding                      |
+|  [30]   | `ViewCaptureSettings.SetLayout(Size, Rectangle)`                             | capture spec   | page layout                           |
+|  [31]   | `ViewCaptureSettings.SetModelScaleToValue(double)`                           | capture spec   | fixed model scale                     |
+|  [32]   | `ViewCaptureSettings.SetModelScaleToFit(bool)`                               | capture spec   | fit model scale                       |
+|  [33]   | `ViewCaptureSettings.SetWindowRect(Point2d, Point2d)`                        | capture spec   | screen window                         |
+|  [34]   | `ViewCaptureSettings.SetWindowRect(Point3d, Point3d)`                        | capture spec   | world window                          |
+|  [35]   | `ViewCaptureSettings.RasterMode`                                             | capture spec   | egress mode                           |
+|  [36]   | `ViewCaptureSettings.OutputColor`                                            | capture spec   | color mode                            |
+|  [37]   | `ViewCaptureSettings.OffsetAnchor`                                           | capture spec   | offset anchor                         |
+|  [38]   | `ViewCaptureSettings.DrawGrid`                                               | capture flag   | grid draw                             |
+|  [39]   | `ViewCaptureSettings.DrawAxis`                                               | capture flag   | axis draw                             |
+|  [40]   | `ViewCaptureSettings.DrawBackground`                                         | capture flag   | background draw                       |
+|  [41]   | `ViewCaptureSettings.DrawBackgroundBitmap`                                   | capture flag   | bitmap draw                           |
+|  [42]   | `ViewCaptureSettings.DrawWallpaper`                                          | capture flag   | wallpaper draw                        |
+|  [43]   | `ViewCaptureSettings.DrawLockedObjects`                                      | capture flag   | locked-object draw                    |
+|  [44]   | `ViewCaptureSettings.DrawSelectedObjectsOnly`                                | capture flag   | selected-object filter                |
+|  [45]   | `ViewCaptureSettings.DrawClippingPlanes`                                     | capture flag   | clipping-plane draw                   |
+|  [46]   | `ViewCaptureSettings.DrawLights`                                             | capture flag   | light draw                            |
+|  [47]   | `ViewCaptureSettings.DrawMargins`                                            | capture flag   | margin draw                           |
+|  [48]   | `ViewCaptureSettings.HeaderText`                                             | capture spec   | page header                           |
+|  [49]   | `ViewCaptureSettings.FooterText`                                             | capture spec   | page footer                           |
+|  [50]   | `ViewCaptureSettings.UsePrintWidths`                                         | capture spec   | print-width selection                 |
+|  [51]   | `ViewCaptureSettings.WireThicknessScale`                                     | capture spec   | wire-width scale                      |
+|  [52]   | `ViewCaptureSettings.PointSizeMillimeters`                                   | capture spec   | point size                            |
+|  [53]   | `ViewCaptureSettings.ArrowheadSizeMillimeters`                               | capture spec   | arrowhead size                        |
+|  [54]   | `ViewCaptureSettings.TextDotPointSize`                                       | capture spec   | text-dot size                         |
+|  [55]   | `ViewCaptureSettings.DefaultPrintWidthMillimeters`                           | capture spec   | default print width                   |
+|  [56]   | `CustomDisplay.AddLine(Line, Color, int)`                                    | retained       | line accumulation                     |
+|  [57]   | `CustomDisplay.AddVector(Point3d, Vector3d, Color, bool)`                    | retained       | anchored vector                       |
+|  [58]   | `CustomDisplay.AddArc(Arc, Color, int)`                                      | retained       | arc accumulation                      |
+|  [59]   | `CustomDisplay.AddCircle(Circle, Color, int)`                                | retained       | circle accumulation                   |
+|  [60]   | `CustomDisplay.AddCurve(Curve, Color, int)`                                  | retained       | curve accumulation                    |
+|  [61]   | `CustomDisplay.AddText(string, Plane, double, Color)`                        | retained       | planar text accumulation              |
+|  [62]   | `CustomDisplay.Enabled`                                                      | retained       | overlay visibility toggle             |
+|  [63]   | `ViewCaptureSettings.ViewArea`                                               | capture spec   | `ViewAreaMapping` View/Extents/Window |
+|  [64]   | `ViewCaptureSettings.SetMargins(UnitSystem, double, double, double, double)` | capture spec   | margin write, `bool`                  |
+|  [65]   | `ViewCaptureSettings.SetOffset(UnitSystem, bool, double, double)`            | capture spec   | offset write, `void`                  |
+|  [66]   | `ViewCaptureSettings.MaximizePrintableArea()`                                | capture spec   | printable maximization                |
+|  [67]   | `ViewCaptureSettings.MatchViewportAspectRatio()`                             | capture spec   | aspect match, `bool`                  |
+|  [68]   | `ViewCaptureSettings.IsValid`                                                | capture spec   | configured-state validity             |
+|  [69]   | `new ViewCapture()`                                                          | capture facade | instance raster bag                   |
+|  [70]   | `ViewCapture.Width` / `Height`                                               | capture facade | pixel extent                          |
+|  [71]   | `ViewCapture.TransparentBackground`                                          | capture facade | alpha egress                          |
+|  [72]   | `ViewCapture.DrawGrid` / `DrawAxes` / `DrawGridAxes`                         | capture facade | facade decor                          |
+|  [73]   | `ViewCapture.ScaleScreenItems`                                               | capture facade | screen-item scaling                   |
+|  [74]   | `ViewCapture.RealtimeRenderPasses`                                           | capture facade | raytrace pass count                   |
+|  [75]   | `ViewCapture.CaptureToBitmap(RhinoView sourceView)`                          | capture        | instance raster egress                |
+
+[ENTRYPOINT_SCOPE]: `ZBufferCapture` — depth-field capture
+- rail: host-boundary display
+
+Configuration invalidates the cached grayscale bitmap, so mode and channels write before any read; `GrayscaleDib` caches and returns one bitmap instance that survives capsule disposal.
+
+| [INDEX] | [SURFACE]                                             | [CALL_SHAPE]  | [CAPABILITY]                 |
+| :-----: | :---------------------------------------------------- | :------------ | :--------------------------- |
+|  [01]   | `new ZBufferCapture(RhinoViewport viewport)`          | capsule       | viewport-bound depth capture |
+|  [02]   | `ZBufferCapture.SetDisplayMode(Guid modeId)`          | depth config  | capture display mode         |
+|  [03]   | `ZBufferCapture.ShowIsocurves(bool on)`               | depth channel | isocurve depth writes        |
+|  [04]   | `ZBufferCapture.ShowMeshWires(bool on)`               | depth channel | mesh-wire depth writes       |
+|  [05]   | `ZBufferCapture.ShowCurves(bool on)`                  | depth channel | curve depth writes           |
+|  [06]   | `ZBufferCapture.ShowPoints(bool on)`                  | depth channel | point depth writes           |
+|  [07]   | `ZBufferCapture.ShowText(bool on)`                    | depth channel | text depth writes            |
+|  [08]   | `ZBufferCapture.ShowAnnotations(bool on)`             | depth channel | annotation depth writes      |
+|  [09]   | `ZBufferCapture.ShowLights(bool on)`                  | depth channel | light depth writes           |
+|  [10]   | `ZBufferCapture.HitCount() : int`                     | depth read    | populated-pixel census       |
+|  [11]   | `ZBufferCapture.MinZ() : float`                       | depth read    | nearest buffer value         |
+|  [12]   | `ZBufferCapture.MaxZ() : float`                       | depth read    | farthest buffer value        |
+|  [13]   | `ZBufferCapture.ZValueAt(int x, int y) : float`       | depth read    | per-pixel depth              |
+|  [14]   | `ZBufferCapture.WorldPointAt(int x, int y) : Point3d` | depth read    | screen-to-world unprojection |
+|  [15]   | `ZBufferCapture.GrayscaleDib() : Bitmap`              | depth read    | cached grayscale rendering   |
+
+[ENTRYPOINT_SCOPE]: display-mode appearance model, policy flags, and per-viewport assignment
+- rail: host-boundary display
+
+`DisplayPipelineAttributes` has no public constructor — it is reached through `DisplayModeDescription.DisplayAttributes` or handed in by host hooks (`VisualAnalysisMode.SetUpDisplayAttributes`, `RealtimeDisplayMode.OnDisplayPipelineSettingsChanged`). `CopyDisplayMode` registers in memory only; `UpdateDisplayMode` persists to disk. Its technical color/thickness members and technical-parameter mask are internal — the seven since-9.0 `Show*` toggles (`ShowHiddenLines`/`ShowEdges`/`ShowSilhouttes`/`ShowCreases`/`ShowSeams`/`ShowIntersections`/`ShowLighting`) are the whole public technical axis. `FlairDefinition`/`FlairParameters` are internal; `FlairLayer` alone is public and reaches no behavior. Usage members pair `Set*` with a `Get*` twin; the three dynamic effects add a `Has*` probe.
+
+Beyond the method rows below, the attribute model is property families written by direct assignment: shading/material (`ShadingEnabled`, `ShadeVertexColors`, `FrontFlatShaded`, `UseAssignedObjectMaterial`/`UseCustomObjectColor`/`UseCustomObjectMaterial`, `ObjectColor`, `BackfaceDisplayStyle`, `CullBackfaces`, `Front`/`BackMaterialShine`/`Transparency`, `FrontDiffuse`, `BackMaterialDiffuseColor`, `HighlightSurfaces`, backface material source (`UseBackfaceMaterial`, `UseObjectBackfaceMaterial`, `UseCustomBackface`, `UseCustomObjectColorBackfaces`) and front/back object overrides (`FrontOverrideObject{Color,Transparency,Reflectivity}`, `BackOverrideObject{Transparency,Reflectivity}`)), curve/surface/iso edges (`ShowCurves`, `CurveThickness`/`Scale`/`Color`, `UseSingleCurveColor`, `ShowSurfaceEdges`, `ShowSurfaceNakedEdge`, `ShowTangentEdges`/`Seams`, `ShowIsoCurves`, `Surface*Edge*` color/thickness/reduction/pattern, `SurfaceIso*` UV colors and thicknesses), lighting/shadows (`LightingScheme`, `AmbientLightingColor`, `UseLightColor`, `ShowLights`, `CastShadows`, `Shadows*`, `SkylightShadowQuality`), ground plane (`GroundPlaneUsage`, `CustomGroundPlane*`), grid (`GridTransparency`, `GridPlaneTransparency`/`Visibility`/`Color`, `WorldAxesIconColorUsage`, `PlaneUsesGridColor`, `AxesSizePercentage`, plus the nested `ViewSpecificAttributes` grid/axes/scale members incl. Rhino 9 `GridFade`/`GridCornerRadius`/`GridBoundaryThickness`), SubD edge classes (`SubD{SmoothInterior,CreaseInterior,NonManifold,Boundary}*` color/usage/reduction/thickness/scale/pattern, `ShowSubD*`, reflection-plane members), mesh edges (`Mesh{,Naked,Nonmanifold}Edge*`, `MeshVertexSize`, nested `MeshSpecificAttributes`), clipping (`ShowClipping*`, `ShowClipIntersection*`, `Clipping*Color`/`Usage`/`Thickness`/`Transparency`, `UseSectionStyles`), locked objects (`LockedObjectUsage`/`Transparency`, `LockedColor`, `GhostLockedObjects`, `LockedObjectsDrawBehindOthers`, `LayersFollowLockUsage`), points/grips (`ShowPoints`/`PointStyle`/`PointRadius`, `ShowPointClouds`, `PointCloud*`, `ShowGrips`, `ControlPolygon*`), and scene/pipeline (`XrayAllObjects`, `IgnoreHighlights`, `DisableConduits`, `DisableTransparency`, `ShowText`, `ShowAnnotations`, `BoundingBoxMode`, `DynamicDisplayUsage`, `LinearWorkflowUsage`, `PreProcess*`, `PostProcess*`). Policy vocabularies are the public nested enums (`FrameBufferFillMode`, `BoundingBoxDisplayMode`, `BackfaceStyle`, `LightingSchema`, `ContextsForDraw`, the `*Use` families, `GridPlaneVisibilityMode`, `WorldAxesIconColorUse`, `GroundPlaneUsages`, `LinearWorkflowUsages`).
+
+| [INDEX] | [SURFACE]                                                                       | [CALL_SHAPE]  | [CAPABILITY]                       |
+| :-----: | :------------------------------------------------------------------------------ | :------------ | :--------------------------------- |
+|  [01]   | `DisplayModeDescription.CopyDisplayMode(Guid, string)`                          | mode write    | in-memory mode copy                |
+|  [02]   | `DisplayModeDescription.DeleteDisplayMode(Guid)`                                | mode write    | mode removal                       |
+|  [03]   | `DisplayModeDescription.AddDisplayMode(string)`                                 | mode write    | named blank mode creation          |
+|  [04]   | `DisplayModeDescription.DisplayAttributes`                                      | mode state    | live attribute editor accessor     |
+|  [05]   | `DisplayModeDescription.EnglishName`                                            | mode state    | mutable mode name                  |
+|  [06]   | `DisplayModeDescription.Id` / `LocalName`                                       | mode state    | identity and localized name        |
+|  [07]   | `DisplayModeDescription.InMenu`                                                 | mode policy   | menu listing flag                  |
+|  [08]   | `DisplayModeDescription.SupportsShadeCommand`                                   | mode policy   | shade-command support flag         |
+|  [09]   | `DisplayModeDescription.SupportsShading`                                        | mode policy   | shading support flag               |
+|  [10]   | `DisplayModeDescription.AllowObjectAssignment`                                  | mode policy   | per-object assignment flag         |
+|  [11]   | `DisplayModeDescription.ShadedPipelineRequired`                                 | mode policy   | shaded-pipeline requirement        |
+|  [12]   | `DisplayModeDescription.WireframePipelineRequired`                              | mode policy   | wireframe-pipeline requirement     |
+|  [13]   | `DisplayModeDescription.PipelineLocked`                                         | mode policy   | pipeline lock flag                 |
+|  [14]   | `DisplayModeDescription.WireframeId` / `ShadedId` / `RenderedId`                | builtin id    | core special-mode ids              |
+|  [15]   | `DisplayModeDescription.RenderedShadowsId` / `GhostedId` / `XRayId`             | builtin id    | shadowed/ghosted/x-ray ids         |
+|  [16]   | `DisplayModeDescription.TechId` / `ArtisticId` / `PenId`                        | builtin id    | technical-family ids               |
+|  [17]   | `DisplayModeDescription.MonochromeId` / `AmbientOcclusionId` / `RaytracedId`    | builtin id    | monochrome/AO/raytraced ids        |
+|  [18]   | `DisplayPipelineAttributes.ViewSpecificAttributes`                              | nested editor | grid, axes, viewport-scale members |
+|  [19]   | `DisplayPipelineAttributes.MeshSpecificAttributes`                              | nested editor | mesh-wire and vertex members       |
+|  [20]   | `DisplayPipelineAttributes.SetFill(Color)`                                      | frame fill    | solid fill colors                  |
+|  [21]   | `DisplayPipelineAttributes.SetFill(Color, Color)`                               | frame fill    | two-color gradient fill            |
+|  [22]   | `DisplayPipelineAttributes.SetFill(Color, Color, Color, Color)`                 | frame fill    | four-corner gradient fill          |
+|  [23]   | `DisplayPipelineAttributes.GetFill(out Color, out Color, out Color, out Color)` | frame fill    | fill color read-back               |
+|  [24]   | `DisplayPipelineAttributes.FillMode`                                            | frame fill    | `FrameBufferFillMode` selector     |
+|  [25]   | `DisplayPipelineAttributes.SetCurveThicknessUsage(CurveThicknessUse)`           | width use     | curve width discriminant           |
+|  [26]   | `DisplayPipelineAttributes.SetSurfaceEdgeThicknessUsage(SurfaceThicknessUse)`   | width use     | surface-edge width discriminant    |
+|  [27]   | `DisplayPipelineAttributes.SetSurfaceNakedEdgeThicknessUsage(...)`              | width use     | naked-edge width discriminant      |
+|  [28]   | `DisplayPipelineAttributes.SetSurfaceIsoThicknessUsage(...)`                    | width use     | iso width discriminant             |
+|  [29]   | `DisplayPipelineAttributes.SetSurfaceIsoColorUsage(SurfaceIsoColorUse)`         | color use     | iso color discriminant             |
+|  [30]   | `DisplayPipelineAttributes.SetSurfaceIsoApplyPattern(bool, bool, bool)`         | pattern       | per-direction iso pattern          |
+|  [31]   | `DisplayPipelineAttributes.SetColorFadeEffect(in Color, in float)`              | effect        | dynamic color-fade effect          |
+|  [32]   | `DisplayPipelineAttributes.SetDitherTransparencyEffect(in float)`               | effect        | dynamic dither-transparency effect |
+|  [33]   | `DisplayPipelineAttributes.SetDiagonalHatchEffect(in float, in float)`          | effect        | dynamic diagonal-hatch effect      |
+|  [34]   | `RhinoViewport.DisplayMode`                                                     | viewport      | per-viewport mode binding          |
+|  [35]   | `RhinoView.CaptureToBitmap(DisplayModeDescription)`                             | capture       | mode-scoped view capture           |
+|  [36]   | `RhinoView.CaptureToBitmap(Size, DisplayModeDescription)`                       | capture       | sized mode-scoped capture          |
+|  [37]   | `RhinoView.CaptureToBitmap(DisplayPipelineAttributes)`                          | capture       | attribute-scoped capture           |
+|  [38]   | `RhinoView.CaptureToBitmap(Size, DisplayPipelineAttributes)`                    | capture       | sized attribute-scoped capture     |
+
+[ENTRYPOINT_SCOPE]: built-in visual-analysis ids and object enablement
+- rail: host-boundary display
+
+`RhinoCurvatureColorAnalyisModeId` and `RhinoEdgeContinuityAlalysisModeId` carry the host's own misspellings. `VisualAnalysisMode` nested enums: `AnalysisStyle` (`Wireframe`/`Texture`/`FalseColor`) and `EdgeContinuityMode` (`Distance`/`Tangency`/`Curvature`).
+
+| [INDEX] | [SURFACE]                                                        | [CALL_SHAPE] | [CAPABILITY]                    |
+| :-----: | :--------------------------------------------------------------- | :----------- | :------------------------------ |
+|  [01]   | `VisualAnalysisMode.RhinoEdgeAnalysisModeId`                     | analysis id  | built-in edge mode              |
+|  [02]   | `VisualAnalysisMode.RhinoCurvatureGraphAnalysisModeId`           | analysis id  | built-in curvature-graph mode   |
+|  [03]   | `VisualAnalysisMode.RhinoZebraStripeAnalysisModeId`              | analysis id  | built-in zebra mode             |
+|  [04]   | `VisualAnalysisMode.RhinoEmapAnalysisModeId`                     | analysis id  | built-in emap mode              |
+|  [05]   | `VisualAnalysisMode.RhinoCurvatureColorAnalyisModeId`            | analysis id  | built-in curvature-color mode   |
+|  [06]   | `VisualAnalysisMode.RhinoDraftAngleAnalysisModeId`               | analysis id  | built-in draft-angle mode       |
+|  [07]   | `VisualAnalysisMode.RhinoThicknessAnalysisModeId`                | analysis id  | built-in thickness mode         |
+|  [08]   | `VisualAnalysisMode.RhinoEdgeContinuityAlalysisModeId`           | analysis id  | built-in edge-continuity mode   |
+|  [09]   | `VisualAnalysisMode.AdjustAnalysisMeshes(RhinoDoc, Guid)`        | analysis     | interactive mesh density adjust |
+|  [10]   | `VisualAnalysisMode.CurvatureColorAutoRange()`                   | analysis     | curvature auto-range (9.0)      |
+|  [11]   | `VisualAnalysisMode.CurvatureColorMaxRange()`                    | analysis     | curvature max-range (9.0)       |
+|  [12]   | `VisualAnalysisMode.Find(Type)`                                  | analysis     | mode resolution by type         |
+|  [13]   | `VisualAnalysisMode.EnableUserInterface(bool)`                   | analysis     | mode UI toggle                  |
+|  [14]   | `VisualAnalysisMode.ObjectSupportsAnalysisMode(RhinoObject)`     | analysis     | per-object support gate         |
+|  [15]   | `VisualAnalysisMode.Id` / `Name` / `Style`                       | analysis     | resolved-mode facts             |
+|  [16]   | `RhinoObject.EnableVisualAnalysisMode(VisualAnalysisMode, bool)` | enablement   | per-object attach/detach        |
+|  [17]   | `RhinoObject.InVisualAnalysisMode()`                             | enablement   | any-mode membership probe       |
+|  [18]   | `RhinoObject.InVisualAnalysisMode(VisualAnalysisMode)`           | enablement   | specific-mode membership probe  |
+|  [19]   | `RhinoObject.GetActiveVisualAnalysisModes()`                     | enablement   | active-mode census              |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -1,6 +1,6 @@
 # [COMPUTE_VOCABULARY]
 
-The cpu-tensor vocabulary and the operation table: `Tensor<T>` spans and factories as the only tensor shapes, one `TensorDtype` map between `TensorElementType` and CLR carriers carrying the ONNX byte-width and quantization columns, and one `TensorOpFamily` table over thirteen `TensorOpKind` rows under the closed five-band `ToleranceClass` error-envelope as the equivalence-keyed operation catalogue. The page owns the `TensorDtype`/`QuantizationPolicy` vocabulary, the `TensorFault` bracketed-symbol fault family, the `ComparerAccessors.StringOrdinal` accessor, the `TensorVocabulary` admission fold with the `OrtByteSpan` egress-size law, and the `TensorOpKind`/`TensorOpFamily`/`ToleranceClass` operation axes; the dtype carriers ride `System.Numerics.Tensors` and `Microsoft.ML.OnnxRuntime`, the matrix rows lower through `Tensor/factor#KERNEL_LOWERING`, and the kernel-delegate bindings are owned by `Tensor/dispatch#KERNEL_DISPATCH`. The `TensorDtype`/`TensorFault`/`ComparerAccessors.StringOrdinal`/`TensorOpFamily` shapes cross to `Tensor/residency#ORT_BRIDGE`, `Tensor/layout#LAYOUT_ALGEBRA`, and `Tensor/dispatch#KERNEL_DISPATCH` as settled vocabulary.
+Cpu-tensor vocabulary uses `Tensor<T>` as its only tensor owner, `TensorDtype` as the `TensorElementType`↔CLR/ONNX map, and `TensorOpFamily` as the equivalence-keyed operation table. `TensorDtype`, `QuantizationPolicy`, `TensorFault`, `TensorVocabulary`, `TensorOpKind`, `TensorOpFamily`, and `ToleranceClass` live here; matrix lowering, kernel dispatch, residency, and layout consume those settled shapes.
 
 ## [01]-[INDEX]
 
@@ -11,10 +11,10 @@ The cpu-tensor vocabulary and the operation table: `Tensor<T>` spans and factori
 
 - Owner: `TensorDtype`
 - Cases: float32, float64, float16, bfloat16, complex128, int8, int16, int32, int64, uint8, uint16, uint32, uint64, bool, string
-- Entry: `public static Fin<TensorDtype> Admit(TensorElementType element)` — `Fin<T>` aborts on an unmapped element; the quantization overload rejects scale/zero-point values on unquantized rows; the `OrtByteSpan` fold sizes a `Span<byte>` egress destination from `GetTensorSizeInBytes` against the row width, never re-multiplied dimensions.
+- Entry: `Admit(TensorElementType)` aborts on an unmapped element; `Promote(TensorDtype, TensorDtype)` derives mixed arithmetic from each row's numeric, integral, signedness, storage, precision, and exponent-range columns, including signed/unsigned widening, float/complex escalation, and the range gate that promotes a bfloat16-float16 pair to float32 rather than truncating exponent range, without a named pair roster. Quantization admission proves scalar, axis, block, vector-cardinality, and zero-point invariants against the tensor shape. `OrtByteSpan` converts native bytes without negative, alignment, or width truncation.
 - Packages: System.Numerics.Tensors, Microsoft.ML.OnnxRuntime, CommunityToolkit.HighPerformance, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
-- Growth: a new element mapping is one `TensorDtype` row; the byte-width and quantization columns derive from the row; zero new surface.
-- Boundary: `Tensor<T>`, `TensorSpan<T>`, `ReadOnlyTensorSpan<T>`, `TensorShape`, and `TensorDimensionSpan<T>` are the only tensor shapes — package-local tensor wrappers and a TensorService are the deleted forms; `Tensor.CreateFromArray`, `CreateFromMemory`, `CreateFromSequence`, and `CreateFromDiagonal` are the deleted phantom spellings — `Tensor.Create`, `CreateFromShape`, and `CreateFromShapeUninitialized` are the factory surface, and zero-copy admission rides `TensorSpan<T>` constructors over spans plus `Tensor.Create` over rented `MemoryOwner<T>` arrays through the `DangerousGetArray` seam; `TensorMarshal.CreateTensorSpan` is the write-polarity native bridge over ref-rooted foreign memory and `TensorMarshal.CreateReadOnlyTensorSpan` the read-polarity bridge admitting pooled-plane and model-output buffers whose lifetime is the caller's proof obligation, with `TensorMarshal.GetReference` and `Tensor<T>.GetPinnableReference` the ref roots; one generic kernel serves each operation family — per-dtype kernel copies are the deleted form; the `Width` column carries the CLR byte width and `OrtElementBytes` the ONNX C-data byte stride (`bfloat16`/`float16` are two-byte even though the CLR carrier widens), so a `GetTensorSizeInBytes` destination sizes from the dtype row, never `sizeof(T)`; the `complex128` row carries `System.Numerics.Complex` for the in-lane `ComplexKernels` and the 16/32/64-bit signed and unsigned integer rows carry `short`/`ushort`/`uint`/`ulong` for the `IBinaryInteger` lane, while `complex64` is the one managed-enum member with no CLR carrier (the BCL ships no `Complex32`) so it never admits to a span, and the native FP8 (`Float8E*`), `Int4`/`UInt4`, and `Float4E2M1` element types live in the ONNX C type system but NOT in the managed `TensorElementType` enum (capped at `BFloat16`), inadmissible to this map by construction rather than authored as phantom rows; quantized rows compose the dequant affine — `Subtract` the zero-point then `Multiply` the scale (and the inverse round-`Add`-`ConvertSaturating` for quant) — around the `ConvertSaturating` saturating cast from existing op rows, the scale/zero-point broadcast by the `QuantizationPolicy` granularity (per-tensor scalar, per-axis per-channel vector, or blocked sub-channel groups), never a bare scalar nor a cast that silently drops the affine; a chunked tensor frame requiring one contiguous backing stages through the `Tensor/memory#ALLOCATION_AXIS` contiguous-frame route (the `asContiguousBuffer:true` `GetStream` overload), never a hand-rolled array concatenation; the string row admits only at the model boundary for tokenizer extension ops through `OrtValue.CreateTensorWithEmptyStrings` then `CreateFromStringTensor`.
+- Growth: a new element mapping is one `TensorDtype` row carrying byte-width, quantization, numeric-domain, storage, precision, and exponent-range columns; admission and mixed promotion derive from `Items`, so no pair table grows.
+- Boundary: `Tensor<T>`, `TensorSpan<T>`, `ReadOnlyTensorSpan<T>`, `TensorShape`, and `TensorDimensionSpan<T>` are the only tensor shapes — package-local tensor wrappers and a TensorService are the deleted forms; `Tensor.CreateFromArray`, `CreateFromMemory`, `CreateFromSequence`, and `CreateFromDiagonal` are phantom spellings — `Tensor.Create`, `CreateFromShape`, and `CreateFromShapeUninitialized` are the factory surface, and zero-copy admission rides `TensorSpan<T>` constructors over spans plus `Tensor.Create` over rented `MemoryOwner<T>` arrays through `DangerousGetArray`; `TensorMarshal.CreateTensorSpan` is the write-polarity native bridge over ref-rooted foreign memory and `TensorMarshal.CreateReadOnlyTensorSpan` the read-polarity bridge admitting pooled-plane and model-output buffers whose lifetime the caller owns, with `TensorMarshal.GetReference` and `Tensor<T>.GetPinnableReference` as ref roots; one generic kernel serves each operation family. `Width` carries CLR byte width and `OrtElementBytes` the ONNX C-data stride, so `GetTensorSizeInBytes` converts through the dtype row, never `sizeof(T)`; `OrtByteSpan` rejects negative, non-integral, and `int`-overflowing element counts before any destination slice. `Complex128` carries `System.Numerics.Complex`, while `complex64` has no BCL carrier and never admits to a span; native FP8, `Int4`/`UInt4`, and `Float4E2M1` types do not exist in managed `TensorElementType` and remain inadmissible. Quantized rows compose subtract-zero-point then multiply-scale dequantization and inverse round-add-`ConvertSaturating` quantization, broadcasting by per-tensor, per-axis, or blocked granularity. `QuantizationPolicy.Admit` receives the tensor shape, accumulates independent scalar and structural gates through tuple `Apply`, proves the axis exists, requires vector count equal to the axis extent or blocked group count, and exits once to `Fin`; no kernel revalidates metadata. Chunked contiguous frames stage through `StreamGrant.ContiguousFrame`; the string row admits only at the model boundary through `OrtValue.CreateTensorWithEmptyStrings` then `CreateFromStringTensor`.
 
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
@@ -22,21 +22,21 @@ The cpu-tensor vocabulary and the operation table: `Tensor<T>` spans and factori
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class TensorDtype {
-    public static readonly TensorDtype Float32 = new("float32", TensorElementType.Float, typeof(float), width: Some(4), ortBytes: 4, quantized: false, modelBoundaryOnly: false);
-    public static readonly TensorDtype Float64 = new("float64", TensorElementType.Double, typeof(double), width: Some(8), ortBytes: 8, quantized: false, modelBoundaryOnly: false);
-    public static readonly TensorDtype Float16 = new("float16", TensorElementType.Float16, typeof(Half), width: Some(2), ortBytes: 2, quantized: false, modelBoundaryOnly: false);
-    public static readonly TensorDtype BFloat16 = new("bfloat16", TensorElementType.BFloat16, typeof(Microsoft.ML.OnnxRuntime.BFloat16), width: Some(2), ortBytes: 2, quantized: false, modelBoundaryOnly: true);
-    public static readonly TensorDtype Complex128 = new("complex128", TensorElementType.Complex128, typeof(System.Numerics.Complex), width: Some(16), ortBytes: 16, quantized: false, modelBoundaryOnly: false);
-    public static readonly TensorDtype Int8 = new("int8", TensorElementType.Int8, typeof(sbyte), width: Some(1), ortBytes: 1, quantized: true, modelBoundaryOnly: false);
-    public static readonly TensorDtype Int16 = new("int16", TensorElementType.Int16, typeof(short), width: Some(2), ortBytes: 2, quantized: false, modelBoundaryOnly: false);
-    public static readonly TensorDtype Int32 = new("int32", TensorElementType.Int32, typeof(int), width: Some(4), ortBytes: 4, quantized: false, modelBoundaryOnly: false);
-    public static readonly TensorDtype Int64 = new("int64", TensorElementType.Int64, typeof(long), width: Some(8), ortBytes: 8, quantized: false, modelBoundaryOnly: false);
-    public static readonly TensorDtype UInt8 = new("uint8", TensorElementType.UInt8, typeof(byte), width: Some(1), ortBytes: 1, quantized: true, modelBoundaryOnly: false);
-    public static readonly TensorDtype UInt16 = new("uint16", TensorElementType.UInt16, typeof(ushort), width: Some(2), ortBytes: 2, quantized: false, modelBoundaryOnly: false);
-    public static readonly TensorDtype UInt32 = new("uint32", TensorElementType.UInt32, typeof(uint), width: Some(4), ortBytes: 4, quantized: false, modelBoundaryOnly: false);
-    public static readonly TensorDtype UInt64 = new("uint64", TensorElementType.UInt64, typeof(ulong), width: Some(8), ortBytes: 8, quantized: false, modelBoundaryOnly: false);
-    public static readonly TensorDtype Bool = new("bool", TensorElementType.Bool, typeof(bool), width: Some(1), ortBytes: 1, quantized: false, modelBoundaryOnly: false);
-    public static readonly TensorDtype Utf8Text = new("string", TensorElementType.String, typeof(string), width: None, ortBytes: 0, quantized: false, modelBoundaryOnly: true);
+    public static readonly TensorDtype Float32 = new("float32", TensorElementType.Float, typeof(float), width: Some(4), ortBytes: 4, quantized: false, modelBoundaryOnly: false, numeric: true, integral: false, signed: true, storageBits: 32, precisionBits: 24, exponentBits: 8);
+    public static readonly TensorDtype Float64 = new("float64", TensorElementType.Double, typeof(double), width: Some(8), ortBytes: 8, quantized: false, modelBoundaryOnly: false, numeric: true, integral: false, signed: true, storageBits: 64, precisionBits: 53, exponentBits: 11);
+    public static readonly TensorDtype Float16 = new("float16", TensorElementType.Float16, typeof(Half), width: Some(2), ortBytes: 2, quantized: false, modelBoundaryOnly: false, numeric: true, integral: false, signed: true, storageBits: 16, precisionBits: 11, exponentBits: 5);
+    public static readonly TensorDtype BFloat16 = new("bfloat16", TensorElementType.BFloat16, typeof(Microsoft.ML.OnnxRuntime.BFloat16), width: Some(2), ortBytes: 2, quantized: false, modelBoundaryOnly: true, numeric: true, integral: false, signed: true, storageBits: 16, precisionBits: 8, exponentBits: 8);
+    public static readonly TensorDtype Complex128 = new("complex128", TensorElementType.Complex128, typeof(System.Numerics.Complex), width: Some(16), ortBytes: 16, quantized: false, modelBoundaryOnly: false, numeric: true, integral: false, signed: true, storageBits: 128, precisionBits: 53, exponentBits: 11);
+    public static readonly TensorDtype Int8 = new("int8", TensorElementType.Int8, typeof(sbyte), width: Some(1), ortBytes: 1, quantized: true, modelBoundaryOnly: false, numeric: true, integral: true, signed: true, storageBits: 8, precisionBits: 7, exponentBits: 0);
+    public static readonly TensorDtype Int16 = new("int16", TensorElementType.Int16, typeof(short), width: Some(2), ortBytes: 2, quantized: false, modelBoundaryOnly: false, numeric: true, integral: true, signed: true, storageBits: 16, precisionBits: 15, exponentBits: 0);
+    public static readonly TensorDtype Int32 = new("int32", TensorElementType.Int32, typeof(int), width: Some(4), ortBytes: 4, quantized: false, modelBoundaryOnly: false, numeric: true, integral: true, signed: true, storageBits: 32, precisionBits: 31, exponentBits: 0);
+    public static readonly TensorDtype Int64 = new("int64", TensorElementType.Int64, typeof(long), width: Some(8), ortBytes: 8, quantized: false, modelBoundaryOnly: false, numeric: true, integral: true, signed: true, storageBits: 64, precisionBits: 63, exponentBits: 0);
+    public static readonly TensorDtype UInt8 = new("uint8", TensorElementType.UInt8, typeof(byte), width: Some(1), ortBytes: 1, quantized: true, modelBoundaryOnly: false, numeric: true, integral: true, signed: false, storageBits: 8, precisionBits: 8, exponentBits: 0);
+    public static readonly TensorDtype UInt16 = new("uint16", TensorElementType.UInt16, typeof(ushort), width: Some(2), ortBytes: 2, quantized: false, modelBoundaryOnly: false, numeric: true, integral: true, signed: false, storageBits: 16, precisionBits: 16, exponentBits: 0);
+    public static readonly TensorDtype UInt32 = new("uint32", TensorElementType.UInt32, typeof(uint), width: Some(4), ortBytes: 4, quantized: false, modelBoundaryOnly: false, numeric: true, integral: true, signed: false, storageBits: 32, precisionBits: 32, exponentBits: 0);
+    public static readonly TensorDtype UInt64 = new("uint64", TensorElementType.UInt64, typeof(ulong), width: Some(8), ortBytes: 8, quantized: false, modelBoundaryOnly: false, numeric: true, integral: true, signed: false, storageBits: 64, precisionBits: 64, exponentBits: 0);
+    public static readonly TensorDtype Bool = new("bool", TensorElementType.Bool, typeof(bool), width: Some(1), ortBytes: 1, quantized: false, modelBoundaryOnly: false, numeric: false, integral: false, signed: false, storageBits: 1, precisionBits: 1, exponentBits: 0);
+    public static readonly TensorDtype Utf8Text = new("string", TensorElementType.String, typeof(string), width: None, ortBytes: 0, quantized: false, modelBoundaryOnly: true, numeric: false, integral: false, signed: false, storageBits: 0, precisionBits: 0, exponentBits: 0);
 
     public TensorElementType Element { get; }
     public Type Clr { get; }
@@ -44,23 +44,99 @@ public sealed partial class TensorDtype {
     public int OrtElementBytes { get; }
     public bool Quantized { get; }
     public bool ModelBoundaryOnly { get; }
+    public bool Numeric { get; }
+    public bool Integral { get; }
+    public bool Signed { get; }
+    public int StorageBits { get; }
+    public int PrecisionBits { get; }
+    public int ExponentBits { get; }
 
-    public Option<long> ElementCount(long sizeInBytes) =>
-        OrtElementBytes > 0 ? Some(sizeInBytes / OrtElementBytes) : None;
+    // Zero-point range shares the quantized row's integer domain.
+    public Option<(long Min, long Max)> ZeroPointDomain =>
+        !Quantized ? None
+        : Element == TensorElementType.Int8 ? Some(((long)sbyte.MinValue, (long)sbyte.MaxValue))
+        : Some(((long)byte.MinValue, (long)byte.MaxValue));
+
+    public Fin<int> ElementCount(long sizeInBytes) =>
+        OrtElementBytes <= 0 ? TensorFault.Fail<int>("no-byte-stride", Key)
+        : sizeInBytes < 0 ? TensorFault.Fail<int>("negative-byte-span", Key, sizeInBytes.ToString(CultureInfo.InvariantCulture))
+        : sizeInBytes % OrtElementBytes != 0 ? TensorFault.Fail<int>("misaligned-byte-span", Key, $"{sizeInBytes}%{OrtElementBytes}")
+        : sizeInBytes / OrtElementBytes > int.MaxValue ? TensorFault.Fail<int>("element-count-overflow", Key, sizeInBytes.ToString(CultureInfo.InvariantCulture))
+        : Fin.Succ(checked((int)(sizeInBytes / OrtElementBytes)));
 }
 
 // --- [MODELS] ------------------------------------------------------------------------------
-// The ONNX QuantizeLinear/DequantizeLinear affine policy in all three granularities the runtime admits —
-// per-tensor scalar, per-axis (per-channel weights, the universal INT8-CNN form), and blocked (sub-channel
-// groups, the INT4/FP8 weight form, ONNX opset 21+). dequant(x) = (x - zeroPoint) * scale; the zero-point shares
-// the quantized row's integer domain. A bare (scale, zeroPoint) scalar is the per-tensor SLICE of this family,
-// never the whole concept — modelling only PerTensor strands every per-channel quantized model at the boundary.
+// ONNX affine quantization owns scalar, per-axis, and blocked granularities; dequant(x) = (x - zeroPoint) * scale.
 [Union]
 public abstract partial record QuantizationPolicy {
     private QuantizationPolicy() { }
     public sealed record PerTensor(double Scale, int ZeroPoint) : QuantizationPolicy;
     public sealed record PerAxis(int Axis, ImmutableArray<double> Scales, ImmutableArray<int> ZeroPoints) : QuantizationPolicy;
     public sealed record Blocked(int Axis, int BlockSize, ImmutableArray<double> Scales, ImmutableArray<int> ZeroPoints) : QuantizationPolicy;
+
+    public Fin<QuantizationPolicy> Admit(TensorDtype row, ReadOnlyMemory<long> shape) =>
+        row.ZeroPointDomain.Match(
+            None: () => TensorFault.Fail<QuantizationPolicy>("quantization-on-unquantized-row", row.Key),
+            Some: domain => this.Switch<Fin<QuantizationPolicy>>(
+                perTensor: p => (ScaleGate(row, p.Scale), ZeroGate(row, domain, p.ZeroPoint))
+                    .Apply((_, _) => (QuantizationPolicy)p).As().ToFin(),
+                perAxis: a => (
+                    AxisGate(row, a.Axis, shape),
+                    ShapeVectorGate(row, a.Axis, null, a.Scales.Length, shape),
+                    NonEmptyGate(row, a.Scales, a.ZeroPoints),
+                    PairGate(row, a.Scales, a.ZeroPoints),
+                    ScaleVectorGate(row, a.Scales),
+                    ZeroVectorGate(row, domain, a.ZeroPoints))
+                    .Apply((_, _, _, _, _, _) => (QuantizationPolicy)a).As().ToFin(),
+                blocked: b => (
+                    AxisGate(row, b.Axis, shape),
+                    BlockGate(row, b.BlockSize),
+                    ShapeVectorGate(row, b.Axis, b.BlockSize, b.Scales.Length, shape),
+                    NonEmptyGate(row, b.Scales, b.ZeroPoints),
+                    PairGate(row, b.Scales, b.ZeroPoints),
+                    ScaleVectorGate(row, b.Scales),
+                    ZeroVectorGate(row, domain, b.ZeroPoints))
+                    .Apply((_, _, _, _, _, _, _) => (QuantizationPolicy)b).As().ToFin()));
+
+    private static Validation<Error, Unit> ScaleGate(TensorDtype row, double scale) =>
+        double.IsFinite(scale) && scale > 0.0 ? unit : TensorFault.Symbol("quant-scale", row.Key, scale.ToString(CultureInfo.InvariantCulture));
+
+    private static Validation<Error, Unit> ZeroGate(TensorDtype row, (long Min, long Max) domain, int zeroPoint) =>
+        zeroPoint >= domain.Min && zeroPoint <= domain.Max ? unit : TensorFault.Symbol("quant-zero-point", row.Key, $"{zeroPoint} outside [{domain.Min},{domain.Max}]");
+
+    private static Validation<Error, Unit> AxisGate(TensorDtype row, int axis, ReadOnlyMemory<long> shape) =>
+        axis >= 0 && axis < shape.Length ? unit : TensorFault.Symbol("quant-axis", row.Key, $"{axis}/{shape.Length}");
+
+    private static Validation<Error, Unit> BlockGate(TensorDtype row, int blockSize) =>
+        blockSize > 0 ? unit : TensorFault.Symbol("quant-block", row.Key, blockSize.ToString(CultureInfo.InvariantCulture));
+
+    private static Validation<Error, Unit> ShapeVectorGate(
+        TensorDtype row,
+        int axis,
+        int? blockSize,
+        int vectorLength,
+        ReadOnlyMemory<long> shape) {
+        if (axis < 0 || axis >= shape.Length || blockSize is <= 0) { return unit; }
+        long extent = shape.Span[axis];
+        if (extent <= 0) { return TensorFault.Symbol("quant-shape", row.Key, $"axis={axis}:extent={extent}"); }
+        if (blockSize is null && vectorLength != extent) { return TensorFault.Symbol("quant-axis-cardinality", row.Key, $"{vectorLength}!={extent}"); }
+        if (blockSize is int block && vectorLength != 1 + (extent - 1) / block) {
+            return TensorFault.Symbol("quant-block-cardinality", row.Key, $"{vectorLength}!={1 + (extent - 1) / block}");
+        }
+        return unit;
+    }
+
+    private static Validation<Error, Unit> NonEmptyGate(TensorDtype row, ImmutableArray<double> scales, ImmutableArray<int> zeroPoints) =>
+        scales.IsDefaultOrEmpty || zeroPoints.IsDefaultOrEmpty ? TensorFault.Symbol("quant-empty", row.Key) : unit;
+
+    private static Validation<Error, Unit> PairGate(TensorDtype row, ImmutableArray<double> scales, ImmutableArray<int> zeroPoints) =>
+        scales.Length != zeroPoints.Length ? TensorFault.Symbol("quant-cardinality", row.Key, $"{scales.Length}!={zeroPoints.Length}") : unit;
+
+    private static Validation<Error, Unit> ScaleVectorGate(TensorDtype row, ImmutableArray<double> scales) =>
+        scales.Any(static scale => !double.IsFinite(scale) || scale <= 0.0) ? TensorFault.Symbol("quant-scale", row.Key) : unit;
+
+    private static Validation<Error, Unit> ZeroVectorGate(TensorDtype row, (long Min, long Max) domain, ImmutableArray<int> zeroPoints) =>
+        zeroPoints.Any(zero => zero < domain.Min || zero > domain.Max) ? TensorFault.Symbol("quant-zero-point", row.Key) : unit;
 }
 
 // --- [ERRORS] ------------------------------------------------------------------------------
@@ -81,23 +157,46 @@ public static class TensorVocabulary {
     public static Fin<TensorDtype> Admit(TensorElementType element) =>
         ByElement.TryGetValue(element, out TensorDtype? row) ? Fin.Succ(row!) : TensorFault.Fail<TensorDtype>("unmapped-element", element.ToString());
 
-    public static Fin<TensorDtype> Admit(TensorElementType element, Option<QuantizationPolicy> quantization) =>
-        Admit(element).Bind(row => quantization.IsSome && !row.Quantized ? TensorFault.Fail<TensorDtype>("quantization-on-unquantized-row", row.Key) : Fin.Succ(row));
+    public static Fin<TensorDtype> Promote(TensorDtype left, TensorDtype right) {
+        if (left == right) { return Fin.Succ(left); }
+        if (!left.Numeric || !right.Numeric) { return TensorFault.Fail<TensorDtype>("non-numeric-promotion", $"{left.Key}+{right.Key}"); }
+        if (left == TensorDtype.Complex128 || right == TensorDtype.Complex128) { return Fin.Succ(TensorDtype.Complex128); }
+        if (!left.Integral || !right.Integral) {
+            // Range dominates beside precision: bfloat16 + float16 promotes to float32 because neither operand's
+            // exponent domain covers the other, never to the precision-minimal float16 whose range truncates.
+            int requiredPrecision = Math.Max(left.PrecisionBits, right.PrecisionBits);
+            int requiredExponent = Math.Max(left.ExponentBits, right.ExponentBits);
+            TensorDtype promoted = TensorDtype.Items
+                .Where(static row => row.Numeric && !row.Integral && row != TensorDtype.Complex128 && !row.ModelBoundaryOnly)
+                .OrderBy(static row => row.PrecisionBits)
+                .FirstOrDefault(row => row.PrecisionBits >= requiredPrecision && row.ExponentBits >= requiredExponent) ?? TensorDtype.Float64;
+            return Fin.Succ(promoted);
+        }
+        bool signed = left.Signed || right.Signed;
+        int requiredBits = Math.Max(left.StorageBits, right.StorageBits) + (left.Signed == right.Signed ? 0 : 1);
+        TensorDtype? integer = TensorDtype.Items
+            .Where(row => row.Integral && row.Signed == signed && row.StorageBits >= requiredBits)
+            .OrderBy(static row => row.StorageBits)
+            .FirstOrDefault();
+        return integer is not null ? Fin.Succ(integer) : Fin.Succ(TensorDtype.Float64);
+    }
 
-    public static Fin<int> OrtByteSpan(TensorDtype row, long sizeInBytes) =>
-        row.ElementCount(sizeInBytes).Match(
-            Some: count => Fin.Succ(checked((int)count)),
-            None: () => TensorFault.Fail<int>("no-byte-stride", row.Key));
+    public static Fin<TensorDtype> Admit(TensorElementType element, Option<QuantizationPolicy> quantization, ReadOnlyMemory<long> shape) =>
+        Admit(element).Bind(row => quantization.Match(
+            Some: policy => policy.Admit(row, shape).Map(_ => row),
+            None: () => Fin.Succ(row)));
+
+    public static Fin<int> OrtByteSpan(TensorDtype row, long sizeInBytes) => row.ElementCount(sizeInBytes);
 }
 ```
 
 ## [03]-[OPERATION_TABLE]
 
 - Owner: `TensorOpFamily`
-- Cases: thirteen `TensorOpKind` rows — elementwise, rounding, transcendental, reduction, statistics, bitwise, population, similarity, conversion, predicate, matrix, structural, geometry — each carrying its `ToleranceClass` envelope column; the transcendental family spans the full `TensorPrimitives` surface — the forward and inverse trig (`Sin`/`Cos`/`Tan`/`Asin`/`Acos`/`Atan`/`Atan2`) and their `Pi` companions (`SinPi`/`CosPi`/`TanPi`/`AsinPi`/`AcosPi`/`AtanPi`/`Atan2Pi`/`SinCos`/`SinCosPi`), the hyperbolic and inverse-hyperbolic pairs (`Sinh`/`Cosh`/`Tanh`/`Asinh`/`Acosh`/`Atanh`), the base-2 and base-10 and `M1`/`P1` precision variants (`Exp2`/`Exp10`/`ExpM1`/`Exp2M1`/`Exp10M1`/`Log2`/`Log10`/`LogP1`/`Log2P1`/`Log10P1`), and the `Pow`/`Sqrt`/`Cbrt`/`RootN`/`ScaleB`/`Hypot` powers beside the exact-scale `DegreesToRadians`/`RadiansToDegrees`; the activation family — `Sigmoid`/`Tanh`/`SoftMax` bind direct `TensorPrimitives` members while `ReLU` (a `Max` clamp at zero), `SiLU` (`x · Sigmoid(x)`), `Gelu` (the Φ/`Sigmoid`-approximation form), and `LogSoftMax` (`SoftMax` then `Log`) carry NO direct `TensorPrimitives` member and lower as the composed forms `Tensor/dispatch#KERNEL_DISPATCH` binds; the four pooling rows (`MaxPool`/`AvgPool`/`GlobalMaxPool`/`GlobalAvgPool`); the magnitude-extremum reduction quartet (`Max`/`Min` crossed with value/magnitude and NaN-propagating/NaN-missing: `MaxMagnitude`/`MinMagnitude`/`MaxMagnitudeNumber`/`MinMagnitudeNumber`); the estimate rows (`ReciprocalEstimate`/`ReciprocalSqrtEstimate`/`MultiplyAddEstimate`); the bit-adjacency and exponent-extraction elementwise rows (`BitIncrement`/`BitDecrement`/`ILogB`/`Remainder`); the widening conversion rows (`ConvertToSingle`/`ConvertToInteger`/`ConvertToIntegerNative`); the complete IEEE-754 predicate-classification family — `IsNaN`/`IsFinite`/`IsInfinity`/`IsPositiveInfinity`/`IsNegativeInfinity`/`IsInteger`/`IsEvenInteger`/`IsOddInteger`/`IsNegative`/`IsPositive`/`IsZero`/`IsNormal`/`IsSubnormal`/`IsPow2`/`IsCanonical`/`IsComplexNumber`/`IsImaginaryNumber`/`IsRealNumber`, each carrying its per-element mask plus its fused `All`/`Any` boolean-aggregate rows; the element-domain rows (`ComplexAbs`/`ComplexExp`/`ComplexLog`/`Conjugate` over `System.Numerics.Complex`, `QuaternionMultiply`/`QuaternionConjugate`/`QuaternionNormalize` over `System.Numerics.Quaternion`); and the six DDG geometry-operator rows (`Gradient`/`Divergence`/`Curl`/`CotangentLaplacian`/`HeatFlow`/`Spectral`) carrying the linear DEC operators whose reverse-mode adjoint is the operator transpose over the `Tensor/dispatch#EQUIVALENCE_INTEROP` `Sensitivity.Operator` reverse-mode apply (routing the `Tensor/dispatch#EQUIVALENCE_INTEROP` `OperatorRow.Adjoint` over the kernel `Rasm.Numerics` `DiscreteCalculus`) — all ride the existing kind axis as rows, never sibling op types
+- Cases: thirteen `TensorOpKind` rows — elementwise, rounding, transcendental, reduction, statistics, bitwise, population, similarity, conversion, predicate, matrix, structural, geometry — each carrying its `ToleranceClass` envelope column; the transcendental family spans the full `TensorPrimitives` surface — the forward and inverse trig (`Sin`/`Cos`/`Tan`/`Asin`/`Acos`/`Atan`/`Atan2`) and their `Pi` companions (`SinPi`/`CosPi`/`TanPi`/`AsinPi`/`AcosPi`/`AtanPi`/`Atan2Pi`/`SinCos`/`SinCosPi`), the hyperbolic and inverse-hyperbolic pairs (`Sinh`/`Cosh`/`Tanh`/`Asinh`/`Acosh`/`Atanh`), the base-2 and base-10 and `M1`/`P1` precision variants (`Exp2`/`Exp10`/`ExpM1`/`Exp2M1`/`Exp10M1`/`Log2`/`Log10`/`LogP1`/`Log2P1`/`Log10P1`), and the `Pow`/`Sqrt`/`Cbrt`/`RootN`/`ScaleB`/`Hypot` powers beside the exact-scale `DegreesToRadians`/`RadiansToDegrees`; the activation family — `Sigmoid`/`Tanh`/`SoftMax` bind direct `TensorPrimitives` members while `ReLU` (a `Max` clamp at zero), `SiLU` (`x · Sigmoid(x)`), `Gelu` (the tanh-approximation form), and `LogSoftMax` (`SoftMax` then `Log`) carry NO direct `TensorPrimitives` member and lower as the composed forms `Tensor/dispatch#KERNEL_DISPATCH` binds; the four pooling rows (`MaxPool`/`AvgPool`/`GlobalMaxPool`/`GlobalAvgPool`); the index-driven structural pair (`Gather`/`Scatter`) reading or writing elements by index value at span rate — take-along-axis composes `Gather` over layout-derived flat indices and a colliding scatter resolves last-write-wins in index order; the magnitude-extremum reduction quartet (`Max`/`Min` crossed with value/magnitude and NaN-propagating/NaN-missing: `MaxMagnitude`/`MinMagnitude`/`MaxMagnitudeNumber`/`MinMagnitudeNumber`); the five segmented-reduction rows (`SegmentSum`/`SegmentMean`/`SegmentMax`/`SegmentMin`/`SegmentCount`) folding per-group aggregates over a segment-id lane in one pass — per-zone, per-member, and per-cell rollups ride the `Tensor/dispatch#KERNEL_DISPATCH` `Segment` arity at span rate instead of a caller loop, and the rows carry no `TensorPrimitives` member; the estimate rows (`ReciprocalEstimate`/`ReciprocalSqrtEstimate`/`MultiplyAddEstimate`); the bit-adjacency and exponent-extraction elementwise rows (`BitIncrement`/`BitDecrement`/`ILogB`/`Remainder`); the widening conversion rows (`ConvertToSingle`/`ConvertToInteger`/`ConvertToIntegerNative`); the complete IEEE-754 predicate-classification family — `IsNaN`/`IsFinite`/`IsInfinity`/`IsPositiveInfinity`/`IsNegativeInfinity`/`IsInteger`/`IsEvenInteger`/`IsOddInteger`/`IsNegative`/`IsPositive`/`IsZero`/`IsNormal`/`IsSubnormal`/`IsPow2`/`IsCanonical`/`IsComplexNumber`/`IsImaginaryNumber`/`IsRealNumber`, each carrying its per-element mask plus its fused `All`/`Any` boolean-aggregate rows; the element-domain rows (`ComplexAbs`/`ComplexExp`/`ComplexLog`/`Conjugate` over `System.Numerics.Complex`, `QuaternionMultiply`/`QuaternionConjugate`/`QuaternionNormalize` over `System.Numerics.Quaternion`); and the six DDG geometry-operator rows (`Gradient`/`Divergence`/`Curl`/`CotangentLaplacian`/`HeatFlow`/`Spectral`) carrying the linear DEC operators whose reverse-mode adjoint is the operator transpose over the `Tensor/dispatch#EQUIVALENCE_INTEROP` `Sensitivity.Operator` reverse-mode apply (routing the `Tensor/dispatch#EQUIVALENCE_INTEROP` `OperatorRow.Adjoint` over the kernel `Rasm.Numerics` `DiscreteCalculus`) — all ride the existing kind axis as rows, never sibling op types
 - Packages: System.Numerics.Tensors, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: a new operation is one `TensorOpFamily` row carrying its kind and tolerance columns; a new tolerance band is one `ToleranceClass` row; a new operation kind is one `TensorOpKind` row; zero new surface.
-- Boundary: the `ToleranceClass` vocabulary closes the equivalence axis as an error ENVELOPE `Bound(N, mass)` over the reduction length and the operand mass Σ|xᵢ|, never a flat relative scalar — exact (bound 0: integer, bitwise, population, every predicate/classification row, the selection reductions `Min`/`Max`/`*Number`/`*Magnitude`/`IndexOf*`, rounding, conversions, `MaxPool`/`GlobalMaxPool`, and the bit-exact elementwise rows), ulp-banded (a few ε·Σ|xᵢ|: the fused triad `MultiplyAdd`/`FusedMultiplyAdd`/`AddMultiply`/`Lerp`, `Reciprocal`/`ReciprocalSqrt`/`Sqrt`, and the quaternion `Multiply`/`Normalize`), accumulation-scaled (N·ε·Σ|xᵢ| as the vectorized reduction reassociates: `Sum`/`Product`/`Dot`/`Norm`/`SumOf*`/`ProductOf*`/`Average`/`StdDev`/`CosineSimilarity`/`Distance`, the `MatMul`/`Conv*` GEMM lowerings, the `AvgPool`/`GlobalAvgPool` window means, and the linear DEC geometry operators), cross-platform-variant (golden-vector banded, never bit-exact across platforms: the C-runtime transcendentals — the trig and inverse-trig and `Pi` and hyperbolic and `Exp*` and `Log*` families, `Pow`/`Cbrt`/`RootN`/`Hypot`, the `Sigmoid`/`SoftMax`/`Gelu`/`SiLU` activations, the complex transcendentals, and `Spectral`), and platform-variant (no cross-machine bound: the `*Estimate` rows, inadmissible wherever cross-machine bit agreement is contractual, paired against their bounded `Reciprocal`/`ReciprocalSqrt`/`FusedMultiplyAdd` counterparts) — the `Bound(N, mass)` envelope is the proof key the `EquivalenceLaw` reads by data under the cancellation-ratio gate (`Vacuous` when `|Σxᵢ|/Σ|xᵢ|` falls below `CancellationFloor`, since a catastrophically-cancelling reduction cannot certify even the scaled bound), never a `Prove` argument and never a stored relative scalar; `MinNumber`/`MaxNumber` are the NaN-as-missing reduction pair distinct from the NaN-propagating `Min`/`Max` rows, binding the `T.MinNumber`/`T.MaxNumber` reduction members on the `Fold` table, and `MaxMagnitude`/`MinMagnitude`/`MaxMagnitudeNumber`/`MinMagnitudeNumber` reduce by signed absolute extremum (NaN-propagating and NaN-missing) on the same table; the full IEEE-754 predicate-classification family writes its per-element `Span<bool>` mask through the `Test` arity and folds to one `bool` through the fused `All`/`Any` `Aggregate` reducers — the `Is*All`/`Is*Any` rows distinct from their per-element masks; the four structural pooling rows fold in-lane through the shared strided-window `Pool` kernel over the verified `TensorPrimitives.Max`/`Average` window reducers on the rank-aware `GetDimensionSpan` cursor (the fifth structural row `MaskedWrite` is the `Tensor/dispatch#KERNEL_DISPATCH` masked structural-write, not a pooling fold), while the matrix rows (`MatMul`, `Conv1D`/`Conv2D`/`Conv3D`) carry no `TensorPrimitives` member and lower through `Tensor/factor#KERNEL_LOWERING` (matmul to GEMM, convolution to im2col); the six geometry rows (`Gradient`/`Divergence`/`Curl`/`CotangentLaplacian`/`HeatFlow`/`Spectral`) carry no `TensorPrimitives` member and no `Tensor/factor#KERNEL_LOWERING` route — they lower to the `Tensor/dispatch#EQUIVALENCE_INTEROP` `OperatorRow` forward apply — the Compute-owned row table composing the kernel `Rasm.Numerics` `DiscreteCalculus` — over a mesh snapshot, so a geometry row resolves only inside the `Tensor/dispatch#EQUIVALENCE_INTEROP` differentiable-operator path where the recorded primal carries the snapshot, never as a bare span kernel on the `Map` dispatch table, and the geometry `ToleranceClass.AccumulationScaled`/`CrossPlatformVariant` bands key the reverse-mode adjoint proof against the self-adjoint/transpose identity rather than a kernel-versus-baseline span comparison; the table keys through the ordinal `ComparerAccessors.StringOrdinal` so every binding index resolves the same comparer.
+- Boundary: `ToleranceClass.Bound(length, mass)` owns absolute equivalence envelopes, and `Vacuous` rejects cancellation-dominated evidence. `TensorVocabulary.Promote(left, right)` generates result dtype from numeric kind, signedness, storage width, precision width, and exponent range rather than maintaining an ordered-pair roster. Quantized admission composes independent scale, zero-point, axis, block, vector, and shape gates through accumulated `Validation`.
 
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
@@ -105,7 +204,7 @@ public static class TensorVocabulary {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ToleranceClass {
-    // The equivalence bound is the error ENVELOPE Bound(N, mass) over the reduction length N and the operand
+    // Equivalence bound is the error ENVELOPE Bound(N, mass) over the reduction length N and the operand
     // mass Σ|xᵢ|, never a flat relative scalar: a vectorized reduction reassociates so its bound scales N·ε·Σ|xᵢ|;
     // a same-route fused/iterative op bands by a few ε·Σ|xᵢ| (ULP); a C-runtime transcendental is golden-vector
     // banded and never bit-exact across platforms; an estimate row has no cross-machine bound. ε = ScaleB(1, -52)
@@ -117,9 +216,10 @@ public sealed partial class ToleranceClass {
     public static readonly ToleranceClass CrossPlatformVariant = new("cross-platform-variant", static (_, mass) => Math.ScaleB(16.0, -52) * mass);
     public static readonly ToleranceClass PlatformVariant = new("platform-variant", static (_, _) => double.PositiveInfinity);
 
-    public Func<int, double, double> Bound { get; }
+    [UseDelegateFromConstructor]
+    public partial double Bound(int length, double mass);
 
-    // The cancellation ratio |Σxᵢ|/Σ|xᵢ| decides when even the scaled envelope is vacuous: a reduction whose
+    // Cancellation ratio |Σxᵢ|/Σ|xᵢ| decides when even the scaled envelope is vacuous: a reduction whose
     // catastrophic cancellation drives the ratio below the floor cannot certify equivalence, so the proof rail
     // records the ratio class beside the bound rather than passing a meaningless tight bound — Exact alone is
     // ratio-invariant because bit-equality holds regardless of cancellation.
@@ -248,6 +348,11 @@ public sealed partial class TensorOpFamily {
     public static readonly TensorOpFamily IndexOfMin = new("index-of-min", TensorOpKind.Reduction, ToleranceClass.Exact);
     public static readonly TensorOpFamily IndexOfMaxMagnitude = new("index-of-max-magnitude", TensorOpKind.Reduction, ToleranceClass.Exact);
     public static readonly TensorOpFamily IndexOfMinMagnitude = new("index-of-min-magnitude", TensorOpKind.Reduction, ToleranceClass.Exact);
+    public static readonly TensorOpFamily SegmentSum = new("segment-sum", TensorOpKind.Reduction, ToleranceClass.AccumulationScaled);
+    public static readonly TensorOpFamily SegmentMean = new("segment-mean", TensorOpKind.Reduction, ToleranceClass.AccumulationScaled);
+    public static readonly TensorOpFamily SegmentMax = new("segment-max", TensorOpKind.Reduction, ToleranceClass.Exact);
+    public static readonly TensorOpFamily SegmentMin = new("segment-min", TensorOpKind.Reduction, ToleranceClass.Exact);
+    public static readonly TensorOpFamily SegmentCount = new("segment-count", TensorOpKind.Reduction, ToleranceClass.Exact);
     public static readonly TensorOpFamily Average = new("average", TensorOpKind.Statistics, ToleranceClass.AccumulationScaled);
     public static readonly TensorOpFamily StdDev = new("std-dev", TensorOpKind.Statistics, ToleranceClass.AccumulationScaled);
     public static readonly TensorOpFamily BitwiseAnd = new("bitwise-and", TensorOpKind.Bitwise, ToleranceClass.Exact);
@@ -337,6 +442,8 @@ public sealed partial class TensorOpFamily {
     public static readonly TensorOpFamily GlobalMaxPool = new("global-max-pool", TensorOpKind.Structural, ToleranceClass.Exact);
     public static readonly TensorOpFamily GlobalAvgPool = new("global-avg-pool", TensorOpKind.Structural, ToleranceClass.AccumulationScaled);
     public static readonly TensorOpFamily MaskedWrite = new("masked-write", TensorOpKind.Structural, ToleranceClass.Exact);
+    public static readonly TensorOpFamily Gather = new("gather", TensorOpKind.Structural, ToleranceClass.Exact);
+    public static readonly TensorOpFamily Scatter = new("scatter", TensorOpKind.Structural, ToleranceClass.Exact);
     public static readonly TensorOpFamily ComplexAbs = new("complex-abs", TensorOpKind.Elementwise, ToleranceClass.CrossPlatformVariant);
     public static readonly TensorOpFamily ComplexExp = new("complex-exp", TensorOpKind.Transcendental, ToleranceClass.CrossPlatformVariant);
     public static readonly TensorOpFamily ComplexLog = new("complex-log", TensorOpKind.Transcendental, ToleranceClass.CrossPlatformVariant);

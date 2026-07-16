@@ -1,23 +1,11 @@
 # [RASM_COMPUTE_API_ONNXRUNTIME]
 
-`Microsoft.ML.OnnxRuntime` supplies model session execution, native runtime
-assets, tensor value binding, run options, metadata inspection, custom operators,
-EP-context model compilation, autoEP hardware-device discovery, and
-execution-provider selection for Compute model rails. The managed surface stacks
-into the `Model/*` design owners as ONE rail: `Boot` folds `OrtThreadingOptions`
-into `EnvironmentCreationOptions`, `Open` folds `SessionOptions` config-entry keys
-- `OrtModelCompilationOptions` EP-context compile into the resident-session map,
-`RunOps` folds `OrtValue` carriers + `OrtIoBinding` bound loops under a
-`RunOptions.Terminate` deadline latch into a `Fin` projection, and the autoEP
-`OrtEnv.GetEpDevices`/`GetModelCompatibilityForEpDevices`/`CreateSharedAllocator`
-trio drives the `ExecutionProvider` device-rank fold and shared-arena lease — every
-native handle is `SafeHandle`/`IDisposable` and releases through deterministic
-disposal, so the design composes capability rather than re-marshalling the C API.
+`Microsoft.ML.OnnxRuntime` supplies model session execution, native runtime assets, tensor value binding, run options, metadata inspection, custom operators, EP-context model compilation, autoEP hardware-device discovery, and execution-provider selection for Compute model rails. `Model/*` owners compose the managed surface as one rail: `Boot` folds `OrtThreadingOptions` into `EnvironmentCreationOptions`; `Open` folds `SessionOptions` config-entry keys and `OrtModelCompilationOptions` EP-context compilation into the resident-session map; `RunOps` folds `OrtValue` carriers and `OrtIoBinding` loops under a `RunOptions.Terminate` deadline latch into a `Fin` projection; the autoEP `OrtEnv.GetEpDevices`/`GetModelCompatibilityForEpDevices`/`CreateSharedAllocator` trio drives provider ranking and shared-arena leases. Every native handle is `SafeHandle`/`IDisposable` and releases deterministically.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.ML.OnnxRuntime`
-- package: `Microsoft.ML.OnnxRuntime` (meta-package: native runtimes + props/targets + headers; declares dependency `Microsoft.ML.OnnxRuntime.Managed `)
+- package: `Microsoft.ML.OnnxRuntime` (meta-package: native runtimes + props/targets + headers; declares dependency `Microsoft.ML.OnnxRuntime.Managed`)
 - assembly: `Microsoft.ML.OnnxRuntime.Managed` — multi-targets `net8.0` / `netstandard2.0` / `net9.0-{android35,ios18,maccatalyst18}`; a `net10.0` non-mobile consumer binds the `lib/net8.0/Microsoft.ML.OnnxRuntime.dll` asset (no plain `net9.0` lib ships, and the `net9.0-*` assets are mobile-platform TFMs), so the surface below is decompile-verified against the consumer-bound `net8.0` assembly
 - license: MIT (`LICENSE` shipped in package root)
 - namespace: `Microsoft.ML.OnnxRuntime` (+ nested `Microsoft.ML.OnnxRuntime.CompileApi`, `Microsoft.ML.OnnxRuntime.Tensors` for `DenseTensor<T>`/`Tensor<T>`)
@@ -62,6 +50,9 @@ disposal, so the design composes capability rather than re-marshalling the C API
 |  [12]   | `IReadOnlyOrtValue`         | read view iface | `[12]`    |
 |  [13]   | `OrtTypeInfo`               | type descriptor | `[13]`    |
 |  [14]   | `SessionOptionsContainer`   | config registry | `[14]`    |
+|  [15]   | `SequenceMetadata`          | recursive schema | `[15]`    |
+|  [16]   | `OptionalMetadata`          | recursive schema | `[16]`    |
+|  [17]   | `MapMetadata`               | recursive schema | `[17]`    |
 
 - [01]: `long Version`, `string Description`, `Domain`, `GraphName`, `GraphDescription`, `ProducerName`, `Dictionary<string,string> CustomMetadataMap` — the map feeds model-identity fingerprinting.
 - [02]: `ElementDataType` (`TensorElementType`), `int[] Dimensions`, `string[] SymbolicDimensions`, `OnnxValueType`, `bool IsTensor`/`IsString`, `Type ElementType`, `AsMapMetadata()`/`AsSequenceMetadata()`/`AsOptionalMetadata()`.
@@ -77,6 +68,9 @@ disposal, so the design composes capability rather than re-marshalling the C API
 - [12]: read-only `OrtValue` projection consumed by `GetInitializerLocationDelegate`.
 - [13]: `OrtValue.GetTypeInfo()` — tensor/sequence/map/optional shape introspection on a live value.
 - [14]: static named-configuration registry: `Register(Action<SessionOptions>)` / `Register(name, handler)`, `Create(name)`, `ApplyConfiguration(name)`, `Reset()` — reusable session-config profiles.
+- [15]: `NodeMetadata ElementMeta`; returned by `NodeMetadata.AsSequenceMetadata()`.
+- [16]: `NodeMetadata ElementMeta`; returned by `NodeMetadata.AsOptionalMetadata()`.
+- [17]: `TensorElementType KeyDataType`, `NodeMetadata ValueMetadata`; returned by `NodeMetadata.AsMapMetadata()`.
 
 [PUBLIC_TYPE_SCOPE]: environment, threading, and provider-policy contracts
 - rail: model
@@ -164,11 +158,11 @@ disposal, so the design composes capability rather than re-marshalling the C API
 - rail: model
 
 [NATIVE_PAYLOAD_OWNER]:
-This is the OWNING per-RID native-payload matrix for the whole ONNX runtime native floor. `api-onnxruntimegenai` `native-rids`/`native-floor`, `api-onnxruntime-gpu`, and `api-onnxruntime-directml` restate NOTHING — they declare their own managed-floor pin and defer the RID/ABI facts here.
+`NATIVE_PAYLOAD_OWNER` is the owning per-RID native-payload matrix for the ONNX runtime floor. `api-onnxruntimegenai` `native-rids`/`native-floor`, `api-onnxruntime-gpu`, and `api-onnxruntime-directml` declare their managed-floor pin and defer RID/ABI facts here.
 
-The base meta-package ships only the `win-{x64,arm64}` payloads inline; every other RID's `libonnxruntime.{dylib,so}` resolves through the platform/feed asset the build copies. The accelerated providers ride sibling packages that supersede the base runtime on their RID: `.Gpu` adds CUDA + TensorRT native on `win-x64`/`linux-x64`; `.DirectML` is a RID-GATED HOLD pinned to `.Managed 1.24.4`, shipping a DML-enabled `onnxruntime.dll` + `Microsoft.AI.DirectML`'s `DirectML.dll` on `win-x64`/`win-arm64`. The genai native co-locates per-RID beside this base runtime, so a genai model run with no matching base-runtime RID payload faults at native init.
+Base meta-package assets ship only the `win-{x64,arm64}` payloads inline; every other RID's `libonnxruntime.{dylib,so}` resolves through the platform/feed asset the build copies. Accelerated providers ride sibling packages that supersede the base runtime on their RID: `.Gpu` adds CUDA + TensorRT native on `win-x64`/`linux-x64`; `.DirectML` is a RID-gated managed-floor hold shipping a DML-enabled `onnxruntime.dll` plus `Microsoft.AI.DirectML`'s `DirectML.dll` on `win-x64`/`win-arm64`. Genai native assets co-locate per RID beside this runtime, so a run without a matching base payload faults at native initialization.
 
-The `[ACCEL]` column keys the per-RID accelerated-provider native into the list below; `.Gpu.Windows`/`.Gpu.Linux` pin 1.27.0 and `.DirectML` is the 1.24.4 HOLD.
+`[ACCEL]` keys each per-RID accelerated-provider native below; `.Gpu.Windows`/`.Gpu.Linux` follow the central pin, and `.DirectML` retains its managed-floor hold.
 
 | [INDEX] | [RID]           | [BASE_RUNTIME_NATIVE]                                             | [ACCEL] | [SHIPPED_BY]                   |
 | :-----: | :-------------- | :---------------------------------------------------------------- | :------ | :----------------------------- |
@@ -307,7 +301,7 @@ Provider names include `CoreMLExecutionProvider` and `CPUExecutionProvider`; thr
 - [06]: `string[]` registered provider names.
 - [07]: `IReadOnlyList<OrtEpDevice>` — enumerates autoEP-available devices.
 - [08]: `IReadOnlyList<OrtHardwareDevice>` / `int` raw hardware enumeration beneath the EP devices.
-- [09]: `string GetCompatibilityInfoFromModel(string modelPath, string epType)` — produces the compat-info STRING a later `GetModelCompatibilityForEpDevices` consumes; `GetCompatibilityInfoFromModelBytes(byte[], epType)` is the in-memory mirror.
+- [09]: `string GetCompatibilityInfoFromModel(string modelPath, string epType)` — produces the compat-info STRING a later `GetModelCompatibilityForEpDevices` consumes; `GetCompatibilityInfoFromModelBytes(byte[], epType)` is the in-memory mirror. Compat info is embedded by EP-context compilation: probe the COMPILED artifact — an uncompiled source model carries none and the verdict lands `EP_NOT_APPLICABLE`.
 - [10]: `OrtCompiledModelCompatibility GetModelCompatibilityForEpDevices(IReadOnlyList<OrtEpDevice> epDevices, string compatibilityInfo)` — the 2nd arg is the compat-info STRING from `GetCompatibilityInfoFromModel`, NOT a model path; returns the `EP_*` ENUM the warm-start branch reads.
 - [11]: `OrtDeviceEpIncompatibilityDetails GetHardwareDeviceEpIncompatibilityDetails(string epName, OrtHardwareDevice)` — driver/device/dependency reason bitmask + notes when a device is rejected.
 - [12]: `(OrtEpDevice, OrtDeviceMemoryType, OrtAllocatorType, IReadOnlyDictionary<string,string> allocatorOptions)` returns `OrtAllocator`.
@@ -608,8 +602,8 @@ Base session / arena / quantization keys the design composes:
 - steady state: binding amortizes input and output allocation across repeated runs and is the measured hot-loop path
 
 [NATIVE_RUNTIME]:
-- OWNERSHIP: this page is the canonical owner of BOTH the EP/device selection matrix (sections 2-3 `ExecutionProvider*`/`AppendExecutionProvider_*`/`OrtEpDevice` + the `[EXECUTION_PROVIDER_SELECTION]` law) AND the per-RID native ABI matrix (section 2 `[PACKAGE_ASSET_SCOPE]: per-RID native ABI matrix`). The genai lane (`api-onnxruntimegenai`), the `.Gpu` lane, and the `.DirectML` lane declare ONLY their managed-floor pin and compose these facts here — neither restates the EP roster nor the RID payload set
-- package asset: native runtime libraries; the BASE meta-package `runtimes/` ships only `win-x64` and `win-arm64` payloads inline. macOS arm64 and Linux x64/arm64 base runtimes load from the platform/feed-resolved `libonnxruntime.{dylib,so}` the build copies. The CoreML EP is built into the macOS dylib, and accelerated CUDA/TensorRT plus DirectML providers ride sibling packages additive onto the matching RID.
+- OWNERSHIP: this page owns both the EP/device selection matrix (sections 2-3 `ExecutionProvider*`/`AppendExecutionProvider_*`/`OrtEpDevice` plus `[EXECUTION_PROVIDER_SELECTION]`) and the per-RID native ABI matrix. Genai, `.Gpu`, and `.DirectML` catalogs declare their managed-floor pin and compose these facts without restating the EP roster or RID payload set.
+- package asset: native runtime libraries; base meta-package `runtimes/` ships only `win-x64` and `win-arm64` payloads inline. macOS arm64 and Linux x64/arm64 runtimes load from the platform/feed-resolved `libonnxruntime.{dylib,so}` copied by the build. CoreML is built into the macOS dylib, while CUDA/TensorRT and DirectML ride sibling packages on matching RIDs.
 - build assets: `build/native/*.props`/`*.targets` copy native runtime libraries by RID
 - provider policy: execution-provider selection is explicit model-rail policy; append order is fallback priority — the genai `Config.AppendProvider`/`SetProviderOption`/`SetDecoderProviderOptionsHardware*` surface selects FROM this EP roster and binds to devices this page's `OrtEpDevice`/`OrtHardwareDevice` discovery enumerates
 
@@ -621,8 +615,8 @@ Base session / arena / quantization keys the design composes:
 
 [STACKING]: the managed surface is internalized into single dense `Model/*` rails alongside the sibling admitted libs, never wrapped one-to-one —
 - boot rail: `OrtThreadingOptions` (`GlobalIntraOp/InterOpNumThreads`, `GlobalSpinControl`) reads the AppHost `CpuBudget`, folds into `EnvironmentCreationOptions`, and `OrtEnv.CreateInstanceWithOptions(ref)` boots once behind `OrtEnv.IsCreated`; `DisableTelemetryEvents` runs at boot because the telemetry spine owns signals
-- session rail: `SessionOptions` config-entry keys + EP `Register` + `OrtModelCompilationOptions` EP-context compile fold into ONE `Open`, the resident map keys on the model checksum (`UInt128`), and the compiled context blob is content-addressed via `System.IO.Hashing.XxHash3` over `OrtEpDevice` `EpName`/`VendorId`/`DeviceId`/`HardwareDevice.Type` then crosses to the Persistence blob lane as an `ArtifactIndexRow` — one artifact owner, not a second EP cache
-- provider rail: the `ExecutionProvider` `[SmartEnum<string>]` (Thinktecture) carries each EP's `CoreMLFlags`/option-table/`ExecutionProviderDevicePolicy`/`OrtHardwareDeviceType`-affinity columns; `GetEpDevices()` → device-rank → `AppendExecutionProvider(env, devices, …)` is ONE polymorphic `Register`, and the two-step `GetCompatibilityInfoFromModel` → `GetModelCompatibilityForEpDevices` enum verdict is read once and CONSUMED into the warm-start branch
+- session rail: `SessionOptions` config-entry keys + EP `Register` + `OrtModelCompilationOptions` EP-context compile fold into ONE `Open`, the resident map keys on `ResidentKey(ModelIdentity.Checksum, ModelFingerprint.Of(SessionPolicy.SessionRows(ep)))`, and the compiled context blob is content-addressed through the device-aware `ContextKey` over `OrtEpDevice` `EpName`/`VendorId`/`DeviceId`/`HardwareDevice.Type` then crosses to the Persistence blob lane as an `ArtifactIndexRow` — one artifact owner, not a second EP cache
+- provider rail: the `ExecutionProvider` `[SmartEnum<string>]` (Thinktecture) carries each EP's option-table/`ExecutionProviderDevicePolicy`/`OrtHardwareDeviceType`-affinity columns; `GetEpDevices()` → device-rank → `AppendExecutionProvider(env, devices, …)` is ONE polymorphic `Register`, and the two-step `GetCompatibilityInfoFromModel` → `GetModelCompatibilityForEpDevices` enum verdict is read once and CONSUMED into the warm-start branch
 - run rail: `OrtValue` carriers admit through a `[Union]` `RunInput`, `OrtIoBinding` amortizes the steady-state loop over a `CreateSharedAllocator` arena, `RunOptions.Terminate` is latched off the AppHost `CancelScope`, `System.Numerics.Tensors.TensorPrimitives` owns the reductions, every projection lands in a LanguageExt `Fin<T>` inside a native-disposal bracket, and the deterministic result keys through `Microsoft.Extensions.Caching.Hybrid` stamped with `GetVersionString()` so cross-version numerical drift never serves a stale hit
 - time rail: every receipt carries `NodaTime` `Instant`/`Duration`; profiling chrome-trace (`EndProfiling` + `ProfilingStartTimeNs`) lands as an `ArtifactIndexRow`
 
@@ -687,7 +681,7 @@ Base session / arena / quantization keys the design composes:
 
 ## [07]-[COMPILE_API]
 
-`OrtModelCompilationOptions` (namespace `Microsoft.ML.OnnxRuntime.CompileApi`) drives the EP-context compile pipeline: it builds a compiled model whose execution-provider partitions are embedded or written to disk so a later session loads the precompiled graph instead of recompiling. The `ep.context_*` session-config keys in section 4 enable the EP-context path; this type configures and runs the compile. The `Model/sessions#SESSION_CAPSULE` `Compile` member drives it for the fleet-shared device-keyed context.
+`OrtModelCompilationOptions` (namespace `Microsoft.ML.OnnxRuntime.CompileApi`) drives the EP-context compile pipeline: it builds a compiled model whose execution-provider partitions are embedded or written to disk so a later session loads the precompiled graph instead of recompiling. Section 4's `ep.context_*` session-config keys activate the EP-context path; `Model/sessions#SESSION_CAPSULE` `Compile` drives the fleet-shared device-keyed context.
 
 [ENTRYPOINT_SCOPE]: compile-API delegate contracts (nested inside `OrtModelCompilationOptions`, not standalone)
 - rail: model
@@ -744,4 +738,4 @@ Base session / arena / quantization keys the design composes:
 - `SetEpContextEmbedMode(bool)` embeds the EP-context binary inside the compiled model when `true`, or writes it beside the model when `false`; `SetEpContextBinaryInformation(string, string)` names the output directory and model for the external EP-context binary.
 - `SetFlags(OrtCompileApiFlags)` controls compile strictness: `ERROR_IF_NO_NODES_COMPILED` fails when no subgraph is EP-claimed, and `ERROR_IF_OUTPUT_FILE_EXISTS` fails rather than overwriting.
 - `SetGraphOptimizationLevel(GraphOptimizationLevel)` applies graph optimization before partitioning; `SetOutputModelGetInitializerLocationDelegate` routes each initializer to an external storage location.
-- the compile handle is native; `Dispose()` releases it and the registered delegate state deterministically.
+- Compile handle is native; `Dispose()` releases it and registered delegate state deterministically.

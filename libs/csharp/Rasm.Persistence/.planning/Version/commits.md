@@ -1,6 +1,6 @@
 # [PERSISTENCE_VERSION_COMMITS]
 
-Rasm.Persistence content-addressed history over the Marten event substrate: a content-addressed commit-DAG carrying commit messages, named branches, lightweight and annotated tags, remote-tracking refs, true merge commits, and maximal-antichain merge-base computation; a convergent op-based/delta-state CRDT replacing the LWW scalar with RGA sequence, add-wins observed-remove set, multi-value register, PN-counter, and LWW-by-HLC register types over the parametric DAG; an HLC `Hlc` stamp that is the one causal-ordering primitive the Marten event `Timestamp`, the changefeed projection, the CRDT merge, and the wire seam all read; a `CrdtOpWire` op/CRDT encoding that amends the one-wire-vocabulary law field-for-field across the version owner and the AppHost wire seam — the lone bespoke wire DTO, because `CommitNode`/`BranchRef`/`VersionVector`/`MerkleRange` carry no topology divergence and serialize directly through the package generated resolver, never a per-shape projection beside them; and the cross-runtime parity corpus that pins this owner's byte shapes against the Python/TS replicas. The op-log changefeed (`Version/ledger#CHANGEFEED` `OpLogEntry`, HLC stamp, `Closure` manifest) is PROJECTED from the Marten events the `Element/graph#STREAM_GRAIN` streams hold, the content-addressed snapshot identity (`Element/codec#CONTENT_ADDRESS` `ContentAddress`), the codec profile, and the merge receipts (`ConflictReceipt`) arrive settled and compose inside the fences; `ReceiptSinkPort` arrives from AppHost and the clock/correlation/tenant ingredients ride the injected `Element/graph#STORE_RAIL` `ProjectionContext` frame ([A.1]); `NodeId`, `GraphDelta`, and `ContentAddress` arrive from `Rasm.Element`; `ContentHash.Of` (the one federation hasher) arrives from the `Rasm` kernel; the branch ACL `GrantSet`/`Grant` arrive from the Persistence sibling `Element/authority#GRANT_ALGEBRA` (the one object-authorization vocabulary, the branch lane narrowing `AclScope.Branch`). Every wire-side fault is a `CommitFault` case in the 8260 band — a bare `Error.New` integer is the deleted form. The `ContentParityCorpus` mints the Persistence leg of the `ONE_WIRE_FIXTURE_CORPUS` — the frozen HLC-cell, commit-key, CRDT-op, and element-set-receipt bytes pinned byte-identical into the kernel golden corpus (`Rasm/.planning/Spatial/reconciliation.md#[03]-[ONE_WIRE_FIXTURE_CORPUS]` row [04]) under the one kernel `ContentHash.Of` seed-zero discipline.
+`CommitGraph` owns content-addressed history, ref policy, vector order, merge bases, anti-entropy ranges, and append-only rewrites. `Crdt` owns the convergent field algebra; `CrdtWire` owns its bounded MessagePack encoding; `Hlc` supplies their shared causal cell. `ContentParityCorpus` derives every local fixture from the live writer and accepts foreign fixtures only through `Contribute`. Marten supplies the append substrate, `OpLogEntry` supplies the changefeed envelope, `GrantSet` supplies branch authorization, and `ContentHash.Of` supplies cross-runtime identity.
 
 ## [01]-[INDEX]
 
@@ -10,14 +10,14 @@ Rasm.Persistence content-addressed history over the Marten event substrate: a co
 
 ## [02]-[COMMIT_DAG]
 
-- Owner: `CommitNode` content-addressed commit record carrying its `CommitMessage`; `BranchRef` named-ref pointer with a per-branch `Element/authority#GRANT_ALGEBRA` `GrantSet` ACL (the branch-lane narrowing of the one object-authorization vocabulary, never the disjoint AppHost `Capability`), upstream tracking, and annotated-tag payload; `CommitMessage` the `[ComplexValueObject]` summary/body pair; `RefKind` the `[SmartEnum<string>]` ref-class axis; `VersionVector` per-origin sequence map; `MerkleRange` reconciliation node; `CommitGraph` static surface owning hash, parent-link, maximal-antichain merge-base, vector-compare, Merkle range-fold, and the recursive anti-entropy descent.
-- Cases: `RefKind` is `Branch | LightweightTag | AnnotatedTag | RemoteTracking`, each carrying its `Mutable`/`Annotated` policy; `CommitGraph.Order` compares two `VersionVector` values into `Before | After | Concurrent | Equal`; `MerkleRange` folds a content-key range into one `XxHash128` digest over its sorted children so a peer compares one digest before descending, and `CommitGraph.Reconcile` recursively bisects only divergent subranges.
-- Entry: `public static CommitNode Commit(Seq<UInt128> parents, VersionVector inherited, Seq<UInt128> opKeys, BranchRef branch, string actor, Hlc cell, CommitMessage message)` is a pure value whose content key is the kernel `ContentHash.Of` over the canonical `(SortedDistinctParents, SortedOpKeys, Hlc)` tuple; `public static Seq<UInt128> MergeBase(Func<UInt128, Option<CommitNode>> resolve, UInt128 left, UInt128 right)` returns the maximal common-ancestor antichain ordered nearest-first — near-linear: two `Rank` passes plus ONE reverse-reachability generation-mark pass (`Reach`) whose reached-set intersected with the common set IS the dominated set, never a per-candidate `Rank` re-walk; `public static GrantSet AdvanceDemand(CommitNode commit, VersionVector head)` derives the branch-advance authorization demand off `Order` — a merge commit demands `Grant.Merge`, a head-dominating fast-forward `Grant.Write`, a non-dominating reset `Grant.ForcePush` — the demand value `BranchRef.Movable(actor, demand)` gates; `public static Seq<MerkleRange> Reconcile(Func<MerkleRange, Seq<MerkleRange>> children, MerkleRange local, MerkleRange remote)` returns the divergent leaf ranges to transfer.
-- Auto: a commit appends one `Version/ledger#CHANGEFEED` `OpLogEntry` of `SyncOpKind.Upsert` on the `commit` column family carrying the `CommitNode` payload, so the commit-DAG rides the one changefeed projected off Marten and never a second store; `inherited` is the parent-vector join (`VersionVector.Join` is the per-slot max) advanced by the committed op count on the committing origin's slot, so a merge commit's vector dominates both parents; `MerkleRange.Of` folds a sorted content-key window into a digest so anti-entropy compares top-down and transfers only the divergent subtree.
+- Owner: `CommitNode` content-addressed commit record carrying its `CommitMessage`; `BranchRef` named-ref pointer with a per-branch `Element/authority#GRANT_ALGEBRA` `GrantSet` ACL (the branch-lane narrowing of the one object-authorization vocabulary, never the disjoint AppHost `Capability`), upstream tracking, and annotated-tag payload; `CommitMessage` the `[ComplexValueObject]` summary/body pair; `RefKind` the `[SmartEnum<string>]` ref-class axis; `VersionVector` per-origin sequence map; `MerkleRange` reconciliation node; `HistoryRewrite` the `[Union]` append-only rewrite request family (`Revert | CherryPick | Rebase`) with `RewriteSeam` its delegate frame; `CommitGraph` static surface owning hash, parent-link, maximal-antichain merge-base, vector-compare, Merkle range-fold, the recursive anti-entropy descent, and the one polymorphic `Rewrite` entry.
+- Cases: `RefKind` is `Branch | LightweightTag | AnnotatedTag | RemoteTracking`, each carrying its `Mutable`/`Annotated` policy; `CommitGraph.Order` compares two `VersionVector` values into `Before | After | Concurrent | Equal`; `MerkleRange` folds a content-key range into one `XxHash128` digest over its sorted children so a peer compares one digest before descending, and `CommitGraph.Reconcile` recursively bisects only divergent subranges; `HistoryRewrite` closes at `Revert | CherryPick | Rebase`, every case an append-only mint through the one `Commit` writer.
+- Entry: `public static CommitNode Commit(Seq<UInt128> parents, VersionVector inherited, Seq<UInt128> opKeys, BranchRef branch, Guid origin, string actor, Hlc cell, CommitMessage message)` is a pure value whose content key is the kernel `ContentHash.Of` over the canonical `(parent-count, SortedDistinctParents, op-count, SortedOpKeys, Branch, VersionVector, Actor, Hlc, CommitMessage)` preimage, the vector advanced on the COMMITTING origin's slot (`origin` — the writer's store id off the session, never `branch.Origin`, which names the ref's minting peer and collapses every writer on one branch into one causal slot); `public static Seq<UInt128> MergeBase(Func<UInt128, Option<CommitNode>> resolve, UInt128 left, UInt128 right)` returns the maximal common-ancestor antichain ordered nearest-first — near-linear: two `Rank` passes plus ONE reverse-reachability generation-mark pass (`Reach`) whose reached-set intersected with the common set IS the dominated set, never a per-candidate `Rank` re-walk; `public static GrantSet AdvanceDemand(CommitNode commit, VersionVector head)` derives the branch-advance authorization demand off `Order` — a merge commit demands `Grant.Merge`, a head-dominating fast-forward `Grant.Write`, a non-dominating reset `Grant.ForcePush` — the demand value `BranchRef.Movable(actor, demand)` gates; `public static Seq<MerkleRange> Reconcile(Func<MerkleRange, Seq<MerkleRange>> children, MerkleRange local, MerkleRange remote)` returns the divergent leaf ranges to transfer; `public static IO<Seq<CommitNode>> Rewrite(HistoryRewrite rewrite, RewriteSeam seam, BranchRef branch, Guid origin, string actor, UInt128 onto, VersionVector head)` is the one polymorphic history-rewrite entry — the request case discriminates (a `Revert` commits the target's inverse op-key set off `seam.Invert`, a `CherryPick` transplants one commit's ops onto the head off `seam.Transplant`, a `Rebase` `FoldM`-threads the chain oldest-first onto `NewBase`, each transplant landing on the previously minted head) — every arm MINTING new `CommitNode`s through the one `Commit` writer (append-only; the source commits stay untouched) and `public static GrantSet RewriteDemand(HistoryRewrite rewrite)` derives the gate the caller runs through `branch.Movable(actor, RewriteDemand(rewrite))` — `Grant.Write` for the forward-commit `Revert`/`CherryPick`, `Grant.Rebase` for the linearizing rewrite, the entry the grant row exists for.
+- Auto: a commit appends one `Version/ledger#CHANGEFEED` `OpLogEntry` of `SyncOpKind.Upsert` on the `commit` column family carrying the `CommitNode` payload, so the commit-DAG rides the one changefeed projected off Marten and never a second store; `inherited` is the parent-vector join (`VersionVector.Join` is the per-slot max) advanced by the committed op count on the COMMITTING origin's slot (the `origin` parameter — two writers on one branch occupy two distinct slots, so `Order` reads their concurrency truthfully), so a merge commit's vector dominates both parents; `MerkleRange.Of` folds a sorted content-key window into a digest so anti-entropy compares top-down and transfers only the divergent subtree.
 - Receipt: a commit rides `ReceiptSinkPort` under `store.commit`; a branch mutation rides `store.branch`; the range-reconciliation transfer count rides `SyncApplyReceipt`.
-- Packages: Rasm (`Rasm.Domain` `ContentHash.Of` — the one federation hasher over the commit preimage), System.IO.Hashing (`XxHash128.HashToUInt128` — the DEFENSIBLE-LOCAL `MerkleRange` peer digest ONLY, a transparency-log construction, never a content-key mint), NodaTime, LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox.
-- Growth: a new ref kind is one `RefKind` row; a new ACL grant is one `Element/authority#GRANT_ALGEBRA` `Grant` row the `GrantSet` admits (never a local flag); a richer commit header is one field on `CommitMessage`/`CommitNode`; zero new surface — a parallel commit store, a second DAG walker, or a git-shaped object database is the deleted form because the commit rides the changefeed and the content address rides `ContentAddress`; a domain-minted commit (the `csharp:Rasm.Bim` `BimCommit`) is one wire-sourced `CommitNode` stored under its carried content key, never re-minted.
-- Boundary: the commit content key derives from the kernel `ContentHash.Of` over the canonical `(SortedDistinctParents, SortedOpKeys, Hlc)` tuple — `Commit` distinct-sorts parents so a duplicate-parent or reordered-parent merge converges on one node and a wall-clock or random commit id is the deleted form; the `CommitMessage` is NOT in the preimage so re-wording a commit is a fresh node; `MergeBase` is the true merge-base set (reachability intersect minus dominated) computed NEAR-LINEAR — two `Rank` passes for the common set and the nearest-first ordering, then ONE `Reach` reverse-reachability pass seeded with every common candidate's parents whose reached∩common set is exactly the dominated candidates (a per-candidate `Rank` re-walk is the deleted `O(candidates × graph)` form; the `Rasm.Bim` three-way merge is the named consumer) — so a clean history yields one base, a criss-cross yields the two-or-more bases the three-way merge virtualizes, and disjoint histories yield the empty `Seq`; the `VersionVector` is the one concurrency primitive — `Order` returns `Concurrent` exactly when neither dominates, and `AdvanceDemand` is its consumer: the branch-advance demand derives once off `(IsMerge, Order(commit.Vector, head))` so the `Movable` gate reads a derived `GrantSet` value, never a caller-guessed grant; `BranchRef` grants ride the `Element/authority#GRANT_ALGEBRA` `GrantSet` (the ONE object-authorization vocabulary narrowed to the branch lane under `AclScope.Branch`, NOT the disjoint AppHost effect-gating `Capability` whose name the authority owner forbids re-using across the strata) through `Movable(actor, demand)` — the demanded lane is `GrantSet.Of(Grant.Write)` for a fast-forward advance, `GrantSet.Of(Grant.Merge)` for a merge commit, `GrantSet.Of(Grant.Rebase)` for a history rewrite, and `GrantSet.Of(Grant.ForcePush)` for a non-fast-forward reset, so one polymorphic gate discriminates the authorization by the demanded value and the per-operation `MovableForMerge`/`MovableForForcePush` family is the deleted form; the gate is the conjunction of the mutability precondition (`Kind.Mutable`) and the two `GrantSet` sides (`actor.Admits(demand)` AND `Acl.Admits(demand)`) where `GrantSet.Admits` is `Admin`-superuser-aware so a branch maintainer carrying `Grant.Admin` passes every demand — never a flat `Write`-only gate that silently lets a `Read`-plus-`Write` actor force-push, and never a parallel branch-only enum; a `LightweightTag` is an immutable `BranchRef`, an `AnnotatedTag` adds its `Annotation`/`Tagger`/`Target`, and a `RemoteTracking` ref carries its `Upstream`, all on the one ref shape; the durable commit-DAG is where the `csharp:Rasm.Bim` `BimCommit` federates and durably stores — a domain commit crosses at the wire as one `commit`-family `OpLogEntry` and lands as a generic `CommitNode` stored UNDER the wire-carried content key, never re-derived through `Commit`'s native preimage, and the Bim three-way merge bases against this owner's `MergeBase` antichain.
+- Packages: Rasm (`Rasm.Domain` `ContentHash.Of` — the one federation hasher over the commit preimage), System.IO.Hashing (`XxHash128.Append`/`GetCurrentHashAsUInt128` — the incremental `MerkleRange` peer digest only, never a content-key mint), NodaTime, LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox.
+- Growth: a new ref kind is one `RefKind` row; a new ACL grant is one `Element/authority#GRANT_ALGEBRA` `Grant` row the `GrantSet` admits (never a local flag); a richer commit header is one field on `CommitMessage`/`CommitNode`; a new rewrite verb is one `HistoryRewrite` case plus one `Rewrite` arm and its `RewriteDemand` grant row; zero new surface — a parallel commit store, a second DAG walker, or a git-shaped object database is the deleted form because the commit rides the changefeed and the content address rides `ContentAddress`; a domain-minted commit (the `csharp:Rasm.Bim` `BimCommit`) is one wire-sourced `CommitNode` stored under its carried content key, never re-minted.
+- Boundary: the commit content key derives from the kernel `ContentHash.Of` over the canonical `(SortedDistinctParents, SortedOpKeys, Hlc, CommitMessage)` preimage — `Commit` distinct-sorts parents so a duplicate-parent or reordered-parent merge converges on one node and a wall-clock or random commit id is the deleted form; the `CommitMessage` IS in the preimage (length-framed UTF-8 summary+body after the cell) so re-wording a commit mints a fresh node exactly as an amend does in any content-addressed DAG — a preimage that omits a `CommitNode` identity member is the split-brain the identity/preimage agreement law forbids (the `Rasm.Bim` `BimCommit` key deliberately EXCLUDES message for federation-sync idempotency, and that key is wire-carried and stored verbatim, never re-derived here, so the two identity laws never collide); `MergeBase` is the true merge-base set (reachability intersect minus dominated) computed NEAR-LINEAR — two `Rank` passes for the common set and the nearest-first ordering, then ONE `Reach` reverse-reachability pass seeded with every common candidate's parents whose reached∩common set is exactly the dominated candidates (a per-candidate `Rank` re-walk is the deleted `O(candidates × graph)` form; the `Rasm.Bim` three-way merge is the named consumer) — so a clean history yields one base, a criss-cross yields the two-or-more bases the three-way merge virtualizes, and disjoint histories yield the empty `Seq`; the `VersionVector` is the one concurrency primitive — `Order` returns `Concurrent` exactly when neither dominates, and `AdvanceDemand` is its consumer: the branch-advance demand derives once off `(IsMerge, Order(commit.Vector, head))` so the `Movable` gate reads a derived `GrantSet` value, never a caller-guessed grant; `BranchRef` grants ride the `Element/authority#GRANT_ALGEBRA` `GrantSet` (the ONE object-authorization vocabulary narrowed to the branch lane under `AclScope.Branch`, NOT the disjoint AppHost effect-gating `Capability` whose name the authority owner forbids re-using across the strata) through `Movable(actor, demand)` — the demanded lane is `GrantSet.Of(Grant.Write)` for a fast-forward advance, `GrantSet.Of(Grant.Merge)` for a merge commit, `GrantSet.Of(Grant.Rebase)` for a history rewrite, and `GrantSet.Of(Grant.ForcePush)` for a non-fast-forward reset, so one polymorphic gate discriminates the authorization by the demanded value and the per-operation `MovableForMerge`/`MovableForForcePush` family is the deleted form; the gate is the conjunction of the mutability precondition (`Kind.Mutable`) and the two `GrantSet` sides (`actor.Admits(demand)` AND `Acl.Admits(demand)`) where `GrantSet.Admits` is `Admin`-superuser-aware so a branch maintainer carrying `Grant.Admin` passes every demand — never a flat `Write`-only gate that silently lets a `Read`-plus-`Write` actor force-push, and never a parallel branch-only enum; a `LightweightTag` is an immutable `BranchRef`, an `AnnotatedTag` adds its `Annotation`/`Tagger`/`Target`, and a `RemoteTracking` ref carries its `Upstream`, all on the one ref shape; every `HistoryRewrite` is APPEND-ONLY — a revert is the inverse delta as a NEW commit, a cherry-pick one commit's ops replayed onto another head via three-way against its parent, a rebase a sequential replay minting a fresh linear lineage over `NewBase` — history never mutates, the source commits stay reachable, the `Invert`/`Transplant` payload work rides the `Version/merge#STRUCTURAL_DIFF` and `Element/graph` owners behind the `RewriteSeam` delegates (the DAG stores op KEYS, so the seam returns keys and a delta inversion or replay conflict faults on ITS owner's rail BEFORE any commit mints — a half-applied rewrite cannot exist), and a mutating rewrite, a branch-ref force-moved without its `RewriteDemand` gate, or a manual counter-edit standing in for a revert is the deleted form; the durable commit-DAG is where the `csharp:Rasm.Bim` `BimCommit` federates and durably stores — a domain commit crosses at the wire as one `commit`-family `OpLogEntry` and lands as a generic `CommitNode` stored UNDER the wire-carried content key, never re-derived through `Commit`'s native preimage, and the Bim three-way merge bases against this owner's `MergeBase` antichain.
 
 ```csharp signature
 
@@ -80,21 +80,69 @@ public readonly record struct MerkleRange(UInt128 Low, UInt128 High, UInt128 Dig
     public bool Leaf => Count <= CommitGraph.Fanout;
 }
 
+// The append-only history-rewrite request family: every rewrite MINTS new commits, history never mutates.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None, SwitchMethods = SwitchMapMethodsGeneration.Default)]
+public abstract partial record HistoryRewrite {
+    private HistoryRewrite() { }
+    public sealed record Revert(UInt128 Target) : HistoryRewrite;
+    public sealed record CherryPick(UInt128 Pick) : HistoryRewrite;
+    public sealed record Rebase(Seq<UInt128> Chain, UInt128 NewBase) : HistoryRewrite;
+}
+
+// The rewrite delegate frame: `Resolve` the commit reader; `Invert` the inverse op-key set of one commit's delta
+// (the `GraphDelta` inversion behind the ledger/merge owners — added↔removed, revised pairs flipped); `Transplant`
+// one commit's ops replayed onto a new head (three-way against the commit's parent, the `Version/merge` owner
+// behind the delegate); `Stamp` the one HLC atom (`OpLog.Stamp`'s cell, never a second clock). Keys in, keys out —
+// payload replay is the delegate owners' concern, and their typed conflict faults surface BEFORE any commit mints.
+public sealed record RewriteSeam(
+    Func<UInt128, Option<CommitNode>> Resolve,
+    Func<CommitNode, IO<Seq<UInt128>>> Invert,
+    Func<CommitNode, UInt128, IO<Seq<UInt128>>> Transplant,
+    IO<Hlc> Stamp);
+
 public static class CommitGraph {
     public const int Fanout = 16;
 
-    public static CommitNode Commit(Seq<UInt128> parents, VersionVector inherited, Seq<UInt128> opKeys, BranchRef branch, string actor, Hlc cell, CommitMessage message) {
-        var parentSet = toSeq(parents.Distinct().OrderBy(static k => k));
-        var sortedKeys = toSeq(opKeys.OrderBy(static k => k));
-        var canonical = new ArrayBufferWriter<byte>();
-        Preimage(canonical, parentSet, sortedKeys, cell);
-        return new CommitNode(ContentHash.Of(canonical.WrittenSpan), parentSet, sortedKeys, branch.Name, inherited.Advance(branch.Origin, opKeys.Count), actor, cell, message);
+    public static CommitNode Commit(Seq<UInt128> parents, VersionVector inherited, Seq<UInt128> opKeys, BranchRef branch, Guid origin, string actor, Hlc cell, CommitMessage message) {
+        Seq<UInt128> parentSet = toSeq(parents.Distinct().OrderBy(static k => k));
+        Seq<UInt128> sortedKeys = toSeq(opKeys.OrderBy(static k => k));
+        VersionVector vector = inherited.Advance(origin, opKeys.Count);
+        ArrayBufferWriter<byte> canonical = new();
+        Preimage(canonical, parentSet, sortedKeys, branch.Name, vector, actor, cell, message);
+        // The vector advances the COMMITTING origin's slot — the writer's store id, never branch.Origin (the
+        // ref's minting peer), so two writers on one branch occupy two causal slots and Order reads Concurrent.
+        return new CommitNode(ContentHash.Of(canonical.WrittenSpan), parentSet, sortedKeys, branch.Name, vector, actor, cell, message);
     }
 
-    public static void Preimage(IBufferWriter<byte> sink, Seq<UInt128> sortedDistinctParents, Seq<UInt128> sortedOpKeys, Hlc cell) {
-        foreach (var parent in sortedDistinctParents) { BinaryPrimitives.WriteUInt128LittleEndian(sink.GetSpan(16), parent); sink.Advance(16); }
-        foreach (var key in sortedOpKeys) { BinaryPrimitives.WriteUInt128LittleEndian(sink.GetSpan(16), key); sink.Advance(16); }
+    // The ONE commit-key preimage writer (the parity `commit-key` slot mints through it, never a re-implemented
+    // layout): count-framed parents and op keys, branch, lowercase-N GUID vector slots, actor, cell, and message.
+    public static void Preimage(IBufferWriter<byte> sink, Seq<UInt128> sortedDistinctParents, Seq<UInt128> sortedOpKeys, string branch, VersionVector vector, string actor, Hlc cell, CommitMessage message) {
+        BinaryPrimitives.WriteInt32LittleEndian(sink.GetSpan(4), sortedDistinctParents.Count);
+        sink.Advance(4);
+        foreach (UInt128 parent in sortedDistinctParents) { BinaryPrimitives.WriteUInt128LittleEndian(sink.GetSpan(16), parent); sink.Advance(16); }
+        BinaryPrimitives.WriteInt32LittleEndian(sink.GetSpan(4), sortedOpKeys.Count);
+        sink.Advance(4);
+        foreach (UInt128 key in sortedOpKeys) { BinaryPrimitives.WriteUInt128LittleEndian(sink.GetSpan(16), key); sink.Advance(16); }
+        Framed(sink, branch);
+        Seq<(Guid Key, long Value)> slots = toSeq(vector.Slots.OrderBy(static slot => slot.Key.ToString("N"), StringComparer.Ordinal).Select(static slot => (slot.Key, slot.Value)));
+        BinaryPrimitives.WriteInt32LittleEndian(sink.GetSpan(4), slots.Count);
+        sink.Advance(4);
+        foreach ((Guid key, long value) in slots) {
+            Framed(sink, key.ToString("N"));
+            BinaryPrimitives.WriteInt64LittleEndian(sink.GetSpan(8), value);
+            sink.Advance(8);
+        }
+        Framed(sink, actor);
         cell.WriteTo(sink);
+        Framed(sink, message.Summary);
+        Framed(sink, message.Body);
+    }
+
+    static void Framed(IBufferWriter<byte> sink, string text) {
+        byte[] bytes = Encoding.UTF8.GetBytes(text);
+        BinaryPrimitives.WriteInt32LittleEndian(sink.GetSpan(4), bytes.Length);
+        sink.Advance(4);
+        sink.Write(bytes);
     }
 
     public static VectorOrder Order(VersionVector left, VersionVector right) =>
@@ -109,10 +157,44 @@ public static class CommitGraph {
     // Grant.Merge, a head-dominating (fast-forward) or equal advance Grant.Write, a non-dominating reset
     // Grant.ForcePush; the caller gates `branch.Movable(actor, AdvanceDemand(commit, head.Vector))`, never a
     // caller-guessed grant lane (a history rewrite demands Grant.Rebase at its own entry).
-    public static GrantSet AdvanceDemand(CommitNode commit, VersionVector head) =>
-        commit.IsMerge ? GrantSet.Of(Grant.Merge)
-        : Order(commit.Vector, head) is var order && (order == VectorOrder.After || order == VectorOrder.Equal) ? GrantSet.Of(Grant.Write)
-        : GrantSet.Of(Grant.ForcePush);
+    public static GrantSet AdvanceDemand(CommitNode commit, VersionVector head) {
+        VectorOrder order = Order(commit.Vector, head);
+        return commit.IsMerge ? GrantSet.Of(Grant.Merge)
+            : order == VectorOrder.After || order == VectorOrder.Equal ? GrantSet.Of(Grant.Write)
+            : GrantSet.Of(Grant.ForcePush);
+    }
+
+    // The rewrite demand — AdvanceDemand's sibling over the rewrite family: Revert/CherryPick are forward commits
+    // (Grant.Write); Rebase is the history rewrite the Grant.Rebase row exists for. The caller gates
+    // `branch.Movable(actor, RewriteDemand(rewrite))` BEFORE Rewrite runs.
+    public static GrantSet RewriteDemand(HistoryRewrite rewrite) => rewrite.Switch(
+        revert: static _ => GrantSet.Of(Grant.Write),
+        cherryPick: static _ => GrantSet.Of(Grant.Write),
+        rebase: static _ => GrantSet.Of(Grant.Rebase));
+
+    // ONE polymorphic rewrite entry — the request case discriminates, never three sibling verbs. Every arm mints
+    // NEW CommitNodes through the one Commit writer: Revert commits the target's inverse op keys onto `onto`;
+    // CherryPick transplants one commit's ops onto `onto`; Rebase FoldM-threads the chain OLDEST-FIRST onto
+    // NewBase, each transplant landing on the previously minted head so the result is a fresh linear lineage.
+    // `head` is the vector at `onto`; an unresolvable key faults CommitFault.RewriteAbsent (8262) typed.
+    public static IO<Seq<CommitNode>> Rewrite(HistoryRewrite rewrite, RewriteSeam seam, BranchRef branch, Guid origin, string actor, UInt128 onto, VersionVector head) =>
+        rewrite.Switch(
+            revert: r => Transplanted(seam, r.Target, onto, head, branch, origin, actor, static (s, node, _) => s.Invert(node), node => new CommitMessage($"revert {node.ContentKey:x32}", string.Empty)).Map(Seq),
+            cherryPick: c => Transplanted(seam, c.Pick, onto, head, branch, origin, actor, static (s, node, target) => s.Transplant(node, target), static node => node.Message).Map(Seq),
+            rebase: rb => rb.Chain.FoldM(
+                (Onto: rb.NewBase, Vector: head, Minted: Seq<CommitNode>()),
+                (acc, key) => Transplanted(seam, key, acc.Onto, acc.Vector, branch, origin, actor, static (s, node, target) => s.Transplant(node, target), static node => node.Message)
+                    .Map(minted => (minted.ContentKey, minted.Vector, acc.Minted.Add(minted))))
+                .Map(static final => final.Minted).As());
+
+    static IO<CommitNode> Transplanted(
+        RewriteSeam seam, UInt128 source, UInt128 onto, VersionVector head, BranchRef branch, Guid origin, string actor,
+        Func<RewriteSeam, CommitNode, UInt128, IO<Seq<UInt128>>> keysOf, Func<CommitNode, CommitMessage> messageOf) =>
+        seam.Resolve(source).Match(
+            Some: node => from keys in keysOf(seam, node, onto)
+                          from cell in seam.Stamp
+                          select Commit(Seq(onto), head, keys, branch, origin, actor, cell, messageOf(node)),
+            None: () => IO.fail<CommitNode>(new CommitFault.RewriteAbsent(source)));
 
     // Near-linear merge-base: two Rank passes (common set + nearest-first metric), then ONE Reach pass seeded
     // with every common candidate's parents — reached ∩ common IS the dominated set (a common node strictly
@@ -127,9 +209,10 @@ public static class CommitGraph {
     }
 
     public static MerkleRange Of(Seq<UInt128> sortedKeys) {
-        var buffer = new ArrayBufferWriter<byte>();
-        foreach (var key in sortedKeys) { BinaryPrimitives.WriteUInt128LittleEndian(buffer.GetSpan(16), key); buffer.Advance(16); }
-        return new MerkleRange(sortedKeys.Head.IfNone(UInt128.Zero), sortedKeys.Last.IfNone(UInt128.Zero), XxHash128.HashToUInt128(buffer.WrittenSpan), sortedKeys.Count);
+        using XxHash128 digest = new();
+        Span<byte> word = stackalloc byte[16];
+        foreach (UInt128 key in sortedKeys) { BinaryPrimitives.WriteUInt128LittleEndian(word, key); digest.Append(word); }
+        return new MerkleRange(sortedKeys.Head.IfNone(UInt128.Zero), sortedKeys.Last.IfNone(UInt128.Zero), digest.GetCurrentHashAsUInt128(), sortedKeys.Count);
     }
 
     public static Seq<MerkleRange> Reconcile(Func<MerkleRange, Seq<MerkleRange>> children, MerkleRange local, MerkleRange remote) =>
@@ -143,10 +226,10 @@ public static class CommitGraph {
     // a node on finding a deeper path so the rank is the MAX generation (the nearest-first merge-base ordering metric),
     // a memoized graph traversal a monadic fold cannot express without re-walking, so the mutable work-list is the kernel.
     static HashMap<UInt128, int> Rank(Func<UInt128, Option<CommitNode>> resolve, UInt128 root) {
-        var depth = new System.Collections.Generic.Dictionary<UInt128, int>();
-        var queue = new System.Collections.Generic.Queue<(UInt128 Key, int Generation)>([(root, 0)]);
-        while (queue.TryDequeue(out var step))
-            if (!depth.TryGetValue(step.Key, out var seen) || step.Generation > seen) {
+        System.Collections.Generic.Dictionary<UInt128, int> depth = [];
+        System.Collections.Generic.Queue<(UInt128 Key, int Generation)> queue = new([(root, 0)]);
+        while (queue.TryDequeue(out (UInt128 Key, int Generation) step))
+            if (!depth.TryGetValue(step.Key, out int seen) || step.Generation > seen) {
                 depth[step.Key] = step.Generation;
                 resolve(step.Key).Iter(node => node.Parents.Iter(parent => queue.Enqueue((parent, step.Generation + 1))));
             }
@@ -172,9 +255,10 @@ public static class CommitGraph {
 |  [01]   | commit column family  | `commit`                               | one `OpLogEntry` per commit on the changefeed                       |
 |  [02]   | merge-base resolution | maximal common-ancestor antichain      | near-linear: two `Rank` + ONE `Reach` pass; git multi-base          |
 |  [03]   | branch-advance demand | `AdvanceDemand` off `(IsMerge, Order)` | `Movable` gates the derived `GrantSet`; never a caller-guessed lane |
-|  [04]   | content-key preimage  | parents · op-keys · cell only          | `CommitMessage` excluded; re-word is a fresh node                   |
+|  [04]   | content-key preimage  | parents · op-keys · cell · message     | identity/preimage agree; re-word is a fresh node                    |
 |  [05]   | branch grant          | `Element/authority#GRANT_ALGEBRA`      | `Movable` gates `Grant.Write`/`Merge`/`Rebase`/`ForcePush`          |
 |  [06]   | domain commit ingest  | wire-carried content key               | `BimCommit` lands as one `CommitNode`; bases on `MergeBase`         |
+|  [07]   | history rewrite       | `Rewrite` over `HistoryRewrite` cases  | append-only mints; `RewriteDemand` gates `Write`/`Rebase`           |
 
 ## [03]-[CRDT_ALGEBRA]
 
@@ -190,7 +274,10 @@ public static class CommitGraph {
 ```csharp signature
 public readonly record struct ElementId(Guid Origin, ulong Logical) : IComparable<ElementId> {
     public static readonly ElementId Head = new(Guid.Empty, 0UL);
-    public int CompareTo(ElementId other) => Logical.CompareTo(other.Logical) is var byLogical && byLogical != 0 ? byLogical : Origin.CompareTo(other.Origin);
+    public int CompareTo(ElementId other) {
+        int byLogical = Logical.CompareTo(other.Logical);
+        return byLogical != 0 ? byLogical : Origin.CompareTo(other.Origin);
+    }
 }
 
 public readonly record struct RgaCell(ElementId Id, ElementId After, ReadOnlyMemory<byte> Value, bool Tombstone) {
@@ -282,8 +369,8 @@ public static class Crdt {
         toSeq(values.Distinct()).Filter(c => !values.Exists(o => !o.Context.Equals(c.Context) && o.Context.Dominates(c.Context)));
 
     static Seq<RgaCell> Weave(Seq<RgaCell> left, Seq<RgaCell> right) {
-        var merged = (left + right).GroupBy(static c => c.Id).Select(static g => g.Aggregate(static (a, b) => a with { Tombstone = a.Tombstone || b.Tombstone }));
-        var children = toHashMap(merged.GroupBy(static c => c.After).Select(static g => (g.Key, toSeq(g.OrderByDescending(static c => c.Id)))));
+        IEnumerable<RgaCell> merged = (left + right).GroupBy(static c => c.Id).Select(static g => g.Aggregate(static (a, b) => a with { Tombstone = a.Tombstone || b.Tombstone }));
+        HashMap<ElementId, Seq<RgaCell>> children = toHashMap(merged.GroupBy(static c => c.After).Select(static g => (g.Key, toSeq(g.OrderByDescending(static c => c.Id)))));
         return Linearize(children, RgaCell.Origin, Seq<RgaCell>());
     }
 
@@ -303,9 +390,9 @@ public static class Crdt {
 
 ## [04]-[CRDT_WIRE]
 
-- Owner: `Hlc` the hybrid-logical-clock stamp the Marten event `Timestamp`, the changefeed projection, the CRDT merge, the commit cell, and the wire all read; `CrdtOpWire` the `[MessagePack.Union]` op encoding the `OpLogEntry.Payload` carries for `column-family=crdt` rows; `CommitFault` the closed `[Union]` fault family deriving from the KERNEL `Rasm.Domain.Expected` in the 8260 band (`DecodeDrift` 8261 · `ParityDrift` 8263 · `OwnerMinted` 8264 — the exact sibling template `SyncFault` 8250 and `RecoveryFault` 8290 realize; a bare `Error.New` integer is the deleted form); `CrdtWire` the static codec owning the byte-canonical content key, the `Encode`/`Decode` pair through the package `PersistenceResolver`, and the `UntrustedData` restore-lane decode; `ParitySlot` the `[SmartEnum<string>]` corpus-leg axis carrying its producer-owner label; `ParityVector` the one frozen-fixture carrier — canonical bytes plus the digest ALWAYS derived through the kernel `ContentHash.Of` at mint (the pin is REAL, never an unstamped design-pin `Option`); `ContentParityCorpus` the static surface minting the Persistence leg of the `ONE_WIRE_FIXTURE_CORPUS` and reconciling a local corpus against the golden one.
+- Owner: `Hlc` the hybrid-logical-clock stamp the Marten event `Timestamp`, the changefeed projection, the CRDT merge, the commit cell, and the wire all read; `CrdtOpWire` the `[MessagePack.Union]` op encoding the `OpLogEntry.Payload` carries for `column-family=crdt` rows; `CommitFault` the closed `[Union]` fault family deriving from the KERNEL `Rasm.Domain.Expected` in the 8260 band (`DecodeDrift` 8261 · `RewriteAbsent` 8262 · `ParityDrift` 8263 · `OwnerMinted` 8264 — the exact sibling template `SyncFault` 8250 and `RecoveryFault` 8290 realize; a bare `Error.New` integer is the deleted form); `CrdtWire` the static codec owning the byte-canonical content key, the `Encode`/`Decode` pair through the package `PersistenceResolver`, and the `UntrustedData` restore-lane decode; `ParitySlot` the `[SmartEnum<string>]` corpus-leg axis carrying its producer-owner label; `ParityVector` the one frozen-fixture carrier — canonical bytes plus the digest ALWAYS derived through the kernel `ContentHash.Of` at mint (the pin is REAL, never an unstamped design-pin `Option`); `ContentParityCorpus` the static surface minting the Persistence leg of the `ONE_WIRE_FIXTURE_CORPUS` and reconciling a local corpus against the golden one.
 - Cases: 10 op rows — `set | write | add | remove | increment | insertAfter | delete | maintain | beat | leave`; the `[Key]` sequence IS the wire schema, dense and append-only, a retired key never reassigned; the `beat`/`leave` arms carry the `EphemeralMap` presence delta; the 4 parity slots — `hlc-cell | commit-key | crdt-op | elementset` — name their producer owner, the first three minted from this owner's own writers and the fourth flowing in one-directionally through `ContentParityCorpus.Contribute(ParitySlot.ElementSet, set.Preimage)` — the `Query/lane#ELEMENT_SET_ALGEBRA` owner calls it, handing the `ElementSet.Preimage` distinct-sorted length-framed `NodeId`-packed bytes (the same preimage `ElementSetAlgebra.Receipt` hashes), so the Version owner freezes the foreign byte shape but never reaches back into Query to re-derive it.
-- Entry: `public static UInt128 ContentKey(CrdtOp op)` is the byte-canonical content key over the `None`-compression companion encoding; `public static ReadOnlyMemory<byte> Encode(CrdtOp op)` writes the durable delta under `Lz4BlockArray`; `public static ReadOnlyMemory<byte> EncodeCompanion(CrdtOp op)` writes the same delta under `None` for the Python/TS consumers; `public static Fin<CrdtOp> Decode(ReadOnlyMemory<byte> payload)` reads under `UntrustedData` with the depth and decompressed-size ceilings, a contract rejection failing the typed `CommitFault.DecodeDrift` (8261). `public static HashMap<ParitySlot, ParityVector> Mint(Hlc cell, Seq<UInt128> parents, Seq<UInt128> opKeys, CrdtOp op, params ReadOnlySpan<ParityVector> contributed)` mints the three owner-local parity vectors over this page's own writers and folds in the `Contribute`d foreign vectors; `public static Fin<ParityVector> Contribute(ParitySlot slot, ReadOnlyMemory<byte> canonical)` is the contribution seam a foreign producer (the `elementset` owner) calls, failing `CommitFault.OwnerMinted` (8264) on an owner-minted slot so the Version owner never re-derives a Query byte shape; `public static Validation<Error, Unit> Reconcile(HashMap<ParitySlot, ParityVector> local, HashMap<ParitySlot, ParityVector> golden)` accumulates every `CommitFault.ParityDrift` (8263) the cross-runtime harness finds against the golden corpus.
+- Entry: `public static UInt128 ContentKey(CrdtOp op)` is the byte-canonical content key over the `None`-compression companion encoding; `public static ReadOnlyMemory<byte> Encode(CrdtOp op)` writes the durable delta under `Lz4BlockArray`; `public static ReadOnlyMemory<byte> EncodeCompanion(CrdtOp op)` writes the same delta under `None` for the Python/TS consumers; `public static Fin<CrdtOp> Decode(ReadOnlyMemory<byte> payload)` reads under `UntrustedData` with the depth and decompressed-size ceilings, a contract rejection failing the typed `CommitFault.DecodeDrift` (8261). `public static HashMap<ParitySlot, ParityVector> Mint(Hlc cell, Seq<UInt128> parents, Seq<UInt128> opKeys, string branch, VersionVector vector, string actor, CommitMessage message, CrdtOp op, params ReadOnlySpan<ParityVector> contributed)` mints the three owner-local parity vectors over this page's own writers (the commit-key leg framing the FULL preimage — branch, vector, actor, message — through the one `CommitGraph.Preimage`) and folds in the `Contribute`d foreign vectors; `public static Fin<ParityVector> Contribute(ParitySlot slot, ReadOnlyMemory<byte> canonical)` is the contribution seam a foreign producer (the `elementset` owner) calls, failing `CommitFault.OwnerMinted` (8264) on an owner-minted slot so the Version owner never re-derives a Query byte shape; `public static Validation<Error, Unit> Reconcile(HashMap<ParitySlot, ParityVector> local, HashMap<ParitySlot, ParityVector> golden)` accumulates every `CommitFault.ParityDrift` (8263) the cross-runtime harness finds against the golden corpus.
 - Auto: `Hlc.Observe` swaps the local cell forward past both the wall clock and the observed remote cell so a received op never rewinds the local logical counter; `CrdtWire.Encode` rides the codec profile so a `CrdtOp` delta crosses as `OpLogEntry.Payload` bytes the snapshot codec already verifies; the wire union and the `CrdtOp` union share one case vocabulary so a new op arm is one wire row plus one `CrdtOp` arm plus one map case; `ContentParityCorpus.Mint` seals each owner-local fixture from the SAME writer the live path runs — the HLC cell from `Hlc.WriteTo`, the commit-key preimage from the ONE `CommitGraph.Preimage` writer (never a re-implemented layout), the CRDT-op companion from `CrdtWire.EncodeCompanion` — so a parity fixture is byte-identical to what the live encode produces and every `ParityVector.Of` mint derives its digest through the kernel `ContentHash.Of` (the one seed-zero discipline; a corpus-local seed constant is the deleted form).
 - Receipt: an encoded delta carries no receipt (the `OpLogEntry` carries the lane codec, content key, and HLC cell); a decode failure folds into `store.crdt.decode` as the typed `CommitFault.DecodeDrift`; a parity drift folds into the `Reconcile` `Validation` as the accumulated `CommitFault.ParityDrift` cross-runtime mismatch set, never a first-mismatch abort.
 - Packages: MessagePack, Thinktecture.Runtime.Extensions.MessagePack, Rasm (`Rasm.Domain` `ContentHash.Of` + `Rasm.Domain.Expected` — the fault-band base), NodaTime, LanguageExt.Core, BCL inbox.
@@ -315,10 +402,13 @@ public static class Crdt {
 ```csharp signature
 public readonly record struct Hlc(Instant Physical, ulong Logical) : IComparable<Hlc> {
     public static readonly Hlc Zero = new(Instant.MinValue, 0UL);
-    public int CompareTo(Hlc other) => Physical.CompareTo(other.Physical) is var byPhysical && byPhysical != 0 ? byPhysical : Logical.CompareTo(other.Logical);
+    public int CompareTo(Hlc other) {
+        int byPhysical = Physical.CompareTo(other.Physical);
+        return byPhysical != 0 ? byPhysical : Logical.CompareTo(other.Logical);
+    }
     public Hlc Advance(Instant wall) => wall > Physical ? new Hlc(wall, 0UL) : new Hlc(Physical, Logical + 1UL);
     public Hlc Observe(Hlc remote, Instant wall) {
-        var lead = Instant.Max(Instant.Max(Physical, remote.Physical), wall);
+        Instant lead = Instant.Max(Instant.Max(Physical, remote.Physical), wall);
         return new Hlc(lead, (lead == Physical, lead == remote.Physical) switch {
             (true, true) => ulong.Max(Logical, remote.Logical) + 1UL,
             (true, false) => Logical + 1UL,
@@ -327,7 +417,7 @@ public readonly record struct Hlc(Instant Physical, ulong Logical) : IComparable
         });
     }
     public void WriteTo(IBufferWriter<byte> sink) {
-        var span = sink.GetSpan(16);
+        Span<byte> span = sink.GetSpan(16);
         BinaryPrimitives.WriteInt64LittleEndian(span, Physical.ToUnixTimeTicks());
         BinaryPrimitives.WriteUInt64LittleEndian(span[8..], Logical);
         sink.Advance(16);
@@ -358,7 +448,6 @@ public abstract record CrdtOpWire {
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
-using Expected = Rasm.Domain.Expected;            // the federation fault-band base — NOT LanguageExt.Common.Expected
 
 // The commit/wire fault band (8260): a closed [Union] over the KERNEL `Rasm.Domain.Expected` — the SAME
 // parameterless-base-ctor + per-case Code/Message/Category Switch template SyncFault (8250) and RecoveryFault
@@ -367,26 +456,30 @@ using Expected = Rasm.Domain.Expected;            // the federation fault-band b
 // through the registry row (`Element/graph#FAULT_TABLES`) — a bare Error.New integer OR a bare literal in the
 // Switch is the deleted form.
 [Union]
-public abstract partial record CommitFault : Expected, IValidationError<CommitFault> {
+public abstract partial record CommitFault : Rasm.Domain.Expected, IValidationError<CommitFault> {
     private CommitFault() : base() { }
     public sealed record DecodeDrift(string Cause) : CommitFault;
+    public sealed record RewriteAbsent(UInt128 Source) : CommitFault;
     public sealed record ParityDrift(string Slot, string Producer) : CommitFault;
     public sealed record OwnerMinted(string Slot) : CommitFault;
 
     public override int Code => FaultBand.Commit + Switch(
-        decodeDrift: static _ => 1,
-        parityDrift: static _ => 3,
-        ownerMinted: static _ => 4);
+        decodeDrift:   static _ => 1,
+        rewriteAbsent: static _ => 2,
+        parityDrift:   static _ => 3,
+        ownerMinted:   static _ => 4);
 
     public override string Message => Switch(
-        decodeDrift: static c => $"<crdt-decode-drift:{c.Cause}>",
-        parityDrift: static c => $"<parity-drift:{c.Slot}@{c.Producer}>",
-        ownerMinted: static c => $"<parity-owner-mints:{c.Slot}>");
+        decodeDrift:   static c => $"<crdt-decode-drift:{c.Cause}>",
+        rewriteAbsent: static c => $"<rewrite-source-absent:{c.Source:x32}>",
+        parityDrift:   static c => $"<parity-drift:{c.Slot}@{c.Producer}>",
+        ownerMinted:   static c => $"<parity-owner-mints:{c.Slot}>");
 
     public override string Category => Switch(
-        decodeDrift: static _ => "Wire",
-        parityDrift: static _ => "Parity",
-        ownerMinted: static _ => "Parity");
+        decodeDrift:   static _ => "Wire",
+        rewriteAbsent: static _ => "Rewrite",
+        parityDrift:   static _ => "Parity",
+        ownerMinted:   static _ => "Parity");
 
     public static CommitFault Create(string message) => new DecodeDrift(message);
 }
@@ -458,14 +551,14 @@ public readonly record struct ParityVector(ParitySlot Slot, ReadOnlyMemory<byte>
 
 public static class ContentParityCorpus {
     public static ParityVector Cell(Hlc cell) {
-        var buffer = new ArrayBufferWriter<byte>(16);
+        ArrayBufferWriter<byte> buffer = new(16);
         cell.WriteTo(buffer);
         return ParityVector.Of(ParitySlot.HlcCell, buffer.WrittenMemory.ToArray());
     }
 
-    public static ParityVector CommitPreimage(Seq<UInt128> parents, Seq<UInt128> opKeys, Hlc cell) {
-        var buffer = new ArrayBufferWriter<byte>();
-        CommitGraph.Preimage(buffer, toSeq(parents.Distinct().OrderBy(static k => k)), toSeq(opKeys.OrderBy(static k => k)), cell);
+    public static ParityVector CommitPreimage(Seq<UInt128> parents, Seq<UInt128> opKeys, string branch, VersionVector vector, string actor, Hlc cell, CommitMessage message) {
+        ArrayBufferWriter<byte> buffer = new();
+        CommitGraph.Preimage(buffer, toSeq(parents.Distinct().OrderBy(static k => k)), toSeq(opKeys.OrderBy(static k => k)), branch, vector, actor, cell, message);
         return ParityVector.Of(ParitySlot.CommitKey, buffer.WrittenMemory.ToArray());
     }
 
@@ -476,9 +569,9 @@ public static class ContentParityCorpus {
             ? Fin.Fail<ParityVector>(new CommitFault.OwnerMinted(slot.Key))
             : Fin.Succ(ParityVector.Of(slot, canonical));
 
-    public static HashMap<ParitySlot, ParityVector> Mint(Hlc cell, Seq<UInt128> parents, Seq<UInt128> opKeys, CrdtOp op, params ReadOnlySpan<ParityVector> contributed) =>
+    public static HashMap<ParitySlot, ParityVector> Mint(Hlc cell, Seq<UInt128> parents, Seq<UInt128> opKeys, string branch, VersionVector vector, string actor, CommitMessage message, CrdtOp op, params ReadOnlySpan<ParityVector> contributed) =>
         LanguageExt.Iterable<ParityVector>.FromSpan(contributed).Fold(
-            HashMap((ParitySlot.HlcCell, Cell(cell)), (ParitySlot.CommitKey, CommitPreimage(parents, opKeys, cell)), (ParitySlot.CrdtOp, Op(op))),
+            HashMap((ParitySlot.HlcCell, Cell(cell)), (ParitySlot.CommitKey, CommitPreimage(parents, opKeys, branch, vector, actor, cell, message)), (ParitySlot.CrdtOp, Op(op))),
             static (corpus, vector) => corpus.AddOrUpdate(vector.Slot, vector));
 
     public static Validation<Error, Unit> Reconcile(HashMap<ParitySlot, ParityVector> local, HashMap<ParitySlot, ParityVector> golden) =>
@@ -488,12 +581,12 @@ public static class ContentParityCorpus {
 }
 ```
 
-| [INDEX] | [POLICY]            | [VALUE]                                   | [BINDING]                                                             |
-| :-----: | :------------------ | :---------------------------------------- | :-------------------------------------------------------------------- |
-|  [01]   | HLC stamp source    | the Marten event `Timestamp` cell         | one `Hlc` for op-log, CRDT merge, commit cell, wire                   |
-|  [02]   | wire schema         | `[Key]` sequence, append-only             | retired key never reassigned; `MessagePackAnalyzer` gate              |
-|  [03]   | content key         | `None`-companion canonical bytes          | byte-reproducible across C#/Python/TS; never LZ4 at-rest              |
-|  [04]   | restore guard       | `UntrustedData` + depth + size ceiling    | decompression bomb caught beyond the depth cap                        |
-|  [05]   | parity corpus       | kernel `ContentHash.Of` at every mint     | byte-identical to `ONE_WIRE_FIXTURE_CORPUS` [04]; producer-emits gate |
-|  [06]   | parity contribution | `Contribute` refuses `MintedHere`         | `elementset` flows from Query; Version never reverse-derives it       |
-|  [07]   | fault band          | `CommitFault : Rasm.Domain.Expected` 8260 | `DecodeDrift` 8261 · `ParityDrift` 8263 · `OwnerMinted` 8264          |
+| [INDEX] | [POLICY]         | [VALUE]                                | [BINDING]                                            |
+| :-----: | :--------------- | :------------------------------------- | :--------------------------------------------------- |
+|  [01]   | HLC stamp source | Marten event `Timestamp` cell          | one `Hlc` for op-log, CRDT merge, commit cell, wire  |
+|  [02]   | wire schema      | `[Key]` sequence, append-only          | retired key never reassigned; analyzer gate          |
+|  [03]   | content key      | `None`-companion canonical bytes       | byte-reproducible across C#/Python/TS; no at-rest LZ4 |
+|  [04]   | restore guard    | `UntrustedData` + depth + size ceiling | decompression bomb stops beyond the depth cap        |
+|  [05]   | parity corpus    | kernel `ContentHash.Of` at every mint  | `VERSION_PARITY`; producer-emits gate                |
+|  [06]   | contribution    | `Contribute` refuses `MintedHere`     | Query supplies `elementset`; no reverse derivation   |
+|  [07]   | fault band      | `CommitFault : Expected` 8260         | closed codes 8261-8264                               |

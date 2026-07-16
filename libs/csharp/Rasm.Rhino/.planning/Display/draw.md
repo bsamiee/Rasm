@@ -1,18 +1,18 @@
 # [RASM_RHINO_DRAW]
 
-The two-backend mark algebra (`Rasm.Rhino.Display`). One `Mark` `[Union]` carries every drawable row — the screen band (segments, polylines, retained paths, labels, sprites) valid on both backends, and the world band (shaded/banded/false-color meshes, SubD and brep shaded/wire draws, the Rhino 9 instance-definition shaded draw, clipping-plane wires, hatches, curves, world text, annotations, and the Rhino 9 direction/curvature/draft-angle analysis previews) valid on the pipeline alone — dispatched by one `Marks.Render` over the `Canvas` `[Union]`: `PipelineCase` drawing through `DisplayPipeline` members and `SurfaceCase` drawing through `Eto.Drawing.Graphics`. Style is data: `Stroke` and `FillStyle` rows mint backend primitives at the draw edge with gradient stops composed from the kernel `PerceptualColor.Ramp`, text metrics come from `Eto.Drawing.FormattedText.Measure` as the single measurement authority, hit-testing rides `GraphicsPath.FillContains`/`StrokeContains` over the same retained path the paint drew, and sprites admit once into a blend-keyed `DisplayBitmap` cache. The killed census forms are the hand-rolled screen-curve samplers, the fixed font-metric constants, and the HUD arithmetic scattered beside the draw switch — a screen path is segment rows with two projections (an Eto path and a Rhino curve), never a re-sampled polyline.
+The two-backend mark algebra (`Rasm.Rhino.Display`). One `Mark` `[Union]` carries every drawable row — the screen band (segments, polylines, retained paths, labels, sprites) valid on both backends, and the world band (shaded/banded/false-color meshes, SubD and brep shaded/wire draws, the Rhino 9 instance-definition shaded draw, clipping-plane wires, hatches, curves, world text, annotations, and the Rhino 9 direction/curvature/draft-angle analysis previews) valid on the pipeline alone — dispatched by one `Marks.Render` over the `Canvas` `[Union]`: `PipelineCase` drawing through `DisplayPipeline` members and `SurfaceCase` drawing through `Eto.Drawing.Graphics`. Style is data: `Stroke` and `FillStyle` rows mint backend primitives at the draw edge with gradient stops composed from the kernel `PerceptualColor.Ramp`, text metrics come from `Eto.Drawing.FormattedText.Measure` as the single measurement authority, hit-testing rides `GraphicsPath.FillContains`/`StrokeContains` over the same retained path the paint drew, and sprites admit once into a two-backend sheet caching blend-keyed `DisplayBitmap` rows for the pipeline and Eto bitmaps for the surface. The killed census forms are the hand-rolled screen-curve samplers, the fixed font-metric constants, and the HUD arithmetic scattered beside the draw switch — a screen path is segment rows with two projections (an Eto path and a Rhino curve), never a re-sampled polyline.
 
 ## [01]-[INDEX]
 
 - [02]-[STYLE_ROWS]: `Stroke`, `FillStyle`, and `TextStyle` — backend-neutral style data with per-backend minting and the kernel color seam.
 - [03]-[SCREEN_PATHS]: `PathSeg` rows with the dual Eto-path/Rhino-curve projection, `ScreenPath` the retained geometry with hit-testing and measurement.
-- [04]-[SPRITES]: `SpriteRef` admission and the blend-keyed `SpriteSheet` cache over `DisplayBitmap`.
+- [04]-[SPRITES]: `SpriteRef` admission and the two-backend `SpriteSheet` cache — blend-keyed `DisplayBitmap` rows plus Eto bitmaps.
 - [05]-[MARK_RAIL]: the `Mark` union, the `Canvas` backend union, and the one `Marks.Render` total dispatch.
 
 ## [02]-[STYLE_ROWS]
 
-- Owner: `Stroke` — width, kernel `PerceptualColor`, cap/join rows carrying dual Eto/host columns (`PenLineCap`/`LineCapStyle`, `PenLineJoin`/`LineJoinStyle`), dash selection whose width-relative dashes-and-gaps column feeds both the Eto `DashStyle` and the host `SetPattern`, an optional halo color/thickness pair, and the world/screen thickness space; `ToEtoPen()` mints the `Eto.Drawing.Pen` and `ToDisplayPen()` mints the full host `DisplayPen` — `Color`/`Thickness`/`ThicknessSpace`/`CapStyle`/`JoinStyle`/halo/pattern — so one stroke value serves both backends at full host fidelity. `FillStyle` `[Union]` — `SolidCase(PerceptualColor)`, `LinearCase(PerceptualColor, PerceptualColor, Point2d, Point2d)` over `LinearGradientBrush`, `RadialCase(PerceptualColor, PerceptualColor, Point2d, Point2d, Size2f)` over `RadialGradientBrush`, `TextureCase(Eto.Drawing.Image, float)` over `TextureBrush` — brushes mint per draw inside a `using` because Eto brushes are disposable natives. `TextStyle` — the `SystemFontRole` `[SmartEnum<int>]` row (`Default`/`Bold`/`Label`/`Menu`/`Message`/`ToolTip` over the `Eto.Drawing.SystemFonts` roster) plus an optional size override, minting one `Eto.Drawing.Font`.
-- Law: every color quantizes from `PerceptualColor.ToRgb()` at the mint — gradient interior stops, when a row needs them, come from `PerceptualColor.Ramp` over a `BlendPath` row; `Eto.Drawing.Color.Blend` and componentwise lerp are the deleted forms.
+- Owner: `Stroke` — width, kernel `PerceptualColor`, cap/join rows carrying dual Eto/host columns (`PenLineCap`/`LineCapStyle`, `PenLineJoin`/`LineJoinStyle`), dash selection whose width-relative dashes-and-gaps column feeds both the Eto `DashStyle` and the host `SetPattern`, an optional halo color/thickness pair, an optional taper triple lowered through `SetTaper(startThickness:, endThickness:, taperPoint:)`, and the world/screen thickness space; `ToEtoPen()` mints the `Eto.Drawing.Pen` and `ToDisplayPen()` mints the full host `DisplayPen` — `Color`/`Thickness`/`ThicknessSpace`/`CapStyle`/`JoinStyle`/halo/taper/pattern — so one stroke value serves both backends at full host fidelity. `Quant` — the ONE Display-namespace backend-mint owner: `Sys` mints `System.Drawing.Color`, `Tint` mints `Eto.Drawing.Color`, `Vec` mints the render `Color4f`, each carrying the kernel alpha, and `Pt` projects a `Point2d` onto the Eto `PointF` seat; conduit, mode, and render fences compose the color mints, and a re-derived `ToRgb` destructure or an inline float-cast point pair beside a mint is the deleted form. `FillStyle` `[Union]` — `SolidCase(PerceptualColor)`, `LinearCase(PerceptualColor, PerceptualColor, Point2d, Point2d)` over `LinearGradientBrush`, `RadialCase(PerceptualColor, PerceptualColor, Point2d, Point2d, Size2f)` over `RadialGradientBrush`, `TextureCase(Eto.Drawing.Image, float)` over `TextureBrush` — brushes mint per draw inside a `using` because Eto brushes are disposable natives. `TextStyle` — the `SystemFontRole` `[SmartEnum<int>]` row (`Default`/`Bold`/`Label`/`Menu`/`Message`/`ToolTip` over the `Eto.Drawing.SystemFonts` roster) plus an optional size override, minting one `Eto.Drawing.Font`.
+- Law: every color quantizes through `Quant` at the mint — gradient interior stops, when a row needs them, come from `PerceptualColor.Ramp` over a `BlendPath` row; `Eto.Drawing.Color.Blend` and componentwise lerp are the deleted forms.
 - Law: style values are immutable rows shared across marks; the disposable native (pen, brush, font) is minted at the draw edge and scoped to the draw — a cached Eto pen crossing frames is the leak the mint-per-draw shape forecloses.
 
 ```csharp
@@ -74,6 +74,7 @@ public sealed record Stroke(
     StrokeJoin Join,
     StrokeDash Dash,
     Option<(PerceptualColor Color, double Thickness)> Halo,
+    Option<(double Start, double End, Point2d At)> Taper,
     bool WorldWidth) {
     public static Fin<Stroke> Of(
         double width,
@@ -82,39 +83,41 @@ public sealed record Stroke(
         Option<StrokeJoin> join = default,
         Option<StrokeDash> dash = default,
         Option<(PerceptualColor Color, double Thickness)> halo = default,
+        Option<(double Start, double End, Point2d At)> taper = default,
         bool worldWidth = false,
         Op? key = null) {
         Op op = key.OrDefault();
         return from valid in op.Positive(value: width)
                from _ in halo.Match(Some: row => op.Positive(value: row.Thickness).Map(static _ => unit), None: () => Fin.Succ(value: unit))
+               from __ in taper.Match(Some: row => op.Positive(value: row.Start).Bind(_ => op.Positive(value: row.End)).Map(static _ => unit), None: () => Fin.Succ(value: unit))
                select new Stroke(
                    Width: valid, Color: color, Cap: cap.IfNone(StrokeCap.Round), Join: join.IfNone(StrokeJoin.Round),
-                   Dash: dash.IfNone(StrokeDash.Solid), Halo: halo, WorldWidth: worldWidth);
+                   Dash: dash.IfNone(StrokeDash.Solid), Halo: halo, Taper: taper, WorldWidth: worldWidth);
     }
 
-    internal Eto.Drawing.Pen ToEtoPen() {
-        (byte r, byte g, byte b, _) = Color.ToRgb();
-        return new Eto.Drawing.Pen(new Eto.Drawing.Color(r / 255f, g / 255f, b / 255f), (float)Width) {
+    internal Eto.Drawing.Pen ToEtoPen() =>
+        new(Quant.Tint(Color), (float)Width) {
             LineCap = Cap.Native,
             LineJoin = Join.Native,
             DashStyle = Dash.Native(),
         };
-    }
 
     internal DisplayPen ToDisplayPen() {
-        (byte r, byte g, byte b, _) = Color.ToRgb();
         DisplayPen pen = new() {
-            Color = System.Drawing.Color.FromArgb(r, g, b),
+            Color = Quant.Sys(Color),
             Thickness = (float)Width,
             ThicknessSpace = WorldWidth ? CoordinateSystem.World : CoordinateSystem.Screen,
             CapStyle = Cap.Host,
             JoinStyle = Join.Host,
         };
         _ = Halo.Iter(halo => {
-            (byte hr, byte hg, byte hb, _) = halo.Color.ToRgb();
-            pen.HaloColor = System.Drawing.Color.FromArgb(hr, hg, hb);
+            pen.HaloColor = Quant.Sys(halo.Color);
             pen.HaloThickness = (float)halo.Thickness;
         });
+        _ = Taper.Iter(taper => pen.SetTaper(
+            startThickness: (float)taper.Start,
+            endThickness: (float)taper.End,
+            taperPoint: new Point2f((float)taper.At.X, (float)taper.At.Y)));
         float[] dashes = Dash.DashesAndGaps();
         _ = Op.SideWhen(dashes.Length > 0, () => {
             pen.SetPattern(dashesAndGaps: Array.ConvertAll(dashes, gap => gap * (float)Width));
@@ -134,41 +137,24 @@ public abstract partial record FillStyle {
     public sealed record RadialCase(PerceptualColor Start, PerceptualColor End, Point2d Center, Point2d Origin, Size2f Radius) : FillStyle;
     public sealed record TextureCase(Eto.Drawing.Image Image, float Opacity) : FillStyle;
 
-    internal Fin<Unit> WithBrush(Action<Eto.Drawing.Brush> draw, Op key) =>
-        Switch(
-            state: (Draw: draw, Op: key),
-            solidCase: static (ctx, fill) => ctx.Op.Catch(() => {
-                using Eto.Drawing.Brush brush = new Eto.Drawing.SolidBrush(EtoColor(fill.Color));
-                ctx.Draw(brush);
-                return Fin.Succ(value: unit);
-            }),
-            linearCase: static (ctx, fill) => ctx.Op.Catch(() => {
-                using Eto.Drawing.Brush brush = new Eto.Drawing.LinearGradientBrush(
-                    EtoColor(fill.Start), EtoColor(fill.End),
-                    new Eto.Drawing.PointF((float)fill.From.X, (float)fill.From.Y),
-                    new Eto.Drawing.PointF((float)fill.To.X, (float)fill.To.Y));
-                ctx.Draw(brush);
-                return Fin.Succ(value: unit);
-            }),
-            radialCase: static (ctx, fill) => ctx.Op.Catch(() => {
-                using Eto.Drawing.Brush brush = new Eto.Drawing.RadialGradientBrush(
-                    EtoColor(fill.Start), EtoColor(fill.End),
-                    new Eto.Drawing.PointF((float)fill.Center.X, (float)fill.Center.Y),
-                    new Eto.Drawing.PointF((float)fill.Origin.X, (float)fill.Origin.Y),
-                    new Eto.Drawing.SizeF(fill.Radius.Width, fill.Radius.Height));
-                ctx.Draw(brush);
-                return Fin.Succ(value: unit);
-            }),
-            textureCase: static (ctx, fill) => ctx.Op.Catch(() => {
-                using Eto.Drawing.Brush brush = new Eto.Drawing.TextureBrush(fill.Image, fill.Opacity);
-                ctx.Draw(brush);
-                return Fin.Succ(value: unit);
-            }));
-
-    private static Eto.Drawing.Color EtoColor(PerceptualColor color) {
-        (byte r, byte g, byte b, _) = color.ToRgb();
-        return new Eto.Drawing.Color(r / 255f, g / 255f, b / 255f);
+    internal Fin<Unit> WithBrush(Action<Eto.Drawing.Brush> draw, Op key) {
+        FillStyle self = this;
+        return key.Catch(() => {
+            using Eto.Drawing.Brush brush = self.Mint();
+            draw(brush);
+            return Fin.Succ(value: unit);
+        });
     }
+
+    private Eto.Drawing.Brush Mint() =>
+        Switch(
+            solidCase: static fill => (Eto.Drawing.Brush)new Eto.Drawing.SolidBrush(Quant.Tint(fill.Color)),
+            linearCase: static fill => new Eto.Drawing.LinearGradientBrush(
+                Quant.Tint(fill.Start), Quant.Tint(fill.End), Quant.Pt(fill.From), Quant.Pt(fill.To)),
+            radialCase: static fill => new Eto.Drawing.RadialGradientBrush(
+                Quant.Tint(fill.Start), Quant.Tint(fill.End), Quant.Pt(fill.Center), Quant.Pt(fill.Origin),
+                new Eto.Drawing.SizeF(fill.Radius.Width, fill.Radius.Height)),
+            textureCase: static fill => new Eto.Drawing.TextureBrush(fill.Image, fill.Opacity));
 }
 
 public sealed record TextStyle(SystemFontRole Role, Option<float> Size) {
@@ -184,6 +170,26 @@ public sealed record TextStyle(SystemFontRole Role, Option<float> Size) {
         Eto.Drawing.SizeF measured = laid.Measure();
         return new Size2f(Width: measured.Width, Height: measured.Height);
     }
+}
+
+// --- [OPERATIONS] ---------------------------------------------------------------------------
+public static class Quant {
+    public static System.Drawing.Color Sys(PerceptualColor color) {
+        (byte r, byte g, byte b, double alpha) = color.ToRgb();
+        return System.Drawing.Color.FromArgb((int)Math.Clamp(alpha * 255.0, 0.0, 255.0), r, g, b);
+    }
+
+    public static Eto.Drawing.Color Tint(PerceptualColor color) {
+        (byte r, byte g, byte b, double alpha) = color.ToRgb();
+        return new Eto.Drawing.Color(r / 255f, g / 255f, b / 255f, (float)alpha);
+    }
+
+    public static Display.Color4f Vec(PerceptualColor color) {
+        (byte r, byte g, byte b, double alpha) = color.ToRgb();
+        return new Display.Color4f(r / 255f, g / 255f, b / 255f, (float)alpha);
+    }
+
+    public static Eto.Drawing.PointF Pt(Point2d at) => new((float)at.X, (float)at.Y);
 }
 ```
 
@@ -211,10 +217,7 @@ public abstract partial record PathSeg {
             lineCase: static (target, seg) => ignore(fun(() => target.AddLine((float)seg.From.X, (float)seg.From.Y, (float)seg.To.X, (float)seg.To.Y))()),
             arcCase: static (target, seg) => ignore(fun(() => target.AddArc((float)seg.Origin.X, (float)seg.Origin.Y, seg.Extent.Width, seg.Extent.Height, seg.StartAngle, seg.SweepAngle))()),
             bezierCase: static (target, seg) => ignore(fun(() => target.AddBezier(
-                new Eto.Drawing.PointF((float)seg.Start.X, (float)seg.Start.Y),
-                new Eto.Drawing.PointF((float)seg.Control1.X, (float)seg.Control1.Y),
-                new Eto.Drawing.PointF((float)seg.Control2.X, (float)seg.Control2.Y),
-                new Eto.Drawing.PointF((float)seg.End.X, (float)seg.End.Y)))()),
+                Quant.Pt(seg.Start), Quant.Pt(seg.Control1), Quant.Pt(seg.Control2), Quant.Pt(seg.End)))()),
             rectCase: static (target, seg) => ignore(fun(() => target.AddRectangle((float)seg.Origin.X, (float)seg.Origin.Y, seg.Extent.Width, seg.Extent.Height))()),
             roundRectCase: static (target, seg) => ignore(fun(() => target.AddPath(Eto.Drawing.GraphicsPath.GetRoundRect(
                 new Eto.Drawing.RectangleF((float)seg.Origin.X, (float)seg.Origin.Y, seg.Extent.Width, seg.Extent.Height), seg.Corner)))()));
@@ -246,25 +249,22 @@ public abstract partial record PathSeg {
                 new Point3d(seg.Origin.X, seg.Origin.Y, 0.0),
             ]),
             roundRectCase: static seg => {
-                double x = seg.Origin.X;
-                double y = seg.Origin.Y;
-                double w = seg.Extent.Width;
-                double h = seg.Extent.Height;
+                (double x, double y, double w, double h) = (seg.Origin.X, seg.Origin.Y, seg.Extent.Width, seg.Extent.Height);
                 double c = Math.Clamp(seg.Corner, 0.0, Math.Min(w, h) / 2.0);
                 if (c <= 0.0) { return new RectCase(Origin: seg.Origin, Extent: seg.Extent).ToCurve(); }
-                Arc CornerArc(double cx, double cy, double fromDegrees) => new(
-                    new Circle(new Plane(new Point3d(cx, cy, 0.0), Vector3d.ZAxis), c),
-                    new Interval(RhinoMath.ToRadians(fromDegrees), RhinoMath.ToRadians(fromDegrees + 90.0)));
-                PolyCurve path = new();
-                _ = path.Append(new Line(new Point3d(x + c, y, 0.0), new Point3d(x + w - c, y, 0.0)));
-                _ = path.Append(CornerArc(x + w - c, y + c, 270.0));
-                _ = path.Append(new Line(new Point3d(x + w, y + c, 0.0), new Point3d(x + w, y + h - c, 0.0)));
-                _ = path.Append(CornerArc(x + w - c, y + h - c, 0.0));
-                _ = path.Append(new Line(new Point3d(x + w - c, y + h, 0.0), new Point3d(x + c, y + h, 0.0)));
-                _ = path.Append(CornerArc(x + c, y + h - c, 90.0));
-                _ = path.Append(new Line(new Point3d(x, y + h - c, 0.0), new Point3d(x, y + c, 0.0)));
-                _ = path.Append(CornerArc(x + c, y + c, 180.0));
-                return (Curve)path;
+                Seq<(Point3d From, Point3d To, Point3d Center, double FromDegrees)> edges = [
+                    (new(x + c, y, 0.0), new(x + w - c, y, 0.0), new(x + w - c, y + c, 0.0), 270.0),
+                    (new(x + w, y + c, 0.0), new(x + w, y + h - c, 0.0), new(x + w - c, y + h - c, 0.0), 0.0),
+                    (new(x + w - c, y + h, 0.0), new(x + c, y + h, 0.0), new(x + c, y + h - c, 0.0), 90.0),
+                    (new(x, y + h - c, 0.0), new(x, y + c, 0.0), new(x + c, y + c, 0.0), 180.0),
+                ];
+                return edges.Fold(new PolyCurve(), (path, edge) => {
+                    _ = path.Append(new Line(edge.From, edge.To));
+                    _ = path.Append(new Arc(
+                        new Circle(new Plane(edge.Center, Vector3d.ZAxis), c),
+                        new Interval(RhinoMath.ToRadians(edge.FromDegrees), RhinoMath.ToRadians(edge.FromDegrees + 90.0))));
+                    return path;
+                });
             });
 }
 
@@ -289,7 +289,7 @@ public sealed record ScreenPath(Seq<PathSeg> Segments, bool Closed) {
         ScreenPath self = this;
         return op.Catch(() => {
             using Eto.Drawing.GraphicsPath path = self.Build();
-            Eto.Drawing.PointF at = new((float)point.X, (float)point.Y);
+            Eto.Drawing.PointF at = Quant.Pt(point);
             if (self.Closed) { return Fin.Succ(path.FillContains(at)); }
             using Eto.Drawing.Pen pen = probe.Match(
                 Some: static stroke => stroke.ToEtoPen(),
@@ -302,9 +302,10 @@ public sealed record ScreenPath(Seq<PathSeg> Segments, bool Closed) {
 
 ## [04]-[SPRITES]
 
-- Owner: `SpriteRef` `[Union]` — sprite admission: `MemoryCase(System.Drawing.Bitmap)` through `new DisplayBitmap(bitmap:)` and `PathCase(string)` through `DisplayBitmap.Load(path:)`. `SpriteSheet` — the blend-keyed cache: one `DisplayBitmap` per `(source, srcBlend, dstBlend)` key with `SetBlendFunction(source:, destination:)` applied once at admission — the memo key carries the blend pair because the blend mutates per-instance GPU upload state, so a shared instance racing per-draw blend writes is unrepresentable.
-- Law: sprite draw geometry is the pipeline's — screen sprites through `DrawSprite(bitmap:, screenLocation:, size:, blendColor:)`, world sprites through the `worldLocation`/`sizeInWorldSpace` overload, and clouds through `DrawSprites(bitmap:, items:, size:, sizeInWorldSpace:)` over a `DisplayBitmapDrawList` the pipeline camera-sorts internally; a hand-sorted sprite list is the deleted form.
-- Boundary: `DisplayBitmap` is disposable native interop owned by the sheet; consumers hold `SpriteRef` values and the sheet disposes its cache with the mount that owns it.
+- Owner: `SpriteRef` `[Union]` — sprite admission: `MemoryCase(System.Drawing.Bitmap)` through `new DisplayBitmap(bitmap:)` and `PathCase(string)` through `DisplayBitmap.Load(path:)`. `SpriteSheet` — the two-backend sprite cache: one `DisplayBitmap` per `(source, srcBlend, dstBlend)` key with `SetBlendFunction(source:, destination:)` applied once at admission — the memo key carries the blend pair because the blend mutates per-instance GPU upload state, so a shared instance racing per-draw blend writes is unrepresentable — and one `Eto.Drawing.Bitmap` per `SpriteRef` for the surface backend, so a memory sprite crosses its PNG stream and a path sprite reads its file exactly once, never per paint.
+- Law: a mark's blend pair is case data with `Resolve` owning the alpha-over default — an additive glow is a `(One, One)` payload on the mark, never a second sheet or a per-call blend argument.
+- Law: sprite draw geometry is the pipeline's — screen sprites through `DrawSprite(bitmap:, screenLocation:, size:, blendColor:)`, world sprites through the `worldLocation`/`sizeInWorldSpace` overload, and clouds through `DrawSprites(bitmap:, items:, size:, sizeInWorldSpace:)` over a `DisplayBitmapDrawList` the pipeline camera-sorts internally with the per-point color overload of `SetPoints` carrying a colored cloud; a hand-sorted sprite list is the deleted form.
+- Boundary: `DisplayBitmap` and the Eto bitmap are disposable native interop owned by the sheet; consumers hold `SpriteRef` values and the sheet disposes both caches with the mount that owns it.
 
 ```csharp
 // --- [TYPES] --------------------------------------------------------------------------------
@@ -322,28 +323,44 @@ public abstract partial record SpriteRef {
 
 // --- [SERVICES] -----------------------------------------------------------------------------
 public sealed class SpriteSheet : IDisposable {
+    private static readonly (BlendMode Src, BlendMode Dst) AlphaBlend = (BlendMode.SourceAlpha, BlendMode.OneMinusSourceAlpha);
     private readonly System.Collections.Concurrent.ConcurrentDictionary<(SpriteRef Source, BlendMode Src, BlendMode Dst), DisplayBitmap> cache = new();
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<SpriteRef, Eto.Drawing.Bitmap> surface = new();
     private int released;
 
-    public Fin<DisplayBitmap> Resolve(SpriteRef source, BlendMode src, BlendMode dst, Op? key = null) =>
-        key.OrDefault().Catch(() => Fin.Succ(cache.GetOrAdd((source, src, dst), static row => {
+    public Fin<DisplayBitmap> Resolve(SpriteRef source, Option<(BlendMode Src, BlendMode Dst)> blend = default, Op? key = null) {
+        (BlendMode src, BlendMode dst) = blend.IfNone(AlphaBlend);
+        return key.OrDefault().Catch(() => Fin.Succ(cache.GetOrAdd((source, src, dst), static row => {
             DisplayBitmap bitmap = row.Source.Load();
             bitmap.SetBlendFunction(source: row.Src, destination: row.Dst);
             return bitmap;
         })));
+    }
+
+    internal Fin<Eto.Drawing.Bitmap> Surface(SpriteRef source, Op? key = null) =>
+        key.OrDefault().Catch(() => Fin.Succ(surface.GetOrAdd(source, static row => row.Switch(
+            memoryCase: static sprite => {
+                using System.IO.MemoryStream buffer = new();
+                sprite.Bitmap.Save(buffer, System.Drawing.Imaging.ImageFormat.Png);
+                buffer.Position = 0;
+                return new Eto.Drawing.Bitmap(buffer);
+            },
+            pathCase: static sprite => new Eto.Drawing.Bitmap(sprite.Path)))));
 
     public void Dispose() {
         if (Interlocked.Exchange(location1: ref released, value: 1) is not 0) { return; }
         _ = toSeq(cache.Values).Iter(static bitmap => bitmap.Dispose());
+        _ = toSeq(surface.Values).Iter(static bitmap => bitmap.Dispose());
         cache.Clear();
+        surface.Clear();
     }
 }
 ```
 
 ## [05]-[MARK_RAIL]
 
-- Owner: `Mark` `[Union]` — the mark rows. Screen band (both backends): `SegmentCase`, `PolylineCase`, `PathCase(ScreenPath, Option<Stroke>, Option<FillStyle>)`, `LabelCase(string, Point2d, TextStyle, PerceptualColor, bool)`, `ScreenSpriteCase(SpriteRef, Point2d, Size2i)`. World band (pipeline only): `CurveCase(Curve, Stroke)`, `MeshShadedCase(Mesh, DisplayMaterial)`, `MeshBandedCase(Mesh, PerceptualColor, IsoBanding)` through the Rhino 9 iso overload, `MeshFalseColorsCase(Mesh)`, `SubDShadedCase`/`SubDWiresCase`, `BrepShadedCase`/`BrepWiresCase`, `BlockShadedCase(DocObjects.InstanceDefinition, DisplayMaterial, Transform)` through `DrawInstanceDefinitionShaded`, `ClipWiresCase(ClippingPlaneSurface, PerceptualColor)`, `HatchCase(Hatch, PerceptualColor, PerceptualColor)`, `WorldTextCase(TextEntity, PerceptualColor)`, `AnnotationCase(AnnotationBase, DocObjects.RhinoObject, PerceptualColor)`, `WorldSpriteCase(SpriteRef, Point3d, float, bool)`, `SpriteCloudCase(SpriteRef, Seq<Point3d>, float, bool)`, and the analysis previews `DirectionIndicatorsCase(SurfaceDirectionIndicators)`, `CurvaturePreviewCase(Brep, PerceptualColor)`, `DraftPreviewCase(Mesh, PerceptualColor)`. `Canvas` `[Union]` — the backends: `PipelineCase(ConduitFrame)` and `SurfaceCase(Eto.Drawing.Graphics)`.
-- Entry: `Marks.Render(Canvas, SpriteSheet, Seq<Mark>, Op?) : Fin<int>` — one total generated dispatch per mark per backend; a world-band mark on the Eto surface is the typed `Unsupported` fault naming the case, never a silent skip or a discard arm. Screen-geometry marks on the pipeline ride the conduit's `RenderStates.Hud` 2D projection and lower to `DrawCurve`; labels and sprites lower to the natively screen-space `Draw2dText`/`DrawSprite`; on the Eto surface the band lowers to `DrawLine`/`DrawLines`/`DrawPath`/`FillPath`/`DrawText`/`DrawImage`, with a memory sprite crossing as a PNG stream and a path sprite loading from its file.
+- Owner: `Mark` `[Union]` — the mark rows. Screen band (both backends): `SegmentCase`, `PolylineCase`, `PathCase(ScreenPath, Option<Stroke>, Option<FillStyle>)`, `LabelCase(string, Point2d, TextStyle, PerceptualColor, bool)`, `ScreenSpriteCase(SpriteRef, Point2d, Size2i)`. World band (pipeline only): `CurveCase(Curve, Stroke)`, `MeshShadedCase(Mesh, DisplayMaterial)`, `MeshBandedCase(Mesh, PerceptualColor, IsoBanding)` through the Rhino 9 iso overload, `MeshFalseColorsCase(Mesh)`, `SubDShadedCase`/`SubDWiresCase`, `BrepShadedCase`/`BrepWiresCase`, `BlockShadedCase(DocObjects.InstanceDefinition, DisplayMaterial, Transform)` through `DrawInstanceDefinitionShaded`, `ClipWiresCase(ClippingPlaneSurface, PerceptualColor)`, `HatchCase(Hatch, PerceptualColor, PerceptualColor)`, `WorldTextCase(TextEntity, PerceptualColor)`, `AnnotationCase(AnnotationBase, DocObjects.RhinoObject, PerceptualColor)`, `WorldSpriteCase(SpriteRef, Point3d, float, bool, Option<PerceptualColor>, Option<(BlendMode, BlendMode)>)`, `SpriteCloudCase(SpriteRef, Seq<Point3d>, float, bool, Option<Seq<PerceptualColor>>, Option<(BlendMode, BlendMode)>)`, and the analysis previews `DirectionIndicatorsCase(SurfaceDirectionIndicators)`, `CurvaturePreviewCase(Brep, PerceptualColor)`, `DraftPreviewCase(Mesh, PerceptualColor)`. `Canvas` `[Union]` — the backends: `PipelineCase(ConduitFrame)` and `SurfaceCase(Eto.Drawing.Graphics)`.
+- Entry: `Marks.Render(Canvas, SpriteSheet, Seq<Mark>, Op?) : Fin<int>` — one total generated dispatch per mark per backend; a world-band mark on the Eto surface is the typed `Unsupported` fault naming the case, never a silent skip or a discard arm. Screen-geometry marks on the pipeline ride the conduit's `RenderStates.Hud` 2D projection and lower to `DrawCurve`; labels and sprites lower to the natively screen-space `Draw2dText`/`DrawSprite`; on the Eto surface the band lowers to `DrawLine`/`DrawLines`/`DrawPath`/`FillPath`/`DrawText`/`DrawImage` over the sheet's cached Eto bitmap.
 - Law: the label's draw and measure agree by construction — both mint the same `TextStyle` font and the measure is `FormattedText.Measure`; the pipeline label passes the font's face and height into `Draw2dText(text:, color:, screenCoordinate:, middleJustified:, height:, fontface:)`.
 - Law: a `PathCase` fill is surface-band capability — the pipeline arm draws the stroke over the exact curve projection and fill styling renders through the Eto backend, because the pipeline owns no unflattened path-fill member.
 - Growth: a new drawable is one case plus one arm per backend — the generated `Switch` breaks both dispatch sites at compile time; a new treatment is a style row.
@@ -365,7 +382,7 @@ public abstract partial record Mark {
     public sealed record PolylineCase(Seq<Point2d> Points, Stroke Stroke, bool Closed) : Mark;
     public sealed record PathCase(ScreenPath Path, Option<Stroke> Stroke, Option<FillStyle> Fill) : Mark;
     public sealed record LabelCase(string Text, Point2d At, TextStyle Style, PerceptualColor Color, bool MiddleJustified) : Mark;
-    public sealed record ScreenSpriteCase(SpriteRef Sprite, Point2d At, Size2i Extent) : Mark;
+    public sealed record ScreenSpriteCase(SpriteRef Sprite, Point2d At, Size2i Extent, Option<(BlendMode Src, BlendMode Dst)> Blend = default) : Mark;
     public sealed record CurveCase(Curve Value, Stroke Stroke) : Mark;
     public sealed record MeshShadedCase(Mesh Value, DisplayMaterial Material) : Mark;
     public sealed record MeshBandedCase(Mesh Value, PerceptualColor Color, IsoBanding Banding) : Mark;
@@ -379,8 +396,8 @@ public abstract partial record Mark {
     public sealed record HatchCase(Hatch Value, PerceptualColor Line, PerceptualColor Fill) : Mark;
     public sealed record WorldTextCase(TextEntity Value, PerceptualColor Color) : Mark;
     public sealed record AnnotationCase(AnnotationBase Value, DocObjects.RhinoObject Owner, PerceptualColor Color) : Mark;
-    public sealed record WorldSpriteCase(SpriteRef Sprite, Point3d At, float Size, bool WorldSized) : Mark;
-    public sealed record SpriteCloudCase(SpriteRef Sprite, Seq<Point3d> Points, float Size, bool WorldSized) : Mark;
+    public sealed record WorldSpriteCase(SpriteRef Sprite, Point3d At, float Size, bool WorldSized, Option<PerceptualColor> Tint = default, Option<(BlendMode Src, BlendMode Dst)> Blend = default) : Mark;
+    public sealed record SpriteCloudCase(SpriteRef Sprite, Seq<Point3d> Points, float Size, bool WorldSized, Option<Seq<PerceptualColor>> Colors = default, Option<(BlendMode Src, BlendMode Dst)> Blend = default) : Mark;
     public sealed record DirectionIndicatorsCase(SurfaceDirectionIndicators Value) : Mark;
     public sealed record CurvaturePreviewCase(Brep Value, PerceptualColor Color) : Mark;
     public sealed record DraftPreviewCase(Mesh Value, PerceptualColor Color) : Mark;
@@ -390,14 +407,11 @@ public abstract partial record Mark {
 public static class Marks {
     public static Fin<int> Render(Canvas canvas, SpriteSheet sprites, Seq<Mark> marks, Op? key = null) {
         Op op = key.OrDefault();
-        return canvas.Switch(
-            state: (Sprites: sprites, Marks: marks, Op: op),
-            pipelineCase: static (ctx, backend) => ctx.Marks
-                .TraverseM(mark => Pipeline(frame: backend.Frame, sprites: ctx.Sprites, mark: mark, key: ctx.Op)).As()
-                .Map(static drawn => drawn.Count),
-            surfaceCase: static (ctx, backend) => ctx.Marks
-                .TraverseM(mark => Surface(graphics: backend.Graphics, mark: mark, key: ctx.Op)).As()
-                .Map(static drawn => drawn.Count));
+        Func<Mark, Fin<Unit>> draw = canvas.Switch<(SpriteSheet Sprites, Op Op), Func<Mark, Fin<Unit>>>(
+            state: (sprites, op),
+            pipelineCase: static (ctx, backend) => mark => Pipeline(frame: backend.Frame, sprites: ctx.Sprites, mark: mark, key: ctx.Op),
+            surfaceCase: static (ctx, backend) => mark => Surface(graphics: backend.Graphics, sprites: ctx.Sprites, mark: mark, key: ctx.Op));
+        return marks.TraverseM(draw).As().Map(static drawn => drawn.Count);
     }
 
     private static Fin<Unit> Pipeline(ConduitFrame frame, SpriteSheet sprites, Mark mark, Op key) =>
@@ -410,50 +424,54 @@ public static class Marks {
                 pen: m.Stroke.ToDisplayPen())),
             pathCase: static (ctx, m) => Hud(frame: ctx.Frame, key: ctx.Op, draw: () =>
                 _ = m.Stroke.Iter(stroke => m.Path.Curves().Iter(curve => ctx.Frame.Pipeline.DrawCurve(curve: curve, pen: stroke.ToDisplayPen())))),
-            labelCase: static (ctx, m) => ctx.Op.Catch(() => {
+            labelCase: static (ctx, m) => World(key: ctx.Op, draw: () => {
                 Eto.Drawing.Font font = m.Style.Font();
-                ctx.Frame.Pipeline.Draw2dText(text: m.Text, color: Sys(m.Color), screenCoordinate: m.At, middleJustified: m.MiddleJustified, height: (int)font.Size, fontface: font.FamilyName);
-                return Fin.Succ(value: unit);
+                ctx.Frame.Pipeline.Draw2dText(text: m.Text, color: Quant.Sys(m.Color), screenCoordinate: m.At, middleJustified: m.MiddleJustified, height: (int)font.Size, fontface: font.FamilyName);
             }),
-            screenSpriteCase: static (ctx, m) => ctx.Sprites.Resolve(source: m.Sprite, src: BlendMode.SourceAlpha, dst: BlendMode.OneMinusSourceAlpha, key: ctx.Op)
+            screenSpriteCase: static (ctx, m) => ctx.Sprites.Resolve(source: m.Sprite, blend: m.Blend, key: ctx.Op)
                 .Map(bitmap => Op.Side(() => ctx.Frame.Pipeline.DrawSprite(bitmap: bitmap, screenLocation: m.At, width: m.Extent.Width, height: m.Extent.Height))),
-            curveCase: static (ctx, m) => ctx.Op.Catch(() => Fin.Succ(value: Op.Side(() => ctx.Frame.Pipeline.DrawCurve(curve: m.Value, pen: m.Stroke.ToDisplayPen())))),
-            meshShadedCase: static (ctx, m) => ctx.Op.Catch(() => Fin.Succ(value: Op.Side(() => ctx.Frame.Pipeline.DrawMeshShaded(mesh: m.Value, material: m.Material)))),
+            curveCase: static (ctx, m) => World(key: ctx.Op, draw: () => ctx.Frame.Pipeline.DrawCurve(curve: m.Value, pen: m.Stroke.ToDisplayPen())),
+            meshShadedCase: static (ctx, m) => World(key: ctx.Op, draw: () => ctx.Frame.Pipeline.DrawMeshShaded(mesh: m.Value, material: m.Material)),
             meshBandedCase: static (ctx, m) => m.Banding.Mint(key: ctx.Op)
-                .Map(effect => Op.Side(() => ctx.Frame.Pipeline.DrawMeshShaded(mesh: m.Value, diffuseMaterialColor: Sys(m.Color), zebraSettings: effect))),
-            meshFalseColorsCase: static (ctx, m) => ctx.Op.Catch(() => Fin.Succ(value: Op.Side(() => ctx.Frame.Pipeline.DrawMeshFalseColors(mesh: m.Value)))),
-            subDShadedCase: static (ctx, m) => ctx.Op.Catch(() => Fin.Succ(value: Op.Side(() => ctx.Frame.Pipeline.DrawSubDShaded(subd: m.Value, material: m.Material)))),
-            subDWiresCase: static (ctx, m) => ctx.Op.Catch(() => Fin.Succ(value: Op.Side(() => ctx.Frame.Pipeline.DrawSubDWires(subd: m.Value, color: Sys(m.Color), thickness: m.Thickness)))),
-            brepShadedCase: static (ctx, m) => ctx.Op.Catch(() => Fin.Succ(value: Op.Side(() => ctx.Frame.Pipeline.DrawBrepShaded(brep: m.Value, material: m.Material)))),
-            brepWiresCase: static (ctx, m) => ctx.Op.Catch(() => Fin.Succ(value: Op.Side(() => ctx.Frame.Pipeline.DrawBrepWires(brep: m.Value, color: Sys(m.Color), wireDensity: m.Density)))),
-            blockShadedCase: static (ctx, m) => ctx.Op.Catch(() => Fin.Succ(value: Op.Side(() => ctx.Frame.Pipeline.DrawInstanceDefinitionShaded(instanceDefinition: m.Definition, material: m.Material, xform: m.Placement)))),
-            clipWiresCase: static (ctx, m) => ctx.Op.Catch(() => Fin.Succ(value: Op.Side(() => ctx.Frame.Pipeline.DrawClippingPlaneWires(clippingPlane: m.Value, color: Sys(m.Color))))),
-            hatchCase: static (ctx, m) => ctx.Op.Catch(() => Fin.Succ(value: Op.Side(() => ctx.Frame.Pipeline.DrawHatch(hatch: m.Value, hatchColor: Sys(m.Line), boundaryColor: Sys(m.Fill))))),
-            worldTextCase: static (ctx, m) => ctx.Op.Catch(() => Fin.Succ(value: Op.Side(() => ctx.Frame.Pipeline.DrawText(text: m.Value, color: Sys(m.Color))))),
-            annotationCase: static (ctx, m) => ctx.Op.Catch(() => Fin.Succ(value: Op.Side(() => ctx.Frame.Pipeline.DrawAnnotation(annotation: m.Value, parentObject: m.Owner, color: Sys(m.Color))))),
-            worldSpriteCase: static (ctx, m) => ctx.Sprites.Resolve(source: m.Sprite, src: BlendMode.SourceAlpha, dst: BlendMode.OneMinusSourceAlpha, key: ctx.Op)
-                .Map(bitmap => Op.Side(() => ctx.Frame.Pipeline.DrawSprite(bitmap: bitmap, worldLocation: m.At, size: m.Size, blendColor: System.Drawing.Color.White, sizeInWorldSpace: m.WorldSized))),
-            spriteCloudCase: static (ctx, m) => ctx.Sprites.Resolve(source: m.Sprite, src: BlendMode.SourceAlpha, dst: BlendMode.OneMinusSourceAlpha, key: ctx.Op)
+                .Map(effect => Op.Side(() => ctx.Frame.Pipeline.DrawMeshShaded(mesh: m.Value, diffuseMaterialColor: Quant.Sys(m.Color), zebraSettings: effect))),
+            meshFalseColorsCase: static (ctx, m) => World(key: ctx.Op, draw: () => ctx.Frame.Pipeline.DrawMeshFalseColors(mesh: m.Value)),
+            subDShadedCase: static (ctx, m) => World(key: ctx.Op, draw: () => ctx.Frame.Pipeline.DrawSubDShaded(subd: m.Value, material: m.Material)),
+            subDWiresCase: static (ctx, m) => World(key: ctx.Op, draw: () => ctx.Frame.Pipeline.DrawSubDWires(subd: m.Value, color: Quant.Sys(m.Color), thickness: m.Thickness)),
+            brepShadedCase: static (ctx, m) => World(key: ctx.Op, draw: () => ctx.Frame.Pipeline.DrawBrepShaded(brep: m.Value, material: m.Material)),
+            brepWiresCase: static (ctx, m) => World(key: ctx.Op, draw: () => ctx.Frame.Pipeline.DrawBrepWires(brep: m.Value, color: Quant.Sys(m.Color), wireDensity: m.Density)),
+            blockShadedCase: static (ctx, m) => World(key: ctx.Op, draw: () => ctx.Frame.Pipeline.DrawInstanceDefinitionShaded(instanceDefinition: m.Definition, material: m.Material, xform: m.Placement)),
+            clipWiresCase: static (ctx, m) => World(key: ctx.Op, draw: () => ctx.Frame.Pipeline.DrawClippingPlaneWires(clippingPlane: m.Value, color: Quant.Sys(m.Color))),
+            hatchCase: static (ctx, m) => World(key: ctx.Op, draw: () => ctx.Frame.Pipeline.DrawHatch(hatch: m.Value, hatchColor: Quant.Sys(m.Line), boundaryColor: Quant.Sys(m.Fill))),
+            worldTextCase: static (ctx, m) => World(key: ctx.Op, draw: () => ctx.Frame.Pipeline.DrawText(text: m.Value, color: Quant.Sys(m.Color))),
+            annotationCase: static (ctx, m) => World(key: ctx.Op, draw: () => ctx.Frame.Pipeline.DrawAnnotation(annotation: m.Value, parentObject: m.Owner, color: Quant.Sys(m.Color))),
+            worldSpriteCase: static (ctx, m) => ctx.Sprites.Resolve(source: m.Sprite, blend: m.Blend, key: ctx.Op)
+                .Map(bitmap => Op.Side(() => ctx.Frame.Pipeline.DrawSprite(
+                    bitmap: bitmap, worldLocation: m.At, size: m.Size,
+                    blendColor: m.Tint.Match(Some: Quant.Sys, None: static () => System.Drawing.Color.White),
+                    sizeInWorldSpace: m.WorldSized))),
+            spriteCloudCase: static (ctx, m) => ctx.Sprites.Resolve(source: m.Sprite, blend: m.Blend, key: ctx.Op)
                 .Map(bitmap => Op.Side(() => {
                     DisplayBitmapDrawList list = new();
-                    list.SetPoints(points: m.Points.AsEnumerable());
+                    _ = m.Colors.Match(
+                        Some: rows => Op.Side(() => list.SetPoints(points: m.Points.AsEnumerable(), colors: rows.Map(Quant.Sys).AsEnumerable())),
+                        None: () => Op.Side(() => list.SetPoints(points: m.Points.AsEnumerable())));
                     ctx.Frame.Pipeline.DrawSprites(bitmap: bitmap, items: list, size: m.Size, sizeInWorldSpace: m.WorldSized);
                 })),
-            directionIndicatorsCase: static (ctx, m) => ctx.Op.Catch(() => Fin.Succ(value: Op.Side(() => ctx.Frame.Pipeline.DrawSurfaceDirectionIndicators(directionIndicators: m.Value)))),
-            curvaturePreviewCase: static (ctx, m) => ctx.Op.Catch(() => Fin.Succ(value: Op.Side(() => ctx.Frame.Pipeline.DrawCurvaturePreview(brep: m.Value, color: Sys(m.Color))))),
-            draftPreviewCase: static (ctx, m) => ctx.Op.Catch(() => Fin.Succ(value: Op.Side(() => ctx.Frame.Pipeline.DrawDraftAnglePreview(mesh: m.Value, color: Sys(m.Color))))));
+            directionIndicatorsCase: static (ctx, m) => World(key: ctx.Op, draw: () => ctx.Frame.Pipeline.DrawSurfaceDirectionIndicators(directionIndicators: m.Value)),
+            curvaturePreviewCase: static (ctx, m) => World(key: ctx.Op, draw: () => ctx.Frame.Pipeline.DrawCurvaturePreview(brep: m.Value, color: Quant.Sys(m.Color))),
+            draftPreviewCase: static (ctx, m) => World(key: ctx.Op, draw: () => ctx.Frame.Pipeline.DrawDraftAnglePreview(mesh: m.Value, color: Quant.Sys(m.Color))));
 
-    private static Fin<Unit> Surface(Eto.Drawing.Graphics graphics, Mark mark, Op key) =>
+    private static Fin<Unit> Surface(Eto.Drawing.Graphics graphics, SpriteSheet sprites, Mark mark, Op key) =>
         mark.Switch(
-            state: (Graphics: graphics, Op: key),
+            state: (Graphics: graphics, Sprites: sprites, Op: key),
             segmentCase: static (ctx, m) => ctx.Op.Catch(() => {
                 using Eto.Drawing.Pen pen = m.Stroke.ToEtoPen();
-                ctx.Graphics.DrawLine(pen, new Eto.Drawing.PointF((float)m.From.X, (float)m.From.Y), new Eto.Drawing.PointF((float)m.To.X, (float)m.To.Y));
+                ctx.Graphics.DrawLine(pen, Quant.Pt(m.From), Quant.Pt(m.To));
                 return Fin.Succ(value: unit);
             }),
             polylineCase: static (ctx, m) => ctx.Op.Catch(() => {
                 using Eto.Drawing.Pen pen = m.Stroke.ToEtoPen();
-                Seq<Eto.Drawing.PointF> points = (m.Closed ? m.Points.Add(m.Points[0]) : m.Points).Map(static p => new Eto.Drawing.PointF((float)p.X, (float)p.Y));
+                Seq<Eto.Drawing.PointF> points = (m.Closed ? m.Points.Add(m.Points[0]) : m.Points).Map(static p => Quant.Pt(p));
                 ctx.Graphics.DrawLines(pen, points.AsEnumerable());
                 return Fin.Succ(value: unit);
             }),
@@ -471,7 +489,7 @@ public static class Marks {
                         None: () => Fin.Succ(value: unit)));
             }),
             labelCase: static (ctx, m) => ctx.Op.Catch(() => {
-                using Eto.Drawing.SolidBrush ink = new(Tint(m.Color));
+                using Eto.Drawing.SolidBrush ink = new(Quant.Tint(m.Color));
                 using Eto.Drawing.FormattedText laid = new() { Text = m.Text, Font = m.Style.Font(), ForegroundBrush = ink };
                 Eto.Drawing.SizeF measured = laid.Measure();
                 Eto.Drawing.PointF at = m.MiddleJustified
@@ -480,21 +498,11 @@ public static class Marks {
                 ctx.Graphics.DrawText(laid, at);
                 return Fin.Succ(value: unit);
             }),
-            screenSpriteCase: static (ctx, m) => m.Sprite.Switch(
-                state: (ctx.Graphics, Mark: m, ctx.Op),
-                memoryCase: static (inner, sprite) => inner.Op.Catch(() => {
-                    using System.IO.MemoryStream buffer = new();
-                    sprite.Bitmap.Save(buffer, System.Drawing.Imaging.ImageFormat.Png);
-                    buffer.Position = 0;
-                    using Eto.Drawing.Bitmap image = new(buffer);
-                    inner.Graphics.DrawImage(image, (float)inner.Mark.At.X - (inner.Mark.Extent.Width / 2f), (float)inner.Mark.At.Y - (inner.Mark.Extent.Height / 2f), inner.Mark.Extent.Width, inner.Mark.Extent.Height);
-                    return Fin.Succ(value: unit);
-                }),
-                pathCase: static (inner, sprite) => inner.Op.Catch(() => {
-                    using Eto.Drawing.Bitmap image = new(sprite.Path);
-                    inner.Graphics.DrawImage(image, (float)inner.Mark.At.X - (inner.Mark.Extent.Width / 2f), (float)inner.Mark.At.Y - (inner.Mark.Extent.Height / 2f), inner.Mark.Extent.Width, inner.Mark.Extent.Height);
-                    return Fin.Succ(value: unit);
-                })),
+            screenSpriteCase: static (ctx, m) => ctx.Sprites.Surface(source: m.Sprite, key: ctx.Op).Map(image =>
+                Op.Side(() => ctx.Graphics.DrawImage(
+                    image,
+                    (float)m.At.X - (m.Extent.Width / 2f), (float)m.At.Y - (m.Extent.Height / 2f),
+                    m.Extent.Width, m.Extent.Height))),
             curveCase: static (ctx, m) => NotOnSurface(mark: m, key: ctx.Op),
             meshShadedCase: static (ctx, m) => NotOnSurface(mark: m, key: ctx.Op),
             meshBandedCase: static (ctx, m) => NotOnSurface(mark: m, key: ctx.Op),
@@ -517,18 +525,10 @@ public static class Marks {
     private static Fin<Unit> NotOnSurface(Mark mark, Op key) =>
         Fin.Fail<Unit>(key.Unsupported(geometryType: mark.GetType(), outputType: typeof(Eto.Drawing.Graphics)));
 
-    private static System.Drawing.Color Sys(PerceptualColor color) {
-        (byte r, byte g, byte b, _) = color.ToRgb();
-        return System.Drawing.Color.FromArgb(r, g, b);
-    }
-
-    private static Eto.Drawing.Color Tint(PerceptualColor color) {
-        (byte r, byte g, byte b, _) = color.ToRgb();
-        return new Eto.Drawing.Color(r / 255f, g / 255f, b / 255f);
-    }
+    private static Fin<Unit> World(Op key, Action draw) => key.Catch(() => Fin.Succ(value: Op.Side(draw)));
 
     private static Fin<Unit> Hud(ConduitFrame frame, Op key, Action draw) =>
-        RenderStates.Hud.Scope(pipeline: frame.Pipeline, draw: () => key.Catch(() => Fin.Succ(value: Op.Side(draw))), key: key);
+        RenderStates.Hud.Scope(pipeline: frame.Pipeline, draw: () => World(key: key, draw: draw), key: key);
 }
 ```
 
@@ -542,5 +542,5 @@ flowchart LR
     Style["Stroke · FillStyle · TextStyle"] -->|mint at draw edge| Rail
     Kernel["PerceptualColor.ToRgb · Ramp"] --> Style
     Paths["ScreenPath — GraphicsPath hit tests · Rhino curve projection"] --> Rail
-    Sprites["SpriteSheet — blend-keyed DisplayBitmap cache"] --> Rail
+    Sprites["SpriteSheet — blend-keyed DisplayBitmap + Eto bitmap caches"] --> Rail
 ```

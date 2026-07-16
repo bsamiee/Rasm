@@ -1,19 +1,20 @@
 # [RASM_RHINO_OPERATIONS]
 
-The host exchange transaction rail (`Rasm.Rhino.Exchange`). One `ExchangeOp` union carries document-bound import, export, persistence, named-state, geolocation, geometry-archive, and program requests through `Exchanges.Run`; session capability is derived per case, each attempted mutation is undo-bracketed, output paths settle through declared policy rows, and every terminal preserves ordered facts, typed evidence, failures, halt state, and partial-mutation truth. Document acquisition remains the Document session source concern, host inquiries return admitted paths, and `IoLane` permits parallel execution only across independent headless sessions.
+Host exchange transaction rail (`Rasm.Rhino.Exchange`). One `ExchangeOp` union carries document-bound import, export, persistence, named-state, geolocation, geometry-archive, and program requests through `Exchanges.Run`; session capability is derived per case, each attempted mutation is undo-bracketed, output paths settle through declared policy rows, and every terminal preserves ordered facts, typed evidence, failures, halt state, and partial-mutation truth. Document acquisition remains the Document session source concern, host inquiries return admitted paths, and `IoLane` permits parallel execution only across independent headless sessions.
 
 ## [01]-[INDEX]
 
-- [02]-[LANE_AND_OUTPUT]: `IoLane` the cross-document concurrency rows, `CollisionRule`/`DirectoryRule` the output vocabulary, `OutputPolicy` the one egress-path resolver.
+- [02]-[LANE_AND_OUTPUT]: `IoLane` the cross-document concurrency rows, `CollisionRule`/`DirectoryRule` the output vocabulary, `OutputPolicy` the one egress-path resolver and folder-wide atomic landing kernel.
 - [03]-[NAMED_TABLES]: `LayerStateOp` and `PositionOp` — the saved-state transaction families over `NamedLayerStateTable` and `NamedPositionTable`.
 - [04]-[GEOLOCATION]: `GeoPoint`, `EarthAnchor`, and `AnchorOp` — read, write, planes, and the model↔earth correspondence on one owner.
 - [05]-[TRANSACTION_RAIL]: `ExchangeOp`, `ExchangeYield`, `ExchangeFact`/`ExchangeReceipt`, `BatchPolicy`/`ConversionPolicy` with the `ExchangeHalt` cancellation carrier, and `Exchanges` — one session-proved dispatch plus the cross-document conversion fan.
 
 ## [02]-[LANE_AND_OUTPUT]
 
-- Owner: `IoLane` `[Union]` — `SequentialCase` and `ParallelCase(Option<Dimension>)`; the lane is a property of a MULTI-document program, because one `RhinoDoc` admits one mutation stream and the session already serializes demands. `CollisionRule` `[SmartEnum<int>]` — `Fail`, `Replace`, `AppendOrdinal` — each row carrying its settle delegate, so collision behavior is a row fact resolved before any host write. `DirectoryRule` `[SmartEnum<int>]` — `Existing` refuses a missing parent, `Create` mints it. `OutputPolicy` — the one egress-path resolver composing both rows plus the codec extension guarantee; every writing case resolves its target through it exactly once.
+- Owner: `IoLane` `[Union]` — `SequentialCase` and `ParallelCase(Option<Dimension>)`; the lane is a property of a MULTI-document program, because one `RhinoDoc` admits one mutation stream and the session already serializes demands. `CollisionRule` `[SmartEnum<int>]` — `Fail`, `Replace`, `AppendOrdinal` — each row carrying its settle delegate plus its commit-move `Overwrite` column, so collision behavior is a row fact resolved before any host write and re-enforced at the final move. `DirectoryRule` `[SmartEnum<int>]` — `Existing` refuses a missing parent, `Create` mints it. `OutputPolicy` — the one egress owner: `Resolve` settles the path composing both rows plus the optional codec extension guarantee, and `Land` is the folder's ONE atomic staging kernel — same-directory temporary artifact, nonempty read, caller validation hook, flush-to-disk, collision-governed move, landed-byte equality, cleanup on every exit, content key from the committed bytes, and a generic stage payload so a writer's native diagnostics ride the landing.
 - Law: collision settling happens against the filesystem at dispatch instant and returns the SETTLED path on the receipt — the caller learns the real artifact location from evidence, never by re-deriving the ordinal.
 - Law: `AppendOrdinal` probes bounded ordinals and refuses on exhaustion with a typed fault; an unbounded rename loop is unrepresentable because the bound is a `Dimension` policy value.
+- Law: `Land` is the sole staging kernel for every artifact this package writes itself — archive persistence and amendment, embedded-file extraction, fresh-archive geometry emission, and every publish delivery stage through it; a second temp-write-verify-move spelling beside it is the deleted form. Host writers that dispatch on the destination extension or mutate document identity (`RhinoDoc.Export`, `ExportSelected`, `Save`, `SaveAs`, the direct engines) write their settled path directly, because a `.partial` staging name forks the host's own format dispatch.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -38,10 +39,10 @@ public abstract partial record IoLane {
 
 [SmartEnum<int>]
 public sealed partial class CollisionRule {
-    public static readonly CollisionRule Fail = new(key: 0, settle: static (path, bound, op) =>
+    public static readonly CollisionRule Fail = new(key: 0, overwrite: false, settle: static (path, bound, op) =>
         System.IO.File.Exists(path) ? Fin.Fail<string>(error: op.InvalidInput()) : Fin.Succ(value: path));
-    public static readonly CollisionRule Replace = new(key: 1, settle: static (path, bound, op) => Fin.Succ(value: path));
-    public static readonly CollisionRule AppendOrdinal = new(key: 2, settle: static (path, bound, op) => {
+    public static readonly CollisionRule Replace = new(key: 1, overwrite: true, settle: static (path, bound, op) => Fin.Succ(value: path));
+    public static readonly CollisionRule AppendOrdinal = new(key: 2, overwrite: false, settle: static (path, bound, op) => {
         if (!System.IO.File.Exists(path)) {
             return Fin.Succ(value: path);
         }
@@ -52,6 +53,8 @@ public sealed partial class CollisionRule {
             .Find(candidate => !System.IO.File.Exists(candidate))
             .ToFin(Fail: op.InvalidResult(detail: $"collision bound {bound.Value} exhausted"));
     });
+
+    internal bool Overwrite { get; }
 
     [UseDelegateFromConstructor]
     internal partial Fin<string> Settle(string path, Dimension bound, Op key);
@@ -72,17 +75,82 @@ public sealed partial class DirectoryRule {
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------
+public sealed record Landed<TStage>(DocumentPath Target, UInt128 ContentKey, TStage Stage);
+
 public sealed record OutputPolicy(CollisionRule Collision, DirectoryRule Directory, Dimension OrdinalBound) {
     public static OutputPolicy Strict { get; } = new(
         Collision: CollisionRule.Fail, Directory: DirectoryRule.Existing, OrdinalBound: Dimension.Create(value: 64));
 
     public static OutputPolicy Landing { get; } = Strict with { Collision = CollisionRule.AppendOrdinal, Directory = DirectoryRule.Create };
 
-    internal Fin<DocumentPath> Resolve(DocumentPath target, FileCodec codec, Op key) =>
-        from _folder in Directory.Ensure(folder: System.IO.Path.GetDirectoryName(target.Value) ?? string.Empty, key: key)
-        from settled in Collision.Settle(path: codec.EnsureExtension(path: target.Value), bound: OrdinalBound, key: key)
-        from admitted in key.Catch(() => Fin.Succ(value: DocumentPath.Create(value: settled)))
-        select admitted;
+    internal Fin<DocumentPath> Resolve(DocumentPath target, Option<FileCodec> codec = default, Op? key = null) {
+        Op op = key.OrDefault();
+        return from _folder in Directory.Ensure(folder: System.IO.Path.GetDirectoryName(target.Value) ?? string.Empty, key: op)
+               from settled in Collision.Settle(
+                   path: codec.Map(row => row.EnsureExtension(path: target.Value)).IfNone(target.Value),
+                   bound: OrdinalBound,
+                   key: op)
+               from admitted in op.Catch(() => Fin.Succ(value: DocumentPath.Create(value: settled)))
+               select admitted;
+    }
+
+    internal Fin<Landed<TStage>> Land<TStage>(
+        DocumentPath target,
+        Option<FileCodec> codec,
+        Func<string, Fin<TStage>> stage,
+        Option<Func<byte[], Fin<Unit>>> validate = default,
+        Op? key = null) {
+        Op op = key.OrDefault();
+        CollisionRule collision = Collision;
+        return Resolve(target: target, codec: codec, key: op).Bind(settled => {
+            string directory = System.IO.Path.GetDirectoryName(settled.Value) ?? string.Empty;
+            string temporary = System.IO.Path.Join(
+                directory,
+                $".{System.IO.Path.GetFileName(settled.Value)}.{Guid.NewGuid():N}.partial");
+            Fin<Landed<TStage>> outcome =
+                from staged in stage(arg: temporary)
+                from bytes in ReadNonempty(path: temporary, op: op)
+                from _staged in validate.Map(check => check(arg: bytes)).IfNone(Fin.Succ(value: unit))
+                from _durable in Flush(path: temporary, op: op)
+                from _committed in op.Catch(() => Fin.Succ(value: Op.Side(() => System.IO.File.Move(
+                    sourceFileName: temporary,
+                    destFileName: settled.Value,
+                    overwrite: collision.Overwrite))))
+                from landed in ReadNonempty(path: settled.Value, op: op)
+                from _same in guard(bytes.AsSpan().SequenceEqual(landed), op.InvalidResult()).ToFin()
+                from _landed in validate.Map(check => check(arg: landed)).IfNone(Fin.Succ(value: unit))
+                select new Landed<TStage>(
+                    Target: settled,
+                    ContentKey: ContentHash.Of(canonicalBytes: landed),
+                    Stage: staged);
+            return outcome.Match(
+                Succ: written => Cleanup(path: temporary, op: op).Map(_ => written),
+                Fail: primary => Cleanup(path: temporary, op: op).Match(
+                    Succ: _ => Fin.Fail<Landed<TStage>>(error: primary),
+                    Fail: cleanup => Fin.Fail<Landed<TStage>>(error: primary + cleanup)));
+        });
+    }
+
+    private static Fin<byte[]> ReadNonempty(string path, Op op) =>
+        op.Catch(() => Fin.Succ(value: System.IO.File.ReadAllBytes(path: path)))
+            .Bind(bytes => guard(bytes.Length > 0, op.InvalidResult()).ToFin().Map(_ => bytes));
+
+    private static Fin<Unit> Flush(string path, Op op) => op.Catch(() => {
+        using System.IO.FileStream stream = new(
+            path: path,
+            mode: System.IO.FileMode.Open,
+            access: System.IO.FileAccess.ReadWrite,
+            share: System.IO.FileShare.Read);
+        stream.Flush(flushToDisk: true);
+        return Fin.Succ(value: unit);
+    });
+
+    private static Fin<Unit> Cleanup(string path, Op op) => op.Catch(() => {
+        if (System.IO.File.Exists(path: path)) {
+            System.IO.File.Delete(path: path);
+        }
+        return Fin.Succ(value: unit);
+    });
 }
 ```
 
@@ -340,8 +408,8 @@ public abstract partial record AnchorYield {
 - Law: `BatchPolicy` owns in-session continuation and halt only; `ConversionPolicy` adds the cross-document `IoLane`, so a batch never carries an ignored concurrency knob. Parallel conversion is collecting by construction — `IoLane.ParallelCase` fans out only when `ContinueOnError` is true, pins its degree to the admitted value or processor count, and records `Halted` only when cancellation leaves rows unstarted. A halting conversion executes sequentially because work already admitted to independent host sessions cannot be recalled after a sibling fails.
 - Law: `SaveCase` consults `SessionSnapshot.Modified` — saving an unmodified document is a no-op receipt fact, never a redundant host write; the dirty fact comes from the session snapshot, not a host re-probe.
 - Law: egress cases resolve their target through `OutputPolicy` exactly once and stamp the SETTLED path plus the artifact's `ContentHash.Of` content key on the receipt, so downstream indexing keys on evidence.
-- Law: `GeometryCase` is a session-bound export that writes no live-document geometry — after the session proves export capability, a fresh `File3dm` receives the requested geometry rows and persists through `WriteWithLog` under the archive policy; a failed write carries the native log in fault detail, and a successful non-empty log becomes `ExchangeEvidence.NativeCase` under the settled target.
-- Law: selection egress rides the host's own selected-export lane — `ExportSelected` scopes to the live selection under an empty host option dictionary, `CodecTune` drives whole-document export only, and the receipt carries `ExchangeEvidence.HostDefaultsCase` instead of pretending the tune reached the selected-export call.
+- Law: `GeometryCase` is a session-bound export that writes no live-document geometry — after the session proves export capability, a fresh `File3dm` receives the requested geometry rows and lands through `Archives.Land`, the archive rail's one `WriteWithLog`-hooked staging over `OutputPolicy.Land`, so the landed 3dm carries the same byte re-materialization parse proof every archive persistence carries; a failed write carries the native log in fault detail, and a successful non-empty log becomes `ExchangeEvidence.NativeCase` under the landed target.
+- Law: selection egress is gated by the row's `CodecAbility.Selection` — an export-engine row threads a `WriteSelectedObjectsOnly` + suppression carrier through `Codecs.Write` so the tune still drives the typed options, the engine-less `3dm` row rides the host-native `ExportSelected` with `ExchangeEvidence.HostDefaultsCase` naming that lane, and a selection export against any other row is a typed refusal because the host's dictionary-less selected-export path falls back to the format plug-in's interactive option getter and blocks a headless run.
 - Boundary: `RhinoDoc.Open` and every headless constructor belong to the Document session sources; an exchange request that names a document to acquire is a session construction at the call site, and this rail's batch runs against the session it was handed.
 
 ```csharp signature
@@ -378,7 +446,7 @@ public abstract partial record DocumentWritePolicy {
         bool Compression) : DocumentWritePolicy;
     public sealed record DocumentCase(bool GeometryOnly, bool UserData, bool RenderMeshes) : DocumentWritePolicy;
     public sealed record ArchiveCase(bool GeometryOnly, bool UserData, bool RenderMeshes) : DocumentWritePolicy;
-    public sealed record TemplateCase : DocumentWritePolicy;
+    public sealed record TemplateCase(Option<Dimension> Version = default) : DocumentWritePolicy;
 
     internal Fin<Unit> Write(RhinoDoc document, string path, Op op) => Switch(
         state: (Document: document, Path: path, Op: op),
@@ -396,7 +464,9 @@ public abstract partial record DocumentWritePolicy {
         archiveCase: static (ctx, policy) => ctx.Op.Confirm(success: ctx.Document.Write3dmFile(
             path: ctx.Path,
             options: Host(geometryOnly: policy.GeometryOnly, userData: policy.UserData, renderMeshes: policy.RenderMeshes))),
-        templateCase: static (ctx, _) => ctx.Op.Confirm(success: ctx.Document.SaveAsTemplate(file3dmTemplatePath: ctx.Path)));
+        templateCase: static (ctx, policy) => policy.Version.Match(
+            Some: version => ctx.Op.Confirm(success: ctx.Document.SaveAsTemplate(file3dmTemplatePath: ctx.Path, version: version.Value)),
+            None: () => ctx.Op.Confirm(success: ctx.Document.SaveAsTemplate(file3dmTemplatePath: ctx.Path))));
 
     private static FileWriteOptions Host(bool geometryOnly, bool userData, bool renderMeshes) => new() {
         WriteGeometryOnly = geometryOnly,
@@ -424,20 +494,22 @@ public abstract partial record ExchangeOp {
     internal ExchangeHalt Halt(ExchangeHalt ambient) =>
         this is BatchCase batch ? ambient.Merge(batch.Policy.Halt) : ambient;
 
-    private (Seq<SessionNeed> Needs, bool Mutates, string Surface) Profile() => this switch {
-        ImportCase => (Seq(SessionNeed.Mutate), true, nameof(ImportCase)),
-        LayerStateCase { Edit: LayerStateOp.CensusCase } => (Seq(SessionNeed.Read), false, nameof(LayerStateCase)),
-        LayerStateCase => (Seq(SessionNeed.Mutate), true, nameof(LayerStateCase)),
-        PositionCase { Edit: PositionOp.CensusCase } => (Seq(SessionNeed.Read), false, nameof(PositionCase)),
-        PositionCase => (Seq(SessionNeed.Mutate), true, nameof(PositionCase)),
-        AnchorCase { Edit: AnchorOp.WriteCase or AnchorOp.SunCase } => (Seq(SessionNeed.Mutate), true, nameof(AnchorCase)),
-        AnchorCase => (Seq(SessionNeed.Read), false, nameof(AnchorCase)),
-        SaveCase => (Seq(SessionNeed.Export), false, nameof(SaveCase)),
-        WriteCase => (Seq(SessionNeed.Export), false, nameof(WriteCase)),
-        ExportCase => (Seq(SessionNeed.Export), false, nameof(ExportCase)),
-        GeometryCase => (Seq(SessionNeed.Export), false, nameof(GeometryCase)),
-        BatchCase batch => BatchProfile(batch),
-    };
+    private (Seq<SessionNeed> Needs, bool Mutates, string Surface) Profile() => Switch<(Seq<SessionNeed>, bool, string)>(
+        importCase: static _ => (Seq(SessionNeed.Mutate), true, nameof(ImportCase)),
+        exportCase: static _ => (Seq(SessionNeed.Export), false, nameof(ExportCase)),
+        saveCase: static _ => (Seq(SessionNeed.Export), false, nameof(SaveCase)),
+        writeCase: static _ => (Seq(SessionNeed.Export), false, nameof(WriteCase)),
+        geometryCase: static _ => (Seq(SessionNeed.Export), false, nameof(GeometryCase)),
+        layerStateCase: static edit => edit.Edit is LayerStateOp.CensusCase
+            ? (Seq(SessionNeed.Read), false, nameof(LayerStateCase))
+            : (Seq(SessionNeed.Mutate), true, nameof(LayerStateCase)),
+        positionCase: static edit => edit.Edit is PositionOp.CensusCase
+            ? (Seq(SessionNeed.Read), false, nameof(PositionCase))
+            : (Seq(SessionNeed.Mutate), true, nameof(PositionCase)),
+        anchorCase: static edit => edit.Edit is AnchorOp.WriteCase or AnchorOp.SunCase
+            ? (Seq(SessionNeed.Mutate), true, nameof(AnchorCase))
+            : (Seq(SessionNeed.Read), false, nameof(AnchorCase)),
+        batchCase: static batch => BatchProfile(batch));
 
     private static (Seq<SessionNeed> Needs, bool Mutates, string Surface) BatchProfile(BatchCase batch) => (
         Needs: batch.Program.IsEmpty
@@ -602,7 +674,11 @@ public static class Exchanges {
                         steps: ordered,
                         halted: admitted.Batch.Halt.Requested && ordered.Count < rows.Count));
                 }),
-                _ => Fin.Succ(value: ConvertSequential(rows: rows, policy: admitted.Batch, one: one)),
+                _ => Fin.Succ(value: Program(
+                    rows: rows,
+                    halt: admitted.Batch.Halt,
+                    continueOnError: admitted.Batch.ContinueOnError,
+                    one: one)),
             });
         });
     }
@@ -669,23 +745,20 @@ public static class Exchanges {
 
     private sealed record ProgramFold(Seq<ExchangeStep> RevSteps, bool Stopped, bool Halted);
 
-    private static ExchangeReceipt ConvertSequential(
-        Seq<(SessionSource Source, ExchangeOp Request)> rows,
-        BatchPolicy policy,
-        Func<(SessionSource Source, ExchangeOp Request), int, ExchangeStep> one) {
+    private static ExchangeReceipt Program<T>(Seq<T> rows, ExchangeHalt halt, bool continueOnError, Func<T, int, ExchangeStep> one) {
         ProgramFold folded = rows.Map(static (row, index) => (Row: row, Index: index)).Fold(
             new ProgramFold(RevSteps: Seq<ExchangeStep>(), Stopped: false, Halted: false),
             (state, item) => {
                 if (state.Stopped) {
                     return state;
                 }
-                if (policy.Halt.Requested) {
+                if (halt.Requested) {
                     return state with { Stopped = true, Halted = true };
                 }
                 ExchangeStep step = one(item.Row, item.Index);
                 return new ProgramFold(
                     RevSteps: step.Cons(state.RevSteps),
-                    Stopped: step.Halted || (!policy.ContinueOnError && step.Failed),
+                    Stopped: step.Halted || (!continueOnError && step.Failed),
                     Halted: step.Halted);
             });
         return ExchangeReceipt.Program(steps: folded.RevSteps.Rev(), halted: folded.Halted);
@@ -708,31 +781,49 @@ public static class Exchanges {
             _ => true,
         });
 
+    private static Fin<FileCodec> Settled(Option<FileCodec> codec, DocumentPath path, Op op) =>
+        codec.Map(static row => Fin.Succ(value: row))
+            .IfNone(() => Codecs.Detect(path: path.Value).ToFin(Fail: op.InvalidInput()));
+
+    private static Fin<UInt128> Keyed(string path, Op op) =>
+        op.Catch(() => Fin.Succ(value: ContentHash.Of(canonicalBytes: System.IO.File.ReadAllBytes(path: path))));
+
     private static Fin<ExchangeReceipt> Dispatch(RhinoDoc document, ExchangeOp request, bool dirty, ExchangeHalt halt, Op op) =>
         request.Switch(
             state: (Document: document, Dirty: dirty, Halt: halt, Op: op),
             importCase: static (ctx, edit) =>
-                from codec in edit.Codec.Map(static codec => Fin.Succ(value: codec)).IfNone(() => Codecs.Detect(path: edit.Source.Value).ToFin(Fail: ctx.Op.InvalidInput()))
-                from _read in Codecs.Read(document: ctx.Document, path: edit.Source, codec: codec, tune: edit.Tune, carrier: new FileReadOptions(), key: ctx.Op)
+                from codec in Settled(codec: edit.Codec, path: edit.Source, op: ctx.Op)
+                from _read in Codecs.Read(document: ctx.Document, path: edit.Source, codec: codec, tune: edit.Tune, carrier: new FileReadOptions { ImportMode = true }, key: ctx.Op)
                 select ExchangeReceipt.One(
                     yield: new ExchangeYield.MergedCase(Source: edit.Source, Codec: codec),
                     fact: new ExchangeFact(Slot: ExchangeSlot.Imported, Name: edit.Source.Value, Id: None)),
             exportCase: static (ctx, edit) =>
-                from codec in edit.Codec.Map(static codec => Fin.Succ(value: codec)).IfNone(() => Codecs.Detect(path: edit.Target.Value).ToFin(Fail: ctx.Op.InvalidInput()))
+                from codec in Settled(codec: edit.Codec, path: edit.Target, op: ctx.Op)
                 from settled in edit.Output.Resolve(target: edit.Target, codec: codec, key: ctx.Op)
                 from _written in edit.Scope switch {
-                    ExportScope.SelectionCase => ctx.Op.Catch(() =>
-                        ctx.Op.Confirm(success: ctx.Document.ExportSelected(filePath: settled.Value, options: new Rhino.Collections.ArchivableDictionary()))),
+                    ExportScope.SelectionCase =>
+                        from _able in guard(codec.Has(CodecAbility.Selection), ctx.Op.InvalidInput()).ToFin()
+                        from _done in codec.Has(CodecAbility.Export)
+                            ? Codecs.Write(
+                                document: ctx.Document, path: settled, codec: codec, tune: edit.Tune,
+                                carrier: new FileWriteOptions {
+                                    WriteSelectedObjectsOnly = true,
+                                    SuppressAllInput = true,
+                                    SuppressDialogBoxes = true,
+                                },
+                                key: ctx.Op)
+                            : ctx.Op.Catch(() => ctx.Op.Confirm(success: ctx.Document.ExportSelected(filePath: settled.Value)))
+                        select unit,
                     _ => Codecs.Write(document: ctx.Document, path: settled, codec: codec, tune: edit.Tune, carrier: new FileWriteOptions(), key: ctx.Op),
                 }
-                from keyed in ctx.Op.Catch(() => Fin.Succ(value: ContentHash.Of(canonicalBytes: System.IO.File.ReadAllBytes(path: settled.Value))))
+                from keyed in Keyed(path: settled.Value, op: ctx.Op)
                 select ExchangeReceipt.Of(
                     yield: new ExchangeYield.ArtifactCase(Target: settled, Codec: codec, ContentKey: keyed),
                     facts: Seq(new ExchangeFact(Slot: ExchangeSlot.Exported, Name: settled.Value, Id: None)),
-                    evidence: edit.Scope is ExportScope.SelectionCase
+                    evidence: edit.Scope is ExportScope.SelectionCase && !codec.Has(CodecAbility.Export)
                         ? Seq<ExchangeEvidence>(new ExchangeEvidence.HostDefaultsCase(
                             Surface: nameof(RhinoDoc.ExportSelected),
-                            Detail: "Selection egress uses an empty host option dictionary; CodecTune applies only to whole-document export."))
+                            Detail: "Selection egress rides the host-native selected-export lane; the native 3dm writer owns its options."))
                         : Seq<ExchangeEvidence>()),
             saveCase: static (ctx, _) =>
                 ctx.Dirty
@@ -746,36 +837,27 @@ public static class Exchanges {
                 from settled in edit.Output.Resolve(target: edit.Target, codec: FileCodec.ThreeDm, key: ctx.Op)
                 from policy in Optional(edit.Policy).ToFin(Fail: ctx.Op.InvalidInput())
                 from _written in policy.Write(document: ctx.Document, path: settled.Value, op: ctx.Op)
-                from keyed in ctx.Op.Catch(() => Fin.Succ(value: ContentHash.Of(canonicalBytes: System.IO.File.ReadAllBytes(path: settled.Value))))
+                from keyed in Keyed(path: settled.Value, op: ctx.Op)
                 select ExchangeReceipt.One(
                     yield: new ExchangeYield.ArtifactCase(Target: settled, Codec: FileCodec.ThreeDm, ContentKey: keyed),
                     fact: new ExchangeFact(Slot: ExchangeSlot.Wrote, Name: settled.Value, Id: None)),
             geometryCase: static (ctx, edit) =>
                 from _rows in guard(!edit.Geometry.IsEmpty, ctx.Op.InvalidInput()).ToFin()
-                from settled in edit.Output.Resolve(target: edit.Target, codec: FileCodec.ThreeDm, key: ctx.Op)
                 from policy in Optional(edit.Policy).ToFin(Fail: ctx.Op.InvalidInput())
-                from written in ctx.Op.Catch(() => {
+                from landed in ctx.Op.Catch(() => {
                     using File3dm archive = new();
                     Seq<Guid> added = edit.Geometry.Map(row => archive.Objects.Add(item: row, attributes: new ObjectAttributes())).Strict();
-                    return guard(added.ForAll(static id => id != Guid.Empty), ctx.Op.InvalidResult()).ToFin().Bind(_ => {
-                        string log = string.Empty;
-                        bool wrote = archive.WriteWithLog(path: settled.Value, options: policy.Host(), errorLog: out log);
-                        Option<string> evidence = Optional(log).Filter(static text => !string.IsNullOrWhiteSpace(value: text));
-                        return wrote
-                            ? Fin.Succ(value: (
-                                Key: ContentHash.Of(canonicalBytes: System.IO.File.ReadAllBytes(path: settled.Value)),
-                                Log: evidence))
-                            : Fin.Fail<(UInt128 Key, Option<string> Log)>(error: ctx.Op.InvalidResult(
-                                detail: evidence.IfNone("File3dm.WriteWithLog returned false without native detail.")));
-                    });
+                    return guard(added.ForAll(static id => id != Guid.Empty), ctx.Op.InvalidResult()).ToFin().Bind(_ =>
+                        Archives.Land(archive: archive, target: edit.Target, policy: policy, output: edit.Output, op: ctx.Op));
                 })
                 select ExchangeReceipt.Of(
-                    yield: new ExchangeYield.ArtifactCase(Target: settled, Codec: FileCodec.ThreeDm, ContentKey: written.Key),
-                    facts: Seq(new ExchangeFact(Slot: ExchangeSlot.Geometry, Name: settled.Value, Id: None)),
-                    evidence: written.Log.Map(text => (ExchangeEvidence)new ExchangeEvidence.NativeCase(
+                    yield: new ExchangeYield.ArtifactCase(Target: landed.Target, Codec: FileCodec.ThreeDm, ContentKey: landed.ContentKey),
+                    facts: Seq(new ExchangeFact(Slot: ExchangeSlot.Geometry, Name: landed.Target.Value, Id: None)),
+                    evidence: landed.Stage.Map(text => (ExchangeEvidence)new ExchangeEvidence.NativeCase(
                         Surface: nameof(File3dm.WriteWithLog),
+                        Succeeded: true,
                         Detail: text,
-                        Target: Some(settled))).ToSeq()),
+                        Target: Some(landed.Target))).ToSeq()),
             layerStateCase: static (ctx, edit) =>
                 edit.Edit.Apply(document: ctx.Document, op: ctx.Op)
                     .Map(fact => ExchangeReceipt.One(yield: new ExchangeYield.TableCase(Fact: fact), fact: fact)),
@@ -789,29 +871,17 @@ public static class Exchanges {
                         fact: new ExchangeFact(Slot: ExchangeSlot.Anchor, Name: nameof(ExchangeSlot.Anchor), Id: None))),
             batchCase: static (ctx, edit) => {
                 ExchangeHalt halt = ctx.Halt.Merge(edit.Policy.Halt);
-                if (halt.Requested) {
-                    return Fin.Succ(value: ExchangeReceipt.Program(steps: Seq<ExchangeStep>(), halted: true));
-                }
-                ProgramFold folded = edit.Program.Map(static (inner, index) => (Inner: inner, Index: index)).Fold(
-                    new ProgramFold(RevSteps: Seq<ExchangeStep>(), Stopped: false, Halted: false),
-                    (state, item) => {
-                        if (state.Stopped) {
-                            return state;
-                        }
-                        if (halt.Requested) {
-                            return state with { Stopped = true, Halted = true };
-                        }
-                        ExchangeStep step = Step(
-                            index: item.Index,
-                            request: item.Inner,
+                return halt.Requested
+                    ? Fin.Succ(value: ExchangeReceipt.Program(steps: Seq<ExchangeStep>(), halted: true))
+                    : Fin.Succ(value: Program(
+                        rows: edit.Program,
+                        halt: halt,
+                        continueOnError: edit.Policy.ContinueOnError,
+                        one: (inner, index) => Step(
+                            index: index,
+                            request: inner,
                             dispatchEntered: true,
-                            outcome: Dispatch(document: ctx.Document, request: item.Inner, dirty: ctx.Dirty, halt: halt, op: ctx.Op));
-                        return new ProgramFold(
-                            RevSteps: step.Cons(state.RevSteps),
-                            Stopped: step.Halted || (!edit.Policy.ContinueOnError && step.Failed),
-                            Halted: step.Halted);
-                    });
-                return Fin.Succ(value: ExchangeReceipt.Program(steps: folded.RevSteps.Rev(), halted: folded.Halted));
+                            outcome: Dispatch(document: ctx.Document, request: inner, dirty: ctx.Dirty, halt: halt, op: ctx.Op))));
             });
 }
 ```

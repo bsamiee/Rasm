@@ -47,8 +47,12 @@ Done is every named move landed to full depth with its product entry written —
 Read the stable law corpus once, first; then work ITEM BY ITEM — derive one item's findings, land its edits, record its product entry, advance. Edits land as derived and never pool toward the end: a batch fully materialized before its first edit forfeits its earliest findings to compaction.
 </work_cadence>
 
+<read_discipline>
+A stable input — law corpus, dossier, catalog, charter — is read ONCE: extract what you need into plan notes and re-open only the exact line span behind an edit, never the whole file again. Read in large windows (400+ lines per command), never 200-line paging. Only plan notes, on-disk products, and landed edits survive compaction. Budget: at most <N> tool calls total; at the budget, land what is derived and record the remainder as deferred entries — an honest remainder beats a thrashing overrun.
+</read_discipline>
+
 <verification>
-After editing, re-read each changed file and confirm it is coherent and nothing it carried was lost. Fix what fails before yielding; a check you did not run is never claimed as run.
+After editing, re-read each changed file and confirm it is coherent and nothing it carried was lost. Fix what fails before yielding; a check you did not run is never claimed as run. Verification matches the territory's medium: a markdown/prose territory verifies by reading — no compiler, build, analyzer, or test gate runs against it.
 </verification>
 
 <output_contract>

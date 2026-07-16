@@ -46,18 +46,22 @@ The `Rhino.Render` boundary owns renderer lifecycle over the display pipeline: `
 [ENTRYPOINT_SCOPE]: `RenderPipeline` — batch render session
 - rail: host-boundary render
 
-Construction through `new RenderPipeline(RhinoDoc, RunMode, PlugIn, Size, string, RenderWindow.StandardChannels, bool, bool)` binds the document, plug-in, size, and channel set. `Render()` and `RenderWindow(RhinoView view, Rectangle rect, bool inWindow)` execute full-frame and view-region renders; both return `RenderReturnCode`, and `Ok` marks success. The `GetRenderWindow` overloads resolve the whole session window or scope it by wireframe/source, viewport, and region; `PauseRendering` and `ResumeRendering` control an in-flight render.
+`RenderPipeline` is abstract with a protected constructor — `RenderPipeline(RhinoDoc, RunMode, PlugIn, Size sizeRendering, string caption, RenderWindow.StandardChannels, bool reuseRenderWindow, bool clearLastRendering)` — so a subclass binds the document, plug-in, size, and channel set and implements the four abstract worker hooks. `Render()` and `RenderWindow(RhinoView view, Rectangle rect, bool inWindow)` execute full-frame and view-region renders; both return `RenderReturnCode`, and `Ok` marks success. The `GetRenderWindow` overloads each mint a fresh caller-owned window wrapper the pipeline never retains — disposal tears down the native render session, never a managed window; `PauseRendering` and `ResumeRendering` control an in-flight render.
 
-| [INDEX] | [SURFACE]                                                                                                | [CALL_SHAPE] |
-| :-----: | :------------------------------------------------------------------------------------------------------- | :----------- |
-|  [01]   | `new RenderPipeline(RhinoDoc, RunMode, PlugIn, Size, string, RenderWindow.StandardChannels, bool, bool)` | construct    |
-|  [02]   | `Render()`                                                                                               | run          |
-|  [03]   | `RenderWindow(RhinoView view, Rectangle rect, bool inWindow)`                                            | run          |
-|  [04]   | `GetRenderWindow()`                                                                                      | window       |
-|  [05]   | `GetRenderWindow(bool withWireframeChannel[, bool fromRenderViewSource])`                                | window       |
-|  [06]   | `GetRenderWindow(ViewportInfo viewportInfo, bool fromRenderViewSource[, Rectangle region])`              | window       |
-|  [07]   | `PauseRendering()`                                                                                       | control      |
-|  [08]   | `ResumeRendering()`                                                                                      | control      |
+| [INDEX] | [SURFACE]                                                                                            | [CALL_SHAPE] |
+| :-----: | :--------------------------------------------------------------------------------------------------- | :----------- |
+|  [01]   | `RenderPipeline(RhinoDoc, RunMode, PlugIn, Size, string, RenderWindow.StandardChannels, bool, bool)` | construct    |
+|  [02]   | `Render()`                                                                                           | run          |
+|  [03]   | `RenderWindow(RhinoView view, Rectangle rect, bool inWindow)`                                        | run          |
+|  [04]   | `GetRenderWindow()`                                                                                  | window       |
+|  [05]   | `GetRenderWindow(bool withWireframeChannel[, bool fromRenderViewSource])`                            | window       |
+|  [06]   | `GetRenderWindow(ViewportInfo viewportInfo, bool fromRenderViewSource[, Rectangle region])`          | window       |
+|  [07]   | `PauseRendering()`                                                                                   | control      |
+|  [08]   | `ResumeRendering()`                                                                                  | control      |
+|  [09]   | `OnRenderBegin() : bool`                                                                             | abstract     |
+|  [10]   | `OnRenderWindowBegin(RhinoView, Rectangle) : bool`                                                   | abstract     |
+|  [11]   | `OnRenderEnd(RenderEndEventArgs)`                                                                    | abstract     |
+|  [12]   | `ContinueModal() : bool`                                                                             | abstract     |
 
 [ENTRYPOINT_SCOPE]: `RealtimeDisplayMode` — in-viewport realtime hooks
 - rail: host-boundary render
@@ -78,26 +82,35 @@ The abstract lifecycle every realtime engine implements covers render size, star
 |  [10]   | `SetUseDrawOpenGl(bool)`                                                                     | control      |
 |  [11]   | `PostEffectsOn`                                                                              | pass state   |
 |  [12]   | `MaxPasses`                                                                                  | pass state   |
+|  [13]   | `Paused` / `Locked`                                                                          | pass state   |
+|  [14]   | `SignalRedraw()`                                                                             | control      |
+|  [15]   | `OnRenderSizeChanged(int, int)` (`public virtual`, returns `bool`)                           | virtual      |
+|  [16]   | `LastRenderedPass()` / `HudLastRenderedPass()`                                               | virtual      |
+|  [17]   | `HudProductName()` / `HudCustomStatusText()` / `HudStartTime()`                              | HUD virtual  |
+|  [18]   | `HudShow()` / `HudShowControls()` / `HudShowPasses()` / `HudShowMaxPasses()`                 | HUD virtual  |
+|  [19]   | `HudAllowEditMaxPasses()` / `HudShowCustomStatusText()`                                      | HUD virtual  |
+|  [20]   | `Hud{Play,Pause,Lock,Unlock}ButtonPressed` (`EventHandler`)                                  | HUD event    |
+|  [21]   | `MaxPassesChanged` (`EventHandler<HudMaxPassesChangedEventArgs>`, args carry `MaxPasses`)    | HUD event    |
 
 [ENTRYPOINT_SCOPE]: `RenderWindow` and `RenderTexture` — channels and evaluation
 - rail: host-boundary render
 
 `RenderWindow.Create` allocates a render window, `SetView` binds its view, `OpenChannel` opens a standard channel for per-pixel read/write, and `SetRGBAChannelColors` writes a `Color4f` block into the RGBA channel over a rectangle. `RegisterPostEffectExecutionControl` registers the post-effect gate. `CreateEvaluator` builds a per-point texture evaluator, while `SimulateTexture` fills a bitmap-backed simulation for a texture that cannot be evaluated live.
 
-| [INDEX] | [SURFACE]                                                                                                | [CALL_SHAPE] |
-| :-----: | :------------------------------------------------------------------------------------------------------- | :----------- |
-|  [01]   | `RenderWindow.Create(Size)`                                                                              | build        |
-|  [02]   | `RenderWindow.SetView(ViewInfo)`                                                                         | build        |
-|  [03]   | `RenderWindow.OpenChannel(RenderWindow.StandardChannels)`                                                | channel      |
-|  [04]   | `RenderWindow.SetRGBAChannelColors(Rectangle, Color4f[])`                                                | write        |
-|  [05]   | `RenderWindow.RegisterPostEffectExecutionControl(PostEffects.PostEffectExecutionControl)`                | post-effect  |
-|  [06]   | `RenderTexture.CreateEvaluator(RenderTexture.TextureEvaluatorFlags)`                                     | evaluate     |
-|  [07]   | `RenderTexture.SimulateTexture(out SimulatedTexture, RenderTexture.TextureGeneration, int, RhinoObject)` | bake         |
+| [INDEX] | [SURFACE]                                                                                                         | [CALL_SHAPE] |
+| :-----: | :---------------------------------------------------------------------------------------------------------------- | :----------- |
+|  [01]   | `RenderWindow.Create(Size)`                                                                                       | build        |
+|  [02]   | `RenderWindow.SetView(ViewInfo)`                                                                                  | build        |
+|  [03]   | `RenderWindow.OpenChannel(RenderWindow.StandardChannels)`                                                         | channel      |
+|  [04]   | `RenderWindow.SetRGBAChannelColors(Rectangle, Color4f[])`                                                         | write        |
+|  [05]   | `RenderWindow.RegisterPostEffectExecutionControl(PostEffects.PostEffectExecutionControl)`                         | post-effect  |
+|  [06]   | `RenderTexture.CreateEvaluator(RenderTexture.TextureEvaluatorFlags)`                                              | evaluate     |
+|  [07]   | `RenderTexture.SimulateTexture(ref SimulatedTexture simulation, TextureGeneration tg, int size, RhinoObject obj)` | bake         |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [RENDER_TOPOLOGY]:
-- `RenderPipeline` is the batch owner: one session binds document, plug-in, size, and channels at construction, `Render` runs it into a `RenderWindow`, and `PauseRendering`/`ResumeRendering` gate an in-flight run — the session is `IDisposable`, so the render window and channels release deterministically.
+- `RenderPipeline` is the batch owner: one abstract session subclass binds document, plug-in, size, and channels at its protected construction, implements the four worker hooks (`OnRenderBegin`/`OnRenderWindowBegin` start the worker, `ContinueModal` polls it, `OnRenderEnd` settles it), `Render` runs it into a `RenderWindow`, and `PauseRendering`/`ResumeRendering` gate an in-flight run — the session is `IDisposable` and releases the native render session, while every `GetRenderWindow*` wrapper is caller-owned and disposes at its borrow.
 - `RealtimeDisplayMode` is the interactive owner: it does not run a batch, it publishes framebuffer and middleground callbacks that draw into the active `DisplayPipeline`, reads its own `MaxPasses`/`PostEffectsOn` progressive state, and reacts to `DisplayPipelineAttributes` changes. Batch and realtime never merge — one produces a finished window, the other participates per frame.
 - Channel access is explicit: `OpenChannel` selects a `StandardChannels` value, `SetRGBAChannelColors` writes a `Color4f` block over a rectangle, and the opened channel is the only per-pixel path — a raw buffer pointer beside it is the deleted form.
 - Texture evaluation splits live and baked: `CreateEvaluator` yields the per-point evaluator, and `SimulateTexture` bakes a `SimulatedTexture` only where live evaluation is refused, gated by the `TextureGeneration` mode.

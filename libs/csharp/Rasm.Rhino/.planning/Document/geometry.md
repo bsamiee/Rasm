@@ -19,7 +19,7 @@
 - Law: `GeometryComparison` and `GeometryCrc` remain process-local evidence. Federation identity exists only after projection to a kernel `EncodeForm` and `Reconciliation.Apply`; this crossing mints no content hash.
 - Law: a stored empty user string is present. `TagResult` preserves the nullable host read without filtering its payload, and every mutation reports its before and after values.
 - Law: `Bounds<TOut>` runs the kernel's `Rasm.Analysis.Bounds` family inside the handle lock and projects its `Validation` through `Fin`; no native geometry result can escape the custody extent.
-- Receipt: `GeometryFacts` carries host observations, `TagReceipt` carries the result and CRC transition, `GeometryHandle.Release` carries disposal state, and every committed mutation carries cleanup evidence.
+- Receipt: `GeometryFacts` carries host observations; one `Committed<TValue>` receipt carries every operation's value, CRC transition, and cleanup evidence — `Tag` lands `Committed<TagResult>` — and `GeometryHandle.Release` carries disposal state.
 - Growth: a custody behavior extends `CrossingMode`, a kernel geometry kind extends `GeometryForm`, and a host fact extends `GeometryFacts` inside the existing crossing.
 - Boundary: `ObjectType`, `ComponentIndex`, document control, shallow status, deformability, memory estimate, and reference equality remain host facts; kernel taxonomy begins at `Kind.Of`.
 
@@ -29,7 +29,7 @@
 - Packages: `Rasm.Numerics` resolves the transform algebra; RhinoCommon applies the native matrix; LanguageExt.Core and Thinktecture.Runtime.Extensions carry the rail and policy row.
 - Entry: `GeometryHandle.Move(Motion, Context, Op?)` resolves the kernel transform and applies it through the handle's transactional copy-on-write boundary.
 - Law: `Require` admits an already-deformable target and `Promote` invokes `MakeDeformable`; both paths call `GeometryBase.Transform` exactly once after admission.
-- Receipt: `MotionReceipt` carries the before-and-after `GeometryCrc` pair and post-commit cleanup evidence.
+- Receipt: `Move` lands the shared `Committed<Unit>` receipt — the before-and-after `GeometryCrc` pair plus post-commit cleanup evidence.
 - Growth: a new native preparation rule is one `DeformationPolicy` row; transform construction grows only on the kernel `TransformSpec` owner.
 - Boundary: `Rasm.Numerics.Placement` owns transform construction, composition, decomposition, inversion, and transformed-box projection; this page owns only native application and deformability.
 
@@ -42,7 +42,7 @@
 - Law: participation lists, depth enablement, and viewport idempotence become cases and receipts. An already-present add and an already-absent remove are successful unchanged transitions.
 - Law: object IDs, layer indices, and viewport IDs reject invalid members and canonicalize ordering and duplicates before native mutation.
 - Law: the handle's working-copy swap makes every multi-ID change atomic; a refused native step disposes the work copy and preserves the live clipping state.
-- Receipt: `ClipReceipt` carries before-and-after state, the CRC transition, and post-commit cleanup evidence; every mutation succeeds only after the re-read state confirms the requested transition.
+- Receipt: `Clip` lands `Committed<ClipTransition>` — before-and-after state, the CRC transition, cleanup evidence, and the derived `Changed` projection; every mutation succeeds only after the re-read state confirms the requested transition.
 - Growth: a new clip origin extends `ClippingPlaneSeed`, a new state axis extends `ClipOp`, and a new viewport algebra extends `ViewportOp` without another entrypoint.
 - Boundary: clipping-plane object lookup, viewport existence, display participation, and redraw remain document and visual operations over the IDs this surface persists.
 
@@ -89,14 +89,17 @@ public sealed partial class CrossingMode {
         Copy(duplicate: geometry.DuplicateShallow, key: key);
 
     internal static Fin<Lease<GeometryBase>> Copy(Func<GeometryBase> duplicate, Op key) =>
-        Optional(duplicate).ToFin(Fail: key.InvalidInput())
-            .Bind(factory => key.Catch(() => Optional(factory()).ToFin(Fail: key.InvalidResult())))
-            .Bind(copy => key.AcceptValue(value: copy).Match(
-                Succ: static admitted => Fin.Succ<Lease<GeometryBase>>(value: new Lease<GeometryBase>.Owned(Value: admitted)),
-                Fail: primary => key.Catch(() => { copy.Dispose(); return Fin.Succ(value: unit); }).Match(
-                    Succ: _ => Fin.Fail<Lease<GeometryBase>>(error: primary),
-                    Fail: cleanup => Fin.Fail<Lease<GeometryBase>>(error: primary + cleanup))));
+        Minted<GeometryBase>(create: duplicate, key: key)
+            .Map(static admitted => (Lease<GeometryBase>)new Lease<GeometryBase>.Owned(Value: admitted));
 
+    internal static Fin<TNative> Minted<TNative>(Func<TNative?> create, Op key) where TNative : GeometryBase =>
+        Optional(create).ToFin(Fail: key.InvalidInput())
+            .Bind(factory => key.Catch(() => Optional(factory()).ToFin(Fail: key.InvalidResult())))
+            .Bind(minted => key.AcceptValue(value: minted).Match(
+                Succ: static admitted => Fin.Succ(value: admitted),
+                Fail: primary => key.Catch(() => { minted.Dispose(); return Fin.Succ(value: unit); }).Match(
+                    Succ: _ => Fin.Fail<TNative>(error: primary),
+                    Fail: cleanup => Fin.Fail<TNative>(error: primary + cleanup))));
 }
 
 [SmartEnum]
@@ -128,37 +131,18 @@ public abstract partial record TagOp {
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record TagResult {
     private TagResult() { }
-    public sealed record Value : TagResult {
-        internal Value(string key, Option<string> stored) { Key = key; Stored = stored; }
-        public string Key { get; }
-        public Option<string> Stored { get; }
-    }
-    public sealed record Snapshot : TagResult {
-        internal Snapshot(HashMap<string, string> stored) => Stored = stored;
-        public HashMap<string, string> Stored { get; }
-    }
-    public sealed record Changed : TagResult {
-        internal Changed(string key, Option<string> before, Option<string> after) { Key = key; Before = before; After = after; }
-        public string Key { get; }
-        public Option<string> Before { get; }
-        public Option<string> After { get; }
-    }
-    public sealed record Cleared : TagResult {
-        internal Cleared(HashMap<string, string> before, HashMap<string, string> after) { Before = before; After = after; }
-        public HashMap<string, string> Before { get; }
-        public HashMap<string, string> After { get; }
-    }
+    public sealed record Value(string Key, Option<string> Stored) : TagResult;
+    public sealed record Snapshot(HashMap<string, string> Stored) : TagResult;
+    public sealed record Changed(string Key, Option<string> Before, Option<string> After) : TagResult;
+    public sealed record Cleared(HashMap<string, string> Before, HashMap<string, string> After) : TagResult;
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record HandleRelease {
     private HandleRelease() { }
-    public sealed record Live : HandleRelease { internal Live() { } }
-    public sealed record Released : HandleRelease { internal Released() { } }
-    public sealed record Faulted : HandleRelease {
-        internal Faulted(Error error) => Error = error;
-        public Error Error { get; }
-    }
+    public sealed record Live : HandleRelease;
+    public sealed record Released : HandleRelease;
+    public sealed record Faulted(Error Error) : HandleRelease;
 
     internal bool Active => Switch(
         live: static _ => true,
@@ -184,11 +168,8 @@ public sealed partial class DeformationPolicy {
             ? key.Confirm(success: geometry.MakeDeformable())
             : Fin.Succ(value: unit);
 
-    private static bool NeedsDeformable(Transform transform) => transform.SimilarityType switch {
-        TransformSimilarityType.OrientationReversing => false,
-        TransformSimilarityType.NotSimilarity => true,
-        TransformSimilarityType.OrientationPreserving => false,
-    };
+    private static bool NeedsDeformable(Transform transform) =>
+        transform.SimilarityType is TransformSimilarityType.NotSimilarity;
 }
 
 [ComplexValueObject]
@@ -224,21 +205,12 @@ public abstract partial record ClippingPlaneSeed {
         state: key,
         frame: static (op, source) =>
             from frame in Rasm.Domain.Admit.Plane(basis: source.Value, key: op)
-            from created in Admit(create: () => new ClippingPlaneSurface(plane: frame), key: op)
+            from created in CrossingMode.Minted(create: () => new ClippingPlaneSurface(plane: frame), key: op)
             select (Lease<GeometryBase>)new Lease<GeometryBase>.Owned(Value: created),
         surface: static (op, source) =>
             from surface in op.AcceptInput(value: source.Value)
-            from created in Admit(create: () => new ClippingPlaneSurface(planeSurface: surface), key: op)
+            from created in CrossingMode.Minted(create: () => new ClippingPlaneSurface(planeSurface: surface), key: op)
             select (Lease<GeometryBase>)new Lease<GeometryBase>.Owned(Value: created));
-
-    private static Fin<ClippingPlaneSurface> Admit(Func<ClippingPlaneSurface> create, Op key) =>
-        Optional(create).ToFin(Fail: key.InvalidInput())
-            .Bind(factory => key.Catch(() => Optional(factory()).ToFin(Fail: key.InvalidResult())))
-            .Bind(surface => key.AcceptValue(value: surface).Match(
-                Succ: static admitted => Fin.Succ(value: admitted),
-                Fail: primary => key.Catch(() => { surface.Dispose(); return Fin.Succ(value: unit); }).Match(
-                    Succ: _ => Fin.Fail<ClippingPlaneSurface>(error: primary),
-                    Fail: cleanup => Fin.Fail<ClippingPlaneSurface>(error: primary + cleanup))));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -305,50 +277,18 @@ public abstract partial record ClipOp {
 
 // --- [MODELS] ----------------------------------------------------------------------------
 
-public sealed record GeometryFacts {
-    internal GeometryFacts(
-        ObjectType nativeType,
-        Option<Kind> kind,
-        ComponentIndex component,
-        bool documentControlled,
-        bool shallow,
-        bool deformable,
-        bool hasBrepForm,
-        int userStringCount,
-        uint memoryBytes) {
-        NativeType = nativeType;
-        Kind = kind;
-        Component = component;
-        DocumentControlled = documentControlled;
-        Shallow = shallow;
-        Deformable = deformable;
-        HasBrepForm = hasBrepForm;
-        UserStringCount = userStringCount;
-        MemoryBytes = memoryBytes;
-    }
+public sealed record GeometryFacts(
+    ObjectType NativeType,
+    Option<Kind> Kind,
+    ComponentIndex Component,
+    bool DocumentControlled,
+    bool Shallow,
+    bool Deformable,
+    bool HasBrepForm,
+    int UserStringCount,
+    uint MemoryBytes);
 
-    public ObjectType NativeType { get; }
-    public Option<Kind> Kind { get; }
-    public ComponentIndex Component { get; }
-    public bool DocumentControlled { get; }
-    public bool Shallow { get; }
-    public bool Deformable { get; }
-    public bool HasBrepForm { get; }
-    public int UserStringCount { get; }
-    public uint MemoryBytes { get; }
-}
-
-internal readonly record struct Committed<T>(T Value, GeometryCrc Before, GeometryCrc After, Option<Error> Cleanup);
-
-public sealed record TagReceipt {
-    internal TagReceipt(TagResult value, GeometryCrc before, GeometryCrc after, Option<Error> cleanup) {
-        Value = value; Before = before; After = after; Cleanup = cleanup;
-    }
-    public TagResult Value { get; }
-    public GeometryCrc Before { get; }
-    public GeometryCrc After { get; }
-    public Option<Error> Cleanup { get; }
-}
+public readonly record struct Committed<T>(T Value, GeometryCrc Before, GeometryCrc After, Option<Error> Cleanup);
 
 public sealed record Motion(TransformSpec Spec, DeformationPolicy Deformation) {
     internal Fin<Unit> Apply(GeometryBase geometry, Context context, Op key) =>
@@ -360,73 +300,41 @@ public sealed record Motion(TransformSpec Spec, DeformationPolicy Deformation) {
         select unit;
 }
 
-public sealed record MotionReceipt {
-    internal MotionReceipt(GeometryCrc before, GeometryCrc after, Option<Error> cleanup) { Before = before; After = after; Cleanup = cleanup; }
-    public GeometryCrc Before { get; }
-    public GeometryCrc After { get; }
-    public Option<Error> Cleanup { get; }
-}
+public sealed record ClipState(
+    ClipScope Scope,
+    Option<double> Depth,
+    Seq<Guid> ViewportIds,
+    Option<Guid> DimensionStyleId);
 
-public sealed record ClipState {
-    internal ClipState(ClipScope scope, Option<double> depth, Seq<Guid> viewportIds, Option<Guid> dimensionStyleId) {
-        Scope = scope;
-        Depth = depth;
-        ViewportIds = viewportIds;
-        DimensionStyleId = dimensionStyleId;
-    }
-
-    public ClipScope Scope { get; }
-    public Option<double> Depth { get; }
-    public Seq<Guid> ViewportIds { get; }
-    public Option<Guid> DimensionStyleId { get; }
-}
-
-public sealed record ClipReceipt {
-    internal ClipReceipt(ClipState before, ClipState after, GeometryCrc beforeCrc, GeometryCrc afterCrc, Option<Error> cleanup) {
-        Before = before;
-        After = after;
-        BeforeCrc = beforeCrc;
-        AfterCrc = afterCrc;
-        Cleanup = cleanup;
-    }
-
-    public ClipState Before { get; }
-    public ClipState After { get; }
-    public GeometryCrc BeforeCrc { get; }
-    public GeometryCrc AfterCrc { get; }
-    public Option<Error> Cleanup { get; }
-    public bool Changed => !Before.Equals(After) || !BeforeCrc.Equals(AfterCrc);
-}
-
-internal readonly record struct ClipTransition(ClipState Before, ClipState After);
+public readonly record struct ClipTransition(ClipState Before, ClipState After);
 
 public sealed class GeometryHandle : IDisposable {
-    private static long s_nextOrdinal;
-    private Lease<GeometryBase> _lease;
-    private readonly Lock _gate = new();
-    private readonly long _ordinal = Interlocked.Increment(location: ref s_nextOrdinal);
-    private readonly CrossingMode _mode;
-    private HandleRelease _release = new HandleRelease.Live();
+    private static long nextOrdinal;
+    private Lease<GeometryBase> lease;
+    private readonly Lock gate = new();
+    private readonly long ordinal = Interlocked.Increment(location: ref nextOrdinal);
+    private readonly CrossingMode mode;
+    private HandleRelease release = new HandleRelease.Live();
 
     internal GeometryHandle(Lease<GeometryBase> lease, CrossingMode mode) {
-        _lease = lease;
-        _mode = mode;
+        this.lease = lease;
+        this.mode = mode;
     }
 
-    public CrossingMode Mode => _mode;
-    public HandleRelease Release { get { lock (_gate) { return _release; } } }
+    public CrossingMode Mode => mode;
+    public HandleRelease Release { get { lock (gate) { return release; } } }
 
     public Fin<GeometryFacts> Inspect(Op? key = null) =>
         With(key: key.OrDefault(), project: static geometry => Fin.Succ(value: new GeometryFacts(
-            nativeType: geometry.ObjectType,
-            kind: Kind.Of(type: geometry.GetType()),
-            component: geometry.ComponentIndex(),
-            documentControlled: geometry.IsDocumentControlled,
-            shallow: geometry.IsShallowDuplicate,
-            deformable: geometry.IsDeformable,
-            hasBrepForm: geometry.HasBrepForm,
-            userStringCount: geometry.UserStringCount,
-            memoryBytes: geometry.MemoryEstimate())));
+            NativeType: geometry.ObjectType,
+            Kind: Kind.Of(type: geometry.GetType()),
+            Component: geometry.ComponentIndex(),
+            DocumentControlled: geometry.IsDocumentControlled,
+            Shallow: geometry.IsShallowDuplicate,
+            Deformable: geometry.IsDeformable,
+            HasBrepForm: geometry.HasBrepForm,
+            UserStringCount: geometry.UserStringCount,
+            MemoryBytes: geometry.MemoryEstimate())));
 
     public Fin<bool> Matches(GeometryHandle other, GeometryComparison comparison, Op? key = null) {
         Op op = key.OrDefault();
@@ -439,51 +347,31 @@ public sealed class GeometryHandle : IDisposable {
     public Fin<GeometryCrc> Crc(GeometryCrc chain, Op? key = null) =>
         With(key: key.OrDefault(), project: geometry => Fin.Succ(value: GeometryCrc.Create(value: geometry.DataCRC(currentRemainder: chain))));
 
-    public Fin<TagReceipt> Tag(TagOp operation, Op? key = null) {
+    public Fin<Committed<TagResult>> Tag(TagOp operation, Op? key = null) {
         Op op = key.OrDefault();
         return from verb in Optional(operation).ToFin(Fail: op.InvalidInput())
-               from receipt in verb.Mutates
-                   ? Change(key: op, mutation: geometry => Tagging.Apply(geometry: geometry, operation: verb, key: op))
-                       .Map(static committed => new TagReceipt(
-                           value: committed.Value,
-                           before: committed.Before,
-                           after: committed.After,
-                           cleanup: committed.Cleanup))
-                   : With(key: op, project: geometry =>
-                       from value in Tagging.Apply(geometry: geometry, operation: verb, key: op)
-                       let crc = GeometryCrc.Create(value: geometry.DataCRC(currentRemainder: 0u))
-                       select new TagReceipt(value: value, before: crc, after: crc, cleanup: Option<Error>.None))
+               from receipt in Operate(
+                   mutates: verb.Mutates,
+                   apply: geometry => Tagging.Apply(geometry: geometry, operation: verb, key: op),
+                   key: op)
                select receipt;
     }
 
-    public Fin<MotionReceipt> Move(Motion motion, Context context, Op? key = null) {
+    public Fin<Committed<Unit>> Move(Motion motion, Context context, Op? key = null) {
         Op op = key.OrDefault();
         return from verb in Optional(motion).ToFin(Fail: op.InvalidInput())
                from model in Optional(context).ToFin(Fail: op.MissingContext())
                from committed in Change(key: op, mutation: geometry => verb.Apply(geometry: geometry, context: model, key: op))
-               select new MotionReceipt(before: committed.Before, after: committed.After, cleanup: committed.Cleanup);
+               select committed;
     }
 
-    public Fin<ClipReceipt> Clip(ClipOp operation, Op? key = null) {
+    public Fin<Committed<ClipTransition>> Clip(ClipOp operation, Op? key = null) {
         Op op = key.OrDefault();
         return from request in Optional(operation).ToFin(Fail: op.InvalidInput())
-               from receipt in request.Mutates
-                   ? Change(key: op, mutation: geometry => ClipParticipation.Apply(geometry: geometry, operation: request, key: op))
-                       .Map(static committed => new ClipReceipt(
-                           before: committed.Value.Before,
-                           after: committed.Value.After,
-                           beforeCrc: committed.Before,
-                           afterCrc: committed.After,
-                           cleanup: committed.Cleanup))
-                   : With(key: op, project: geometry =>
-                       from transition in ClipParticipation.Apply(geometry: geometry, operation: request, key: op)
-                       let crc = GeometryCrc.Create(value: geometry.DataCRC(currentRemainder: 0u))
-                       select new ClipReceipt(
-                           before: transition.Before,
-                           after: transition.After,
-                           beforeCrc: crc,
-                           afterCrc: crc,
-                           cleanup: Option<Error>.None))
+               from receipt in Operate(
+                   mutates: request.Mutates,
+                   apply: geometry => ClipParticipation.Apply(geometry: geometry, operation: request, key: op),
+                   key: op)
                select receipt;
     }
 
@@ -502,65 +390,73 @@ public sealed class GeometryHandle : IDisposable {
     }
 
     public void Dispose() {
-        lock (_gate) {
-            if (_release.Active) {
-                _release = DisposeLease(lease: _lease, key: Op.Of(name: nameof(Dispose))).Match(
+        lock (gate) {
+            if (release.Active) {
+                release = DisposeLease(lease: lease, key: Op.Of(name: nameof(Dispose))).Match(
                     Succ: static _ => (HandleRelease)new HandleRelease.Released(),
-                    Fail: static error => new HandleRelease.Faulted(error: error));
+                    Fail: static error => new HandleRelease.Faulted(Error: error));
             }
         }
     }
 
+    private Fin<Committed<TValue>> Operate<TValue>(bool mutates, Func<GeometryBase, Fin<TValue>> apply, Op key) =>
+        mutates
+            ? Change(key: key, mutation: apply)
+            : With(key: key, project: geometry =>
+                from value in apply(arg: geometry)
+                let crc = GeometryCrc.Create(value: geometry.DataCRC(currentRemainder: GeometryCrc.Seed))
+                select new Committed<TValue>(Value: value, Before: crc, After: crc, Cleanup: Option<Error>.None));
+
     internal Fin<TResult> With<TResult>(Op key, Func<GeometryBase, Fin<TResult>> project) {
-        lock (_gate) {
-            return _release.Active
+        lock (gate) {
+            return release.Active
                 ? Optional(project).ToFin(Fail: key.InvalidInput()).Bind(body => key.Catch(() =>
-                    key.AcceptInput(value: _lease.Resource).Bind(active => body(arg: active))))
+                    key.AcceptInput(value: lease.Resource).Bind(active => body(arg: active))))
                 : Fin.Fail<TResult>(error: key.InvalidInput());
         }
     }
 
     private Fin<bool> Match(GeometryHandle other, GeometryComparison comparison, Op key) {
-        GeometryHandle first = _ordinal <= other._ordinal ? this : other;
+        GeometryHandle first = ordinal <= other.ordinal ? this : other;
         GeometryHandle second = ReferenceEquals(objA: first, objB: other) ? this : other;
-        lock (first._gate) {
+        lock (first.gate) {
             if (ReferenceEquals(objA: first, objB: second)) {
                 return ActiveMatch(other: other, comparison: comparison, key: key);
             }
-            lock (second._gate) {
+            lock (second.gate) {
                 return ActiveMatch(other: other, comparison: comparison, key: key);
             }
         }
     }
 
     private Fin<bool> ActiveMatch(GeometryHandle other, GeometryComparison comparison, Op key) =>
-        !_release.Active || !other._release.Active
+        !release.Active || !other.release.Active
             ? Fin.Fail<bool>(error: key.InvalidInput())
             : key.Catch(() =>
-                from left in key.AcceptInput(value: _lease.Resource)
-                from right in key.AcceptInput(value: other._lease.Resource)
+                from left in key.AcceptInput(value: lease.Resource)
+                from right in key.AcceptInput(value: other.lease.Resource)
                 select comparison.Matches(left: left, right: right));
 
     private Fin<Committed<TResult>> Change<TResult>(Op key, Func<GeometryBase, Fin<TResult>> mutation) {
-        lock (_gate) {
-            if (!_release.Active || !Mode.Mutable) {
+        lock (gate) {
+            if (!release.Active || !Mode.Mutable) {
                 return Fin.Fail<Committed<TResult>>(error: key.InvalidInput());
             }
             return Optional(mutation).ToFin(Fail: key.InvalidInput()).Bind(body =>
                 key.Catch(() =>
-                    from active in key.AcceptInput(value: _lease.Resource)
-                    let before = GeometryCrc.Create(value: active.DataCRC(currentRemainder: 0u))
+                    from active in key.AcceptInput(value: lease.Resource)
+                    let before = GeometryCrc.Create(value: active.DataCRC(currentRemainder: GeometryCrc.Seed))
                     from working in CrossingMode.Copy(duplicate: active.Duplicate, key: key)
                     select (Working: working, Before: before)).Bind(prepared => {
                     Lease<GeometryBase> working = prepared.Working;
                     return key.Catch(() =>
                         from result in body(arg: working.Resource)
                         from admitted in key.AcceptValue(value: working.Resource)
-                        let after = GeometryCrc.Create(value: admitted.DataCRC(currentRemainder: 0u))
+                        let after = GeometryCrc.Create(value: admitted.DataCRC(currentRemainder: GeometryCrc.Seed))
                         select (Result: result, After: after)).Match(
                         Succ: committed => {
-                            Lease<GeometryBase> previous = _lease;
-                            _lease = working;
+                            Lease<GeometryBase> previous = lease;
+                            lease = working;
                             Option<Error> cleanup = DisposeLease(lease: previous, key: key).Match(
                                 Succ: static _ => Option<Error>.None,
                                 Fail: static error => Some(error));
@@ -579,7 +475,6 @@ public sealed class GeometryHandle : IDisposable {
 
     private static Fin<Unit> DisposeLease(Lease<GeometryBase> lease, Op key) =>
         key.Catch(() => Fin.Succ(value: lease.Dispose()));
-
 }
 
 // --- [OPERATIONS] ------------------------------------------------------------------------
@@ -596,6 +491,11 @@ public static class GeometryCrossing {
                    borrowed: static (ctx, borrowed) => ctx.Mode.Acquire(geometry: borrowed.Value, key: ctx.Op))
                select new GeometryHandle(lease: lease, mode: custody);
     }
+
+    extension(Committed<ClipTransition> receipt) {
+        public bool Changed =>
+            !receipt.Value.Before.Equals(receipt.Value.After) || !receipt.Before.Equals(receipt.After);
+    }
 }
 
 internal static class Tagging {
@@ -605,8 +505,8 @@ internal static class Tagging {
             set: static (ctx, tag) => Set(geometry: ctx.Geometry, tag: tag, key: ctx.Op),
             read: static (ctx, tag) =>
                 from admitted in ctx.Op.AcceptText(value: tag.Key)
-                select (TagResult)new TagResult.Value(key: admitted, stored: Optional(ctx.Geometry.GetUserString(key: admitted))),
-            readAll: static (ctx, _) => ctx.Op.Catch(() => Fin.Succ<TagResult>(value: new TagResult.Snapshot(stored: Snapshot(geometry: ctx.Geometry)))),
+                select (TagResult)new TagResult.Value(Key: admitted, Stored: Optional(ctx.Geometry.GetUserString(key: admitted))),
+            readAll: static (ctx, _) => ctx.Op.Catch(() => Fin.Succ<TagResult>(value: new TagResult.Snapshot(Stored: Snapshot(geometry: ctx.Geometry)))),
             delete: static (ctx, tag) => Delete(geometry: ctx.Geometry, tag: tag, key: ctx.Op),
             clear: static (ctx, _) => Clear(geometry: ctx.Geometry, key: ctx.Op));
 
@@ -617,7 +517,7 @@ internal static class Tagging {
         from _ in key.Confirm(success: geometry.SetUserString(key: admitted, value: value))
         let after = Optional(geometry.GetUserString(key: admitted))
         from __ in key.Confirm(success: after.Equals(Some(value)))
-        select (TagResult)new TagResult.Changed(key: admitted, before: before, after: after);
+        select (TagResult)new TagResult.Changed(Key: admitted, Before: before, After: after);
 
     private static Fin<TagResult> Delete(GeometryBase geometry, TagOp.Delete tag, Op key) =>
         from admitted in key.AcceptText(value: tag.Key)
@@ -625,7 +525,7 @@ internal static class Tagging {
         from _ in before.IsSome ? key.Confirm(success: geometry.DeleteUserString(key: admitted)) : Fin.Succ(value: unit)
         let after = Optional(geometry.GetUserString(key: admitted))
         from __ in key.Confirm(success: after.IsNone)
-        select (TagResult)new TagResult.Changed(key: admitted, before: before, after: after);
+        select (TagResult)new TagResult.Changed(Key: admitted, Before: before, After: after);
 
     private static Fin<TagResult> Clear(GeometryBase geometry, Op key) =>
         key.Catch(() => {
@@ -633,7 +533,7 @@ internal static class Tagging {
             geometry.DeleteAllUserStrings();
             HashMap<string, string> after = Snapshot(geometry: geometry);
             return after.IsEmpty
-                ? Fin.Succ<TagResult>(value: new TagResult.Cleared(before: before, after: after))
+                ? Fin.Succ<TagResult>(value: new TagResult.Cleared(Before: before, After: after))
                 : Fin.Fail<TagResult>(error: key.InvalidResult());
         });
 
@@ -676,7 +576,7 @@ internal static class ClipParticipation {
 
     private static Fin<ClipState> State(ClippingPlaneSurface surface, Op key) =>
         key.Catch(() => {
-            Seq<Guid> viewports = surface.ViewportIds().AsEnumerable().Distinct().Order().ToSeq();
+            Seq<Guid> viewports = surface.ViewportIds().AsIterable().Distinct().Order().ToSeq();
             if (viewports.Exists(static id => id == Guid.Empty)) {
                 return Fin.Fail<ClipState>(error: key.InvalidResult());
             }
@@ -692,10 +592,10 @@ internal static class ClipParticipation {
             return from admittedScope in scope
                    from admittedDepth in depth
                    select new ClipState(
-                       scope: admittedScope,
-                       depth: admittedDepth,
-                       viewportIds: viewports,
-                       dimensionStyleId: Optional(surface.DimensionStyleId).Filter(static id => id != Guid.Empty));
+                       Scope: admittedScope,
+                       Depth: admittedDepth,
+                       ViewportIds: viewports,
+                       DimensionStyleId: Optional(surface.DimensionStyleId).Filter(static id => id != Guid.Empty));
         });
 
     private static Fin<ClipScope> ScopeOf(ClippingPlaneSurface surface, Op key) {
@@ -741,8 +641,8 @@ internal static class ClipParticipation {
         }));
 
     private static Fin<Unit> ApplyDepth(ClippingPlaneSurface surface, Option<double> depth, Op key) =>
-        depth.Case switch {
-            double value =>
+        depth.Match(
+            Some: value =>
                 from admitted in key.Positive(value: value)
                 from _ in key.Catch(() => {
                     surface.PlaneDepth = admitted;
@@ -750,24 +650,23 @@ internal static class ClipParticipation {
                     return Fin.Succ(value: unit);
                 })
                 select unit,
-            null => key.Catch(() => {
+            None: () => key.Catch(() => {
                 surface.PlaneDepthEnabled = false;
                 return Fin.Succ(value: unit);
-            }),
-        };
+            }));
 
     private static Fin<Unit> ApplyStyle(ClippingPlaneSurface surface, Option<Guid> style, Op key) =>
-        style.Case switch {
-            Guid id when id != Guid.Empty => key.Catch(() => {
-                surface.DimensionStyleId = id;
-                return Fin.Succ(value: unit);
-            }),
-            Guid => Fin.Fail<Unit>(error: key.InvalidInput()),
-            null => key.Catch(() => {
+        style.Match(
+            Some: id => id == Guid.Empty
+                ? Fin.Fail<Unit>(error: key.InvalidInput())
+                : key.Catch(() => {
+                    surface.DimensionStyleId = id;
+                    return Fin.Succ(value: unit);
+                }),
+            None: () => key.Catch(() => {
                 surface.DimensionStyleId = Guid.Empty;
                 return Fin.Succ(value: unit);
-            }),
-        };
+            }));
 
     private static Fin<Unit> ApplyViewports(
         ClippingPlaneSurface surface,
@@ -776,20 +675,13 @@ internal static class ClipParticipation {
         Op key) =>
         from change in Optional(operation).ToFin(Fail: key.InvalidInput())
         from desired in change.Resolve(before: before, key: key)
-        from _ in FoldViewportIds(
-            ids: before.Filter(id => !desired.Exists(candidate => candidate == id)),
-            step: id => key.Confirm(success: surface.RemoveClipViewportId(viewportId: id)))
-        from __ in FoldViewportIds(
-            ids: desired.Filter(id => !before.Exists(candidate => candidate == id)),
-            step: id => key.Confirm(success: surface.AddClipViewportId(viewportId: id)))
+        from _ in before.Filter(id => !desired.Exists(candidate => candidate == id))
+            .TraverseM(id => key.Confirm(success: surface.RemoveClipViewportId(viewportId: id)))
+            .As()
+        from __ in desired.Filter(id => !before.Exists(candidate => candidate == id))
+            .TraverseM(id => key.Confirm(success: surface.AddClipViewportId(viewportId: id)))
+            .As()
         select unit;
-
-    private static Fin<Unit> FoldViewportIds(
-        Seq<Guid> ids,
-        Func<Guid, Fin<Unit>> step) =>
-        ids.Fold(
-            initialState: Fin.Succ(value: unit),
-            f: (rail, id) => rail.Bind(_ => step(arg: id)));
 }
 ```
 

@@ -112,7 +112,7 @@ public sealed record ConduitFilter(
     Option<(bool On, bool CheckSubObjects)> Selection,
     Option<Seq<Guid>> ObjectIds,
     Option<DocObjects.ObjectType> Geometry,
-    Option<DocObjects.ActiveSpace> Space) {
+    Option<ActiveSpace> Space) {
     public static ConduitFilter Everything { get; } = new(Selection: None, ObjectIds: None, Geometry: None, Space: None);
 }
 
@@ -209,10 +209,10 @@ public static class Conduits {
 
 ## [04]-[MODES_AND_OVERLAYS]
 
-- Owner: `ModeOp` `[Union]` — display-mode management as one request family: `CensusCase` (`GetDisplayModes`), `FindCase(Guid)` (`GetDisplayMode`), `NamedCase(string)` (`FindByName`), `AddCase(DisplayModeDescription)`, `UpdateCase(DisplayModeDescription)`, `ImportCase(string, bool)` with the host's interactive flag, `ExportCase(Guid, string)` — mode identity travels as `Guid` and mode names as text; the resolved descriptor crosses into consumers only for the add/update round-trip. `AnalysisProgram` — the visual-analysis participation record: the attribute setup, per-object vertex-color, and mesh-draw hooks a registered `VisualAnalysisMode` subclass routes into. Registration is the registering plug-in's own lifecycle seam — `VisualAnalysisMode.Register(Type)` host-constructs the subclass, so the subclass composes its `AnalysisProgram` internally, mirroring the realtime-engine registration boundary; resolution is `Find(Guid)`, and the built-in direction/end analysis ids are named constants (`RhinoDirectionAnalysisModeId`, `RhinoEndAnalysisModeId`). `RetainedOverlay` — the `CustomDisplay` capsule: an owned lease accumulating `AddPoints`/`AddPolygon`/`AddText` rows with `Clear` and disposal retiring the overlay — the conduit-free document-lifetime shape, distinct from live participation by construction.
+- Owner: `ModeOp` `[Union]` — display-mode table CRUD as one request family: `CensusCase` (`GetDisplayModes`), `FindCase(Guid)` (`GetDisplayMode`), `NamedCase(string)` (`FindByName`), `AddCase(DisplayModeDescription)`, `BlankCase(string)` (`AddDisplayMode(name:)` minting a named blank mode), `UpdateCase(DisplayModeDescription)`, `CopyCase(Guid, string)` (`CopyDisplayMode` — an in-memory registration only `UpdateDisplayMode` persists), `DeleteCase(Guid)` (`DeleteDisplayMode`), `ImportCase(string, bool)` with the host's interactive flag, `ExportCase(Guid, string)` — mode identity travels as `Guid` and mode names as text; the resolved descriptor crosses into consumers for the add/update/copy round-trip, and what the descriptor looks like — policy flags and the `DisplayAttributes` appearance model — is modes.md's `ModePolicy`/`DisplayProfile`, composed through this table's cases. `AnalysisProgram` — the visual-analysis participation record: the attribute setup, per-object vertex-color, and mesh-draw hooks a registered `VisualAnalysisMode` subclass routes into. Registration is the registering plug-in's own lifecycle seam — `VisualAnalysisMode.Register(Type)` host-constructs the subclass, so the subclass composes its `AnalysisProgram` internally, mirroring the realtime-engine registration boundary; resolution is `Find(Guid)`, and built-in analysis ids plus per-object attachment are modes.md's `BuiltinAnalysis`/`AnalysisOp`. `RetainedOverlay` — the `CustomDisplay` capsule: one polymorphic `Add` accumulating `RetainedMark` rows — point sets, lines, vectors, arcs, circles, curves, polygons, `Text3d`, and plane text — over the host `Add*` roster, with `Enable` toggling visibility, `Clear`, and disposal retiring the overlay — the conduit-free document-lifetime shape, distinct from live participation by construction; per-family sibling verbs are the deleted form.
 - Law: the three overlay shapes never overlap — retained accumulation is `RetainedOverlay`, registered false-color analysis is `AnalysisProgram`, per-frame interactive participation is `ConduitProgram`; a concern spanning two shapes is two owners composing, never one hybrid.
-- Law: `ImportCase`/`ExportCase` round-trip `.ini` mode files; an import's `Guid` result re-resolves through `FindCase` so the caller holds a verified descriptor, never a dangling id.
-- Boundary: mode colors and analysis vertex colors quantize from the kernel `PerceptualColor.ToRgb()` at this edge; a `System.Drawing.Color` literal in a consumer is the deleted form.
+- Law: `ImportCase`/`ExportCase` round-trip `.ini` mode files, and every host-minted `Guid` — add, blank, copy, import — re-resolves through one shared descriptor lookup before it returns, so the caller holds a verified descriptor, never a dangling id.
+- Boundary: mode colors and analysis vertex colors quantize through the draw page's `Quant.Sys` at this edge; a `System.Drawing.Color` literal in a consumer is the deleted form.
 
 ```csharp
 // --- [TYPES] --------------------------------------------------------------------------------
@@ -223,7 +223,10 @@ public abstract partial record ModeOp {
     public sealed record FindCase(Guid ModeId) : ModeOp;
     public sealed record NamedCase(string Name) : ModeOp;
     public sealed record AddCase(DisplayModeDescription Mode) : ModeOp;
+    public sealed record BlankCase(string Name) : ModeOp;
     public sealed record UpdateCase(DisplayModeDescription Mode) : ModeOp;
+    public sealed record CopyCase(Guid SourceId, string Name) : ModeOp;
+    public sealed record DeleteCase(Guid ModeId) : ModeOp;
     public sealed record ImportCase(string Path, bool Interactive) : ModeOp;
     public sealed record ExportCase(Guid ModeId, string Path) : ModeOp;
 
@@ -232,22 +235,34 @@ public abstract partial record ModeOp {
         return Switch(
             state: op,
             censusCase: static (inner, _) => inner.Catch(() => Fin.Succ(toSeq(DisplayModeDescription.GetDisplayModes()))),
-            findCase: static (inner, request) => Optional(DisplayModeDescription.GetDisplayMode(id: request.ModeId)).ToFin(Fail: inner.InvalidInput()).Map(Seq1),
-            namedCase: static (inner, request) => Optional(DisplayModeDescription.FindByName(englishName: request.Name)).ToFin(Fail: inner.InvalidInput()).Map(Seq1),
-            addCase: static (inner, request) => inner.Catch(() => {
-                Guid added = DisplayModeDescription.AddDisplayMode(displayMode: request.Mode);
-                return Optional(DisplayModeDescription.GetDisplayMode(id: added)).ToFin(Fail: inner.InvalidResult()).Map(Seq1);
-            }),
-            updateCase: static (inner, request) => inner.Confirm(success: DisplayModeDescription.UpdateDisplayMode(displayMode: request.Mode)).Map(_ => Seq1(request.Mode)),
+            findCase: static (inner, request) => Resolved(id: request.ModeId, missing: inner.InvalidInput()).Map(static mode => Seq(mode)),
+            namedCase: static (inner, request) => Optional(DisplayModeDescription.FindByName(englishName: request.Name)).ToFin(Fail: inner.InvalidInput()).Map(static mode => Seq(mode)),
+            addCase: static (inner, request) => inner.Catch(() =>
+                Minted(id: DisplayModeDescription.AddDisplayMode(displayMode: request.Mode), detail: nameof(AddCase), key: inner)),
+            blankCase: static (inner, request) => inner.Catch(() =>
+                Minted(id: DisplayModeDescription.AddDisplayMode(name: request.Name), detail: request.Name, key: inner)),
+            updateCase: static (inner, request) => inner.Confirm(success: DisplayModeDescription.UpdateDisplayMode(displayMode: request.Mode)).Map(_ => Seq(request.Mode)),
+            copyCase: static (inner, request) => inner.Catch(() =>
+                Minted(id: DisplayModeDescription.CopyDisplayMode(id: request.SourceId, name: request.Name), detail: request.Name, key: inner)),
+            deleteCase: static (inner, request) =>
+                from mode in Resolved(id: request.ModeId, missing: inner.InvalidInput())
+                from _ in inner.Confirm(success: DisplayModeDescription.DeleteDisplayMode(id: request.ModeId))
+                select Seq(mode),
             importCase: static (inner, request) => inner.Catch(() =>
-                DisplayModeDescription.ImportFromFile(filename: request.Path, interactive: request.Interactive) is var imported && imported != Guid.Empty
-                    ? Optional(DisplayModeDescription.GetDisplayMode(id: imported)).ToFin(Fail: inner.InvalidResult()).Map(Seq1)
-                    : Fin.Fail<Seq<DisplayModeDescription>>(inner.InvalidResult(detail: request.Path))),
+                Minted(id: DisplayModeDescription.ImportFromFile(filename: request.Path, interactive: request.Interactive), detail: request.Path, key: inner)),
             exportCase: static (inner, request) =>
-                from mode in Optional(DisplayModeDescription.GetDisplayMode(id: request.ModeId)).ToFin(Fail: inner.InvalidInput())
+                from mode in Resolved(id: request.ModeId, missing: inner.InvalidInput())
                 from _ in inner.Confirm(success: DisplayModeDescription.ExportToFile(displayMode: mode, filename: request.Path))
-                select Seq1(mode));
+                select Seq(mode));
     }
+
+    private static Fin<DisplayModeDescription> Resolved(Guid id, Error missing) =>
+        Optional(DisplayModeDescription.GetDisplayMode(id: id)).ToFin(Fail: missing);
+
+    private static Fin<Seq<DisplayModeDescription>> Minted(Guid id, string detail, Op key) =>
+        id != Guid.Empty
+            ? Resolved(id: id, missing: key.InvalidResult(detail: detail)).Map(static mode => Seq(mode))
+            : Fin.Fail<Seq<DisplayModeDescription>>(key.InvalidResult(detail: detail));
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------
@@ -256,44 +271,63 @@ public sealed record AnalysisProgram(
     Func<DocObjects.RhinoObject, Mesh[], Fin<Unit>> VertexColors,
     Option<Func<DocObjects.RhinoObject, Mesh, DisplayPipeline, Fin<Unit>>> DrawMesh);
 
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record RetainedMark {
+    private RetainedMark() { }
+    public sealed record PointsCase(Seq<Point3d> Points, PerceptualColor Color, PointStyle Style, int Radius) : RetainedMark;
+    public sealed record LineCase(Line Value, PerceptualColor Color, int Thickness) : RetainedMark;
+    public sealed record VectorCase(Point3d Anchor, Vector3d Span, PerceptualColor Color, bool DrawAnchor) : RetainedMark;
+    public sealed record ArcCase(Arc Value, PerceptualColor Color, int Thickness) : RetainedMark;
+    public sealed record CircleCase(Circle Value, PerceptualColor Color, int Thickness) : RetainedMark;
+    public sealed record CurveCase(Curve Value, PerceptualColor Color, int Thickness) : RetainedMark;
+    public sealed record PolygonCase(Seq<Point3d> Ring, PerceptualColor Fill, PerceptualColor Edge, bool DrawFill, bool DrawEdge) : RetainedMark;
+    public sealed record TextCase(Text3d Value, PerceptualColor Color) : RetainedMark;
+    public sealed record PlaneTextCase(string Text, Plane Plane, double Height, PerceptualColor Color) : RetainedMark;
+
+    internal Unit AccumulateOn(CustomDisplay display) =>
+        Switch(
+            state: display,
+            pointsCase: static (d, m) => Op.Side(() => d.AddPoints(m.Points.AsEnumerable(), Quant.Sys(m.Color), m.Style, m.Radius)),
+            lineCase: static (d, m) => Op.Side(() => d.AddLine(m.Value, Quant.Sys(m.Color), m.Thickness)),
+            vectorCase: static (d, m) => Op.Side(() => d.AddVector(m.Anchor, m.Span, Quant.Sys(m.Color), m.DrawAnchor)),
+            arcCase: static (d, m) => Op.Side(() => d.AddArc(m.Value, Quant.Sys(m.Color), m.Thickness)),
+            circleCase: static (d, m) => Op.Side(() => d.AddCircle(m.Value, Quant.Sys(m.Color), m.Thickness)),
+            curveCase: static (d, m) => Op.Side(() => d.AddCurve(m.Value, Quant.Sys(m.Color), m.Thickness)),
+            polygonCase: static (d, m) => Op.Side(() => d.AddPolygon(m.Ring.AsEnumerable(), Quant.Sys(m.Fill), Quant.Sys(m.Edge), m.DrawFill, m.DrawEdge)),
+            textCase: static (d, m) => Op.Side(() => d.AddText(m.Value, Quant.Sys(m.Color))),
+            planeTextCase: static (d, m) => Op.Side(() => d.AddText(m.Text, m.Plane, m.Height, Quant.Sys(m.Color))));
+}
+
 // --- [SERVICES] -----------------------------------------------------------------------------
 public sealed class RetainedOverlay : IDisposable {
-    private readonly Lease<CustomDisplay> lease;
+    private readonly CustomDisplay display;
     private int released;
 
-    private RetainedOverlay(Lease<CustomDisplay> lease) => this.lease = lease;
+    private RetainedOverlay(CustomDisplay display) => this.display = display;
 
     public static Fin<RetainedOverlay> Of(bool enable = true, Op? key = null) =>
-        key.OrDefault().Catch(() => Fin.Succ(new RetainedOverlay(lease: new Lease<CustomDisplay>.Owned(Value: new CustomDisplay(enable)))));
+        key.OrDefault().Catch(() => Fin.Succ(new RetainedOverlay(display: new CustomDisplay(enable))));
 
-    public Fin<Unit> Points(Seq<Point3d> points, PerceptualColor color, PointStyle style, int radius, Op? key = null) =>
-        Borrow(body: (display, rgb) => display.AddPoints(points.AsEnumerable(), rgb, style, radius), color: color, key: key);
-
-    public Fin<Unit> Polygon(Seq<Point3d> ring, PerceptualColor fill, PerceptualColor edge, bool drawFill, bool drawEdge, Op? key = null) {
-        (byte r, byte g, byte b, _) = edge.ToRgb();
-        return Borrow(body: (display, rgb) => display.AddPolygon(ring.AsEnumerable(), rgb, System.Drawing.Color.FromArgb(r, g, b), drawFill, drawEdge), color: fill, key: key);
+    public Fin<Unit> Add(Seq<RetainedMark> marks, Op? key = null) {
+        RetainedOverlay self = this;
+        return key.OrDefault().Catch(() => Fin.Succ(value: marks.Iter(mark => mark.AccumulateOn(display: self.display))));
     }
 
-    public Fin<Unit> Text(Text3d text, PerceptualColor color, Op? key = null) =>
-        Borrow(body: (display, rgb) => display.AddText(text, rgb), color: color, key: key);
+    public Fin<Unit> Enable(bool on, Op? key = null) =>
+        key.OrDefault().Catch(() => Fin.Succ(value: Op.Side(() => display.Enabled = on)));
 
     public Fin<Unit> Clear(Op? key = null) =>
-        lease.Use(display => key.OrDefault().Catch(() => Fin.Succ(value: Op.Side(display.Clear))));
-
-    private Fin<Unit> Borrow(Action<CustomDisplay, System.Drawing.Color> body, PerceptualColor color, Op? key) {
-        (byte r, byte g, byte b, _) = color.ToRgb();
-        return lease.Use(display => key.OrDefault().Catch(() => Fin.Succ(value: Op.Side(() => body(display, System.Drawing.Color.FromArgb(r, g, b))))));
-    }
+        key.OrDefault().Catch(() => Fin.Succ(value: Op.Side(display.Clear)));
 
     public void Dispose() =>
-        _ = Interlocked.Exchange(location1: ref released, value: 1) is 0 ? fun(lease.Dispose)() : unit;
+        _ = Interlocked.Exchange(location1: ref released, value: 1) is 0 ? fun(display.Dispose)() : unit;
 }
 ```
 
 ## [05]-[EFFECT_ROWS]
 
 - Owner: `PenSpec` — the Rhino 9 `DisplayPen` row: a linetype-derived pen through `DisplayPen.FromLinetype(Linetype, Color)` with `PatternAutoscale` and `PatternScale` as declared fields, minted once per spec and reused across draws. `IsoBanding` — the full `IsoDrawEffect` row: `IsoDrawMode`, direction and anchor point, frequency, band rotation and falloff, the optional gap triple (`GapColor`/`GapSize`/`DiscardGap` as one `Option` slot), and a kernel `PerceptualColor` ramp quantized into the per-band colors through `SetBandColor` — the banded-shading effect the draw page's shaded-mesh mark consumes.
-- Law: band colors derive from one `PerceptualColor.Ramp` over a `BlendPath` row, so an iso effect's palette is perceptually even by construction; per-band `System.Drawing.Color` literals are the deleted form.
+- Law: band colors derive from one `PerceptualColor.Ramp` over a `BlendPath` row, so an iso effect's palette is perceptually even by construction; per-band `System.Drawing.Color` literals are the deleted form, and the host caps band storage at ten colors, so `Bands` admits `(0, 10]` at `Mint`.
 - Boundary: both rows are effect DATA consumed by the draw page's mark arms; neither draws.
 
 ```csharp
@@ -301,9 +335,8 @@ public sealed class RetainedOverlay : IDisposable {
 public sealed record PenSpec(DocObjects.Linetype Pattern, PerceptualColor Color, bool Autoscale, double Scale) {
     public Fin<DisplayPen> Mint(Op? key = null) {
         PenSpec self = this;
-        (byte r, byte g, byte b, _) = Color.ToRgb();
         return key.OrDefault().Catch(() => {
-            DisplayPen pen = DisplayPen.FromLinetype(linetype: self.Pattern, color: System.Drawing.Color.FromArgb(r, g, b));
+            DisplayPen pen = DisplayPen.FromLinetype(linetype: self.Pattern, color: Quant.Sys(self.Color));
             pen.PatternAutoscale = self.Autoscale;
             pen.PatternScale = (float)self.Scale;
             return Fin.Succ(pen);
@@ -325,7 +358,8 @@ public sealed record IsoBanding(
     public Fin<IsoDrawEffect> Mint(Op? key = null) {
         Op op = key.OrDefault();
         IsoBanding self = this;
-        return from ramp in Fin.Succ(self.From.Ramp(to: self.To, stops: self.Bands))
+        return from _ in guard(self.Bands.Value is > 0 and <= 10, op.InvalidInput()).ToFin()
+               from ramp in Fin.Succ(self.From.Ramp(to: self.To, stops: self.Bands))
                from effect in op.Catch(() => {
                    IsoDrawEffect banded = new() {
                        DrawMode = self.Mode,
@@ -337,15 +371,12 @@ public sealed record IsoBanding(
                        UsedBandColorCount = self.Bands.Value,
                    };
                    _ = self.Gap.Iter(gap => {
-                       (byte r, byte g, byte b, _) = gap.Color.ToRgb();
-                       banded.GapColor = System.Drawing.Color.FromArgb(r, g, b);
+                       banded.GapColor = Quant.Sys(gap.Color);
                        banded.GapSize = gap.Size;
                        banded.DiscardGap = gap.Discard;
                    });
-                   _ = ramp.Map(static (stop, index) => (Index: index, Stop: stop)).Iter(row => {
-                       (byte r, byte g, byte b, _) = row.Stop.ToRgb();
-                       _ = banded.SetBandColor(row.Index, System.Drawing.Color.FromArgb(r, g, b));
-                   });
+                   _ = ramp.Map(static (stop, index) => (Index: index, Stop: stop))
+                       .Iter(row => ignore(banded.SetBandColor(row.Index, Quant.Sys(row.Stop))));
                    return Fin.Succ(banded);
                })
                select effect;
@@ -361,7 +392,7 @@ flowchart LR
     Conduit -->|ConduitFrame + FrameContext| Handlers["phase handlers"]
     Handlers -->|RenderStates.Scope push/pop bracket| Pipeline["DisplayPipeline state stacks"]
     Handlers -.->|mark algebra| Draw["draw.md Marks"]
-    Modes["ModeOp — census · find · add · update · import · export"] --> Table["DisplayModeDescription"]
+    Modes["ModeOp — census · find · add · blank · update · copy · delete · import · export"] --> Table["DisplayModeDescription"]
     Analysis["AnalysisProgram"] --> Registered["VisualAnalysisMode.Register"]
-    Retained["RetainedOverlay — CustomDisplay lease"] -.-> Kernel["PerceptualColor.ToRgb quantization"]
+    Retained["RetainedOverlay — CustomDisplay capsule over RetainedMark rows"] -.-> Kernel["Quant.Sys quantization"]
 ```

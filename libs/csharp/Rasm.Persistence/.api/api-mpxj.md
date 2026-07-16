@@ -49,10 +49,12 @@ is the consumer's), only the parse/serialize round-trip.
 |  [13]   | `ProjectCalendarContainer` | `class : IProjectEntityContainer` | the `ProjectFile.Calendars` keyed collection                 |
 |  [14]   | `TimeUnit`                 | `enum`                            | the `Duration.Units` unit (values in `[MEMBERS]`)            |
 |  [15]   | `ConstraintType`           | `enum`                            | the `Task.ConstraintType` modality (values in `[MEMBERS]`)   |
+|  [16]   | `RecurringData`            | `class`                           | seed generator for recurring calendar exceptions            |
+|  [17]   | `Availability`             | `class`                           | date-ranged resource-capacity row                            |
 
 [MEMBERS]: the per-type member and enum-value rosters; durations/lags are unit-tagged, never raw days.
 - [01]-[PROJECTFILE]: `Tasks`/`Resources`/`Relations`/`Calendars`/`ResourceAssignments`/`ProjectProperties` + `ChildTasks` (hierarchy root)
-- [02]-[TASK]: start/finish/duration/%complete/critical/baselines + `Predecessors`/`Successors` (`IList<Relation>`), `ChildTasks` (`IList<Task>`), `ResourceAssignments` (`IList<ResourceAssignment>`), `TotalSlack`/`FreeSlack`/`PlannedDuration` (`Duration`), `ConstraintType` (`ConstraintType?`) + `ConstraintDate` (`DateTime?`)
+- [02]-[TASK]: start/finish/duration/%complete/critical/baselines + early/late/actual dates, WBS/activity-id, milestone/summary, work/cost, `Predecessors`/`Successors` (`IList<Relation>`), `ChildTasks` (`IList<Task>`), `ResourceAssignments` (`IList<ResourceAssignment>`), `TotalSlack`/`FreeSlack`/`PlannedDuration` (`Duration`), `ConstraintType` (`ConstraintType?`) + `ConstraintDate` (`DateTime?`)
 - [03]-[RELATION]: `PredecessorTask`/`SuccessorTask`, `Type` (`RelationType?`), `Lag` (`Duration`); a `Builder(ProjectFile)` mints one
 - [04]-[RELATIONTYPE]: `FinishStart` / `StartStart` / `FinishFinish` / `StartFinish`
 - [05]-[RESOURCE]: cost rates, `Availability` (`AvailabilityTable`), calendar, group
@@ -61,12 +63,10 @@ is the consumer's), only the parse/serialize round-trip.
 - [09]-[PROJECTPROPERTIES]: start/finish/status dates, `ScheduleFrom`, default calendar, currency, title; `FileType` (`string`, the parsed source-format name) + `FileApplication`
 - [14]-[TIMEUNIT]: `Minutes`/`Hours`/`Days`/`Weeks`/`Months`/`Years`/`Percent` + the `Elapsed{Minutes,Hours,Days,Weeks,Months,Years,Percent}` variants
 - [15]-[CONSTRAINTTYPE]: `AsSoonAsPossible`/`AsLateAsPossible`/`MustStartOn`/`MustFinishOn`/`StartNoEarlierThan`/`StartNoLaterThan`/`FinishNoEarlierThan`/`FinishNoLaterThan`/`StartOn`/`FinishOn`
+- [16]-[RECURRINGDATA]: daily/weekly/monthly/yearly type, start/finish, occurrences, end-date stance, working-day/relative flags, frequency, day/month selectors, and weekly-day set/get
+- [17]-[AVAILABILITY]: `Availability(DateTime? start, DateTime? end, double? units)`; `Range` exposes `DateTimeRange.Start`/`End`, and `Units` preserves the capacity magnitude
 
-`ProjectFile` is the boundary type the Persistence schedule lane maps to its canonical
-`ConstructionTask`/`CostItem` shapes: walk `ChildTasks` for the WBS hierarchy, read each `Task`'s
-`Predecessors`/`Successors` for the dependency network, and key durations/lags through their
-`TimeUnit`. The IKVM proxy types carry a `JavaObject` handle and an `IHasJavaObject`/`IJavaObjectProxy<T>` shape — the boundary reads them as ordinary .NET objects and never threads
-the Java handle into canonical code.
+`ProjectFile` is the boundary type the Persistence schedule lane maps to its canonical `ConstructionTask`/`CostItem` shapes: walk `ChildTasks` for the WBS hierarchy, read each `Task`'s `Predecessors`/`Successors` for the dependency network, and key durations/lags through their `TimeUnit`. IKVM proxy types carry a `JavaObject` handle and an `IHasJavaObject`/`IJavaObjectProxy<T>` shape; boundary projection reads them as ordinary .NET objects and never threads the Java handle into canonical code.
 
 ## [03]-[ENTRYPOINTS]
 
@@ -89,29 +89,39 @@ the Java handle into canonical code.
 |  [12]   | `ProjectFile.AddCalendar()`                                  | mutate         | mint a calendar child                                   |
 |  [13]   | `ProjectFile.GetTaskByUniqueID(int)`                         | mutate         | resolve a task by durable unique id                     |
 |  [14]   | `Task` / `ProjectProperties` read accessors                  | read           | CPM/actuals/constraint accessors (fields in `[DETAIL]`) |
+|  [15]   | `ProjectFile.GetResourceByUniqueID(int)`                     | mutate         | resolve a resource by durable unique id                 |
+|  [16]   | `Task.AddTask()`                                             | mutate         | mint a WBS child under its parent                       |
+|  [17]   | `Task.AddResourceAssignment(Resource)`                       | mutate         | mint one task-resource loading                          |
+|  [18]   | `ProjectCalendar.AddWorkWeek()`                              | mutate         | mint a date-ranged weekly override                      |
+|  [19]   | `ProjectCalendar.AddCalendarException(DateOnly[, DateOnly])` | mutate         | mint a dated override                                    |
+|  [20]   | `ProjectCalendarDays.SetWorkingDay` / `AddCalendarHours`     | mutate         | rebuild a day rule and its shift ranges                 |
+|  [21]   | `ProjectCalendarHours.Add(TimeOnlyRange)`                    | mutate         | append a shift to a day, week, or exception             |
+|  [22]   | `ProjectFile.GetCalendarByUniqueID(int)`                     | mutate         | resolve a calendar by durable unique id                 |
+|  [23]   | `ProjectCalendar.AddCalendarException(RecurringData)`        | mutate         | mint a generated recurring override                     |
 
 [DETAIL]: writer roster, container-write overload, synthesis settables, and read accessors.
 - [01]-[WRITERS]: `PrimaveraPMFileWriter`/`PrimaveraXERFileWriter`/`MSPDIWriter`/`MPXWriter`/`JsonWriter`/`PlannerWriter`/`SDEFWriter`
 - [02]-[WRITE_CONTAINER]: `Write(IList<ProjectFile>, …)` serializes a multi-project container
-- [03]-[SYNTHESIS]: settable `Task.UniqueID`/`Name`/`PercentageComplete`, `Resource.UniqueID`/`Name`, `ProjectCalendar.Name` complete the round-trip
+- [03]-[SYNTHESIS]: task hierarchy, schedule/actual/baseline/constraint fields, relations, calendars, resources, and assignments are settable through rows `[08]`-`[21]`
 - [04]-[READ_ACCESSORS]: `Task.TotalSlack`/`FreeSlack`/`Critical`/`ConstraintType`/`ConstraintDate`/`ActualStart`/`ActualFinish`; `ProjectProperties.FileType`/`FileApplication`/`ProjectTitle`/`ScheduleFrom`
+- [05]-[TASK_WORK_COST]: `Task` exposes settable actual/baseline/planned/remaining duration, work, and cost plus budget cost, summary, and outline level
+- [06]-[PROJECT_ANCHOR]: `ProjectProperties` exposes settable current/start/finish/status dates, default-calendar id, minutes per day, days per month, currency, title, and `ScheduleFrom`
+- [07]-[RESOURCE_LOADING]: `Resource` exposes settable type, calendar, cost, actual cost, and overtime cost; `ResourceAssignment` exposes settable actual/remaining work and cost
+- [08]-[RESOURCE_CAPACITY]: `Resource.PeakUnits` is settable; `Resource.Availability` is an `AvailabilityTable : IList<Availability>`, so dated capacity rows append through `Add`
 
-`UniversalProjectReader.Read` is the lane's normal ingress — it auto-detects ANY supported
-format, so the consumer never branches on file extension. The write side is asymmetric: MPXJ
-READS ~20 formats but WRITES only the seven `FileFormat` members (notably `PMXML`/`XER` for P6
-round-trip and `MSPDI`/`MPX` for MS Project, plus the neutral `JSON`).
+`UniversalProjectReader.Read` is the lane's normal ingress — it auto-detects ANY supported format, so the consumer never branches on file extension. Write capability is asymmetric: MPXJ READS ~20 formats but WRITES only the seven `FileFormat` members (notably `PMXML`/`XER` for P6 round-trip and `MSPDI`/`MPX` for MS Project, plus the neutral `JSON`).
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [FORMAT_COVERAGE]:
 - READ (auto-dispatched by `UniversalProjectReader`): Primavera P6 (`PrimaveraXERFileReader` XER, `PrimaveraPMFileReader` PMXML, `PrimaveraDatabaseReader`/`P3DatabaseReader`/`P3PRXFileReader`), MS Project (`MPPReader` MPP/MPT binary, `MSPDIReader` XML, `MPXReader` MPX, `MPDFileReader`), Asta (`AstaFileReader`/`AstaMdbReader`/`AstaSqliteReader`/`AstaTextFileReader`), `PhoenixReader`, `GanttProjectReader`/`GanttDesignerReader`, `PlannerReader`/`ProjectLibreReader`, `SureTrakDatabaseReader`/`SureTrakSTXFileReader`, `SynchroReader`, `MerlinReader`, `FastTrackReader`, `TurboProjectReader`, `OpenPlanReader`, `ConceptDrawProjectReader`, `EdrawProjectReader`, `SageReader`, `SDEFReader`, `ProjectCommanderReader`, plus the web-service `PwaReader`/`OpcReader`/`WebServicesReader`
 - WRITE (the seven `FileFormat` members only): `XER`/`PMXML` (P6 round-trip), `MSPDI`/`MPX` (MS Project), `PLANNER`, `SDEF`, and `JSON` (`JsonWriter` — the neutral textual dump); there is NO MPP writer (MPP is read-only, a Microsoft binary format)
-- the lane's ingress contract is `UniversalProjectReader.Read` (one call, format-agnostic); the per-format `IProjectReader` types are the fallback only when a reader needs configuration before the read
+- Ingress contracts through `UniversalProjectReader.Read` (one call, format-agnostic); per-format `IProjectReader` types remain the configured-reader fallback
 
 [SCHEDULE_GRAPH]:
-- the dependency network is `Task.Predecessors`/`Successors` → `IList<Relation>`, each `Relation` carrying `Type` (`RelationType`: `FinishStart`/`StartStart`/`FinishFinish`/`StartFinish`) and `Lag` (`Duration`) — this is the directed activity-on-node graph the consumer's CPM/topological-sort runs over; MPXJ supplies the graph, never the forward/backward pass
+- Dependency network is `Task.Predecessors`/`Successors` → `IList<Relation>`, each `Relation` carrying `Type` (`RelationType`: `FinishStart`/`StartStart`/`FinishFinish`/`StartFinish`) and `Lag` (`Duration`) — this is the directed activity-on-node graph the consumer's CPM/topological-sort runs over; MPXJ supplies the graph, never the forward/backward pass
 - `Task` carries the schedule fields the 4D/5D networks read (start/finish/duration, %complete, critical flag, total/free slack, early/late start/finish, baseline start/finish, actual start/finish, work, cost, milestone/summary flags, constraint type/date, WBS/activity-id, outline level) — dates surface as the BCL date types via the `Portable.System.DateTimeOnly` facade
-- the WBS hierarchy is `ProjectFile.ChildTasks` (roots) → each `Task`'s child tasks; `ProjectFile.Tasks` is the flat keyed container
+- WBS hierarchy is `ProjectFile.ChildTasks` (roots) → each `Task`'s child tasks; `ProjectFile.Tasks` is the flat keyed container
 - `Duration` is unit-tagged (`Units` is a `TimeUnit?`): a duration/lag is a magnitude in days/hours/weeks/etc., so the consumer converts through the unit rather than assuming days — this meets the canonical `NodaTime`/`UnitsNet` time vocabulary at the boundary
 
 [CALENDAR_RESOURCE]:
@@ -120,13 +130,13 @@ round-trip and `MSPDI`/`MPX` for MS Project, plus the neutral `JSON`).
 - `ProjectProperties` anchors the schedule: start/finish/status dates, `ScheduleFrom` (forward from start vs backward from finish), default calendar, currency
 
 [IKVM_BOUNDARY]:
-- the surface is IKVM-translated Java: `MPXJ.Net.*` types proxy `net.sf.mpxj.*` via a `_proxyManager` that lazily wraps Java collections as `IList<T>` (so `Predecessors`/`WorkWeeks`/etc. are `IList`-shaped); each proxy carries a `JavaObject` handle behind `IHasJavaObject`/`IJavaObjectProxy<T>`
-- the boundary reads these as ordinary .NET objects and maps `ProjectFile` to the canonical `ConstructionTask`/`CostItem` shapes at ONE seam — the Java handle never threads into canonical code, and the proxy types are not re-exposed across the package boundary
+- IKVM-translated surface projects `net.sf.mpxj.*` through `MPXJ.Net.*`; `_proxyManager` lazily wraps Java collections as `IList<T>`, and each proxy carries a `JavaObject` handle behind `IHasJavaObject`/`IJavaObjectProxy<T>`
+- Boundary projection reads ordinary .NET objects and maps `ProjectFile` to canonical `ConstructionTask`/`CostItem` shapes at ONE seam — the Java handle never threads into canonical code, and proxy types are not re-exposed
 - LGPL-2.1 is satisfied by dynamic-link `PackageReference` (separate assembly): the codec is consumed, never statically fused into a Rasm assembly, and never re-published — the same posture as the other weak-copyleft floors
 
 [INTEGRATION_STACK]:
 - `Ingest/schedule#SCHEDULE_INGRESS` is the consumer: `UniversalProjectReader.Read(bytes/path)` → `ProjectFile`, folded into the canonical schedule model; the parse runs inside the codec read under the Persistence `IO`/`Fin` rail, a malformed/unsupported file surfacing as a typed parse rejection
-- the parsed `Task`/`Relation` network projects to Bim's 4D `ConstructionTask` (`Rasm.Bim` `Planning/schedule.md`) — the activity-on-node graph + `RelationType`/`Lag` edges feed the 4D sequencing, the dependency edges being exactly the `SequenceRel` DAG `Rasm.Bim`'s `QuikGraph` (`api-quikgraph`) runs `SourceFirstTopologicalSort` over for the CPM activity order (MPXJ supplies the edges, QuikGraph the order, the `WorkCalendar` fold the float/calendar arithmetic) — and the resource/cost loading (`ResourceAssignment.Cost`/`.BudgetCost`/`.Units`/`.Work` and `Resource.StandardRate`/`.Cost`/`.CostPerUse`, all raw `double?`/`Rate` off the parse) projects to the 5D `CostItem` network where each foreign `double` is lifted into a `Money` at the boundary by `Rasm.Bim`'s `NodaMoney` (`api-nodamoney`, peer to its IFC `IfcCostValue` cost-graph lift) and the dimensioned quantity by `UnitsNet` (`Money * (decimal)quantity` for cost × quantity)
+- Parsed `Task`/`Relation` network projects to Bim's 4D `ConstructionTask` (`Rasm.Bim` `Planning/schedule.md`) — the activity-on-node graph + `RelationType`/`Lag` edges feed the 4D sequencing, the dependency edges being exactly the `SequenceRel` DAG `Rasm.Bim`'s `QuikGraph` (`api-quikgraph`) runs `SourceFirstTopologicalSort` over for the CPM activity order (MPXJ supplies the edges, QuikGraph the order, the `WorkCalendar` fold the float/calendar arithmetic) — and the resource/cost loading (`ResourceAssignment.Cost`/`.BudgetCost`/`.Units`/`.Work` and `Resource.StandardRate`/`.Cost`/`.CostPerUse`, all raw `double?`/`Rate` off the parse) projects to the 5D `CostItem` network where each foreign `double` is lifted into a `Money` at the boundary by `Rasm.Bim`'s `NodaMoney` (`api-nodamoney`, peer to its IFC `IfcCostValue` cost-graph lift) and the dimensioned quantity by `UnitsNet` (`Money * (decimal)quantity` for cost × quantity)
 - this is the schedule-FILE peer of the other Persistence interchange codecs: it sits in `[WIRE_SERIALIZATION]` beside `MessagePack`/`Sep` and complements the row-oriented (`Sep`/`MiniExcel`) and columnar (Arrow/Parquet) lanes — those cannot parse a binary MPP or a P6 XER, MPXJ owns exactly that schedule-tool format space
 - durations/dates meet `NodaTime` (the clock seam) and `UnitsNet` (the quantity substrate) at the boundary through `Duration.Units`; the schedule graph meets `QuikGraph` for the CPM topological order
 

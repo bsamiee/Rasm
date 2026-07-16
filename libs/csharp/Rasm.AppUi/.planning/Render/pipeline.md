@@ -803,6 +803,7 @@ interface MeshoptStreamWire {
   readonly byteLength: number;
   readonly count: number;
   readonly byteStride: number;
+  readonly codecVersion: number;
 }
 
 interface MeshletWire {
@@ -879,7 +880,7 @@ public sealed record ViewpointWire(
     Seq<ViewMeasurementWire> Measurements,
     string At);
 
-public readonly record struct MeshoptStreamWire(string Stream, string Mode, string Filter, int ByteOffset, int ByteLength, int Count, int ByteStride);
+public readonly record struct MeshoptStreamWire(string Stream, string Mode, string Filter, int ByteOffset, int ByteLength, int Count, int ByteStride, int CodecVersion);
 
 public sealed record MeshletWire(
     int VertexOffset, int TriangleOffset, int VertexCount, int TriangleCount,
@@ -930,10 +931,9 @@ public static class ResidencyMarshal {
                 measurement.Angles.Map(static angle => angle.Degrees))),
             InstantPattern.ExtendedIso.Format(view.At));
 
-    // one EXT_meshopt_compression bufferView wire row off one Compute StreamSpan: the meshopt decode mode + inverse
-    // filter + byte window + element count/stride the web worker hands the meshopt decoder, never re-derived here.
+    // Compute owns every decode parameter, including the per-stream codec version.
     public static MeshoptStreamWire StreamWire(ResidencyStream stream, StreamSpan span) =>
-        new(stream.Key, span.Mode.Key, span.Filter.Key, span.Offset, span.Length, span.Count, span.ByteStride);
+        new(stream.Key, span.Mode.Key, span.Filter.Key, span.Offset, span.Length, span.Count, span.ByteStride, span.CodecVersion);
 
     public static MeshletWire MeshletWireOf(ResidencyMeshlet m) =>
         new(m.VertexOffset, m.TriangleOffset, m.VertexCount, m.TriangleCount,

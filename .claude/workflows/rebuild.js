@@ -11,7 +11,7 @@ export const meta = {
         },
         {
             title: 'Map',
-            detail: 'per sub-folder unit segment: a deep-map lane (ownership, seams, cross-folder relevance, domain gaps — information, never code) beside a two-tier .api inventory lane, each writing the per-unit dossier the batches reuse',
+            detail: 'per sub-folder unit segment: a deep-map lane (ownership, seams, cross-folder relevance, domain gaps — information, never code) beside a two-tier .api inventory lane, each writing the per-unit dossier the batches reuse; one audit-law-pack lane per landed language rides the wave, extracting the critique checklist sections verbatim into the scratch artifact every critique reads instead of re-assembling the atlas',
         },
         {
             title: 'Ideate',
@@ -37,7 +37,7 @@ const DRAIN_ROUNDS = 4; // terminal drain fixpoint cap; the progress gate (no sh
 const CODEX_STALL = 7500000; // wrapper stall sits ABOVE the client MCP ceiling (fleet codex.toolTimeoutSec = 7200s): the client aborts a wedged call first; this guards only a dead wrapper
 const BATCH_MAX = 8; // unit-segment + batch-packing ceiling; per-segment maps + census legwork carry the navigation, so a writer holds a full dense batch
 const FINDER_PAGES = 8; // landed pages per close-phase finder
-const CODEX = true; // recon lanes run on gpt-5.6-terra via the codex wrapper; false restores native opus lanes
+const CODEX = true; // recon lanes ride the codex wrapper — the call-site rows carry each lane's model tier; false restores native lanes
 
 // --- [INPUTS] --------------------------------------------------------------------------
 
@@ -530,7 +530,7 @@ const LANG = {
         casing: 'PascalCase',
         corpus: 'libs/csharp planning corpus (markdown specs of intended C# package designs)',
         strata:
-            'CLAUDE.md manifest + WORKSPACE_LAW strata govern (KERNEL -> AEC-DOMAIN -> APP-PLATFORM -> HOST-BOUNDARY -> APP; ' +
+            '`libs/.planning/architecture.md` owns the strata law (KERNEL -> AEC-DOMAIN -> APP-PLATFORM -> HOST-BOUNDARY -> APP; ' +
             'depend strictly upward; a host-neutral owner only where a non-Rhino runtime consumes the contract).',
         stackFloor:
             'docs/stacks/csharp is the FLOOR, never the ceiling — every fence pushes past it to the strongest form the doctrine ' +
@@ -579,7 +579,7 @@ const LANG = {
         stack: 'docs/stacks/python',
         casing: 'snake_case',
         corpus: 'libs/python planning corpus (markdown specs of intended Python module designs)',
-        strata: 'CLAUDE.md manifest law governs.',
+        strata: '`libs/.planning/architecture.md` owns the branch topology law.',
         stackFloor:
             'docs/stacks/python is the bar and docs/stacks/csharp the density/ambition FLOOR — match its richness, never import C#-shaped idioms.',
         apiTiers:
@@ -629,7 +629,7 @@ const LANG = {
         stack: 'docs/stacks/typescript',
         casing: 'camelCase',
         corpus: 'libs/typescript planning corpus (markdown specs of intended TypeScript module designs)',
-        strata: 'CLAUDE.md manifest law governs.',
+        strata: '`libs/.planning/architecture.md` owns the branch topology law.',
         stackFloor: 'docs/stacks/typescript composed in full is the bar — author ultra-advanced TS only, discarding naive idioms wholesale.',
         apiTiers:
             'the SHARED/universal `libs/typescript/.api/*.md` Effect substrate rails AND the folder catalogs ' +
@@ -705,7 +705,7 @@ const slot = makeSlots(CAP);
 const wopts = (label, phase, model, schema, over) => Object.assign({ label, phase, model, effort: 'high', schema, stallMs: STALL }, over);
 const ropts = (label, phase, schema, scope, hl, over) => Object.assign({ label, phase, schema, scope, hl }, over);
 
-// Codex dispatch: the sonnet wrapper makes one blocking Codex MCP call.
+// Codex dispatch: the wrapper agent makes one blocking Codex MCP call.
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-');
 const laneLaw = (schema, o) =>
     (o.fix
@@ -714,8 +714,17 @@ const laneLaw = (schema, o) =>
           'admits none.\n</persistence>\n\n<work_cadence>\nRead the stable law corpus once, first; then work ITEM BY ITEM — ' +
           "derive one item's findings, land its edits, advance. Edits land as derived and never pool toward the end: a batch " +
           'fully materialized before its first edit forfeits its earliest findings to context compaction.\n</work_cadence>' +
+          '\n\n<read_discipline>\nA stable input — a doctrine page, dossier, census, catalog, charter — is read ONCE: extract ' +
+          'what you need into your plan notes and re-open only the exact line span behind an edit, never the whole file again. ' +
+          'Read in large windows (400+ lines per command), never 200-line paging. Your context compacts on a long lane; only ' +
+          'plan notes, the seam ledger, and landed edits survive it — a fact left only in context is lost. Budget: at most ' +
+          (o.calls || 300) +
+          ' tool calls total; at the budget, land what is derived and record every remaining row in the product `deferred` ' +
+          'field — an honest remainder beats a thrashing overrun.\n</read_discipline>' +
           '\n\n<verification>\nAfter editing, re-read each changed file and confirm it is coherent ' +
-          'and nothing it carried was lost. Fix what fails before yielding.\n</verification>'
+          'and nothing it carried was lost. Fix what fails before yielding. Verification is READING: the corpus is markdown ' +
+          'design pages — never compile, build, run analyzers, or execute test gates against it; member truth rides the ' +
+          'task-named catalog/assay rail only.\n</verification>'
         : '<context_gathering>\nTerritory: the exact files and directories the task names. Do not open files outside it; ' +
           'instruction files (.claude/, CLAUDE.md, AGENTS.md) and skill bundles are always out of scope for a read/review ' +
           'lane, and discovery commands stay scoped to the territory — never `rg --files` or `tree` from the repo root.' +
@@ -789,8 +798,8 @@ const codexPrompt = (label, task, schema, o) => {
     ].join('\n\n');
 };
 
-// QUOTA FALLBACK: a codex receipt whose failure matches usage/quota/limit re-dispatches the SAME task natively at the role's Claude twin (terra->opus,
-// sol->fable, luna->sonnet) — the caller owns the re-dispatch, the sonnet wrapper never executes work itself. The roster row carries `scope` from the
+// QUOTA FALLBACK: a codex receipt whose failure matches usage/quota/limit re-dispatches the SAME task natively at the role's Claude twin (twinOf owns
+// the mapping) — the caller owns the re-dispatch, the wrapper never executes work itself. The roster row carries `scope` from the
 // ORCHESTRATOR (never the lane's self-report) so a failed lane's unmapped territory is exact even when the lane died before writing anything.
 const twinOf = (m) => (/-sol/.test(m || '') ? 'fable' : /-luna/.test(m || '') ? 'sonnet' : 'opus');
 const nativeLane = (task, o) => {
@@ -809,7 +818,7 @@ const nativeLane = (task, o) => {
 };
 
 const recon = (taskOf, o) => {
-    // o.native forces the native branch (the opus deep-map lane rides it: a capable native model, not a codex wrapper).
+    // o.native forces the native branch (the deep-map lane rides it: a native lane, never a codex wrapper).
     const task = typeof taskOf === 'function' ? taskOf : () => taskOf;
     const wrapper = {
         label: (o.model && o.model.indexOf('-sol') >= 0 ? 'sol:' : 'terra:') + o.label,
@@ -1401,8 +1410,49 @@ const implementPrompt = (L, batch, dossiers, ideate, scopes, roster, unmapped) =
         ])
         .join('\n\n');
 
-const critiquePrompt = (L, batch, dossiers, ideate, scopes, roster, unmapped, nav, reg) =>
-    preamble(L, batch, dossiers, ideate, scopes, roster, unmapped, reg)
+// Critique read law — the audit's binding checklist names its laws, so doctrine reads scope to those sites instead of the
+// full-atlas writer ladder; dossiers and recon reports demote to on-disk navigation. Telemetry ground: the full ladder
+// overflows a codex window before the first edit and every compaction re-buys the reads.
+const CRIT_READ = (L, pkg, dossiers, roster, unmapped, pack) =>
+    'READ LAW — scoped at-source reads; each stable input is read ONCE per the lane read discipline. ' +
+    '(1) DOCTRINE' +
+    (pack
+        ? ': the audit law pack `' +
+          pack +
+          '` carries every binding checklist section VERBATIM with its source anchor — read it IN FULL in large windows; a ' +
+          'doctrine page at source opens only when a defect turns on law outside the pack'
+        : ', scoped to the audit: `' +
+          L.stack +
+          '/README.md` [02]-[DOCTRINE] laws + the [03]-[COLLAPSE_SCAN] table, OWNER_CHOOSER (`shapes.md` [01]), RAIL_CHOOSER + ' +
+          'boundary conversion (`rails-and-effects.md` [01]-[02]), the aspect two-weave sections (`surfaces-and-dispatch.md` AND ' +
+          '`rails-and-effects.md`), and the file-organization law — each read at its site before judging against it; another ' +
+          'doctrine page opens only when a defect turns on it') +
+    (L.key === 'cs' ? ', and a `docs/stacks/csharp/domain/` shard only when your pages touch its concern' : '') +
+    '. (2) TARGETS: your batch pages from CURRENT disk, one at a time per the cadence below. ' +
+    '(3) GROUNDING ON DISK — navigation, never mandatory reading: the map dossiers (`' +
+    dossiers +
+    '`) carry verified two-tier member/seam extracts (consult to verify a member or seam fast); the recon reports point at ' +
+    'defects the implement pass already worked (spot-check against disk, never re-derive). ROSTER: ' +
+    JSON.stringify(roster) +
+    ' UNMAPPED (your own cold read owns these): ' +
+    JSON.stringify(unmapped) +
+    '. (4) `.api` CATALOGS (`' +
+    L.root +
+    '/.api/`, `' +
+    pkg +
+    '/.api/`) open only at the member blocks your pages cite or compose; a disputed spelling resolves via ' +
+    L.verify +
+    '. OUT OF SCOPE: instruction files (CLAUDE.md, AGENTS.md, `.claude/` config), the repo-root README, and any strata or ' +
+    'topology hunt — the law above is complete, and a name this brief states is never searched for on disk.';
+
+const critiquePrompt = (L, batch, dossiers, ideate, scopes, roster, unmapped, nav, reg, pack) =>
+    [CONTEXT(L), REG[reg].stance(L), BUILD_LAW(L), BODY(L), VERIFY(L), RIPPLE_LAW, CURRENT_STATE, PROSE_COMMENTS(L)]
+        .concat(L.mechanics ? [L.mechanics] : [])
+        .concat([
+            CRIT_READ(L, pkgOf(batch[0].page), dossiers, roster, unmapped, pack),
+            LEDGER(scratchBase(pkgOf(batch[0].page), batch[0].i || 0), scopes),
+        ])
+        .concat(ideate && ideate.fix ? [CORRECTIONS(ideate.fix)] : [])
         .concat([
             'NAVIGATION (facts from the pass that landed these pages — locations only, no assessments; it changes where you look ' +
                 'FIRST, never what you conclude): ' +
@@ -1447,7 +1497,7 @@ const redteamPrompt = (L, batch, dossiers, ideate, scopes, roster, unmapped, nav
         .concat([
             'NAVIGATION (locations only, no assessments): ' + JSON.stringify(nav),
             crit && crit.ok
-                ? 'PRIOR CLAIMS (UNVERIFIED): the sol critique fixlog is ON DISK at ' +
+                ? 'PRIOR CLAIMS (UNVERIFIED): the critique fixlog is ON DISK at ' +
                   crit.report +
                   ' — read it IN FULL; its edits and verdicts are refutation targets judged against CURRENT disk, never a ' +
                   'settled record. FOLD-FORWARD DUTY: its surviving `seamsTouched`, `deltas`, `deferred`, `beyondMap`, ' +
@@ -1829,6 +1879,48 @@ const BATCHES = PKGS.flatMap((pkg) =>
 );
 const SCOPES = JSON.stringify(BATCHES.map((b) => ({ batch: b.pkg.split('/').pop() + ':b' + b.i, pages: b.pages.map((p) => p.page) })));
 
+// AUDIT LAW PACKS — one per landed language, compiled ONCE and reused by every critique lane: the audit checklist's
+// binding sections extracted VERBATIM with source anchors into one scratch artifact, read in a few large windows
+// instead of re-assembled from the atlas per batch. Verbatim extraction keeps the at-source law intact — the pack IS
+// the source text, never a summary. A dead pack lane falls back to at-source scoped reads in CRIT_READ.
+const PACK_SCHEMA = {
+    type: 'object',
+    additionalProperties: false,
+    required: ['sections', 'summary'],
+    properties: {
+        sections: {
+            type: 'array',
+            items: { type: 'object', additionalProperties: false, required: ['source', 'lines'], properties: { source: S, lines: { type: 'integer' } } },
+        },
+        summary: S,
+    },
+};
+const lawPackPath = (k) => SCRATCH + '/lawpack-' + k + '.md';
+const lawPackPrompt = (L, pack) =>
+    [
+        ROOT_LAW,
+        'TASK: AUDIT LAW PACK COMPILER for ' +
+            L.name +
+            ' — read-only over `' +
+            L.stack +
+            '/`; you WRITE exactly one file, the pack. Extract VERBATIM — never paraphrase, summarize, or annotate — each ' +
+            'block under a `## [SOURCE: <path> <section-heading>]` header: the README [02]-[DOCTRINE] laws and the ' +
+            '[03]-[COLLAPSE_SCAN] table; OWNER_CHOOSER (`shapes.md` [01]); RAIL_CHOOSER and the boundary-conversion law ' +
+            '(`rails-and-effects.md` [01] and [02]); the aspect two-weave sections (`surfaces-and-dispatch.md` AND ' +
+            '`rails-and-effects.md`); and the file-organization + section-order law. Locate each section, then extract with ' +
+            'exact line-range reads — the pack is source text relocated, byte-true.',
+        'WRITE the pack to `' + pack + '`. Return sections (one row per extracted block: source anchor + line count) and summary.',
+    ].join('\n\n');
+const LAWPACK = {};
+for (const k of LANGS_IN) {
+    LAWPACK[k] = slot(() =>
+        recon(() => lawPackPrompt(LANG[k], lawPackPath(k)), ropts('lawpack:' + k, 'Map', PACK_SCHEMA, [], { arr: 'sections' }, {
+            writes: true,
+            codexEffort: 'low',
+        })),
+    ).catch(() => null);
+}
+
 phase('Map');
 phase('Ideate');
 phase('Build');
@@ -1837,8 +1929,8 @@ phase('Build');
 // package waits on a sibling's slowest lane. Every agent carries its explicit phase label, the slot
 // scheduler is the only cross-package governor, SCOPES + the seam ledger own cross-batch coordination,
 // and Close is the one whole-run barrier.
-// Corpus map ONCE per SUB-FOLDER unit, reused by every batch touching that unit: an opus deep-map lane (context/seams, native)
-// beside a terra two-tier .api inventory lane (codex) PER `.planning/<sub>` — package-level mapping dilutes depth on a large
+// Corpus map ONCE per SUB-FOLDER unit, reused by every batch touching that unit: a native deep-map lane (context/seams)
+// beside a codex two-tier .api inventory lane PER `.planning/<sub>` — package-level mapping dilutes depth on a large
 // package and starves the batches of per-page grounding. Products are per-unit dossiers + reports on disk; receipts on the wire.
 const unitMap = {};
 const mapUnit = async (u) => {
@@ -1871,8 +1963,8 @@ const mapUnit = async (u) => {
     ]);
     unitMap[u.key] = { ctx, api, ctxDossier, apiDossier };
 };
-// TWO lanes per owning package with disjoint charters: a corrections census (opus — the fix addendum the batches land as rung 3)
-// and a bigger-ideas worklist (fable — the capability ambition, rung 4). One merged log regresses to a fixlog and the ambition dies.
+// TWO lanes per owning package with disjoint charters: a corrections census (the fix addendum the batches land as rung 3)
+// and a bigger-ideas worklist (the capability ambition, rung 4). One merged log regresses to a fixlog and the ambition dies.
 // Either lane absent (dead map or dead ideate), the executors run without that rung.
 const pkgIdeate = {};
 const ideatePkg = async (pkg) => {
@@ -1906,8 +1998,8 @@ const ideatePkg = async (pkg) => {
     );
 };
 
-// Per batch, the chain: page-scoped terra bar lens, fable implement, sol critique, fable redteam — ctx/api
-// grounding reused from the owning unit dossiers.
+// Per batch, the chain: page-scoped bar lens (judgment-weighted, like the close finders), implement, critique,
+// redteam — ctx/api grounding reused from the owning unit dossiers.
 const runBatch = async (b) => {
     const tag = b.pkg.split('/').pop() + ':b' + b.i;
     const L = Lof(b.pkg);
@@ -1918,7 +2010,10 @@ const runBatch = async (b) => {
     const bar = await slot(() =>
         recon(
             (reg) => barLensPrompt(L, batch, reg),
-            ropts('recon:bar:' + tag, 'Build', BAR_SCHEMA, pageScope, { arr: 'findings', group: 'severity' }),
+            ropts('recon:bar:' + tag, 'Build', BAR_SCHEMA, pageScope, { arr: 'findings', group: 'severity' }, {
+                model: 'gpt-5.6-sol',
+                codexEffort: 'medium',
+            }),
         ),
     );
     const roster = pms
@@ -1947,13 +2042,15 @@ const runBatch = async (b) => {
         agent(implementPrompt(L, batch, dossiers, ideate, SCOPES, roster, unmapped), wopts('impl:' + tag, 'Build', 'fable', FIXLOG_SCHEMA)),
     );
     if (!fix) return { pkg: b.pkg, pages: b.pages, fix: null, crit: null, rt: null }; // failure isolation: a dead implement skips its reviews
-    // Sol critique: a workspace-write codex lane running the full conformance audit in place;
+    // Critique: a workspace-write codex lane running the full conformance audit in place;
     // fixlog to disk, receipt on the wire; the redteam reads the fixlog from disk and folds its rows forward.
     // The critique preamble drops the IDEAS rung (idea: '') — an in-place conformance audit consumes the census,
     // never the ambition worklist; ambition realization is the implement's rung 4 and the redteam's mandate (G).
+    const packR = LAWPACK[L.key] ? await LAWPACK[L.key] : null;
+    const pack = packR && packR.ok ? lawPackPath(L.key) : '';
     const crit = await slot(() =>
         recon(
-            (reg) => critiquePrompt(L, batch, dossiers, { fix: ideate.fix, idea: '' }, SCOPES, roster, unmapped, navOf([fix]), reg),
+            (reg) => critiquePrompt(L, batch, dossiers, { fix: ideate.fix, idea: '' }, SCOPES, roster, unmapped, navOf([fix]), reg, pack),
             ropts(
                 'crit:' + tag,
                 'Build',
@@ -2128,7 +2225,7 @@ log(
         BACKLOG.length +
         ' backlog row(s) pending',
 );
-// Terminal DRAIN LOOP: one serial fable closer per round takes the full residual set, verifies every
+// Terminal DRAIN LOOP: one serial closer per round takes the full residual set, verifies every
 // row against live disk (freshness is its duty — no concurrent writers, no collisions), fixes at root,
 // and loops until the set is empty; a round without shrinkage stops the loop with the blocked set final.
 let fixer = null;

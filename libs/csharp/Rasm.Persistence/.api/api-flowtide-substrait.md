@@ -15,7 +15,7 @@
 - xml docs: absent (member intent is decompile-sourced)
 - rail: query-plan
 
-This is a plan-IR library: it produces and transforms a vendor-neutral `Plan` object, not a store connection or a wire client. The INBOUND wire path is PUBLIC: the generated `Substrait.Protobuf.Plan.Parser` (a `Google.Protobuf.MessageParser<Plan>`) decodes protobuf bytes, and the public `SubstraitDeserializer` lifts either that protobuf `Plan` or a Substrait-JSON string into the managed `FlowtideDotNet.Substrait.Plan` IR. The OUTBOUND `SubstraitSerializer` is `internal` — a managed `Plan` cannot be re-lowered to the protobuf wire, so the original protobuf bytes are RETAINED (`IMessage.ToByteArray()`/`WriteTo`) for round-trip, never re-serialized from the managed IR. The consumer composes the `Plan` model, the `SqlPlanBuilder`, the `SubstraitDeserializer` inbound bridge, the visitor double-dispatch, and the `SubstraitToDifferentialCompute` bridge.
+`FlowtideDotNet.Substrait` produces and transforms vendor-neutral `Plan` objects, not store connections or wire clients. Inbound protobuf and JSON enter through `Substrait.Protobuf.Plan.Parser` and public `SubstraitDeserializer` overloads. Outbound `SubstraitSerializer` remains internal, so round-trip retains original protobuf bytes through `IMessage.ToByteArray()` or `WriteTo`. Consumers compose the plan model, SQL builder, inbound deserializer, visitor double-dispatch, and differential-compute bridge.
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -60,6 +60,11 @@ This is a plan-IR library: it produces and transforms a vendor-neutral `Plan` ob
 |  [16]   | `VirtualTableReadRelation`                        | rel           | inline literal-table relation                              |
 |  [17]   | `IterationRelation`                               | rel           | recursive iteration relation                               |
 |  [18]   | `JoinType` / `SetOperation` / `ExchangeKindType`  | rel enum      | join kind, set op, exchange partitioning                   |
+|  [19]   | `PlanRelation` / `NormalizationRelation`          | rel           | nested plan and normalization barriers                     |
+|  [20]   | `IterationReferenceReadRelation` / `BufferRelation` | rel         | recursive reference and buffered input                     |
+|  [21]   | `SubStreamRootRelation`                           | rel           | substream root                                             |
+|  [22]   | `PullExchangeReferenceRelation`                   | rel           | pull-exchange reference                                    |
+|  [23]   | `StandardOutputExchangeReferenceRelation`         | rel           | standard-output exchange reference                         |
 
 [PUBLIC_TYPE_SCOPE]: expressions and the type system
 - rail: query-plan
@@ -83,7 +88,7 @@ This is a plan-IR library: it produces and transforms a vendor-neutral `Plan` ob
 |  [13]   | `WindowBound`                                        | window         | frame bound (subtypes in lead)                   |
 |  [14]   | `Literals.Literal`                                   | literal expr   | typed constants; `LiteralType`, variants in lead |
 
-[PUBLIC_TYPE_SCOPE]: the type system — `FlowtideDotNet.Substrait.Type`, prefix `Type.` hoisted. The `SubstraitType` enum values are `String`/`Int32`/`Fp64`/`Decimal`/`Struct`/`Map`/`List`/`Binary`/`TimestampTz`/...
+[PUBLIC_TYPE_SCOPE]: `FlowtideDotNet.Substrait.Type`; prefix `Type.` hoisted. `SubstraitType` includes `String`, `Int32`, `Fp64`, `Decimal`, `Struct`, `Map`, `List`, `Binary`, and `TimestampTz`.
 - rail: query-plan
 
 | [INDEX] | [SYMBOL]                                         | [TYPE_FAMILY] | [RAIL]                                   |
@@ -115,19 +120,20 @@ This is a plan-IR library: it produces and transforms a vendor-neutral `Plan` ob
 
 | [INDEX] | [SYMBOL]                                            | [TYPE_FAMILY] | [RAIL]                                                          |
 | :-----: | :-------------------------------------------------- | :------------ | :-------------------------------------------------------------- |
-|  [01]   | `FunctionsArithmetic`                               | function URIs | `Add`/`Subtract`/`Multiply`/`Sum`/`Min`/`Max`/`RowNumber`/...   |
-|  [02]   | `FunctionsComparison`                               | function URIs | `Equal`/`GreaterThan`/`Between`/`Coalesce`/`IsNull`/`IsNan`/... |
-|  [03]   | `FunctionsString`                                   | function URIs | `Concat`/`Lower`/`Upper`/`Substring`/`Like`/`StrPos`/...        |
-|  [04]   | `Functions{AggregateGeneric,Boolean,Datetime,List}` | function URIs | count/bool/datetime/list catalogs                               |
-|  [05]   | `Functions{Rounding,Hash,Guid,Struct}`              | function URIs | rounding/hash/guid/struct catalogs                              |
-|  [06]   | `Functions{Check,Logarithmic,TableGeneric}`         | function URIs | check/logarithmic/table-function catalogs                       |
+|  [01]   | `FunctionsArithmetic`                               | function URIs | `Add`/`Subtract`/`Multiply`/`Sum`/`Min`/`Max`/`RowNumber`/...              |
+|  [02]   | `FunctionsComparison`                               | function URIs | `Equal`/`GreaterThan`/`GreaterThanOrEqual`                                |
+|  [03]   | `FunctionsComparison`                               | function URIs | `LessThan`/`LessThanOrEqual`/`Between`/`IsNull`/`IsNotNull`               |
+|  [04]   | `FunctionsString`                                   | function URIs | `Concat`/`Lower`/`Upper`/`Substring`/`Like`/`StrPos`/...                  |
+|  [05]   | `Functions{AggregateGeneric,Boolean,Datetime,List}` | function URIs | count/bool/datetime/list catalogs                                         |
+|  [06]   | `Functions{Rounding,Hash,Guid,Struct}`              | function URIs | rounding/hash/guid/struct catalogs                                        |
+|  [07]   | `Functions{Check,Logarithmic,TableGeneric}`         | function URIs | check/logarithmic/table-function catalogs                                 |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: build a plan from SQL
 - rail: query-plan
 
-`SqlPlanBuilder` registers table schemas/providers and accumulates one or more SQL statements, then `GetPlan()` runs the `PlanModifier` to bind references and yield a single composed `Plan`. The default function register pre-loads the built-in Substrait functions.
+`SqlPlanBuilder` registers table schemas and providers, accumulates SQL statements, then runs `PlanModifier` through `GetPlan()` to bind references into one composed `Plan`. Its default register preloads built-in Substrait functions.
 
 | [INDEX] | [SURFACE]                                      | [ENTRY_FAMILY] | [RAIL]                                         |
 | :-----: | :--------------------------------------------- | :------------- | :--------------------------------------------- |
@@ -156,7 +162,7 @@ This is a plan-IR library: it produces and transforms a vendor-neutral `Plan` ob
 [ENTRYPOINT_SCOPE]: traverse and build the plan tree directly
 - rail: query-plan
 
-The plan IR is buildable and foldable in-memory without SQL: construct `Relation`/`Expression` nodes directly, and traverse via a `RelationVisitor<TReturn, TState>`/`ExpressionVisitor<TOutput, TState>` subclass that overrides the per-node `Visit*` methods.
+`Plan` IR builds and folds in memory without SQL through direct `Relation` and `Expression` nodes plus `RelationVisitor<TReturn, TState>` and `ExpressionVisitor<TOutput, TState>` subclasses.
 
 | [INDEX] | [SURFACE]                                                                                  | [RAIL]                                      |
 | :-----: | :----------------------------------------------------------------------------------------- | :------------------------------------------ |
@@ -182,14 +188,14 @@ Every `Relation`/`Expression` is double-dispatch-folded via `Accept<TReturn, TSt
 
 [LOCAL_ADMISSION]:
 - Substrait enters as the cross-backend query-plan IR behind the `Query/federation` rail — the vendor-neutral plan a federation rail dispatches to a concrete backend, not a store the rail connects to. A federation `Plan` lowers onto `Query/federation#FEDERATED_PLAN`, which walks it to `Query/lane#SetExpr` / the columnar lane for backend execution.
-- the SQL text the rail accepts is lowered by `SqlPlanBuilder` against the federation's registered tables (`AddTableDefinition`/`AddTableProvider`), so the federation schema catalog is the table provider, not an ad-hoc string.
+- SQL text lowers through `SqlPlanBuilder` against registered federation tables via `AddTableDefinition` or `AddTableProvider`; the schema catalog is the table provider.
 - custom federation operators register through `ISqlFunctionRegister`/`ITableProvider`, keeping the plan vocabulary one canonical surface rather than per-operator parsers.
 
 [STACKING]:
-- SQL → plan pipeline: a `Query/federation#FEDERATED_PLAN` definition arrives as SQL text; `SqlPlanBuilder` (riding the bundled `SqlParserCS` transitive) lowers it to a `Plan`, and the federation rail walks the `Plan` via a `RelationVisitor` to dispatch each `ReadRelation` to its backend — DuckDB (`api-duckdb`), ClickHouse (`api-clickhouse`), or an ADBC warehouse (`api-adbc-bigquery`). The SQL parser and the plan IR meet at the `SqlPlanBuilder.Sql` boundary; the plan is the federation's single intermediate form.
+- SQL → plan pipeline: `SqlPlanBuilder` lowers SQL through `SqlParserCS` into the federation's single `Plan` intermediate form; `RelationVisitor` dispatches each `ReadRelation` to DuckDB, ClickHouse, or an ADBC warehouse.
 - foreign-plan ingress: a Substrait plan produced by ANOTHER engine (protobuf bytes or Substrait-JSON) enters the SAME federation rail without SQL — `Substrait.Protobuf.Plan.Parser.ParseFrom(bytes)` then `SubstraitDeserializer.Deserialize(protobufPlan)` (or `DeserializeFromJson(json)`) yields the managed `Plan` the federation visitor dispatches, so cross-tool interoperability is a public inbound path, not a re-parse. Because `SubstraitSerializer` is `internal`, an outbound wire plan is the RETAINED inbound bytes (`Plan.ToByteArray()`/`WriteTo`), never a managed→protobuf re-lowering.
 - streaming materialization: `SubstraitToDifferentialCompute.Convert(plan, addWriteRelation: true, tableName, primaryKeys)` lowers a federation `Plan` into the FlowtideDotNet incremental differential-compute engine for a continuously-maintained materialized view — the same `Plan` IR drives both a one-shot federated query and a streaming materialization, no second plan model.
-- backend pushdown: a `ReadRelation.Filter` and the `Relation.Emit` projection are walked by the federation visitor and pushed into the backend query (a ClickHouse SQL `WHERE`/column list, or a DuckDB scan projection) — the Substrait plan is the optimizer's pushdown carrier across heterogeneous backends.
+- backend pushdown: `ReadRelation.Filter` and `Relation.Emit` projections enter backend queries through the federation visitor; Substrait remains the heterogeneous optimizer carrier.
 - schema bridge: a backend's column schema (an Arrow `Schema` from `api-arrow`, or a DuckDB `ColumnInfo`) maps to a `NamedStruct` for `AddTableDefinition`, so the federation type system is one `SubstraitBaseType` lattice rather than per-backend type maps.
 - fault rail: `SubstraitParseException` lifts at the `SqlPlanBuilder.Sql` edge into the query failure rail when SQL fails to lower, discriminated from a backend execution fault downstream.
 

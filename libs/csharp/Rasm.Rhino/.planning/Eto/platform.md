@@ -73,30 +73,22 @@ public static class HostPlatform {
 
 ## [03]-[NATIVE_HOST]
 
-- Owner: `NativeMount` — the closed `[Union]` over the two host construction shapes: `Eager(object)` wraps a live native control through the `NativeControlHost(object)` constructor, `Deferred(Func<object>)` defers the native mint to realization so the supplier pays only when the tree is actually built — and `NativeAttachment`, the inverse crossing: `Attach` moves an Eto control under an external native parent through `AttachNative()` and returns the lease whose disposal is the `DetachNative()` release, so an attached control cannot orphan its native parent relationship.
-- Law: the deferred case is the default for expensive natives — an AppKit view, a WebKit process — because eager construction pays before any tree demands it; the supplier runs inside `Realize`'s `Op.Catch` bracket, so a throwing mint is a typed fault on the caller's rail.
+- Owner: `NativeMount` — one supplier record over the host `NativeControlHost(object)` constructor with two mints: `Of(object)` wraps a live native control, `Deferred(Func<object>)` holds the supplier so the native mint pays only at `Realize`, when the tree is actually built. Both mints converge on one realization body because the supplier only ever runs inside `Realize` — a case split re-describing that timing is the deleted form — and `NativeAttachment` is the inverse crossing: `Attach` moves an Eto control under an external native parent through `AttachNative()` and returns the lease whose disposal is the `DetachNative()` release, so an attached control cannot orphan its native parent relationship.
+- Law: the deferred mint is the default for expensive natives — an AppKit view, a WebKit process — because eager construction pays before any tree demands it; the supplier runs inside `Realize`'s `Op.Catch` bracket, so a throwing mint is a typed fault on the caller's rail.
 - Law: this seam moves controls, never messages — event bridging, key forwarding, and focus negotiation between the native and Eto sides ride the host's own members on the realized objects; a message-pump shim here is the deleted form.
 - Boundary: the macOS display-link, AppKit pacing, and Objective-C ownership are the Viewport unit's motion adapter over the macOS catalog; Rhino panel docking of Eto content is the HostUi unit's panel seam — both compose this mount, neither re-derives it.
 - Growth: a lifecycle evidence axis (mounted-at ordinal, native type name) is one field on the attachment record.
 
 ```csharp
-// --- [TYPES] --------------------------------------------------------------------------------
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record NativeMount {
-    private NativeMount() { }
-    public sealed record Eager(object Native) : NativeMount;
-    public sealed record Deferred(Func<object> Supply) : NativeMount;
+// --- [MODELS] -------------------------------------------------------------------------------
+public sealed record NativeMount(Func<object> Supply) {
+    public static NativeMount Of(object native) => new(Supply: () => native);
+    public static NativeMount Deferred(Func<object> supply) => new(Supply: supply);
 
-    public Fin<Control> Realize(Op? key = null) {
-        Op op = key.OrDefault();
-        return Switch(
-            state: op,
-            eager: static (op, mount) => op.Catch(() => Fin.Succ(value: (Control)new NativeControlHost(nativeControl: mount.Native))),
-            deferred: static (op, mount) => op.Catch(() => Fin.Succ(value: (Control)new NativeControlHost(nativeControl: mount.Supply()))));
-    }
+    public Fin<Control> Realize(Op? key = null) =>
+        key.OrDefault().Catch(() => Fin.Succ(value: (Control)new NativeControlHost(nativeControl: Supply())));
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
 public sealed record NativeAttachment(Control Subject, Func<Unit> Detach) {
     public static Fin<NativeAttachment> Attach(Control subject, Op? key = null) =>
         key.OrDefault().Catch(() => {
@@ -150,7 +142,7 @@ public static class ThemeSeam {
 
 - Owner: `ThemeVariant` `[SmartEnum<int>]` (`Light`, `Dark`) — the variant axis the host light/dark transition selects — `PaletteRole` `[SmartEnum<int>]`, the closed role vocabulary every painted or chromed surface resolves against (canvas, panel, accent, stroke, primary and muted glyphs, focus, selection, hover, success, warning, failure), and `ThemeCatalog`, the frozen (role × variant) grid of kernel `PerceptualColor` cells: `Freeze` rejects any missing cell at construction, `Resolve` reads the current variant's full palette, `Swap` publishes the next variant atomically with a changed-role diff (value-identical cells emit nothing), and `Shared` is the one process instance — a second catalog forks the generation stamp and desynchronizes every derived cache. Ramps, hover derivations, and contrast checks are kernel math over the resolved cells — `Mix`, `Ramp`, `Contrast` on `PerceptualColor` — so no derived color is ever hand-lerped at a consumer.
 - Law: the grid is total at freeze — exactly `roles × variants` cells, with a missing or duplicate cell a typed construction failure; a draw-time fallback chain is structurally absent because `Resolve` indexes a frozen dictionary the freeze proved complete.
-- Law: text-bearing role pairs assert their WCAG floor at freeze — `GlyphPrimary` over `Canvas` and `GlyphPrimary` over `Panel` gate `Contrast >= 4.5` per variant, so an unreadable palette is a freeze rejection, never a shipped screen.
+- Law: text-bearing role pairs assert their WCAG floor at freeze — `Legible` folds `GlyphPrimary` against a ground-role seq (`Canvas`, `Panel`) gating `Contrast >= 4.5` per variant, so an unreadable palette is a freeze rejection, never a shipped screen, and a new text-bearing ground is one seq entry.
 - Law: the swap is the one theme mutation — `ThemeSeam.OnHostThemeChanged` swaps then rebroadcasts; a consumer holding a resolved `PerceptualColor` across swaps holds stale paint, so style handlers and scene builders resolve at application time.
 - Growth: a new role is one row plus its two seed cells — the freeze gate breaks construction until both land; a third variant (high-contrast) is one `ThemeVariant` row widening the same grid.
 
@@ -212,9 +204,7 @@ public sealed class ThemeCatalog {
         HashMap<PaletteRole, PerceptualColor> next = Palette(grid: grid, variant: variant);
         ResolvedTheme prior = current.Value;
         ResolvedTheme published = current.Swap(held => new ResolvedTheme(Generation: held.Generation + 1, Variant: variant, Cells: next));
-        Seq<PaletteRole> changed = toSeq(PaletteRole.Items).Filter(role =>
-            prior.Cells.Find(role).Map(was => !was.Equals(next.Find(role).IfNone(was))).IfNone(true));
-        return (published.Generation, changed);
+        return (published.Generation, toSeq(PaletteRole.Items).Filter(role => !prior.Cells[role].Equals(next[role])));
     }
 
     private static HashMap<PaletteRole, PerceptualColor> Palette(FrozenDictionary<(int, int), PerceptualColor> grid, ThemeVariant variant) =>
@@ -222,11 +212,11 @@ public sealed class ThemeCatalog {
 
     private static Fin<Unit> Legible(FrozenDictionary<(int, int), PerceptualColor> grid, Op op) =>
         toSeq(ThemeVariant.Items)
-            .TraverseM(variant =>
-                grid[(PaletteRole.GlyphPrimary.Key, variant.Key)].Contrast(other: grid[(PaletteRole.Canvas.Key, variant.Key)]) >= 4.5
-             && grid[(PaletteRole.GlyphPrimary.Key, variant.Key)].Contrast(other: grid[(PaletteRole.Panel.Key, variant.Key)]) >= 4.5
-                    ? Fin.Succ(value: variant)
-                    : Fin.Fail<ThemeVariant>(error: new UiFault.Rejected(Key: op, Field: nameof(PaletteRole.GlyphPrimary), Reason: $"contrast floor breached under {variant}"))).As()
+            .Bind(static variant => Seq(PaletteRole.Canvas, PaletteRole.Panel).Map(ground => (Variant: variant, Ground: ground)))
+            .TraverseM(pair =>
+                grid[(PaletteRole.GlyphPrimary.Key, pair.Variant.Key)].Contrast(other: grid[(pair.Ground.Key, pair.Variant.Key)]) >= 4.5
+                    ? Fin.Succ(value: pair)
+                    : Fin.Fail<(ThemeVariant, PaletteRole)>(error: new UiFault.Rejected(Key: op, Field: nameof(PaletteRole.GlyphPrimary), Reason: $"contrast floor breached over {pair.Ground} under {pair.Variant}"))).As()
             .Map(static _ => unit);
 
     private static ThemeCatalog Boot() =>

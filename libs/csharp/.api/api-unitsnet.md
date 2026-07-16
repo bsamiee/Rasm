@@ -218,14 +218,17 @@ Each row binds one `QuantityInfo.Name` to its `BaseUnit` and physical concern. `
 |  [03]   | `Length.TryParseUnit(string, IFormatProvider?, out LengthUnit)`                             | unit-token parse                  |
 |  [04]   | `Quantity.Parse(IFormatProvider?, Type, string)`                                            | boxed parse                       |
 |  [05]   | `Quantity.TryParse(Type, string, out IQuantity?)`                                           | guarded boxed parse               |
-|  [06]   | `Quantity.From(QuantityValue, Enum)`                                                        | enum-keyed construction           |
-|  [07]   | `Quantity.From(QuantityValue, string quantityName, string unitName)`                        | name-keyed construction           |
-|  [08]   | `Quantity.FromUnitAbbreviation(IFormatProvider?, QuantityValue, string)`                    | abbreviation construction         |
-|  [09]   | `Quantity.TryFromUnitAbbreviation(IFormatProvider?, QuantityValue, string, out IQuantity?)` | guarded abbreviation construction |
-|  [10]   | `Quantity.TryFrom(QuantityValue, Enum?, out IQuantity?)`                                    | guarded enum construction         |
-|  [11]   | `Quantity.FromQuantityInfo(QuantityInfo, QuantityValue)`                                    | metadata construction             |
-|  [12]   | `UnitParser.Default.Parse<TUnit>(string, IFormatProvider?)`                                 | unit-enum parse                   |
-|  [13]   | `UnitParser.Default.TryParse<TUnit>(string?, IFormatProvider?, out TUnit)`                  | guarded unit-enum parse           |
+|  [06]   | `Quantity.TryParse(IFormatProvider?, Type, string, out IQuantity?)`                         | guarded culture-scoped boxed parse |
+|  [07]   | `Quantity.From(QuantityValue, Enum)`                                                        | enum-keyed construction           |
+|  [08]   | `Quantity.From(QuantityValue, string quantityName, string unitName)`                        | name-keyed construction           |
+|  [09]   | `Quantity.FromUnitAbbreviation(IFormatProvider?, QuantityValue, string)`                    | abbreviation construction         |
+|  [10]   | `Quantity.TryFromUnitAbbreviation(IFormatProvider?, QuantityValue, string, out IQuantity?)` | guarded abbreviation construction |
+|  [11]   | `Quantity.TryFrom(QuantityValue, Enum?, out IQuantity?)`                                    | guarded enum construction         |
+|  [12]   | `Quantity.TryFrom(double, Enum, out IQuantity?)`                                            | guarded double construction       |
+|  [13]   | `Quantity.FromQuantityInfo(QuantityInfo, QuantityValue)`                                    | metadata construction             |
+|  [14]   | `UnitParser.Default.Parse<TUnit>(string, IFormatProvider?)`                                 | unit-enum parse                   |
+|  [15]   | `UnitParser.Default.TryParse<TUnit>(string?, IFormatProvider?, out TUnit)`                  | guarded unit-enum parse           |
+|  [16]   | `UnitParser.Default.TryParse(string?, Type, IFormatProvider?, out Enum?)`                   | guarded runtime-type unit parse   |
 
 [ENTRYPOINT_SCOPE]: conversion, aggregation, metadata, and setup
 - rail: units

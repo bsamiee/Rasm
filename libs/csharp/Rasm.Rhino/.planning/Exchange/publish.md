@@ -1,6 +1,6 @@
 # [RASM_RHINO_PUBLISH]
 
-The publication pipeline (`Rasm.Rhino.Exchange`). One `PageFrame` owns capture intent, one `PageSource` resolves the ordered captured-or-blank page stream, and one `PublishTarget` selects PDF composition, printer spooling, raster landing, or SVG landing. Settings-driven targets derive `CapturePlan` values and pair each rendered program with a `CaptureRequest`; alpha raster derives `TransparentCaptureSpec`; PDF stages each plan through `PreparedCapture.Use` inside the capture lease; and printer publication sends the whole plan sequence through the printer `CaptureSink` on the same `Captures.Run` rail. Every file target writes a same-directory temporary artifact, verifies its content key, atomically replaces the settled destination, and emits typed target evidence from that committed artifact.
+Publication pipeline (`Rasm.Rhino.Exchange`). One `PageFrame` owns capture intent, one `PageSource` resolves the ordered captured-or-blank page stream, and one `PublishTarget` selects PDF composition, printer spooling, raster landing, or SVG landing. Settings-driven targets derive `CapturePlan` values and pair each rendered program with a `CaptureRequest`; alpha raster derives `TransparentCaptureSpec`; PDF stages each plan through `PreparedCapture.Use` inside the capture lease; and printer publication sends the whole plan sequence through the printer `CaptureSink` on the same `Captures.Run` rail. Every file target writes a same-directory temporary artifact, verifies its content key, atomically replaces the settled destination, and emits typed target evidence from that committed artifact.
 
 ## [01]-[INDEX]
 
@@ -11,9 +11,9 @@ The publication pipeline (`Rasm.Rhino.Exchange`). One `PageFrame` owns capture i
 
 ## [02]-[RASTER_ROWS]
 
-- Owner: `TiffCompression` `[SmartEnum<int>]` — the TIFF compression vocabulary carrying each row's `System.Drawing` encoder value. `RasterCodec` `[SmartEnum<int>]` — the pixel-encoder rows: image format, alpha capability, and a `[UseDelegateFromConstructor]` parameter projection that mints the encoder parameter list from the policy, so JPEG quality and TIFF compression are row facts, never call-site branches. `RasterPolicy` — the encoding policy record; `Rasters.Save` — the one bitmap-save fold locating the codec's `ImageCodecInfo` by format id and writing with the row's parameters.
+- Owner: `TiffCompression` `[SmartEnum<int>]` — the TIFF compression vocabulary carrying each row's `System.Drawing` encoder value. `RasterCodec` `[SmartEnum<int>]` — the pixel-encoder rows: image format, alpha capability, the owning `formats.md` raster `FileCodec` row as the `Extension` column, and a `[UseDelegateFromConstructor]` parameter projection that mints the encoder parameter list from the policy, so JPEG quality, TIFF compression, and the artifact extension are row facts, never call-site branches. `RasterPolicy` — the encoding policy record; `Rasters.Save` — the one bitmap-save fold locating the codec's `ImageCodecInfo` by format id and writing with the row's parameters.
 - Law: an alpha-bearing capture saved through a non-alpha row flattens silently at the host encoder; the policy's `RequireAlpha` gate refuses that combination at admission so transparency loss is a typed fault, not a visual surprise.
-- Law: the raster codec rows and the `formats.md` raster capability rows share keys — the publish target validates its `FileCodec` raster row against this encoder vocabulary once at request admission, so an extension/encoder mismatch cannot survive to egress.
+- Law: the artifact extension derives from the encoder row's `Extension` column, so an extension/encoder mismatch is unrepresentable and a dispatch re-mapping encoder rows onto codec rows beside the column is the deleted form.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -41,17 +41,18 @@ public sealed partial class TiffCompression {
 
 [SmartEnum<int>]
 public sealed partial class RasterCodec {
-    public static readonly RasterCodec Png = new(key: 0, image: ImageFormat.Png, alpha: true,
+    public static readonly RasterCodec Png = new(key: 0, image: ImageFormat.Png, alpha: true, extension: FileCodec.Png,
         parameters: static policy => Seq<(Encoder, long)>());
-    public static readonly RasterCodec Jpeg = new(key: 1, image: ImageFormat.Jpeg, alpha: false,
+    public static readonly RasterCodec Jpeg = new(key: 1, image: ImageFormat.Jpeg, alpha: false, extension: FileCodec.Jpeg,
         parameters: static policy => Seq((Encoder.Quality, (long)policy.JpegQuality.Value)));
-    public static readonly RasterCodec Tiff = new(key: 2, image: ImageFormat.Tiff, alpha: true,
+    public static readonly RasterCodec Tiff = new(key: 2, image: ImageFormat.Tiff, alpha: true, extension: FileCodec.Tiff,
         parameters: static policy => policy.Compression.Value.Map(static value => Seq((Encoder.Compression, value))).IfNone(Seq<(Encoder, long)>()));
-    public static readonly RasterCodec Bmp = new(key: 3, image: ImageFormat.Bmp, alpha: false,
+    public static readonly RasterCodec Bmp = new(key: 3, image: ImageFormat.Bmp, alpha: false, extension: FileCodec.Bmp,
         parameters: static policy => Seq<(Encoder, long)>());
 
     public ImageFormat Image { get; }
     public bool Alpha { get; }
+    public FileCodec Extension { get; }
 
     [UseDelegateFromConstructor]
     internal partial Seq<(Encoder Key, long Value)> Parameters(RasterPolicy policy);
@@ -229,7 +230,6 @@ public sealed record PageFrame {
         Op? key = null) {
         Op op = key.OrDefault();
         return from _dpi in CaptureDpi.Of(value: dpi, key: op)
-               from _pixels in pixels.Map(extent => guard(extent.IsValid, op.InvalidInput()).ToFin()).IfNone(Fin.Succ(value: unit))
                select new PageFrame(
                    dpi: dpi, pixels: pixels, area: area, scale: scale, layout: layout, decor: decor, facade: facade);
     }
@@ -244,17 +244,16 @@ public sealed record PageFrame {
         select spec;
 }
 
-public abstract record PublishPage {
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+internal abstract partial record PublishPage {
     private PublishPage() { }
 
     internal sealed record CapturedCase(ViewportTarget Target, CaptureSubject Subject, StampScope Stamp) : PublishPage;
     internal sealed record BlankCase(Size2i Extent, StampScope Stamp) : PublishPage;
 
-    internal StampScope Evidence => this switch {
-        CapturedCase captured => captured.Stamp,
-        BlankCase blank => blank.Stamp,
-        _ => throw new System.Diagnostics.UnreachableException(),
-    };
+    internal StampScope Evidence => Switch(
+        capturedCase: static page => page.Stamp,
+        blankCase: static page => page.Stamp);
 }
 
 // --- [TYPES] --------------------------------------------------------------------------------
@@ -353,10 +352,10 @@ public abstract partial record PublishTarget {
 
 - Owner: `PdfPolicy` — optional-content grouping, page marks, final `PreWrite` marks, and custom printed-page definitions. `PublishTargetKind` and `PageEvidence` — typed target proof carrying the page scope, committed artifact path and content key, or printer copy count. `PublishReceipt` — ordered page evidence plus issue rows. `Publishing.Run` — one source resolution followed by one target dispatch.
 - Entry: `Publishing.Run(DocumentSession, PublishRequest, Op?) : Fin<PublishReceipt>` — page resolution proves `SessionNeed.Read` plus `SessionNeed.Export` once, and each page capture proves `SessionNeed.Redraw` through the capture rail's own demand.
-- Law: the PDF arm owns `FilePdf.Create`, host-minted page indices, page marks, custom pages, final marks, and `Write`. A captured page derives one `CapturePlan`, enters `Captures.Stage`, and consumes the sole prepared settings row through `PreparedCapture.Use` before that lease closes; blank pages use only the dots overload.
+- Law: the PDF arm owns `FilePdf.Create`, host-minted page indices, page marks, custom pages, final marks, and `Write`. `LayersAsOptionalContentGroups` is document-level state on the `FilePdf` instance — the policy value is hoisted once after `Create`, before any page mints, because a per-page set inside the page fold leaves only the last write effective and silently strips earlier pages' layer groups. A captured page derives one `CapturePlan`, enters `Captures.Stage`, and consumes the sole prepared settings row through `PreparedCapture.Use` before that lease closes; blank pages use only the dots overload.
 - Law: printer publication derives the complete `Seq<CapturePlan>`, admits one printer `CaptureSink`, and sends the program through one `CaptureRequest`/`Captures.Run` call; the returned dispatched-page count must equal the plan count. Raster and SVG pair each plan with the matching scalar sink through the same request rail; alpha raster uses only `TransparentCaptureSpec`.
-- Law: every file delivery writes and verifies a same-directory temporary artifact before one overwrite move commits the settled destination. A failed encoder, PDF write, SVG write, empty artifact, or move leaves no new partial destination and emits no landed evidence.
-- Boundary: the `FilePdf.PreWrite` handler detaches on every exit, captures final-mark failure into the rail, and observes host-minted page indices. The custom-page roster is applied on every write, including the empty roster, so global host state cannot bleed between publications.
+- Law: every file delivery stages through `OutputPolicy.Land` — the operations rail's one atomic staging kernel — so temporary write, nonempty verification, byte-identical commit, and content keying are the folder's single spelling. A failed encoder, PDF write, SVG write, empty artifact, or move leaves no new partial destination and emits no landed evidence.
+- Boundary: the `FilePdf.PreWrite` handler detaches on every exit, captures final-mark failure into the rail, and observes host-minted page indices. `SetCustomPages` REPLACES the host-process-global custom-page-size list, so the roster is written only when the policy declares one and the prior host roster is restored on every exit — publication never clobbers page sizes the user registered.
 
 ```csharp signature
 // --- [MODELS] -------------------------------------------------------------------------------
@@ -443,19 +442,17 @@ public static class Publishing {
                    pdfCase: static (ctx, target) => Pdf(session: ctx.Session, request: ctx.Request, target: target, pages: ctx.Pages, op: ctx.Op),
                    printerCase: static (ctx, target) => Printer(
                        session: ctx.Session, frame: ctx.Request.Frame, target: target, pages: ctx.Pages, op: ctx.Op),
-                   rasterCase: static (ctx, target) => target.Policy.RequireAlpha
-                       ? TransparentFanned(
-                           session: ctx.Session, frame: ctx.Request.Frame, pages: ctx.Pages, op: ctx.Op,
-                           target: target.Target, output: target.Output, policy: target.Policy)
-                       : Fanned(
-                           session: ctx.Session, frame: ctx.Request.Frame, pages: ctx.Pages, op: ctx.Op,
-                           sink: CaptureSink.Bitmap, targetKind: PublishTargetKind.Raster,
-                           artifact: (page, capture, op2) => Raster(
-                               capture: capture, page: page, target: target.Target, output: target.Output,
-                               policy: target.Policy, op: op2)),
+                   rasterCase: static (ctx, target) => Fanned(
+                       pages: ctx.Pages, kind: PublishTargetKind.Raster, op: ctx.Op,
+                       capture: target.Policy.RequireAlpha
+                           ? page => Transparent(session: ctx.Session, frame: ctx.Request.Frame, page: page, op: ctx.Op)
+                           : page => Planned(session: ctx.Session, frame: ctx.Request.Frame, sink: CaptureSink.Bitmap, page: page, op: ctx.Op),
+                       artifact: (page, capture, op2) => Raster(
+                           capture: capture, page: page, target: target.Target, output: target.Output,
+                           policy: target.Policy, op: op2)),
                    svgCase: static (ctx, target) => Fanned(
-                       session: ctx.Session, frame: ctx.Request.Frame, pages: ctx.Pages, op: ctx.Op,
-                       sink: CaptureSink.Svg, targetKind: PublishTargetKind.Svg,
+                       pages: ctx.Pages, kind: PublishTargetKind.Svg, op: ctx.Op,
+                       capture: page => Planned(session: ctx.Session, frame: ctx.Request.Frame, sink: CaptureSink.Svg, page: page, op: ctx.Op),
                        artifact: (page, capture, op2) => Vector(capture: capture, page: page, target: target.Target, output: target.Output, op: op2)))
                select receipt;
     }
@@ -463,12 +460,6 @@ public static class Publishing {
     private sealed record ResolvedPages(Seq<PublishPage> Pages) : IDetachedDocumentResult;
 
     private sealed record LandedArtifact(DocumentPath Path, UInt128 Key, Seq<ExchangeEvidence> Evidence);
-
-    private sealed record AtomicArtifact(UInt128 Key, Seq<ExchangeEvidence> Evidence);
-
-    private static FileCodec RasterExtension(RasterPolicy policy) => policy.Codec.Switch(
-        png: static () => FileCodec.Png, jpeg: static () => FileCodec.Jpeg,
-        tiff: static () => FileCodec.Tiff, bmp: static () => FileCodec.Bmp);
 
     private static Fin<PublishReceipt> Printer(
         DocumentSession session,
@@ -491,56 +482,40 @@ public static class Publishing {
             Evidence: Seq<ExchangeEvidence>(
                 new ExchangeEvidence.NativeCase(
                     Surface: nameof(ViewCapture.SendToPrinter),
+                    Succeeded: true,
                     Detail: $"{printed} prepared pages dispatched with {target.Copies.Value} copies."),
                 new ExchangeEvidence.HostDefaultsCase(
                     Surface: nameof(ViewCapture.SendToPrinter),
                     Detail: "The selected printer driver owns device capabilities outside ViewCaptureSettings.")));
 
     private static Fin<PublishReceipt> Fanned(
-        DocumentSession session,
-        PageFrame frame,
         Seq<PublishPage> pages,
-        CaptureSink sink,
-        PublishTargetKind targetKind,
-        Op op,
-        Func<PublishPage.CapturedCase, CaptureArtifact, Op, Fin<LandedArtifact>> artifact) =>
+        PublishTargetKind kind,
+        Func<PublishPage.CapturedCase, Fin<CaptureArtifact>> capture,
+        Func<PublishPage.CapturedCase, CaptureArtifact, Op, Fin<LandedArtifact>> artifact,
+        Op op) =>
         from landed in pages.TraverseM(page =>
             from capturedPage in Captured(page: page, op: op)
-            from plan in frame.Plan(subject: capturedPage.Subject, key: op)
-            from request in CaptureRequest.Of(sink: sink, plans: [plan], key: op)
-            from capture in Captures.Run(session: session, request: request, key: op)
-            from output in artifact(capturedPage, capture, op)
-            select (Page: capturedPage, Artifact: output)).As()
+            from delivered in capture(arg: capturedPage).Bind(art => artifact(capturedPage, art, op))
+            select (Page: capturedPage, Artifact: delivered)).As()
         select new PublishReceipt(
             Pages: landed.Map(row => PageEvidence.Landed(
                 scope: row.Page.Stamp,
-                target: targetKind,
+                target: kind,
                 artifact: row.Artifact.Path,
                 contentKey: row.Artifact.Key)),
             Evidence: landed.Bind(static row => row.Artifact.Evidence));
 
-    private static Fin<PublishReceipt> TransparentFanned(
-        DocumentSession session,
-        PageFrame frame,
-        Seq<PublishPage> pages,
-        DocumentPath target,
-        OutputPolicy output,
-        RasterPolicy policy,
-        Op op) =>
-        from landed in pages.TraverseM(page =>
-            from capturedPage in Captured(page: page, op: op)
-            from spec in frame.Transparent(target: capturedPage.Target, key: op)
-            from capture in Captures.Run(session: session, spec: spec, key: op)
-            from artifact in Raster(
-                capture: capture, page: capturedPage, target: target, output: output, policy: policy, op: op)
-            select (Page: capturedPage, Artifact: artifact)).As()
-        select new PublishReceipt(
-            Pages: landed.Map(row => PageEvidence.Landed(
-                scope: row.Page.Stamp,
-                target: PublishTargetKind.Raster,
-                artifact: row.Artifact.Path,
-                contentKey: row.Artifact.Key)),
-            Evidence: landed.Bind(static row => row.Artifact.Evidence));
+    private static Fin<CaptureArtifact> Planned(DocumentSession session, PageFrame frame, CaptureSink sink, PublishPage.CapturedCase page, Op op) =>
+        from plan in frame.Plan(subject: page.Subject, key: op)
+        from request in CaptureRequest.Of(sink: sink, plans: [plan], key: op)
+        from capture in Captures.Run(session: session, request: request, key: op)
+        select capture;
+
+    private static Fin<CaptureArtifact> Transparent(DocumentSession session, PageFrame frame, PublishPage.CapturedCase page, Op op) =>
+        from spec in frame.Transparent(target: page.Target, key: op)
+        from capture in Captures.Run(session: session, spec: spec, key: op)
+        select capture;
 
     private static Fin<PublishPage.CapturedCase> Captured(PublishPage page, Op op) =>
         page is PublishPage.CapturedCase captured
@@ -554,16 +529,15 @@ public static class Publishing {
         OutputPolicy output,
         RasterPolicy policy,
         Op op) => capture switch {
-            CaptureArtifact.RasterCase raster =>
-                from settled in Settle(target: target, scope: page.Stamp, output: output, codec: RasterExtension(policy), op: op)
-                from atomic in raster.Pixels.Use(
-                    borrow: bitmap => Atomic(
-                        path: settled,
-                        surface: nameof(Rasters.Save),
-                        write: temporary => Rasters.Save(bitmap: bitmap, policy: policy, path: temporary, key: op),
-                        op: op),
-                    key: op)
-                select new LandedArtifact(Path: settled, Key: atomic.Key, Evidence: atomic.Evidence),
+            CaptureArtifact.RasterCase raster => Deliver(
+                target: target,
+                scope: page.Stamp,
+                output: output,
+                codec: policy.Codec.Extension,
+                surface: nameof(Rasters.Save),
+                write: temporary => raster.Pixels.Use(bitmap =>
+                    Rasters.Save(bitmap: bitmap, policy: policy, path: temporary, key: op)),
+                op: op),
             _ => Fin.Fail<LandedArtifact>(error: op.InvalidResult()),
         };
 
@@ -573,30 +547,48 @@ public static class Publishing {
         DocumentPath target,
         OutputPolicy output,
         Op op) => capture switch {
-            CaptureArtifact.VectorCase vector =>
-                from settled in Settle(target: target, scope: page.Stamp, output: output, codec: FileCodec.Svg, op: op)
-                from atomic in Atomic(
-                    path: settled,
-                    surface: nameof(System.Xml.XmlDocument.Save),
-                    write: temporary => op.Catch(() => {
-                        vector.Svg.Save(filename: temporary);
-                        return Fin.Succ(value: unit);
-                    }),
-                    op: op)
-                select new LandedArtifact(Path: settled, Key: atomic.Key, Evidence: atomic.Evidence),
+            CaptureArtifact.VectorCase vector => Deliver(
+                target: target,
+                scope: page.Stamp,
+                output: output,
+                codec: FileCodec.Svg,
+                surface: nameof(System.Xml.XmlDocument.Save),
+                write: temporary => op.Catch(() => {
+                    vector.Svg.Save(filename: temporary);
+                    return Fin.Succ(value: unit);
+                }),
+                op: op),
             _ => Fin.Fail<LandedArtifact>(error: op.InvalidResult()),
         };
 
-    private static Fin<DocumentPath> Settle(
+    private static Fin<LandedArtifact> Deliver(
         DocumentPath target,
         StampScope scope,
         OutputPolicy output,
         FileCodec codec,
+        string surface,
+        Func<string, Fin<Unit>> write,
         Op op) =>
         from named in op.Catch(() => Fin.Succ(value: DocumentPath.Create(value: StampText.Render(
             template: PageStem(target: target, count: scope.PageCount), scope: scope))))
-        from settled in output.Resolve(target: named, codec: codec, key: op)
-        select settled;
+        from landed in output.Land(target: named, codec: codec, stage: write, key: op)
+        select new LandedArtifact(
+            Path: landed.Target,
+            Key: landed.ContentKey,
+            Evidence: LandedEvidence(surface: surface, target: landed.Target));
+
+    private static Seq<ExchangeEvidence> LandedEvidence(string surface, DocumentPath target) => Seq<ExchangeEvidence>(
+        new ExchangeEvidence.NativeCase(
+            Surface: surface,
+            Succeeded: true,
+            Detail: "The temporary artifact was verified nonempty and byte-identical before commit.",
+            Target: Some(target)),
+        new ExchangeEvidence.MutationCase(
+            Surface: nameof(OutputPolicy.Land),
+            Attempted: true,
+            Committed: true,
+            MayRemain: false,
+            UndoRecord: None));
 
     private static string PageStem(DocumentPath target, int count) =>
         count <= 1
@@ -605,106 +597,62 @@ public static class Publishing {
                 System.IO.Path.GetDirectoryName(target.Value) ?? string.Empty,
                 $"{System.IO.Path.GetFileNameWithoutExtension(target.Value)}-%pagenumber%{System.IO.Path.GetExtension(target.Value)}");
 
-    private static Fin<AtomicArtifact> Atomic(
-        DocumentPath path,
-        string surface,
-        Func<string, Fin<Unit>> write,
-        Op op) => op.Catch(() => {
-            string directory = System.IO.Path.GetDirectoryName(path.Value) ?? string.Empty;
-            string temporary = System.IO.Path.Join(
-                directory,
-                $".{System.IO.Path.GetFileName(path.Value)}.{Guid.NewGuid():N}.partial");
-            try {
-                return from _written in write(temporary)
-                       from keyed in Verified(path: temporary, op: op)
-                       from _committed in op.Catch(() => Fin.Succ(value: Op.Side(() =>
-                           System.IO.File.Move(sourceFileName: temporary, destFileName: path.Value, overwrite: true))))
-                       select new AtomicArtifact(
-                           Key: keyed,
-                           Evidence: Seq<ExchangeEvidence>(
-                               new ExchangeEvidence.NativeCase(
-                                   Surface: surface,
-                                   Detail: "The temporary artifact was nonempty before commit.",
-                                   Target: Some(path)),
-                               new ExchangeEvidence.MutationCase(
-                                   Surface: nameof(Atomic),
-                                   Attempted: true,
-                                   Committed: true,
-                                   MayRemain: false,
-                                   UndoRecord: None)));
-            } finally {
-                if (System.IO.File.Exists(temporary)) System.IO.File.Delete(temporary);
-            }
-        });
-
-    private static Fin<UInt128> Verified(string path, Op op) => op.Catch(() => {
-        byte[] bytes = System.IO.File.ReadAllBytes(path: path);
-        return guard(bytes.Length > 0, op.InvalidResult()).ToFin()
-            .Map(_ => ContentHash.Of(canonicalBytes: bytes));
-    });
-
     private static Fin<PublishReceipt> Pdf(
         DocumentSession session, PublishRequest request, PublishTarget.PdfCase target, Seq<PublishPage> pages, Op op) =>
-        from settled in target.Output.Resolve(target: target.Target, codec: FileCodec.Pdf, key: op)
         from pdf in op.Catch(() => Optional(FilePdf.Create()).ToFin(Fail: op.InvalidResult()))
+        from _grouping in op.Catch(() => {
+            pdf.LayersAsOptionalContentGroups = target.Policy.LayersAsOptionalContent;
+            return Fin.Succ(value: unit);
+        })
         from minted in pages.TraverseM(page =>
-            from index in AddPage(
-                session: session, frame: request.Frame, target: target, pdf: pdf, page: page, op: op)
+            from index in AddPage(session: session, frame: request.Frame, pdf: pdf, page: page, op: op)
             from _marks in PdfMark.DrawAll(
                 marks: target.Policy.PageMarks, pdf: pdf, page: index, scope: page.Evidence, op: op)
             select (Page: index, Scope: page.Evidence)).As()
-        from atomic in Atomic(
-            path: settled,
-            surface: nameof(FilePdf.Write),
-            write: temporary => Flush(pdf: pdf, target: target, path: temporary, minted: minted, op: op),
-            op: op)
+        from landed in target.Output.Land(
+            target: target.Target,
+            codec: FileCodec.Pdf,
+            stage: temporary => Flush(pdf: pdf, target: target, path: temporary, minted: minted, op: op),
+            key: op)
         select new PublishReceipt(
             Pages: minted.Map(row => PageEvidence.Landed(
                 scope: row.Scope,
                 target: PublishTargetKind.Pdf,
-                artifact: settled,
-                contentKey: atomic.Key)),
-            Evidence: atomic.Evidence);
+                artifact: landed.Target,
+                contentKey: landed.ContentKey)),
+            Evidence: LandedEvidence(surface: nameof(FilePdf.Write), target: landed.Target));
 
     private static Fin<int> AddPage(
         DocumentSession session,
         PageFrame frame,
-        PublishTarget.PdfCase target,
         FilePdf pdf,
         PublishPage page,
-        Op op) => page switch {
-            PublishPage.BlankCase blank => op.Catch(() => {
-                int minted = pdf.AddPage(
+        Op op) => page.Switch(
+            state: (Session: session, Frame: frame, Pdf: pdf, Op: op),
+            blankCase: static (ctx, blank) => ctx.Op.Catch(() => {
+                int minted = ctx.Pdf.AddPage(
                     widthInDots: blank.Extent.Width,
                     heightInDots: blank.Extent.Height,
-                    dotsPerInch: checked((int)frame.Dpi));
-                return guard(minted >= 0, op.InvalidResult()).ToFin().Map(_ => minted);
+                    dotsPerInch: checked((int)ctx.Frame.Dpi));
+                return guard(minted >= 0, ctx.Op.InvalidResult()).ToFin().Map(_ => minted);
             }),
-            PublishPage.CapturedCase captured =>
-                from plan in frame.Plan(subject: captured.Subject, key: op)
+            capturedCase: static (ctx, captured) =>
+                from plan in ctx.Frame.Plan(subject: captured.Subject, key: ctx.Op)
                 from minted in Captures.Stage(
-                    session: session,
+                    session: ctx.Session,
                     plans: [plan],
                     consume: prepared => prepared.Use(
                         body: settings =>
-                            from _arity in guard(settings.Count == 1, op.InvalidResult()).ToFin()
-                            from row in settings.Head.ToFin(Fail: op.MissingContext())
-                            from added in op.Catch(() => {
-                                bool prior = pdf.LayersAsOptionalContentGroups;
-                                try {
-                                    pdf.LayersAsOptionalContentGroups = target.Policy.LayersAsOptionalContent;
-                                    int pageIndex = pdf.AddPage(settings: row);
-                                    return guard(pageIndex >= 0, op.InvalidResult()).ToFin().Map(_ => pageIndex);
-                                } finally {
-                                    pdf.LayersAsOptionalContentGroups = prior;
-                                }
+                            from _arity in guard(settings.Count == 1, ctx.Op.InvalidResult()).ToFin()
+                            from row in settings.Head.ToFin(Fail: ctx.Op.MissingContext())
+                            from added in ctx.Op.Catch(() => {
+                                int pageIndex = ctx.Pdf.AddPage(settings: row);
+                                return guard(pageIndex >= 0, ctx.Op.InvalidResult()).ToFin().Map(_ => pageIndex);
                             })
                             select added,
-                        key: op),
-                    key: op)
-                select minted,
-            _ => Fin.Fail<int>(error: op.InvalidInput()),
-        };
+                        key: ctx.Op),
+                    key: ctx.Op)
+                select minted);
 
     private static Fin<Unit> Flush(
         FilePdf pdf,
@@ -718,13 +666,17 @@ public static class Publishing {
                     marks: target.Policy.FinalMarks, pdf: pdf, page: row.Page, scope: row.Scope, op: op))
                 .As()
                 .Map(static _ => unit);
+            Option<PrintedPageDefinition[]> prior = target.Policy.CustomPages.IsEmpty
+                ? Option<PrintedPageDefinition[]>.None
+                : Some(FilePdf.GetCustomPages());
             FilePdf.PreWrite += stamp;
             try {
-                FilePdf.SetCustomPages(pages: target.Policy.CustomPages.AsIterable());
+                _ = prior.Iter(_ => FilePdf.SetCustomPages(pages: target.Policy.CustomPages.AsIterable()));
                 pdf.Write(filename: path);
                 return stamped ?? Fin.Fail<Unit>(error: op.InvalidResult());
             } finally {
                 FilePdf.PreWrite -= stamp;
+                _ = prior.Iter(roster => FilePdf.SetCustomPages(pages: roster));
             }
         });
 }

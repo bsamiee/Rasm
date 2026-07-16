@@ -1,6 +1,6 @@
 # [RASM_RHINO_SHEETS]
 
-The sheet transaction family (`Rasm.Rhino.Exchange`). One `SheetOp` family carries page selection, detail selection, desired state, audit evidence, preview facts, and committed receipts. `SheetSelect` and `DetailSelect` resolve live rows inside the consuming demand; `DetailState` folds every present field through one writer-to-commit correspondence; `SheetScale` and `SheetSize` preserve native `LengthUnit` identity and convert through the kernel `Context`; and `Sheets.Commit` seals every mutating program through the shared `UndoBracket`. Page groups, per-viewport layer veils, clipping participation, named detail views, deterministic arrangement, collision-safe numbering, and scale audit share that rail. Camera framing remains the viewport owner, while page-unit regime changes remain the document-session owner.
+Sheet transaction family (`Rasm.Rhino.Exchange`). One `SheetOp` family carries page selection, detail selection, desired state, audit evidence, preview facts, and committed receipts. `SheetSelect` and `DetailSelect` resolve live rows inside the consuming demand; `DetailState` folds every present field through one writer-to-commit correspondence; `SheetScale` and `SheetSize` preserve native `LengthUnit` identity and convert through the kernel `Context`; and `Sheets.Commit` seals every mutating program through the shared `UndoBracket`. Page groups, per-viewport layer veils, clipping participation, named detail views, deterministic arrangement, collision-safe numbering, and scale audit share that rail. Camera framing remains the viewport owner, while page-unit regime changes remain the document-session owner.
 
 ## [01]-[INDEX]
 
@@ -300,7 +300,7 @@ public abstract partial record SheetScale {
 ## [04]-[DETAIL_STATE]
 
 - Owner: `DetailSpec` admits detail creation before activating the owning page. `DetailAnchor` supplies the nine `UnitInterval` placement factors, and `DetailArrangement` computes page-space frames. `DetailState` validates every present field, applies each writer, derives geometry-versus-viewport commit evidence, and commits each native owner at most once before activation.
-- Law: frame changes transform `detail.Geometry` from its current bounding frame into the target frame, then contribute `DetailCommit.OfGeometry`. The detail object identity remains stable; a document-table transform cannot replace the object behind the retained detail handle.
+- Law: frame changes transform `detail.Geometry` from its current bounding frame into the target frame, then contribute `DetailCommit.OfGeometry`. Detail object identity remains stable; a document-table transform cannot replace the object behind the retained detail handle.
 - Law: layout arithmetic is kernel-composed — anchor factors are `UnitInterval` values, grid columns derive from `Dimension` counts via ceiling division, and page-space frames stay `double` page units validated finite and positive before any transform mints.
 - Boundary: camera pose inside a detail is the viewport camera rail addressed at `ViewportTarget.DetailCase`; `DetailState` owns scale, locks, naming, display mode, veils, and clips — the split keeps one camera algebra in the package.
 
@@ -487,33 +487,32 @@ public sealed record DetailState(
                select unit;
     }
 
-    private static readonly Seq<(
+    private sealed record WriterRow(
         Func<DetailState, bool> Present,
         Func<DetailState, RhinoDoc, RhinoPageView, DetailViewObject, Op, Fin<Unit>> Write,
-        Func<DetailState, DetailCommit> Commit)> Correspondence = Seq<(
-            Func<DetailState, bool>,
-            Func<DetailState, RhinoDoc, RhinoPageView, DetailViewObject, Op, Fin<Unit>>,
-            Func<DetailState, DetailCommit>)>(
-        (static state => state.Name.IsSome,
+        Func<DetailState, DetailCommit> Commit);
+
+    private static readonly Seq<WriterRow> Correspondence = Seq(
+        new WriterRow(static state => state.Name.IsSome,
          static (state, document, _, detail, op) => op.Catch(() => {
              ObjectAttributes attributes = detail.Attributes.Duplicate();
              attributes.Name = state.Name.IfNone(noneValue: string.Empty);
              return op.Confirm(success: document.Objects.ModifyAttributes(objectId: detail.Id, newAttributes: attributes, quiet: true));
          }),
          static _ => DetailCommit.Neither),
-        (static state => state.LockProjection.IsSome,
+        new WriterRow(static state => state.LockProjection.IsSome,
          static (state, _, _, detail, op) => op.Catch(() => {
              detail.DetailGeometry.IsProjectionLocked = state.LockProjection.IfNone(noneValue: false);
              return Fin.Succ(value: unit);
          }),
          static _ => DetailCommit.OfGeometry),
-        (static state => state.LockCamera.IsSome,
+        new WriterRow(static state => state.LockCamera.IsSome,
          static (state, _, _, detail, op) => op.Catch(() => {
              detail.Viewport.LockedProjection = state.LockCamera.IfNone(noneValue: false);
              return Fin.Succ(value: unit);
          }),
          static _ => DetailCommit.OfViewport),
-        (static state => state.DisplayMode.IsSome,
+        new WriterRow(static state => state.DisplayMode.IsSome,
          static (state, _, _, detail, op) =>
              state.DisplayMode
                  .Bind(static id => Optional(Rhino.Display.DisplayModeDescription.GetDisplayMode(id: id)))
@@ -523,16 +522,16 @@ public sealed record DetailState(
                      return Fin.Succ(value: unit);
                  })),
          static _ => DetailCommit.OfViewport),
-        (static state => state.Projection.IsSome,
+        new WriterRow(static state => state.Projection.IsSome,
          static (state, _, _, detail, op) => op.Confirm(success: detail.Viewport.SetProjection(
              projection: state.Projection.IfNone(noneValue: Rhino.Display.DefinedViewportProjection.Top),
              viewName: detail.Viewport.Name, updateConstructionPlane: false)),
          static _ => DetailCommit.OfViewport),
-        (static state => state.Scale.IsSome,
+        new WriterRow(static state => state.Scale.IsSome,
          static (state, document, _, detail, op) =>
              state.Scale.ToFin(Fail: op.InvalidInput()).Bind(scale => scale.Apply(detail: detail, document: document, op: op)),
          static _ => DetailCommit.OfGeometry),
-        (static state => state.Frame.IsSome,
+        new WriterRow(static state => state.Frame.IsSome,
          static (state, _, _, detail, op) =>
              from frame in state.Frame.ToFin(Fail: op.InvalidInput())
              from _valid in guard(frame.IsValid, op.InvalidInput()).ToFin()
@@ -549,7 +548,7 @@ public sealed record DetailState(
              })
              select unit,
          static _ => DetailCommit.OfGeometry),
-        (static state => state.NamedView.IsSome,
+        new WriterRow(static state => state.NamedView.IsSome,
          static (state, document, _, detail, op) =>
              state.NamedView.ToFin(Fail: op.InvalidInput()).Bind(named =>
                  op.AcceptText(value: named.Name).Bind(name =>
@@ -557,7 +556,7 @@ public sealed record DetailState(
          static state => state.NamedView
              .Map(static named => named.Mode.ChangesViewport ? DetailCommit.OfViewport : DetailCommit.Neither)
              .IfNone(DetailCommit.Neither)),
-        (static state => !state.Veils.IsEmpty,
+        new WriterRow(static state => !state.Veils.IsEmpty,
          static (state, document, _, detail, op) =>
              state.Veils
                  .Filter(static veil => veil.Applies)
@@ -587,7 +586,7 @@ public sealed record DetailState(
                  .As()
                  .Map(static _ => unit),
          static _ => DetailCommit.Neither),
-        (static state => state.Clip.IsSome,
+        new WriterRow(static state => state.Clip.IsSome,
          static (state, document, _, detail, op) =>
              state.Clip.ToFin(Fail: op.InvalidInput()).Bind(rule => Clips.Apply(rule: rule, document: document, detail: detail, op: op)),
          static _ => DetailCommit.Neither));
@@ -687,8 +686,8 @@ internal static class Clips {
 - Entry: `Sheets.Commit(DocumentSession, SheetOp, Op?) : Fin<SheetReceipt>` and `Sheets.Preview(DocumentSession, SheetOp, Op?) : Fin<SheetPlan>` — mutating cases of the commit demand `Mutate`+`Undo`+`Redraw` and run inside one host undo record bracketed on every exit path with one redraw on the bracket's success, the audit demands `Read`; `AdoptCase` routes through `Tables.Commit` as a recorded transaction so page import stays the Document rail's single undo-recorded row while its receipt folds into the sheet fact stream, and a `BatchCase` carrying an `AdoptCase` refuses at admission because adoption is a session-rail operation that never runs inside the demand-window program.
 - Law: `EnsureCase` applies creation and configuration through the same field fold. `Preview` composes the same size, detail validation, arrangement, numbering-seat, and audit owners as commit without invoking a writer; adoption remains a session-owned import and refuses preview. A mutating `BatchCase` also refuses preview because later selectors depend on prior writes, while audit-only batches remain composable.
 - Law: `AddDetailView` runs inside the active-view bracket — prior active view captured, page activated, and the prior view restored on every exit including failure.
-- Law: ordering is total — `OrderCase` seats the named pages first in given order, retains every unnamed page in current order behind them, and hands the whole roster to the host's own `ReorderPageViews` renumbering; duplicate names refuse at admission.
-- Law: the audit never mutates. Expected scale uses `SheetScale.PageToModel`; live scale uses `DetailView.PageToModelRatio`; custom model and page units remain valid evidence rather than unit drift.
+- Law: ordering is total — `OrderCase` seats the named pages first in given order, retains every unnamed page in current order behind them, and renumbers the whole roster through per-page `PageNumber` rebinds (the host exposes no reorder member on `ViewTable`); the rebind pass verifies the landed roster order as one postcondition because the host cascades renumbering across siblings, and duplicate names refuse at admission.
+- Law: the audit never mutates and its conflicts are independent rows — the ratio verdict (mismatch, non-positive live ratio, perspective carrying a declared scale) and the page-unit drift verdict each emit on their own evidence, never one swallowing the other. Expected scale uses `SheetScale.PageToModel`; live scale uses `DetailView.PageToModelRatio`; custom model and page units remain valid evidence rather than unit drift.
 - Law: every mutating program uses `UndoBracket.Seal`, so a failed page, detail, clip, group, or numbering writer rolls the owned record back. Successful commit and delegated adoption receipts retain every actual undo serial.
 - Boundary: a page-unit regime change is the document session's regime surface; this rail reads `RhinoDoc.PageUnits` as found.
 
@@ -725,7 +724,15 @@ public abstract partial record SheetOp {
     public sealed record CloneCase(SheetSelect Sheets, bool WithGeometry) : SheetOp;
     public sealed record RetireCase(SheetSelect Sheets) : SheetOp;
     public sealed record AdoptCase(DocumentPath Source, Guid SourceViewportId, string Name) : SheetOp;
-    public sealed record OrderCase(Seq<string> Names) : SheetOp;
+    public sealed record OrderCase(Seq<string> Names) : SheetOp {
+        internal Fin<(Seq<string> Names, Seq<RhinoPageView> Pages)> Named(RhinoDoc document, Op op) =>
+            from names in Names.TraverseM(name => op.AcceptText(value: name)).As()
+            from _unique in guard(
+                names.Map(static name => name.ToUpperInvariant()).Distinct().Count == names.Count,
+                op.InvalidInput()).ToFin()
+            from pages in names.TraverseM(name => SheetSelect.Named(name: name).Single(document: document, op: op)).As()
+            select (Names: names, Pages: pages);
+    }
     public sealed record GroupCase(SheetSelect Sheets, string Group, bool Exclusive) : SheetOp;
     public sealed record SpawnCase(SheetSelect Sheet, DetailSpec Spec) : SheetOp;
     public sealed record StateCase(SheetSelect Sheets, DetailSelect Details, DetailState State) : SheetOp;
@@ -734,28 +741,33 @@ public abstract partial record SheetOp {
     public sealed record AuditCase(SheetSelect Sheets, DetailSelect Details, Option<SheetScale> Expected) : SheetOp;
     public sealed record BatchCase(Seq<SheetOp> Program) : SheetOp;
 
-    internal Seq<SessionNeed> Needs() => this switch {
-        AuditCase => Seq(SessionNeed.Read),
-        BatchCase batch => batch.Program.Bind(static inner => inner.Needs()).Distinct(),
-        _ => Seq(SessionNeed.Mutate, SessionNeed.Undo, SessionNeed.Redraw),
-    };
-
-    internal bool Mutates() => this switch {
-        AuditCase => false,
-        BatchCase batch => batch.Program.Exists(static inner => inner.Mutates()),
-        _ => true,
-    };
-
-    internal bool Sessioned() => this switch {
-        AdoptCase => true,
-        BatchCase batch => batch.Program.Exists(static inner => inner.Sessioned()),
-        _ => false,
-    };
+    internal Seq<SessionNeed> Needs() => Profile().Needs;
+    internal bool Mutates() => Profile().Mutates;
+    internal bool Sessioned() => Profile().Sessioned;
 
     internal bool IsValidProgram() => this switch {
         BatchCase batch => !batch.Program.IsEmpty && batch.Program.ForAll(static inner => inner.IsValidProgram()),
         _ => true,
     };
+
+    private (Seq<SessionNeed> Needs, bool Mutates, bool Sessioned) Profile() => Switch<(Seq<SessionNeed>, bool, bool)>(
+        ensureCase: static _ => (Recording, true, false),
+        cloneCase: static _ => (Recording, true, false),
+        retireCase: static _ => (Recording, true, false),
+        adoptCase: static _ => (Recording, true, true),
+        orderCase: static _ => (Recording, true, false),
+        groupCase: static _ => (Recording, true, false),
+        spawnCase: static _ => (Recording, true, false),
+        stateCase: static _ => (Recording, true, false),
+        arrangeCase: static _ => (Recording, true, false),
+        numberCase: static _ => (Recording, true, false),
+        auditCase: static _ => (Seq(SessionNeed.Read), false, false),
+        batchCase: static batch => (
+            batch.Program.Bind(static inner => inner.Needs()).Distinct(),
+            batch.Program.Exists(static inner => inner.Mutates()),
+            batch.Program.Exists(static inner => inner.Sessioned())));
+
+    private static readonly Seq<SessionNeed> Recording = Seq(SessionNeed.Mutate, SessionNeed.Undo, SessionNeed.Redraw);
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------
@@ -815,26 +827,17 @@ public sealed record NumberRule(string Template, Dimension Start) {
         from _names in guard(
             seats.Map(static seat => seat.Name.ToUpperInvariant()).Distinct().Count == seats.Count,
             op.InvalidInput())
-        from _temporaryNames in guard(
-            !seats.Exists(seat => untouched.Exists(page => string.Equals(
-                a: page.PageName,
-                b: seat.TemporaryName,
-                comparisonType: StringComparison.OrdinalIgnoreCase))),
-            op.InvalidInput())
         from _temporaryFinals in guard(
             !seats.Exists(seat => seats.Exists(other => string.Equals(
                 a: seat.Name,
                 b: other.TemporaryName,
                 comparisonType: StringComparison.OrdinalIgnoreCase))),
             op.InvalidInput())
-        from _externalNames in guard(
-            !seats.Exists(seat => untouched.Exists(page => string.Equals(
-                a: page.PageName,
-                b: seat.Name,
-                comparisonType: StringComparison.OrdinalIgnoreCase))),
-            op.InvalidInput())
-        from _externalNumbers in guard(
-            !seats.Exists(seat => untouched.Exists(page => page.PageNumber == seat.PageNumber)),
+        from _untouched in guard(
+            !untouched.Exists(page => seats.Exists(seat =>
+                page.PageNumber == seat.PageNumber
+                || string.Equals(a: page.PageName, b: seat.Name, comparisonType: StringComparison.OrdinalIgnoreCase)
+                || string.Equals(a: page.PageName, b: seat.TemporaryName, comparisonType: StringComparison.OrdinalIgnoreCase))),
             op.InvalidInput())
         select seats;
 }
@@ -932,12 +935,8 @@ public static class Sheets {
                     Conflicts: Seq<ScaleConflict>()),
             adoptCase: static (ctx, _) => Fin.Fail<SheetPlan>(error: ctx.Op.InvalidInput()),
             orderCase: static (ctx, edit) =>
-                from names in edit.Names.TraverseM(name => ctx.Op.AcceptText(value: name)).As()
-                from _unique in guard(
-                    names.Map(static name => name.ToUpperInvariant()).Distinct().Count == names.Count,
-                    ctx.Op.InvalidInput()).ToFin()
-                from _named in names.TraverseM(name => SheetSelect.Named(name: name).Single(document: ctx.Document, op: ctx.Op)).As()
-                select SheetPlan.Of(new SheetFact(Slot: SheetSlot.Ordered, Name: string.Join(';', names), Id: None)),
+                from named in edit.Named(document: ctx.Document, op: ctx.Op)
+                select SheetPlan.Of(new SheetFact(Slot: SheetSlot.Ordered, Name: string.Join(';', named.Names), Id: None)),
             groupCase: static (ctx, edit) =>
                 from pages in edit.Sheets.Resolve(document: ctx.Document, op: ctx.Op)
                 from groupName in ctx.Op.AcceptText(value: edit.Group)
@@ -950,28 +949,22 @@ public static class Sheets {
                 select SheetPlan.Of(new SheetFact(Slot: SheetSlot.DetailCreated, Name: name, Id: None)),
             stateCase: static (ctx, edit) =>
                 from _touches in guard(edit.State.Touches, ctx.Op.InvalidInput()).ToFin()
-                from pages in edit.Sheets.Resolve(document: ctx.Document, op: ctx.Op)
-                from rows in pages.TraverseM(page =>
-                    edit.Details.Resolve(page: page, op: ctx.Op).Bind(details =>
-                        details.TraverseM(detail =>
-                            from _valid in edit.State.Validate(document: ctx.Document, detail: detail, op: ctx.Op)
-                            select new SheetFact(
-                                Slot: SheetSlot.DetailUpdated,
-                                Name: DetailSelect.NameOf(detail: detail).IfNone(page.PageName),
-                                Id: Some(detail.Id))).As())).As()
-                select new SheetPlan(Changes: rows.Bind(identity), Conflicts: Seq<ScaleConflict>()),
+                from changes in PerDetail(document: ctx.Document, sheets: edit.Sheets, details: edit.Details, op: ctx.Op, row: (page, detail, _, _) =>
+                    from _valid in edit.State.Validate(document: ctx.Document, detail: detail, op: ctx.Op)
+                    select new SheetFact(
+                        Slot: SheetSlot.DetailUpdated,
+                        Name: DetailSelect.NameOf(detail: detail).IfNone(page.PageName),
+                        Id: Some(detail.Id)))
+                select new SheetPlan(Changes: changes, Conflicts: Seq<ScaleConflict>()),
             arrangeCase: static (ctx, edit) =>
-                from pages in edit.Sheets.Resolve(document: ctx.Document, op: ctx.Op)
-                from rows in pages.TraverseM(page =>
-                    edit.Details.Resolve(page: page, op: ctx.Op).Bind(details =>
-                        details.Map(static (detail, index) => (Detail: detail, Index: index)).TraverseM(row =>
-                            from current in DetailState.DetailFrameOf(detail: row.Detail, op: ctx.Op)
-                            from _frame in edit.Arrangement.Frame(context: new LayoutContext(
-                                Current: current, Page: (page.PageWidth, page.PageHeight),
-                                Anchor: edit.Anchor, Offset: edit.Offset, Gutter: edit.Gutter, Columns: edit.Columns,
-                                Index: row.Index, Count: details.Count, Key: ctx.Op))
-                            select new SheetFact(Slot: SheetSlot.Arranged, Name: page.PageName, Id: Some(row.Detail.Id))).As())).As()
-                select new SheetPlan(Changes: rows.Bind(identity), Conflicts: Seq<ScaleConflict>()),
+                PerDetail(document: ctx.Document, sheets: edit.Sheets, details: edit.Details, op: ctx.Op, row: (page, detail, index, count) =>
+                    from current in DetailState.DetailFrameOf(detail: detail, op: ctx.Op)
+                    from _frame in edit.Arrangement.Frame(context: new LayoutContext(
+                        Current: current, Page: (page.PageWidth, page.PageHeight),
+                        Anchor: edit.Anchor, Offset: edit.Offset, Gutter: edit.Gutter, Columns: edit.Columns,
+                        Index: index, Count: count, Key: ctx.Op))
+                    select new SheetFact(Slot: SheetSlot.Arranged, Name: page.PageName, Id: Some(detail.Id)))
+                .Map(static changes => new SheetPlan(Changes: changes, Conflicts: Seq<ScaleConflict>())),
             numberCase: static (ctx, edit) =>
                 from pages in edit.Sheets.Resolve(document: ctx.Document, op: ctx.Op)
                 from seats in edit.Rule.Seats(document: ctx.Document, pages: pages, op: ctx.Op)
@@ -1091,18 +1084,23 @@ public static class Sheets {
                 select new SheetReceipt(Facts: facts, Conflicts: Seq<ScaleConflict>()),
             adoptCase: static (ctx, _) => Fin.Fail<SheetReceipt>(error: ctx.Op.InvalidInput()),
             orderCase: static (ctx, edit) =>
-                from names in edit.Names.TraverseM(name => ctx.Op.AcceptText(value: name)).As()
-                from _unique in guard(
-                    names.Map(static name => name.ToUpperInvariant()).Distinct().Count == names.Count,
-                    ctx.Op.InvalidInput()).ToFin()
-                from named in names.TraverseM(name => SheetSelect.Named(name: name).Single(document: ctx.Document, op: ctx.Op)).As()
+                from named in edit.Named(document: ctx.Document, op: ctx.Op)
                 from _ordered in ctx.Op.Catch(() => {
                     Seq<RhinoPageView> current = toSeq(ctx.Document.Views.GetPageViews()).OrderBy(static page => page.PageNumber).AsIterable().ToSeq();
-                    LanguageExt.HashSet<Guid> seated = toHashSet(named.Map(static page => page.MainViewport.Id));
-                    Seq<RhinoPageView> ordered = named + current.Filter(page => !seated.Contains(page.MainViewport.Id));
-                    return ctx.Op.Confirm(success: ctx.Document.Views.ReorderPageViews(orderedPages: ordered.AsIterable()));
+                    LanguageExt.HashSet<Guid> seated = toHashSet(named.Pages.Map(static page => page.MainViewport.Id));
+                    Seq<RhinoPageView> roster = named.Pages + current.Filter(page => !seated.Contains(page.MainViewport.Id));
+                    Seq<Guid> ordered = roster.Map(static page => page.MainViewport.Id);
+                    _ = roster
+                        .Map(static (page, index) => (Page: page, Index: index))
+                        .Iter(row => row.Page.PageNumber = row.Index);
+                    Seq<Guid> landed = toSeq(ctx.Document.Views.GetPageViews())
+                        .OrderBy(static page => page.PageNumber)
+                        .Select(static page => page.MainViewport.Id)
+                        .AsIterable()
+                        .ToSeq();
+                    return guard(landed == ordered, ctx.Op.InvalidResult()).ToFin();
                 })
-                select SheetReceipt.Of(new SheetFact(Slot: SheetSlot.Ordered, Name: string.Join(';', names), Id: None)),
+                select SheetReceipt.Of(new SheetFact(Slot: SheetSlot.Ordered, Name: string.Join(';', named.Names), Id: None)),
             groupCase: static (ctx, edit) =>
                 from pages in edit.Sheets.Resolve(document: ctx.Document, op: ctx.Op)
                 from groupName in ctx.Op.AcceptText(value: edit.Group)
@@ -1132,66 +1130,39 @@ public static class Sheets {
                 select SheetReceipt.Of(fact),
             stateCase: static (ctx, edit) =>
                 from _touches in guard(edit.State.Touches, ctx.Op.InvalidInput()).ToFin()
-                from pages in edit.Sheets.Resolve(document: ctx.Document, op: ctx.Op)
-                from facts in pages.TraverseM(page =>
-                    edit.Details.Resolve(page: page, op: ctx.Op).Bind(details =>
-                        details.TraverseM(detail =>
-                            edit.State.Apply(document: ctx.Document, page: page, detail: detail, op: ctx.Op)
-                                .Map(_ => new SheetFact(
-                                    Slot: SheetSlot.DetailUpdated,
-                                    Name: DetailSelect.NameOf(detail: detail).IfNone(page.PageName),
-                                    Id: Some(detail.Id)))).As())).As()
-                select new SheetReceipt(Facts: facts.Bind(identity), Conflicts: Seq<ScaleConflict>()),
+                from facts in PerDetail(document: ctx.Document, sheets: edit.Sheets, details: edit.Details, op: ctx.Op, row: (page, detail, _, _) =>
+                    edit.State.Apply(document: ctx.Document, page: page, detail: detail, op: ctx.Op)
+                        .Map(_ => new SheetFact(
+                            Slot: SheetSlot.DetailUpdated,
+                            Name: DetailSelect.NameOf(detail: detail).IfNone(page.PageName),
+                            Id: Some(detail.Id))))
+                select new SheetReceipt(Facts: facts, Conflicts: Seq<ScaleConflict>()),
             arrangeCase: static (ctx, edit) =>
-                from pages in edit.Sheets.Resolve(document: ctx.Document, op: ctx.Op)
-                from facts in pages.TraverseM(page =>
-                    edit.Details.Resolve(page: page, op: ctx.Op).Bind(details =>
-                        details.Map(static (detail, index) => (Detail: detail, Index: index)).TraverseM(row =>
-                            from current in DetailState.DetailFrameOf(detail: row.Detail, op: ctx.Op)
-                            from frame in edit.Arrangement.Frame(context: new LayoutContext(
-                                Current: current, Page: (page.PageWidth, page.PageHeight),
-                                Anchor: edit.Anchor, Offset: edit.Offset, Gutter: edit.Gutter, Columns: edit.Columns,
-                                Index: row.Index, Count: details.Count, Key: ctx.Op))
-                            from _moved in new DetailState(Frame: Some(frame)).Apply(document: ctx.Document, page: page, detail: row.Detail, op: ctx.Op)
-                            select new SheetFact(Slot: SheetSlot.Arranged, Name: page.PageName, Id: Some(row.Detail.Id))).As())).As()
-                select new SheetReceipt(Facts: facts.Bind(identity), Conflicts: Seq<ScaleConflict>()),
+                PerDetail(document: ctx.Document, sheets: edit.Sheets, details: edit.Details, op: ctx.Op, row: (page, detail, index, count) =>
+                    from current in DetailState.DetailFrameOf(detail: detail, op: ctx.Op)
+                    from frame in edit.Arrangement.Frame(context: new LayoutContext(
+                        Current: current, Page: (page.PageWidth, page.PageHeight),
+                        Anchor: edit.Anchor, Offset: edit.Offset, Gutter: edit.Gutter, Columns: edit.Columns,
+                        Index: index, Count: count, Key: ctx.Op))
+                    from _moved in new DetailState(Frame: Some(frame)).Apply(document: ctx.Document, page: page, detail: detail, op: ctx.Op)
+                    select new SheetFact(Slot: SheetSlot.Arranged, Name: page.PageName, Id: Some(detail.Id)))
+                .Map(static facts => new SheetReceipt(Facts: facts, Conflicts: Seq<ScaleConflict>())),
             numberCase: static (ctx, edit) =>
                 from pages in edit.Sheets.Resolve(document: ctx.Document, op: ctx.Op)
                 from seats in edit.Rule.Seats(document: ctx.Document, pages: pages, op: ctx.Op)
-                from _temporary in seats.TraverseM(seat => ctx.Op.Catch(() => {
-                    seat.Page.PageName = seat.TemporaryName;
-                    seat.Page.PageNumber = seat.TemporaryPageNumber;
-                    return string.Equals(
-                               a: seat.Page.PageName,
-                               b: seat.TemporaryName,
-                               comparisonType: StringComparison.Ordinal)
-                           && seat.Page.PageNumber == seat.TemporaryPageNumber
-                        ? Fin.Succ(value: unit)
-                        : Fin.Fail<Unit>(error: ctx.Op.InvalidResult());
-                })).As()
-                from facts in seats.TraverseM(seat => ctx.Op.Catch(() => {
-                    seat.Page.PageName = seat.Name;
-                    seat.Page.PageNumber = seat.PageNumber;
-                    return string.Equals(
-                               a: seat.Page.PageName,
-                               b: seat.Name,
-                               comparisonType: StringComparison.Ordinal)
-                           && seat.Page.PageNumber == seat.PageNumber
-                        ? Fin.Succ(value: new SheetFact(
-                            Slot: SheetSlot.Numbered,
-                            Name: seat.Name,
-                            Id: Some(seat.Page.MainViewport.Id),
-                            Ordinal: Some(seat.Ordinal)))
-                        : Fin.Fail<SheetFact>(error: ctx.Op.InvalidResult());
-                })).As()
+                from _temporary in seats.TraverseM(seat => Seat(seat: seat, name: seat.TemporaryName, number: seat.TemporaryPageNumber, op: ctx.Op)).As()
+                from facts in seats.TraverseM(seat =>
+                    Seat(seat: seat, name: seat.Name, number: seat.PageNumber, op: ctx.Op).Map(_ => new SheetFact(
+                        Slot: SheetSlot.Numbered,
+                        Name: seat.Name,
+                        Id: Some(seat.Page.MainViewport.Id),
+                        Ordinal: Some(seat.Ordinal)))).As()
                 select new SheetReceipt(Facts: facts, Conflicts: Seq<ScaleConflict>()),
             auditCase: static (ctx, edit) =>
-                from pages in edit.Sheets.Resolve(document: ctx.Document, op: ctx.Op)
                 from declared in edit.Expected.Map(scale => scale.PageToModel(document: ctx.Document, op: ctx.Op).Map(Some))
                     .IfNone(Fin.Succ(value: Option<double>.None))
-                from conflicts in pages.TraverseM(page =>
-                    edit.Details.Resolve(page: page, op: ctx.Op).Map(details =>
-                        details.Bind(detail => Judge(page: page, detail: detail, declared: declared, pageUnits: ctx.Document.PageUnits)))).As()
+                from conflicts in PerDetail(document: ctx.Document, sheets: edit.Sheets, details: edit.Details, op: ctx.Op, row: (page, detail, _, _) =>
+                    Fin.Succ(value: Judge(page: page, detail: detail, declared: declared, pageUnits: ctx.Document.PageUnits)))
                 select new SheetReceipt(
                     Facts: Seq(new SheetFact(Slot: SheetSlot.Audited, Name: nameof(SheetSlot.Audited), Id: None)),
                     Conflicts: conflicts.Bind(identity)),
@@ -1201,23 +1172,46 @@ public static class Sheets {
                     .As()
                     .Map(static receipts => receipts.Fold(new SheetReceipt(Facts: Seq<SheetFact>(), Conflicts: Seq<ScaleConflict>()), static (folded, receipt) => folded + receipt)));
 
+    private static Fin<Unit> Seat(NumberSeat seat, string name, int number, Op op) => op.Catch(() => {
+        seat.Page.PageName = name;
+        seat.Page.PageNumber = number;
+        return string.Equals(a: seat.Page.PageName, b: name, comparisonType: StringComparison.Ordinal)
+               && seat.Page.PageNumber == number
+            ? Fin.Succ(value: unit)
+            : Fin.Fail<Unit>(error: op.InvalidResult());
+    });
+
+    private static Fin<Seq<TRow>> PerDetail<TRow>(
+        RhinoDoc document,
+        SheetSelect sheets,
+        DetailSelect details,
+        Op op,
+        Func<RhinoPageView, DetailViewObject, int, int, Fin<TRow>> row) =>
+        sheets.Resolve(document: document, op: op).Bind(pages =>
+            pages.TraverseM(page => details.Resolve(page: page, op: op).Bind(found =>
+                found.Map(static (detail, index) => (Detail: detail, Index: index))
+                    .TraverseM(entry => row(page, entry.Detail, entry.Index, found.Count))
+                    .As()))
+                .As()
+                .Map(static rows => rows.Bind(identity)));
+
     private static Seq<ScaleConflict> Judge(RhinoPageView page, DetailViewObject detail, Option<double> declared, LengthUnit pageUnits) {
         string detailName = DetailSelect.NameOf(detail: detail).IfNone(noneValue: string.Empty);
-        return detail.DetailGeometry is { IsParallelProjection: true } geometry
-            ? declared.Case switch {
-                double expected when geometry.PageToModelRatio > 0.0
-                    && Math.Abs(geometry.PageToModelRatio - expected) / expected > 1e-6 =>
-                    Seq<ScaleConflict>(new ScaleConflict.RatioMismatchCase(
-                        Sheet: page.PageName, Detail: detailName,
-                        Formatted: SheetScale.Format(detail: detail).IfNone(noneValue: string.Empty),
-                        LiveRatio: geometry.PageToModelRatio, DeclaredRatio: expected)),
-                _ => LengthUnit.IsNone(in pageUnits) || LengthUnit.IsUnset(in pageUnits)
-                    ? Seq<ScaleConflict>(new ScaleConflict.PageUnitDriftCase(Sheet: page.PageName, Detail: detailName, PageUnits: pageUnits))
-                    : Seq<ScaleConflict>(),
-            }
-            : declared.IsSome
-                ? Seq<ScaleConflict>(new ScaleConflict.PerspectiveScaleCase(Sheet: page.PageName, Detail: detailName))
-                : Seq<ScaleConflict>();
+        bool parallel = detail.DetailGeometry is { IsParallelProjection: true };
+        double live = parallel ? detail.DetailGeometry.PageToModelRatio : 0.0;
+        Seq<ScaleConflict> ratio = (parallel, declared.Case) switch {
+            (false, double) => Seq<ScaleConflict>(new ScaleConflict.PerspectiveScaleCase(Sheet: page.PageName, Detail: detailName)),
+            (true, double expected) when live <= 0.0 || Math.Abs(live - expected) / expected > 1e-6 =>
+                Seq<ScaleConflict>(new ScaleConflict.RatioMismatchCase(
+                    Sheet: page.PageName, Detail: detailName,
+                    Formatted: SheetScale.Format(detail: detail).IfNone(noneValue: string.Empty),
+                    LiveRatio: live, DeclaredRatio: expected)),
+            _ => Seq<ScaleConflict>(),
+        };
+        Seq<ScaleConflict> drift = parallel && (LengthUnit.IsNone(in pageUnits) || LengthUnit.IsUnset(in pageUnits))
+            ? Seq<ScaleConflict>(new ScaleConflict.PageUnitDriftCase(Sheet: page.PageName, Detail: detailName, PageUnits: pageUnits))
+            : Seq<ScaleConflict>();
+        return ratio + drift;
     }
 
     private static Fin<Seq<SheetFact>> Seated(RhinoDoc document, Seq<RhinoPageView> pages, string groupName, bool exclusive, Op op) =>

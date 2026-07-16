@@ -21,6 +21,7 @@ The ambient Eto runtime owner of `Rasm.Rhino.Eto` — the process-wide surfaces 
 
 ```csharp
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+using System.Diagnostics;
 using Eto.Drawing;
 using Eto.Forms;
 using Rasm.Csp;
@@ -72,11 +73,11 @@ public sealed record PulseLease(Func<Unit> Halt);
 public static class Pulse {
     public static Fin<PulseLease> Start(PositiveMagnitude intervalSeconds, Action<PulseBeat> onBeat, Op? key = null) =>
         key.OrDefault().Catch(() => {
-            long origin = System.Diagnostics.Stopwatch.GetTimestamp();
+            long origin = Stopwatch.GetTimestamp();
             long ordinal = 0;
             UITimer timer = new((_, _) => onBeat(new PulseBeat(
-                Ordinal: System.Threading.Interlocked.Increment(ref ordinal),
-                ElapsedSeconds: System.Diagnostics.Stopwatch.GetElapsedTime(startingTimestamp: origin).TotalSeconds))) {
+                Ordinal: Interlocked.Increment(ref ordinal),
+                ElapsedSeconds: Stopwatch.GetElapsedTime(startingTimestamp: origin).TotalSeconds))) {
                 Interval = intervalSeconds.Value,
             };
             timer.Start();
@@ -141,16 +142,18 @@ public static class Displays {
 
     public static DisplayFacts Covering(RectangleF bounds) => DisplayFacts.Of(screen: Screen.FromRectangle(rectangle: bounds));
 
-    public static Fin<Image> Capture(RectangleF bounds, Op? key = null) =>
-        key.OrDefault().Catch(() => Optional(Screen.FromRectangle(rectangle: bounds).GetImage(rect: bounds))
-            .ToFin(Fail: new UiFault.Unavailable(Key: key.OrDefault(), Capability: nameof(Screen.GetImage))));
+    public static Fin<Image> Capture(RectangleF bounds, Op? key = null) {
+        Op op = key.OrDefault();
+        return op.Catch(() => Optional(Screen.FromRectangle(rectangle: bounds).GetImage(rect: bounds))
+            .ToFin(Fail: new UiFault.Unavailable(Key: op, Capability: nameof(Screen.GetImage))));
+    }
 }
 ```
 
 ## [05]-[TRANSFER]
 
-- Owner: `Mime` `[ValueObject<string>]` — the validated MIME key every keyed transfer read and write carries — `PayloadSlot`, the closed `[Union]` over the five host payload shapes (text, bytes, stream, boxed object, and the un-keyed URI list the host carries as the `Uris` property — file drops and copied paths), `TransferTarget`, the two-lifetime union (`Board` the persistent process-external clipboard, `Bundle` a drag-scoped `DataObject`), and `Transfer`, the one write fold plus `Option`-railed reads. `Clipboard` and `DataObject` expose an identical member contract with no shared host base, so the target union is the seam that unifies them; a stringy `type` argument or an unguarded `GetString` null is the deleted form.
-- Law: writes fold — `Transfer.Write(target, slots)` lands every slot in one pass, each slot dispatching its own `Set*` member (or the `Uris` property for `Linked`) per target arm; every keyed write shape has its read verb (`ReadText`/`ReadBytes`/`ReadStream`/`ReadBoxed`), `ReadUris` gates on `ContainsUris`, and reads gate on `Contains` first, so absence is `None` and a read of a wrong-shaped slot is the host's concern surfaced through `Op.Catch`.
+- Owner: `Mime` `[ValueObject<string>]` — the validated MIME key every keyed transfer read and write carries — `PayloadSlot`, the closed `[Union]` over the five host payload shapes (text, bytes, stream, boxed object, and the un-keyed URI list the host carries as the `Uris` property — file drops and copied paths), `TransferTarget`, the two-lifetime union (`Board` the persistent process-external clipboard, `Bundle` a drag-scoped `DataObject`), and `Transfer`, the one write fold plus `Option`-railed reads. `Clipboard` and `DataObject` both implement the host `IDataObject` contract, so the target union projects one `Surface` and every keyed verb runs one body over it; only the stream pair (`GetDataStream`/`SetDataStream`) is class-level off-interface, carried as the target's one `Streamed` dispatch. A stringy `type` argument, an unguarded `GetString` null, or a per-target verb copy is the deleted form.
+- Law: writes fold — `Transfer.Write(target, slots)` lands every slot in one pass, each slot dispatching its own `Set*` member on the projected `Surface` (or the `Uris` property for `Linked`, the `Streamed` dispatch for `Streamed`); every keyed write shape has its read verb (`ReadText`/`ReadBytes`/`ReadStream`/`ReadBoxed`), `ReadUris` gates on `ContainsUris`, and reads gate on `Contains` first, so absence is `None` and a read of a wrong-shaped slot is the host's concern surfaced through `Op.Catch`.
 - Law: canonical keys are rows — `Mime.PlainText`, `Mime.Png`, and the sub-domain's own `Mime.Rasm` (the boxed-payload key intra-process drags share) are declared once; ad-hoc literals at call sites are the deleted form.
 - Growth: a new payload shape the host ships is one `PayloadSlot` case breaking the write fold at compile time; a new canonical key is one static row.
 
@@ -185,6 +188,20 @@ public abstract partial record TransferTarget {
     public sealed record Bundle(DataObject Payload) : TransferTarget;
     public static readonly TransferTarget Clipboard = new Board();
     public static TransferTarget Of(DataObject payload) => new Bundle(Payload: payload);
+
+    internal IDataObject Surface => Switch(
+        board: static _ => (IDataObject)global::Eto.Forms.Clipboard.Instance,
+        bundle: static held => held.Payload);
+
+    internal Stream Streamed(string type) => Switch(
+        state: type,
+        board: static (key, _) => global::Eto.Forms.Clipboard.Instance.GetDataStream(type: key),
+        bundle: static (key, held) => held.Payload.GetDataStream(type: key));
+
+    internal Unit Streamed(Stream value, string type) => Switch(
+        state: (Value: value, Type: type),
+        board: static (row, _) => Op.Side(() => global::Eto.Forms.Clipboard.Instance.SetDataStream(stream: row.Value, type: row.Type)),
+        bundle: static (row, held) => Op.Side(() => held.Payload.SetDataStream(stream: row.Value, type: row.Type)));
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
@@ -193,55 +210,36 @@ public static class Transfer {
         key.OrDefault().Catch(() => Fin.Succ(value: ignore(slots.Iter(slot => Land(target: target, slot: slot)))));
 
     public static Option<string> ReadText(TransferTarget target, Mime mime) =>
-        target.Switch(
-            state: mime,
-            board: static (kind, _) => Clipboard.Instance.Contains(type: kind.Value) ? Optional(Clipboard.Instance.GetString(type: kind.Value)) : None,
-            bundle: static (kind, drag) => drag.Payload.Contains(type: kind.Value) ? Optional(drag.Payload.GetString(type: kind.Value)) : None);
+        Keyed(target: target, mime: mime, read: static (surface, type) => surface.GetString(type: type));
 
     public static Option<byte[]> ReadBytes(TransferTarget target, Mime mime) =>
-        target.Switch(
-            state: mime,
-            board: static (kind, _) => Clipboard.Instance.Contains(type: kind.Value) ? Optional(Clipboard.Instance.GetData(type: kind.Value)) : None,
-            bundle: static (kind, drag) => drag.Payload.Contains(type: kind.Value) ? Optional(drag.Payload.GetData(type: kind.Value)) : None);
+        Keyed(target: target, mime: mime, read: static (surface, type) => surface.GetData(type: type));
 
     public static Option<Stream> ReadStream(TransferTarget target, Mime mime) =>
-        target.Switch(
-            state: mime,
-            board: static (kind, _) => Clipboard.Instance.Contains(type: kind.Value) ? Optional(Clipboard.Instance.GetDataStream(type: kind.Value)) : None,
-            bundle: static (kind, drag) => drag.Payload.Contains(type: kind.Value) ? Optional(drag.Payload.GetDataStream(type: kind.Value)) : None);
+        target.Surface.Contains(type: mime.Value) ? Optional(target.Streamed(type: mime.Value)) : None;
 
     public static Option<Seq<Uri>> ReadUris(TransferTarget target) =>
-        target.Switch(
-            board: static _ => Clipboard.Instance.ContainsUris ? Optional(Clipboard.Instance.Uris).Map(static held => toSeq(held)) : None,
-            bundle: static drag => drag.Payload.ContainsUris ? Optional(drag.Payload.Uris).Map(static held => toSeq(held)) : None);
+        target.Surface is var surface && surface.ContainsUris ? Optional(surface.Uris).Map(static held => toSeq(held)) : None;
 
     public static Option<T> ReadBoxed<T>(TransferTarget target, Mime mime) =>
-        target.Switch(
-            state: mime,
-            board: static (kind, _) => Clipboard.Instance.Contains(type: kind.Value) ? Optional(Clipboard.Instance.GetObject<T>(type: kind.Value)) : None,
-            bundle: static (kind, drag) => drag.Payload.Contains(type: kind.Value) ? Optional(drag.Payload.GetObject<T>(type: kind.Value)) : None);
+        Keyed(target: target, mime: mime, read: static (surface, type) => surface.GetObject<T>(type: type));
 
     public static Fin<T> Require<T>(TransferTarget target, Mime mime) =>
         ReadBoxed<T>(target: target, mime: mime).ToFin(Fail: new UiFault.AbsentPayload(Mime: mime.Value));
 
-    public static Unit Clear() => Op.Side(Clipboard.Instance.Clear);
+    public static Unit Clear(TransferTarget target) => Op.Side(target.Surface.Clear);
+
+    private static Option<T> Keyed<T>(TransferTarget target, Mime mime, Func<IDataObject, string, T> read) =>
+        target.Surface is var surface && surface.Contains(type: mime.Value) ? Optional(read(surface, mime.Value)) : None;
 
     private static Unit Land(TransferTarget target, PayloadSlot slot) =>
-        target.Switch(
-            state: slot,
-            board: static (payload, _) => payload.Switch(
-                text: static row => Op.Side(() => Clipboard.Instance.SetString(value: row.Value, type: row.Key.Value)),
-                bytes: static row => Op.Side(() => Clipboard.Instance.SetData(value: row.Value, type: row.Key.Value)),
-                streamed: static row => Op.Side(() => Clipboard.Instance.SetDataStream(stream: row.Value, type: row.Key.Value)),
-                boxed: static row => Op.Side(() => Clipboard.Instance.SetObject(value: row.Value, type: row.Key.Value)),
-                linked: static row => Op.Side(() => Clipboard.Instance.Uris = [.. row.Value])),
-            bundle: static (payload, drag) => payload.Switch(
-                state: drag.Payload,
-                text: static (bundle, row) => Op.Side(() => bundle.SetString(value: row.Value, type: row.Key.Value)),
-                bytes: static (bundle, row) => Op.Side(() => bundle.SetData(value: row.Value, type: row.Key.Value)),
-                streamed: static (bundle, row) => Op.Side(() => bundle.SetDataStream(stream: row.Value, type: row.Key.Value)),
-                boxed: static (bundle, row) => Op.Side(() => bundle.SetObject(value: row.Value, type: row.Key.Value)),
-                linked: static (bundle, row) => Op.Side(() => bundle.Uris = [.. row.Value])));
+        slot.Switch(
+            state: (Surface: target.Surface, Target: target),
+            text: static (held, row) => Op.Side(() => held.Surface.SetString(value: row.Value, type: row.Key.Value)),
+            bytes: static (held, row) => Op.Side(() => held.Surface.SetData(value: row.Value, type: row.Key.Value)),
+            streamed: static (held, row) => held.Target.Streamed(value: row.Value, type: row.Key.Value),
+            boxed: static (held, row) => Op.Side(() => held.Surface.SetObject(value: row.Value, type: row.Key.Value)),
+            linked: static (held, row) => Op.Side(() => held.Surface.Uris = [.. row.Value]));
 }
 ```
 

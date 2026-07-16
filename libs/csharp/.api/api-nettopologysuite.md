@@ -1,6 +1,6 @@
 # [RASM_API_NETTOPOLOGYSUITE]
 
-`NetTopologySuite` owns the managed planar OGC Simple Features algebra from geometry representation through topology, spatial acceleration, repair, and serialization. The `Rasm` kernel retains exact geometry, while NTS carries floating-point production geometry across geospatial, persistence, and circulation boundaries. Coordinate-system transformation, universal format drivers, raster I/O, and 3D geometry remain outside this rail.
+`NetTopologySuite` owns the managed planar OGC Simple Features algebra from geometry representation through topology, spatial acceleration, repair, and serialization. `Rasm` retains exact kernel geometry, while NTS carries floating-point production geometry across geospatial, persistence, and circulation boundaries. Coordinate-system transformation, universal format drivers, raster I/O, and 3D geometry remain outside this rail.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -48,14 +48,14 @@
 |  [16]   | `Dimension`                 | enum           | DE-9IM cell vocabulary  |
 
 [MEMBER_SURFACES]:
-- `Geometry`: `OgcGeometryType`, `Dimension`, `SRID`, `EnvelopeInternal`, `Coordinates`, `UserData`, `IsValid`, `IsSimple`, `IsEmpty`, `IsRectangle`, `Area`, `Length`, `Centroid`, `InteriorPoint`, and `Apply(ICoordinateSequenceFilter)`. `Coordinates` returns an array whose elements cannot be assumed to alias internal storage; representation-independent ordinate rewrites use the filter, whose `GeometryChanged` result invalidates cached geometry state.
+- `Geometry`: `Factory`, `OgcGeometryType`, `Dimension`, `SRID`, `EnvelopeInternal`, `Coordinates`, `NumGeometries`, `GetGeometryN(int)`, `UserData`, `IsValid`, `IsSimple`, `IsEmpty`, `IsRectangle`, `Area`, `Length`, `Centroid`, `InteriorPoint`, and `Apply(ICoordinateSequenceFilter)`. `Coordinates` returns an array whose elements cannot be assumed to alias internal storage; representation-independent ordinate rewrites use the filter, whose `GeometryChanged` result invalidates cached geometry state.
 - `Point`: `X`, `Y`, `Z`, `M`, `Coordinate`, and `CoordinateSequence`.
 - `LineString`: `IsClosed`, `IsRing`, `StartPoint`, `EndPoint`, `GetPointN`, and `CoordinateSequence`.
 - `LinearRing`: a closed `LineString` that serves as a `Polygon` shell or hole.
 - `Polygon`: `ExteriorRing`, `InteriorRings`, `NumInteriorRings`, `Shell`, and `Holes`.
 - `MultiPoint`, `MultiLineString`, and `MultiPolygon`: `GetGeometryN` and `NumGeometries` index homogeneous members.
-- `GeometryCollection`: the heterogeneous collection preserves mixed-dimension members produced by `GeometryFactory.BuildGeometry`.
-- `Coordinate`: `(X, Y)` with `CoordinateZ`, `CoordinateM`, and `CoordinateZM` for optional ordinates.
+- `GeometryCollection`: preserves heterogeneous mixed-dimension members produced by `GeometryFactory.BuildGeometry`.
+- `Coordinate`: `(X, Y)` plus virtual `Z`/`M`, with `CoordinateZ`, `CoordinateM`, and `CoordinateZM` for optional ordinates.
 - `CoordinateSequence`: `Count`, `Ordinates`, `HasZ`, `HasM`, `GetOrdinate`, `SetOrdinate`, `SetX`, `SetY`, and `SetZ` operate over the packed store.
 - `ICoordinateSequenceFilter`: `Filter(CoordinateSequence, int)`, `Done`, and `GeometryChanged` define the in-place rewrite walk driven by `Geometry.Apply`.
 - `Envelope`: `MinX`, `MaxX`, `MinY`, `MaxY`, `Intersects`, `Contains`, `ExpandToInclude`, and `Centre` define the `STRtree` and `Quadtree` key.
@@ -109,7 +109,7 @@ Prepared geometries and spatial indexes separate repeated-query acceleration fro
 - namespace: `NetTopologySuite.Features`
 - rail: geometry
 
-The feature contract couples one geometry with its attribute table.
+Feature contract couples one geometry with its attribute table.
 
 | [INDEX] | [SYMBOL]           | [KIND]    | [CAPABILITY]        |
 | :-----: | :----------------- | :-------- | :------------------ |
@@ -236,7 +236,7 @@ Text and binary codecs admit or emit geometry through explicit boundary shapes.
 [PREDICATE_ACCELERATION]:
 - Repeated predicate queries against one fixed geometry build its segment index through `PreparedGeometryFactory.Prepare`, then evaluate candidates through `IPreparedGeometry` predicates.
 - `STRtree<TItem>` bulk-inserts candidates before its first `Query`; subsequent queries and removals operate on the built tree, while `Quadtree<TItem>` admits interleaved insertion.
-- The spatial-join rail composes `STRtree.Query` candidate envelopes with `IPreparedGeometry.Intersects` exact confirmation.
+- Spatial-join rail composes `STRtree.Query` candidate envelopes with `IPreparedGeometry.Intersects` exact confirmation.
 
 [ROBUST_OVERLAY]:
 - `GeometryOverlay.NG` configures constructive operations for noding and precision-model snapping; `OverlayNGRobust.Overlay` and `OverlayNGRobust.Union` expose direct robust binary and bulk operations.

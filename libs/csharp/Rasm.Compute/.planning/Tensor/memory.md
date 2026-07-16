@@ -14,7 +14,7 @@ Every payload that crosses Rasm.Compute between intent admission and the IO edge
 
 - Owner: `AllocationClass` `[SmartEnum<string>]` rows under the `ComparerAccessors.StringOrdinal` accessor; `StagingEventKind` `[SmartEnum<string>]` the evidence taxonomy with the `Diagnostic` column; `AllocationEvidence` the slot/kind fact record every grant and every pool event stamps.
 - Cases: `SpanStack`, `PooledMemory`, `RecyclableStream`, `NativeOrt`, `EdgeCopy`, `DeviceWgpu` (the `Tensor/dispatch#DEVICE_KERNELS` GPU storage/staging buffer over the shared `ONE_WGPU_DEVICE`, `copyReceipted` because a device readback crosses the host boundary).
-- Entry: `Fin<AllocationEvidence> Grant(CorrelationId correlation, long requestedBytes, long payloadBound, bool async = false, Option<string> copyReason = default, Option<string> nativeAllocator = default, Option<long> nativeReservedBytes = default)` — `Grant` evaluates `Admits` once and either stamps the `StagingEventKind.Grant` evidence or folds the typed `ComputeFault.AllocationOverClass` carrying the precise rejection (`over-bound` | `sync-only-in-async-lane` | `copy-reason-missing`); `bool Admits(long requestedBytes, long payloadBound, bool async = false, Option<string> copyReason = default)` is the pure structural predicate the entry composes and a caller may pre-check.
+- Entry: `Fin<AllocationEvidence> Grant(AllocationRequest request)` consumes one request carrier holding correlation, byte bound, lane timing, copy reason, and native reservation; `Admits(AllocationRequest)` is the pure predicate. Negative bytes, over-bound grants, synchronous-only classes in async lanes, blank copy reasons, and invalid native reservations fold through `ComputeFault.AllocationOverClass`.
 - Auto: intent admission calls `Grant` once against the intent-declared payload bound; every grant materializes one `AllocationEvidence` value under the intent correlation with zero call-site accounting, and the eleven manager events fold to the same record through the `[03]-[STREAM_POOL]` `PoolEvidence` projection.
 - Receipt: `AllocationEvidence` — correlation, class row, `StagingEventKind` discriminant, the requested/granted byte pair (reused per kind), the polymorphic `Detail` string (copy reason on a copy-receipted grant, discard reason on a discard, lifetime on a dispose, allocation stack on a leak), the native/device allocator slots, and the small/large free-pool gauges populated only on `UsageReport`; it is a `readonly record struct` that materializes at the receipt sink edge from hot-path values.
 - Packages: CommunityToolkit.HighPerformance, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.AppHost (project)
@@ -39,27 +39,26 @@ public sealed partial class AllocationClass {
 
     public bool CopyReceipted { get; }
 
-    public bool Admits(long requestedBytes, long payloadBound, bool async = false, Option<string> copyReason = default) =>
-        requestedBytes <= payloadBound && !(SyncOnly && async) && (!CopyReceipted || copyReason.IsSome);
+    public bool Admits(AllocationRequest request) =>
+        request.RequestedBytes >= 0 && request.PayloadBound >= 0 && request.RequestedBytes <= request.PayloadBound
+        && !(SyncOnly && request.Async)
+        && (!CopyReceipted || request.CopyReason.Match(Some: static reason => !string.IsNullOrWhiteSpace(reason), None: static () => false))
+        && request.NativeReservedBytes.Match(Some: static bytes => bytes >= 0, None: static () => true)
+        && request.NativeAllocator.Match(Some: static allocator => !string.IsNullOrWhiteSpace(allocator), None: static () => true);
 
-    public Fin<AllocationEvidence> Grant(
-        CorrelationId correlation,
-        long requestedBytes,
-        long payloadBound,
-        bool async = false,
-        Option<string> copyReason = default,
-        Option<string> nativeAllocator = default,
-        Option<long> nativeReservedBytes = default) =>
-        Admits(requestedBytes, payloadBound, async, copyReason)
+    public Fin<AllocationEvidence> Grant(AllocationRequest request) =>
+        Admits(request)
             ? Fin.Succ(new AllocationEvidence(
-                correlation, this, StagingEventKind.Grant, requestedBytes, requestedBytes,
-                copyReason, nativeAllocator, nativeReservedBytes))
-            : Fin.Fail<AllocationEvidence>(new ComputeFault.AllocationOverClass(Reject(requestedBytes, payloadBound, async, copyReason)));
+                request.Correlation, this, StagingEventKind.Grant, request.RequestedBytes, request.RequestedBytes,
+                request.CopyReason, request.NativeAllocator, request.NativeReservedBytes, None, None))
+            : Fin.Fail<AllocationEvidence>(new ComputeFault.AllocationOverClass(Reject(request)));
 
-    string Reject(long requested, long bound, bool async, Option<string> copyReason) =>
-        requested > bound ? $"{Key}:over-bound:{requested}>{bound}"
-        : SyncOnly && async ? $"{Key}:sync-only-in-async-lane"
-        : $"{Key}:copy-reason-missing";
+    string Reject(AllocationRequest request) =>
+        request.RequestedBytes < 0 || request.PayloadBound < 0 ? $"{Key}:negative-bound:{request.RequestedBytes}/{request.PayloadBound}"
+        : request.RequestedBytes > request.PayloadBound ? $"{Key}:over-bound:{request.RequestedBytes}>{request.PayloadBound}"
+        : SyncOnly && request.Async ? $"{Key}:sync-only-in-async-lane"
+        : CopyReceipted && !request.CopyReason.Match(Some: static reason => !string.IsNullOrWhiteSpace(reason), None: static () => false) ? $"{Key}:copy-reason-missing"
+        : $"{Key}:native-reservation-invalid";
 }
 
 [SmartEnum<string>]
@@ -83,17 +82,26 @@ public sealed partial class StagingEventKind {
 }
 
 // --- [MODELS] ------------------------------------------------------------------------------
+public readonly record struct AllocationRequest(
+    CorrelationId Correlation,
+    long RequestedBytes,
+    long PayloadBound,
+    bool Async,
+    Option<string> CopyReason,
+    Option<string> NativeAllocator,
+    Option<long> NativeReservedBytes);
+
 public readonly record struct AllocationEvidence(
     CorrelationId Correlation,
     AllocationClass Class,
     StagingEventKind Kind,
     long RequestedBytes,
     long GrantedBytes,
-    Option<string> Detail = default,
-    Option<string> NativeAllocator = default,
-    Option<long> NativeReservedBytes = default,
-    Option<long> SmallPoolFreeBytes = default,
-    Option<long> LargePoolFreeBytes = default);
+    Option<string> Detail,
+    Option<string> NativeAllocator,
+    Option<long> NativeReservedBytes,
+    Option<long> SmallPoolFreeBytes,
+    Option<long> LargePoolFreeBytes);
 
 // --- [BOUNDARIES] --------------------------------------------------------------------------
 public static class StagingViews {
@@ -125,7 +133,7 @@ public static class StagingViews {
 Each staging route carries one allocation ruling:
 
 - [01]-[ADMISSION]: `AllocationClass.Grant` is the one staging edge — it evaluates `Admits` once against the intent-declared bound, stamps `AllocationEvidence` on success, and folds `ComputeFault.AllocationOverClass` with the discriminated reason on rejection; a call-site pool choice is the deleted form
-- [02]-[STACK_RENT]: `SpanOwner<T>.Allocate(int, AllocationMode)` inside one synchronous kernel scope on the `SpanStack` row; the owner never crosses an await or iterator boundary, and `Admits(async: true)` rejects the row at admission
+- [02]-[STACK_RENT]: `SpanOwner<T>.Allocate(int, AllocationMode)` stays inside one synchronous kernel scope on `SpanStack`; an `AllocationRequest` with `Async = true` rejects the row before rent
 - [03]-[POOLED_RENT]: `MemoryOwner<T>.Allocate(int)` with `AllocationMode.Default` on the `PooledMemory` row; `Slice` projects windows; `Dispose` returns deterministically
 - [04]-[INCREMENTAL_BUILD]: `ArrayPoolBufferWriter<T>`/`MemoryBufferWriter<T>` own growing payloads as the `IBufferWriter<T>` codec-emit sink on the `PooledMemory` row; `WrittenMemory`/`WrittenSpan` read the committed payload back zero-copy
 - [05]-[RENT_CLEARING]: `AllocationMode.Default` everywhere — upstream classification keeps secret payloads out of staging, so clearing buys nothing; `ZeroOutBuffer` stays a `Diagnostic`-row policy
@@ -134,7 +142,7 @@ Each staging route carries one allocation ruling:
 - [08]-[TEXT_INTERNING]: `StringPool.GetOrAdd` interns receipt and diagnostic text at the sink edge only; `ReadOnlySpan<byte>.Fields`/`Tokenize` split codec text spans without intermediate strings
 - [09]-[BIT_PACKING]: `StagingViews.Mark`/`Clear`/`Cell` set/test one occupancy bit and `Pack`/`Read` pack/extract a multi-bit material-id field over a `Span<ulong>` window of `PooledMemory` (sixty-four cells per word) through the branchless `BitHelper` `ref`-overloads — one bit per cell replaces a `byte` buffer and the tensor-lane `VoxelGrid` encoding stages the mask
 - [10]-[IN_PLACE_GROWTH]: `ArrayPool<byte>.Grow` (over `ArrayPoolExtensions.EnsureCapacity`) grows the rented backing during incremental codec emit; the writer never reallocates through a second `MemoryOwner<T>.Allocate` and the granted-byte slot reflects the grown capacity
-- [11]-[CONTIGUOUS_FRAME]: `StreamPool.Get(correlation, requiredSize, contiguous: true)` forces one large-buffer allocation for a chunked tensor frame the tensor lane requires contiguous; the `RecyclableStream` row carries it, `requiredSize` fills the granted-byte slot, and the route replaces a hand-rolled array concatenation of chunk frames
+- [11]-[CONTIGUOUS_FRAME]: `StreamPool.Get(correlation, StreamGrant.ContiguousFrame(requiredSize))` forces one large-buffer allocation for a chunked tensor frame the tensor lane requires contiguous; the `RecyclableStream` row carries it, the frame's `RequiredSize` fills the granted-byte slot, and the route replaces a hand-rolled array concatenation of chunk frames
 
 ## [03]-[PLANE_VIEWS]
 
@@ -169,7 +177,7 @@ Each entry carries one ruling:
 ## [04]-[STREAM_POOL]
 
 - Owner: `StreamPool` boundary capsule owning the one process `RecyclableMemoryStreamManager`; `StreamPoolPolicy` carries every pool policy value; `PoolEvidence` the foreign-receiver projection folding the eleven manager events to `AllocationEvidence`.
-- Entry: `RecyclableMemoryStream Get(CorrelationId correlation, Option<long> requiredSize = default, bool contiguous = false)`.
+- Entry: `Fin<RecyclableMemoryStream> Get(CorrelationId correlation, StreamGrant grant)` admits positive sizes and contiguous-buffer capacity before trapping the manager rent. `Write(CorrelationId, IMessage)` derives the length-prefixed size and emits through `WriteLengthPrefixedTo(IBufferWriter<byte>)`; `Read<T>(RecyclableMemoryStream, MessageParser<T>)` parses the fragmented `GetReadOnlySequence()` without flattening. `StreamGrant` remains the closed `Open | Sized | ContiguousFrame` acquisition discriminant.
 - Auto: the constructor creates the manager from `policy.Options` and attaches all eleven manager events through `PoolEvidence.Project`, each event projecting its `EventArgs` to an `AllocationEvidence` value riding `ReceiptSinkPort.Send` with zero call-site code; `Get` passes the correlation as the `Guid` stream id on every path so every later event rejoins its intent by id, and the `RecyclableStream` row key is the tag.
 - Receipt: double-dispose, finalization, and discarded-buffer events are leak diagnostics (the `StagingEventKind.Diagnostic` column), never log noise; an array-conversion event is the `StreamConvertedToArray` diagnostic corroborating an edge copy.
 - Packages: Microsoft.IO.RecyclableMemoryStream, CommunityToolkit.HighPerformance, Google.Protobuf, LanguageExt.Core, Rasm.AppHost (project)
@@ -177,6 +185,18 @@ Each entry carries one ruling:
 - Boundary: `StreamPool` is the named boundary capsule for the statement carve-out — the constructor's manager creation, event wiring, and detacher collection carry language-owned statement forms while every other member stays expression-shaped, and `StagingViews.Grow`'s `ref byte[]?` growth is the one further platform-forced statement seam. `PoolEvidence.Project` is the foreign-receiver/local-behavior extension form: the AppHost `ReceiptSinkPort` is the foreign receiver read only to stamp evidence while the subscription detacher holding the exact handler identity is Compute-owned behavior, so the block adds no second disposer registry and mutates no port state. One capsule per process composes as a singleton at the app root, the `Diagnostic` policy row binding on the debug and test-host profiles; memory, owners, writers, and sequences become streams only through the `AsStream` extension family at IO edges, and the package-internal stream classes never enter vocabulary. This capsule deletes per-call-site manager instances, raw `MemoryStream` construction, copy-shaped `ByteString.CopyFrom`, and unreceipted `ToArray` flattens.
 
 ```csharp signature
+// --- [TYPES] -------------------------------------------------------------------------------
+// Acquisition uses a closed union, so the illegal combination — a contiguous frame with no size —
+// is unrepresentable and no primitive mode flag rides the surface: Open rents segmented unsized, Sized
+// pre-grows segmented, ContiguousFrame forces the one large-buffer backing a chunked tensor frame requires.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record StreamGrant {
+    private StreamGrant() { }
+    public sealed record Open : StreamGrant;
+    public sealed record Sized(long RequiredSize) : StreamGrant;
+    public sealed record ContiguousFrame(long RequiredSize) : StreamGrant;
+}
+
 // --- [MODELS] ------------------------------------------------------------------------------
 public sealed record StreamPoolPolicy(
     int BlockSize,
@@ -223,53 +243,98 @@ public sealed record StreamPoolPolicy(
 // --- [COMPOSITION] -------------------------------------------------------------------------
 public sealed class StreamPool : IDisposable {
     readonly RecyclableMemoryStreamManager manager;
+    readonly StreamPoolPolicy policy;
     readonly Seq<Action> detachers;
+    bool disposed;
 
     public StreamPool(StreamPoolPolicy policy, ReceiptSinkPort sink, JsonSerializerOptions wire) {
+        this.policy = policy;
         manager = new RecyclableMemoryStreamManager(policy.Options);
         detachers = Seq(
             sink.Project<RecyclableMemoryStreamManager.StreamCreatedEventArgs>(
                 h => manager.StreamCreated += h, h => manager.StreamCreated -= h, wire,
-                a => new AllocationEvidence(CorrelationId.Create(a.Id), AllocationClass.RecyclableStream, StagingEventKind.StreamCreated, a.RequestedSize, a.ActualSize)),
+                a => new AllocationEvidence(CorrelationId.Create(a.Id), AllocationClass.RecyclableStream, StagingEventKind.StreamCreated, a.RequestedSize, a.ActualSize, None, None, None, None, None)),
             sink.Project<RecyclableMemoryStreamManager.StreamDisposedEventArgs>(
                 h => manager.StreamDisposed += h, h => manager.StreamDisposed -= h, wire,
-                a => new AllocationEvidence(CorrelationId.Create(a.Id), AllocationClass.RecyclableStream, StagingEventKind.StreamDisposed, 0, 0, Detail: Some($"lifetime:{a.Lifetime}"))),
+                a => new AllocationEvidence(CorrelationId.Create(a.Id), AllocationClass.RecyclableStream, StagingEventKind.StreamDisposed, 0, 0, Some($"lifetime:{a.Lifetime}"), None, None, None, None)),
             sink.Project<RecyclableMemoryStreamManager.StreamLengthEventArgs>(
                 h => manager.StreamLength += h, h => manager.StreamLength -= h, wire,
-                a => new AllocationEvidence(CorrelationId.None, AllocationClass.RecyclableStream, StagingEventKind.StreamLength, a.Length, a.Length)),
+                a => new AllocationEvidence(CorrelationId.None, AllocationClass.RecyclableStream, StagingEventKind.StreamLength, a.Length, a.Length, None, None, None, None, None)),
             sink.Project<RecyclableMemoryStreamManager.StreamConvertedToArrayEventArgs>(
                 h => manager.StreamConvertedToArray += h, h => manager.StreamConvertedToArray -= h, wire,
-                a => new AllocationEvidence(CorrelationId.Create(a.Id), AllocationClass.EdgeCopy, StagingEventKind.StreamConvertedToArray, a.Length, 0, Detail: Optional(a.Stack))),
+                a => new AllocationEvidence(CorrelationId.Create(a.Id), AllocationClass.EdgeCopy, StagingEventKind.StreamConvertedToArray, a.Length, 0, Optional(a.Stack), None, None, None, None)),
             sink.Project<RecyclableMemoryStreamManager.StreamOverCapacityEventArgs>(
                 h => manager.StreamOverCapacity += h, h => manager.StreamOverCapacity -= h, wire,
-                a => new AllocationEvidence(CorrelationId.Create(a.Id), AllocationClass.RecyclableStream, StagingEventKind.StreamOverCapacity, a.RequestedCapacity, a.MaximumCapacity, Detail: Optional(a.AllocationStack))),
+                a => new AllocationEvidence(CorrelationId.Create(a.Id), AllocationClass.RecyclableStream, StagingEventKind.StreamOverCapacity, a.RequestedCapacity, a.MaximumCapacity, Optional(a.AllocationStack), None, None, None, None)),
             sink.Project<RecyclableMemoryStreamManager.BlockCreatedEventArgs>(
                 h => manager.BlockCreated += h, h => manager.BlockCreated -= h, wire,
-                a => new AllocationEvidence(CorrelationId.None, AllocationClass.RecyclableStream, StagingEventKind.BlockCreated, 0, a.SmallPoolInUse)),
+                a => new AllocationEvidence(CorrelationId.None, AllocationClass.RecyclableStream, StagingEventKind.BlockCreated, 0, a.SmallPoolInUse, None, None, None, None, None)),
             sink.Project<RecyclableMemoryStreamManager.LargeBufferCreatedEventArgs>(
                 h => manager.LargeBufferCreated += h, h => manager.LargeBufferCreated -= h, wire,
-                a => new AllocationEvidence(CorrelationId.Create(a.Id), AllocationClass.RecyclableStream, StagingEventKind.LargeBufferCreated, a.RequiredSize, a.LargePoolInUse, Detail: Some(a.Pooled ? "pooled" : "unpooled"))),
+                a => new AllocationEvidence(CorrelationId.Create(a.Id), AllocationClass.RecyclableStream, StagingEventKind.LargeBufferCreated, a.RequiredSize, a.LargePoolInUse, Some(a.Pooled ? "pooled" : "unpooled"), None, None, None, None)),
             sink.Project<RecyclableMemoryStreamManager.BufferDiscardedEventArgs>(
                 h => manager.BufferDiscarded += h, h => manager.BufferDiscarded -= h, wire,
-                a => new AllocationEvidence(CorrelationId.Create(a.Id), AllocationClass.RecyclableStream, StagingEventKind.BufferDiscarded, 0, 0, Detail: Some($"{a.BufferType}:{a.Reason}"))),
+                a => new AllocationEvidence(CorrelationId.Create(a.Id), AllocationClass.RecyclableStream, StagingEventKind.BufferDiscarded, 0, 0, Some($"{a.BufferType}:{a.Reason}"), None, None, None, None)),
             sink.Project<RecyclableMemoryStreamManager.UsageReportEventArgs>(
                 h => manager.UsageReport += h, h => manager.UsageReport -= h, wire,
                 a => new AllocationEvidence(CorrelationId.None, AllocationClass.RecyclableStream, StagingEventKind.UsageReport, a.SmallPoolInUseBytes, a.LargePoolInUseBytes,
-                    SmallPoolFreeBytes: Some(a.SmallPoolFreeBytes), LargePoolFreeBytes: Some(a.LargePoolFreeBytes))),
+                    None, None, None, Some(a.SmallPoolFreeBytes), Some(a.LargePoolFreeBytes))),
             sink.Project<RecyclableMemoryStreamManager.StreamDoubleDisposedEventArgs>(
                 h => manager.StreamDoubleDisposed += h, h => manager.StreamDoubleDisposed -= h, wire,
-                a => new AllocationEvidence(CorrelationId.Create(a.Id), AllocationClass.RecyclableStream, StagingEventKind.StreamDoubleDisposed, 0, 0, Detail: Optional(a.DisposeStack2))),
+                a => new AllocationEvidence(CorrelationId.Create(a.Id), AllocationClass.RecyclableStream, StagingEventKind.StreamDoubleDisposed, 0, 0, Optional(a.DisposeStack2), None, None, None, None)),
             sink.Project<RecyclableMemoryStreamManager.StreamFinalizedEventArgs>(
                 h => manager.StreamFinalized += h, h => manager.StreamFinalized -= h, wire,
-                a => new AllocationEvidence(CorrelationId.Create(a.Id), AllocationClass.RecyclableStream, StagingEventKind.StreamFinalized, 0, 0, Detail: Optional(a.AllocationStack))));
+                a => new AllocationEvidence(CorrelationId.Create(a.Id), AllocationClass.RecyclableStream, StagingEventKind.StreamFinalized, 0, 0, Optional(a.AllocationStack), None, None, None, None)));
     }
 
-    public RecyclableMemoryStream Get(CorrelationId correlation, Option<long> requiredSize = default, bool contiguous = false) =>
-        requiredSize is { IsSome: true, Case: long size }
-            ? manager.GetStream(correlation, AllocationClass.RecyclableStream.Key, size, asContiguousBuffer: contiguous)
-            : manager.GetStream(correlation, AllocationClass.RecyclableStream.Key);
+    public Fin<RecyclableMemoryStream> Get(CorrelationId correlation, StreamGrant grant) =>
+        grant.Switch(
+            state: (Manager: manager, Policy: policy, Correlation: (Guid)correlation),
+            open: static (s, _) => Rent(s.Manager, s.Correlation),
+            sized: static (s, sized) => Rent(s.Manager, s.Correlation, sized.RequiredSize, contiguous: false, s.Policy),
+            contiguousFrame: static (s, frame) => Rent(s.Manager, s.Correlation, frame.RequiredSize, contiguous: true, s.Policy));
 
-    public void Dispose() => detachers.Rev().Iter(static detach => detach());
+    public Fin<RecyclableMemoryStream> Write(CorrelationId correlation, IMessage message) {
+        return Try.lift(() => {
+            int body = message.CalculateSize();
+            return checked((long)body + CodedOutputStream.ComputeLengthSize(body));
+        }).Run().MapFail(static error => TensorFault.Symbol("stream-size", error.Message)).Bind(required =>
+            Get(correlation, new StreamGrant.Sized(required)).Bind(stream =>
+            Try.lift(() => {
+                try {
+                    message.WriteLengthPrefixedTo((IBufferWriter<byte>)stream);
+                    stream.Position = 0;
+                    return stream;
+                }
+                catch { stream.Dispose(); throw; }
+            }).Run().MapFail(static error => TensorFault.Symbol("stream-write", error.Message))));
+    }
+
+    public Fin<T> Read<T>(RecyclableMemoryStream stream, MessageParser<T> parser) where T : IMessage<T> =>
+        Try.lift(() => parser.ParseFrom(stream.GetReadOnlySequence())).Run()
+            .MapFail(static error => TensorFault.Symbol("stream-read", error.Message));
+
+    static Fin<RecyclableMemoryStream> Rent(RecyclableMemoryStreamManager manager, Guid correlation) =>
+        Try.lift(() => manager.GetStream(correlation, AllocationClass.RecyclableStream.Key)).Run()
+            .MapFail(static error => TensorFault.Symbol("stream-rent", error.Message));
+
+    static Fin<RecyclableMemoryStream> Rent(
+        RecyclableMemoryStreamManager manager,
+        Guid correlation,
+        long requiredSize,
+        bool contiguous,
+        StreamPoolPolicy policy) =>
+        requiredSize <= 0 ? TensorFault.Fail<RecyclableMemoryStream>("stream-size", requiredSize.ToString(CultureInfo.InvariantCulture))
+        : contiguous && requiredSize > policy.MaximumBufferSize ? TensorFault.Fail<RecyclableMemoryStream>("stream-contiguous-cap", $"{requiredSize}>{policy.MaximumBufferSize}")
+        : policy.MaximumStreamCapacity > 0 && requiredSize > policy.MaximumStreamCapacity ? TensorFault.Fail<RecyclableMemoryStream>("stream-cap", $"{requiredSize}>{policy.MaximumStreamCapacity}")
+        : Try.lift(() => manager.GetStream(correlation, AllocationClass.RecyclableStream.Key, requiredSize, contiguous)).Run()
+            .MapFail(static error => TensorFault.Symbol("stream-rent", error.Message));
+
+    public void Dispose() {
+        if (disposed) { return; }
+        disposed = true;
+        detachers.Rev().Iter(static detach => detach());
+    }
 }
 
 // --- [BOUNDARIES] --------------------------------------------------------------------------
@@ -280,7 +345,8 @@ public static class PoolEvidence {
             Action<EventHandler<TArgs>> remove,
             JsonSerializerOptions wire,
             Func<TArgs, AllocationEvidence> evidence) where TArgs : EventArgs {
-            EventHandler<TArgs> handler = (_, args) => ignore(Stamp(sink, wire, evidence(args)).Run());
+            // A throwing sink must never propagate into the manager's event dispatch, so the run traps once.
+            EventHandler<TArgs> handler = (_, args) => ignore(Try.lift(() => Stamp(sink, wire, evidence(args)).Run()).Run());
             add(handler);
             return () => remove(handler);
         }

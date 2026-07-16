@@ -401,10 +401,13 @@ public static class Discovery {
             .Bind(manifest => manifest.ToFin(new HopFault.StaleManifest($"empty manifest: {pid}")))
             .Bind(static manifest => Alive(manifest));
 
-    public static Fin<DiscoveryManifest> Compatible(DiscoveryManifest peer, string localChecksum, Func<string, string, bool> additiveOnly) =>
-        peer.ContractChecksum == localChecksum || additiveOnly(localChecksum, peer.ContractChecksum)
+    public static Fin<DiscoveryManifest> Compatible(DiscoveryManifest peer, string localChecksum, Func<string, string, Fin<bool>> additiveOnly) =>
+        peer.ContractChecksum == localChecksum
             ? Fin.Succ(peer)
-            : Fin.Fail<DiscoveryManifest>(new HopFault.ChecksumBreaking(peer.ContractChecksum));
+            : additiveOnly(localChecksum, peer.ContractChecksum)
+                .Bind(compatible => compatible
+                    ? Fin.Succ(peer)
+                    : Fin.Fail<DiscoveryManifest>(new HopFault.ChecksumBreaking(peer.ContractChecksum)));
 
     public static GrpcChannel Connect(DiscoveryManifest peer, GrpcChannelPolicy policy) =>
         GrpcChannel.ForAddress(new UriBuilder(Uri.UriSchemeHttp, "localhost").Uri, new GrpcChannelOptions {

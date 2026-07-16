@@ -1,12 +1,12 @@
 # [RASM_RHINO_HOSTUI_SHELL]
 
-The host-runtime operation surface of `Rasm.Rhino.HostUi` — the one owner of Rhino's application-level UI machinery: command-thread affinity and marshalling over `RhinoApp`, the command-prompt and status-bar write spine as one combinable delta value, prompt observation over the Rhino 9 `CommandPromptChanged` edge, viewport toasts as receipted notes, the document-scoped status-bar progress meter with created/refused/foreign ownership evidence, and Rhino window ownership — `RhinoEtoApp` document windows, `EtoExtensions` native styling, position persistence, semi-modal presentation, and typed window discovery. The census scattered these across per-effect static helpers (`RhinoUi.Protect`/`DispatchThread`/`Invoke`/`Enqueue`/`Deliver`, a status record, a toast record, a progress class, ad-hoc window calls); this page collapses them into five owners with polymorphic entries: one marshal boundary, one status monoid applied in one fold, one leased meter, one window-adoption fold, one theme edge. Every fallible body crosses `Op.Catch`; every failure is a `UiFault` case; document scope enters as a `DocumentSession` capability demand, never an ambient document read. The Eto-side dispatch (`UiThread` over `Application.Instance`) is the Eto sub-domain's; this owner is the Rhino command-thread shape, and the two never substitute for each other — Eto realization marshals through `UiThread`, host document/status/window work marshals through `HostThread`.
+The host-runtime operation surface of `Rasm.Rhino.HostUi` — the one owner of Rhino's application-level UI machinery: command-thread affinity and marshalling over `RhinoApp`, the command-prompt and status-bar write spine as one combinable delta value, prompt observation over the Rhino 9 `CommandPromptChanged` edge, viewport toasts as receipted notes, the document-scoped status-bar progress meter with created/foreign ownership evidence and refusal typed at admission, and Rhino window ownership — `RhinoEtoApp` document windows, `EtoExtensions` native styling, position persistence, semi-modal presentation, and typed window discovery. The census scattered these across per-effect static helpers (`RhinoUi.Protect`/`DispatchThread`/`Invoke`/`Enqueue`/`Deliver`, a status record, a toast record, a progress class, ad-hoc window calls); this page collapses them into five owners with polymorphic entries: one marshal boundary, one status monoid applied in one fold, one leased meter, one window-adoption fold, one theme edge. Every fallible body crosses `Op.Catch`; every failure is a `UiFault` case; document scope enters as a `DocumentSession` capability demand, never an ambient document read. The Eto-side dispatch (`UiThread` over `Application.Instance`) is the Eto sub-domain's; this owner is the Rhino command-thread shape, and the two never substitute for each other — Eto realization marshals through `UiThread`, host document/status/window work marshals through `HostThread`.
 
 ## [01]-[INDEX]
 
 - [02]-[HOST_THREAD]: `HostThread` — Rhino main-thread affinity, the blocking railed marshal, the fire-and-forget post, the affinity guard over `RhinoApp.IsOnMainThread`/`InvokeAndWait`/`InvokeOnUiThread`, and the session-crossing marshal every session-gated HostUi entry rides.
 - [03]-[STATUS_SPINE]: `StatusDelta` + `StatusReceipt` + `ToastNote`/`ToastHandle` + `PromptFact`/`PromptWatch` — the one combinable screen-state delta over command prompt and status panes, receipted viewport toasts, and the typed prompt observation stream.
-- [04]-[PROGRESS_METER]: `MeterGrant` + `ProgressSpec`/`ProgressStep` + `ProgressLease` + `Progress` — the document-scoped status-bar meter as a leased resource with created/refused/foreign ownership evidence and an optional taskbar mirror.
+- [04]-[PROGRESS_METER]: `MeterGrant` + `ProgressSpec`/`ProgressStep` + `ProgressLease` + `Progress` — the document-scoped status-bar meter as a leased resource with created/foreign ownership evidence, refusal typed at admission, and an optional taskbar mirror.
 - [05]-[WINDOW_OWNERSHIP]: `WindowDress` + `ShellWindows` + `ShellTheme` — document window resolution, native styling and placement persistence as one adoption fold, semi-modal presentation, typed window discovery, and the Rhino light/dark edge into the Eto theme seam.
 
 ## [02]-[HOST_THREAD]
@@ -65,19 +65,18 @@ public static class HostThread {
                 },
                 key: op,
                 needs: needs)
-            .Bind(_ => captured is { } settled
-                ? settled
-                : Fin.Fail<T>(error: new UiFault.Unavailable(Key: op, Capability: nameof(DocumentSession.Demand))));
+            .Bind(_ => Settled(captured: captured, op: op, capability: nameof(DocumentSession.Demand)));
     }
 
     private static Fin<T> Marshalled<T>(Func<Fin<T>> body, Op op) =>
         op.Catch(() => {
             Fin<T>? captured = null;
             RhinoApp.InvokeAndWait(action: () => captured = op.Catch(body));
-            return captured is { } settled
-                ? settled
-                : Fin.Fail<T>(error: new UiFault.Unavailable(Key: op, Capability: nameof(RhinoApp.InvokeAndWait)));
+            return Settled(captured: captured, op: op, capability: nameof(RhinoApp.InvokeAndWait));
         });
+
+    private static Fin<T> Settled<T>(Fin<T>? captured, Op op, string capability) =>
+        captured is { } settled ? settled : Fin.Fail<T>(error: new UiFault.Unavailable(Key: op, Capability: capability));
 }
 ```
 
@@ -88,7 +87,7 @@ public static class HostThread {
 - Law: toasts are best-effort rows — each note applies independently and a refused note never cross-cancels its siblings; the receipt carries every minted `ToastHandle` because `RhinoView.ShowToast` returns the toast id and the handle is the only future dismiss target the host admits.
 - Law: progress-meter state never rides this delta — the meter is `[04]`'s leased resource, and a `HideProgress` flag beside a lease is the split-brain the census carried and this page deletes.
 - Owner: `PromptWatch` — the typed observation of the Rhino 9 `RhinoApp.CommandPromptChanged` edge: `Observe` subscribes once, stamps a `PromptFact` per transition — the event's `Prompt`, its `PromptDefault` as typed absence, the live `CommandLineOption` roster detached into `(Index, English, Local)` rows because the host option object is a native-pointer handle that never outlives the callback, and a monotonic ordinal — and returns a `ShellSubscription` whose `Halt` detaches, so a command-line-reactive surface (palette, HUD, prompt mirror) composes a fact stream, never a raw host event.
-- Packages: LanguageExt.Core (`Option`, `Seq`, `TraverseM`), Rasm.Domain (`Op`), Eto sub-domain (`UiFault`), RhinoCommon (`RhinoApp.SetCommandPrompt` both arities, `RhinoApp.SetCommandPromptMessage`, `RhinoApp.CommandPromptChanged`, `CommandPromptChangedEventArgs.Prompt`/`PromptDefault`/`Options`, `CommandLineOption.Index`/`EnglishName`/`LocalName`, `StatusBar.ClearMessagePane`/`SetMessagePane`/`SetDistancePane`/`SetNumberPane`/`SetPointPane`, `RhinoView.ShowToast` all three arities).
+- Packages: LanguageExt.Core (`Option`, `Seq`), Rasm.Domain (`Op`), Eto sub-domain (`UiFault`), RhinoCommon (`RhinoApp.SetCommandPrompt` both arities, `RhinoApp.SetCommandPromptMessage`, `RhinoApp.CommandPromptChanged`, `CommandPromptChangedEventArgs.Prompt`/`PromptDefault`/`Options`, `CommandLineOption.Index`/`EnglishName`/`LocalName`, `StatusBar.ClearMessagePane`/`SetMessagePane`/`SetDistancePane`/`SetNumberPane`/`SetPointPane`, `RhinoView.ShowToast` all three arities).
 - Growth (DOMAIN): a new status axis the concept demands (a pane the host adds, a toast dismiss verb once the host ships one) is one `StatusDelta` slot consumed inside `Apply` or one `ToastHandle` member — every producer gains it through the merge with zero call-site edits.
 
 ```csharp
@@ -126,7 +125,7 @@ public readonly record struct StatusDelta(
         ClearPane: earlier.ClearPane || later.ClearPane);
 
     public static StatusDelta Collapse(params ReadOnlySpan<StatusDelta> deltas) =>
-        toSeq(deltas.ToArray()).Fold(new StatusDelta(), static (folded, delta) => folded + delta);
+        Iterable<StatusDelta>.FromSpan(deltas).Fold(new StatusDelta(), static (folded, delta) => folded + delta);
 
     public static StatusDelta Scripted(string message) =>
         string.IsNullOrWhiteSpace(value: message) ? new StatusDelta() : new StatusDelta(PromptMessage: Some(message.Trim()));
@@ -146,10 +145,7 @@ public readonly record struct StatusDelta(
             _ = delta.Distance.Iter(static value => StatusBar.SetDistancePane(distance: value));
             _ = delta.Number.Iter(static value => StatusBar.SetNumberPane(number: value));
             _ = delta.Point.Iter(static value => StatusBar.SetPointPane(point: value));
-            return delta.Toasts
-                .TraverseM(note => Shown(note: note, op: op).Map(Some) | Fin.Succ(value: Option<ToastHandle>.None))
-                .As()
-                .Map(handles => new StatusReceipt(Toasts: handles.Somes().Strict()));
+            return Fin.Succ(value: new StatusReceipt(Toasts: delta.Toasts.Map(note => Shown(note: note, op: op).ToOption()).Somes().Strict()));
         }, key: op);
     }
 
@@ -186,7 +182,7 @@ public static class PromptWatch {
 
 ## [04]-[PROGRESS_METER]
 
-- Owner: `MeterGrant` — the closed ownership family the tri-state `StatusBar.ShowProgressMeter` return admits: `Created` owns the meter and its teardown, `Foreign` names a meter another process owns (every step is a witnessed no-op, never a failure, and teardown never touches it), `Refused` never constructs a lease — and `ProgressLease`, the disposable meter scope: `Step` drives absolute, relative, and label-only updates as one value, `Fold` threads a collection through step-per-item progress, `Fraction` projects the position onto the kernel `UnitInterval`, and `Dispose` hides only the owned meter exactly once. `Progress.Use` is the sole entry: it demands `SessionNeed.Redraw` on the `DocumentSession` (a headless or view-less document cannot host a meter), opens the meter against the session's `DocKey` serial, and brackets the body so no exit path leaks a visible meter.
+- Owner: `MeterGrant` — the closed ownership family a lease can hold, admitted from the tri-state `StatusBar.ShowProgressMeter` return: `Created` owns the meter and its teardown, `Foreign` names a meter another process owns (every step is a witnessed no-op, never a failure, and teardown never touches it), and the host's refused return is a typed `UiFault.Unavailable` at `Admit`, so a refused meter never reaches a lease — and `ProgressLease`, the disposable meter scope: `Step` drives absolute, relative, and label-only updates as one value, `Fold` threads a collection through step-per-item progress, `Fraction` projects the position onto the kernel `UnitInterval`, and `Dispose` hides only the owned meter exactly once. `Progress.Use` is the sole entry: it demands `SessionNeed.Redraw` on the `DocumentSession` (a headless or view-less document cannot host a meter), opens the meter against the session's `DocKey` serial, and brackets the body so no exit path leaks a visible meter.
 - Law: ownership is structural evidence, not a boolean — the grant case decides step and teardown behavior through total generated dispatch, so updating or hiding a foreign meter is unrepresentable rather than forbidden.
 - Law: a label-only step rides the host's own contract — `UpdateProgressMeter` at `RhinoMath.UnsetIntIndex` updates the label without moving the position — and an out-of-window position is a typed rejection before any host write, so the meter never renders an impossible state.
 - Law: `MirrorTaskbar` is a policy slot, not a second progress surface — the mirror projects `Fraction` through the Eto sub-domain's `TaskbarPulse` on every step and clears it at disposal, so OS-level progress is a derived view of the one meter position.
@@ -201,13 +197,12 @@ public abstract partial record MeterGrant {
     private MeterGrant() { }
     public sealed record Created(DocKey Document) : MeterGrant;
     public sealed record Foreign : MeterGrant;
-    public sealed record Refused : MeterGrant;
 
-    internal static MeterGrant Admit(int code, DocKey document) =>
+    internal static Fin<MeterGrant> Admit(int code, DocKey document, Op op) =>
         code switch {
-            1 => new Created(Document: document),
-            -1 => new Foreign(),
-            _ => new Refused(),
+            1 => Fin.Succ<MeterGrant>(value: new Created(Document: document)),
+            -1 => Fin.Succ<MeterGrant>(value: new Foreign()),
+            _ => Fin.Fail<MeterGrant>(error: new UiFault.Unavailable(Key: op, Capability: nameof(StatusBar.ShowProgressMeter))),
         };
 }
 
@@ -247,8 +242,7 @@ public sealed class ProgressLease : IDisposable {
                from position in grant.Switch(
                    state: (Self: this, Move: step, Op: op),
                    created: static (held, owned) => held.Self.Drive(document: owned.Document, step: held.Move, op: held.Op),
-                   foreign: static (held, _) => Fin.Succ(value: held.Self.current.Value),
-                   refused: static (held, _) => Fin.Fail<int>(error: new UiFault.Unavailable(Key: held.Op, Capability: nameof(StatusBar.ShowProgressMeter))))
+                   foreign: static (held, _) => Fin.Succ(value: held.Self.current.Value))
                select position;
     }
 
@@ -272,8 +266,7 @@ public sealed class ProgressLease : IDisposable {
                     _ = Op.Side(() => StatusBar.HideProgressMeter(docSerialNumber: owned.Document));
                     return Op.SideWhen(held.MirrorTaskbar, static () => ignore(TaskbarPulse.Clear()));
                 },
-                foreign: static (_, _) => unit,
-                refused: static (_, _) => unit)
+                foreign: static (_, _) => unit)
             : unit;
     }
 
@@ -284,12 +277,12 @@ public sealed class ProgressLease : IDisposable {
                    Some: position => guard(flag: position >= spec.Lower && position <= spec.Upper, False: op.InvalidInput()).ToFin(),
                    None: () => Fin.Succ(value: unit))
                from position in op.Catch(() => {
-                   _ = (target.Case, step.Position.Case, step.Label.Case) switch {
-                       (int _, int raw, string label) => Op.Side(() => StatusBar.UpdateProgressMeter(
+                   _ = (step.Position.Case, step.Label.Case) switch {
+                       (int raw, string label) => Op.Side(() => StatusBar.UpdateProgressMeter(
                            docSerialNumber: document, label: label, position: raw, absolute: step.Absolute)),
-                       (int _, int raw, _) => Op.Side(() => StatusBar.UpdateProgressMeter(
+                       (int raw, _) => Op.Side(() => StatusBar.UpdateProgressMeter(
                            docSerialNumber: document, position: raw, absolute: step.Absolute)),
-                       (_, _, string label) => Op.Side(() => StatusBar.UpdateProgressMeter(
+                       (_, string label) => Op.Side(() => StatusBar.UpdateProgressMeter(
                            docSerialNumber: document, label: label, position: RhinoMath.UnsetIntIndex, absolute: true)),
                        _ => unit,
                    };
@@ -309,7 +302,7 @@ public static class Progress {
             body: _ =>
                 from label in op.AcceptText(value: spec.Label)
                 from _ in guard(flag: spec.Upper >= spec.Lower, False: op.InvalidInput()).ToFin()
-                from lease in MeterGrant.Admit(
+                from grant in MeterGrant.Admit(
                     code: StatusBar.ShowProgressMeter(
                         docSerialNumber: session.Key,
                         lowerLimit: spec.Lower,
@@ -317,11 +310,9 @@ public static class Progress {
                         label: label,
                         embedLabel: spec.EmbedLabel,
                         showPercentComplete: spec.ShowPercent),
-                    document: session.Key) switch {
-                        MeterGrant.Refused => Fin.Fail<ProgressLease>(error: new UiFault.Unavailable(Key: op, Capability: nameof(StatusBar.ShowProgressMeter))),
-                        MeterGrant granted => Fin.Succ(value: new ProgressLease(grant: granted, spec: spec)),
-                    }
-                from result in Bracketed(lease: lease, body: body, op: op)
+                    document: session.Key,
+                    op: op)
+                from result in Bracketed(lease: new ProgressLease(grant: grant, spec: spec), body: body, op: op)
                 select result,
             op: op,
             SessionNeed.Redraw);
@@ -391,10 +382,8 @@ public static class ShellWindows {
         Op op = key.OrDefault();
         return HostThread.OnSession(
             session: session,
-            body: document => parent
-                .Match(
-                    Some: static anchor => Fin.Succ(value: anchor),
-                    None: () => Optional((Control)RhinoEtoApp.MainWindowForDocument(document)).ToFin(Fail: op.MissingContext()))
+            body: document => (parent | Optional((Control)RhinoEtoApp.MainWindowForDocument(document)))
+                .ToFin(Fail: op.MissingContext())
                 .Map(owner => EtoExtensions.ShowSemiModal(dialog, document, owner)),
             op: op,
             SessionNeed.Dialog);

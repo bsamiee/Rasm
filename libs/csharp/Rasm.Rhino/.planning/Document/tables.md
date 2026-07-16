@@ -131,7 +131,7 @@ public sealed class ObjectQuery {
         viewport.Match(
             Some: target =>
                 from rows in target.Resolve(document: document, key: key)
-                from row in rows switch { [var only] => Fin.Succ(value: only), _ => Fin.Fail<Viewport.ViewportRef>(error: key.InvalidInput()) }
+                from row in Tables.One(rows: rows, key: key)
                 select Copy(source: settings, viewport: row.Viewport),
             None: () => Fin.Succ(value: Copy(source: settings, viewport: null)));
 
@@ -148,6 +148,7 @@ public sealed class ObjectQuery {
             IncludeLights = source.IncludeLights,
             IncludeGrips = source.IncludeGrips,
             IncludePhantoms = source.IncludePhantoms,
+            UseFastSelection = source.UseFastSelection,
             SelectedObjectsFilter = source.SelectedObjectsFilter,
             VisibleFilter = source.VisibleFilter,
             ObjectTypeFilter = source.ObjectTypeFilter,
@@ -293,7 +294,7 @@ public abstract partial record TableTarget {
 - Entry: `TableOp` factories admit raw payloads once. `TableTransaction.Recorded`, `Immediate`, and `Navigate` admit program shape before `Tables.Commit(DocumentSession, TableTransaction)` enters the host boundary. `Immediate` admits one non-undoing operation; recorded programs admit only undo-recorded operations, so the rollback guarantee never covers an untracked side effect.
 - Law: `TransformPolicy.Relocate` reports the transformed identity as `Moved`; `Copy` and `History` report only the minted identity as `Created`. Sources remain unchanged on copy/history paths. Selection facts derive from before/after runtime snapshots, and state facts use separate `Hidden`/`Shown` and `Locked`/`Unlocked` slots.
 - Law: `TableOp.Traits` totally classifies every case onto one of four trait rows — `Sourced`, `Recorded`, `Immediate`, `Navigation` — carrying undo recording, navigation, and kernel-context demand as one derived product. A host effect that cannot be reversed by the document record enters only an immediate transaction, so a recorded program has no untracked side effect.
-- Law: `Amend` owns a duplicated `ObjectAttributes` lease, exposes only an in-place `Fin<Unit>` change callback, commits the duplicate synchronously, and disposes it before the operation leaves the host boundary.
+- Law: `Amend` owns a duplicated `ObjectAttributes` lease, exposes only an in-place `Fin<Unit>` change callback, commits the duplicate synchronously, and disposes it before the operation leaves the host boundary. Canonical callback is the objects page's typed `AttributeProgram.Apply` — `Amend(target, program.Apply, notice)` — so attribute mutation is a closed `AttributeEdit` program; a hand-written mutation lambda survives only where no program case carries the member.
 - Law: deleted-object operations require a runtime-preserving target. Explicit deleted rows and deleted-object queries preserve runtime serials without re-entering the active-id index, deletion captures runtime pairs before mutation, and receipts project them for a later `Revive` or `Expunge` request.
 - Law: geometry intake resolves `Kind`, applies `Requirement.ForKind` to the original value, then composes the kernel `GeometryForm` lease operation. Native geometry remains borrowed; every value-form conversion is owned and disposed by `Lease.Use` after the host copies it.
 - Law: page import carries `DocumentPath` and re-proves `DocumentFile.ThreeDm` inside the callback. Named-view restore carries `ViewportTarget`, resolves exactly one viewport immediately before the host call, and never retains a live viewport handle in request data.
@@ -336,9 +337,9 @@ public sealed partial class TransformPolicy {
 
 [SmartEnum]
 public sealed partial class SelectionEdit {
-    public static readonly SelectionEdit Add = new(apply: static (table, ids, policy) => table.Select(ids, true, policy.Highlight, policy.Persistent, policy.IgnoreGrips, policy.IgnoreLayerLocking, policy.IgnoreLayerVisibility));
-    public static readonly SelectionEdit Remove = new(apply: static (table, ids, policy) => table.Select(ids, false, policy.Highlight, policy.Persistent, policy.IgnoreGrips, policy.IgnoreLayerLocking, policy.IgnoreLayerVisibility));
-    public static readonly SelectionEdit Replace = new(apply: static (table, ids, policy) => table.SetSelectedObjects(ids, policy.Highlight, policy.Persistent, policy.IgnoreGrips, policy.IgnoreLayerLocking, policy.IgnoreLayerVisibility));
+    public static readonly SelectionEdit Add = new(apply: static (table, ids, policy) => table.Select(objectIds: ids, select: true, syncHighlight: policy.Highlight, persistentSelect: policy.Persistent, ignoreGripsState: policy.IgnoreGrips, ignoreLayerLocking: policy.IgnoreLayerLocking, ignoreLayerVisibility: policy.IgnoreLayerVisibility));
+    public static readonly SelectionEdit Remove = new(apply: static (table, ids, policy) => table.Select(objectIds: ids, select: false, syncHighlight: policy.Highlight, persistentSelect: policy.Persistent, ignoreGripsState: policy.IgnoreGrips, ignoreLayerLocking: policy.IgnoreLayerLocking, ignoreLayerVisibility: policy.IgnoreLayerVisibility));
+    public static readonly SelectionEdit Replace = new(apply: static (table, ids, policy) => table.SetSelectedObjects(objectIds: ids, syncHighlight: policy.Highlight, persistentSelect: policy.Persistent, ignoreGripsState: policy.IgnoreGrips, ignoreLayerLocking: policy.IgnoreLayerLocking, ignoreLayerVisibility: policy.IgnoreLayerVisibility));
 
     [UseDelegateFromConstructor]
     internal partial int Apply(ObjectTable table, IEnumerable<Guid> ids, SelectionPolicy policy);
@@ -420,12 +421,12 @@ public abstract partial record NamedRestore {
             state: (Document: document, Op: key),
             proportionalCase: static (context, restore) =>
                 from rows in restore.Target.Resolve(document: context.Document, key: context.Op)
-                from row in rows switch { [var only] => Fin.Succ(value: only), _ => Fin.Fail<Viewport.ViewportRef>(error: context.Op.InvalidInput()) }
+                from row in Tables.One(rows: rows, key: context.Op)
                 from _ in context.Op.Confirm(success: context.Document.NamedViews.RestoreWithAspectRatio(index: restore.Index, viewport: row.Viewport))
                 select unit,
             animatedCase: static (context, restore) =>
                 from rows in restore.Target.Resolve(document: context.Document, key: context.Op)
-                from row in rows switch { [var only] => Fin.Succ(value: only), _ => Fin.Fail<Viewport.ViewportRef>(error: context.Op.InvalidInput()) }
+                from row in Tables.One(rows: rows, key: context.Op)
                 from _ in context.Op.Confirm(success: context.Document.NamedViews.RestoreAnimatedConstantTime(index: restore.Index, viewport: row.Viewport, frames: restore.Frames.Value, ms_delay: restore.DelayMs))
                 select unit);
 }
@@ -553,19 +554,21 @@ public abstract partial record TableOp {
     }
 
     public static Fin<TableOp> Revive(TableTarget target) =>
-        Optional(target).ToFin(Fail: Op.Of().InvalidInput())
-            .Bind(value => value.RetainsRuntime ? Fin.Succ<TableOp>(new ReviveCase(Target: value)) : Fin.Fail<TableOp>(Op.Of().InvalidInput()));
+        Retained(target: target, mint: static value => new ReviveCase(Target: value));
 
     public static Fin<TableOp> Expunge(TableTarget target) =>
+        Retained(target: target, mint: static value => new ExpungeCase(Target: value));
+
+    private static Fin<TableOp> Retained(TableTarget target, Func<TableTarget, TableOp> mint) =>
         Optional(target).ToFin(Fail: Op.Of().InvalidInput())
-            .Bind(value => value.RetainsRuntime ? Fin.Succ<TableOp>(new ExpungeCase(Target: value)) : Fin.Fail<TableOp>(Op.Of().InvalidInput()));
+            .Bind(value => value.RetainsRuntime ? Fin.Succ(value: mint(arg: value)) : Fin.Fail<TableOp>(Op.Of().InvalidInput()));
 
     public static Fin<TableOp> Cloud(Dimension x, Dimension y, Dimension z, Arr<Point3d> box, ObjectCustody custody, Option<ObjectAttributes> attributes = default, Option<HistoryRecord> history = default) {
         Op op = Op.Of();
         return from policy in Optional(custody).ToFin(Fail: op.InvalidInput())
                from _ in guard(
-                   (long)x.Value * y.Value <= int.MaxValue
-                   && ((long)x.Value * y.Value) * z.Value == box.Count,
+                   box.Count is 8
+                   && (long)x.Value * y.Value * z.Value <= int.MaxValue,
                    op.InvalidInput()).ToFin()
                from __ in box.AsIterable().ToSeq().TraverseM(point => op.AcceptInput(value: point)).As()
                select (TableOp)new CloudCase(X: x, Y: y, Z: z, Box: box, Attributes: attributes, History: history, Custody: policy);
@@ -629,7 +632,7 @@ public abstract partial record TableOp {
             replaceCase: static (context, edit) =>
                 from model in context.Domain.ToFin(Fail: context.Op.MissingContext())
                 from ids in edit.Target.Resolve(document: context.Document, key: context.Op)
-                from single in ids switch { [Guid only] => Fin.Succ(value: only), _ => Fin.Fail<Guid>(error: context.Op.InvalidInput()) }
+                from single in Tables.One(rows: ids, key: context.Op)
                 from _ in GeometryIntake.Admit(source: edit.Replacement, domain: model, key: context.Op)
                     .Bind(lease => lease.Use(native => context.Op.Confirm(success: context.Document.Objects.Replace(objectId: single, geometry: native, ignoreModes: edit.Modes.IgnoresModes))))
                 from runtime in Tables.Runtime(document: context.Document, ids: Seq(single), key: context.Op)
@@ -663,19 +666,18 @@ public abstract partial record TableOp {
                 select TableReceipt.Objects(slot: TableSlot.Amended, values: runtime),
             selectCase: static (context, edit) =>
                 from ids in edit.Target.Resolve(document: context.Document, key: context.Op)
-                from before in Tables.Selected(document: context.Document, key: context.Op)
-                from _ in guard(edit.Edit.Apply(table: context.Document.Objects, ids: ids.AsIterable(), policy: edit.Policy) >= 0, context.Op.InvalidResult()).ToFin()
-                from after in Tables.Selected(document: context.Document, key: context.Op)
-                select TableReceipt.SelectionDelta(before: before, after: after),
+                from receipt in SelectionSpan(
+                    document: context.Document,
+                    apply: () => edit.Edit.Apply(table: context.Document.Objects, ids: ids.AsIterable(), policy: edit.Policy),
+                    op: context.Op)
+                select receipt,
             stateCase: static (context, edit) =>
                 from targets in edit.Target.Serials(document: context.Document, key: context.Op)
                 from changed in Tables.ApplyState(document: context.Document, targets: targets, state: edit.State, modes: edit.Modes, key: context.Op)
                 select TableReceipt.Objects(slot: edit.State.Slot, values: changed),
-            clearSelectionCase: static (context, edit) =>
-                from before in Tables.Selected(document: context.Document, key: context.Op)
-                from _ in guard(context.Document.Objects.UnselectAll(ignorePersistentSelections: edit.Scope.IgnorePersistent) >= 0, context.Op.InvalidResult()).ToFin()
-                from after in Tables.Selected(document: context.Document, key: context.Op)
-                select TableReceipt.SelectionDelta(before: before, after: after),
+            clearSelectionCase: static (context, edit) => SelectionSpan(
+                document: context.Document,
+                apply: () => context.Document.Objects.UnselectAll(ignorePersistentSelections: edit.Scope.IgnorePersistent), op: context.Op),
             flashCase: static (context, edit) =>
                 from targets in edit.Target.Serials(document: context.Document, key: context.Op)
                 from objects in targets.TraverseM(target => Optional(context.Document.Objects.FindId(target.Id)).ToFin(Fail: context.Op.InvalidResult())).As()
@@ -684,14 +686,12 @@ public abstract partial record TableOp {
                     return Fin.Succ(value: unit);
                 })
                 select TableReceipt.Objects(slot: TableSlot.Flashed, values: targets),
-            reviveCase: static (context, edit) =>
-                from targets in edit.Target.Serials(document: context.Document, key: context.Op)
-                from revived in targets.TraverseM(target => context.Op.Confirm(success: context.Document.Objects.Undelete(runtimeSerialNumber: target.Serial)).Map(_ => target)).As()
-                select TableReceipt.Objects(slot: TableSlot.Revived, values: revived),
-            expungeCase: static (context, edit) =>
-                from targets in edit.Target.Serials(document: context.Document, key: context.Op)
-                from expunged in targets.TraverseM(target => context.Op.Confirm(success: context.Document.Objects.Purge(runtimeSerialNumber: target.Serial)).Map(_ => target)).As()
-                select TableReceipt.Objects(slot: TableSlot.Expunged, values: expunged),
+            reviveCase: static (context, edit) => Lifecycle(
+                document: context.Document, target: edit.Target, slot: TableSlot.Revived,
+                apply: static (objects, serial) => objects.Undelete(runtimeSerialNumber: serial), op: context.Op),
+            expungeCase: static (context, edit) => Lifecycle(
+                document: context.Document, target: edit.Target, slot: TableSlot.Expunged,
+                apply: static (objects, serial) => objects.Purge(runtimeSerialNumber: serial), op: context.Op),
             cloudCase: static (context, edit) =>
                 from id in context.Op.AcceptValue(value: context.Document.Objects.AddOrderedPointCloud(
                     xCt: edit.X.Value,
@@ -718,6 +718,17 @@ public abstract partial record TableOp {
                 .Map(_ => TableReceipt.Component(kind: TableKind.NamedViews, tally: 1)),
             rollCase: static (context, edit) => edit.Navigation.Apply(document: context.Document, key: context.Op)
                 .Map(static _ => TableReceipt.Empty));
+
+    private static Fin<TableReceipt> SelectionSpan(RhinoDoc document, Func<int> apply, Op op) =>
+        from before in Tables.Selected(document: document, key: op)
+        from _ in guard(apply() >= 0, op.InvalidResult()).ToFin()
+        from after in Tables.Selected(document: document, key: op)
+        select TableReceipt.SelectionDelta(before: before, after: after);
+
+    private static Fin<TableReceipt> Lifecycle(RhinoDoc document, TableTarget target, TableSlot slot, Func<ObjectTable, uint, bool> apply, Op op) =>
+        from targets in target.Serials(document: document, key: op)
+        from changed in targets.TraverseM(value => op.Confirm(success: apply(document.Objects, value.Serial)).Map(_ => value)).As()
+        select TableReceipt.Objects(slot: slot, values: changed);
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -834,6 +845,9 @@ public static class Tables {
                select receipt;
     }
 
+    internal static Fin<T> One<T>(Seq<T> rows, Op key) =>
+        rows switch { [var only] => Fin.Succ(value: only), _ => Fin.Fail<T>(error: key.InvalidInput()) };
+
     internal static Fin<Seq<ObjectRuntime>> Runtime(RhinoDoc document, Seq<Guid> ids, Op key) =>
         ids.Distinct().TraverseM(id => Optional(document.Objects.FindId(id))
             .ToFin(Fail: key.InvalidResult())
@@ -896,14 +910,15 @@ public static class Tables {
                         .Bind(_ => op.Catch(run));
                     return undo.Seal(outcome: executed, stamp: static (receipt, serial) => receipt + TableReceipt.Undo(serial: serial), key: op);
                 }));
-            Fin<Unit> restored = op.Catch(() => {
+            K<Validation<Error>, Unit> restored = op.Catch(() => {
                 _ = Op.SideWhen(plan.Redraw.Suppress, () => document.Views.EnableRedraw(
                     enable: priorRedraw,
                     redrawDocument: false,
                     redrawLayers: false));
                 return Fin.Succ(value: unit);
-            });
-            return (outcome, restored).Apply(static (receipt, _) => receipt).As();
+            }).ToValidation();
+            K<Validation<Error>, TableReceipt> settled = outcome.ToValidation();
+            return (settled, restored).Apply(static (receipt, _) => receipt).As().ToFin();
         });
 }
 

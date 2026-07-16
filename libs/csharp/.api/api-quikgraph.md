@@ -1,6 +1,6 @@
 # [RASM_API_QUIKGRAPH]
 
-`QuikGraph` owns the C# stack's pure-managed generic graph containers, edge shapes, and algorithm facade. Consumers fold typed domain records into transient graphs and project each algorithm result back onto a typed receipt. The vertex is the domain key, and QuikGraph owns no identity scheme.
+`QuikGraph` owns pure-managed generic graph containers, edge shapes, and algorithms. Consumers fold typed domain records into transient graphs and project algorithm results onto typed receipts. Domain keys remain vertices; QuikGraph owns no identity scheme.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -55,6 +55,7 @@ Container construction, mutation, and lookup remain on each graph instance.
 
 [BIDIRECTIONAL_GRAPH]:
 - Construction: `allowParallelEdges`, vertex capacity, edge capacity
+- Mutation: `Clone`, `RemoveVertex`, `RemoveEdge`, `AddVertexRange`, `AddVerticesAndEdge`
 - Query: `InDegree`, `InEdge`, `InEdges`, `Degree`
 
 [UNDIRECTED_GRAPH]:

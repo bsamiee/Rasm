@@ -1,6 +1,6 @@
 # [RASM_COMPUTE_API_ANGOURIMATH]
 
-`AngouriMath` is the categorical-best managed CAS: a symbolic-algebra engine whose `Entity` expression tree natively owns parsing, canonical simplification, equation solving, differentiation, integration, limits, LaTeX rendering, and `Compile`-to-delegate evaluation — the depth `MathNet.Symbolics` (self-described "basic", no solve/integrate/limits) lacks. It is the CAS base of the Symbolic folder: `SymbolicExpr` re-bases its identity on AngouriMath's canonical normal form (the `[ComplexValueObject]` content-key law SURVIVES — identity stays the canonical-NF seed-zero `XxHash128`, the engine's `Entity` replacing the F# `Expression` as the stored, equality-inert member), and it collapses the `FParsec` parser and the `compileExpression` machinery into ONE owner. The re-base is SETTLED: the canonical normal form is pin-deterministic (`Simplify()` is a pure fold over the immutable `Entity` records with no ambient-culture or hash-order dependence), the frozen expression fixtures live on `Symbolic/expression#EXPRESSION_LAW`, and `MathNet.Symbolics` + `MathNet.Numerics.FSharp` + `FParsec` are RETIRED from the roster.
+`AngouriMath` is the categorical-best managed CAS: a symbolic-algebra engine whose `Entity` expression tree natively owns parsing, canonical simplification, equation solving, differentiation, integration, limits, LaTeX rendering, and `Compile`-to-delegate evaluation — the depth `MathNet.Symbolics` (self-described "basic", no solve/integrate/limits) lacks. It is the CAS base of the Symbolic folder: `SymbolicExpr` re-bases its identity on AngouriMath's canonical normal form (the `[ComplexValueObject]` content-key law SURVIVES — identity stays the canonical-NF seed-zero `XxHash128`, the engine's `Entity` replacing the F# `Expression` as the stored, equality-inert member), and it collapses the `FParsec` parser and the `compileExpression` machinery into ONE owner. Re-base status is SETTLED: canonical normalization is pin-deterministic (`Simplify()` is a pure fold over the immutable `Entity` records with no ambient-culture or hash-order dependence), frozen expression fixtures live on `Symbolic/expression#EXPRESSION_LAW`, and `MathNet.Symbolics` + `MathNet.Numerics.FSharp` + `FParsec` are RETIRED from the roster.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -35,7 +35,7 @@
 - [04]-[Entity.Set]: `FiniteSet`/`Interval`/`ConditionalSet`; `Solve` returns a `Set`, never a bare array, so an empty/parametric/conditional solution is a typed value.
 - [05]-[Entity.Boolean]: boolean-sorted terms + (in)equality statements (`x2 = 16`, `a > b`) — the constraint form a rule lowers from and `SolveBooleanSystem` consumes.
 - [06]-[FASTEXPRESSION]: the non-generic `Entity.Compile(vars…)` result; `Call(Complex[] args)` evaluates variadically — the `CompileArity.Variadic` fall behind the typed `Compile<…>` IL rows.
-- [07]-[NODE_RECORDS]: the Q⁷ dimensional fold descends `Sumf(Augend, Addend)`/`Minusf`/`Mulf`/`Divf`/`Powf(Base, Exponent)`/`Absf`/`Signumf`/`Logf`, plus `Derivativef`/`Integralf`/`Limitf` carrying dimensional residue laws.
+- [07]-[NODE_RECORDS]: the Q⁷ dimensional fold descends `Sumf(Augend, Addend)`/`Minusf`/`Mulf`/`Divf`/`Powf(Base, Exponent)`/`Absf(Argument)`/`Signumf(Argument)`/`Logf`, plus `Derivativef`/`Integralf`/`Limitf` carrying dimensional residue laws; the statement records the Z3 rule walk descends are `Equalsf(Left, Right)`/`Greaterf`/`GreaterOrEqualf`/`Lessf`/`LessOrEqualf` (`ComparisonSign` subtypes) and `Andf(Left, Right)`/`Orf(Left, Right)`/`Xorf(Left, Right)`/`Impliesf(Assumption, Conclusion)`/`Notf(Argument)` (`Statement` subtypes), all positional-pattern-matchable sealed records.
 
 ## [03]-[ENTRYPOINTS]
 
@@ -74,22 +74,33 @@
 |  [07]   | `entity.EvalNumerical()` / `EvalBoolean()`                                 | force eval → `Entity.Number.Complex` / `Entity.Boolean` |
 |  [08]   | `entity.Compile<TIn1..TIn8,TOut>(…)` / `Compile(params Entity.Variable[])` | typed IL fast lane + variadic `FastExpression` fall     |
 |  [09]   | `entity.Latexise()` → `string`                                             | LaTeX rendering for the receipt/report projection       |
+|  [10]   | `entity.Evaled` → `Entity`                                                 | non-throwing cached reduction (unbound stays symbolic)  |
+|  [11]   | `entity.Expand(int level = 2)` / `Factorize(int level = 2)`                | normalization routes beside `Simplify`                  |
+|  [12]   | `entity.InnerSimplified` → `Entity`                                        | cheap structural reduction, no aggressive rules         |
+|  [13]   | `entity.Nodes` → `IEnumerable<Entity>`                                     | full-tree node census (residue gates read it)           |
+|  [14]   | `entity.Vars` → `IEnumerable<Entity.Variable>`                             | free-symbol census (pi/e excluded)                      |
 
 - [02]-[DIFFERENTIATE]: `(Entity.Variable x, int power)` order overload; the `derivative(f, x, order)` node is the deferred-residue form.
 - [03]-[INTEGRATE]: `(Entity.Variable x, Entity from, Entity to)` definite overload; also the `integral(f, x)` node.
 - [05]-[SOLVE]: the `SolveEquation(var)` alias; the cut-parameter inversion the AEC formula consumers reach.
 - [08]-[COMPILE]: the typed generic overloads (arity 1..8, `Linq.Expressions` IL) are the fast lane; the non-generic `FastExpression` interpreter (`Call(complexArgs)`) is the variadic fall — both on `Symbolic/lowering#COMPILE_ARITY`.
+- [10]-[EVALED]: the admitted evaluation read — `EvalNumerical()` throws on an unbound symbol where `Evaled` leaves the residue symbolic for the typed `NumberBox` decline.
+
+[NODE_SHAPES]: decompile-verified record shapes beyond the `[07]-[NODE_RECORDS]` roster.
+- numeric leaves: `Entity.Number.Rational.ERational` (`PeterO.Numbers`), `Entity.Number.Real.EDecimal`, `Entity.Number.Real.AsDouble()`.
+- unary/binary floors: `IUnaryNode.NodeChild`; `IBinaryNode.NodeFirstChild`/`NodeSecondChild`.
+- regime switch: `Entity.Piecewise(IEnumerable<Providedf>)` with `Cases`; `Entity.Providedf(Entity Expression, Entity Predicate)` — the first-class carrier for design-code piecewise formulas the dimensional fold proves.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [IDENTITY_REBASE]:
-- `SymbolicExpr`'s `[ComplexValueObject]` content-key law is UNCHANGED: the identity stays the canonical-normal-form seed-zero `XxHash128` over the `Simplify()`-reduced `Stringize()` bytes; the AngouriMath `Entity` REPLACES the stored, equality-inert F# `Expression` member. The canonical NF is pin-deterministic; the frozen fixtures anchoring it live on `Symbolic/expression`.
+- `SymbolicExpr`'s `[ComplexValueObject]` content-key law is UNCHANGED: identity stays the canonical-normal-form seed-zero `XxHash128` over the `Simplify()`-reduced `Stringize()` bytes; AngouriMath `Entity` REPLACES the stored, equality-inert F# `Expression` member. Canonical NF is pin-deterministic; frozen fixtures anchoring it live on `Symbolic/expression`.
 - `dimensional.md`'s Q⁷ dimensional fold re-bases its expression walk on the `Entity.Nodes`/`DirectChildren` traversal; `units.md` is UNTOUCHED except its E14 typed-`CorrelationId` repair.
 
 [STACKING]:
-- `Symbolic/lowering#COMPILED_EXPR`: the typed `Entity.Compile<…>` IL rows plus the `FastExpression` variadic fall re-base the compiled-expression cache; the L1-over-`CacheLane.ModelResult` discipline and the `Rasm.Persistence/Query/cache` seam-98 crossing are UNCHANGED — the content key is the page's own, not the engine's.
+- `Symbolic/lowering#COMPILED_EXPR`: binds typed `Entity.Compile<…>` IL rows plus the `FastExpression` variadic fall into the compiled-expression cache; L1-over-`CacheLane.ModelResult` discipline and the `Rasm.Persistence/Query/cache` seam-98 crossing are UNCHANGED — content key ownership stays with the page, not the engine.
 - `Solver/satisfy` (`api-microsoft-z3.md`): the CAS is the Z3 LOWERING SOURCE — a `SymbolicExpr` constraint (an `Entity.Statement`) walks term-by-term to `Context.Mk*` assertions, so the rule-satisfaction owner consumes the `Entity` tree the CAS canonicalizes.
-- the cost/QTO formula lane's `SymbolicOp` axis gains `Solve`/`Integrate` rows the AEC formula consumers (cut-parameter inversion, quantity integrals) reach — capability `MathNet.Symbolics` never had.
+- Cost/QTO formula lane's `SymbolicOp` axis gains `Solve`/`Integrate` rows the AEC formula consumers (cut-parameter inversion, quantity integrals) reach — capability `MathNet.Symbolics` never had.
 
 [RAIL_LAW]:
 - Package: `AngouriMath` `1.4.0` (MIT, net7.0 asset binding on net10; permissive ANTLR/GenericTensor/HonkSharp/PeterO deps)

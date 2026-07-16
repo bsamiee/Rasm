@@ -1,234 +1,394 @@
 # [COMPUTE_SOLVER_CONSTITUTIVE]
 
-Rasm.Compute per-Gauss-point material law: `ConstitutiveModel` `[Union]` is the stress-update axis (plasticity / hyperelasticity / viscoelasticity / damage) and `ContactConstraint` the frictional-contact enforcement, extracted whole from the solve contract as its own single-fold owner — a per-integration-point concern distinct from the `PhysicsKind` physics-assembly axis (a fourth `MaterialForm` literal is the deleted form). `StressUpdate.Stress` returns the updated stress, the AD-consistent tangent, and the evolved `MaterialState` per point; `ContactEnforcement.Enforce` binds the `Solver/optimizer#OPTIMIZER_LANE` `ConstraintHandling.AugmentedLagrangian` multiplier machinery to the gap function over the broad-phase pair set `Solver/clash#CLASH_AND_TWIN` supplies.
+Rasm.Compute per-Gauss-point material law: `ConstitutiveModel` `[Union]` is the stress-update axis (plasticity / hyperelasticity / viscoelasticity / damage) and `ContactConstraint` the regularized normal-contact enforcement, extracted from the solve contract as the per-integration-point owner distinct from `PhysicsKind`. `StressUpdate.Stress` returns the updated stress, exact hyper-dual local tangent, and evolved `MaterialState`; `ContactEnforcement.Enforce` binds `ConstraintHandling.AugmentedLagrangian.Advance` to the gap function over the broad-phase pair set `Solver/clash#CLASH_AND_TWIN` supplies.
 
-Stress is `∂W/∂ε` through the `Tensor/dispatch#EQUIVALENCE_INTEROP` reverse-mode `SensitivityLaw.Chain` over each case's recorded energy tape, and the tangent is the SPD Gauss-Newton curvature through `SensitivityLaw.GaussNewton` — the AD engine is composed, never re-implemented. `Solver/contract#SOLVE_CONTRACT` imports FROM this page: its `SolveProblem.Material` option carries the law and its modified-Newton internal-force residual folds `StressUpdate.Stress` at every Gauss point. Elastic `(E, ν)` and inelastic calibration read once from the `Rasm.Element` `ElementGraph` via `graph.PropertiesOf(id).Mechanical` (the real seam member; a `MechanicalOf` accessor spelling is a phantom), keyed by the seam `NodeId`, concrete above the seam.
+Stress is `∂W/∂ε` and the algorithmic tangent is `∂²W/∂ε²` through the admitted `HyperJet.DDScalar.Variables(values, order: 2)` energy evaluation and its `GetGradient`/`GetHessian` projections. One parameterized energy owner carries regularized J2 plasticity, finite-strain Neo-Hookean/Mooney-Rivlin hyperelasticity, generalized-Maxwell viscoelastic history, and scalar damage; activation proxies and Gauss-Newton curvature are deleted because neither is a constitutive energy Hessian. `Solver/contract#SOLVE_CONTRACT` imports this page through `SolveProblem.Material`, and its modified-Newton residual folds `StressUpdate.Stress` at every Gauss point. Elastic `(E, ν)` and inelastic calibration read once from `graph.PropertiesOf(id).Mechanical`, keyed by `NodeId`.
 
 ## [01]-[INDEX]
 
-- [01]-[CONSTITUTIVE]: per-Gauss-point stress-update axis (plasticity/hyperelastic/viscoelastic/damage) and frictional-contact enforcement whose tangent is the AD SPD Gauss-Newton curvature of the strain-energy/gap potential.
+- [01]-[CONSTITUTIVE]: per-Gauss-point plasticity/hyperelasticity/viscoelasticity/damage energy axis and regularized normal-contact potential with exact local hyper-dual derivatives.
 
 ## [02]-[CONSTITUTIVE]
 
-- Owner: `ConstitutiveModel` `[Union]` the per-Gauss-point material-law axis, each case carrying its strain-energy/yield function and evolving per-point state, distinct from the `PhysicsKind` physics-assembly axis (a new Solver owner, never a fourth `MaterialForm` literal); `ContactConstraint` `[Union]` the frictional-contact axis (normal gap, Coulomb stick-slip) reusing the optimizer feasibility machinery; `StressUpdate` the static fold returning `(stress = ∂W/∂ε, consistent tangent ≈ the SPD Gauss-Newton curvature JᵀJ·v)` per integration point; `ContactEnforcement` the static fold binding the `Solver/optimizer#OPTIMIZER_LANE` `ConstraintHandling.AugmentedLagrangian` update `λ ← λ + ρ·g` to the gap function with the SPD contact stiffness from the regularized potential's Gauss-Newton curvature; `MaterialState` the per-point evolving-state carrier (plastic strain, hardening, damage); `ConstitutiveResult`/`ContactResult` the field-plus-tangent carriers riding the `Solve` receipt.
-- Cases: `ConstitutiveModel` `Plastic` (return-mapping, yield + hardening) · `Hyperelastic` (Neo-Hookean / Mooney-Rivlin) · `Viscoelastic` (Prony series) · `Damage` (scalar damage variable); `ContactConstraint` `NodeToSurface(Slave, Master, Gap, Regularization)` · `Mortar(SlaveSegments, MasterSegments, Gap, Regularization)`.
-- Entry: `public static Fin<ConstitutiveResult> Stress(ConstitutiveModel model, ReadOnlyMemory<double> strain, MaterialState state, MaterialParameters parameters, ClockPolicy clocks)` returns the updated stress, the per-point consistent tangent, and the evolved state — `Fin<T>` aborts on a non-converged return-map; `public static Fin<ContactResult> Enforce(ContactConstraint contact, ReadOnlyMemory<double> displacement, ReadOnlyMemory<double> multipliers, double penalty, Seq<(int Slave, int Master)> broadPhasePairs, ClockPolicy clocks)` returns the contact force, stiffness, and updated multipliers over the broad-phase pair set the Clash lane supplies.
-- Auto: `Stress` folds the case to its stored-energy `W(ε)`, reads `stress = ∂W/∂ε` through the reverse-mode `SensitivityLaw.Chain` over the recorded tape and `tangent ≈ JᵀJ·v` (SPD Gauss-Newton curvature) through `SensitivityLaw.GaussNewton`, so adding a material law is one case carrying its energy function, never a hand-coded `D`-matrix; the `Plastic` case differentiates THROUGH the return-mapping iteration so the AD tangent is the algorithmic (consistent) tangent — a naive AD of the elastic predictor gives the continuum tangent and breaks Newton convergence (the named defect). `Enforce` regularizes the gap/stick-slip potential, reads the contact stiffness as that regularized potential's SPD Gauss-Newton curvature, and updates the multiplier through the existing `AugmentedLagrangian` `λ ← λ + ρ·g`, so contact reuses the optimizer feasibility machinery, not a new solver.
+- Owner: `ConstitutiveModel` `[Union]` carries one per-Gauss-point energy/state fold; `PlasticPotential` parameterizes `J2`, `DruckerPrager`, `SmoothedMohrCoulomb`, and `ModifiedCamClay` as seed data over one invariant generator; `HyperelasticLaw` parameterizes invariant-polynomial energies; `ContactConstraint` `[Union]` reuses optimizer multiplier advancement; `StressUpdate` returns `∂W/∂ε`, `∂²W/∂ε²`, and evolved state; `MaterialState` carries plastic strain, isotropic and volumetric hardening, preconsolidation pressure, pore pressure, damage, and Prony history.
+- Cases: `ConstitutiveModel` `Plastic(PlasticPotential, Regularization)` · `Hyperelastic(HyperelasticLaw)` · `Viscoelastic(PronyTerms, TimeStep)` · `Damage(Exponent)`; `ContactConstraint` `NodeToSurface(Gap, Regularization)` · `Mortar(Gap, Regularization, Weights)` — the mortar case carries per-pair segment-integration weights scaling each gap, the pointwise case the unit weight, so the two disciplines differ structurally rather than by name. `SoilParameters` supplies friction/dilation, cohesion, critical-state slope, compression/swell indices, preconsolidation pressure, and pore pressure to the pressure-dependent potential.
+- Entry: `public static Fin<ConstitutiveResult> Stress(ConstitutiveModel model, ReadOnlyMemory<double> strain, MaterialState state, MaterialParameters parameters, ClockPolicy clocks)` returns the updated stress, exact per-point tangent, and evolved state; `Fin<T>` rejects non-finite or dimensionally invalid state, parameter, strain, deformation-gradient, and energy-domain inputs. `public static Fin<ContactResult> Enforce(ContactConstraint contact, ReadOnlyMemory<double> displacement, ReadOnlyMemory<double> multipliers, double penalty, Seq<(int Slave, int Master)> broadPhasePairs, ClockPolicy clocks)` returns the normal contact force, stiffness, and updated multipliers over the supplied broad-phase pairs.
+- Auto: `Stress` seeds the active strain/deformation-gradient vector with `DDScalar.Variables(..., order: 2)`, evaluates one `ConstitutiveModel.Energy`, and projects `GetGradient`/`GetHessian`; J2 uses the same smooth positive-part return multiplier in the differentiated incremental potential and state evolution, hyperelastic rows require a nine-component deformation gradient and positive determinant, viscoelastic rows evolve one history vector per admitted Prony term over their carried `TimeStep`, and damage scales the elastic energy by live state. `Enforce` regularizes the normal gap potential, reads its composed sensitivity, and advances multipliers through `ConstraintHandling.AugmentedLagrangian.Advance`.
 - Receipt: the `Solve` `ComputeReceipt` case carries the physics key extended with the constitutive-model key, the integration-point count, the return-map iteration count (plastic), the consistent-tangent condition, and the converged flag; the contact path stamps the active-set size, penetration residual, and multiplier-update count, so a nonlinear-material or contact run is auditable on the same `Solve` receipt — never a parallel constitutive receipt.
-- Packages: System.Numerics.Tensors, MathNet.Numerics, CommunityToolkit.HighPerformance, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.Persistence (project), BCL inbox
-- Growth: a new material law is one `ConstitutiveModel` case carrying its strain-energy/yield function (the consistent tangent derives by AD); a new contact discipline is one `ContactConstraint` case; a new evolving-state field is one column on `MaterialState`; zero new surface — a `PlasticityModel`/`HyperelasticModel`/… sibling family, a hand-derived `D`-matrix beside the AD Gauss-Newton tangent, and a contact solver parallel to the optimizer multiplier machinery are the rejected forms.
-- Boundary: the constitutive tangent rides the AD `Tensor/dispatch#EQUIVALENCE_INTEROP` `SensitivityLaw.GaussNewton` SPD Gauss-Newton curvature `JᵀJ` of the stored-energy function — never a hand-derived `D`-matrix — and the exact `∂²W/∂ε²` Hessian-vector product (an `f''` row on `DifferentiableOp` plus a forward-over-reverse sweep) is the owner's documented second-order open leaf; each case differentiates its own energy, and a closed-form analytic energy rides the `Symbolic/expression#OPERATION_FOLD` differentiate family rather than AD. Frictional stick-slip is non-smooth and non-associative, so the AD tangent of a regularized friction potential is consistent only within the regularization — the case carries the regularization parameter and the broad-phase pair set from `Solver/clash#CLASH_AND_TWIN`, never re-detecting contact pairs (the named defect), the augmented-Lagrangian update reuses the optimizer `ConstraintHandling.AugmentedLagrangian` `Penalize`/`Lagrange` machinery, and the contact tangent reuses `SensitivityLaw.GaussNewton`. Constitutive stress `σ = ∂W/∂ε` feeds the `Solver/contract#SOLVE_CONTRACT` modified-Newton internal-force residual `f_ext − f_int(u)` (routed by `problem.Material.IsSome`), so a nonlinear FEM solve converges on the genuine residual over the held elastic tangent; the consistent SPD Gauss-Newton curvature — a Hessian-VECTOR product, exact-quadratic only at a zero-residual minimum — is the matrix-free Newton-CG second-order tangent the open exact-Hessian leaf lands. A colored Jacobian for a large nonlinear system assembles through the `Tensor/factor#SPARSE_ALGEBRA` `SparseTensorOpFamily` rows and the `Tensor/dispatch#EQUIVALENCE_INTEROP` `JacobianColoring`.
+- Packages: HyperJet, System.Numerics.Tensors, MathNet.Numerics, CommunityToolkit.HighPerformance, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.Persistence (project), BCL inbox
+- Growth: a new invariant plastic or hyperelastic law is parameter data on `PlasticPotential` or `HyperelasticLaw`; a genuinely different state evolution is one `ConstitutiveModel` case; a new contact discipline is one `ContactConstraint` case; a new evolving variable is one `MaterialState` field. No sibling material solver or hand-derived tangent surface appears.
+- Boundary: `HyperJet` owns scalar forward hyper-dual differentiation, and this page owns only the constitutive energies and state transitions; `DDScalar.GetGradient` is stress and `DDScalar.GetHessian` is the exact local tangent. Plastic energy differentiates the regularized return multiplier, finite-strain energy rejects a non-nine-component deformation gradient and lifts a non-positive determinant failure onto `Fin`, Prony history is cardinality-bounded by the model row, and every parameter/strain vector is finite-gated before AD. Normal contact consumes only the broad-phase pairs from `Solver/clash#CLASH_AND_TWIN`, advances multipliers through `ConstraintHandling.AugmentedLagrangian.Advance`, and never claims a Coulomb tangent without tangential kinematics. `Solver/contract#SOLVE_CONTRACT` consumes stress in `f_ext − f_int(u)` and keeps any global Newton-CG or colored-Jacobian assembly outside this local owner.
 
 ```csharp signature
-public sealed record MaterialParameters(double YoungModulus, double PoissonRatio, double YieldStress, double HardeningModulus, Seq<(double Modulus, double RelaxationTime)> Prony, double DamageThreshold);
+public sealed record SoilParameters(
+    double FrictionAngle,
+    double DilationAngle,
+    double Cohesion,
+    double CriticalStateSlope,
+    double CompressionIndex,
+    double SwellIndex,
+    double InitialPreconsolidationPressure,
+    double InitialPorePressure) {
+    public bool Invalid => !double.IsFinite(FrictionAngle) || FrictionAngle is < 0.0 or >= 90.0
+        || !double.IsFinite(DilationAngle) || DilationAngle is < 0.0 or >= 90.0 || DilationAngle > FrictionAngle
+        || !double.IsFinite(Cohesion) || Cohesion < 0.0 || !double.IsFinite(CriticalStateSlope) || CriticalStateSlope <= 0.0
+        || !double.IsFinite(CompressionIndex) || !double.IsFinite(SwellIndex) || CompressionIndex <= SwellIndex || SwellIndex <= 0.0
+        || !double.IsFinite(InitialPreconsolidationPressure) || InitialPreconsolidationPressure <= 0.0 || !double.IsFinite(InitialPorePressure);
+}
 
-public sealed record MaterialState(ReadOnlyMemory<double> PlasticStrain, double Hardening, double Damage, Seq<ReadOnlyMemory<double>> ViscoHistory) {
+public sealed record PlasticPotential(double MeridianWeight, double LodeWeight, double CapWeight) {
+    public static readonly PlasticPotential J2 = new(0.0, 0.0, 0.0);
+    public static readonly PlasticPotential DruckerPrager = new(1.0, 0.0, 0.0);
+    public static readonly PlasticPotential SmoothedMohrCoulomb = new(1.0, 0.2, 0.0);
+    public static readonly PlasticPotential ModifiedCamClay = new(0.0, 0.0, 1.0);
+
+    public bool Invalid => !double.IsFinite(MeridianWeight) || MeridianWeight is < 0.0 or > 1.0
+        || !double.IsFinite(LodeWeight) || Math.Abs(LodeWeight) >= 1.0 || !double.IsFinite(CapWeight) || CapWeight is < 0.0 or > 1.0;
+}
+
+public sealed record MaterialParameters(
+    double YoungModulus,
+    double PoissonRatio,
+    double YieldStress,
+    double HardeningModulus,
+    Seq<(double Modulus, double RelaxationTime)> Prony,
+    double DamageThreshold,
+    Option<SoilParameters> Soil);
+
+public sealed record MaterialState(
+    ReadOnlyMemory<double> PlasticStrain,
+    double Hardening,
+    double Damage,
+    Seq<ReadOnlyMemory<double>> ViscoHistory,
+    double VolumetricPlasticStrain,
+    double PreconsolidationPressure,
+    double PorePressure) {
     public static MaterialState Pristine(int components) =>
-        new(new double[components], 0.0, 0.0, Seq<ReadOnlyMemory<double>>());
+        new(new double[components], 0.0, 0.0, Seq<ReadOnlyMemory<double>>(), 0.0, 0.0, 0.0);
 }
 
 public sealed record ConstitutiveResult(ReadOnlyMemory<double> Stress, ReadOnlyMemory<double> Tangent, MaterialState State, int ReturnMapIterations, bool Converged, Instant At);
 
 public sealed record ContactResult(ReadOnlyMemory<double> Force, ReadOnlyMemory<double> Stiffness, ReadOnlyMemory<double> Multipliers, int ActiveSet, double PenetrationResidual, Instant At);
 
+public sealed record HyperelasticLaw(double FirstInvariant, double SecondInvariant, double FirstInvariantSquared, double BulkScale) {
+    public static readonly HyperelasticLaw NeoHookean = new(0.5, 0.0, 0.0, 1.0);
+    public static readonly HyperelasticLaw MooneyRivlin = new(0.25, 0.25, 0.0, 1.0);
+    public static readonly HyperelasticLaw Yeoh = new(0.5, 0.0, 0.1, 1.0);
+    public static readonly HyperelasticLaw ArrudaBoyce = new(0.5, 0.05, 0.01, 1.0);
+
+    public bool Invalid => !double.IsFinite(FirstInvariant) || !double.IsFinite(SecondInvariant) || !double.IsFinite(FirstInvariantSquared)
+        || !double.IsFinite(BulkScale) || BulkScale <= 0.0;
+}
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ConstitutiveModel {
     private ConstitutiveModel() { }
 
-    public sealed record Plastic(int MaxReturnMapIterations) : ConstitutiveModel;
-    public sealed record Hyperelastic(bool MooneyRivlin) : ConstitutiveModel;
-    public sealed record Viscoelastic(int PronyTerms) : ConstitutiveModel;
+    public sealed record Plastic(PlasticPotential Potential, double Regularization) : ConstitutiveModel;
+    public sealed record Hyperelastic(HyperelasticLaw Law) : ConstitutiveModel;
+    public sealed record Viscoelastic(int PronyTerms, double TimeStep) : ConstitutiveModel;
     public sealed record Damage(double Exponent) : ConstitutiveModel;
 
-    // The stored-energy tape W(ε) the AD modes read, one per ConstitutiveModel case. The Plastic arm's ReLU
-    // corrector captures the radial-return rectification so its AD Gauss-Newton curvature is the consistent (not the
-    // elastic-predictor continuum) tangent for linear hardening; return-map convergence gates on ReturnMapVerdict.
-    public Seq<(TensorOpFamily Op, ReadOnlyMemory<float> Primal)> EnergyTape(ReadOnlyMemory<double> strain, MaterialState state, MaterialParameters parameters) =>
+    public DDScalar Energy(DDScalar[] strain, MaterialState state, MaterialParameters parameters) =>
         Switch(
             state: (Strain: strain, State: state, Parameters: parameters),
-            plastic: static (s, p) => ReturnMapTape(s.Strain, s.State, s.Parameters, p.MaxReturnMapIterations),
-            hyperelastic: static (s, h) => HyperelasticTape(s.Strain, s.Parameters, h.MooneyRivlin),
-            viscoelastic: static (s, v) => PronyTape(s.Strain, s.State, s.Parameters, v.PronyTerms),
-            damage: static (s, d) => DamageTape(s.Strain, s.State, s.Parameters, d.Exponent));
+            plastic: static (state, model) => PlasticEnergy(state.Strain, state.State, state.Parameters, model.Potential, model.Regularization),
+            hyperelastic: static (state, model) => HyperelasticEnergy(state.Strain, state.Parameters, model.Law),
+            viscoelastic: static (state, model) => ViscoelasticEnergy(state.Strain, state.State, state.Parameters, model.PronyTerms, model.TimeStep),
+            damage: static (state, model) => (1.0 - state.State.Damage) * ElasticEnergy(state.Strain, state.State.PlasticStrain, state.Parameters));
 
-    // Each tape is a differentiable composition SensitivityLaw chains: a nonlinear corrector (ReLU plastic, Tanh
-    // hyperelastic, Exp Prony, Sigmoid damage — each a bound DifferentiableOp) over the elastic D MatMul base, so
-    // Chain(tape, ones) is the stress and GaussNewton(tape, …) the SPD curvature tangent. Unrolling the multi-
-    // iteration return-map into the linear (op, primal) tape is the remaining research leaf (03-RESEARCH).
-    static Seq<(TensorOpFamily Op, ReadOnlyMemory<float> Primal)> ReturnMapTape(ReadOnlyMemory<double> strain, MaterialState state, MaterialParameters p, int maxIter) =>
-        Seq((TensorOpFamily.ReLU, YieldShifted(strain, state, p)), (TensorOpFamily.MatMul, ElasticPrimal(p)));
-
-    static Seq<(TensorOpFamily Op, ReadOnlyMemory<float> Primal)> HyperelasticTape(ReadOnlyMemory<double> strain, MaterialParameters p, bool mooneyRivlin) =>
-        Seq((TensorOpFamily.Tanh, Scaled(strain, mooneyRivlin ? 0.5 : 1.0)), (TensorOpFamily.MatMul, ElasticPrimal(p)));
-
-    static Seq<(TensorOpFamily Op, ReadOnlyMemory<float> Primal)> PronyTape(ReadOnlyMemory<double> strain, MaterialState state, MaterialParameters p, int pronyTerms) =>
-        Seq((TensorOpFamily.Exp, Relaxation(strain, p, pronyTerms)), (TensorOpFamily.MatMul, ElasticPrimal(p)));
-
-    static Seq<(TensorOpFamily Op, ReadOnlyMemory<float> Primal)> DamageTape(ReadOnlyMemory<double> strain, MaterialState state, MaterialParameters p, double exponent) =>
-        Seq((TensorOpFamily.Sigmoid, Degradation(strain, state, p, exponent)), (TensorOpFamily.MatMul, ElasticPrimal(p)));
-
-    // The elastic D-matrix (6×6 isotropic Voigt) as the MatMul base-layer primal, and the per-corrector
-    // elementwise primals the nonlinear adjoint differentiates against.
-    static ReadOnlyMemory<float> ElasticPrimal(MaterialParameters p) {
-        double e = p.YoungModulus, nu = p.PoissonRatio, lambda = e * nu / ((1 + nu) * (1 - 2 * nu)), mu = e / (2 * (1 + nu));
-        double[] d6 = [lambda + 2 * mu, lambda, lambda, 0, 0, 0, lambda, lambda + 2 * mu, lambda, 0, 0, 0, lambda, lambda, lambda + 2 * mu, 0, 0, 0, 0, 0, 0, mu, 0, 0, 0, 0, 0, 0, mu, 0, 0, 0, 0, 0, 0, mu];
-        return [.. d6.Select(static x => (float)x)];
-    }
-
-    static ReadOnlyMemory<float> YieldShifted(ReadOnlyMemory<double> strain, MaterialState state, MaterialParameters p) {
-        double yieldStrain = p.YieldStress / Math.Max(1e-12, p.YoungModulus);
-        var plastic = state.PlasticStrain.Span;
-        float[] shifted = new float[strain.Length];
-        for (int i = 0; i < shifted.Length; i++) {
-            double elastic = strain.Span[i] - (i < plastic.Length ? plastic[i] : 0.0);
-            shifted[i] = (float)(elastic - Math.Sign(elastic) * yieldStrain);
+    static DDScalar ElasticEnergy(DDScalar[] strain, ReadOnlyMemory<double> inelastic, MaterialParameters parameters) {
+        int size = strain.Length;
+        DDScalar trace = Constant(0.0, size), normal = Constant(0.0, size), shear = Constant(0.0, size);
+        for (int component = 0; component < strain.Length; component++) {
+            DDScalar elastic = strain[component] - (component < inelastic.Length ? inelastic.Span[component] : 0.0);
+            if (component < 3) { trace += elastic; normal += elastic * elastic; }
+            else { shear += elastic * elastic; }
         }
-        return shifted;
+        double lambda = parameters.YoungModulus * parameters.PoissonRatio / ((1.0 + parameters.PoissonRatio) * (1.0 - 2.0 * parameters.PoissonRatio));
+        double mu = parameters.YoungModulus / (2.0 * (1.0 + parameters.PoissonRatio));
+        return 0.5 * lambda * trace * trace + mu * normal + 0.5 * mu * shear;
     }
 
-    static ReadOnlyMemory<float> Scaled(ReadOnlyMemory<double> strain, double factor) {
-        float[] scaled = new float[strain.Length];
-        for (int i = 0; i < scaled.Length; i++) { scaled[i] = (float)(factor * strain.Span[i]); }
-        return scaled;
+    static DDScalar PlasticEnergy(DDScalar[] strain, MaterialState state, MaterialParameters parameters, PlasticPotential potential, double regularization) {
+        int size = strain.Length;
+        DDScalar[] elastic = new DDScalar[strain.Length];
+        for (int component = 0; component < strain.Length; component++) {
+            elastic[component] = strain[component] - (component < state.PlasticStrain.Length ? state.PlasticStrain.Span[component] : 0.0);
+        }
+        DDScalar mean = (elastic[0] + elastic[1] + elastic[2]) / 3.0;
+        DDScalar equivalentSquared = Constant(0.0, size), thirdInvariant = Constant(1.0, size);
+        for (int component = 0; component < strain.Length; component++) {
+            DDScalar deviatoric = component < 3 ? elastic[component] - mean : 0.5 * elastic[component];
+            equivalentSquared += deviatoric * deviatoric;
+            if (component < 3) { thirdInvariant *= deviatoric; }
+        }
+        double mu = parameters.YoungModulus / (2.0 * (1.0 + parameters.PoissonRatio));
+        double bulk = parameters.YoungModulus / (3.0 * (1.0 - 2.0 * parameters.PoissonRatio));
+        DDScalar q = 2.0 * mu * Sqrt(1.5 * equivalentSquared, regularization);
+        DDScalar lode = thirdInvariant / (q * q * q + regularization);
+        return parameters.Soil.Match(
+            Some: soil => {
+                double porePressure = state.PorePressure == 0.0 ? soil.InitialPorePressure : state.PorePressure;
+                DDScalar pressure = bulk * (elastic[0] + elastic[1] + elastic[2]) - porePressure;
+                double friction = soil.FrictionAngle * Math.PI / 180.0;
+                double preconsolidation = state.PreconsolidationPressure > 0.0 ? state.PreconsolidationPressure : soil.InitialPreconsolidationPressure;
+                DDScalar frictional = q * (1.0 + potential.LodeWeight * lode)
+                    + potential.MeridianWeight * (pressure * Math.Sin(friction) - soil.Cohesion * Math.Cos(friction))
+                    - parameters.HardeningModulus * state.Hardening;
+                DDScalar cap = Sqrt(SmoothPositive(q * q + soil.CriticalStateSlope * soil.CriticalStateSlope * pressure * (pressure - preconsolidation), regularization), regularization);
+                DDScalar yield = (1.0 - potential.CapWeight) * frictional + potential.CapWeight * cap;
+                DDScalar overstress = SmoothPositive(yield, regularization);
+                double tangent = 3.0 * mu + parameters.HardeningModulus + potential.MeridianWeight * bulk * Math.Tan(soil.DilationAngle * Math.PI / 180.0);
+                DDScalar dGamma = overstress / Math.Max(regularization, tangent);
+                return ElasticEnergy(strain, state.PlasticStrain, parameters) - overstress * dGamma + 0.5 * tangent * dGamma * dGamma;
+            },
+            None: () => {
+                DDScalar overstress = SmoothPositive(q - parameters.YieldStress - parameters.HardeningModulus * state.Hardening, regularization);
+                DDScalar dGamma = overstress / (3.0 * mu + parameters.HardeningModulus);
+                return ElasticEnergy(strain, state.PlasticStrain, parameters) - overstress * dGamma + 0.5 * (3.0 * mu + parameters.HardeningModulus) * dGamma * dGamma;
+            });
     }
 
-    static ReadOnlyMemory<float> Relaxation(ReadOnlyMemory<double> strain, MaterialParameters p, int terms) {
-        double rate = 0.0;
-        for (int k = 0; k < Math.Min(terms, p.Prony.Count); k++) { rate += p.Prony[k].Modulus / Math.Max(1e-12, p.Prony[k].RelaxationTime); }
-        float[] arg = new float[strain.Length];
-        for (int i = 0; i < arg.Length; i++) { arg[i] = (float)(-Math.Abs(strain.Span[i]) * rate); }
-        return arg;
+    static DDScalar HyperelasticEnergy(DDScalar[] deformation, MaterialParameters parameters, HyperelasticLaw law) {
+        if (deformation.Length != 9) { throw new ArgumentException("<hyperelastic-deformation-gradient-arity>"); }
+        int size = deformation.Length;
+        DDScalar j = deformation[0] * (deformation[4] * deformation[8] - deformation[5] * deformation[7])
+            - deformation[1] * (deformation[3] * deformation[8] - deformation[5] * deformation[6])
+            + deformation[2] * (deformation[3] * deformation[7] - deformation[4] * deformation[6]);
+        DDScalar[] rightCauchyGreen = new DDScalar[9];
+        for (int row = 0; row < 3; row++)
+            for (int column = 0; column < 3; column++) {
+                rightCauchyGreen[row * 3 + column] = Constant(0.0, size);
+                for (int k = 0; k < 3; k++) { rightCauchyGreen[row * 3 + column] += deformation[k * 3 + row] * deformation[k * 3 + column]; }
+            }
+        DDScalar i1 = rightCauchyGreen[0] + rightCauchyGreen[4] + rightCauchyGreen[8];
+        DDScalar traceC2 = Constant(0.0, size);
+        for (int row = 0; row < 3; row++) for (int column = 0; column < 3; column++) { traceC2 += rightCauchyGreen[row * 3 + column] * rightCauchyGreen[column * 3 + row]; }
+        DDScalar i2 = 0.5 * (i1 * i1 - traceC2);
+        double mu = parameters.YoungModulus / (2.0 * (1.0 + parameters.PoissonRatio));
+        double lambda = parameters.YoungModulus * parameters.PoissonRatio / ((1.0 + parameters.PoissonRatio) * (1.0 - 2.0 * parameters.PoissonRatio));
+        DDScalar first = i1 - 3.0, second = i2 - 3.0, volume = j - 1.0;
+        return mu * (law.FirstInvariant * first + law.SecondInvariant * second + law.FirstInvariantSquared * first * first)
+            - 2.0 * mu * (law.FirstInvariant + 2.0 * law.SecondInvariant) * volume
+            + 0.5 * lambda * law.BulkScale * volume * volume;
     }
 
-    static ReadOnlyMemory<float> Degradation(ReadOnlyMemory<double> strain, MaterialState state, MaterialParameters p, double exponent) {
-        float[] arg = new float[strain.Length];
-        for (int i = 0; i < arg.Length; i++) { arg[i] = (float)(-exponent * (Math.Abs(strain.Span[i]) - p.DamageThreshold) - state.Damage); }
-        return arg;
+    static DDScalar ViscoelasticEnergy(DDScalar[] strain, MaterialState state, MaterialParameters parameters, int terms, double timeStep) {
+        DDScalar energy = ElasticEnergy(strain, state.PlasticStrain, parameters);
+        for (int term = 0; term < Math.Min(terms, parameters.Prony.Count); term++) {
+            double decay = Math.Exp(-timeStep / Math.Max(1e-12, parameters.Prony[term].RelaxationTime));
+            ReadOnlyMemory<double> history = term < state.ViscoHistory.Count ? state.ViscoHistory[term] : ReadOnlyMemory<double>.Empty;
+            for (int component = 0; component < strain.Length; component++) {
+                double prior = component < history.Length ? history.Span[component] : 0.0;
+                DDScalar branch = strain[component] - decay * prior;
+                energy += 0.5 * parameters.Prony[term].Modulus * branch * branch;
+            }
+        }
+        return energy;
     }
+
+    static DDScalar SmoothPositive(DDScalar value, double regularization) => 0.5 * (value + Sqrt(value * value, regularization));
+    static DDScalar Sqrt(DDScalar value, double regularization) {
+        DDScalar shifted = value + regularization * regularization;
+        DDScalar seed = Constant(Math.Sqrt(Math.Max(regularization * regularization, shifted.Value)), shifted.GetGradient().Count);
+        return toSeq(Enumerable.Range(0, 8)).Fold(seed, (root, _) => 0.5 * (root + shifted / root));
+    }
+    static DDScalar Constant(double value, int size) => DDScalar.Constant(value, size, order: 2);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ContactConstraint {
     private ContactConstraint() { }
 
-    public sealed record NodeToSurface(long[] Slave, long[] Master, double Gap, double Regularization) : ContactConstraint;
-    public sealed record Mortar(long[] SlaveSegments, long[] MasterSegments, double Gap, double Regularization) : ContactConstraint;
+    public sealed record NodeToSurface(double Gap, double Regularization) : ContactConstraint;
+    public sealed record Mortar(double Gap, double Regularization, ReadOnlyMemory<double> Weights) : ContactConstraint;
 
-    // Regularized gap potential whose AD Gauss-Newton curvature is the contact stiffness; the regularization
-    // parameter bounds the stick-slip non-smoothness so the tangent is consistent within it.
-    public Seq<(TensorOpFamily Op, ReadOnlyMemory<float> Primal)> PotentialTape(ReadOnlyMemory<double> displacement, double penalty) =>
+    public (double Gap, double Regularization) Parameters() =>
         Switch(
-            state: (Displacement: displacement, Penalty: penalty),
-            nodeToSurface: static (s, c) => GapPotentialTape(s.Displacement, s.Penalty, c.Gap, c.Regularization),
-            mortar: static (s, c) => MortarPotentialTape(s.Displacement, s.Penalty, c.Gap, c.Regularization));
+            nodeToSurface: static contact => (contact.Gap, contact.Regularization),
+            mortar: static contact => (contact.Gap, contact.Regularization));
 
-    // The penalty-scaled penetration ramps through a ReLU (consistent within the regularization width); the Mortar
-    // case adds the Sigmoid segment-weighting that smears the constraint across the master segment.
-    static Seq<(TensorOpFamily Op, ReadOnlyMemory<float> Primal)> GapPotentialTape(ReadOnlyMemory<double> displacement, double penalty, double gap, double regularization) =>
-        Seq((TensorOpFamily.ReLU, GapArgument(displacement, penalty, gap, regularization)));
+    // Mortar pairs weight the segment-integrated gap; node-to-surface pairs are pointwise and carry the unit weight
+    public double Weight(int pair) =>
+        Switch(
+            state: pair,
+            nodeToSurface: static (_, _) => 1.0,
+            mortar: static (index, contact) => contact.Weights.Span[index]);
 
-    static Seq<(TensorOpFamily Op, ReadOnlyMemory<float> Primal)> MortarPotentialTape(ReadOnlyMemory<double> displacement, double penalty, double gap, double regularization) =>
-        Seq((TensorOpFamily.ReLU, GapArgument(displacement, penalty, gap, regularization)), (TensorOpFamily.Sigmoid, SegmentWeights(displacement, regularization)));
-
-    static ReadOnlyMemory<float> GapArgument(ReadOnlyMemory<double> displacement, double penalty, double gap, double regularization) {
-        float[] arg = new float[displacement.Length];
-        for (int i = 0; i < arg.Length; i++) { arg[i] = (float)(penalty * (displacement.Span[i] - gap) / Math.Max(1e-12, regularization)); }
-        return arg;
-    }
-
-    static ReadOnlyMemory<float> SegmentWeights(ReadOnlyMemory<double> displacement, double regularization) {
-        float[] weights = new float[displacement.Length];
-        for (int i = 0; i < weights.Length; i++) { weights[i] = (float)(displacement.Span[i] / Math.Max(1e-12, regularization)); }
-        return weights;
+    public DDScalar Potential(DDScalar[] penetration, double penalty) {
+        double regularization = Parameters().Regularization;
+        DDScalar energy = DDScalar.Constant(0.0, penetration.Length, order: 2);
+        foreach (DDScalar coordinate in penetration) {
+            DDScalar radicand = coordinate * coordinate + regularization * regularization;
+            DDScalar seed = DDScalar.Constant(Math.Sqrt(Math.Max(regularization * regularization, radicand.Value)), penetration.Length, order: 2);
+            DDScalar root = toSeq(Enumerable.Range(0, 8)).Fold(seed, (current, _) => 0.5 * (current + radicand / current));
+            DDScalar positive = 0.5 * (coordinate + root);
+            energy += 0.5 * penalty * positive * positive;
+        }
+        return energy;
     }
 }
 
 public static class StressUpdate {
-    // The Plastic case iterates a return-map; ReturnMapVerdict yields its converged iteration count or a
-    // <return-map-diverged> fault (never a hardcoded Converged: true). The closed-form cases return 0 iterations.
-    public static Fin<ConstitutiveResult> Stress(ConstitutiveModel model, ReadOnlyMemory<double> strain, MaterialState state, MaterialParameters parameters, ClockPolicy clocks) {
-        var tape = model.EnergyTape(strain, state, parameters);
-        ReadOnlyMemory<float> seed = [.. Enumerable.Repeat(1f, strain.Length)];
-        ReadOnlyMemory<float> primalSeed = [.. strain.Span.ToArray().Select(static x => (float)x)];
-        return ReturnMapVerdict(model, strain, state, parameters)
-            .Bind(iterations => SensitivityLaw.Chain(tape, seed)
-                .Bind(stress => SensitivityLaw.GaussNewton(tape, primalSeed)
-                    .Map(tangent => new ConstitutiveResult(
-                        [.. stress.Span.ToArray().Select(static s => (double)s)],
-                        [.. tangent.Span.ToArray().Select(static t => (double)t)],
-                        Evolve(model, state, strain), iterations, Converged: true, clocks.Now))));
-    }
+    public static Fin<ConstitutiveResult> Stress(ConstitutiveModel model, ReadOnlyMemory<double> strain, MaterialState state, MaterialParameters parameters, ClockPolicy clocks) =>
+        from valid in Validate(model, strain, state, parameters)
+        from verdict in ReturnMapVerdict(model, strain, state, parameters)
+        from result in Try.lift(() => {
+            DDScalar[] active = DDScalar.Variables(strain.ToArray(), order: 2);
+            DDScalar energy = model.Energy(active, state, parameters);
+            Vector<double> gradient = energy.GetGradient();
+            Matrix<double> hessian = energy.GetHessian();
+            return new ConstitutiveResult(
+                gradient.AsArray().AsMemory(), hessian.ToRowMajorArray().AsMemory(),
+                Evolve(model, state, strain, parameters, verdict.DGamma), verdict.Iterations, Converged: true, clocks.Now);
+        }).Run().MapFail(static error => (Error)new ComputeFault.ModelRejected($"<constitutive-energy-domain:{error.Message}>"))
+        select result;
 
-    // Radial-return verdict: J2 plasticity with linear isotropic hardening converges in one step, nonlinear
-    // hardening iterates to MaxReturnMapIterations; a non-converged return is the <return-map-diverged> fault.
-    static Fin<int> ReturnMapVerdict(ConstitutiveModel model, ReadOnlyMemory<double> strain, MaterialState state, MaterialParameters parameters) =>
-        model is ConstitutiveModel.Plastic plastic ? RadialReturn(strain, state, parameters, plastic.MaxReturnMapIterations) : Fin.Succ(0);
+    static Fin<Unit> Validate(ConstitutiveModel model, ReadOnlyMemory<double> strain, MaterialState state, MaterialParameters parameters) =>
+        strain.IsEmpty || !TensorPrimitives.IsFiniteAll<double>(strain.Span)
+            ? Fin.Fail<Unit>(new ComputeFault.ModelRejected("<constitutive-strain>"))
+            : !double.IsFinite(parameters.YoungModulus) || parameters.YoungModulus <= 0.0 || !double.IsFinite(parameters.PoissonRatio) || parameters.PoissonRatio is <= -1.0 or >= 0.5 || !double.IsFinite(parameters.YieldStress) || parameters.YieldStress < 0.0 || !double.IsFinite(parameters.HardeningModulus) || parameters.HardeningModulus < 0.0 || !double.IsFinite(parameters.DamageThreshold) || parameters.Prony.Exists(static term => !double.IsFinite(term.Modulus) || term.Modulus < 0.0 || !double.IsFinite(term.RelaxationTime) || term.RelaxationTime <= 0.0) || parameters.Soil.Exists(static soil => soil.Invalid)
+                ? Fin.Fail<Unit>(new ComputeFault.ModelRejected("<constitutive-parameters>"))
+                : model.Switch(
+                    state: (Strain: strain, Parameters: parameters),
+                    plastic: static (input, plastic) => input.Strain.Length == 6 && !plastic.Potential.Invalid && double.IsFinite(plastic.Regularization) && plastic.Regularization > 0.0 && (plastic.Potential == PlasticPotential.J2 || input.Parameters.Soil.IsSome),
+                    hyperelastic: static (input, model) => input.Strain.Length == 9 && !model.Law.Invalid && Determinant(input.Strain.Span) > 0.0,
+                    viscoelastic: static (input, visco) => input.Strain.Length == 6 && visco.PronyTerms is > 0 && visco.PronyTerms <= input.Parameters.Prony.Count && double.IsFinite(visco.TimeStep) && visco.TimeStep > 0.0,
+                    damage: static (input, damage) => input.Strain.Length == 6 && double.IsFinite(damage.Exponent) && damage.Exponent > 0.0) is false
+                    ? Fin.Fail<Unit>(new ComputeFault.ModelRejected($"<constitutive-model-admission:{strain.Length}>"))
+                    : state.PlasticStrain.Length != 0 && state.PlasticStrain.Length != strain.Length
+                        ? Fin.Fail<Unit>(new ComputeFault.ModelRejected($"<constitutive-state-arity:{state.PlasticStrain.Length}!={strain.Length}>"))
+                        : Fin.Succ(unit);
 
-    static Fin<int> RadialReturn(ReadOnlyMemory<double> strain, MaterialState state, MaterialParameters p, int maxIter) {
+    static double Determinant(ReadOnlySpan<double> deformation) =>
+        deformation[0] * (deformation[4] * deformation[8] - deformation[5] * deformation[7])
+        - deformation[1] * (deformation[3] * deformation[8] - deformation[5] * deformation[6])
+        + deformation[2] * (deformation[3] * deformation[7] - deformation[4] * deformation[6]);
+
+    static Fin<(int Iterations, double DGamma)> ReturnMapVerdict(ConstitutiveModel model, ReadOnlyMemory<double> strain, MaterialState state, MaterialParameters parameters) =>
+        model is ConstitutiveModel.Plastic plastic ? RadialReturn(strain, state, parameters, plastic.Potential, plastic.Regularization) : Fin.Succ((0, 0.0));
+
+    static Fin<(int Iterations, double DGamma)> RadialReturn(ReadOnlyMemory<double> strain, MaterialState state, MaterialParameters p, PlasticPotential potential, double regularization) {
         double mu = p.YoungModulus / (2.0 * (1.0 + p.PoissonRatio)), hardening = p.HardeningModulus;
         double[] elastic = new double[strain.Length];
-        var plastic = state.PlasticStrain.Span;
+        ReadOnlySpan<double> plastic = state.PlasticStrain.Span;
         for (int i = 0; i < elastic.Length; i++) { elastic[i] = strain.Span[i] - (i < plastic.Length ? plastic[i] : 0.0); }
-        double trial = 2.0 * mu * Math.Sqrt(TensorPrimitives.SumOfSquares<double>(elastic));
-        double yield = p.YieldStress + hardening * state.Hardening;
-        if (trial <= yield) { return Fin.Succ(0); }
-        double dGamma = 0.0, residual = trial - yield;
-        for (int iter = 1; iter <= Math.Max(1, maxIter); iter++) {
-            dGamma += residual / Math.Max(1e-30, 2.0 * mu + hardening);
-            residual = trial - 2.0 * mu * dGamma - (yield + hardening * dGamma);
-            if (Math.Abs(residual) <= 1e-9 * Math.Max(1.0, yield)) { return Fin.Succ(iter); }
-        }
-        return Fin.Fail<int>(new ComputeFault.ModelRejected($"<return-map-diverged:dGamma={dGamma:e3}:r={residual:e3}>"));
+        double yield = Yield(elastic, state, p, potential, regularization);
+        double overstress = 0.5 * (yield + Math.Sqrt(yield * yield + regularization * regularization));
+        double dilation = p.Soil.Map(static soil => Math.Tan(soil.DilationAngle * Math.PI / 180.0)).IfNone(0.0);
+        double bulk = p.YoungModulus / (3.0 * (1.0 - 2.0 * p.PoissonRatio));
+        return Fin.Succ((overstress > regularization ? 1 : 0, overstress / Math.Max(1e-30, 3.0 * mu + hardening + potential.MeridianWeight * bulk * dilation)));
     }
 
-    // Evolve the per-point state (plastic strain, hardening, damage, visco history) — the evolving state distinct
-    // from the physics-assembly axis.
-    static MaterialState Evolve(ConstitutiveModel model, MaterialState state, ReadOnlyMemory<double> strain) =>
-        model switch {
-            ConstitutiveModel.Plastic => state with {
-                PlasticStrain = Accumulated(state.PlasticStrain, strain),
-                Hardening = state.Hardening + Math.Sqrt(TensorPrimitives.SumOfSquares<double>(strain.Span)),
+    static double Yield(double[] elastic, MaterialState state, MaterialParameters parameters, PlasticPotential potential, double regularization) {
+        double mean = (elastic[0] + elastic[1] + elastic[2]) / 3.0, equivalentSquared = 0.0, thirdInvariant = 1.0;
+        for (int component = 0; component < elastic.Length; component++) {
+            double deviatoric = component < 3 ? elastic[component] - mean : 0.5 * elastic[component];
+            equivalentSquared += deviatoric * deviatoric;
+            if (component < 3) { thirdInvariant *= deviatoric; }
+        }
+        double mu = parameters.YoungModulus / (2.0 * (1.0 + parameters.PoissonRatio));
+        double q = 2.0 * mu * Math.Sqrt(1.5 * equivalentSquared + regularization * regularization);
+        return parameters.Soil.Match(
+            Some: soil => {
+                double bulk = parameters.YoungModulus / (3.0 * (1.0 - 2.0 * parameters.PoissonRatio));
+                double porePressure = state.PorePressure == 0.0 ? soil.InitialPorePressure : state.PorePressure;
+                double pressure = bulk * (elastic[0] + elastic[1] + elastic[2]) - porePressure;
+                double friction = soil.FrictionAngle * Math.PI / 180.0;
+                double preconsolidation = state.PreconsolidationPressure > 0.0 ? state.PreconsolidationPressure : soil.InitialPreconsolidationPressure;
+                double lode = thirdInvariant / (q * q * q + regularization);
+                double frictional = q * (1.0 + potential.LodeWeight * lode) + potential.MeridianWeight * (pressure * Math.Sin(friction) - soil.Cohesion * Math.Cos(friction)) - parameters.HardeningModulus * state.Hardening;
+                double cap = Math.Sqrt(Math.Max(0.0, q * q + soil.CriticalStateSlope * soil.CriticalStateSlope * pressure * (pressure - preconsolidation)) + regularization * regularization);
+                return (1.0 - potential.CapWeight) * frictional + potential.CapWeight * cap;
             },
-            ConstitutiveModel.Damage damage => state with {
-                Damage = Math.Min(1.0, state.Damage + damage.Exponent * Math.Sqrt(TensorPrimitives.SumOfSquares<double>(strain.Span))),
-            },
-            ConstitutiveModel.Viscoelastic => state with { ViscoHistory = state.ViscoHistory.Add(strain) },
-            _ => state,
-        };
+            None: () => q - parameters.YieldStress - parameters.HardeningModulus * state.Hardening);
+    }
 
-    static ReadOnlyMemory<double> Accumulated(ReadOnlyMemory<double> plastic, ReadOnlyMemory<double> strain) {
-        double[] next = new double[Math.Max(plastic.Length, strain.Length)];
-        for (int i = 0; i < next.Length; i++) { next[i] = (i < plastic.Length ? plastic.Span[i] : 0.0) + 0.5 * (i < strain.Length ? strain.Span[i] : 0.0); }
+    static MaterialState Evolve(ConstitutiveModel model, MaterialState state, ReadOnlyMemory<double> strain, MaterialParameters parameters, double dGamma) =>
+        model.Switch(
+            state: (State: state, Strain: strain, Parameters: parameters, DGamma: dGamma),
+            plastic: static (input, model) => PlasticEvolution(input.State, input.Strain, input.Parameters, model.Potential, input.DGamma),
+            hyperelastic: static (input, _) => input.State,
+            viscoelastic: static (input, model) => input.State with {
+                ViscoHistory = toSeq(Enumerable.Range(0, Math.Max(0, model.PronyTerms))).Map(term => RelaxedHistory(input.State, input.Strain, input.Parameters, term, model.TimeStep)),
+            },
+            damage: static (input, model) => input.State with {
+                Damage = Math.Min(1.0, input.State.Damage + model.Exponent * Math.Max(0.0, Math.Sqrt(TensorPrimitives.SumOfSquares<double>(input.Strain.Span)) - input.Parameters.DamageThreshold)),
+            });
+
+    static MaterialState PlasticEvolution(MaterialState state, ReadOnlyMemory<double> strain, MaterialParameters parameters, PlasticPotential potential, double dGamma) =>
+        parameters.Soil.Match(
+            Some: soil => {
+                double dilation = potential.MeridianWeight * Math.Tan(soil.DilationAngle * Math.PI / 180.0);
+                double volumetric = dGamma * dilation;
+                double preconsolidation = state.PreconsolidationPressure > 0.0 ? state.PreconsolidationPressure : soil.InitialPreconsolidationPressure;
+                return state with {
+                    PlasticStrain = Accumulated(state.PlasticStrain, strain, dGamma, dilation),
+                    Hardening = state.Hardening + dGamma,
+                    VolumetricPlasticStrain = state.VolumetricPlasticStrain + volumetric,
+                    PreconsolidationPressure = preconsolidation * Math.Exp(Math.Clamp(volumetric / (soil.CompressionIndex - soil.SwellIndex), -20.0, 20.0)),
+                    PorePressure = state.PorePressure == 0.0 ? soil.InitialPorePressure : state.PorePressure,
+                };
+            },
+            None: () => state with {
+                PlasticStrain = Accumulated(state.PlasticStrain, strain, dGamma, 0.0),
+                Hardening = state.Hardening + dGamma,
+            });
+
+    static ReadOnlyMemory<double> RelaxedHistory(MaterialState state, ReadOnlyMemory<double> strain, MaterialParameters parameters, int term, double timeStep) {
+        ReadOnlyMemory<double> prior = term < state.ViscoHistory.Count ? state.ViscoHistory[term] : ReadOnlyMemory<double>.Empty;
+        double[] next = new double[strain.Length];
+        double decay = Math.Exp(-timeStep / Math.Max(1e-12, parameters.Prony[term].RelaxationTime));
+        for (int component = 0; component < next.Length; component++) {
+            next[component] = decay * (component < prior.Length ? prior.Span[component] : 0.0) + (1.0 - decay) * strain.Span[component];
+        }
+        return next;
+    }
+
+    static ReadOnlyMemory<double> Accumulated(ReadOnlyMemory<double> plastic, ReadOnlyMemory<double> strain, double dGamma, double dilation) {
+        double[] elastic = new double[Math.Max(plastic.Length, strain.Length)];
+        for (int i = 0; i < elastic.Length; i++) { elastic[i] = (i < strain.Length ? strain.Span[i] : 0.0) - (i < plastic.Length ? plastic.Span[i] : 0.0); }
+        double norm = Math.Sqrt(TensorPrimitives.SumOfSquares<double>(elastic));
+        double[] next = new double[elastic.Length];
+        for (int i = 0; i < next.Length; i++) {
+            double volumetric = i < 3 ? dGamma * dilation / 3.0 : 0.0;
+            next[i] = (i < plastic.Length ? plastic.Span[i] : 0.0) + (norm > 1e-30 ? dGamma * elastic[i] / norm : 0.0) + volumetric;
+        }
         return next;
     }
 }
 
 public static class ContactEnforcement {
     public static Fin<ContactResult> Enforce(ContactConstraint contact, ReadOnlyMemory<double> displacement, ReadOnlyMemory<double> multipliers, double penalty, Seq<(int Slave, int Master)> broadPhasePairs, ClockPolicy clocks) {
-        var tape = contact.PotentialTape(displacement, penalty);
-        ReadOnlyMemory<float> seed = [.. Enumerable.Repeat(1f, displacement.Length)];
-        ReadOnlyMemory<float> primalSeed = [.. displacement.Span.ToArray().Select(static x => (float)x)];
+        if (displacement.IsEmpty || !TensorPrimitives.IsFiniteAll<double>(displacement.Span) || broadPhasePairs.IsEmpty || broadPhasePairs.Exists(pair => pair.Slave < 0 || pair.Master < 0 || pair.Slave >= displacement.Length || pair.Master >= displacement.Length)) {
+            return Fin.Fail<ContactResult>(new ComputeFault.ModelRejected("<contact-kinematics>"));
+        }
+        if (contact is ContactConstraint.Mortar mortar && (mortar.Weights.Length != broadPhasePairs.Count || !TensorPrimitives.IsFiniteAll<double>(mortar.Weights.Span) || mortar.Weights.Span.ToArray().Any(static weight => weight <= 0.0))) {
+            return Fin.Fail<ContactResult>(new ComputeFault.ModelRejected($"<contact-mortar-weights:{mortar.Weights.Length}!={broadPhasePairs.Count}>"));
+        }
         double[] gap = Gap(contact, displacement, broadPhasePairs);
-        double[] updated = multipliers.Span.ToArray();
-        for (int i = 0; i < updated.Length && i < gap.Length; i++) { updated[i] += penalty * Math.Max(0.0, gap[i]); }
-        return SensitivityLaw.Chain(tape, seed)
-            .Bind(force => SensitivityLaw.GaussNewton(tape, primalSeed)
-                .Map(stiffness => new ContactResult(
-                    [.. force.Span.ToArray().Select(static f => (double)f)],
-                    [.. stiffness.Span.ToArray().Select(static s => (double)s)],
-                    updated.AsMemory(), gap.Count(static g => g > 0.0), Penetration(gap), clocks.Now)));
+        (double baseGap, double regularization) = contact.Parameters();
+        if (!double.IsFinite(penalty) || penalty <= 0.0 || !double.IsFinite(baseGap) || !double.IsFinite(regularization) || regularization <= 0.0 || multipliers.Length != gap.Length) {
+            return Fin.Fail<ContactResult>(new ComputeFault.ModelRejected("<contact-admission>"));
+        }
+        double[] updated = ConstraintHandling.AugmentedLagrangian.Advance(multipliers.Span.ToArray(), gap, penalty);
+        return Try.lift(() => {
+            DDScalar potential = contact.Potential(DDScalar.Variables(gap, order: 2), penalty);
+            return new ContactResult(
+                potential.GetGradient().AsArray().AsMemory(), potential.GetHessian().ToRowMajorArray().AsMemory(),
+                updated.AsMemory(), gap.Count(static value => value > 0.0), Penetration(gap), clocks.Now);
+        }).Run().MapFail(static error => (Error)new ComputeFault.ModelRejected($"<contact-potential-domain:{error.Message}>"));
     }
 
-    // The signed penetration per broad-phase pair the Clash lane supplied (positive = penetrating): closing
-    // relative normal displacement past the initial gap, never a re-detection of the pairs.
     static double[] Gap(ContactConstraint contact, ReadOnlyMemory<double> displacement, Seq<(int Slave, int Master)> pairs) {
-        double baseGap = contact switch { ContactConstraint.NodeToSurface n => n.Gap, ContactConstraint.Mortar m => m.Gap, _ => 0.0 };
+        double baseGap = contact.Parameters().Gap;
         double[] gap = new double[pairs.Count];
         for (int i = 0; i < pairs.Count; i++) {
-            var (slave, master) = pairs[i];
-            double ds = slave < displacement.Length ? displacement.Span[slave] : 0.0;
-            double dm = master < displacement.Length ? displacement.Span[master] : 0.0;
-            gap[i] = ds - dm - baseGap;
+            (int slave, int master) = pairs[i];
+            double ds = displacement.Span[slave], dm = displacement.Span[master];
+            gap[i] = contact.Weight(i) * (ds - dm) - baseGap;
         }
         return gap;
     }
@@ -240,11 +400,3 @@ public static class ContactEnforcement {
     }
 }
 ```
-
-## [03]-[RESEARCH]
-
-<!-- source-only: research row template:
-[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
--->
-
-- [CONSTITUTIVE_RETURN_MAP_TAPE]-[OPEN]: how to unroll the multi-iteration return-map into the linear `(op, primal)` tape at the stress-update call site — the chain tape composes the single-step closed-form return today, and the ring/reduction adjoint rows are already bound on `Tensor/dispatch#EQUIVALENCE_INTEROP` `DifferentiableOp.Rows`, so only the multi-iteration unroll is open; `Tensor/dispatch` `[GAUSS_NEWTON_AND_COLORING]` carries the remaining tape-recording plumbing.

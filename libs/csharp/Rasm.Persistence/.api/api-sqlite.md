@@ -99,6 +99,7 @@ Each `*Async` member mirrors its sync form through the inherited `System.Data.Co
 - connection root: `SqliteConnection` (with `Handle`, pooling, `BackupDatabase`, function/collation registration)
 - command root: `SqliteCommand` (`Prepare`/`Cancel` + the inherited async mirror)
 - transaction root: `SqliteTransaction` (deferred-mode via `BeginTransaction(bool deferred)`)
+- transaction enlistment is MANDATORY: a `SqliteCommand` executing while its connection holds an active transaction must carry it on `SqliteCommand.Transaction`, else the provider throws `InvalidOperationException` at execute
 - parameter root: `SqliteParameter` (typed binding through `SqliteType`)
 - reader root: `SqliteDataReader` (`GetStream`/`GetTextReader`/`GetFieldValue<T>` typed/streamed access)
 - extension root: function, aggregate, collation, blob, backup, and native extension calls

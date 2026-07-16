@@ -11,32 +11,33 @@ Rasm.Compute sparse-solve and kernel-lowering lane: the `SparseFormat` ingestion
 ## [02]-[SPARSE_SOLVE]
 
 - Owner: `SparseFormat` `[SmartEnum<string>]` ingestion-axis rows carrying the CSR-conversion `ingest` delegate as row data; `FactorKind` `[SmartEnum<string>]` direct-factor rows carrying the capability columns (rank-1 edit, transpose-solve, inertia, reentrancy), the fill-formula and transpose-solve-recovery delegate, AND the permutation-keyed `create` factory as row data; `IterativeMethod` `[SmartEnum<string>]` closed solver-factory axis with the `IterationPolicy` record (tolerance · max-iter · criterion stack · preconditioner); `FactoredOp` the typed sparse-operator value owning the factorization instance, the cached AMD permutation, the `ColumnOrdering` it was factored with, symbolic fill, and kind discriminant; `Edit` `[Union]` the structural-edit dialect; `SparseOps` the direct-and-iterative sparse-solve fold over CSR-backed MathNet storage and CSparse CSC direct factorizations — ingestion routes through the `SparseFormat` row's `ingest` delegate, direct factorization through the `FactorKind` row's `create` delegate, neither through a parallel `FrozenDictionary` keyed by the same enum.
-- Cases: `SparseFormat` `ingest`-delegate rows csr · csc · coo · dok (4); `FactorKind` `create`-delegate rows spd · ldl · lu · qr · cholmod · superlu · umfpack (7, every row wired — `Ldl` binds `SparseLDL.Create`, never declared-and-unbound; the three NATIVE-DIRECT rows bind the vendored csparse-interop `Cholmod`/`SuperLU`/`Umfpack` drivers through the `NativeClaim` RID gate, mirroring blas.md's managed↔native `LinearProvider` pattern — the managed rows stay the cold-start terminal, a native row without its Forge-provisioned asset faults at init, never a silent degrade); `IterativeMethod` rows bicgstab · gpbicg · tfqmr · mlk-bicgstab (4); `Edit` cases `Pin` · `Prune` · `Bump` · `Revalue` (4, every case realized — Pin/Prune/Bump-non-SPD rebuild the edited CSC, never a silent re-factor of the unedited operator).
-- Entry: `public static Fin<SparseCompressedRowMatrixStorage<double>> Ingest(SparseFormat format, int rows, int columns, int[] majorIndices, int[] minorIndices, double[] values)` — `Fin<T>` aborts on a length or bound mismatch; `public static Fin<FactoredOp> Factor(SparseCompressedRowMatrixStorage<double> csr, FactorKind kind, ColumnOrdering ordering, double pivotTol, double dropFloor)` converts the CSR triplets once to a CSparse `CompressedColumnStorage<double>` through `CoordinateStorage` + the admitted `CompressedColumnStorage<double>.OfIndexed` CSC factory, reads the symbolic fill before the numeric sweep, and collapses the completed factorization to one `FactoredOp` value; `FactoredOp.Solve(double[] rhs, double cap)` is the one polymorphic solve over both shapes — a square operator routes the forward triangular solve and a rectangular operator on the `Qr` kind routes the SparseQR least-squares `min‖Ax−b‖`, both landing in an `A.ColumnCount`-length result (CSparse sizes the caller buffer at `n` for every kind and allocates the augmented `S.m2` work row INTERNALLY — that augmentation is private factor state, never a caller dimension to over-size), the witness recomputing the true relative residual against the ORIGINAL rectangular `A` through the `ILinearOperator<double>` vector GEMV `A` inherits from the CSparse `Matrix<T>` base — `A` (a `CompressedColumnStorage<double>`) calls `A.Multiply(x, ax)` directly because `CSparse.Matrix<T> : ILinearOperator<double>` declares the array/span vector multiply the concrete `SparseMatrix` overrides, `ax` sized `A.RowCount` — rather than the square normal-equations operator — so a sparse PCE fit, a sparse-Jacobian recovery, and an overdetermined FEM normal-equations recovery solve through the one `FactoredOp` capsule without densifying to `Matrix<double>.QR`; `SolveIterative(SparseCompressedRowMatrixStorage<double> csr, IterativeMethod method, double[] rhs, IterationPolicy policy)` runs the `IterativeMethod`-selected `IIterativeSolver<double>` under the explicitly-ordered criterion stack and returns the field plus the recomputed true relative residual and `SolveTerminal` verdict — the iteration count is NOT read from `Iterator<double>` (which exposes the terminal `Status` plus the `DetermineStatus`/`Cancel`/`Reset` drivers but no iteration count), it is the criterion-stack-bounded cap.
+- Cases: `SparseFormat` `ingest`-delegate rows csr · csc · coo · dok (4); `FactorKind` verified `create`-delegate rows spd · ldl · lu · qr (4, every row wired — `Ldl` binds `SparseLDL.Create`); `IterativeMethod` rows bicgstab · gpbicg · tfqmr · mlk-bicgstab (4); `Edit` cases `Pin` · `Prune` · `Bump` · `Revalue` (4, every case realized and admitted before mutation).
+- Entry: `public static Fin<SparseCompressedRowMatrixStorage<double>> Ingest(SparseFormat format, int rows, int columns, int[] majorIndices, int[] minorIndices, double[] values)` — the ONE sparse admission seam: extents, minor/values congruence, the pointer-form major run (length axis+1, `[0]==0`, `[^1]==nnz`, monotone) or the index-form major bounds, minor-index bounds, and one vectorized `TensorPrimitives.IsFiniteAll` values pass all gate BEFORE the storage factory, each refusal a typed `PayloadOverBounds` fault — the format row's `PointerForm`/`MajorIsRow` columns drive the one shared body, never a per-format admission path; `public static Fin<FactoredOp> Factor(SparseCompressedRowMatrixStorage<double> csr, FactorKind kind, ColumnOrdering ordering, double pivotTol, double dropFloor)` converts the CSR triplets once to a CSparse `CompressedColumnStorage<double>` through `CoordinateStorage` + the admitted `CompressedColumnStorage<double>.OfIndexed` CSC factory, reads the symbolic fill before the numeric sweep, and collapses the completed factorization to one `FactoredOp` value; `FactoredOp.Solve(double[] rhs, double cap)` is the one polymorphic solve over both shapes — a square operator routes the forward triangular solve and a rectangular operator on the `Qr` kind routes the SparseQR least-squares `min‖Ax−b‖`, both landing in an `A.ColumnCount`-length result (CSparse sizes the caller buffer at `n` for every kind and allocates the augmented `S.m2` work row INTERNALLY — that augmentation is private factor state, never a caller dimension to over-size), the witness recomputing the true relative residual against the ORIGINAL rectangular `A` through the `ILinearOperator<double>` vector GEMV `A` inherits from the CSparse `Matrix<T>` base — `A` (a `CompressedColumnStorage<double>`) calls `A.Multiply(x, ax)` directly because `CSparse.Matrix<T> : ILinearOperator<double>` declares the array/span vector multiply the concrete `SparseMatrix` overrides, `ax` sized `A.RowCount` — rather than the square normal-equations operator — so a sparse PCE fit, a sparse-Jacobian recovery, and an overdetermined FEM normal-equations recovery solve through the one `FactoredOp` capsule without densifying to `Matrix<double>.QR`; `SolveIterative(SparseCompressedRowMatrixStorage<double> csr, IterativeMethod method, double[] rhs, IterationPolicy policy)` runs the `IterativeMethod`-selected `IIterativeSolver<double>` under the explicitly-ordered criterion stack and returns the field plus the recomputed true relative residual and `SolveTerminal` verdict — the iteration count is NOT read from `Iterator<double>` (which exposes the terminal `Status` plus the `DetermineStatus`/`Cancel`/`Reset` drivers but no iteration count), it is the criterion-stack-bounded cap.
 - Auto: every format row maps to one CSR ingestion conversion through the `SparseFormat` row's `ingest` delegate — csr direct, csc through `OfCompressedSparseColumnFormat`, coo through `OfCoordinateFormat`, dok through `OfIndexedEnumerable` over the indexed-entry buffer — so the format axis is an ingestion discriminant over one storage type and the build closure rides the row, not a parallel ingestion table; direct solves factor a CSparse `CompressedColumnStorage<double>` through the `FactorKind` row's `create` delegate binding the explicit-permutation `SparseCholesky.Create(csc, p)`/`SparseLDL.Create(csc, p)`/`SparseLU.Create(csc, p, pivotTol)` and the ordering-based `SparseQR.Create(csc, ordering)`, so the AMD ordering is computed once by `Build` and the symmetric/lu kinds reuse that permutation rather than re-deriving it inside `Create`, then solve in place through `ISparseFactorization<double>.Solve(double[], double[])` (the residual witness calls the vector GEMV directly on the `CompressedColumnStorage<double>` operator, inherited from the CSparse `Matrix<T> : ILinearOperator<double>` base — no residency cast); iterative solves run the `IterativeMethod` row's `Solver()` factory under the `IterationPolicy.Iterator()` `Iterator<double>` criterion stack constructed in precedence order `Failure → Divergence → Residual → IterationCount`; `FactoredOp.TransposeSolve` recovers the transpose-solve action from the `FactorKind` row's `TransposeRecover` delegate column alone (some for lu and qr, none for spd and ldl) because the shared `ISparseFactorization<double>` exposes only the forward solve and `SolveTranspose` closes over the concrete `SparseLU`/`SparseQR`.
 - Receipt: every sparse solve materializes the `Factorization` `ComputeReceipt` case carrying provider key, factor kind, the symbolic fill, the recomputed true relative residual, row and column extents, the `ValueCount` non-zero count, and the source format key; emission rides the sink port.
-- Packages: MathNet.Numerics, CSparse, csparse-interop (vendored — the native CHOLMOD/SuperLU/UMFPACK direct tier; natives Forge-provisioned, fault-at-init), System.Numerics.Tensors, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.Persistence (project), BCL inbox
+- Packages: MathNet.Numerics, CSparse, System.Numerics.Tensors, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.Persistence (project), BCL inbox
 - Growth: a new ingestion path is one `SparseFormat` row carrying its `ingest` delegate; a new direct solver is one `FactorKind` row carrying its capability, fill, transpose-recovery, AND `create` columns together (one row, never a row plus a parallel `DirectSolvers` table edit); a new iterative method is one `IterativeMethod` row carrying its `IIterativeSolver<double>` factory column; a new structural-edit dialect is one `Edit` case plus its arm on the total `Apply` Switch; a new iteration knob is one column on the `IterationPolicy` record; zero new surface.
-- Boundary: `SparseCompressedRowMatrixStorage<double>` is the only native MathNet sparse matrix storage — csc/coo/dok are ingestion conversions into CSR through the `Of*` factories and a parallel storage owner for each format is the deleted form; the CSR-to-CSC handoff builds a `CoordinateStorage<double>(rows, cols, nnz)`, calls `.At(i, j, v)` per entry, and converts once through the admitted `CompressedColumnStorage<double>.OfIndexed(coords, inplace: false)` CSC factory (the CSparse static that internally runs `Converter.ToCompressedColumnStorage` with cleanup) — a hand-rolled `Converter.ToCompressedColumnStorage` detour beside the admitted `OfIndexed` factory is the named reimplementation defect, and `inplace: true` is rejected when the triplet must survive a structural-edit increment because it invalidates the source arrays and dangles references; strict storage `Validate` runs before factoring because it returns `bool` and never throws and factorizing invalid storage produces silently incorrect factors; the symbolic fill is read before the numeric sweep to route direct versus iterative and the count is per-kind through the `FactorKind.Fill` delegate column (one factor for the symmetric kinds, an `L + U − n` formula for `SparseLU`, a `Q + R − m` formula for `SparseQR`) so a bare fill integer compared across kinds is meaningless; the `ColumnOrdering.MinimumDegreeAtPlusA` permutation `int[]` from `CSparse.Ordering.AMD.Generate(CompressedColumnStorage<double>, ColumnOrdering)` caches as the value-only refactor key over an invariant pattern (`ColumnOrdering` values are `Natural`, `MinimumDegreeAtPlusA`, `MinimumDegreeStS`, `MinimumDegreeAtA`; the AMD ordering type lives in `CSparse.Ordering`, distinct from the `ColumnOrdering` enum, and its `Generate<T>(CompressedColumnStorage<T> A, ColumnOrdering order)` takes the matrix first and the ordering second); assembly residue drops with a structural tolerance near `machineEps · ‖A‖_F` through `DropZeros(tolerance)` because the default `0.0` removes only binary zeros; `SparseLU` pivot `tol` is `[0, 1]` as a relative column threshold (`1` full partial pivoting, `0` disabled) never an absolute floor; transpose-solve/rank-1-edit/inertia/reentrancy recover from the `FactorKind` row alone because the shared solver interface exposes only the forward solve; an asymmetric input to a symmetric kind factors as its symmetrization and returns a correct answer to the WRONG system so the post-solve true residual is the only structural signal; a typed-only catch at the factorization boundary is rejected because SPD pivot loss and the zero-diagonal break throw bare `Exception`; the cached square factorization's one constructor-allocated scratch is non-reentrant so solves serialize through the `FactoredOp` capsule and the `SparseQR` reentrant kind is the one parallel-safe row; the rectangular least-squares result buffer sizes from `A.ColumnCount` exactly like the square solve — `SparseQR.Solve` writes the `n`-length left-hand side and allocates the augmented `S.m2` work row INTERNALLY (private factor state with no public accessor), so an attempt to over-size the caller buffer from a nonexistent "solution dimension" member is the named phantom and `A.ColumnCount` is correct for every kind and shape; the `Qr` row is the one rectangular least-squares route on `FactoredOp.Solve` so an overdetermined sparse system (`Solver/contract#SOLVE_CONTRACT` normal-equations recovery, `Solver/uncertainty#UNCERTAINTY_LANE` PCE coefficient fit, `Tensor/dispatch#EQUIVALENCE_INTEROP` sparse-Jacobian recovery) minimizes `‖Ax−b‖` through `SparseQR.Solve` and the witness recomputes against the ORIGINAL rectangular `A` (`ax` sized `A.RowCount`, the m-residual against the b-vector), never a dense `Matrix<double>.QR` fallback and never the square normal-equations operator whose conditioning the rectangular QR avoids; the residual GEMV calls `FactoredOp.A.Multiply(x, ax)` directly on the `CompressedColumnStorage<double>` because CSparse's `Matrix<T>` base implements `ILinearOperator<double>` and declares the vector `Multiply(ReadOnlySpan<double>, Span<double>)`/`Multiply(double[], double[])` the concrete `SparseMatrix` overrides — a residency cast to `CSparse.Double.SparseMatrix` to reach a vector member the base already exposes is the deleted ceremony, and the `double[]` operands bind the inherited array GEMV with no collision against the matrix-matrix overloads `Multiply(CompressedColumnStorage<double>[, result])`; bare `SparseMatrix` is reserved for the MathNet CSR concrete (`SolveIterative`) so the two sparse libraries never alias one name; the `Ldl` symmetric-indefinite/inertia kind binds `SparseLDL.Create` as a real `create` row — a `FactorKind` capability row with no factory delegate (a `<sparse-direct-miss>` fall-through) is the named declared-but-unbound defect; the cache populates success-only so only residual-witnessed factorizations enter and a diverged solve never poisons reuse; every structural `Edit` applies its edit to the operator before re-factoring — `Pin` drops row+column `node` and seats a unit diagonal, `Prune` `DropZeros` over a clone, a rank-1-edit kind's `Bump` runs the `SparseCholesky` `Update`/`Downdate` and discards-and-reconstructs the BUMPED operator (not the unedited one) on a `false` result, a non-rank-1-edit `Bump` accumulates `A + sign·w·wᵀ` over the column support and re-factors, and a `Bump` on a rectangular operator is rejected because a symmetric rank-1 update is ill-defined there — a default arm that silently re-factors the unedited operator and drops the `Pin`/`Prune`/`Bump` payload is the deleted form; a value-only `Revalue` clones the CSC through `Clone()` before overwriting the value array because the old `FactoredOp` still references the original storage and an in-place `CopyTo` corrupts the pre-edit operator, then re-creates with the SAME `op.Kind` from the cached permutation (no AMD over the invariant pattern) — the explicit-permutation `Create` amortizes the dominant symbolic cost (the AMD ordering) and yields a fully INDEPENDENT factor, so the in-place CSparse `Refactorize` (which additionally reuses the elimination tree and column counts but MUTATES the shared factor instance, aliasing the pre-edit `FactoredOp` whose `Inner` other readers and the non-reentrant single-owner solve still hold) is deliberately not taken: `FactoredOp` value immutability outranks the marginal numeric-phase saving, and `SparseQR` exposes no `Refactorize` at all; a hardcoded `SparseLU.Create` re-create that silently changes a non-LU operator's kind is the deleted correctness defect; the iterative method is the closed `IterativeMethod` SmartEnum and a raw-`string` method discriminant beside it is the named defect; the criterion stack constructs explicitly in precedence order because insertion order is precedence, `Failure` first keeps `NaN` terminal, and `Residual` before the count cap suppresses convergence on the final iteration; the iterate is admitted only on the independently recomputed true relative residual against the original operator because the converged verdict certifies only that the preconditioned residual fell below tolerance and left preconditioning distorts the norm; the structural substitution path is the most dangerous because it certifies an arbitrary iterate under a normal verdict and the ULP guard fails open on `NaN`; preconditioners initialize outside the solve and catch their throw there because the init throw otherwise escapes the verdict-returning entrypoint; the row-block partition over CSR is the `ShardPlan` fan-out column read by the solve, never a second routing owner.
+- Boundary: `SparseCompressedRowMatrixStorage<double>` is the only native MathNet sparse matrix storage — csc/coo/dok are ingestion conversions into CSR through the `Of*` factories and a parallel storage owner for each format is the deleted form; the CSR-to-CSC handoff builds a `CoordinateStorage<double>(rows, cols, nnz)`, calls `.At(i, j, v)` per entry, and converts once through the admitted `CompressedColumnStorage<double>.OfIndexed(coords, inplace: false)` CSC factory (the CSparse static that internally runs `Converter.ToCompressedColumnStorage` with cleanup) — a hand-rolled `Converter.ToCompressedColumnStorage` detour beside the admitted `OfIndexed` factory is the named reimplementation defect, and `inplace: true` is rejected when the triplet must survive a structural-edit increment because it invalidates the source arrays and dangles references; strict storage validation runs before factoring through `CSparse.Helper.ValidateStorage(csc, strict: true)` inside `Factor` because it returns `bool` and never throws and factorizing invalid storage produces silently incorrect factors; the symbolic fill is read before the numeric sweep to route direct versus iterative and the count is per-kind through the `FactorKind.Fill` delegate column (one factor for the symmetric kinds, an `L + U − n` formula for `SparseLU`, a `Q + R − m` formula for `SparseQR`) so a bare fill integer compared across kinds is meaningless; the `ColumnOrdering.MinimumDegreeAtPlusA` permutation `int[]` from `CSparse.Ordering.AMD.Generate(CompressedColumnStorage<double>, ColumnOrdering)` caches as the value-only refactor key over an invariant pattern (`ColumnOrdering` values are `Natural`, `MinimumDegreeAtPlusA`, `MinimumDegreeStS`, `MinimumDegreeAtA`; the AMD ordering type lives in `CSparse.Ordering`, distinct from the `ColumnOrdering` enum, and its `Generate<T>(CompressedColumnStorage<T> A, ColumnOrdering order)` takes the matrix first and the ordering second); assembly residue drops with a structural tolerance near `machineEps · ‖A‖_F` through `DropZeros(tolerance)` because the default `0.0` removes only binary zeros; `SparseLU` pivot `tol` is `[0, 1]` as a relative column threshold (`1` full partial pivoting, `0` disabled) never an absolute floor; transpose-solve/rank-1-edit/inertia/reentrancy recover from the `FactorKind` row alone because the shared solver interface exposes only the forward solve; an asymmetric input to a symmetric kind factors as its symmetrization and returns a correct answer to the WRONG system so the post-solve true residual is the only structural signal; a typed-only catch at the factorization boundary is rejected because SPD pivot loss and the zero-diagonal break throw bare `Exception`; the cached square factorization's one constructor-allocated scratch is non-reentrant so solves serialize through the `FactoredOp` capsule and the `SparseQR` reentrant kind is the one parallel-safe row; the rectangular least-squares result buffer sizes from `A.ColumnCount` exactly like the square solve — `SparseQR.Solve` writes the `n`-length left-hand side and allocates the augmented `S.m2` work row INTERNALLY (private factor state with no public accessor), so an attempt to over-size the caller buffer from a nonexistent "solution dimension" member is the named phantom and `A.ColumnCount` is correct for every kind and shape; the `Qr` row is the one rectangular least-squares route on `FactoredOp.Solve` so an overdetermined sparse system (`Solver/contract#SOLVE_CONTRACT` normal-equations recovery, `Solver/uncertainty#UNCERTAINTY_LANE` PCE coefficient fit, `Tensor/dispatch#EQUIVALENCE_INTEROP` sparse-Jacobian recovery) minimizes `‖Ax−b‖` through `SparseQR.Solve` and the witness recomputes against the ORIGINAL rectangular `A` (`ax` sized `A.RowCount`, the m-residual against the b-vector), never a dense `Matrix<double>.QR` fallback and never the square normal-equations operator whose conditioning the rectangular QR avoids; the residual GEMV calls `FactoredOp.A.Multiply(x, ax)` directly on the `CompressedColumnStorage<double>` because CSparse's `Matrix<T>` base implements `ILinearOperator<double>` and declares the vector `Multiply(ReadOnlySpan<double>, Span<double>)`/`Multiply(double[], double[])` the concrete `SparseMatrix` overrides — a residency cast to `CSparse.Double.SparseMatrix` to reach a vector member the base already exposes is the deleted ceremony, and the `double[]` operands bind the inherited array GEMV with no collision against the matrix-matrix overloads `Multiply(CompressedColumnStorage<double>[, result])`; bare `SparseMatrix` is reserved for the MathNet CSR concrete (`SolveIterative`) so the two sparse libraries never alias one name; the `Ldl` symmetric-indefinite/inertia kind binds `SparseLDL.Create` as a real `create` row — a `FactorKind` capability row with no factory delegate (a `<sparse-direct-miss>` fall-through) is the named declared-but-unbound defect; the cache populates success-only so only residual-witnessed factorizations enter and a diverged solve never poisons reuse; every structural `Edit` applies its edit to the operator before re-factoring — `Pin` drops row+column `node` and seats a unit diagonal, `Prune` `DropZeros` over a clone, a rank-1-edit kind's `Bump` runs the `SparseCholesky` `Update`/`Downdate` and discards-and-reconstructs the BUMPED operator (not the unedited one) on a `false` result, a non-rank-1-edit `Bump` accumulates `A + sign·w·wᵀ` over the column support and re-factors, and a `Bump` on a rectangular operator is rejected because a symmetric rank-1 update is ill-defined there — a default arm that silently re-factors the unedited operator and drops the `Pin`/`Prune`/`Bump` payload is the deleted form; a value-only `Revalue` clones the CSC through `Clone()` before overwriting the value array because the old `FactoredOp` still references the original storage and an in-place `CopyTo` corrupts the pre-edit operator, then re-creates with the SAME `op.Kind` from the cached permutation (no AMD over the invariant pattern) — the explicit-permutation `Create` amortizes the dominant symbolic cost (the AMD ordering) and yields a fully INDEPENDENT factor, so the in-place CSparse `Refactorize` (which additionally reuses the elimination tree and column counts but MUTATES the shared factor instance, aliasing the pre-edit `FactoredOp` whose `Inner` other readers and the non-reentrant single-owner solve still hold) is deliberately not taken: `FactoredOp` value immutability outranks the marginal numeric-phase saving, and `SparseQR` exposes no `Refactorize` at all; a hardcoded `SparseLU.Create` re-create that silently changes a non-LU operator's kind is the deleted correctness defect; the iterative method is the closed `IterativeMethod` SmartEnum and a raw-`string` method discriminant beside it is the named defect; the criterion stack constructs explicitly in precedence order because insertion order is precedence, `Failure` first keeps `NaN` terminal, and `Residual` before the count cap suppresses convergence on the final iteration; the iterate is admitted only on the independently recomputed true relative residual against the original operator because the converged verdict certifies only that the preconditioned residual fell below tolerance and left preconditioning distorts the norm; the structural substitution path is the most dangerous because it certifies an arbitrary iterate under a normal verdict and the ULP guard fails open on `NaN`; preconditioners initialize outside the solve and catch their throw there because the init throw otherwise escapes the verdict-returning entrypoint; the row-block partition over CSR is the `ShardPlan` fan-out column read by the solve, never a second routing owner.
 
 ```csharp signature
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SparseFormat {
-    // Each format row carries its CSR-ingestion conversion as row data: csr is direct, csc/coo flip the
-    // (major, minor) pointer pair onto the matching MathNet Of*Format factory, dok streams indexed value
-    // tuples. There is ONE storage type (CSR); a parallel storage owner per format is the deleted form.
-    public static readonly SparseFormat Csr = new("csr", static (r, c, major, minor, vals) =>
+    // Rows carry CSR conversion plus pointer-form and major-axis shape; one admission body reads those columns.
+    public static readonly SparseFormat Csr = new("csr", pointerForm: true, majorIsRow: true, static (r, c, major, minor, vals) =>
         SparseCompressedRowMatrixStorage<double>.OfCompressedSparseRowFormat(r, c, vals.Length, major, minor, vals));
-    public static readonly SparseFormat Csc = new("csc", static (r, c, major, minor, vals) =>
+    public static readonly SparseFormat Csc = new("csc", pointerForm: true, majorIsRow: false, static (r, c, major, minor, vals) =>
         SparseCompressedRowMatrixStorage<double>.OfCompressedSparseColumnFormat(r, c, vals.Length, minor, major, vals));
-    public static readonly SparseFormat Coo = new("coo", static (r, c, major, minor, vals) =>
+    public static readonly SparseFormat Coo = new("coo", pointerForm: false, majorIsRow: true, static (r, c, major, minor, vals) =>
         SparseCompressedRowMatrixStorage<double>.OfCoordinateFormat(r, c, vals.Length, major, minor, vals));
-    public static readonly SparseFormat Dok = new("dok", static (r, c, major, minor, vals) =>
-        SparseCompressedRowMatrixStorage<double>.OfIndexedEnumerable(r, c, toSeq(vals).Map((v, k) => (major[k], minor[k], v))));
+    public static readonly SparseFormat Dok = new("dok", pointerForm: false, majorIsRow: true, static (r, c, major, minor, vals) =>
+        SparseCompressedRowMatrixStorage<double>.OfIndexedEnumerable(r, c, vals.Select((v, k) => Tuple.Create(major[k], minor[k], v))));
 
     private readonly Func<int, int, int[], int[], double[], SparseCompressedRowMatrixStorage<double>> ingest;
+
+    public bool PointerForm { get; }
+    public bool MajorIsRow { get; }
 
     public SparseCompressedRowMatrixStorage<double> Ingest(int rows, int columns, int[] major, int[] minor, double[] values) =>
         ingest(rows, columns, major, minor, values);
@@ -46,12 +47,7 @@ public sealed partial class SparseFormat {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class FactorKind {
-    // Every kind carries its full capability row: the fill formula, the transpose-solve recovery, AND the
-    // permutation-keyed factory delegate (the shared `ISparseFactorization<double>` exposes only the forward
-    // solve, so transpose/rank-1-edit/inertia/reentrancy are recovered from THIS row, never from the factor).
-    // The symmetric kinds (spd/ldl) and lu take the cached AMD permutation through the explicit-permutation
-    // `Create(csc, p[, tol])` overload so the ordering is computed once; qr re-derives the ordering internally
-    // (its m<n branch factors the transpose) and ignores the cached permutation column.
+    // Capability, fill, transpose recovery, and factory remain one row; symmetric and LU rows consume cached AMD permutations.
     public static readonly FactorKind Spd = new("spd", rank1Edit: true, transposeSolve: false, inertia: false, reentrant: false,
         fill: static (nnz, _, _) => nnz,
         create: static (csc, perm, _, _) => SparseCholesky.Create(csc, perm),
@@ -68,25 +64,6 @@ public sealed partial class FactorKind {
         fill: static (nnz, rows, _) => 2 * nnz - rows,
         create: static (csc, _, ordering, _) => SparseQR.Create(csc, ordering),
         transposeRecover: static inner => inner is SparseQR qr ? Some<Action<double[], double[]>>(qr.SolveTranspose) : None);
-    // The NATIVE-DIRECT tier (csparse-interop, source-vendored — the same-author extension of the managed
-    // rail): CHOLMOD supernodal Cholesky for large SPD stiffness, SuperLU/UMFPACK for large unsymmetric
-    // systems. Rows mirror blas.md's managed↔native LinearProvider pattern — the managed spd/ldl/lu/qr
-    // terminals stay the always-available cold-start selection, a native row is an explicit RID-claim-gated
-    // choice whose Forge-provisioned native library FAULTS AT INIT when absent (never a silent managed
-    // degrade), and whose IDisposable factor handle rides the FactoredOp capsule lifetime.
-    public static readonly FactorKind Cholmod = new("cholmod", rank1Edit: false, transposeSolve: false, inertia: false, reentrant: false,
-        fill: static (nnz, _, _) => nnz,
-        create: static (csc, _, _, _) => NativeClaim.Cholmod(csc),
-        transposeRecover: static _ => None);
-    public static readonly FactorKind SuperLu = new("superlu", rank1Edit: false, transposeSolve: false, inertia: false, reentrant: false,
-        fill: static (nnz, rows, _) => 2 * nnz - rows,
-        create: static (csc, _, _, _) => NativeClaim.SuperLu(csc),
-        transposeRecover: static _ => None);
-    public static readonly FactorKind Umfpack = new("umfpack", rank1Edit: false, transposeSolve: false, inertia: false, reentrant: false,
-        fill: static (nnz, rows, _) => 2 * nnz - rows,
-        create: static (csc, _, _, _) => NativeClaim.Umfpack(csc),
-        transposeRecover: static _ => None);
-
     private readonly Func<int, int, int, int> fill;
     private readonly Func<CompressedColumnStorage<double>, int[], ColumnOrdering, double, ISparseFactorization<double>> create;
     private readonly Func<ISparseFactorization<double>, Option<Action<double[], double[]>>> transposeRecover;
@@ -99,33 +76,6 @@ public sealed partial class FactorKind {
     public int Fill(int nonZeros, int rows, int columns) => fill(nonZeros, rows, columns);
     public ISparseFactorization<double> Create(CompressedColumnStorage<double> csc, int[] permutation, ColumnOrdering ordering, double pivotTol) => create(csc, permutation, ordering, pivotTol);
     public Option<Action<double[], double[]>> TransposeRecover(ISparseFactorization<double> inner) => transposeRecover(inner);
-}
-
-// The RID-claim gate the three native FactorKind rows route: each factory lifts the CSC onto the CSparse
-// SparseMatrix concrete the interop drivers bind, constructs the native factor, and runs its one-time
-// Factorize() — a missing Forge-provisioned native library (SuiteSparse/SuperLU on osx-arm64; MKL PARDISO
-// claims on x64 deployments) surfaces the native-init throw at the Factor boundary as a typed fault,
-// never a silent fall to the managed terminal (the managed rows are the DEFAULT selection, not a fallback
-// swap). Member conformance to ISparseFactorization<double> verifies against the vendored tree at first
-// compose per the vendored-source law.
-internal static class NativeClaim {
-    public static ISparseFactorization<double> Cholmod(CompressedColumnStorage<double> csc) {
-        var factor = new Cholmod((CSparse.Double.SparseMatrix)csc);
-        factor.Factorize();
-        return factor;
-    }
-
-    public static ISparseFactorization<double> SuperLu(CompressedColumnStorage<double> csc) {
-        var factor = new SuperLU((CSparse.Double.SparseMatrix)csc);
-        factor.Factorize();
-        return factor;
-    }
-
-    public static ISparseFactorization<double> Umfpack(CompressedColumnStorage<double> csc) {
-        var factor = new Umfpack((CSparse.Double.SparseMatrix)csc);
-        factor.Factorize();
-        return factor;
-    }
 }
 
 [SmartEnum<string>]
@@ -168,58 +118,97 @@ public sealed record FactoredOp(ISparseFactorization<double> Inner, FactorKind K
 
     public bool Rectangular => A.RowCount != A.ColumnCount;
 
-    // ONE polymorphic solve over both shapes. CSparse sizes the caller's result at A.ColumnCount for every
-    // kind — the square triangular solve and the rectangular `m >= n` least-squares `min‖Ax−b‖` both land in
-    // an n-length buffer, and CSparse allocates the augmented `S.m2` work row INTERNALLY (it is private factor
-    // state, never a caller dimension). The witness recomputes the true relative residual against the ORIGINAL
-    // operator A through the vector GEMV A inherits from CSparse's `Matrix<T> : ILinearOperator<double>` base
-    // (A.Multiply(x, ax) binds the inherited array overload directly — no residency cast; `ax` sized
-    // A.RowCount), never the square normal-equations operator whose conditioning the
-    // rectangular QR avoids and never a dense fallback.
+    // CSparse returns `A.ColumnCount` unknowns for square solve or rectangular QR least squares and owns its
+    // augmented work row; the witness uses inherited `A.Multiply(x, ax)` against the original operator.
     public Fin<double[]> Solve(double[] rhs, double cap) {
-        var x = new double[A.ColumnCount];
-        Inner.Solve(rhs, x);
-        var ax = new double[A.RowCount];
-        A.Multiply(x, ax);
-        double residual = TensorPrimitives.Distance<double>(ax, rhs) / Math.Max(1.0, TensorPrimitives.Norm<double>(rhs));
-        return double.IsFinite(residual) && residual <= cap
-            ? Fin.Succ(x)
-            : Fin.Fail<double[]>(new ComputeFault.ModelRejected($"<sparse-witness-fail:kind={Kind.Key}:rect={Rectangular}:fill={Fill}:r={residual:e3}>"));
+        if (rhs.Length != A.RowCount || !double.IsFinite(cap) || cap < 0.0) {
+            return Fin.Fail<double[]>(new ComputeFault.ModelRejected($"<sparse-solve-shape:rhs={rhs.Length}:rows={A.RowCount}:cap={cap:e3}>"));
+        }
+        double[] x = new double[A.ColumnCount];
+        Fin<double[]> solved = Try.lift(() => {
+                Inner.Solve(rhs, x);
+                return x;
+            }).Run()
+            .MapFail(error => (Error)new ComputeFault.ModelRejected($"<sparse-solve-break:{Kind.Key}:{error.Message}>"));
+        double[] ax = new double[A.RowCount];
+        return solved.Bind(field => {
+            A.Multiply(field, ax);
+            double residual = TensorPrimitives.Distance<double>(ax, rhs) / Math.Max(1.0, TensorPrimitives.Norm<double>(rhs));
+            return double.IsFinite(residual) && residual <= cap
+                ? Fin.Succ(field)
+                : Fin.Fail<double[]>(new ComputeFault.ModelRejected($"<sparse-witness-fail:kind={Kind.Key}:rect={Rectangular}:fill={Fill}:r={residual:e3}>"));
+        });
     }
 }
 
 public static class SparseOps {
-    public static Fin<SparseCompressedRowMatrixStorage<double>> Ingest(SparseFormat format, int rows, int columns, int[] majorIndices, int[] minorIndices, double[] values) =>
-        minorIndices.Length != values.Length
-            ? Fin.Fail<SparseCompressedRowMatrixStorage<double>>(new ComputeFault.PayloadOverBounds($"sparse-values:{values.Length}:{minorIndices.Length}"))
-            : Fin.Succ(format.Ingest(rows, columns, majorIndices, minorIndices, values));
+    // Sparse admission gates positive extents, congruent arrays, pointer anchors/monotonicity, index bounds,
+    // and finite values before a storage factory sees provider data.
+    public static Fin<SparseCompressedRowMatrixStorage<double>> Ingest(SparseFormat format, int rows, int columns, int[] majorIndices, int[] minorIndices, double[] values) {
+        int majorDim = format.MajorIsRow ? rows : columns;
+        int minorDim = format.MajorIsRow ? columns : rows;
+        Option<string> refusal =
+            rows <= 0 || columns <= 0 ? Some($"<extent:{rows}x{columns}>")
+            : minorIndices.Length != values.Length ? Some($"<minor-values:{minorIndices.Length}!={values.Length}>")
+            : format.PointerForm && majorIndices.Length != majorDim + 1 ? Some($"<pointer-length:{majorIndices.Length}!={majorDim + 1}>")
+            : format.PointerForm && (majorIndices[0] != 0 || majorIndices[^1] != values.Length) ? Some($"<pointer-anchor:{majorIndices[0]}..{majorIndices[^1]}:nnz={values.Length}>")
+            : format.PointerForm && !Monotone(majorIndices) ? Some("<pointer-nonmonotone>")
+            : !format.PointerForm && majorIndices.Length != values.Length ? Some($"<major-values:{majorIndices.Length}!={values.Length}>")
+            : !format.PointerForm && !Bounded(majorIndices, majorDim) ? Some($"<major-bound:{majorDim}>")
+            : !Bounded(minorIndices, minorDim) ? Some($"<minor-bound:{minorDim}>")
+            : !TensorPrimitives.IsFiniteAll<double>(values) ? Some("<values-nonfinite>")
+            : None;
+        return refusal.Match(
+            Some: cause => Fin.Fail<SparseCompressedRowMatrixStorage<double>>(new ComputeFault.PayloadOverBounds($"sparse-ingest:{format.Key}:{cause}")),
+            None: () => Fin.Succ(format.Ingest(rows, columns, majorIndices, minorIndices, values)));
+    }
 
-    // The two cross-lane CSC projections the ARPACK pencil (Solver/contract Modal) composes: the CSR-to-CSC
+    static bool Monotone(int[] pointers) {
+        for (int i = 1; i < pointers.Length; i++) { if (pointers[i] < pointers[i - 1]) { return false; } }
+        return true;
+    }
+
+    static bool Bounded(int[] indices, int extent) {
+        for (int i = 0; i < indices.Length; i++) { if ((uint)indices[i] >= (uint)extent) { return false; } }
+        return true;
+    }
+
+    // Cross-lane CSC projections compose the ARPACK pencil: CSR-to-CSC
     // conversion the Factor path already owns, exposed once, and a diagonal CSC off a lumped-mass vector.
     public static CSparse.Double.SparseMatrix ToCsc(SparseCompressedRowMatrixStorage<double> csr) =>
         (CSparse.Double.SparseMatrix)ToColumnStorage(csr);
 
     public static CSparse.Double.SparseMatrix Diagonal(double[] diagonal) {
-        var coords = new CoordinateStorage<double>(diagonal.Length, diagonal.Length, diagonal.Length);
+        CoordinateStorage<double> coords = new(diagonal.Length, diagonal.Length, diagonal.Length);
         for (int i = 0; i < diagonal.Length; i++) { coords.At(i, i, diagonal[i]); }
         return (CSparse.Double.SparseMatrix)CompressedColumnStorage<double>.OfIndexed(coords, inplace: false);
     }
 
-    public static Fin<FactoredOp> Factor(SparseCompressedRowMatrixStorage<double> csr, FactorKind kind, ColumnOrdering ordering, double pivotTol, double dropFloor) =>
-        Lift(() => {
-            var csc = ToColumnStorage(csr);
-            csc.DropZeros(dropFloor);
-            return Build(csc, kind, ordering, pivotTol);
-        });
+    // Helper.ValidateStorage(strict: true) gates the CSC before any factory touches it — the check returns
+    // bool and never throws, and factorizing invalid storage produces silently incorrect factors.
+    public static Fin<FactoredOp> Factor(SparseCompressedRowMatrixStorage<double> csr, FactorKind kind, ColumnOrdering ordering, double pivotTol, double dropFloor) {
+        if (!double.IsFinite(pivotTol) || pivotTol < 0.0 || pivotTol > 1.0 || !double.IsFinite(dropFloor) || dropFloor < 0.0) {
+            return Fin.Fail<FactoredOp>(new ComputeFault.ModelRejected($"<sparse-factor-policy:pivot={pivotTol:e3}:drop={dropFloor:e3}>"));
+        }
+        CompressedColumnStorage<double> csc = ToColumnStorage(csr);
+        csc.DropZeros(dropFloor);
+        return Helper.ValidateStorage(csc, strict: true)
+            ? Lift(() => Build(csc, kind, ordering, pivotTol))
+            : Fin.Fail<FactoredOp>(new ComputeFault.ModelRejected($"<sparse-storage-invalid:{kind.Key}:{csc.RowCount}x{csc.ColumnCount}>"));
+    }
 
     public static Fin<(Vector<double> Field, double Residual, SolveTerminal Terminal)> SolveIterative(SparseCompressedRowMatrixStorage<double> csr, IterativeMethod method, double[] rhs, IterationPolicy policy) =>
-        Try.lift(() => {
-            var matrix = new SparseMatrix(csr);
-            var b = Vector<double>.Build.DenseOfArray(rhs);
-            var x = Vector<double>.Build.Dense(rhs.Length);
-            var pre = policy.Preconditioner();
+        csr.RowCount != csr.ColumnCount || rhs.Length != csr.RowCount
+            ? Fin.Fail<(Vector<double>, double, SolveTerminal)>(new ComputeFault.ModelRejected($"<iterative-shape:{csr.RowCount}x{csr.ColumnCount}:rhs={rhs.Length}>"))
+            : policy.MaxIterations < 1 || !double.IsFinite(policy.Tolerance) || policy.Tolerance <= 0.0
+                ? Fin.Fail<(Vector<double>, double, SolveTerminal)>(new ComputeFault.ModelRejected($"<iteration-policy:tol={policy.Tolerance:e3}:max={policy.MaxIterations}>"))
+                : Try.lift(() => {
+            SparseMatrix matrix = new(csr);
+            Vector<double> b = Vector<double>.Build.DenseOfArray(rhs);
+            Vector<double> x = Vector<double>.Build.Dense(rhs.Length);
+            IPreconditioner<double> pre = policy.Preconditioner();
             pre.Initialize(matrix);
-            var verdict = matrix.TrySolveIterative(b, x, method.Solver(), policy.Iterator(), pre);
+            IterationStatus verdict = matrix.TrySolveIterative(b, x, method.Solver(), policy.Iterator(), pre);
             double residual = (matrix.Multiply(x) - b).L2Norm() / Math.Max(1.0, b.L2Norm());
             SolveTerminal terminal = verdict switch {
                 IterationStatus.Converged => new SolveTerminal.Admitted(x, residual),
@@ -228,14 +217,10 @@ public static class SparseOps {
             return (x, residual, terminal);
         }).Run().MapFail(static error => (Error)new ComputeFault.ModelRejected(error.Message));
 
-    // The structural-edit dialect resolves through the closed Edit Switch (total — a new dialect breaks
-    // compilation, never a runtime-silent arm). A rank-1-edit kind (SPD/Cholesky) takes the in-place
-    // Update/Downdate fast path and re-factors the bumped operator only on a `false` discard; the symmetric
-    // rank-1 outer product is ill-defined on a rectangular operator and is rejected. Pin/Prune/Bump rebuild
-    // the edited CSC and full-re-factor (the pattern changed, so the AMD ordering — not the cached permutation
-    // — re-runs); Revalue keeps the pattern and re-creates from the cached permutation with the SAME kind.
+    // Closed `Edit.Switch` forces every dialect; Cholesky rank-one edits use `Update`/`Downdate`, while pattern
+    // edits refactor fully and `Revalue` reuses the cached permutation with the same kind.
     public static Fin<FactoredOp> Apply(FactoredOp op, Edit edit, double pivotTol) =>
-        edit.Switch(
+        Admit(op, edit).Bind(admitted => admitted.Switch(
             pin: pin => Refactor(Pinned(op.A, pin.Node), op, pivotTol),
             prune: prune => Refactor(Cleaned(op.A, prune.Tolerance), op, pivotTol),
             bump: bump => op.Kind.Rank1Edit
@@ -243,19 +228,39 @@ public static class SparseOps {
                 : op.Rectangular
                     ? Fin.Fail<FactoredOp>(ComputeFault.Create($"<bump-rectangular:{op.Kind.Key}>"))
                     : Refactor(Bumped(op.A, bump), op, pivotTol),
-            revalue: revalue => Revalue(op, revalue.Values, pivotTol));
+            revalue: revalue => Revalue(op, revalue.Values, pivotTol)));
 
-    static Fin<FactoredOp> Downdate(FactoredOp op, Edit.Bump bump, double pivotTol) =>
-        op.Inner is SparseCholesky chol && RankOne(chol, RankOneColumn(bump.Column), bump.Sign)
-            ? Fin.Succ(op)
-            : Refactor(Bumped(op.A, bump), op, pivotTol);
+    static Fin<Edit> Admit(FactoredOp op, Edit edit) =>
+        edit.Switch(
+            pin: pin => !op.Rectangular && (uint)pin.Node < (uint)op.A.RowCount
+                ? Fin.Succ<Edit>(pin)
+                : Fin.Fail<Edit>(ComputeFault.Create($"<pin-bound:{pin.Node}:shape={op.A.RowCount}x{op.A.ColumnCount}>")),
+            prune: prune => double.IsFinite(prune.Tolerance) && prune.Tolerance >= 0.0
+                ? Fin.Succ<Edit>(prune)
+                : Fin.Fail<Edit>(ComputeFault.Create($"<prune-tolerance:{prune.Tolerance:e3}>")),
+            bump: bump => !op.Rectangular && bump.Sign is -1 or 1 && bump.Column.Length == op.A.RowCount && TensorPrimitives.IsFiniteAll<double>(bump.Column)
+                ? Fin.Succ<Edit>(bump)
+                : Fin.Fail<Edit>(ComputeFault.Create($"<bump-shape:sign={bump.Sign}:column={bump.Column.Length}:shape={op.A.RowCount}x{op.A.ColumnCount}>")),
+            revalue: revalue => revalue.Values.Length == op.A.NonZerosCount && TensorPrimitives.IsFiniteAll<double>(revalue.Values)
+                ? Fin.Succ<Edit>(revalue)
+                : Fin.Fail<Edit>(ComputeFault.Create($"<revalue-count:{revalue.Values.Length}!={op.A.NonZerosCount}>")));
 
-    // Value-only refactor: the sparsity pattern is invariant, so the cached AMD permutation is the refactor
-    // key — re-create with the SAME kind from `op.Permutation` (no AMD), clone-before-overwrite so the
-    // pre-edit operator's storage is never corrupted (the old FactoredOp still references the original A).
+    static Fin<FactoredOp> Downdate(FactoredOp op, Edit.Bump bump, double pivotTol) {
+        CompressedColumnStorage<double> changed = Bumped(op.A, bump);
+        return op.Inner is SparseCholesky chol && RankOne(chol, RankOneColumn(bump.Column), bump.Sign)
+            ? Fin.Succ(op with {
+                A = changed,
+                Fill = op.Kind.Fill(changed.NonZerosCount, changed.RowCount, changed.ColumnCount),
+                FrobeniusNorm = changed.FrobeniusNorm(),
+            })
+            : Refactor(changed, op, pivotTol);
+    }
+
+    // Value-only refactor reuses the cached AMD permutation with the same kind; clone-before-overwrite leaves
+    // prior `FactoredOp` storage valid.
     static Fin<FactoredOp> Revalue(FactoredOp op, double[] values, double pivotTol) =>
         Lift(() => {
-            var fresh = op.A.Clone();
+            CompressedColumnStorage<double> fresh = op.A.Clone();
             values.CopyTo(fresh.Values, 0);
             return op with {
                 Inner = op.Kind.Create(fresh, op.Permutation, op.Ordering, pivotTol),
@@ -272,8 +277,8 @@ public static class SparseOps {
         Try.lift(build).Run().MapFail(static error => (Error)new ComputeFault.ModelRejected($"<sparse-factor-break:{error.Message}>"));
 
     static FactoredOp Build(CompressedColumnStorage<double> csc, FactorKind kind, ColumnOrdering ordering, double pivotTol) {
-        var permutation = AMD.Generate(csc, ordering);
-        var inner = kind.Create(csc, permutation, ordering, pivotTol);
+        int[] permutation = AMD.Generate(csc, ordering);
+        ISparseFactorization<double> inner = kind.Create(csc, permutation, ordering, pivotTol);
         return new FactoredOp(inner, kind, csc, permutation, ordering, kind.Fill(csc.NonZerosCount, csc.RowCount, csc.ColumnCount), csc.FrobeniusNorm());
     }
 
@@ -281,23 +286,21 @@ public static class SparseOps {
         sign >= 0 ? chol.Update(w) : chol.Downdate(w);
 
     static CompressedColumnStorage<double> RankOneColumn(double[] column) {
-        var coords = new CoordinateStorage<double>(column.Length, 1, column.Length);
+        CoordinateStorage<double> coords = new(column.Length, 1, column.Length);
         toSeq(Enumerable.Range(0, column.Length)).Iter(row => coords.At(row, 0, column[row]));
         return CompressedColumnStorage<double>.OfIndexed(coords, inplace: false);
     }
 
-    // Prune drops sub-tolerance residue (CSparse DropZeros over a clone — the source survives for the pre-edit
-    // operator). Pin imposes a Dirichlet node by dropping row+column `node` and seating a unit diagonal. Bump
-    // accumulates the symmetric rank-1 outer product `sign·w·wᵀ` over the column's nonzero support, duplicates
-    // summed on convert so the edit is A + sign·w·wᵀ. Each returns a fresh CSC the caller re-factors.
+    // `Prune` drops residue on a clone, `Pin` seats a Dirichlet unit row/column, and `Bump` accumulates
+    // `sign·w·wᵀ`; every pattern edit returns a fresh CSC.
     static CompressedColumnStorage<double> Cleaned(CompressedColumnStorage<double> a, double tolerance) {
-        var fresh = a.Clone();
+        CompressedColumnStorage<double> fresh = a.Clone();
         fresh.DropZeros(tolerance);
         return fresh;
     }
 
     static CompressedColumnStorage<double> Pinned(CompressedColumnStorage<double> a, int node) {
-        var coords = new CoordinateStorage<double>(a.RowCount, a.ColumnCount, a.NonZerosCount + 1);
+        CoordinateStorage<double> coords = new(a.RowCount, a.ColumnCount, a.NonZerosCount + 1);
         toSeq(a.EnumerateIndexedAsValueTuples()).Filter(t => t.row != node && t.column != node).Iter(t => coords.At(t.row, t.column, t.value));
         coords.At(node, node, 1.0);
         return CompressedColumnStorage<double>.OfIndexed(coords, inplace: false);
@@ -305,7 +308,7 @@ public static class SparseOps {
 
     static CompressedColumnStorage<double> Bumped(CompressedColumnStorage<double> a, Edit.Bump bump) {
         int[] support = toSeq(Enumerable.Range(0, bump.Column.Length)).Filter(i => bump.Column[i] != 0.0).ToArray();
-        var coords = new CoordinateStorage<double>(a.RowCount, a.ColumnCount, a.NonZerosCount + support.Length * support.Length);
+        CoordinateStorage<double> coords = new(a.RowCount, a.ColumnCount, a.NonZerosCount + support.Length * support.Length);
         toSeq(a.EnumerateIndexedAsValueTuples()).Iter(t => coords.At(t.row, t.column, t.value));
         toSeq(support).Iter(i => toSeq(support).Iter(j => coords.At(i, j, bump.Sign * bump.Column[i] * bump.Column[j])));
         return CompressedColumnStorage<double>.OfIndexed(coords, inplace: false);
@@ -318,7 +321,7 @@ public static class SparseOps {
         };
 
     static CompressedColumnStorage<double> ToColumnStorage(SparseCompressedRowMatrixStorage<double> csr) {
-        var coords = new CoordinateStorage<double>(csr.RowCount, csr.ColumnCount, csr.ValueCount);
+        CoordinateStorage<double> coords = new(csr.RowCount, csr.ColumnCount, csr.ValueCount);
         toSeq(Enumerable.Range(0, csr.RowCount)).Iter(row =>
             toSeq(Enumerable.Range(csr.RowPointers[row], csr.RowPointers[row + 1] - csr.RowPointers[row]))
                 .Iter(slot => coords.At(row, csr.ColumnIndices[slot], csr.Values[slot])));
@@ -330,13 +333,13 @@ public static class SparseOps {
 
 ## [03]-[SPARSE_ALGEBRA]
 
-- Owner: `SparseTensorOpFamily` `[SmartEnum<string>]` the sparse op axis (a SEPARATE owner from the dense `Tensor/vocabulary#OPERATION_TABLE` `TensorOpFamily`, never a 114th literal dense row) carrying a `Binary` arity flag and a `MatNetOwned` column naming which library owns the kernel; `SparseTensorOps` the static algebra fold over the one `SparseCompressedRowMatrixStorage<double>` CSR storage, routing each op to the MathNet `LinearAlgebra.Double.SparseMatrix` operator where MathNet owns the concern (SpMV/SpMM/add/scale/transpose/Kronecker) and to CSparse `CoordinateStorage`/`CompressedColumnStorage` pattern construction where MathNet does not (arbitrary contraction); `EinsumPlan` the index-subscript contraction planner deriving a greedy pairwise contraction order and lowering each step to the dense `KernelLowering.Lower(MatMul)` GEMM or the sparse `SparseTensorOps.Apply(Contract)` route under one polymorphic `Contract` entry; `SparseRun` the per-op nnz-and-format witness the sparse `TensorRun` receipt carries.
+- Owner: `SparseTensorOpFamily` `[SmartEnum<string>]` the sparse op axis carrying binary arity and the optional MathNet kernel delegate on the row itself; `SparseTensorOps` the static algebra fold over the one `SparseCompressedRowMatrixStorage<double>` CSR storage, routing each op to the row-owned `SparseMatrix` operation where MathNet owns the concern and to CSparse pattern construction for arbitrary contraction; `EinsumPlan` the index-subscript contraction planner deriving a greedy pairwise contraction order and lowering each step to dense GEMM or sparse contract; `SparseRun` the per-op nnz-and-format witness.
 - Cases: `SparseTensorOpFamily` rows spmv · spmm · sp-add · sp-scale · sp-transpose · kronecker · contract · einsum (8); the dense lane `TensorOpFamily` rows stay the dense owner and a sparse row is never aliased onto a dense key.
-- Entry: `public static Fin<SparseCompressedRowMatrixStorage<double>> Apply(SparseTensorOpFamily op, SparseCompressedRowMatrixStorage<double> left, Option<SparseCompressedRowMatrixStorage<double>> right, double scalar)` is the one sparse-arithmetic fold — `Fin<T>` aborts on a shape mismatch or a missing right operand on a binary row; `public static Fin<double[]> Spmv(SparseMatrix held, ReadOnlySpan<double> x)` is the sparse mat-vec the iterative criterion stack and the `Solver/contract#SOLVE_CONTRACT` Newton residual consume over a HELD `SparseMatrix` (built once via `new SparseMatrix(csr)`) instead of per-call storage re-materialization; `public static Fin<(SparseCompressedRowMatrixStorage<double> Result, Seq<SparseRun> Steps)> Contract(EinsumPlan plan, Seq<Either<Matrix<double>, SparseCompressedRowMatrixStorage<double>>> operands, ShardPlan shard)` folds the contraction tree over ONE unified operand vector (dense `Left` | sparse-CSR `Right`), threading each intermediate result back into the working store keyed by the surviving `Left` index so an n-operand contraction chains correctly, each step emitting one `SparseRun` under the same correlation.
-- Auto: each binary-matrix `SparseTensorOpFamily` row binds its kernel through the `SparseTensorOps.Kernels` `FrozenDictionary` fold over operands wrapped once via `new SparseMatrix(storage)` (the storage-ctor, never a `SparseMatrix.OfStorage` phantom) — spmm binds `Matrix<double>.Multiply(Matrix<double>)`, sp-add binds `Matrix<double>.Add(Matrix<double>)`, sp-scale binds the scalar `Multiply(double)`, sp-transpose binds `Matrix<double>.Transpose()`, kronecker binds `Matrix<double>.KroneckerProduct(Matrix<double>)` over the sparse-built operands; spmv is the held-operator vector GEMV (`Matrix<double>.Multiply(Vector, Vector)`) and contract binds the CSC `CoordinateStorage` pattern build for an arbitrary index contraction MathNet does not own; `EinsumPlan.Of` parses the subscript spec into per-operand index labels and an output label, derives the contraction order by a greedy minimum-intermediate-size heuristic (binary-pairwise so each step is exactly one MatMul/contract row, never an n-ary kernel that bypasses the lowering table) and folds the merged shape into the `Left` slot so the next step's cost sees the intermediate; `Contract` seeds ONE unified working store from the operand vector (dense `Left` | sparse-CSR `Right`) and each step decides its route from the WORKING operands it contracts — both-dense lowers through `KernelLowering.Lower(MatMul)` and writes a dense intermediate, else `ContractPair` contracts the CSR pair (a dense operand densifies once through `SparseMatrix.OfMatrix`) and writes a sparse intermediate — writing every result back over the surviving `Left` index so an n-operand contraction chains correctly, the per-step transpose of the subscripts feeding the autodiff `Tensor/dispatch#EQUIVALENCE_INTEROP` JVP/VJP of an einsum.
+- Entry: `Apply` owns sparse arithmetic, `Spmv` owns held sparse mat-vec, and `Contract` folds one unified dense-or-sparse operand store. `Contract` returns `IO<Fin<(SparseCompressedRowMatrixStorage<double> Result, Seq<SparseRun> Steps)>>`, so local and distributed contraction share one entry while cache, blob, and RPC work stays deferred.
+- Auto: each MathNet-owned `SparseTensorOpFamily` row carries its kernel delegate directly — spmm binds `Multiply`, sp-add `Add`, sp-scale scalar `Multiply`, sp-transpose `Transpose`, and kronecker `KroneckerProduct` — so row admission and dispatch cannot drift across a parallel dictionary; spmv is the held-operator vector GEMV and contract binds the CSC pattern build MathNet does not own; `EinsumPlan.Of` parses the subscript spec, derives the greedy pairwise order, and folds the merged shape into the surviving slot; an all-dense operand vector under `DenseSubstrate.Active.Native` collapses the plan to one `AtenDense.Einsum` call, otherwise each working pair routes from its current sparsity and writes its intermediate back over the surviving index.
 - Receipt: every sparse op materializes the `Factorization`/`TensorRun` `ComputeReceipt` evidence carrying the result nnz, the source format key, the op key, and the `AllocationClass` — a sparse op that grows nnz stamps `AllocationClass.PooledMemory` because the MathNet sparse operators allocate fresh storage per op against the dense lane's in-place `SpanOwner` discipline, so the sparse fold fixes an nnz-growth allocation policy explicitly rather than pretending an in-place fold.
 - Packages: MathNet.Numerics, CSparse, System.Numerics.Tensors, CommunityToolkit.HighPerformance, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
-- Growth: a new sparse op is one `SparseTensorOpFamily` row binding its kernel on the `SparseTensorOps.Kernels` fold; a new contraction-order heuristic is one column on `EinsumPlan`; zero new surface — a `SpMvOp`/`SpMmOp`/`KroneckerOp` sibling family is the rejected form collapsed onto the one `SparseTensorOps` fold, a second sparse storage owner per op is the deleted form (csc/coo/dok stay ingestion conversions into the one CSR storage), and a string-eval einsum path is the deleted form.
+- Growth: a new sparse op is one `SparseTensorOpFamily` row carrying its kernel; a new contraction-order heuristic is one column on `EinsumPlan`; zero new surface.
 - Boundary: `SparseTensorOps` is the sparse parallel of the dense `Tensor/dispatch#KERNEL_DISPATCH` `TensorOps`/`TensorOpFamily` split and operates on the one `SparseCompressedRowMatrixStorage<double>` the `[02]-[SPARSE_SOLVE]` ingestion fold owns — a parallel sparse-tensor type is the deleted form; the fold routes each op to the library that owns it — the inherited `Matrix<double>` `Multiply(Matrix)`/`Add(Matrix)`/`Transpose()`/scalar `Multiply(double)`/`Multiply(Vector, Vector)` for SpMM/add/scale/transpose/SpMV (MathNet sparse owns these), `Matrix<double>.KroneckerProduct(Matrix<double>)` for the tensor-product element space (the sparse operands build through the `new SparseMatrix(storage)` ctor and the Kronecker rides the inherited `Matrix<T>` member, never a `SparseMatrix.OfStorage` phantom), and CSparse `CoordinateStorage` pattern construction for an arbitrary index `contract` MathNet does not own — a hand-rolled triple loop beside `Matrix<double>.Multiply` or a managed Kronecker beside `KroneckerProduct` is the named reimplementation defect; the `EinsumPlan` contraction order is the named statement seam (the greedy heuristic walks a mutable cost array) bounded by the binary-pairwise reduction so each lowered step is exactly one settled `MatMul`/`Contract` row, never an n-ary kernel that bypasses the `KernelLowering` table, and the contraction-order optimization is exponential in operand count so the planner uses a greedy/DP heuristic bounded by intermediate-size cost rather than an exhaustive search, and the multi-operand contraction threads each intermediate back into one unified working operand store keyed by the surviving `Left` index (dense `Left` | sparse-CSR `Right`, the route decided at execution from the working operands' real sparsity) so a 3+-operand einsum chains correctly — an n-ary fold that indexes two disjoint dense/sparse operand arrays by one shared tree index (crashing a mixed contraction, dropping every dense intermediate to the empty-result fault) is the deleted incoherent form; the sparse SpMV `Solver/contract#SOLVE_CONTRACT` Newton residual and the iterative criterion-stack `A·x` consume `SparseTensorOps.Spmv` over one held `SparseMatrix` (built once via `new SparseMatrix(csr)`) rather than re-wrapping the storage per call (the named per-call-rematerialize defect the contract page already carries), the sparse `contract` feeds the einsum planner, the `AUTODIFF_DUAL_MODE_ENGINE` colored Jacobian assembles as sparse contractions over the `contract` row, and a device SpMV crosses to the `[04]-[DEVICE_KERNELS]` `DeviceKernels` registry SpMV pipeline through the residency gate; the nnz-growth allocation policy is fixed and stamped on the receipt because the MathNet sparse operators return fresh storage per op — a sparse fold that claims the dense lane's in-place `SpanOwner` discipline is dishonest, so the sparse `AllocationClass` is `PooledMemory` and the receipt records the result nnz.
 
 ```csharp signature
@@ -344,24 +347,37 @@ public static class SparseOps {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SparseTensorOpFamily {
-    public static readonly SparseTensorOpFamily Spmv = new("spmv", binary: false, matNetOwned: true);
-    public static readonly SparseTensorOpFamily Spmm = new("spmm", binary: true, matNetOwned: true);
-    public static readonly SparseTensorOpFamily SpAdd = new("sp-add", binary: true, matNetOwned: true);
-    public static readonly SparseTensorOpFamily SpScale = new("sp-scale", binary: false, matNetOwned: true);
-    public static readonly SparseTensorOpFamily SpTranspose = new("sp-transpose", binary: false, matNetOwned: true);
-    public static readonly SparseTensorOpFamily Kronecker = new("kronecker", binary: true, matNetOwned: true);
-    public static readonly SparseTensorOpFamily Contract = new("contract", binary: true, matNetOwned: false);
-    public static readonly SparseTensorOpFamily Einsum = new("einsum", binary: true, matNetOwned: false);
+    public static readonly SparseTensorOpFamily Spmv = new("spmv", binary: false, kernel: None);
+    public static readonly SparseTensorOpFamily Spmm = new("spmm", binary: true, kernel: Some<Func<SparseMatrix, Option<SparseMatrix>, double, Fin<SparseMatrix>>>(static (a, b, _) => b.ToFin(ComputeFault.Create("<spmm-missing-rhs>")).Map(rhs => (SparseMatrix)a.Multiply(rhs))));
+    public static readonly SparseTensorOpFamily SpAdd = new("sp-add", binary: true, kernel: Some<Func<SparseMatrix, Option<SparseMatrix>, double, Fin<SparseMatrix>>>(static (a, b, _) => b.ToFin(ComputeFault.Create("<sp-add-missing-rhs>")).Map(rhs => (SparseMatrix)a.Add(rhs))));
+    public static readonly SparseTensorOpFamily SpScale = new("sp-scale", binary: false, kernel: Some<Func<SparseMatrix, Option<SparseMatrix>, double, Fin<SparseMatrix>>>(static (a, _, scalar) => Fin.Succ((SparseMatrix)a.Multiply(scalar))));
+    public static readonly SparseTensorOpFamily SpTranspose = new("sp-transpose", binary: false, kernel: Some<Func<SparseMatrix, Option<SparseMatrix>, double, Fin<SparseMatrix>>>(static (a, _, _) => Fin.Succ((SparseMatrix)a.Transpose())));
+    public static readonly SparseTensorOpFamily Kronecker = new("kronecker", binary: true, kernel: Some<Func<SparseMatrix, Option<SparseMatrix>, double, Fin<SparseMatrix>>>(static (a, b, _) => b.ToFin(ComputeFault.Create("<kronecker-missing-rhs>")).Map(rhs => (SparseMatrix)a.KroneckerProduct(rhs))));
+    public static readonly SparseTensorOpFamily Contract = new("contract", binary: true, kernel: None);
+    public static readonly SparseTensorOpFamily Einsum = new("einsum", binary: true, kernel: None);
+
+    private readonly Option<Func<SparseMatrix, Option<SparseMatrix>, double, Fin<SparseMatrix>>> kernel;
 
     public bool Binary { get; }
-    public bool MatNetOwned { get; }
+    public bool MatNetOwned => kernel.IsSome;
+
+    public Fin<SparseMatrix> Apply(SparseMatrix left, Option<SparseMatrix> right, double scalar) =>
+        kernel.ToFin(ComputeFault.Create($"<sparse-op-miss:{Key}>")).Bind(run => run(left, right, scalar));
 }
 
 public readonly record struct SparseRun(string Op, int Nnz, int Rows, int Columns, string Route);
 
 public sealed record EinsumPlan(Seq<string> OperandSubscripts, string OutputSubscript, Seq<(int Left, int Right, string Subscripts)> Tree) {
+    public bool MatrixChain =>
+        OperandSubscripts.Count >= 2
+        && OperandSubscripts.ForAll(static symbols => symbols.Length == 2)
+        && OutputSubscript.Length == 2
+        && OutputSubscript[0] == OperandSubscripts[0][0]
+        && OutputSubscript[1] == OperandSubscripts[^1][1]
+        && toSeq(Enumerable.Range(1, OperandSubscripts.Count - 1)).ForAll(index => OperandSubscripts[index - 1][1] == OperandSubscripts[index][0]);
+
     public static Fin<EinsumPlan> Of(string spec, Seq<(int Rows, int Columns, bool Sparse)> shapes) {
-        var sides = spec.Split("->", StringSplitOptions.TrimEntries);
+        string[] sides = spec.Split("->", StringSplitOptions.TrimEntries);
         if (sides.Length != 2) { return Fin.Fail<EinsumPlan>(ComputeFault.Create($"<einsum-spec-miss:{spec}>")); }
         Seq<string> operands = toSeq(sides[0].Split(',', StringSplitOptions.TrimEntries));
         return operands.Count == shapes.Count
@@ -369,17 +385,13 @@ public sealed record EinsumPlan(Seq<string> OperandSubscripts, string OutputSubs
             : Fin.Fail<EinsumPlan>(ComputeFault.Create($"<einsum-operand-arity:{operands.Count}!={shapes.Count}>"));
     }
 
-    // Greedy minimum-intermediate-size pairing: at each step pick the live pair whose contraction produces the
-    // smallest intermediate, emit one binary row that WRITES the result back over `Left` and retires `Right`,
-    // and fold the merged (Rows(Left) x Columns(Right)) shape into the `Left` slot of the mutable cost ledger so
-    // the next step's estimate sees the intermediate, never the stale original. Binary-pairwise so each step
-    // lowers to exactly one MatMul or Contract row; the `Left`-write index space is the one `Contract` threads.
-    // The route is NOT pre-tagged here — an intermediate's sparsity is only known when `Contract` executes it.
+    // Greedy planning contracts the smallest live intermediate, writes its merged shape over `Left`, and retires
+    // `Right`; later costs and route selection observe the real intermediate.
     static Seq<(int Left, int Right, string Subscripts)> GreedyOrder(Seq<string> operands, Seq<(int Rows, int Columns, bool Sparse)> shapes) {
-        var live = toSeq(Enumerable.Range(0, operands.Count));
-        var dims = shapes.ToArray();
-        var labels = operands;
-        var steps = Seq<(int, int, string)>();
+        Seq<int> live = toSeq(Enumerable.Range(0, operands.Count));
+        (int Rows, int Columns, bool Sparse)[] dims = shapes.ToArray();
+        Seq<string> labels = operands;
+        Seq<(int, int, string)> steps = Seq<(int, int, string)>();
         while (live.Count > 1) {
             (int li, int ri, long cost) best = (live[0], live[1], long.MaxValue);
             for (int a = 0; a < live.Count; a++)
@@ -396,60 +408,48 @@ public sealed record EinsumPlan(Seq<string> OperandSubscripts, string OutputSubs
 }
 
 public static class SparseTensorOps {
-    static readonly FrozenDictionary<SparseTensorOpFamily, Func<SparseMatrix, Option<SparseMatrix>, double, Fin<SparseMatrix>>> Kernels =
-        new (SparseTensorOpFamily Op, Func<SparseMatrix, Option<SparseMatrix>, double, Fin<SparseMatrix>> Build)[] {
-            (SparseTensorOpFamily.Spmm, static (a, b, _) => b.ToFin(ComputeFault.Create("<spmm-missing-rhs>")).Map(rhs => (SparseMatrix)a.Multiply(rhs))),
-            (SparseTensorOpFamily.SpAdd, static (a, b, _) => b.ToFin(ComputeFault.Create("<sp-add-missing-rhs>")).Map(rhs => (SparseMatrix)a.Add(rhs))),
-            (SparseTensorOpFamily.SpScale, static (a, _, s) => Fin.Succ((SparseMatrix)a.Multiply(s))),
-            (SparseTensorOpFamily.SpTranspose, static (a, _, _) => Fin.Succ((SparseMatrix)a.Transpose())),
-            (SparseTensorOpFamily.Kronecker, static (a, b, _) => b.ToFin(ComputeFault.Create("<kronecker-missing-rhs>")).Map(rhs => (SparseMatrix)a.KroneckerProduct(rhs))),
-        }.ToFrozenDictionary(static row => row.Op, static row => row.Build);
-
     public static Fin<SparseCompressedRowMatrixStorage<double>> Apply(SparseTensorOpFamily op, SparseCompressedRowMatrixStorage<double> left, Option<SparseCompressedRowMatrixStorage<double>> right, double scalar) =>
         op == SparseTensorOpFamily.Contract || op == SparseTensorOpFamily.Einsum
             ? right.ToFin(ComputeFault.Create($"<sparse-{op.Key}-missing-rhs>")).Bind(r => ContractPair(left, r))
-            : Kernels.TryGetValue(op, out var build)
-                ? build(new SparseMatrix(left), right.Map(static s => new SparseMatrix(s)), scalar)
-                    .Map(static result => (SparseCompressedRowMatrixStorage<double>)result.Storage)
-                : Fin.Fail<SparseCompressedRowMatrixStorage<double>>(ComputeFault.Create($"<sparse-op-miss:{op.Key}>"));
+            : op.Apply(new SparseMatrix(left), right.Map(static s => new SparseMatrix(s)), scalar)
+                .Map(static result => (SparseCompressedRowMatrixStorage<double>)result.Storage);
 
-    // SpMV over the HELD operator: the criterion-stack `A·x` and the Newton residual hold one SparseMatrix
-    // and re-call Spmv per iterate, never re-wrapping the CSR storage per call. MathNet GEMV is the
-    // Vector<double> overload (`Multiply(Vector, Vector)`) — a `Multiply(double[], double[])` array GEMV is
-    // a phantom on Matrix<T>; only the O(n) right-hand-side/result vectors allocate, the O(nnz) operator does not.
+    // Iterative criteria hold one `SparseMatrix` and call vector `Multiply(Vector, Vector)` per iterate;
+    // no array-overload phantom or per-iteration O(nnz) wrapper exists.
     public static Fin<double[]> Spmv(SparseMatrix held, ReadOnlySpan<double> x) {
         if (x.Length != held.ColumnCount) { return Fin.Fail<double[]>(ComputeFault.Create($"<spmv-dim:{x.Length}!={held.ColumnCount}>")); }
-        var y = Vector<double>.Build.Dense(held.RowCount);
+        Vector<double> y = Vector<double>.Build.Dense(held.RowCount);
         held.Multiply(Vector<double>.Build.DenseOfArray(x.ToArray()), y);
         return Fin.Succ(y.AsArray() ?? y.ToArray());
     }
 
-    // The contraction tree folds over ONE unified working store (HashMap keyed by the tree's surviving `Left`
-    // index, each operand a dense `Left` | sparse-CSR `Right`): every step contracts work[Left] and work[Right],
-    // WRITES the result back over `Left`, and retires `Right` — so a 3+-operand einsum threads each intermediate
-    // into the next step instead of re-reading the originals (the deleted two-disjoint-array indexing crashed a
-    // mixed dense/sparse contraction and dropped every dense intermediate to the empty-result fault). The route
-    // is decided HERE from the working operands' real sparsity: both-dense lowers through the
-    // `KernelLowering.Lower(MatMul)` GEMM (dense intermediate), else `ContractPair` contracts the CSR pair (a
-    // dense operand densifies once through `SparseMatrix.OfMatrix`) and writes a sparse intermediate; the single
-    // surviving entry coerces to CSR through `CsrOf`.
-    public static Fin<(SparseCompressedRowMatrixStorage<double> Result, Seq<SparseRun> Steps)> Contract(EinsumPlan plan, Seq<Either<Matrix<double>, SparseCompressedRowMatrixStorage<double>>> operands, ShardPlan shard) =>
-        plan.Tree.Fold(
-            Fin.Succ((Work: toHashMap(operands.Map(static (op, i) => (i, op))), Steps: Seq<SparseRun>())),
-            (acc, step) => acc.Bind(state => Step(state.Work, step, plan.OutputSubscript, shard).Map(next => (next.Work, state.Steps.Add(next.Run)))))
-        .Map(state => (CsrOf(state.Work[plan.Tree.IsEmpty ? 0 : plan.Tree[plan.Tree.Count - 1].Left]), state.Steps));
+    // One working store threads each intermediate through the surviving `Left` key; both-dense steps lower to
+    // GEMM, while mixed/sparse steps coerce once and contract CSR before the final `CsrOf` projection.
+    public static IO<Fin<(SparseCompressedRowMatrixStorage<double> Result, Seq<SparseRun> Steps)>> Contract(EinsumPlan plan, Seq<Either<Matrix<double>, SparseCompressedRowMatrixStorage<double>>> operands, ShardPlan shard) =>
+        operands.ForAll(static op => op.IsLeft) && DenseSubstrate.Active.Native
+            ? IO.pure((plan.MatrixChain
+                ? AtenDense.MultiDot(operands.Map(static op => op.Match(Left: identity, Right: static csr => (Matrix<double>)new SparseMatrix(csr))))
+                : AtenDense.Einsum($"{string.Join(',', plan.OperandSubscripts)}->{plan.OutputSubscript}", operands.Map(static op => op.Match(Left: identity, Right: static csr => (Matrix<double>)new SparseMatrix(csr)))))
+                .Map(dense => ((SparseCompressedRowMatrixStorage<double>)SparseMatrix.OfMatrix(dense).Storage,
+                    Seq(new SparseRun(plan.OutputSubscript, 0, dense.RowCount, dense.ColumnCount, plan.MatrixChain ? "aten-multi-dot" : "aten-einsum")))))
+            : plan.Tree.Fold(
+                IO.pure(Fin.Succ((Work: toHashMap(operands.Map(static (op, i) => (i, op))), Steps: Seq<SparseRun>()))),
+                (effect, step) => effect.Bind(state => state.Match(
+                    Succ: held => Step(held.Work, step, plan.OutputSubscript, shard).Map(next => next.Map(row => (row.Work, held.Steps.Add(row.Run)))),
+                    Fail: static error => IO.pure(Fin.Fail<(HashMap<int, Either<Matrix<double>, SparseCompressedRowMatrixStorage<double>>> Work, Seq<SparseRun> Steps)>(error)))))
+            .Map(state => state.Map(held => (CsrOf(held.Work[plan.Tree.IsEmpty ? 0 : plan.Tree[plan.Tree.Count - 1].Left]), held.Steps)));
 
-    static Fin<(HashMap<int, Either<Matrix<double>, SparseCompressedRowMatrixStorage<double>>> Work, SparseRun Run)> Step(
+    static IO<Fin<(HashMap<int, Either<Matrix<double>, SparseCompressedRowMatrixStorage<double>>> Work, SparseRun Run)>> Step(
         HashMap<int, Either<Matrix<double>, SparseCompressedRowMatrixStorage<double>>> work, (int Left, int Right, string Subscripts) step, string output, ShardPlan shard) {
-        var l = work[step.Left];
-        var r = work[step.Right];
+        Either<Matrix<double>, SparseCompressedRowMatrixStorage<double>> l = work[step.Left];
+        Either<Matrix<double>, SparseCompressedRowMatrixStorage<double>> r = work[step.Right];
         return l.IsLeft && r.IsLeft
             ? KernelLowering.Lower(TensorOpFamily.MatMul, DenseOf(l), DenseOf(r), shard)
-                .Map(dense => (work.AddOrUpdate(step.Left, Left<Matrix<double>, SparseCompressedRowMatrixStorage<double>>(dense)).Remove(step.Right),
-                    new SparseRun(output, 0, dense.RowCount, dense.ColumnCount, "dense")))
-            : ContractPair(CsrOf(l), CsrOf(r))
+                .Map(result => result.Map(dense => (work.AddOrUpdate(step.Left, Left<Matrix<double>, SparseCompressedRowMatrixStorage<double>>(dense)).Remove(step.Right),
+                    new SparseRun(output, 0, dense.RowCount, dense.ColumnCount, "dense"))))
+            : IO.pure(ContractPair(CsrOf(l), CsrOf(r))
                 .Map(csr => (work.AddOrUpdate(step.Left, Right<Matrix<double>, SparseCompressedRowMatrixStorage<double>>(csr)).Remove(step.Right),
-                    new SparseRun(output, csr.ValueCount, csr.RowCount, csr.ColumnCount, "sparse")));
+                    new SparseRun(output, csr.ValueCount, csr.RowCount, csr.ColumnCount, "sparse"))));
     }
 
     static Matrix<double> DenseOf(Either<Matrix<double>, SparseCompressedRowMatrixStorage<double>> operand) =>
@@ -471,12 +471,12 @@ public static class SparseTensorOps {
 
 - Owner: `KernelLowering` — the binding table that lowers the tensor-lane matrix and structural rows onto a real numeric kernel, plus the `ShardPlan` block-decomposition column the dense GEMM reads and the `ProveGemm` GEMM-vs-naive-reference proof the `Tensor/dispatch#EQUIVALENCE_INTEROP` equivalence law's matrix arm reads (the matrix lane has no scalar-tail kernel to span-prove, so the lowering owner that carries the GEMM also OWNS its proof and MatMul/Conv admission).
 - Cases: `KernelLowering` rows MatMul→GEMM (live) · Conv1D/Conv2D/Conv3D→im2col-then-GEMM (live, one `ConvWindow` descriptor carries the spatial geometry) · MaxPool/AvgPool/GlobalAvgPool→strided-window fold; `ConvWindow(int[] Kernel, int[] Stride, int[] Padding, int[] Dilation, int Channels, int Filters, int[] Spatial)` the lowering geometry descriptor; `ShardPlan` cases `Single` (local `Matrix<double>.Multiply` leaf) · `Blocked(int Tile, ComputeService.ComputeServiceClient Compute, LinearProvider Provider, FactorizationKind Kind, ModelResultIndex Reuse, Func<ContentAddress, IO<Option<ReadOnlyMemory<byte>>>> FetchPayload, Func<ReadOnlyMemory<byte>, IO<ContentAddress>> StorePayload, CorrelationId Correlation, IClock Clock, Duration Deadline, CancellationToken Cancel)` (distributed row-block fan-out dialing the `Solve` rpc per block under a per-call deadline); `ShardBlock(int Start, int Height, Matrix<double> Solution, UInt128 ContentKey, ComputeReceipt.Factorization Receipt)` the per-block join carrier.
-- Entry: `public static Fin<Matrix<double>> Lower(TensorOpFamily row, Matrix<double> left, Matrix<double> right, ShardPlan plan)` is the matmul lowering; the convolution overload `public static Fin<Matrix<double>> Lower(TensorOpFamily row, Matrix<double> input, Matrix<double> kernel, ConvWindow window, ShardPlan plan)` lowers Conv1D/Conv2D/Conv3D through `Im2Col` patch projection then one GEMM; `Fin<T>` aborts with `<lowering-row-miss>` only on a row outside the bound matrix set; the pooling entrypoint takes its window as the span argument; `public static ProofEvidence ProveGemm(int sampleCount)` proves the lowered GEMM against a naive triple-loop reference over a random operand pair (returning the absolute-gap/length/mass `ProofEvidence` the equivalence law's matrix arm wraps), and `public static bool IsMatrix(TensorOpFamily row)` reports the matrix-row set that arm routes to the proof.
-- Auto: the tensor-lane `MatMul`/`Conv*`/`Pool*` rows consult `KernelLowering` instead of `Map`-missing — `MatMul` lowers to `Matrix<double>.Multiply` over the active provider, each `Conv*` row lowers through the `Im2Col` patch projection that flattens every receptive field to a column then one `Matrix<double>.Multiply` GEMM against the reshaped kernel, and each pooling row folds `TensorPrimitives.Max`/`Sum` over the window span; the `Im2Col` patch gather runs `ParallelHelper.For2D` over the `(outputPosition × channel)` rectangle writing each receptive field into the shared dense `double[,]` patch plane — each `(position, channel)` owns a disjoint contiguous run so the heap array is shared by reference with zero contention — so the embarrassingly-parallel gather rides the owned parallel-kernel row; the `ShardPlan.Single` leaf runs the local `Matrix<double>.Multiply`, and the `ShardPlan.Blocked` fan-out partitions the GEMM into `Tile`-high row-blocks over the row-block sweep, maps each block through `SubSolve` and collects the per-block `Fin<ShardBlock>` on the sequential `Traverse` rail, dials the EXISTING `Runtime/wire#PROTO_VOCABULARY` `Solve` rpc through the `ComputeService.ComputeServiceClient` stub once per block under the block's `WithDeadline`/`WithCancellationToken` call options (each block building a `SolveRequest` from its row-block and the active `FactorizationKind`), content-addresses every sub-block by writing the `SolveRequest` once through `MessageExtensions.WriteTo(Span<byte>)` into a pooled `SpanOwner<byte>` rent of `CalculateSize()` width then `XxHash128` against the Persistence `ModelResultIndex` so a re-run reuses computed blocks, joins the per-node `SolveResponse` solutions into the result via the associative `ShardBlock.Join` `SetSubMatrix` over a private join target, and aggregates each sub-block's `Factorization` receipt — `Traverse`-collected on the `Fin<Matrix<double>>` rail so a single failed shard aborts the join.
+- Entry: both `Lower` overloads return `IO<Fin<Matrix<double>>>`; `ShardPlan.Single` lifts the pure GEMM and `ShardPlan.Blocked` composes cache, blob, and RPC effects. `Pool` remains pure over its span, `ProveGemm` reads the same local kernel, and `IsMatrix` reports the proof-owned row set.
+- Auto: matrix rows consult `KernelLowering`; `MatMul` lowers to the active-provider GEMM, `Conv*` projects through `Im2Col`, and pooling folds `TensorPrimitives`. `ShardPlan.Blocked` traverses row blocks on `IO<Fin<ShardBlock>>`, so lookup, payload fetch/store, publish, and RPC dial remain one deferred algebra; `Fin` aborts the join after effects yield typed results.
 - Receipt: a lowered matrix or structural run emits the tensor-lane `TensorRun` receipt and the `Blocked` fan-out aggregates one `ComputeReceipt.Factorization` per `ShardBlock` (carrying the per-node `SolveResponse` provider/decomposition/rows/cols/nnz with `Substrate.RemoteGrpc`, or `Substrate.CpuTensor` on a content-address cache hit) — the shard count is the block count and the join is a `Factorization`-receipt aggregation, never a new receipt union.
 - Packages: MathNet.Numerics, System.Numerics.Tensors, CommunityToolkit.HighPerformance, Grpc.Net.Client, Google.Protobuf, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.Persistence (project), BCL inbox
 - Growth: a new lowering is one `KernelLowering` table row binding the tensor-lane row to its numeric kernel; a new shard topology is one `ShardPlan` case; a new matrix row inherits `ProveGemm` (the shared GEMM-core proof) with no new proof surface; zero new surface.
-- Boundary: the lowering owner is the numeric lane and the tensor-lane `Map` consults it — the `MatMul` row inherits the GEMM kernel directly and the `Conv1D`/`Conv2D`/`Conv3D` rows inherit it through the `Im2Col` patch projection, so the GEMM step rides the single `MatMul` provider proof rather than a hand-rolled correlation kernel; `Im2Col` enumerates each output spatial position over the `ConvWindow` stride/padding/dilation lattice through `ParallelHelper.For2D` writing into a shared heap `double[,]` patch plane (each `(position, channel)` owns a disjoint contiguous run, so the array is shared by reference with no contention — a `Span2D<double>` field would make the `IAction2D` gather a ref struct that the `where TAction : struct` For2D constraint, lacking `allows ref struct`, rejects), gathers the dilated receptive field across every channel into one patch row, and the patch matrix `[outPositions × Channels·KernelVolume]` multiplies the reshaped kernel `[Channels·KernelVolume × Filters]` in one `Matrix<double>.Multiply` whose tolerance is the `MatMul` proof the convolution row inherits through its `ToleranceClass.AccumulationScaled` column — `ProveGemm` proves that GEMM against a naive triple-loop reference and OWNS the matrix-lane admission the span proof cannot reach (a `MatMul`/`Conv` row has no scalar-tail kernel, so `EquivalenceLaw.Prove` routes the matrix family here through `IsMatrix` and a row that reached the span path would be the phantom), the convolution inheriting it because the `Im2Col` gather adds no float error; the `ParallelHelper.For2D` gather is this lane's named statement seam and a managed nested `Enumerable.Range` gather with `patch[i,j] =` mutation outside the parallel row is the deleted form; a Conv row routed without a `ConvWindow` (the matmul overload) returns the `<lowering-row-miss>` Fin.Fail because the geometry is absent; the `Blocked` shard fan-out is a row-block partition over the dense fold dialing each row-block sub-solve through the EXISTING `Substrate.RemoteGrpc` `ComputeService.ComputeServiceClient` stub and the `Solve` rpc owned by `Runtime/wire#PROTO_VOCABULARY` by reference — the `Blocked` case carries the stub, provider, kind, reuse index, object-store payload ports, correlation, clock, deadline, and cancellation token as constructor columns so the arm is a real dial with a per-call `WithDeadline`/`WithCancellationToken` bound derived from the clock and budget, the channel pins `GrpcChannelOptions.MaxReceiveMessageSize`/`MaxSendMessageSize` against the payload cap, and a local-only tile loop, an unbounded dial with no deadline, or an uncapped channel is the named defect; the row-block matrix and the RHS BOTH ride the wire through `UnsafeByteOperations.UnsafeWrap(ReadOnlyMemory<byte>)` no-copy — each column-major `double[]` is reinterpreted as `Memory<byte>` through the CommunityToolkit `Cast<double, byte>` view (no copy) and the array roots the `ByteString` past the request read window, so a `MemoryMarshal.AsBytes(...).ToArray()` before the wrap, copying the very buffer `UnsafeWrap` exists to alias, is the deleted allocation, and the `SolveRequest.matrix` field carries those raw column-major float64 bytes (the server reshaping from the byte length and `shard_tile`) rather than a `GeometryPayload` geometry envelope — a dense solver operand is not a point_cloud/mesh/voxel payload, so routing the matrix through the geometry oneof (which carries no dense case) is the deleted category violation — the request content-addresses by writing once through `MessageExtensions.WriteTo(Span<byte>)` into a pooled `SpanOwner<byte>` rent of `CalculateSize()` width rather than a throwaway `ToByteArray()` per sub-block, and the `SolveResponse` solution span casts into `Build.Dense` directly — a full `CopyFrom`/`ToByteArray`/`ToArray` copy per shard is the deleted allocation; a 2-D block decomposition is a future `ShardPlan` case, and a `FarmRouter` or a second substrate is the deleted form; each sub-block keys on the streamed-`SolveRequest` `XxHash128` folded against the provider `SolveDedupKey` against the Persistence `ModelResultIndex.Lookup`/`Publish` content-address seam by reference — `Lookup` resolving the dedup-keyed `ModelResultRow` RESIDENCE (the index never holds the payload) and the object-store port yielding the `SolveResponse` bytes at that residence, an orphan-swept blob missing cleanly to a re-dial — so a re-run reuses computed blocks (the cache-hit receipt carries `Substrate.CpuTensor`, the dialed receipt `Substrate.RemoteGrpc`); a 2-arg `Publish(address, response)` that pretends the index itself stores the payload is the deleted phantom, and the join writes each `ShardBlock` through `SetSubMatrix` into a private per-fan-out target — a shared mutable accumulator threaded through the per-shard `Map` is the named race defect; the strided-window pooling folds reuse the tensor-lane `TensorPrimitives` reduction members and never a managed window loop.
+- Boundary: `Im2Col` assigns each `(position, channel)` a disjoint heap-array run, then one provider GEMM carries `MatMul` proof evidence for every convolution row. `ShardPlan.Blocked` carries the bounded RPC stub, provider, factor kind, reuse index, object-store ports, correlation, clock, deadline, and cancellation token as row data. Both operands ride raw column-major float64 bytes through `UnsafeByteOperations.UnsafeWrap`; request hashing uses pooled serialization, cache lookup resolves only a residence, and blob custody stays on the object-store ports. `IO<Fin<T>>` composes lookup, fetch, dial, store, and publish without an interior effect run; `Fin` gates the private join target after traversal.
 
 ```csharp signature
 public sealed record ShardBlock(int Start, int Height, Matrix<double> Solution, UInt128 ContentKey, ComputeReceipt.Factorization Receipt) {
@@ -493,87 +493,103 @@ public abstract partial record ShardPlan {
     public sealed record Single : ShardPlan;
     public sealed record Blocked(int Tile, ComputeService.ComputeServiceClient Compute, LinearProvider Provider, FactorizationKind Kind, ModelResultIndex Reuse, Func<ContentAddress, IO<Option<ReadOnlyMemory<byte>>>> FetchPayload, Func<ReadOnlyMemory<byte>, IO<ContentAddress>> StorePayload, CorrelationId Correlation, IClock Clock, Duration Deadline, CancellationToken Cancel) : ShardPlan;
 
-    public Fin<Matrix<double>> Lower(Matrix<double> left, Matrix<double> right) =>
-        Switch(
-            state: (Left: left, Right: right),
-            single: static (s, _) => Fin.Succ(s.Left.Multiply(s.Right)),
-            blocked: static (s, plan) => Fanout(s.Left, s.Right, plan));
+    public IO<Fin<Matrix<double>>> Lower(Matrix<double> left, Matrix<double> right) =>
+        left.ColumnCount != right.RowCount
+            ? IO.pure(Fin.Fail<Matrix<double>>(ComputeFault.Create($"<gemm-inner-dim:{left.ColumnCount}!={right.RowCount}>")))
+            : Switch(
+                state: (Left: left, Right: right),
+                single: static (s, _) => IO.pure(Fin.Succ(Local(s.Left, s.Right))),
+                blocked: static (s, plan) => plan.Tile > 0 && plan.Deadline > Duration.Zero
+                    ? Fanout(s.Left, s.Right, plan)
+                    : IO.pure(Fin.Fail<Matrix<double>>(ComputeFault.Create($"<shard-policy:tile={plan.Tile}:deadline={plan.Deadline}>"))));
 
-    static Fin<Matrix<double>> Fanout(Matrix<double> left, Matrix<double> right, Blocked plan) =>
+    internal static Matrix<double> Local(Matrix<double> left, Matrix<double> right) => left.Multiply(right);
+
+    static IO<Fin<Matrix<double>>> Fanout(Matrix<double> left, Matrix<double> right, Blocked plan) =>
         toSeq(Enumerable.Range(0, (left.RowCount + plan.Tile - 1) / plan.Tile))
-            .Map(block => {
+            .Traverse(block => {
                 int start = block * plan.Tile;
                 int height = Math.Min(plan.Tile, left.RowCount - start);
                 return SubSolve(left.SubMatrix(start, height, 0, left.ColumnCount), right, start, height, plan);
             })
-            .Traverse(identity)
-            .Map(blocks =>
-                blocks.Fold(Matrix<double>.Build.Dense(left.RowCount, right.ColumnCount), static (target, block) => { ShardBlock.Join(target, block); return target; }));
+            .Map(blocks => blocks.Traverse(identity).Map(rows =>
+                rows.Fold(Matrix<double>.Build.Dense(left.RowCount, right.ColumnCount), static (target, block) => { ShardBlock.Join(target, block); return target; })));
 
-    static Fin<ShardBlock> SubSolve(Matrix<double> rowBlock, Matrix<double> right, int start, int height, Blocked plan) {
-        // True no-copy on BOTH operands: each freshly-allocated column-major double[] is reinterpreted as a
-        // Memory<byte> view (CommunityToolkit Cast, no copy) and adopted by UnsafeWrap; the double[] roots the
-        // ByteString and outlives the request read window. The matrix rides as raw column-major float64 bytes
-        // EXACTLY like the RHS — a dense solver operand is not a point_cloud/mesh/voxel GeometryPayload, so the
-        // SolveRequest carries no geometry envelope and the server reshapes from the byte length and shard_tile.
-        // A MemoryMarshal.AsBytes(...).ToArray() before the wrap would copy the very buffer UnsafeWrap aliases.
-        var matrix = rowBlock.ToColumnMajorArray().AsMemory().Cast<double, byte>();
-        var rhs = right.ToColumnMajorArray().AsMemory().Cast<double, byte>();
-        var request = new SolveRequest {
+    static IO<Fin<ShardBlock>> SubSolve(Matrix<double> rowBlock, Matrix<double> right, int start, int height, Blocked plan) {
+        // Fresh column-major arrays are cast to byte memory and adopted by `UnsafeWrap`; their roots outlive the
+        // request read, and no geometry envelope or second copy intervenes.
+        Memory<byte> matrix = rowBlock.ToColumnMajorArray().AsMemory().Cast<double, byte>();
+        Memory<byte> rhs = right.ToColumnMajorArray().AsMemory().Cast<double, byte>();
+        SolveRequest request = new() {
             Matrix = UnsafeByteOperations.UnsafeWrap(matrix),
             Rhs = UnsafeByteOperations.UnsafeWrap(rhs),
             FactorizationKind = plan.Kind.Key,
             SparseFormat = string.Empty,
             ShardTile = plan.Tile,
         };
-        var address = Digest(request, plan.Provider.SolveDedupKey((UInt128)start));
-        var dialedAt = plan.Clock.GetCurrentInstant();
-        // Content-addressed reuse against the Persistence ModelResultIndex: Lookup resolves the dedup-keyed
-        // ModelResultRow RESIDENCE (the index never holds the payload), the object-store port yields the
-        // SolveResponse bytes at that residence, and an index row whose blob was orphan-swept misses cleanly to
-        // a re-dial — the index and the object store stay ONE reuse seam, never a Compute-side result store.
-        Option<ShardBlock> reused =
-            plan.Reuse.Lookup(address).Run().Bind(row =>
-                plan.FetchPayload(row.Residence).Run().Map(bytes =>
-                    Materialize(SolveResponse.Parser.ParseFrom(bytes.Span), address, start, height, right.ColumnCount, Substrate.CpuTensor, Duration.Zero, plan)));
-        return reused.Match(
-            Some: static block => Fin.Succ(block),
-            None: () => Dial(plan, request).Map(response =>
-                Store(plan, response, address, start, height, right.ColumnCount, plan.Clock.GetCurrentInstant() - dialedAt)));
+        UInt128 address = Digest(request, plan.Provider.SolveDedupKey((UInt128)start));
+        Instant dialedAt = plan.Clock.GetCurrentInstant();
+        // `ModelResultIndex` resolves only payload residence; object-store absence misses cleanly to a re-dial,
+        // preserving one reuse seam without Compute-side payload custody.
+        return plan.Reuse.Lookup(address).Bind(row => row.Match(
+            Some: cached => plan.FetchPayload(cached.Residence).Bind(bytes => bytes.Match(
+                Some: payload => IO.pure(Try.lift<Fin<ShardBlock>>(() =>
+                        Materialize(SolveResponse.Parser.ParseFrom(payload.Span), address, start, height, right.ColumnCount, Substrate.CpuTensor, Duration.Zero, plan))
+                    .Run()
+                    .MapFail(static error => (Error)new ComputeFault.PayloadOverBounds($"<cached-solve-payload:{error.Message}>"))
+                    .Bind(identity)),
+                None: () => DialAndStore(plan, request, address, start, height, right.ColumnCount, dialedAt))),
+            None: () => DialAndStore(plan, request, address, start, height, right.ColumnCount, dialedAt)));
     }
 
-    // Write-once reuse publish: content-address the dialed payload through the object-store port (write-blob-first
-    // by reference, never re-owned here) then Publish the dedup ROW (the SolveDedupKey-salted lookup key over the
-    // blob residence) so a re-run reuses the block; the payload serializes once into a pooled rent, never a
-    // throwaway ToByteArray, and the fingerprint is the provider determinism tag the dedup key already folds.
-    static ShardBlock Store(Blocked plan, SolveResponse response, UInt128 address, int start, int height, int cols, Duration elapsed) {
-        using MemoryOwner<byte> rent = MemoryOwner<byte>.Allocate(response.CalculateSize());
-        response.WriteTo(rent.Span);
-        ContentAddress residence = plan.StorePayload(rent.Memory).Run();
-        plan.Reuse.Publish(new ModelResultRow(address, residence, plan.Provider.DeterminismTag, plan.Clock.GetCurrentInstant())).Run();
-        return Materialize(response, address, start, height, cols, Substrate.RemoteGrpc, elapsed, plan);
-    }
+    // Write-blob-first stores one pooled serialization, then publishes the dedup row over its residence;
+    // provider determinism already participates in the lookup key.
+    static IO<Fin<ShardBlock>> DialAndStore(Blocked plan, SolveRequest request, UInt128 address, int start, int height, int cols, Instant dialedAt) =>
+        Dial(plan, request).Bind(result => result.Match(
+            Succ: response => Materialize(response, address, start, height, cols, Substrate.RemoteGrpc, plan.Clock.GetCurrentInstant() - dialedAt, plan).Match(
+                Succ: block => Store(plan, response, address).Map(_ => Fin.Succ(block)),
+                Fail: static error => IO.pure(Fin.Fail<ShardBlock>(error))),
+            Fail: static error => IO.pure(Fin.Fail<ShardBlock>(error))));
+
+    static IO<Unit> Store(Blocked plan, SolveResponse response, UInt128 address) =>
+        IO.lift(() => {
+            MemoryOwner<byte> rent = MemoryOwner<byte>.Allocate(response.CalculateSize());
+            response.WriteTo(rent.Span);
+            return rent;
+        }).Bracket(
+            Use: rent => from residence in plan.StorePayload(rent.Memory)
+                         from _ in plan.Reuse.Publish(new ModelResultRow(address, residence, plan.Provider.DeterminismTag, plan.Clock.GetCurrentInstant()))
+                         select unit,
+            Fin: static rent => IO.lift(() => { rent.Dispose(); return unit; }));
 
     static UInt128 Digest(SolveRequest request, UInt128 salt) {
-        using SpanOwner<byte> rent = SpanOwner<byte>.Allocate(request.CalculateSize());
-        request.WriteTo(rent.Span);
-        return XxHash128.HashToUInt128(rent.Span, unchecked((long)salt));
+        int width = request.CalculateSize();
+        using SpanOwner<byte> rent = SpanOwner<byte>.Allocate(width + 16);
+        request.WriteTo(rent.Span[..width]);
+        BinaryPrimitives.WriteUInt64LittleEndian(rent.Span[width..], (ulong)salt);
+        BinaryPrimitives.WriteUInt64LittleEndian(rent.Span[(width + 8)..], (ulong)(salt >> 64));
+        return XxHash128.HashToUInt128(rent.Span);
     }
 
-    static ShardBlock Materialize(SolveResponse response, UInt128 address, int start, int height, int defaultCols, Substrate substrate, Duration elapsed, Blocked plan) {
+    static Fin<ShardBlock> Materialize(SolveResponse response, UInt128 address, int start, int height, int defaultCols, Substrate substrate, Duration elapsed, Blocked plan) {
         int cols = response.Cols == 0 ? defaultCols : (int)response.Cols;
-        var receipt = new ComputeReceipt.Factorization(response.Provider, response.Decomposition, height, cols, response.Nnz, "dense") {
+        if (cols <= 0 || response.Solution.Length != (long)height * cols * sizeof(double)) {
+            return Fin.Fail<ShardBlock>(new ComputeFault.PayloadOverBounds($"<solve-shape:height={height}:cols={cols}:bytes={response.Solution.Length}>"));
+        }
+        ComputeReceipt.Factorization receipt = new(response.Provider, response.Decomposition, height, cols, response.Nnz, "dense") {
             Correlation = plan.Correlation, Lane = WorkLane.Background, Substrate = substrate, AllocationClass = AllocationClass.PooledMemory, Elapsed = elapsed, DeterminismTag = plan.Provider.DeterminismTag,
         };
-        return new ShardBlock(start, height, Restore(response, height, cols), address, receipt);
+        return Try.lift(() => new ShardBlock(start, height, Restore(response, height, cols), address, receipt))
+            .Run()
+            .MapFail(static error => (Error)new ComputeFault.PayloadOverBounds($"<solve-materialize:{error.Message}>"));
     }
 
-    static Fin<SolveResponse> Dial(Blocked plan, SolveRequest request) =>
-        Try.lift(() => plan.Compute.Solve(request, new CallOptions(new Metadata { { "rasm-correlation", plan.Correlation.ToString() } })
-                .WithDeadline(plan.Clock.GetCurrentInstant().Plus(plan.Deadline).ToDateTimeUtc())
-                .WithCancellationToken(plan.Cancel)))
-            .Run()
-            .MapFail(static error => (Error)new ComputeFault.ModelRejected($"<shard-dial:{error.Message}>"));
+    static IO<Fin<SolveResponse>> Dial(Blocked plan, SolveRequest request) =>
+        IO.lift(() => Try.lift(() => plan.Compute.Solve(request, new CallOptions(new Metadata { { "rasm-correlation", plan.Correlation.ToString() } })
+                    .WithDeadline(plan.Clock.GetCurrentInstant().Plus(plan.Deadline).ToDateTimeUtc())
+                    .WithCancellationToken(plan.Cancel)))
+                .Run()
+                .MapFail(static error => (Error)new ComputeFault.ModelRejected($"<shard-dial:{error.Message}>")));
 
     static Matrix<double> Restore(SolveResponse response, int rows, int cols) =>
         Matrix<double>.Build.Dense(rows, cols, MemoryMarshal.Cast<byte, double>(response.Solution.Span).ToArray());
@@ -593,9 +609,8 @@ public sealed record ConvWindow(int[] Kernel, int[] Stride, int[] Padding, int[]
 }
 
 public static class KernelLowering {
-    // The spatial rank of each convolution row is an explicit table, never recovered by indexing into the
-    // string key (`row.Key[^2] - '0'` is fragile literal arithmetic over the key spelling); the keys of this
-    // table ARE the convolution row set the geometry overload admits.
+    // Convolution spatial rank is row data, never literal arithmetic over a key; this table's keys are the
+    // geometry overload's admitted convolution rows.
     static readonly FrozenDictionary<TensorOpFamily, int> ConvRank = new (TensorOpFamily Row, int Rank)[] {
         (TensorOpFamily.Conv1D, 1), (TensorOpFamily.Conv2D, 2), (TensorOpFamily.Conv3D, 3),
     }.ToFrozenDictionary(static r => r.Row, static r => r.Rank);
@@ -608,29 +623,24 @@ public static class KernelLowering {
         TensorOpFamily.MaxPool, TensorOpFamily.AvgPool, TensorOpFamily.GlobalMaxPool, TensorOpFamily.GlobalAvgPool,
     }.ToFrozenSet();
 
-    public static Fin<Matrix<double>> Lower(TensorOpFamily row, Matrix<double> left, Matrix<double> right, ShardPlan plan) =>
+    public static IO<Fin<Matrix<double>>> Lower(TensorOpFamily row, Matrix<double> left, Matrix<double> right, ShardPlan plan) =>
         row == TensorOpFamily.MatMul ? plan.Lower(left, right)
-        : Fin.Fail<Matrix<double>>(ComputeFault.Create($"<lowering-row-miss:{row.Key}>"));
+        : IO.pure(Fin.Fail<Matrix<double>>(ComputeFault.Create($"<lowering-row-miss:{row.Key}>")));
 
-    public static Fin<Matrix<double>> Lower(TensorOpFamily row, Matrix<double> input, Matrix<double> kernel, ConvWindow window, ShardPlan plan) =>
+    public static IO<Fin<Matrix<double>>> Lower(TensorOpFamily row, Matrix<double> input, Matrix<double> kernel, ConvWindow window, ShardPlan plan) =>
         ConvRank.TryGetValue(row, out int rank) && window.Rank == rank
             ? plan.Lower(Im2Col(input, window), kernel)
-            : Fin.Fail<Matrix<double>>(ComputeFault.Create($"<lowering-row-miss:{row.Key}>"));
+            : IO.pure(Fin.Fail<Matrix<double>>(ComputeFault.Create($"<lowering-row-miss:{row.Key}>")));
 
     static Matrix<double> Im2Col(Matrix<double> input, ConvWindow window) {
         int[] extents = window.OutputExtents;
-        var patch = new double[window.OutputPositions, window.PatchWidth];
-        var gather = new PatchGather(input, window, extents, patch);
+        double[,] patch = new double[window.OutputPositions, window.PatchWidth];
+        PatchGather gather = new(input, window, extents, patch);
         ParallelHelper.For2D(0, window.OutputPositions, 0, window.Channels, in gather);
         return Matrix<double>.Build.DenseOfArray(patch);
     }
 
-    // The (outputPosition × channel) rectangle is embarrassingly parallel: each (position, channel) writes a
-    // DISJOINT contiguous run `[channel·KernelVolume, channel·KernelVolume + KernelVolume)` of patch row
-    // `position`, so the heap-allocated double[,] is shared by reference across partitions with zero
-    // contention. The action holds the array, NOT a `Span2D<double>` — a ref-struct field would make
-    // PatchGather a ref struct, which the `where TAction : struct` For2D constraint (no `allows ref struct`)
-    // rejects; that is the named statement-seam defect a managed nested `Enumerable.Range` gather restates.
+    // Each `(outputPosition, channel)` owns one disjoint patch-row run; heap storage satisfies `IAction2D` without a ref-struct field.
     readonly struct PatchGather(Matrix<double> input, ConvWindow window, int[] extents, double[,] patch) : IAction2D {
         public void Invoke(int position, int channel) {
             int[] origin = Unravel(position, extents);
@@ -665,44 +675,30 @@ public static class KernelLowering {
     public static bool Lowers(TensorOpFamily row) => MatrixRows.Contains(row) || PoolRows.Contains(row);
     public static bool IsMatrix(TensorOpFamily row) => MatrixRows.Contains(row);
 
-    // The matrix lane has no scalar-tail fallback the span proof can run, so the lowered `Matrix<double>.Multiply`
-    // GEMM is proven against an INDEPENDENT naive O(n³) triple-loop reference over a random operand pair sized from
-    // the sample budget — this proof OWNS MatMul/Conv admission (the `Tensor/dispatch#EQUIVALENCE_INTEROP`
-    // `EquivalenceLaw.Prove` matrix arm reads it, and a `Conv*` row inherits it because the `Im2Col` gather is an
-    // exact reshape that adds no float error, so the GEMM core carries the whole matrix-lane tolerance). The
-    // evidence is the ABSOLUTE max-abs entry gap, the contraction length n, and the dominant per-entry product
-    // mass Σ|aᵢₖ·bₖⱼ| the `ToleranceClass.AccumulationScaled` envelope `Bound(n, mass) = n·ε·mass` bounds (the
-    // reassociation error of n products is `≤ (n−1)·ε·mass < Bound`, so the proof holds) — never a relative
-    // pre-division, never a proof that skips the lowered kernel, and the unreachable `Single`-plan `Fail` arm
-    // collapses to `Unprovable` rather than a silent admission.
+    // GEMM proof compares the exact local lowering kernel with an independent triple-loop reference.
     public static ProofEvidence ProveGemm(int sampleCount) {
         int n = Math.Max(2, (int)Math.Sqrt(sampleCount));
-        Matrix<double> left = Gaussian(n), right = Gaussian(n);
-        return Lower(TensorOpFamily.MatMul, left, right, new ShardPlan.Single()).Match(
-            Succ: gemm => {
-                double deviation = 0.0, mass = 0.0;
-                for (int i = 0; i < n; i++) {
-                    for (int j = 0; j < n; j++) {
-                        double reference = 0.0, entryMass = 0.0;
-                        for (int p = 0; p < n; p++) {
-                            double term = left[i, p] * right[p, j];
-                            reference += term;
-                            entryMass += double.Abs(term);
-                        }
-                        deviation = Math.Max(deviation, double.Abs(gemm[i, j] - reference));
-                        mass = Math.Max(mass, entryMass);
-                    }
+        Matrix<double> left = Gaussian(n, sampleCount), right = Gaussian(n, sampleCount ^ unchecked((int)0x9E3779B9));
+        Matrix<double> gemm = ShardPlan.Local(left, right);
+        double deviation = 0.0, mass = 0.0;
+        for (int i = 0; i < n; i++) {
+            for (int j = 0; j < n; j++) {
+                double reference = 0.0, entryMass = 0.0;
+                for (int p = 0; p < n; p++) {
+                    double term = left[i, p] * right[p, j];
+                    reference += term;
+                    entryMass += double.Abs(term);
                 }
-                return new ProofEvidence(deviation, n, mass, 1.0);
-            },
-            Fail: static _ => ProofEvidence.Unprovable);
+                deviation = Math.Max(deviation, double.Abs(gemm[i, j] - reference));
+                mass = Math.Max(mass, entryMass);
+            }
+        }
+        return new ProofEvidence(deviation, n, mass, 1.0);
     }
 
-    static Matrix<double> Gaussian(int n) {
-        Tensor<double> flat = Tensor.CreateFromShape<double>([n * n]);
-        Tensor.FillGaussianNormalDistribution(flat);
+    static Matrix<double> Gaussian(int n, int seed) {
         double[] values = new double[n * n];
-        flat.FlattenTo(values);
+        new Normal(0.0, 1.0, new Random(seed)).Samples(values);
         return Matrix<double>.Build.Dense(n, n, values);
     }
 }
@@ -711,4 +707,4 @@ public static class KernelLowering {
 
 ## [05]-[RESEARCH]
 
-- [SHARD_FANOUT]: the `ShardPlan.Blocked` fan-out dials the `Runtime/wire#PROTO_VOCABULARY` `Solve` rpc through the `ComputeService.ComputeServiceClient` stub by reference, builds `SolveRequest` field-for-field (`matrix`/`rhs`/`factorization_kind`/`sparse_format`/`shard_tile`), no-copy-wraps the RHS through `UnsafeByteOperations.UnsafeWrap(ReadOnlyMemory<byte>)`, content-addresses each row-block by writing the request once through `MessageExtensions.WriteTo(Span<byte>)` into a pooled `SpanOwner<byte>` rent folded through `XxHash128.HashToUInt128` against the provider `SolveDedupKey` and the Persistence `ModelResultIndex` for sub-block reuse, dials under a per-call `WithDeadline`/`WithCancellationToken` bound from the clock and budget, joins the per-node `SolveResponse` solutions via the associative `ShardBlock.Join` `SetSubMatrix` into a private join target, and aggregates the per-shard `Factorization` receipts on the `Fin<Matrix<double>>` rail. The open leaf is the live in-host stub dial: the Grpc.Tools-compiled `ComputeService` client and the `Solve`-stub call resolve only inside the running integrated host plugin ALC, so `ShardPlan.SubSolve` against the live stub is the cross-lane probe that grounds the fan-out; the `SolveRequest`/`SolveResponse` field shapes (`matrix=1 bytes`, `rhs=2 bytes`, `factorization_kind=3 string`, `sparse_format=4 string`, `shard_tile=5 int32`; `solution=1 bytes`, `provider=2 string`, `decomposition=3 string`, `rows=4 int64`, `cols=5 int64`, `nnz=6 int64`) are the `Runtime/wire#PROTO_VOCABULARY` rows consumed by reference — the row-block matrix riding `matrix=1 bytes` as raw column-major float64 (no `GeometryPayload` geometry envelope; a dense operand is not point_cloud/mesh/voxel, and the oneof carries no dense case) — and the Persistence `ModelResultIndex.Lookup`/`Publish` content-address seam (the index resolving the dedup-keyed `ModelResultRow` residence, the object-store port carrying the `SolveResponse` payload at that residence) composes its owning lane.
+- [SHARD_FANOUT]-[OPEN]: prove the live `ComputeService` stub dial against the integrated host ALC while preserving `IO<Fin<Matrix<double>>>`, raw column-major request bytes, bounded call options, `ModelResultIndex` residence lookup, object-store payload custody, and per-shard receipts.

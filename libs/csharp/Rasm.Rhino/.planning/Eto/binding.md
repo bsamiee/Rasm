@@ -114,8 +114,11 @@ public static class Bind {
         public Seq<BindReceipt> Receipts => receipts.Value;
 
         public BindReceipt Retain(BindReceipt receipt) {
-            Seq<BindReceipt> displaced = receipts.Value.Filter(held => string.Equals(a: held.Field, b: receipt.Field, comparisonType: StringComparison.Ordinal));
-            _ = receipts.Swap(held => held.Filter(bound => !string.Equals(a: bound.Field, b: receipt.Field, comparisonType: StringComparison.Ordinal)).Add(receipt));
+            Seq<BindReceipt> displaced = default;
+            _ = receipts.Swap(held => {
+                displaced = held.Filter(bound => string.Equals(a: bound.Field, b: receipt.Field, comparisonType: StringComparison.Ordinal));
+                return held.Filter(bound => !string.Equals(a: bound.Field, b: receipt.Field, comparisonType: StringComparison.Ordinal)).Add(receipt);
+            });
             _ = displaced.Iter(static held => ignore(held.Unbind()));
             return receipt;
         }
@@ -221,6 +224,21 @@ public static class Bind {
             refresh: () => Op.Side(() => wiring.Dual.Update()));
     }
 
+    private sealed record Latch<TPending>(Action<TPending> Buffer, Func<Unit> Attach, Func<Unit> Detach);
+
+    private static Latch<TPending> Deferred<TPending>(Control control, Action<TPending> land) {
+        Atom<Option<TPending>> pending = Atom(Option<TPending>.None);
+        EventHandler<EventArgs> commit = (_, _) => {
+            Option<TPending> buffered = pending.Value;
+            _ = pending.Swap(static _ => Option<TPending>.None);
+            _ = buffered.Iter(land);
+        };
+        return new Latch<TPending>(
+            Buffer: value => ignore(pending.Swap(_ => Some(value))),
+            Attach: () => Op.Side(() => control.LostFocus += commit),
+            Detach: () => Op.Side(() => control.LostFocus -= commit));
+    }
+
     private static Prepared<DirectBinding<TValue>> Gated<TValue>(
         Option<Func<TValue, Fin<TValue>>> admit,
         DirectBinding<TValue> channel,
@@ -230,7 +248,13 @@ public static class Bind {
         Cadence timing,
         Control control) =>
         timing switch {
-            Cadence.OnCommit => Committed(admit: admit, channel: channel, book: book, op: op, field: field, control: control),
+            Cadence.OnCommit when Deferred<TValue>(
+                control: control,
+                land: value => ignore(Admit(admit: admit, value: value, write: admitted => channel.DataValue = admitted, book: book, op: op, field: field))) is var latch =>
+                new Prepared<DirectBinding<TValue>>(
+                    Binding: channel.Convert<TValue>(getValue: static value => value, setValue: (_, value) => latch.Buffer(value)),
+                    Attach: latch.Attach,
+                    Detach: latch.Detach),
             _ => new Prepared<DirectBinding<TValue>>(
                 Binding: channel.Convert<TValue>(
                     getValue: static value => value,
@@ -248,64 +272,26 @@ public static class Bind {
         Cadence timing,
         Control control) =>
         timing switch {
-            Cadence.OnCommit => CommittedPath(admit: admit, path: path, book: book, op: op, field: field, control: control),
+            Cadence.OnCommit when Deferred<(object Item, TValue Value)>(
+                control: control,
+                land: row => ignore(Admit(admit: admit, value: row.Value, write: admitted => path.SetValue(dataItem: row.Item, value: admitted), book: book, op: op, field: field))) is var latch =>
+                new Prepared<IndirectBinding<TValue>>(
+                    Binding: new DelegateBinding<object, TValue>(
+                        getValue: item => path.GetValue(dataItem: item),
+                        setValue: (item, value) => latch.Buffer((Item: item, Value: value)),
+                        addChangeEvent: (item, handler) => path.AddValueChangedHandler(dataItem: item, handler: handler),
+                        removeChangeEvent: (reference, handler) => path.RemoveValueChangedHandler(bindingReference: reference, handler: handler)),
+                    Attach: latch.Attach,
+                    Detach: latch.Detach),
             _ => new Prepared<IndirectBinding<TValue>>(
                 Binding: new DelegateBinding<object, TValue>(
                     getValue: item => path.GetValue(dataItem: item),
                     setValue: (item, value) => ignore(Admit(admit: admit, value: value, write: admitted => path.SetValue(dataItem: item, value: admitted), book: book, op: op, field: field)),
-                    addChangeEvent: (item, handler) => {
-                        return path.AddValueChangedHandler(dataItem: item, handler: handler);
-                    },
+                    addChangeEvent: (item, handler) => path.AddValueChangedHandler(dataItem: item, handler: handler),
                     removeChangeEvent: (reference, handler) => path.RemoveValueChangedHandler(bindingReference: reference, handler: handler)),
                 Attach: static () => unit,
                 Detach: static () => unit),
         };
-
-    private static Prepared<DirectBinding<TValue>> Committed<TValue>(
-        Option<Func<TValue, Fin<TValue>>> admit,
-        DirectBinding<TValue> channel,
-        BindLedger book,
-        Op op,
-        string field,
-        Control control) {
-        Atom<Option<TValue>> pending = Atom(Option<TValue>.None);
-        EventHandler<EventArgs> commit = (_, _) => {
-            Option<TValue> buffered = pending.Value;
-            _ = pending.Swap(static _ => Option<TValue>.None);
-            _ = buffered.Iter(value => ignore(Admit(admit: admit, value: value, write: admitted => channel.DataValue = admitted, book: book, op: op, field: field)));
-        };
-        return new Prepared<DirectBinding<TValue>>(
-            Binding: channel.Convert<TValue>(
-                getValue: static value => value,
-                setValue: (_, value) => ignore(pending.Swap(_ => Some(value)))),
-            Attach: () => Op.Side(() => control.LostFocus += commit),
-            Detach: () => Op.Side(() => control.LostFocus -= commit));
-    }
-
-    private static Prepared<IndirectBinding<TValue>> CommittedPath<TValue>(
-        Option<Func<TValue, Fin<TValue>>> admit,
-        IndirectBinding<TValue> path,
-        BindLedger book,
-        Op op,
-        string field,
-        Control control) {
-        Atom<Option<(object Item, TValue Value)>> pending = Atom(Option<(object Item, TValue Value)>.None);
-        EventHandler<EventArgs> commit = (_, _) => {
-            Option<(object Item, TValue Value)> buffered = pending.Value;
-            _ = pending.Swap(static _ => Option<(object Item, TValue Value)>.None);
-            _ = buffered.Iter(row => ignore(Admit(admit: admit, value: row.Value, write: admitted => path.SetValue(dataItem: row.Item, value: admitted), book: book, op: op, field: field)));
-        };
-        return new Prepared<IndirectBinding<TValue>>(
-            Binding: new DelegateBinding<object, TValue>(
-                getValue: item => path.GetValue(dataItem: item),
-                setValue: (item, value) => ignore(pending.Swap(_ => Some((Item: item, Value: value)))),
-                addChangeEvent: (item, handler) => {
-                    return path.AddValueChangedHandler(dataItem: item, handler: handler);
-                },
-                removeChangeEvent: (reference, handler) => path.RemoveValueChangedHandler(bindingReference: reference, handler: handler)),
-            Attach: () => Op.Side(() => control.LostFocus += commit),
-            Detach: () => Op.Side(() => control.LostFocus -= commit));
-    }
 
     private static Unit Admit<TValue>(
         Option<Func<TValue, Fin<TValue>>> admit,

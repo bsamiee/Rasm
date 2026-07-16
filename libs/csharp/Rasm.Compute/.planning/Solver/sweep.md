@@ -10,14 +10,14 @@ Per-point evaluation stays contract-uniform with the `Solver/optimizer#OPTIMIZER
 
 ## [02]-[SWEEP_AND_BUDGET]
 
-- Owner: `SweepAxis` `[Union]` per-dimension factor cases (factorial level set + unit-cube lowering); `DoeDesign` `[SmartEnum<string>]` whole-grid strategy rows (space-filling/response-surface discriminants); `SensitivityMethod` `[SmartEnum<string>]` global-sensitivity rows; `DoePolicy` the sample/bin/center/axial/fraction/scramble policy, `SensitivityObjective` selecting which objective column of a multi-objective grid the tornado ranks; `SweepGrid` the axes+objectives+sensitivity+strategy record; `FrameBudget` the early-stop governor over an iterative solve's per-iteration residual; `SensitivityTornado` the quantile-binned per-axis effect ranking; `SweepResult` the front+tornado+counts carrier; `SweepLane` the fan-out fold reducing per-point objective vectors to a `ParetoFront`+tornado and rolling one coarse `ProgressCell` per point through `ProgressCell.Aggregate`.
+- Owner: `SweepAxis` `[Union]` per-dimension factor cases; `DoeDesign` `[SmartEnum<string>]` whole-grid strategy rows; `SensitivityMethod` `[SmartEnum<string>]` global-sensitivity rows; `DoePolicy` the sample/bin/center/axial/fraction/scramble/cardinality policy and sensitivity-objective index; `SweepGrid` the validated axes+objectives+sensitivity+strategy record; `FrameBudget` the early-stop governor; `SensitivityTornado` the quantile-binned per-axis effect ranking; `SweepResult` the front+tornado+counts carrier; `SweepLane` the fan-out fold and admitted progress consumer.
 - Cases: `SweepAxis` `Linear` · `Logarithmic` · `Enumerated`; `DoeDesign` full-factorial · fractional-factorial · plackett-burman · latin-hypercube · sobol · halton · central-composite · box-behnken (central-composite/box-behnken the two `responseSurface` rows on coded ±1/±α/0 grids, latin-hypercube/sobol/halton the three `spaceFilling` JOINT designs); `SensitivityMethod` one-at-a-time · morris-elementary · sobol-variance.
-- Entry: `public static (ProgressCell Progress, IO<Fin<SweepResult>> Result) Run(SweepGrid grid, Func<DesignPoint, IO<Fin<Seq<double>>>> evaluate, CorrelationId correlation, CancelScope scope, ClockPolicy clocks)` — the eager `Progress` parent cell observes live through the `Runtime/progress#OBSERVATION_SEAMS` `Observe`/`Stream` seams while `Result` carries the per-point effect; an empty axis set is the only `Fin.Fail`, and an individual point's `Fin.Fail` tallies as an incomplete point rather than aborting. `public static Func<DesignPoint, IO<Fin<Seq<double>>>> Governed(FrameBudget budget, Func<DesignPoint, int, IO<Fin<IterativeField>>> step, Func<DesignPoint, WorkLane, IO<Unit>> refine, ClockPolicy clocks)` wraps an iterative `step` so a frame-deadline expiry returns the coarse best-so-far field and FORKS the refinement onto `budget.Refinement`, plugging into the `evaluate` slot of `Run`.
-- Auto: `SweepGrid.Design` dispatches the design matrix on the `DoeDesign` row (factorial rows Cartesian-product per-axis `Levels`, space-filling rows draw one JOINT `LowDiscrepancy` net, response-surface rows build the coded corners+star+center grid); `Run` fans the design applicatively over the independent `evaluate` oracle, folds succeeded objective vectors into the `ParetoFront`, tallies failed points, and projects the swept points onto the `SensitivityTornado`; `Governed` iterates `step` until convergence, fault, or `FrameBudget.Expired`, returning the best-so-far field within the frame and forking the refinement continuation onto `budget.Refinement`; `Run` mints one coarse `ProgressCell` per point (running before its `evaluate`, completed when the effect settles — a tallied `Fin.Fail` is progress-complete) and rolls the set through `ProgressCell.Aggregate(..., SubscriptionPolicy.Wire)`.
+- Entry: `public static (Option<ProgressCell> Progress, IO<Fin<SweepResult>> Result) Run(SweepGrid grid, Func<DesignPoint, IO<Fin<Seq<double>>>> evaluate, Func<Seq<ImmutableArray<double>>, Option<(ProgressCell Parent, PhaseSubscription Wiring, Seq<ProgressCell> Points)>> progress, ClockPolicy clocks)` — the scheduler-supplied factory owns admitted progress minting; invalid grids fault before materialization, and an individual point fault tallies incomplete rather than aborting. `Governed` wraps an iterative step and forks refinement onto `budget.Refinement` after a cooperative frame-budget expiry.
+- Auto: `SweepGrid.Design` dispatches the design matrix on the `DoeDesign` row; `Run` fans the design applicatively over the independent `evaluate` oracle, validates each objective vector, folds successes into `ParetoFront`, tallies faults, and projects `SensitivityTornado`; the injected progress bundle advances admitted point cells and disposes its `PhaseSubscription` through `Bracket`.
 - Receipt: `Sweep(long GridPoints, int Completed, int OnFront, int Dominated)` from `Runtime/receipts#RECEIPT_UNION`; `SweepLane.Receipt` projects a `SweepResult` under the correlation — `OnFront` the front size, dominated `Completed − OnFront`, failed `GridPoints − Completed`; the frame-budget early-stop's per-iteration residual rides the iterative solve's own `Solve` receipt (`Solver/contract#SOLVE_CONTRACT`), never a fabricated sweep flag.
 - Packages: System.Numerics.Tensors, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.AppHost (project), Rasm.Persistence (project), BCL inbox
 - Growth: a new design-of-experiments strategy is one `DoeDesign` row plus its `Materialize`/`Cardinality` arm; a new factor kind is one `SweepAxis` case carrying its `Levels`+`Map` lowering; a new sensitivity analysis is one `SensitivityMethod` row carrying its `Rank` fold; a frame-budget change is one field on `FrameBudget`/`DoePolicy`; zero new surface — a `FactorialSweep`/`LatinHypercubeSweep`/`SobolSweep`/`ResponseSurface` sibling collapses onto the one `DoeDesign` axis, and a per-axis `SweepAxis.LatinHypercube`/`SweepAxis.Sobol` case is rejected because a space-filling design is joint across dimensions, never a per-axis 1-D sequence Cartesian-producted.
-- Boundary: the `evaluate` oracle is the single coupling point (this lane's `IO`-lift of the same contract the synchronous optimizer/uncertainty lanes take bare), so a parallel DOE-search path is rejected; space-filling rows draw the `Tensor/sampling#OWNED_BUILDS` `LowDiscrepancy` JOINT d-dimensional net rather than a per-axis 1-D sequence Cartesian-producted, because the per-axis form inflates the point count while destroying the joint low-discrepancy QMC convergence depends on, and the owned generator under the `Scramble` policy keeps a sweep replayable from `DoePolicy.Seed`; DOE-level fan-out backpressure is the `Runtime/scheduling#JOB_GRAPH` composition — one `JobNode` per `DesignPoint` on the `WorkLane.Bulk` row rides the shared lane drain, never a parallel job queue nor a fabricated per-point `AdmittedIntent`; a single point's `Fin.Fail` is tallied incomplete and the sweep continues, so a ten-thousand-point DOE survives a degenerate point; the `SensitivityTornado` is the `SensitivityMethod` axis over quantile-binned strata — the binning is load-bearing because a space-filling design has a unique coordinate per point, so raw-coordinate grouping yields one singleton bin per point and a degenerate unit index — and its variance fold is the one `Solver/uncertainty#UNCERTAINTY_LANE` composes through `SensitivityTornado.Of`, one decomposition; the frame-budgeted progressive solve reads the `Solver/contract#SOLVE_CONTRACT` iterative receipts and forks the refinement onto `budget.Refinement` (the `IO.Fork` non-blocking continuation), never an inline `await` that blocks the frame; live progress rolls one coarse `ProgressCell` per `DesignPoint` through `ProgressCell.Aggregate` into one parent mark observed through the `Runtime/progress#OBSERVATION_SEAMS` seams, so a second sweep-progress shape or a `Sweep`-receipt-polled estimate is rejected.
+- Boundary: `evaluate` is the single `IO`-lifted solver coupling; space-filling rows draw one joint `LowDiscrepancy` net; `SweepGrid.Validate` rejects invalid axes, aliased fractional generators, unbounded in-memory grids, absent objectives, and invalid sensitivity columns before materialization. Point faults accumulate without aborting independent rows. `SensitivityTornado` bins equal-count coordinate strata before conditional-mean effects. Scheduler composition supplies the admitted `ProgressCell` leaves, parent, and `PhaseSubscription`; sweep advances and disposes them but never mints an `AdmittedIntent`. `Governed` requires cooperative `step` settlement, returns the best field after the budget predicate, and forks refinement through `IO.Fork`.
 
 ```csharp signature
 // --- [TYPES] ----------------------------------------------------------------------------
@@ -34,20 +34,24 @@ public abstract partial record SweepAxis {
 
     public int LevelCount => Switch(linear: static a => Math.Max(1, a.Steps), logarithmic: static a => Math.Max(1, a.Steps), enumerated: static a => a.Values.Count);
 
-    // The factorial level set for a full/fractional/Plackett-Burman design; a space-filling/RSM design ignores Levels and lowers through Map.
     public Seq<double> Levels =>
         Switch(
             linear: static a => toSeq(Enumerable.Range(0, Math.Max(1, a.Steps))).Map(i => a.Lower + (a.Upper - a.Lower) * i / Math.Max(1, a.Steps - 1)),
             logarithmic: static a => toSeq(Enumerable.Range(0, Math.Max(1, a.Steps))).Map(i => a.Lower * Math.Pow(a.Upper / a.Lower, (double)i / Math.Max(1, a.Steps - 1))),
             enumerated: static a => a.Values);
 
-    // Lower a unit-cube coordinate u∈[0,1] onto the physical range — the mapping every space-filling and RSM draw rides; Logarithmic stays geometric.
     public double Map(double unit) =>
         Switch(
             state: Math.Clamp(unit, 0.0, 1.0),
             linear: static (u, a) => a.Lower + (a.Upper - a.Lower) * u,
             logarithmic: static (u, a) => a.Lower * Math.Pow(a.Upper / a.Lower, u),
             enumerated: static (u, a) => a.Values.IsEmpty ? u : a.Values[Math.Min(a.Values.Count - 1, (int)Math.Round(u * (a.Values.Count - 1)))]);
+
+    public bool Invalid =>
+        Switch(
+            linear: static axis => string.IsNullOrWhiteSpace(axis.Name) || !double.IsFinite(axis.Lower) || !double.IsFinite(axis.Upper) || axis.Lower >= axis.Upper || axis.Steps < 2,
+            logarithmic: static axis => string.IsNullOrWhiteSpace(axis.Name) || !double.IsFinite(axis.Lower) || !double.IsFinite(axis.Upper) || axis.Lower <= 0.0 || axis.Lower >= axis.Upper || axis.Steps < 2,
+            enumerated: static axis => string.IsNullOrWhiteSpace(axis.Name) || axis.Values.IsEmpty || !axis.Values.ForAll(double.IsFinite));
 }
 
 [SmartEnum<string>]
@@ -66,35 +70,40 @@ public sealed partial class DoeDesign {
     public bool SpaceFilling { get; }
     public bool ResponseSurface { get; }
 
-    // One total Switch: factorial rows Cartesian-product per-axis levels, space-filling rows draw a JOINT net, RSM rows build the coded ±1/±α/0 grid.
-    public Seq<ImmutableArray<double>> Materialize(Seq<SweepAxis> axes, DoePolicy policy) =>
+    public Fin<Seq<ImmutableArray<double>>> Materialize(Seq<SweepAxis> axes, DoePolicy policy) =>
         Switch(
             state: (Axes: axes, Policy: policy),
-            fullFactorial: static s => Factorial(s.Axes),
-            fractionalFactorial: static s => Fractional(s.Axes, s.Policy.FractionExponent),
-            plackettBurman: static s => PlackettBurmanMatrix(s.Axes),
+            fullFactorial: static s => Fin.Succ(Factorial(s.Axes)),
+            fractionalFactorial: static s => Fin.Succ(Fractional(s.Axes, s.Policy.FractionExponent)),
+            plackettBurman: static s => Fin.Succ(PlackettBurmanMatrix(s.Axes)),
             latinHypercube: static s => LatinHypercubeMatrix(s.Axes, s.Policy),
             sobol: static s => LowDiscrepancyMatrix(s.Axes, s.Policy, quasiSobol: true),
             halton: static s => LowDiscrepancyMatrix(s.Axes, s.Policy, quasiSobol: false),
-            centralComposite: static s => CentralCompositeMatrix(s.Axes, s.Policy),
-            boxBehnken: static s => BoxBehnkenMatrix(s.Axes, s.Policy));
+            centralComposite: static s => Fin.Succ(CentralCompositeMatrix(s.Axes, s.Policy)),
+            boxBehnken: static s => Fin.Succ(BoxBehnkenMatrix(s.Axes, s.Policy)));
 
     public long Cardinality(Seq<SweepAxis> axes, DoePolicy policy) =>
         Switch(
             state: (Axes: axes, Policy: policy),
-            fullFactorial: static s => s.Axes.Fold(1L, static (acc, a) => acc * Math.Max(1, a.LevelCount)),
+            fullFactorial: static s => FactorialCardinality(s.Axes, s.Policy.MaxPoints),
             fractionalFactorial: static s => 1L << Math.Max(0, s.Axes.Count - Math.Clamp(s.Policy.FractionExponent, 0, Math.Max(0, s.Axes.Count - 1))),
-            plackettBurman: static s => HadamardOrder(s.Axes.Count + 1),
+            plackettBurman: static s => ScreeningOrder(s.Axes.Count + 1),
             latinHypercube: static s => Math.Max(2, s.Policy.Samples),
             sobol: static s => Math.Max(2, s.Policy.Samples),
             halton: static s => Math.Max(2, s.Policy.Samples),
             centralComposite: static s => (1L << s.Axes.Count) + 2L * s.Axes.Count + Math.Max(1, s.Policy.CenterPoints),
             boxBehnken: static s => 2L * s.Axes.Count * Math.Max(0, s.Axes.Count - 1) + Math.Max(1, s.Policy.CenterPoints));
 
+    static long FactorialCardinality(Seq<SweepAxis> axes, long limit) =>
+        axes.Fold(1L, (product, axis) => {
+            long levels = Math.Max(1, axis.LevelCount);
+            long overflow = limit == long.MaxValue ? long.MaxValue : limit + 1L;
+            return product > limit / levels ? overflow : product * levels;
+        });
+
     static Seq<ImmutableArray<double>> Factorial(Seq<SweepAxis> axes) =>
         axes.Fold(Seq(ImmutableArray<double>.Empty), static (acc, axis) => acc.Bind(prefix => axis.Levels.Map(prefix.Add)));
 
-    // 2^(k-p): the first (k-p) factors a full two-level basis, each added factor aliased to a DISTINCT high-resolution generator (highest-popcount first).
     static Seq<ImmutableArray<double>> Fractional(Seq<SweepAxis> axes, int exponent) {
         int k = axes.Count, p = Math.Clamp(exponent, 0, Math.Max(0, k - 1)), basis = k - p;
         int[] generators = [.. Enumerable.Range(0, 1 << Math.Max(0, basis)).Reverse().Where(static m => BitOperations.PopCount((uint)m) >= 2)];
@@ -111,32 +120,25 @@ public sealed partial class DoeDesign {
         });
     }
 
-    // Sylvester-Hadamard saturated two-level screening: column 0 (all +1) is the skipped intercept, so a resolution-III design screens up to runs-1 factors at runs = next power of two ≥ k+1.
     static Seq<ImmutableArray<double>> PlackettBurmanMatrix(Seq<SweepAxis> axes) {
-        int k = axes.Count, runs = (int)HadamardOrder(k + 1);
-        int[][] h = Hadamard(runs);
+        int k = axes.Count, runs = (int)ScreeningOrder(k + 1);
+        int[][] h = BitOperations.IsPow2(runs) ? Sylvester(runs) : Paley(runs - 1);
         return toSeq(Enumerable.Range(0, runs)).Map(r => (ImmutableArray<double>)[.. axes.Map((axis, f) => axis.Map((h[r][f + 1] + 1.0) * 0.5))]);
     }
 
-    // JOINT Latin hypercube composed from the Tensor/sampling#OWNED_BUILDS LowDiscrepancy.LatinHypercube owner (one point per stratum per dimension, N points regardless of d), never re-deriving the stratification here.
-    static Seq<ImmutableArray<double>> LatinHypercubeMatrix(Seq<SweepAxis> axes, DoePolicy policy) {
+    static Fin<Seq<ImmutableArray<double>>> LatinHypercubeMatrix(Seq<SweepAxis> axes, DoePolicy policy) {
         int n = Math.Max(2, policy.Samples), d = axes.Count;
         return LowDiscrepancy.LatinHypercube(d, n, policy.Seed, policy.Scramble)
-            .Map(unit => toSeq(Enumerable.Range(0, n)).Map(s => (ImmutableArray<double>)[.. axes.Map((axis, f) => axis.Map(unit[s][f]))]))
-            .IfFail(Seq<ImmutableArray<double>>());
+            .Map(unit => toSeq(Enumerable.Range(0, n)).Map(s => (ImmutableArray<double>)[.. axes.Map((axis, f) => axis.Map(unit[s][f]))]));
     }
 
-    // JOINT Sobol/Halton net: one d-dimensional generator drawn N times, each coordinate lowered through its axis — QMC convergence holds only on the joint net, never per-axis.
-    static Seq<ImmutableArray<double>> LowDiscrepancyMatrix(Seq<SweepAxis> axes, DoePolicy policy, bool quasiSobol) {
+    static Fin<Seq<ImmutableArray<double>>> LowDiscrepancyMatrix(Seq<SweepAxis> axes, DoePolicy policy, bool quasiSobol) {
         int n = Math.Max(2, policy.Samples), d = axes.Count;
         Fin<LowDiscrepancy> generator = quasiSobol ? LowDiscrepancy.Sobol(d, policy.Seed, policy.Scramble) : LowDiscrepancy.Halton(d, policy.Seed, policy.Scramble);
         return generator
-            .Map(g => Unit(g, n).Map(point => (ImmutableArray<double>)[.. axes.Map((axis, f) => axis.Map(point[Math.Min(f, point.Length - 1)]))]))
-            .IfFail(Seq<ImmutableArray<double>>());
+            .Map(g => Unit(g, n).Map(point => (ImmutableArray<double>)[.. axes.Map((axis, f) => axis.Map(point[Math.Min(f, point.Length - 1)]))]));
     }
 
-    // Central composite: factorial corners + 2k axial star points at ±α + center replicates, scaled by α so the star lands ON the box bounds while corners sit INSIDE at
-    // ±1/α — a ROTATABLE CCD (α = (2^k)^(1/4) default), AxialAlpha a live knob; degenerates to face-centered only when α ≤ 1.
     static Seq<ImmutableArray<double>> CentralCompositeMatrix(Seq<SweepAxis> axes, DoePolicy policy) {
         int k = axes.Count;
         double alpha = double.IsNaN(policy.AxialAlpha) ? Math.Pow(1 << k, 0.25) : policy.AxialAlpha;
@@ -147,7 +149,6 @@ public sealed partial class DoeDesign {
         return corners + axial + center;
     }
 
-    // Box-Behnken: every factor pair at ±1 with the rest at center + center replicates, a three-level rotatable RSM avoiding the corners (center-only below three factors).
     static Seq<ImmutableArray<double>> BoxBehnkenMatrix(Seq<SweepAxis> axes, DoePolicy policy) {
         int k = axes.Count;
         Seq<ImmutableArray<double>> blocks = toSeq(Enumerable.Range(0, k)).Bind(i =>
@@ -160,7 +161,6 @@ public sealed partial class DoeDesign {
         return blocks + toSeq(Enumerable.Range(0, Math.Max(1, policy.CenterPoints))).Map(_ => Coded(axes, new double[k]));
     }
 
-    // Coded ±1/±α → physical: divide by `scale` (the CCD axial extent α; 1.0 for the ±1-only fractional/Box-Behnken grids) before the [-1,1] clamp and unit-cube lowering.
     static ImmutableArray<double> Coded(Seq<SweepAxis> axes, double[] coded, double scale = 1.0) =>
         [.. axes.Map((axis, f) => axis.Map(0.5 * (Math.Clamp((f < coded.Length ? coded[f] : 0.0) / scale, -1.0, 1.0) + 1.0)))];
 
@@ -175,13 +175,22 @@ public sealed partial class DoeDesign {
 
     static Seq<double[]> Unit(LowDiscrepancy generator, int count) =>
         toSeq(Enumerable.Range(0, count)).Fold((Gen: generator, Points: Seq<double[]>()), static (acc, _) => {
-            var (next, point) = acc.Gen.Draw();
+            (LowDiscrepancy next, double[] point) = acc.Gen.Draw();
             return (next, acc.Points.Add(point));
         }).Points;
 
-    static long HadamardOrder(int minimum) { long n = 1L; while (n < minimum) { n <<= 1; } return n; }
+    static long ScreeningOrder(int minimum) {
+        int sylvester = 1;
+        while (sylvester < minimum) { sylvester <<= 1; }
+        int paley = Enumerable.Range(Math.Max(3, minimum - 1), Math.Max(0, sylvester - minimum + 1))
+            .Where(static q => q % 4 == 3 && Prime(q))
+            .Select(static q => q + 1)
+            .DefaultIfEmpty(sylvester)
+            .Min();
+        return Math.Min(sylvester, paley);
+    }
 
-    static int[][] Hadamard(int n) {
+    static int[][] Sylvester(int n) {
         int[][] h = [[1]];
         for (int size = 1; size < n; size <<= 1) {
             int[][] next = new int[size << 1][];
@@ -196,6 +205,30 @@ public sealed partial class DoeDesign {
         }
         return h;
     }
+
+    static int[][] Paley(int q) {
+        int[][] matrix = [.. Enumerable.Range(0, q + 1).Select(_ => new int[q + 1])];
+        for (int axis = 0; axis <= q; axis++) { matrix[0][axis] = 1; matrix[axis][0] = 1; }
+        for (int row = 0; row < q; row++) {
+            for (int column = 0; column < q; column++) {
+                int residue = (row - column + q) % q;
+                matrix[row + 1][column + 1] = residue == 0 ? -1 : Legendre(residue, q);
+            }
+        }
+        return matrix;
+    }
+
+    static int Legendre(int value, int prime) {
+        long result = 1L, factor = value;
+        for (int exponent = (prime - 1) / 2; exponent > 0; exponent >>= 1) {
+            if ((exponent & 1) != 0) { result = result * factor % prime; }
+            factor = factor * factor % prime;
+        }
+        return result == 1L ? 1 : -1;
+    }
+
+    static bool Prime(int value) =>
+        value >= 2 && !Enumerable.Range(2, Math.Max(0, (int)Math.Sqrt(value) - 1)).Any(divisor => value % divisor == 0);
 }
 
 [SmartEnum<string>]
@@ -206,9 +239,6 @@ public sealed partial class SensitivityMethod {
     public static readonly SensitivityMethod MorrisElementary = new("morris-elementary");
     public static readonly SensitivityMethod SobolVariance = new("sobol-variance");
 
-    // Rank a per-axis conditional-expectation vector E[Y|Xᵢ∈binₖ] into a tornado bar (low, high, effect): OAT = binned-level output range,
-    // Sobol = first-order Vᵢ/V between-bin over global variance, Morris = POST-HOC μ*/σ screen of the conditional-mean gradient on already-swept
-    // data — the controlled-Δ trajectory Morris row is Solver/uncertainty#UNCERTAINTY_LANE (MorrisTrajectories/MorrisScreening), never re-spelled here.
     public (double Low, double High, double Effect) Rank(Seq<double> perBin, double globalVariance) =>
         Switch(
             state: (Bins: perBin, Variance: globalVariance),
@@ -223,13 +253,14 @@ public sealed partial class SensitivityMethod {
         return (muStar - sigma, muStar + sigma, muStar);
     }
 
-    static double BinVariance(Seq<double> bins) => bins.IsEmpty ? 0.0 : TensorPrimitives.StdDev<double>([.. bins]) is var sd ? sd * sd : 0.0;
+    static double BinVariance(Seq<double> bins) =>
+        bins.IsEmpty ? 0.0 : Math.Pow(TensorPrimitives.StdDev<double>([.. bins]), 2.0);
 }
 
 // --- [MODELS] ---------------------------------------------------------------------------
 
-public sealed record DoePolicy(int Samples, int SensitivityBins, int CenterPoints, double AxialAlpha, int FractionExponent, Scramble Scramble, int Seed, int SensitivityObjective) {
-    public static readonly DoePolicy Default = new(Samples: 256, SensitivityBins: 8, CenterPoints: 1, AxialAlpha: double.NaN, FractionExponent: 1, Scramble: Scramble.DigitalShift, Seed: 0x5DEECE66, SensitivityObjective: 0);
+public sealed record DoePolicy(int Samples, int SensitivityBins, int CenterPoints, double AxialAlpha, int FractionExponent, Scramble Scramble, int Seed, int SensitivityObjective, long MaxPoints) {
+    public static readonly DoePolicy Default = new(Samples: 256, SensitivityBins: 8, CenterPoints: 1, AxialAlpha: double.NaN, FractionExponent: 1, Scramble: Scramble.DigitalShift, Seed: 0x5DEECE66, SensitivityObjective: 0, MaxPoints: 1_000_000L);
     public static readonly DoePolicy SpaceFillingLarge = Default with { Samples = 4096, SensitivityBins = 16 };
 }
 
@@ -240,30 +271,47 @@ public sealed record FrameBudget(Duration Deadline, int MinIterations, int MaxIt
 
     public bool Expired(Instant start, Instant now, int iteration) =>
         iteration >= MaxIterations || (iteration >= MinIterations && now - start >= Deadline);
+
+    public bool Invalid => Deadline <= Duration.Zero || MinIterations < 1 || MaxIterations < MinIterations;
 }
 
 public sealed record SweepGrid(Seq<SweepAxis> Axes, Seq<ObjectiveSense> Objectives, SensitivityMethod Sensitivity) {
     public DoeDesign Strategy { get; init; } = DoeDesign.FullFactorial;
     public DoePolicy Policy { get; init; } = DoePolicy.Default;
 
-    public Seq<ImmutableArray<double>> Design => Strategy.Materialize(Axes, Policy);
+    public Fin<Seq<ImmutableArray<double>>> Design => Strategy.Materialize(Axes, Policy);
     public long Cardinality => Strategy.Cardinality(Axes, Policy);
     public ImmutableArray<double> Senses => [.. Objectives.Map(static o => o.Sign)];
+
+    public Fin<Unit> Validate() {
+        int basis = Axes.Count - Policy.FractionExponent;
+        long generators = basis is > 0 and < 31 ? (1L << basis) - basis - 1L : 0L;
+        bool fractional = Strategy == DoeDesign.FractionalFactorial
+            && (Policy.FractionExponent < 0 || Policy.FractionExponent >= Axes.Count || generators < Policy.FractionExponent);
+        bool policy = Policy.Samples < 2 || Policy.SensitivityBins < 2 || Policy.CenterPoints < 1 || Policy.MaxPoints < 1
+            || (!double.IsNaN(Policy.AxialAlpha) && (!double.IsFinite(Policy.AxialAlpha) || Policy.AxialAlpha <= 0.0));
+        bool shape = Axes.IsEmpty || Axes.Count >= 31 || Axes.Exists(static axis => axis.Invalid)
+            || Axes.Map(static axis => axis.AxisName).ToHashSet(StringComparer.Ordinal).Count != Axes.Count
+            || Objectives.IsEmpty || Policy.SensitivityObjective < 0 || Policy.SensitivityObjective >= Objectives.Count
+            || (Strategy == DoeDesign.BoxBehnken && Axes.Count < 3);
+        return shape || policy || fractional || Cardinality > Policy.MaxPoints
+            ? Fin.Fail<Unit>(ComputeFault.Create("<sweep-invalid-grid>"))
+            : Fin.Succ(unit);
+    }
 }
 
 public sealed record SensitivityTornado(Seq<(string Axis, double Low, double High, double Effect)> Bars) {
     public static SensitivityTornado Of(SweepGrid grid, Seq<DesignPoint> results, int objective) {
         if (results.IsEmpty) { return new(grid.Axes.Map(static a => (a.AxisName, 0.0, 0.0, 0.0))); }
         double[] response = [.. results.Map(p => objective < p.Objectives.Length ? p.Objectives[objective] : 0.0)];
-        double globalVariance = TensorPrimitives.StdDev<double>(response) is var sd ? sd * sd : 0.0;
+        double globalVariance = Math.Pow(TensorPrimitives.StdDev<double>(response), 2.0);
         int bins = Math.Max(2, grid.Policy.SensitivityBins);
         return new(grid.Axes.Map((axis, index) => {
-            var (low, high, effect) = grid.Sensitivity.Rank(ConditionalMeans(results, index, objective, bins), globalVariance);
+            (double low, double high, double effect) = grid.Sensitivity.Rank(ConditionalMeans(results, index, objective, bins), globalVariance);
             return (axis.AxisName, low, high, effect);
         }).OrderByDescending(static bar => bar.Item4).ToSeq());
     }
 
-    // Equal-count quantile binning of axis `index` so a space-filling design (every coordinate unique) yields a real E[Y|Xᵢ∈binₖ] vector, never singletons.
     static Seq<double> ConditionalMeans(Seq<DesignPoint> results, int index, int objective, int bins) {
         (double X, double Y)[] ordered = [.. results
             .Map(p => (X: index < p.Coordinates.Length ? p.Coordinates[index] : 0.0, Y: objective < p.Objectives.Length ? p.Objectives[objective] : 0.0))
@@ -283,53 +331,76 @@ public sealed record SweepResult(SweepGrid Grid, ParetoFront Front, SensitivityT
 // --- [OPERATIONS] -----------------------------------------------------------------------
 
 public static class SweepLane {
-    public static (ProgressCell Progress, IO<Fin<SweepResult>> Result) Run(SweepGrid grid, Func<DesignPoint, IO<Fin<Seq<double>>>> evaluate, CorrelationId correlation, CancelScope scope, ClockPolicy clocks) {
-        if (grid.Axes.IsEmpty) {
-            var empty = new ProgressCell(correlation, scope, clocks);
-            ignore(empty.Advance(ProgressPhase.Faulted));
-            return (empty, IO.pure(Fin.Fail<SweepResult>(ComputeFault.Create("<sweep-empty-axis-set>"))));
-        }
-        Seq<ImmutableArray<double>> design = grid.Design;
-        Seq<ProgressCell> cells = design.Map(_ => new ProgressCell(correlation, scope, clocks));
-        var (parent, wiring) = ProgressCell.Aggregate(correlation, scope, clocks, cells, SubscriptionPolicy.Wire);
-        return (parent, IO.pure(wiring).Bracket(
-            Use: _ => design.Zip(cells, static (coords, cell) => (Coords: coords, Cell: cell))
-                .Traverse(pair =>
-                    from _started in IO.lift(() => ignore(pair.Cell.Advance(ProgressPhase.Running)))
-                    from result in evaluate(new DesignPoint(pair.Coords, [], []))
-                    from _settled in IO.lift(() => ignore(pair.Cell.Advance(ProgressPhase.Completed)))
-                    select (Coords: pair.Coords, Result: result))
-                .Map(rows => Fin.Succ(Reduce(grid, rows, clocks)))
-                .As(),
-            Fin: static w => IO.lift(fun(w.Dispose))));
+    public static (Option<ProgressCell> Progress, IO<Fin<SweepResult>> Result) Run(
+        SweepGrid grid,
+        Func<DesignPoint, IO<Fin<Seq<double>>>> evaluate,
+        Func<Seq<ImmutableArray<double>>, Option<(ProgressCell Parent, PhaseSubscription Wiring, Seq<ProgressCell> Points)>> progress,
+        ClockPolicy clocks) {
+        return grid.Validate().Bind(_ => grid.Design).Match(
+            Succ: design => {
+                Option<(ProgressCell Parent, PhaseSubscription Wiring, Seq<ProgressCell> Points)> observation = progress(design);
+                Option<ProgressCell> parent = observation.Map(static state => state.Parent);
+                if (observation.Exists(state => state.Points.Count != design.Count)) {
+                    IO<Fin<SweepResult>> fault = observation.Match(
+                        Some: state => IO.pure(state.Wiring).Bracket(
+                            Use: static _ => IO.pure(Fin.Fail<SweepResult>(ComputeFault.Create("<sweep-progress-shape>"))),
+                            Fin: static wiring => IO.lift(fun(wiring.Dispose))),
+                        None: static () => IO.pure(Fin.Fail<SweepResult>(ComputeFault.Create("<sweep-progress-shape>"))));
+                    return (parent, fault);
+                }
+                IO<Fin<SweepResult>> use = design.Map((coords, index) => (Coords: coords, Cell: observation.Bind(state => index < state.Points.Count ? Some(state.Points[index]) : None)))
+                    .Traverse(pair =>
+                        from _started in Advance(pair.Cell, ProgressPhase.Running)
+                        from raw in evaluate(new DesignPoint(pair.Coords, [], []))
+                        let outcome = ValidateObjectives(grid, raw)
+                        from _settled in Advance(pair.Cell, outcome.IsSucc ? ProgressPhase.Completed : ProgressPhase.Faulted)
+                        select (Coords: pair.Coords, Result: outcome))
+                    .Map(rows => Fin.Succ(Reduce(grid, rows, clocks)))
+                    .As();
+                IO<Fin<SweepResult>> result = observation.Match(
+                    Some: state => IO.pure(state.Wiring).Bracket(Use: _ => use, Fin: static wiring => IO.lift(fun(wiring.Dispose))),
+                    None: () => use);
+                return (parent, result);
+            },
+            Fail: static error => (None, IO.pure(Fin.Fail<SweepResult>(error))));
     }
+
+    static IO<Unit> Advance(Option<ProgressCell> cell, ProgressPhase phase) =>
+        IO.lift(() => cell.Iter(progress => ignore(progress.Advance(phase))));
+
+    static Fin<Seq<double>> ValidateObjectives(SweepGrid grid, Fin<Seq<double>> result) =>
+        result.Bind(values => values.Count == grid.Objectives.Count && values.ForAll(double.IsFinite)
+            ? Fin.Succ(values)
+            : Fin.Fail<Seq<double>>(ComputeFault.Create("<sweep-oracle-shape>")));
 
     public static ComputeReceipt.Sweep Receipt(SweepResult result, CorrelationId correlation, Duration elapsed) =>
         new(result.Grid.Cardinality, result.Completed, result.Front.Points.Count, Math.Max(0, result.Completed - result.Front.Points.Count)) {
             Correlation = correlation, Lane = WorkLane.Background, Substrate = Substrate.CpuTensor, AllocationClass = AllocationClass.PooledMemory, Elapsed = elapsed,
         };
 
-    // Fan-out reduction: a succeeded point enters the ParetoFront and swept set, a failed point increments the tally rather than aborting.
     static SweepResult Reduce(SweepGrid grid, Seq<(ImmutableArray<double> Coords, Fin<Seq<double>> Result)> rows, ClockPolicy clocks) {
-        var folded = rows.Fold(
+        (ParetoFront Front, Seq<DesignPoint> Points, int Failed) folded = rows.Fold(
             (Front: new ParetoFront(Seq<DesignPoint>(), grid.Senses), Points: Seq<DesignPoint>(), Failed: 0),
             static (acc, row) => row.Result.Match(
-                Succ: objectives => { var point = new DesignPoint(row.Coords, [.. objectives], []); return (acc.Front.Insert(point), acc.Points.Add(point), acc.Failed); },
+                Succ: objectives => { DesignPoint point = new(row.Coords, [.. objectives], []); return (acc.Front.Insert(point), acc.Points.Add(point), acc.Failed); },
                 Fail: static _ => (acc.Front, acc.Points, acc.Failed + 1)));
         return new SweepResult(grid, folded.Front, SensitivityTornado.Of(grid, folded.Points, grid.Policy.SensitivityObjective), folded.Points.Count, folded.Failed, clocks.Now);
     }
 
-    // Frame-budgeted early-stop over an iterative `step`: a deadline expiry returns the best-so-far coarse field WITHIN the frame and FORKS the
-    // refinement onto budget.Refinement (IO.Fork non-blocking), never an inline await.
     public static Func<DesignPoint, IO<Fin<Seq<double>>>> Governed(
         FrameBudget budget,
         Func<DesignPoint, int, IO<Fin<IterativeField>>> step,
         Func<DesignPoint, WorkLane, IO<Unit>> refine,
         ClockPolicy clocks) =>
-        point =>
-            from outcome in Iterate(budget, step, point, clocks)
-            from _ in outcome.Early ? refine(point, budget.Refinement).Fork().As().Map(static _ => unit) : IO.pure(unit)
-            select outcome.Best.Map(static r => r.Field);
+        point => {
+            if (budget.Invalid) { return IO.pure(Fin.Fail<Seq<double>>(ComputeFault.Create("<frame-budget-invalid>"))); }
+            return
+                from outcome in Iterate(budget, step, point, clocks)
+                    .Timeout(budget.Deadline.ToTimeSpan())
+                    .Catch(static error => error.Is(Errors.TimedOut), static _ => IO.pure((Fin.Fail<IterativeField>(ComputeFault.Create("<frame-budget-timeout>")), true)))
+                from _ in outcome.Early ? refine(point, budget.Refinement).Fork().As().Map(static _ => unit) : IO.pure(unit)
+                select outcome.Best.Map(static r => r.Field);
+        };
 
     static IO<(Fin<IterativeField> Best, bool Early)> Iterate(FrameBudget budget, Func<DesignPoint, int, IO<Fin<IterativeField>>> step, DesignPoint point, ClockPolicy clocks) =>
         IO.liftAsync(async env => {
@@ -343,11 +414,3 @@ public static class SweepLane {
         });
 }
 ```
-
-## [03]-[RESEARCH]
-
-<!-- source-only: research row template:
-[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
--->
-
-(none)

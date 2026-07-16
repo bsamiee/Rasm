@@ -280,7 +280,7 @@ public static class FaultSpine {
 ## [04]-[FAULT_TABLES]
 
 - Owner: `FaultBand` `[SmartEnum<int>]` — the ONE fault-band registry; `BandKind` event-vs-fault discriminant; the disjointness proof fold.
-- Cases: own rows for every AppHost band (the 1xxx boot space with the 1000-1099 EVENT stride disjoint from the fault decades; the 4100-4810 wire/agent space); mirror rows reserving every foreign neighborhood — Compute 2200-2220 and Remote 4520-4539, the paradigm AEC registry flanks 2300-2399/2450-2799, kernel `GeometryFault` 2400-2449 hard-bounded, Persistence 5400/7710/8250-8459, AppUi 6000-6999, and the kernel substrate `Fault` discriminant 9104 — the sole foreign 9xxx occupant.
+- Cases: own rows cover every AppHost band; mirror rows reserve Compute 2200–2223 and Remote 4520–4539, AEC 2300–2399/2450–2799, kernel `GeometryFault` 2400–2449, Persistence 5400/7710/8250–8459, AppUi 6000–6999, and kernel substrate code 9104.
 - Entry: `int Code(int offset)` — every fault union's `Expected.Code` derives through its registry row; a `base(detail, NNNN)` literal is the deleted form. `Option<FaultBand> OwnerOf(int code)` is the reverse projection telemetry and support capture read.
 - Auto: the generated key lookup fails at type initialization on a duplicate base integer, and the `Disjoint` fold fails on any span overlap — a colliding band is unrepresentable from the floor, so no prose census exists anywhere in the corpus; a page states its band as one registry reference.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core
@@ -320,7 +320,7 @@ public sealed partial class FaultBand {
     public static readonly FaultBand Support          = new(4810,   10, BandKind.Fault, "Observability/bundles#CAPTURE_PIPELINE", mirror: false);
     public static readonly FaultBand Drain            = new(4820,   10, BandKind.Fault, "Runtime/resources#DRAIN_QUEUES", mirror: false);
     // Mirror rows — foreign neighborhoods reserved; source of truth is the sibling registry.
-    public static readonly FaultBand ComputeCore      = new(2200,   21, BandKind.Fault, "Rasm.Compute/Runtime/admission", mirror: true);
+    public static readonly FaultBand ComputeCore      = new(2200,   24, BandKind.Fault, "Rasm.Compute/Runtime/admission", mirror: true);
     public static readonly FaultBand AecLow           = new(2300,  100, BandKind.Fault, "RASM-COMPONENT-PARADIGM 23xx", mirror: true);
     public static readonly FaultBand KernelGeometry   = new(2400,   50, BandKind.Fault, "Rasm/Numerics/faults", mirror: true);
     public static readonly FaultBand AecHigh          = new(2450,  350, BandKind.Fault, "RASM-COMPONENT-PARADIGM 24xx-27xx", mirror: true);
