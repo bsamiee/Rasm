@@ -314,10 +314,10 @@ public sealed class RetainedOverlay : IDisposable {
     }
 
     public Fin<Unit> Enable(bool on, Op? key = null) =>
-        key.OrDefault().Catch(() => Fin.Succ(value: Op.Side(() => display.Enabled = on)));
+        key.OrDefault().Catch(() => display.Enabled = on);
 
     public Fin<Unit> Clear(Op? key = null) =>
-        key.OrDefault().Catch(() => Fin.Succ(value: Op.Side(display.Clear)));
+        key.OrDefault().Catch(display.Clear);
 
     public void Dispose() =>
         _ = Interlocked.Exchange(location1: ref released, value: 1) is 0 ? fun(display.Dispose)() : unit;

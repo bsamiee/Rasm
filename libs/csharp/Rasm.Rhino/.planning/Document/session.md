@@ -133,7 +133,7 @@ public sealed record SessionSnapshot(
 - Entry: `SessionMode.OfRunMode` returns `Fin<SessionMode>` and rejects an unknown foreign ordinal. `DocumentSession.Of` rejects an empty or mode-incompatible capability set before acquisition; `DocumentSession.Demand` proves one or more granted rows against one fresh snapshot around the consuming host body.
 - Law: `Observe` admits transition snapshots, while operation capabilities require `Ready`. Mutation excludes read-only documents and undo/redo replay; undo-bearing mutation additionally requires enabled undo recording. Redraw requires a live view pipeline; acquisition admits interactive and scripted command lanes; native dialogs admit only the interactive lane; interrupt remains admissible while a point acquisition is active.
 - Law: `IsLocked` is detached file-write ownership evidence, not a mutation refusal; Rhino reports it when the current document owns the file lock.
-- Growth: a capability lands as one `SessionNeed` row. The admission and demand folds consume `Items` through the passed values and require no parallel flag or subsystem field.
+- Growth: a capability lands as one `SessionNeed` row. Admission and demand folds consume `Items` through the passed values and require no parallel flag or subsystem field.
 
 ```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
@@ -207,12 +207,12 @@ public sealed partial class SessionNeed {
 - Law: `Demand` is re-entrant on the demanding thread — the reentrant `Lock` plus the demand-depth counter admit a nested demand inside a running host body, and each nesting proves its own grants against its own fresh snapshot. `Dispose` issued during any demand defers to the outermost demand's exit, and a pending disposal refuses every new demand, nested included.
 - Law: `Context()` re-enters `Context.Of(RhinoDoc)` on every call, so model-unit and tolerance changes cannot stale the context consumed by later geometry work.
 - Boundary: `Lock` plus deferred reentrant disposal serializes handle resolution, evidence, callbacks, and owned cleanup. Live acquisition and demand discriminate on `RhinoApp.IsOnMainThread` and marshal through `InvokeAndWait`; headless work remains on the caller thread.
-- Boundary: `IDetachedDocumentResult` marks the admitted result census: detached facts and explicit lifetime capsules. `Demand` forbids a raw `RhinoDoc`, and each capsule owns every live handle it carries beyond the callback.
+- Boundary: `IDetachedDocumentResult` marks the admitted result census: detached facts and explicit lifetime capsules. `Demand` forbids a raw `RhinoDoc`, and each capsule owns every live handle it carries beyond the callback. `DocumentPath` conforms — admitted path text is detached by construction — so a path resolution returns through `Demand` directly.
 
 ```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
-public readonly partial struct DocumentPath {
+public readonly partial struct DocumentPath : IDetachedDocumentResult {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value?.Trim() ?? string.Empty;
         validationError = value switch {
@@ -555,10 +555,10 @@ public sealed class DocumentSession : IDisposable {
 
 ## [05]-[REGIME]
 
-- Owner: `DocumentSpace` carries the model/page host-member axis as read, tolerance-write, and precision-write behavior columns. Kernel `ModelUnit` owns unit admission and equality; the native `LengthUnit` survives only beside the host call that reads or writes it. The closed `RegimeChange` cases expose one overloaded `Of` admission family and one mutation dispatch.
+- Owner: `DocumentSpace` carries the model/page host-member axis as read, tolerance-write, and precision-write behavior columns. Kernel `ModelUnit` owns unit admission and equality; the native `LengthUnit` survives only beside the host call that reads or writes it. Closed `RegimeChange` cases expose one overloaded `Of` admission family and one mutation dispatch.
 - Entry: `session.Regime(space)` reads a validated `UnitRegime`. `session.Adjust(space, change)` captures the before regime, seals one undo record around the change, proves the exact requested postcondition, and returns `RegimeReceipt` with the sealed serial.
 - Law: `UnitScaling` replaces the host `bool scale` knob with `PreserveCoordinates` and `PreservePhysicalSize`. Known, custom, and native `LengthUnit` inputs all produce the private-constructed `RegimeChange.Units` case, so `AdjustLengthUnits` is the sole unit-system mutation path.
-- Law: tolerance values compose the kernel `AbsoluteTolerance`, `RelativeTolerance`, and `AngleTolerance` owners. The page carries no independent numeric admission or radians/degrees duplication.
+- Law: tolerance values compose the kernel `AbsoluteTolerance`, `RelativeTolerance`, and `AngleTolerance` owners. This page carries no independent numeric admission or radians/degrees duplication.
 - Law: unit postconditions compare canonical `ModelUnit` evidence, including custom name and meters-per-unit scale. `UnitRegime` retains the native `LengthUnit` only for compensation.
 - Boundary: the row delegates contain the property-set statement seam required by the host API. A failed write restores every scalar without assuming a failed unit call changed geometry; a proven unit write followed by a failed postcondition reverses the unit scaling and restores every scalar. Compensation faults accumulate and join the original fault, and the shared `UndoBracket` seals or rolls back the enclosing record.
 

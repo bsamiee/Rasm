@@ -75,7 +75,7 @@ public static class Pointers {
     public static Fin<Unit> Tooltip(string text, Op? key = null) {
         Op op = key.OrDefault();
         return from valid in op.AcceptText(value: text)
-               from _ in op.Catch(() => Fin.Succ(value: Op.Side(() => Rhino.UI.MouseCursor.SetToolTip(valid))))
+               from _ in op.Catch(() => Rhino.UI.MouseCursor.SetToolTip(valid))
                select unit;
     }
 

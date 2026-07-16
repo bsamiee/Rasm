@@ -1,6 +1,6 @@
 # [RASM_RHINO_HOSTUI_SHELL]
 
-The host-runtime operation surface of `Rasm.Rhino.HostUi` — the one owner of Rhino's application-level UI machinery: command-thread affinity and marshalling over `RhinoApp`, the command-prompt and status-bar write spine as one combinable delta value, prompt observation over the Rhino 9 `CommandPromptChanged` edge, viewport toasts as receipted notes, the document-scoped status-bar progress meter with created/foreign ownership evidence and refusal typed at admission, and Rhino window ownership — `RhinoEtoApp` document windows, `EtoExtensions` native styling, position persistence, semi-modal presentation, and typed window discovery. The census scattered these across per-effect static helpers (`RhinoUi.Protect`/`DispatchThread`/`Invoke`/`Enqueue`/`Deliver`, a status record, a toast record, a progress class, ad-hoc window calls); this page collapses them into five owners with polymorphic entries: one marshal boundary, one status monoid applied in one fold, one leased meter, one window-adoption fold, one theme edge. Every fallible body crosses `Op.Catch`; every failure is a `UiFault` case; document scope enters as a `DocumentSession` capability demand, never an ambient document read. The Eto-side dispatch (`UiThread` over `Application.Instance`) is the Eto sub-domain's; this owner is the Rhino command-thread shape, and the two never substitute for each other — Eto realization marshals through `UiThread`, host document/status/window work marshals through `HostThread`.
+Host-runtime operation surface of `Rasm.Rhino.HostUi` — the one owner of Rhino's application-level UI machinery: command-thread affinity and marshalling over `RhinoApp`, the command-prompt and status-bar write spine as one combinable delta value, prompt observation over the Rhino 9 `CommandPromptChanged` edge, viewport toasts as receipted notes, the document-scoped status-bar progress meter with created/foreign ownership evidence and refusal typed at admission, and Rhino window ownership — `RhinoEtoApp` document windows, `EtoExtensions` native styling, position persistence, semi-modal presentation, and typed window discovery. Census code scattered these across per-effect static helpers (`RhinoUi.Protect`/`DispatchThread`/`Invoke`/`Enqueue`/`Deliver`, a status record, a toast record, a progress class, ad-hoc window calls); this page collapses them into five owners with polymorphic entries: one marshal boundary, one status monoid applied in one fold, one leased meter, one window-adoption fold, one theme edge. Every fallible body crosses `Op.Catch`; every failure is a `UiFault` case; document scope enters as a `DocumentSession` capability demand, never an ambient document read. Eto-side dispatch (`UiThread` over `Application.Instance`) is the Eto sub-domain's; this owner is the Rhino command-thread shape, and the two never substitute for each other — Eto realization marshals through `UiThread`, host document/status/window work marshals through `HostThread`.
 
 ## [01]-[INDEX]
 
@@ -11,7 +11,7 @@ The host-runtime operation surface of `Rasm.Rhino.HostUi` — the one owner of R
 
 ## [02]-[HOST_THREAD]
 
-- Owner: `HostThread` — the ONE boundary between any producer thread and Rhino's command thread. Three shapes discriminate on the caller's need: `On<T>` runs inline when already affine and otherwise blocks through `RhinoApp.InvokeAndWait` capturing the railed result, `Post` fires through `RhinoApp.InvokeOnUiThread` and forgets, `Guard` asserts affinity as a typed `UiFault.OffThread` for entries whose contract requires an existing frame. Every marshalled body crosses `Op.Catch` on the far side, so a throwing host body is a typed fault on the caller's rail, never an unhandled marshal exception. The census `Protect`/`DispatchThread`/`Invoke`/`Enqueue`/`Deliver` quintet — five spellings of this one boundary — is dead.
+- Owner: `HostThread` — the ONE boundary between any producer thread and Rhino's command thread. Three shapes discriminate on the caller's need: `On<T>` runs inline when already affine and otherwise blocks through `RhinoApp.InvokeAndWait` capturing the railed result, `Post` fires through `RhinoApp.InvokeOnUiThread` and forgets, `Guard` asserts affinity as a typed `UiFault.OffThread` for entries whose contract requires an existing frame. Every marshalled body crosses `Op.Catch` on the far side, so a throwing host body is a typed fault on the caller's rail, never an unhandled marshal exception. Census `Protect`/`DispatchThread`/`Invoke`/`Enqueue`/`Deliver` quintet — five spellings of this one boundary — is dead.
 - Law: `On` from the command thread executes inline with zero marshal cost, so callers never pre-test `IsOnMainThread`; a caller-side affinity branch beside `On` re-derives what the entry already owns.
 - Law: an `InvokeAndWait` that returns without executing its delegate surfaces as `UiFault.Unavailable` naming the member — a null-result marshal is host evidence, never a silent default.
 - Law: this owner marshals to the Rhino command thread only; Eto control-tree work rides the Eto sub-domain's `UiThread`, and a body needing both surfaces enters through `HostThread` and composes `UiThread` inside, because Rhino's UI thread hosts the Eto loop and the outer marshal makes the inner one an inline no-op.
@@ -49,7 +49,7 @@ public static class HostThread {
 
     public static Unit Post(Action body, Op? key = null) {
         Op op = key.OrDefault();
-        return Op.Side(() => RhinoApp.InvokeOnUiThread(method: () => ignore(op.Catch(() => Fin.Succ(value: Op.Side(body)))), args: []));
+        return Op.Side(() => RhinoApp.InvokeOnUiThread(method: () => ignore(op.Catch(body)), args: []));
     }
 
     public static Fin<Unit> Guard(Op? key = null) =>
@@ -82,12 +82,12 @@ public static class HostThread {
 
 ## [03]-[STATUS_SPINE]
 
-- Owner: `StatusDelta` — the one combinable screen-state value over every app-level status write: command prompt with optional default, transient command message, message/distance/number/point panes, pane clearing, and a `Seq<ToastNote>` of viewport notices. `Apply` is the single write site — one marshalled fold lands the whole delta and returns a `StatusReceipt` carrying the toast handles, so a batch of status intent is one host crossing. `+` merges deltas newest-wins per slot through the `Option` choice algebra, `Collapse` folds any arity, and `Scripted` projects a command-history-safe message row. The census split — a status record applying itself, a toast record applying itself, prompt writes scattered — is one owner now.
-- Law: absence composes — an unset slot in a later delta preserves the earlier delta's value under `+`, so incremental status producers merge without coordination and the applied delta is always the fold of every contributor. The aggregation is the LanguageExt `Option` choice fold; no local option algebra exists here. A `PromptDefault` without a `Prompt` is inert in the applied fold, because the host writes the default only through the two-argument prompt call.
+- Owner: `StatusDelta` — the one combinable screen-state value over every app-level status write: command prompt with optional default, transient command message, message/distance/number/point panes, pane clearing, and a `Seq<ToastNote>` of viewport notices. `Apply` is the single write site — one marshalled fold lands the whole delta and returns a `StatusReceipt` carrying the toast handles, so a batch of status intent is one host crossing. `+` merges deltas newest-wins per slot through the `Option` choice algebra, `Collapse` folds any arity, and `Scripted` projects a command-history-safe message row. Census-era split — a status record applying itself, a toast record applying itself, prompt writes scattered — is one owner now.
+- Law: absence composes — an unset slot in a later delta preserves the earlier delta's value under `+`, so incremental status producers merge without coordination and the applied delta is always the fold of every contributor. Aggregation is the LanguageExt `Option` choice fold; no local option algebra exists here. A `PromptDefault` without a `Prompt` is inert in the applied fold, because the host writes the default only through the two-argument prompt call.
 - Law: toasts are best-effort rows — each note applies independently and a refused note never cross-cancels its siblings; the receipt carries every minted `ToastHandle` because `RhinoView.ShowToast` returns the toast id and the handle is the only future dismiss target the host admits.
 - Law: progress-meter state never rides this delta — the meter is `[04]`'s leased resource, and a `HideProgress` flag beside a lease is the split-brain the census carried and this page deletes.
-- Owner: `PromptWatch` — the typed observation of the Rhino 9 `RhinoApp.CommandPromptChanged` edge: `Observe` subscribes once, stamps a `PromptFact` per transition — the event's `Prompt`, its `PromptDefault` as typed absence, the live `CommandLineOption` roster detached into `(Index, English, Local)` rows because the host option object is a native-pointer handle that never outlives the callback, and a monotonic ordinal — and returns a `ShellSubscription` whose `Halt` detaches, so a command-line-reactive surface (palette, HUD, prompt mirror) composes a fact stream, never a raw host event.
-- Packages: LanguageExt.Core (`Option`, `Seq`), Rasm.Domain (`Op`), Eto sub-domain (`UiFault`), RhinoCommon (`RhinoApp.SetCommandPrompt` both arities, `RhinoApp.SetCommandPromptMessage`, `RhinoApp.CommandPromptChanged`, `CommandPromptChangedEventArgs.Prompt`/`PromptDefault`/`Options`, `CommandLineOption.Index`/`EnglishName`/`LocalName`, `StatusBar.ClearMessagePane`/`SetMessagePane`/`SetDistancePane`/`SetNumberPane`/`SetPointPane`, `RhinoView.ShowToast` all three arities).
+- Owner: `PromptWatch` — the typed observation of the Rhino 9 `RhinoApp.CommandPromptChanged` edge: `Observe` subscribes once, stamps a `PromptFact` per transition — the event's `Prompt`, its `PromptDefault` as typed absence, the live `CommandLineOption` roster detached into `(Index, English, Local)` rows because the host option object is a native-pointer handle that never outlives the callback, and a monotonic ordinal — and returns the Document sub-domain's `Subscription` capsule (attach rollback, idempotent detach), so a command-line-reactive surface (palette, HUD, prompt mirror) composes a fact stream, never a raw host event or a hand-rolled detach record.
+- Packages: LanguageExt.Core (`Option`, `Seq`), Rasm.Domain (`Op`), Document sub-domain (`Subscription`), Eto sub-domain (`UiFault`), RhinoCommon (`RhinoApp.SetCommandPrompt` both arities, `RhinoApp.SetCommandPromptMessage`, `RhinoApp.CommandPromptChanged`, `CommandPromptChangedEventArgs.Prompt`/`PromptDefault`/`Options`, `CommandLineOption.Index`/`EnglishName`/`LocalName`, `StatusBar.ClearMessagePane`/`SetMessagePane`/`SetDistancePane`/`SetNumberPane`/`SetPointPane`, `RhinoView.ShowToast` all three arities).
 - Growth (DOMAIN): a new status axis the concept demands (a pane the host adds, a toast dismiss verb once the host ships one) is one `StatusDelta` slot consumed inside `Apply` or one `ToastHandle` member — every producer gains it through the merge with zero call-site edits.
 
 ```csharp
@@ -97,8 +97,6 @@ public readonly record struct ToastNote(RhinoView View, string Message, Option<i
 public readonly record struct ToastHandle(uint Id);
 
 public readonly record struct PromptFact(string Prompt, Option<string> Default, Seq<(int Index, string English, string Local)> Options, long Ordinal);
-
-public sealed record ShellSubscription(Func<Unit> Halt);
 
 public readonly record struct StatusReceipt(Seq<ToastHandle> Toasts);
 
@@ -161,21 +159,19 @@ public readonly record struct StatusDelta(
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 public static class PromptWatch {
-    public static Fin<ShellSubscription> Observe(Action<PromptFact> onPrompt, Op? key = null) {
+    public static Fin<Subscription> Observe(Action<PromptFact> onPrompt, Op? key = null) {
         Op op = key.OrDefault();
-        return op.Catch(() => {
-            long ordinal = 0;
-            EventHandler<CommandPromptChangedEventArgs> handler = (_, args) => ignore(op.Catch(() => {
-                onPrompt(new PromptFact(
-                    Prompt: args.Prompt,
-                    Default: Optional(args.PromptDefault).Filter(static value => value.Length > 0),
-                    Options: toSeq(args.Options).Map(static option => (option.Index, English: option.EnglishName, Local: option.LocalName)).Strict(),
-                    Ordinal: Interlocked.Increment(location: ref ordinal)));
-                return Fin.Succ(value: unit);
-            }));
-            RhinoApp.CommandPromptChanged += handler;
-            return Fin.Succ(value: new ShellSubscription(Halt: () => Op.Side(() => RhinoApp.CommandPromptChanged -= handler)));
-        });
+        long ordinal = 0;
+        EventHandler<CommandPromptChangedEventArgs> handler = (_, args) => ignore(op.Catch(() =>
+            onPrompt(new PromptFact(
+                Prompt: args.Prompt,
+                Default: Optional(args.PromptDefault).Filter(static value => value.Length > 0),
+                Options: toSeq(args.Options).Map(static option => (option.Index, English: option.EnglishName, Local: option.LocalName)).Strict(),
+                Ordinal: Interlocked.Increment(location: ref ordinal)))));
+        return Subscription.Attach(
+            subscribe: h => RhinoApp.CommandPromptChanged += h,
+            unsubscribe: h => RhinoApp.CommandPromptChanged -= h,
+            handler: handler);
     }
 }
 ```
@@ -328,10 +324,10 @@ public static class Progress {
 ## [05]-[WINDOW_OWNERSHIP]
 
 - Owner: `ShellWindows` — the one seam between an Eto window and Rhino's document-window regime — and `WindowDress`, the adoption policy value: native styling (`UseRhinoStyle`), placement persistence keyed by window type (`RestorePosition`/`SavePosition`), and the localize-and-restore fold (`LocalizeAndRestore`). `Adopt` lands a modeless `Form` against a live document in one fold — style, restore or localize, wire save-on-close, `Show` — under `SessionNeed.Redraw`; `SemiModal` presents a typed Eto `Dialog<T>` document-anchored through `ShowSemiModal` under `SessionNeed.Dialog`, defaulting its parent to the document main window; `MainWindow` resolves `RhinoEtoApp.MainWindowForDocument` under a session demand and `AppWindow` resolves the application `RhinoEtoApp.MainWindow` with no document in play; `Discover<TWindow>` projects `WindowsFromDocument<TWindow>` as a typed census under `SessionNeed.Read`, answering empty on a window-less document, and `Owner` inverts the seam — `EtoExtensions.GetRhinoDoc` detached onto a `DocKey` — naming the document a shown form belongs to. Every document-scoped entry crosses `HostThread.OnSession` — a raw `EtoExtensions` call or a bare `DocKey` handle re-entry outside this owner is the scattered census form this fold deletes.
-- Law: placement persistence keys on the window's own type — one type, one persisted slot — so two instances of one window shape share a slot by host contract; a per-instance slot is a window-identity concern the host does not carry, and the dress declares which persistence verbs run rather than call sites choosing member spellings. The `Localize` row rides the host's fused `LocalizeAndRestore`, so localization implies placement restore by host contract.
+- Law: placement persistence keys on the window's own type — one type, one persisted slot — so two instances of one window shape share a slot by host contract; a per-instance slot is a window-identity concern the host does not carry, and the dress declares which persistence verbs run rather than call sites choosing member spellings. Its `Localize` row rides the host's fused `LocalizeAndRestore`, so localization implies placement restore by host contract.
 - Law: `SemiModal` returns the dialog's typed result verbatim — the affirm/dismiss rail belongs to the Eto chrome `Prompt`, and a consumer wanting railed dismissal composes a `Prompt`-built dialog through this presentation; a second dismissal vocabulary here forks the modal rail.
-- Owner: `ShellTheme` — the Rhino light/dark edge: `Current` projects `HostUtils.RunningInDarkMode` onto the Eto sub-domain's `ThemeVariant`, `Sync` pushes the current variant through `ThemeSeam.OnHostThemeChanged` so one call swaps the theme catalog and rebroadcasts every tracked control, and `Observe` subscribes the host `ThemeSettings.ThemeChanged` transition edge — a public static handler field, the per-control notifier behind `EtoExtensions` being host-private — pulsing `Sync` per transition and returning a `ShellSubscription`. The shell owns this wiring; the Eto platform seam consumes it.
-- Packages: LanguageExt.Core, Rasm.Domain (`Op`), Document sub-domain (`DocumentSession`, `SessionNeed`, `DocKey`), Eto sub-domain (`UiFault`, `ThemeVariant`, `ThemeSeam`), Rhino.UI (`RhinoEtoApp.MainWindow`/`MainWindowForDocument`, `EtoExtensions.UseRhinoStyle`/`Show`/`ShowSemiModal` both arities/`SavePosition`/`RestorePosition`/`LocalizeAndRestore`/`WindowsFromDocument<T>`/`GetRhinoDoc`, `ThemeSettings.ThemeChanged`), RhinoCommon (`HostUtils.RunningInDarkMode`).
+- Owner: `ShellTheme` — the Rhino light/dark edge: `Current` projects `HostUtils.RunningInDarkMode` onto the Eto sub-domain's `ThemeVariant`, `Sync` pushes the current variant through `ThemeSeam.OnHostThemeChanged` so one call swaps the theme catalog and rebroadcasts every tracked control, and `Observe` subscribes the host `ThemeSettings.ThemeChanged` transition edge — a public static handler field, the per-control notifier behind `EtoExtensions` being host-private — pulsing `Sync` per transition and returning the Document `Subscription` capsule. Shell owns this wiring; the Eto platform seam consumes it.
+- Packages: LanguageExt.Core, Rasm.Domain (`Op`), Document sub-domain (`DocumentSession`, `SessionNeed`, `DocKey`, `Subscription`), Eto sub-domain (`UiFault`, `ThemeVariant`, `ThemeSeam`), Rhino.UI (`RhinoEtoApp.MainWindow`/`MainWindowForDocument`, `EtoExtensions.UseRhinoStyle`/`Show`/`ShowSemiModal` both arities/`SavePosition`/`RestorePosition`/`LocalizeAndRestore`/`WindowsFromDocument<T>`/`GetRhinoDoc`, `ThemeSettings.ThemeChanged`), RhinoCommon (`HostUtils.RunningInDarkMode`).
 - Growth (CONSUMER): a window-lifecycle evidence axis future plugins require (adopted-at ordinal, restored-versus-defaulted placement) is one field on the `Adopt` return; a new host presentation member is one verb on this owner.
 
 ```csharp
@@ -413,13 +409,13 @@ public static class ShellTheme {
 
     public static Unit Sync() => ignore(ThemeSeam.OnHostThemeChanged(next: Current));
 
-    public static Fin<ShellSubscription> Observe(Op? key = null) {
+    public static Fin<Subscription> Observe(Op? key = null) {
         Op op = key.OrDefault();
-        return op.Catch(() => {
-            EventHandler handler = (_, _) => ignore(op.Catch(() => Fin.Succ(value: Sync())));
-            ThemeSettings.ThemeChanged += handler;
-            return Fin.Succ(value: new ShellSubscription(Halt: () => Op.Side(() => ThemeSettings.ThemeChanged -= handler)));
-        });
+        EventHandler handler = (_, _) => ignore(op.Catch(() => ignore(Sync())));
+        return Subscription.Attach(
+            subscribe: h => ThemeSettings.ThemeChanged += h,
+            unsubscribe: h => ThemeSettings.ThemeChanged -= h,
+            handler: handler);
     }
 }
 ```

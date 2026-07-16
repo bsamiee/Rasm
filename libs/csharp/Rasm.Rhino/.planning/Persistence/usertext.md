@@ -78,8 +78,8 @@ public abstract partial record TextEdit {
         target.Switch(
             flat: _ => Switch(
                 (Table: table, Op: op),
-                setCase: static (context, edit) => context.Op.Catch(() => Fin.Succ(value: Op.Side(() => context.Table.SetString(edit.Name, edit.Value)))),
-                deleteCase: static (context, edit) => context.Op.Catch(() => Fin.Succ(value: Op.Side(() => context.Table.Delete(edit.Name)))),
+                setCase: static (context, edit) => context.Op.Catch(() => context.Table.SetString(edit.Name, edit.Value)),
+                deleteCase: static (context, edit) => context.Op.Catch(() => context.Table.Delete(edit.Name)),
                 clearCase: static (context, _) => context.Op.Catch(() => {
                     Seq<string> keys = toSeq(Enumerable.Range(0, context.Table.Count))
                         .Map(index => context.Table.GetKey(i: index))
@@ -88,9 +88,9 @@ public abstract partial record TextEdit {
                 })),
             section: section => Switch(
                 (Table: table, Op: op, Section: section.Name),
-                setCase: static (context, edit) => context.Op.Catch(() => Fin.Succ(value: Op.Side(() => context.Table.SetString(context.Section, edit.Name, edit.Value)))),
-                deleteCase: static (context, edit) => context.Op.Catch(() => Fin.Succ(value: Op.Side(() => context.Table.Delete(context.Section, edit.Name)))),
-                clearCase: static (context, _) => context.Op.Catch(() => Fin.Succ(value: Op.Side(() => context.Table.Delete(context.Section, entry: null))))));
+                setCase: static (context, edit) => context.Op.Catch(() => context.Table.SetString(context.Section, edit.Name, edit.Value)),
+                deleteCase: static (context, edit) => context.Op.Catch(() => context.Table.Delete(context.Section, edit.Name)),
+                clearCase: static (context, _) => context.Op.Catch(() => context.Table.Delete(context.Section, entry: null))));
 
     internal Fin<Unit> Apply(ObjectAttributes target, Op op) => ApplyObject(
         target,

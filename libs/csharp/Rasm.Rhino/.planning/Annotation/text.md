@@ -1,6 +1,6 @@
 # [RASM_RHINO_ANNOTATION_TEXT]
 
-Text-annotation rail (`Rasm.Rhino.Annotation`). One `TextSeed` union carries plain and RTF content into `TextEntity` and `Leader` construction; `RunEdit` owns live rich-text mutation, while `RunStyle` carries the smaller formatting delta `FormatRtfString` actually accepts. Text-to-geometry outlining is one `OutlineSpec` over four egress forms crossed with grouping and small-caps metrics, covering sixteen modes through eight maximal overloads and named arguments because grouped solid/shell members transpose `smallCapsScale` before `height` and the base member spells `CreatePolySurfaces` where its grouped sibling spells `CreatePolysurfacesGrouped`. `FieldExpr` carries the catalogued `TextFields` evaluator roster as typed cases; `FieldProgram` preserves positional optional arguments, quotes tokens, and resolves exclusively through document-explicit `TextFields.TryFormat`. Field source rides `RichText` because the host marks `TextFormula` and `Text` obsolete as aliases of `RichText`/`PlainText`. Per-annotation restyling composes `StylePatch.Overlay`; leader points, leader facts, and text/leader explosion ride the same rail. Block-attribute extraction remains outside this owner because the current Blocks seam publishes no corresponding boundary.
+Text-annotation rail (`Rasm.Rhino.Annotation`). One `TextSeed` union carries plain and RTF content into `TextEntity` and `Leader` construction; `RunEdit` owns live rich-text mutation, while `RunStyle` carries the smaller formatting delta `FormatRtfString` actually accepts. Text-to-geometry outlining is one `OutlineSpec` over four egress forms crossed with grouping and small-caps metrics, covering sixteen modes through eight maximal overloads and named arguments because grouped solid/shell members transpose `smallCapsScale` before `height` and the base member spells `CreatePolySurfaces` where its grouped sibling spells `CreatePolysurfacesGrouped`. `FieldExpr` carries the catalogued `TextFields` evaluator roster as typed cases; `FieldProgram` preserves positional optional arguments, quotes tokens, and resolves exclusively through document-explicit `TextFields.TryFormat`. Field source rides `RichText` because the host marks `TextFormula` and `Text` obsolete as aliases of `RichText`/`PlainText`. Per-annotation restyling composes `StylePatch.Overlay`; leader points, leader facts, and text/leader explosion ride the same rail. Block-attribute extraction rides the Blocks seam's field family — `FieldSource` extraction sources and detached `BlockField` values behind `BlockAsk` — outside this owner.
 
 ## [01]-[INDEX]
 
@@ -163,7 +163,7 @@ public static class TextRtf {
 - Law: composition is typed, evaluation is host — a program renders to the host token grammar (`%<Name("arg",...)>%`) through `Compose`, preserves empty positional arguments when a later optional is present, escapes quoted content, and resolves only through `TextFields.TryFormat(text, document, out result)` inside the session grant.
 - Law: the case set is the verified host roster — the geometry evaluator is `Volume`, no `VolumeAll` member exists, `BlockName` supersedes the host's soft-deprecated `BlockInstanceName`, and `TryParse(text, document, out tokens)` is the one token splitter; a formula string concatenated by hand at a call site is the deleted form.
 - Law: ids travel typed — object, layer, detail, and block-instance references enter as `Guid` and render as strings only inside `Token`, because the host grammar is stringly and this union is where that boundary stops.
-- Boundary: `BlockAttributeText` and `GetInstanceAttributeFields` stay outside this owner; the current Blocks seam publishes no attribute-text boundary. This union carries only block field evaluators (`BlockName`, `BlockDescription`, `BlockInstanceCount`, `BlockInsertionCoordinate`).
+- Boundary: `BlockAttributeText` and `GetInstanceAttributeFields` ride the Blocks seam's field family — `FieldSource` sources projected into detached `BlockField` values behind `BlockAsk` — never this owner. This union carries only block field evaluators (`BlockName`, `BlockDescription`, `BlockInstanceCount`, `BlockInsertionCoordinate`).
 - Growth: a new host evaluator is one case with its `Token` arm; `Compose`, `Evaluate`, and every consumer read it with zero new surface.
 
 ```csharp signature
@@ -694,12 +694,12 @@ public static class Texts {
 
 ## [06]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]        | [OWNER]               | [FORM]                                 | [ENTRY]                           |
-| :-----: | :--------------- | :-------------------- | :------------------------------------- | :-------------------------------- |
-|  [01]   | content seed     | `TextSeed`             | plain/RTF host-construction choice      | `TextSpec.Mint` / `LeaderSpec.Mint` |
-|  [02]   | run mutation     | `RunEdit` / `RunStyle` | live edits / detached formatting delta  | `Apply` / `TextRtf.Restyled`       |
-|  [03]   | field formula    | `FieldExpr`            | evaluator cases, one `Token` fold       | `FieldProgram.Compose`             |
-|  [04]   | field resolution | `FieldProgram`         | session-bound `TryFormat`               | `TextAsk.Evaluate`                 |
-|  [05]   | outlining        | `OutlineSpec`          | form × grouping × metrics               | `TextAsk.Outline`                  |
-|  [06]   | mutation rail    | `TextOp`               | one union, duplicate-then-`Replace`      | `Texts.Commit`                     |
-|  [07]   | read rail        | `TextAsk`              | state, leader facts, runs, fields, outlines, pieces, scale | `Texts.Ask`      |
+| [INDEX] | [CONCERN]        | [OWNER]                | [FORM]                                          | [ENTRY]                           |
+| :-----: | :--------------- | :--------------------- | :---------------------------------------------- | :--------------------------------- |
+|  [01]   | content seed     | `TextSeed`             | plain/RTF host-construction choice              | `TextSpec.Mint`/`LeaderSpec.Mint` |
+|  [02]   | run mutation     | `RunEdit` / `RunStyle` | live edits / detached formatting delta          | `Apply` / `TextRtf.Restyled`      |
+|  [03]   | field formula    | `FieldExpr`            | evaluator cases, one `Token` fold               | `FieldProgram.Compose`            |
+|  [04]   | field resolution | `FieldProgram`         | session-bound `TryFormat`                       | `TextAsk.Evaluate`                |
+|  [05]   | outlining        | `OutlineSpec`          | form × grouping × metrics                       | `TextAsk.Outline`                 |
+|  [06]   | mutation rail    | `TextOp`               | one union, duplicate-then-`Replace`             | `Texts.Commit`                    |
+|  [07]   | read rail        | `TextAsk`              | state, leaders, runs, fields, outlines, scale   | `Texts.Ask`                       |

@@ -441,11 +441,11 @@ public abstract partial record SettingRequest {
             clamp: static (context, request) => request.Bounds.Apply(context.Node, request.Name, request.Fallback, context.Op)
                 .Bind(clamped => SettingValue.Create(value: clamped, key: context.Op)
                 .Map(held => Some<SettingAnswer>(new SettingAnswer.Held(Value: Some(held))))),
-            delete: static (context, request) => context.Op.Catch(() => Fin.Succ(value: Op.Side(() => context.Node.DeleteItem(request.Name)))).Map(static _ => Option<SettingAnswer>.None),
-            dropChild: static (context, request) => context.Op.Catch(() => Fin.Succ(value: Op.Side(() => context.Node.DeleteChild(request.Name)))).Map(static _ => Option<SettingAnswer>.None),
-            hide: static (context, request) => context.Op.Catch(() => Fin.Succ(value: Op.Side(() => context.Node.HideSettingFromUserInterface(request.Name)))).Map(static _ => Option<SettingAnswer>.None),
-            hideNode: static (context, request) => context.Op.Catch(() => Fin.Succ(value: Op.Side(() => context.Node.HiddenFromUserInterface = request.Hidden))).Map(static _ => Option<SettingAnswer>.None),
-            clearChanged: static (context, _) => context.Op.Catch(() => Fin.Succ(value: Op.Side(context.Node.ClearChangedFlag))).Map(static _ => Option<SettingAnswer>.None),
+            delete: static (context, request) => context.Op.Catch(() => context.Node.DeleteItem(request.Name)).Map(static _ => Option<SettingAnswer>.None),
+            dropChild: static (context, request) => context.Op.Catch(() => context.Node.DeleteChild(request.Name)).Map(static _ => Option<SettingAnswer>.None),
+            hide: static (context, request) => context.Op.Catch(() => context.Node.HideSettingFromUserInterface(request.Name)).Map(static _ => Option<SettingAnswer>.None),
+            hideNode: static (context, request) => context.Op.Catch(() => context.Node.HiddenFromUserInterface = request.Hidden).Map(static _ => Option<SettingAnswer>.None),
+            clearChanged: static (context, _) => context.Op.Catch(context.Node.ClearChangedFlag).Map(static _ => Option<SettingAnswer>.None),
             describe: static (context, request) => context.Op.Catch(() => Fin.Succ<Option<SettingAnswer>>(value: Some<SettingAnswer>(new SettingAnswer.Described(
                 Trait: new SettingTrait(
                     StoredType: context.Node.TryGetSettingType(request.Name, out Type type) ? Some(type) : None,

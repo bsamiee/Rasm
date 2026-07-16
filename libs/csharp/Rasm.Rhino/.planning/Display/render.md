@@ -6,7 +6,7 @@ Renderer lifecycle owner (`Rasm.Rhino.Display`). `Rhino.Render` splits into two 
 
 - [02]-[BATCH_SESSION]: `RenderScope`, `ChannelSet`, `PixelBlock`, and the `RenderJob` capsule over `RenderPipeline` with pause/resume control and the window seam.
 - [03]-[REALTIME]: `RealtimeProgram` hooks, `RealtimePassPolicy`, and the `RealtimeEngine` adapter over `RealtimeDisplayMode`.
-- [04]-[POST_AND_TEXTURE]: `PostEffectGate` execution control and the `TextureBake` evaluation rows.
+- [04]-[POST_AND_TEXTURE]: `PostEffectOp` configuration rows over `RenderSettings.PostEffects`, `PostEffectGate` execution control, and the `TextureBake` evaluation rows.
 
 ## [02]-[BATCH_SESSION]
 
@@ -157,10 +157,10 @@ public sealed class RenderJob : IDisposable, IDetachedDocumentResult {
     }
 
     public Fin<Unit> Pause(Op? key = null) =>
-        key.OrDefault().Catch(() => Fin.Succ(value: Op.Side(pipeline.PauseRendering)));
+        key.OrDefault().Catch(pipeline.PauseRendering);
 
     public Fin<Unit> Resume(Op? key = null) =>
-        key.OrDefault().Catch(() => Fin.Succ(value: Op.Side(pipeline.ResumeRendering)));
+        key.OrDefault().Catch(pipeline.ResumeRendering);
 
     public Fin<TOut> WithWindow<TOut>(WindowScope scope, Func<RenderWindow, Fin<TOut>> borrow, Op? key = null) {
         Op op = key.OrDefault();
@@ -175,13 +175,6 @@ public sealed class RenderJob : IDisposable, IDetachedDocumentResult {
         _ = Interlocked.Exchange(location1: ref released, value: 1) is 0 ? fun(pipeline.Dispose)() : unit;
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
-internal static class Raster {
-    extension(Offset2i origin) {
-        internal System.Drawing.Rectangle Window(Size2i extent) =>
-            new(origin.X, origin.Y, extent.Width, extent.Height);
-    }
-}
 ```
 
 ## [03]-[REALTIME]
@@ -329,12 +322,92 @@ public sealed class RealtimeEngine : RealtimeDisplayMode {
 
 ## [04]-[POST_AND_TEXTURE]
 
-- Owner: `PostEffectGate` — post-effect execution control: a decision delegate wrapped in the host `PostEffects.PostEffectExecutionControl` and registered on a window through `RegisterPostEffectExecutionControl`, so whether a post-effect runs for a given render is a declared policy value, never an engine-side conditional. `TextureBake` `[Union]` — texture evaluation: `LiveCase(RenderTexture, RenderTexture.TextureEvaluatorFlags)` yielding the per-point evaluator through `CreateEvaluator`, and `BakedCase(RenderTexture, RenderTexture.TextureGeneration, int, DocObjects.RhinoObject)` filling a `SimulatedTexture` through `SimulateTexture` where live evaluation is refused — the generation mode gates the bake.
+- Owner: `PostEffectOp` `[Union]` — settings-side post-effect configuration over `RenderSettings.PostEffects : PostEffectCollection`: `CensusCase` reads, `ToggleCase` writes the `On`/`Shown` pair, `ReorderCase` rides `MovePostEffectBefore(Guid, Guid) : bool`, `SelectCase` writes `SetSelectedPostEffect(PostEffectType, Guid)` per stage, and `TuneCase` writes a named parameter through `SetParameter(string, object) : bool` — with `EffectStage` re-closing the host `PostEffectType` ordinals (`Early`/`ToneMapping`/`Late`) and `Effects.Configure` running one op batch over the borrowed doc-bound collection inside one demand window, answering the detached `EffectRoster` (per-effect `PostEffectState` rows plus the per-stage `GetSelectedPostEffect` selection map). `PostEffectGate` — post-effect execution control: a decision delegate wrapped in the host `PostEffects.PostEffectExecutionControl` and registered on a window through `RegisterPostEffectExecutionControl`, so whether a post-effect runs for a given render is a declared policy value, never an engine-side conditional. `TextureBake` `[Union]` — texture evaluation: `LiveCase(RenderTexture, RenderTexture.TextureEvaluatorFlags)` yielding the per-point evaluator through `CreateEvaluator`, and `BakedCase(RenderTexture, RenderTexture.TextureGeneration, int, DocObjects.RhinoObject)` filling a `SimulatedTexture` through `SimulateTexture` where live evaluation is refused — the generation mode gates the bake.
+- Law: configuration and execution never merge — `PostEffectOp` writes the settings-side rows the pipeline reads at render time, `PostEffectGate` decides per-render execution on a window; the render-settings page's edit rail points here and carries no eighth sub-owner record.
+- Law: a mutating op batch demands `SessionNeed.Mutate`, a census-only batch `SessionNeed.Read` — the batch's own case shapes derive the need set, never a caller flag; `PostEffectCollection` and each `PostEffectData` are disposable host natives scoped to the demand window, and only `EffectRoster` crosses out.
 - Law: live-versus-baked is the union's discriminant, selected by the texture's own capability — a consumer asks for live first and falls to the baked case on refusal, and the fallback is a case transition, never a silent quality change.
 - Boundary: evaluators and simulated textures are disposable host natives scoped to the borrow; the sampled result crosses as values.
 
 ```csharp
 // --- [TYPES] --------------------------------------------------------------------------------
+[SmartEnum<int>]
+public sealed partial class EffectStage {
+    public static readonly EffectStage Early = new(key: 0, native: PostEffects.PostEffectType.Early);
+    public static readonly EffectStage ToneMapping = new(key: 1, native: PostEffects.PostEffectType.ToneMapping);
+    public static readonly EffectStage Late = new(key: 2, native: PostEffects.PostEffectType.Late);
+
+    internal PostEffects.PostEffectType Native { get; }
+
+    internal static Fin<EffectStage> Stage(PostEffects.PostEffectType native, Op key) =>
+        toSeq(Items).Find(row => row.Native == native).ToFin(Fail: key.InvalidResult(detail: native.ToString()));
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record PostEffectOp {
+    private PostEffectOp() { }
+    public sealed record CensusCase : PostEffectOp;
+    public sealed record ToggleCase(Guid Effect, bool On, bool Shown) : PostEffectOp;
+    public sealed record ReorderCase(Guid Move, Guid Before) : PostEffectOp;
+    public sealed record SelectCase(EffectStage Stage, Guid Effect) : PostEffectOp;
+    public sealed record TuneCase(Guid Effect, string Parameter, object Value) : PostEffectOp;
+
+    internal Fin<Unit> Apply(PostEffects.PostEffectCollection collection, Op key) => Switch(
+        state: (Collection: collection, Op: key),
+        censusCase: static (_, _) => Fin.Succ(value: unit),
+        toggleCase: static (ctx, op) => Data(collection: ctx.Collection, effect: op.Effect, key: ctx.Op).Bind(data => ctx.Op.Catch(() => {
+            using PostEffects.PostEffectData owned = data;
+            owned.On = op.On;
+            owned.Shown = op.Shown;
+        })),
+        reorderCase: static (ctx, op) => ctx.Op.Catch(() =>
+            ctx.Op.Confirm(success: ctx.Collection.MovePostEffectBefore(id_move: op.Move, id_before: op.Before))),
+        selectCase: static (ctx, op) => ctx.Op.Catch(() =>
+            ctx.Collection.SetSelectedPostEffect(type: op.Stage.Native, id: op.Effect)),
+        tuneCase: static (ctx, op) => Data(collection: ctx.Collection, effect: op.Effect, key: ctx.Op).Bind(data => ctx.Op.Catch(() => {
+            using PostEffects.PostEffectData owned = data;
+            return ctx.Op.Confirm(success: owned.SetParameter(param_name: op.Parameter, param_value: op.Value));
+        })));
+
+    private static Fin<PostEffects.PostEffectData> Data(PostEffects.PostEffectCollection collection, Guid effect, Op key) =>
+        key.Catch(() => Optional(collection.PostEffectDataFromId(id: effect)).ToFin(Fail: key.InvalidInput()));
+}
+
+// --- [MODELS] -------------------------------------------------------------------------------
+public readonly record struct PostEffectState(Guid Id, EffectStage Stage, string Name, bool On, bool Shown);
+
+public sealed record EffectRoster(Seq<PostEffectState> Rows, HashMap<EffectStage, Guid> Selected) : IDetachedDocumentResult;
+
+// --- [OPERATIONS] ---------------------------------------------------------------------------
+public static class Effects {
+    public static Fin<EffectRoster> Configure(DocumentSession session, Seq<PostEffectOp> ops, Op? key = null) {
+        Op op = key.OrDefault();
+        Seq<SessionNeed> needs = ops.Exists(static row => row is not PostEffectOp.CensusCase)
+            ? [SessionNeed.Read, SessionNeed.Mutate]
+            : [SessionNeed.Read];
+        return session.Demand(
+            use: document => op.Catch(() => {
+                using PostEffects.PostEffectCollection collection = document.RenderSettings.PostEffects;
+                return ops.TraverseM(row => row.Apply(collection: collection, key: op)).As()
+                    .Bind(_ => Roster(collection: collection, op: op));
+            }),
+            key: op,
+            needs: needs.ToArray());
+    }
+
+    private static Fin<EffectRoster> Roster(PostEffects.PostEffectCollection collection, Op op) =>
+        from rows in toSeq(collection).TraverseM(data => Detached(data: data, op: op)).As()
+        from selected in op.Catch(() => Fin.Succ(value: toSeq(EffectStage.Items)
+            .Choose(stage => collection.GetSelectedPostEffect(type: stage.Native, id: out Guid chosen) ? Some((stage, chosen)) : None)
+            .ToHashMap()))
+        select new EffectRoster(Rows: rows.Strict(), Selected: selected);
+
+    private static Fin<PostEffectState> Detached(PostEffects.PostEffectData data, Op op) => op.Catch(() => {
+        using PostEffects.PostEffectData owned = data;
+        return EffectStage.Stage(native: owned.Type, key: op)
+            .Map(stage => new PostEffectState(Id: owned.Id, Stage: stage, Name: owned.LocalName, On: owned.On, Shown: owned.Shown));
+    });
+}
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record TextureBake {
     private TextureBake() { }

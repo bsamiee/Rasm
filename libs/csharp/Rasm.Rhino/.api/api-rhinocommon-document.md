@@ -91,7 +91,7 @@
 [ENTRYPOINT_SCOPE]: identity and lifecycle
 - rail: host
 
-- `RhinoDoc.RuntimeSerialNumber : uint` — the stable document key
+- `RhinoDoc.RuntimeSerialNumber : uint` — carries the stable document key
 - `RhinoDoc.FromRuntimeSerialNumber(uint serialNumber) : RhinoDoc` — re-resolve the handle across a callback boundary
 - `RhinoDoc.OpenDocuments(bool includeHeadless) : RhinoDoc[]` — enumerate live and headless documents
 - `RhinoDoc.Open(string filePath, out bool wasAlreadyOpen) : RhinoDoc` — open into the live runtime
@@ -99,7 +99,7 @@
 - `RhinoDoc.OpenHeadless(string file3dmPath) : RhinoDoc` / `OpenHeadless(string filePath, ArchivableDictionary options) : RhinoDoc` — open headless with optional payload
 - `RhinoDoc.Dispose() : void` — release the headless document
 - `RhinoDoc.IsHeadless` / `IsAvailable` / `IsOpening` / `IsClosing` / `IsInitializing` / `IsCreating` / `IsReadOnly` / `IsLocked : bool` — readiness discriminants
-- `RhinoDoc.ActiveDoc : RhinoDoc` — the ambient live document; `Modified : bool` — the dirty-save discriminant
+- `RhinoDoc.ActiveDoc : RhinoDoc` — reads the ambient live document; `Modified : bool` — carries the dirty-save discriminant
 - `RhinoDoc.InCommand(bool bIgnoreScriptRunnerCommands) : int` / `ActiveCommandId : Guid` / `InGetPoint : bool` — command and acquisition state
 - `RhinoDoc.TimeoutActiveGet() : void` — cancel an active interactive get on the document
 
@@ -113,6 +113,7 @@
 - `RhinoDoc.RenderMaterials : RenderMaterialTable` / `RenderEnvironments : RenderEnvironmentTable` / `RenderTextures : RenderTextureTable`
 - `RhinoDoc.Linetypes : LinetypeTable` / `Lights : LightTable` / `DimStyles : DimStyleTable` / `HatchPatterns : HatchPatternTable`
 - `RhinoDoc.Bitmaps : BitmapTable` / `Strings : StringTable` / `Manifest : ManifestTable`
+- `RhinoDoc.Fonts : FontTable` — obsolete DimStyles wrapper behind a dead accessor, so `FontTable.FindOrCreate` never composes; face binding probes `DimStyles` rows (`DimensionStyle.Font` get/set, `Font.FromQuartetProperties(quartetName, bold, italic) : Font` null on an unresolvable quartet) and lands `DimStyleTable.Add(dimstyle, reference) : int`
 - `LinetypeTable.PurgeUnused() : int` / `DimStyleTable.PurgeUnused() : int` / `HatchPatternTable.PurgeUnused() : int` / `InstanceDefinitionTable.PurgeUnused() : int`
 
 [ENTRYPOINT_SCOPE]: units and tolerances
@@ -196,7 +197,7 @@
 - `ViewTable.Redraw(bool deferred) : void` / `ViewTable.PageViewCount : int`
 - `ViewTable.EnableRedraw(bool enable, bool redrawDocument, bool redrawLayers) : void` / `RedrawEnabled : bool` — suppression bracket state
 - `ViewTable.FlashObjects(IEnumerable<RhinoObject> list, bool useSelectionColor) : void`
-- `NamedViewTable.Restore(int index, RhinoViewport viewport) : bool` — the non-animated direct restore
+- `NamedViewTable.Restore(int index, RhinoViewport viewport) : bool` — runs the non-animated direct restore
 - `NamedViewTable.RestoreWithAspectRatio(int index, RhinoViewport viewport) : bool`
 - `NamedViewTable.RestoreAnimatedConstantSpeed(int index, RhinoViewport viewport, double units_per_frame, int ms_delay) : bool`
 - `NamedViewTable.RestoreAnimatedConstantTime(int index, RhinoViewport viewport, int frames, int ms_delay) : bool`
@@ -219,7 +220,7 @@
 - `NamedLayerStateTable.Rename(string oldName, string newName) : bool` / `Delete(string name) : bool` / `Import(string filename) : int` / `Names : string[]`
 - `NamedPositionTable.Save(string name, IEnumerable<Guid> objectIds) : Guid` / `Restore(string name) : bool` / `Update(string name) : bool`
 - `NamedPositionTable.Delete(string name) : bool` / `Rename(string oldName, string name) : bool` / `Append(string name, IEnumerable<Guid> objectIds) : bool` / `Names : string[]`
-- `RestoreLayerProperties` — the host restore-scope flags carrier consumed by `NamedLayerStateTable.Restore`
+- `RestoreLayerProperties` — carries the host restore-scope flags `NamedLayerStateTable.Restore` consumes
 
 [ENTRYPOINT_SCOPE]: per-viewport layer overrides and clipping planes
 - rail: host
@@ -284,7 +285,7 @@
 - `Hashing`(`libs/csharp/.api/api-hashing.md`): document and table content keys derive from `XxHash128` for the persistence artifact index
 
 [LOCAL_ADMISSION]:
-- the document handle is admitted at the host-boundary tier as the single owner of live and headless document identity
+- Document-handle admission lives at the host-boundary tier as the single owner of live and headless document identity
 - table mutation enters through the owning table accessor, never a raw component write
 - event subscription enters through one watcher composition that binds the lifecycle, object, and table families together, never a scattered per-event handler
 

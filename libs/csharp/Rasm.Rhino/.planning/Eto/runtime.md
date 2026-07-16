@@ -1,11 +1,11 @@
 # [RASM_RHINO_ETO_RUNTIME]
 
-The ambient Eto runtime owner of `Rasm.Rhino.Eto` — the process-wide surfaces that sit beside the control tree: UI-thread dispatch over `Application`, the `UITimer` clock as a leased pulse, display and input-device projection, typed clipboard and drag-drop transfer under validated MIME keys, and system presence (notification toast, tray indicator, taskbar progress). The census routed UI-thread work through host-app dispatch and touched none of the transfer, notification, tray, screen, or static-input surface; this owner internalizes each behind one rail so downstream code composes a marshalled effect or a keyed payload and never reaches `Application.Instance`, a stringy MIME argument, or a raw static read. Dispatch is the one thread boundary every sibling page assumes: realization, binding wires, chrome mutation, and scene swaps all run inside a frame this owner marshals.
+Ambient Eto runtime owner of `Rasm.Rhino.Eto` — the process-wide surfaces that sit beside the control tree: UI-thread dispatch over `Application`, the `UITimer` clock as a leased pulse, display and input-device projection, typed clipboard and drag-drop transfer under validated MIME keys, and system presence (notification toast, tray indicator, taskbar progress). Census code routed UI-thread work through host-app dispatch and touched none of the transfer, notification, tray, screen, or static-input surface; this owner internalizes each behind one rail so downstream code composes a marshalled effect or a keyed payload and never reaches `Application.Instance`, a stringy MIME argument, or a raw static read. Dispatch is the one thread boundary every sibling page assumes: realization, binding wires, chrome mutation, and scene swaps all run inside a frame this owner marshals.
 
 ## [01]-[INDEX]
 
 - [02]-[DISPATCH]: `UiThread` — the one UI-thread boundary: synchronous railed reads, fire-and-forget posts, awaitable marshalling, the affinity guard, and the message-pump verb.
-- [03]-[CLOCK]: `Pulse` + `PulseBeat` + `PulseLease` — the widget-free `UITimer` clock as a leased resource delivering monotonic beat evidence.
+- [03]-[CLOCK]: `Pulse` + `PulseBeat` — the widget-free `UITimer` clock as a leased resource delivering monotonic beat evidence.
 - [04]-[STAGE]: `Displays` + `PointerState` + `ModifierState` + `CursorRow` — display roster and geometry, live pointer and modifier reads, and the cursor roster as rows with one apply verb.
 - [05]-[TRANSFER]: `Mime` + `PayloadSlot` + `TransferTarget` + `Transfer` — the one typed-payload contract over clipboard and drag bundles, write folds and `Option`-railed reads.
 - [06]-[DRAG]: `DragPlan` + `Drop` — drag initiation as a value over `DoDragDrop` and drop admission projecting `DragEventArgs` into one typed record.
@@ -27,6 +27,7 @@ using Eto.Forms;
 using Rasm.Csp;
 using Rasm.Domain;
 using Rasm.Numerics;
+using Rasm.Rhino.Document;
 
 namespace Rasm.Rhino.Eto;
 
@@ -39,7 +40,7 @@ public static class UiThread {
 
     public static Unit Post(Action body, Op? key = null) {
         Op op = key.OrDefault();
-        return Op.Side(() => Application.Instance.AsyncInvoke(() => ignore(op.Catch(() => Fin.Succ(value: Op.Side(body))))));
+        return Op.Side(() => Application.Instance.AsyncInvoke(() => ignore(op.Catch(body))));
     }
 
     public static async Task<Fin<T>> OnAsync<T>(Func<Fin<T>> body, Op? key = null) {
@@ -56,7 +57,7 @@ public static class UiThread {
 
 ## [03]-[CLOCK]
 
-- Owner: `Pulse` — the widget-free Eto clock as a leased resource: `Start` admits the interval as a `PositiveMagnitude` in seconds, constructs the `UITimer`, subscribes `Elapsed` once (the named platform-forced event seam), and returns a `PulseLease` whose `Halt` stops and disposes — so a running timer cannot leak past its owner. `PulseBeat` is the per-tick evidence: monotonic ordinal plus elapsed seconds derived from `Stopwatch` timestamps, because the host tick carries no time payload.
+- Owner: `Pulse` — the widget-free Eto clock as a leased resource: `Start` admits the interval as a `PositiveMagnitude` in seconds, constructs the `UITimer`, subscribes `Elapsed` once (the named platform-forced event seam), and returns the Document sub-domain's `Subscription` capsule — `Acquire` pairs `timer.Start` with the stop-and-dispose release, idempotent on `Dispose` — so a running timer cannot leak past its owner and no hand-rolled detach record exists beside the capsule. `PulseBeat` is the per-tick evidence: monotonic ordinal plus elapsed seconds derived from `Stopwatch` timestamps, because the host tick carries no time payload.
 - Law: this clock paces UI cadence only — debounce displays, ambient polling, toast timeouts; frame-accurate animation pacing (display links, redraw targets, motion clocks) is the Viewport unit's motion owner, and easing/spring math is kernel territory — a duplicate temporal derivation here is the deleted form.
 - Law: `Elapsed` fires on the UI thread by host contract, so the beat handler mutates UI state directly; a handler dispatching again through `UiThread` is a double-marshal defect.
 - Growth: a beat-evidence axis (drift, missed-tick count) is one `PulseBeat` field computed in the one subscription body.
@@ -67,11 +68,9 @@ public readonly record struct PulseBeat(long Ordinal, double ElapsedSeconds) : I
     public bool IsValid => ValidityClaim.All(ValidityClaim.Nonnegative(value: ElapsedSeconds), ValidityClaim.Of(holds: Ordinal >= 0));
 }
 
-public sealed record PulseLease(Func<Unit> Halt);
-
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 public static class Pulse {
-    public static Fin<PulseLease> Start(PositiveMagnitude intervalSeconds, Action<PulseBeat> onBeat, Op? key = null) =>
+    public static Fin<Subscription> Start(PositiveMagnitude intervalSeconds, Action<PulseBeat> onBeat, Op? key = null) =>
         key.OrDefault().Catch(() => {
             long origin = Stopwatch.GetTimestamp();
             long ordinal = 0;
@@ -80,8 +79,7 @@ public static class Pulse {
                 ElapsedSeconds: Stopwatch.GetElapsedTime(startingTimestamp: origin).TotalSeconds))) {
                 Interval = intervalSeconds.Value,
             };
-            timer.Start();
-            return Fin.Succ(value: new PulseLease(Halt: () => Op.Side(() => { timer.Stop(); timer.Dispose(); })));
+            return Subscription.Acquire(acquire: timer.Start, release: () => { timer.Stop(); timer.Dispose(); });
         });
 }
 ```
@@ -277,6 +275,7 @@ public sealed record Drop(PointF Location, DragEffects Allowed, TransferTarget P
 
 - Owner: `Toast` — notification delivery as one value (title, message, optional icon and content image, optional tray anchor) over the verified `Notification` surface — `TrayLease`, the tray presence as a leased resource (`Show` acquires, `Halt` hides and disposes) carrying its `ContextMenu` and activation callback — and `TaskbarPulse`, the OS progress projection whose `PulseState` `[SmartEnum<int>]` rows carry the host `TaskbarProgressState` column and whose fraction is a kernel `UnitInterval`, so an out-of-range progress write is unrepresentable.
 - Law: tray menus are chrome projections — the `ContextMenu` a lease binds arrives from the `chrome.md` intent-table fold, so tray verbs share availability and receipts with every other placement; a tray-local menu construction is the deleted form.
+- Law: `TrayLease` stays a payload-bearing lease — its live `TrayIndicator` anchors `Toast.Deliver`, evidence the Document `Subscription` detach capsule cannot carry — so `Halt` is the lease's own hide-and-dispose verb, never a hand-rolled duplicate of the capsule.
 - Law: progress is stateless projection — `TaskbarPulse.Show(state, fraction)` writes and forgets; the long-running work owns its own progress fold and projects here at its cadence.
 - Growth: a new presence surface (badge label, dock bounce) is one owner member over its verified host member; a new progress mode is one `PulseState` row.
 

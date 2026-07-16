@@ -1,6 +1,6 @@
 # [RASM_RHINO_EVENTS]
 
-The document observation stream (`Rasm.Rhino.Document`). `EventFamily` binds the document, object, selection, component-table, view, page, display, draw, and panel event surface into detached facts. Every row declares its band, cadence, and typed binding policy; every band projection derives from those columns. `DocumentStream` admits one host or file observation, attaches the whole handler set transactionally, schedules delivery, bounds delivery evidence, and owns symmetric detachment. Callback-scoped native handles never cross the bind.
+Document observation stream (`Rasm.Rhino.Document`). `EventFamily` binds the document, object, selection, component-table, view, page, display, draw, and panel event surface into detached facts. Every row declares its band, cadence, and typed binding policy; every band projection derives from those columns. `DocumentStream` admits one host or file observation, attaches the whole handler set transactionally, schedules delivery, bounds delivery evidence, and owns symmetric detachment. Callback-scoped native handles never cross the bind.
 
 ## [01]-[INDEX]
 
@@ -14,8 +14,8 @@ The document observation stream (`Rasm.Rhino.Document`). `EventFamily` binds the
 
 - Owner: `EventBand` is the grouping vocabulary. `Cadence` owns delivery admission. `EventFamily` is the keyed host-event table; each row carries both columns and one typed bind delegate.
 - Law: `EventFamily.In(EventBand)` admits the band and derives every group from `EventFamily.Items`. A new family is one row, and no secondary roster can drift.
-- Law: draw rows carry only a viewport id, change counter, and optional parent-view serial. The drawing owner receives and uses `DisplayPipeline` inside its own callback; an observation never dereferences a draw handle after callback return.
-- Law: the before-transform row detaches the transform and object identities while the native pointers are live. The after-transform row correlates its sole host field, `TransformEventId`, through a private before-transform listener and never invents missing document evidence.
+- Law: draw rows carry only a viewport id, change counter, and optional parent-view serial; the drawing owner receives and uses `DisplayPipeline` inside its own callback, and an observation never dereferences a draw handle after callback return.
+- Law: the before-transform row detaches the transform and object identities while the native pointers are live; the after-transform row correlates its sole host field, `TransformEventId`, through a private before-transform listener and never invents missing document evidence.
 - Law: `ProjectionChanged` suppresses a repeated `(document, viewport, change-counter)` product at the bind. Draw rows remain unsuppressed and rely on an admitted dropping lane.
 - Boundary: table events carry stable table kind, index, transition, and detached prior/current component facts. Full live state resolves through `DocKey` at consumption time; callback-owned component handles never leave the callback.
 

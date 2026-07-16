@@ -229,6 +229,7 @@ public sealed record RailFilletLaw(
 - Law: correspondence maps survive — projection folds its curve and brep source indices, join folds its key map, curve-boolean union folds its index map, and the planar-region product folds its per-region partition as `SourceGroups`, so a consumer never re-derives which input produced which output.
 - Law: the boolean-regions carrier dies at the seam — `CurveBooleanRegions` is read inside the arm, its per-region curves cross as products partitioned by a `SourceGroups` fact, its point-to-region assignments land as a `SourceMap` fact, and the disposable carrier never escapes.
 - Law: end reconciliation answers pairs — `MakeEndsMeet` duplicates both curves, reconciles the duplicates, and crosses both as products, so the mutating native never touches an input handle.
+- Law: direction agreement is evidence — `DirectionsMatch` borrows both curves and lands the host `Curve.DoDirectionsMatch` verdict as a `Flag` fact with no product, so join, sweep, and loft preparation reads the verdict off the receipt rail; the kernel's typed direction-relation vocabulary stays the analysis-altitude owner, and this host boolean serves construction preparation only.
 - Growth: a new curve host verb is one case with its arm; a new modality is one case on the owning policy union.
 
 ```csharp
@@ -261,6 +262,7 @@ public sealed partial class CurveSlot {
     public static readonly CurveSlot Outlined = new(key: 23);
     public static readonly CurveSlot Trimmed0 = new(key: 24);
     public static readonly CurveSlot Trimmed1 = new(key: 25);
+    public static readonly CurveSlot DirectionVerdict = new(key: 26);
 }
 
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -312,6 +314,7 @@ public abstract partial record CurveOp {
         GeometryHandle Rail, GeometryHandle First, int FirstFace, GeometryHandle Second, int SecondFace,
         double U, double V, RailFilletLaw Law) : CurveOp;
     public sealed record TextOutlines(string Text, string Font, double Height, int Style, bool CloseLoops, Plane Frame, double SmallCapsScale = 1.0) : CurveOp;
+    public sealed record DirectionsMatch(GeometryHandle First, GeometryHandle Second) : CurveOp;
 
     internal Fin<Built<CurveSlot>> Apply(Context domain) =>
         Switch(
@@ -834,6 +837,16 @@ public abstract partial record CurveOp {
                         text: text, font: font, textHeight: edit.Height, textStyle: edit.Style, closeLoops: edit.CloseLoops,
                         plane: edit.Frame, smallCapsScale: edit.SmallCapsScale, tolerance: model.Absolute.Value))
                     select built;
+            },
+            directionsMatch: static (_, edit) => {
+                Op op = Op.Of(name: nameof(DirectionsMatch));
+                return ModelGate.Borrow<Curve, Built<CurveSlot>>(handle: edit.First, key: op, body: first =>
+                    ModelGate.Borrow<Curve, Built<CurveSlot>>(handle: edit.Second, key: op, body: second =>
+                        op.Catch(() => Fin.Succ(value: new Built<CurveSlot>(
+                            Products: Seq<GeometryHandle>(),
+                            Evidence: BuildReceipt<CurveSlot>.Of(
+                                slot: CurveSlot.DirectionVerdict,
+                                body: new BuildBody.Flag(Value: Curve.DoDirectionsMatch(curveA: first, curveB: second))))))));
             });
 
     private static Fin<Built<CurveSlot>> Borrowed(GeometryHandle handle, Op op, Func<Curve, Op, Fin<Built<CurveSlot>>> body) =>
@@ -900,16 +913,17 @@ public static class Curves {
 
 | [INDEX] | [CONCERN]          | [OWNER]            | [FORM]                                              | [ENTRY]                          |
 | :-----: | :----------------- | :----------------- | :--------------------------------------------------- | :-------------------------------- |
-|  [01]   | offset framing     | `OffsetFrame`      | planar versus normal-framed with corner/end style   | `CurveOp.Offset`                 |
+|  [01]   | offset framing     | `OffsetFrame`      | planar or normal-framed with corner/end style       | `CurveOp.Offset`                 |
 |  [02]   | on-surface offset  | `SurfaceOffsetLaw` | constant, through-point, varying rows               | `CurveOp.OffsetOnSurface`        |
 |  [03]   | ribbon carrier     | `RibbonLaw`        | whole `RibbonOffsetParameters` as one value         | `CurveOp.Ribbon` / `Rig`         |
 |  [04]   | advanced fit       | `FitLaw`           | whole `NurbsCurveFitParameters` as one value        | `CurveOp.NurbsFit` / `Rig`       |
 |  [05]   | extension modality | `ExtendLaw`        | length, geometry, point, line, arc, on-surface      | `CurveOp.Extend`                 |
 |  [06]   | split modality     | `SplitCutter`      | parameters, brep, surface, plane                    | `CurveOp.Split`                  |
-|  [07]   | pull and project   | `PullTarget` / `ProjectTarget` | destinations with loose grants and index maps | `CurveOp.Pull` / `Project` |
-|  [08]   | curve booleans     | `CurveBooleanVerb` / `CurveOp` | three admitted verbs + full disposable region topology | `Boolean` / `Regions` |
-|  [09]   | blend and tween    | `BlendLaw` / `TweenLaw` | end-to-end, at-parameter, matched, sampled     | `CurveOp.Blend` / `Tween`        |
-|  [10]   | construction seeds | `SpiralLaw` / `ParabolaSeed` / `AnalyticCurve` / `CatenaryLaw` | seed unions selecting statics | construction cases |
-|  [11]   | value-semantic edit | `CurveEdit`       | duplicate then cleanup, close, or interval trim    | `CurveOp.Edit`                   |
-|  [12]   | rail surface fillet | `RailFilletLaw`   | rail and arc structure plus detached fit evidence  | `CurveOp.RailFillet`             |
-|  [13]   | curve verbs        | `CurveOp`          | one flat `[Union]`, total generated dispatch        | `Curves.Build`                   |
+|  [07]   | pull and project   | `PullTarget`/`ProjectTarget` | loose-granted destinations with index maps    | `CurveOp.Pull` / `Project`       |
+|  [08]   | curve booleans     | `CurveBooleanVerb`/`CurveOp` | three verbs + disposable region topology      | `Boolean` / `Regions`            |
+|  [09]   | blend and tween    | `BlendLaw` / `TweenLaw`      | end-to-end, at-parameter, matched, sampled    | `CurveOp.Blend` / `Tween`        |
+|  [10]   | spiral/parabola seeds | `SpiralLaw` / `ParabolaSeed`   | seed unions selecting statics             | construction cases               |
+|  [11]   | analytic/catenary seeds | `AnalyticCurve` / `CatenaryLaw` | seed unions selecting statics          | construction cases               |
+|  [12]   | value-semantic edit | `CurveEdit`                  | duplicate then cleanup, close, interval trim  | `CurveOp.Edit`                   |
+|  [13]   | rail surface fillet | `RailFilletLaw`              | rail and arc structure plus fit evidence      | `CurveOp.RailFillet`             |
+|  [14]   | curve verbs        | `CurveOp`                     | one flat `[Union]`, total generated dispatch  | `Curves.Build`                   |

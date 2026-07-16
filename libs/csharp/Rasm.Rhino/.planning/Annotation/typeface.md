@@ -1,6 +1,6 @@
 # [RASM_RHINO_ANNOTATION_TYPEFACE]
 
-Typeface and section-presentation rail (`Rasm.Rhino.Annotation`). `FaceQuery` resolves a validated quartet face or a full-axis `Font` constructor into `FaceInfo`, including every catalogued name, style axis, capability flag, installation verdict, and substitute. Installed census remains session-free machine state; document binding rides `RhinoDoc.Fonts.FindOrCreate`, whose answer is a `DimStyles` index because the host font table is a face over the style table. Section authoring seeds `new SectionStyle()`, amendment seeds the copy constructor, and both land the composed `SectionSpec` through the table; `.secstyles` import remaps referenced hatch indices before adding styles. `FontOrigin`/`FontType` remain absent because no public `Font` property exposes them, and `Font` itself is immutable — every property is read-only, so a face never mutates and only construction or resolution mints one.
+Typeface and section-presentation rail (`Rasm.Rhino.Annotation`). `FaceQuery` resolves a validated quartet face or a full-axis `Font` constructor into `FaceInfo`, including every catalogued name, style axis, capability flag, installation verdict, and substitute. Installed census remains session-free machine state; document binding rides the `DimStyles` table directly — the host marks `RhinoDoc.Fonts` obsolete as a wrapper over that table — probing style rows by font quartet and adding a `Duplicate`-seeded style carrying the resolved `Font` when none matches. Section authoring seeds `new SectionStyle()`, amendment seeds the copy constructor, and both land the composed `SectionSpec` through the table; `.secstyles` import remaps referenced hatch indices before adding styles. `FontOrigin`/`FontType` remain absent because no public `Font` property exposes them, and `Font` itself is immutable — every property is read-only, so a face never mutates and only construction or resolution mints one.
 
 ## [01]-[INDEX]
 
@@ -151,7 +151,7 @@ public sealed record FaceResolution(FaceInfo Face, Option<FaceInfo> Substitute);
 
 - Owner: `Typefaces` — `Resolve` into `FaceResolution`, `Installed` optionally family-scoped, `Quartets` as the four-face grid, `FaceNames` as the flat roster, and the session-bound `Bind`.
 - Law: census is session-free — installed fonts are machine state the host answers without a document, so those entries take no session and mutate nothing.
-- Law: document binding is style-table state — `RhinoDoc.Fonts` projects `DimStyles` (its indexer answers `DimStyles[index].Font`), and its one mutator `FindOrCreate(face, bold, italic[, template_style])` answers a `DimStyles` index — so `Bind` runs under the mutation grant, resolves an optional template through `StyleOp.Lens`, and returns the index as a style `ResourceRef`, never a font handle.
+- Law: document binding is style-table state — `RhinoDoc.Fonts` and its `FindOrCreate` are the obsolete wrapper over `DimStyles`, so `Bind` composes the live table: `Font.FromQuartetProperties(quartetName, bold, italic)` resolves the face (null is a typed refusal, never a fabricated fallback), the probe matches live style rows on quartet name plus bold/italic, and a miss adds a `Duplicate`-seeded copy of the template — resolved through `StyleOp.Lens` — or the current style with the resolved `Font` written; `Bind` runs under the mutation grant and returns the index as a style `ResourceRef`, never a font handle.
 
 ```csharp signature
 // --- [OPERATIONS] ---------------------------------------------------------------------------
@@ -195,12 +195,22 @@ public static class Typefaces {
         return from name in op.AcceptText(value: face)
                from address in session.Demand(
                    use: document =>
+                       from font in op.Need(value: Font.FromQuartetProperties(quartetName: name, bold: bold, italic: italic))
                        from seed in template.Traverse(target => target.Resolve(document: document, lens: StyleOp.Lens, key: op)).As()
-                       from index in op.Catch(() => seed.Match(
-                           Some: style => document.Fonts.FindOrCreate(face: name, bold: bold, italic: italic, template_style: style),
-                           None: () => document.Fonts.FindOrCreate(face: name, bold: bold, italic: italic)) is var found && found >= 0
-                           ? Fin.Succ(value: found)
-                           : Fin.Fail<int>(error: op.InvalidResult()))
+                       from index in op.Catch(() => toSeq(document.DimStyles)
+                           .Find(style => !style.IsDeleted && style.Font.QuartetName == font.QuartetName && style.Font.Bold == bold && style.Font.Italic == italic)
+                           .Match(
+                               Some: held => Fin.Succ(value: held.Index),
+                               None: () => {
+                                   DimensionStyle fresh = seed.IfNone(() => document.DimStyles.Current).Duplicate(
+                                       newName: document.DimStyles.GetUnusedStyleName(),
+                                       newId: Guid.NewGuid(),
+                                       newParentId: Guid.Empty);
+                                   fresh.Font = font;
+                                   return document.DimStyles.Add(dimstyle: fresh, reference: false) is var found && found >= 0
+                                       ? Fin.Succ(value: found)
+                                       : Fin.Fail<int>(error: op.InvalidResult());
+                               }))
                        from bound in ResourceRef.Of(index: index)
                        select bound,
                    key: op,
@@ -553,7 +563,7 @@ public static class Sections {
 |  [01]   | face resolution      | `FaceQuery`   | quartet/axes union over explicit-value axis vocabularies | `Typefaces.Resolve`                    |
 |  [02]   | face projection      | `FaceInfo`    | every name face + axes + capability flags, detached      | `FaceResolution`                       |
 |  [03]   | installed census     | `Typefaces`   | session-free statics over the host font census           | `Installed` / `Quartets` / `FaceNames` |
-|  [04]   | font-table bind      | `Typefaces`   | `RhinoDoc.Fonts.FindOrCreate` answering a style address  | `Bind`                                 |
+|  [04]   | style-table bind     | `Typefaces`   | `DimStyles` quartet probe + `Duplicate`-seeded add       | `Bind`                                 |
 |  [05]   | section presentation | `SectionSpec` | fill + boundary + hatch rows binding sibling resources   | `SectionOp.Author` / `Amend`           |
-|  [06]   | section mutations    | `SectionOp`   | author/amend + usage-gated delete + remapped `.secstyles` import | `Sections.Commit`              |
+|  [06]   | section mutations    | `SectionOp`   | author/amend, gated delete, `.secstyles` import remap    | `Sections.Commit`                      |
 |  [07]   | section reads        | `SectionAsk`  | usage-censused snapshot, table state, name mint          | `Sections.Ask`                         |

@@ -239,6 +239,7 @@ public sealed record ExtrudeLaw(
 - Owner: `MeshSlot` `[SmartEnum<int>]` — the consequence vocabulary; `MeshEdit` `[Union]` — the value-semantic edit verbs applied to one working duplicate; `MeshOp` `[Union]` — generation, remeshing, wrapping, booleans, splitting, editing, and extruding as one verb family; `Meshes` — the one entry folding any operation spread into one `Built<MeshSlot>`.
 - Law: every boolean carries its verdict — the options form runs unconditionally, the terminal `Result` lands as a `Code` fact and the `int[][]` input map as `SourceGroups`, so a boolean that silently produced nothing is distinguishable from one that failed.
 - Law: edits are value-semantic — `Edit` duplicates the borrowed mesh once, dispatches the verb on the working copy, and owns the copy or the pieces the verb returned; wall-face lists, collapse counts, unified-normal counts, and reduce diagnostics land as facts beside the products.
+- Law: the finishing family rides the host carriers — `ShutLine` borrows each profile's curve through `ModelGate.BorrowMany`, mints one `ShutLiningCurveInfo` per `ShutLineProfile` row at the host call under the domain absolute tolerance, and `Displace` rigs one `MeshDisplacementInfo` from `DisplacementLaw` whose defaults mirror the host constructor; the render texture and mapping enter as seam values the Render pages mint, and both verbs return a fresh mesh through `Mesh.WithShutLining`/`Mesh.WithDisplacement` on the value-semantic rail.
 - Law: the extruder is rigged and dropped — `MeshExtruder` is constructed over the borrowed mesh and component set, its columns written from `ExtrudeLaw`, and the extruded mesh, created component indices, and wall faces cross as product plus `Components` facts.
 - Law: hull facets and cleanup demands are evidence — `CreateConvexHull3D` folds its facet index rows as `SourceGroups`, and `RequireIterativeCleanup` gates the cleanup case with a `Flag` fact so a no-op cleanup is visible.
 - Boundary: `Mesh.CreateContourCurves` and `ComputeThickness` are kernel-analysis altitude (`Rasm` extraction and measurement own sectioning and metrology); this rail never re-owns them.
@@ -290,6 +291,47 @@ public abstract partial record MeshEdit {
     public sealed record Compact : MeshEdit;
     public sealed record ExtractNonManifold(bool Selective) : MeshEdit;
     public sealed record EdgeSoften(double SofteningRadius, bool Chamfer, bool Faceted, bool Force, double AngleThreshold) : MeshEdit;
+    public sealed record ShutLine(Seq<ShutLineProfile> Profiles, bool Faceted = false) : MeshEdit;
+    public sealed record Displace(DisplacementLaw Law) : MeshEdit;
+}
+
+// --- [MODELS] -------------------------------------------------------------------------------
+public sealed record ShutLineProfile(
+    GeometryHandle Curve, double Radius, int Profile, bool Pull, bool IsBump,
+    Seq<Interval> Intervals = default, bool Enabled = true) {
+    internal ShutLiningCurveInfo Rig(Curve curve) =>
+        new(curve: curve, radius: Radius, profile: Profile, pull: Pull, isBump: IsBump,
+            curveIntervals: Intervals.ToArray(), enabled: Enabled);
+}
+
+public sealed record DisplacementLaw(
+    RenderTexture Texture,
+    TextureMapping Mapping,
+    double Black = 0.0,
+    double White = 1.0,
+    double BlackMove = 0.0,
+    double WhiteMove = 1.0,
+    Option<Transform> MappingTransform = default,
+    Option<Transform> InstanceTransform = default,
+    double PostWeldAngle = 40.0,
+    double RefineSensitivity = 0.5,
+    double SweepPitch = 1000.0,
+    int ChannelNumber = 1,
+    int FaceLimit = 10000,
+    int FairingAmount = 4,
+    int RefineStepCount = 1,
+    int MemoryLimit = 64) {
+    internal MeshDisplacementInfo Rig() {
+        MeshDisplacementInfo info = new(texture: Texture, mapping: Mapping) {
+            Black = Black, White = White, BlackMove = BlackMove, WhiteMove = WhiteMove,
+            PostWeldAngle = PostWeldAngle, RefineSensitivity = RefineSensitivity, SweepPitch = SweepPitch,
+            ChannelNumber = ChannelNumber, FaceLimit = FaceLimit, FairingAmount = FairingAmount,
+            RefineStepCount = RefineStepCount, MemoryLimit = MemoryLimit,
+        };
+        _ = MappingTransform.Iter(motion => info.MappingTransform = motion);
+        _ = InstanceTransform.Iter(motion => info.InstanceTransform = motion);
+        return info;
+    }
 }
 
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -747,6 +789,30 @@ public abstract partial record MeshOp {
                 ModelGate.Own(built: ctx.Working.WithEdgeSoftening(
                         softeningRadius: edit.SofteningRadius, chamfer: edit.Chamfer, faceted: edit.Faceted,
                         force: edit.Force, angleThreshold: edit.AngleThreshold), key: ctx.Op).Map(owned => {
+                    ctx.Working.Dispose();
+                    return new Built<MeshSlot>(
+                        Products: Seq(owned),
+                        Evidence: BuildReceipt<MeshSlot>.Of(slot: MeshSlot.Edited, body: new BuildBody.Tally(Count: 1)));
+                })),
+            shutLine: static (ctx, edit) =>
+                from _rows in guard(!edit.Profiles.IsEmpty, ctx.Op.InvalidInput()).ToFin()
+                from built in ModelGate.BorrowMany<Curve, Built<MeshSlot>>(
+                    handles: edit.Profiles.Map(static row => row.Curve),
+                    key: ctx.Op,
+                    body: curves => ctx.Op.Catch(() =>
+                        ModelGate.Own(built: ctx.Working.WithShutLining(
+                                faceted: edit.Faceted,
+                                tolerance: ctx.Domain.Absolute.Value,
+                                curves: curves.Zip(edit.Profiles).Map(static pair => pair.Item2.Rig(curve: pair.Item1)).AsEnumerable()),
+                            key: ctx.Op).Map(owned => {
+                            ctx.Working.Dispose();
+                            return new Built<MeshSlot>(
+                                Products: Seq(owned),
+                                Evidence: BuildReceipt<MeshSlot>.Of(slot: MeshSlot.Edited, body: new BuildBody.Tally(Count: 1)));
+                        })))
+                select built,
+            displace: static (ctx, edit) => ctx.Op.Catch(() =>
+                ModelGate.Own(built: ctx.Working.WithDisplacement(displacement: edit.Law.Rig()), key: ctx.Op).Map(owned => {
                     ctx.Working.Dispose();
                     return new Built<MeshSlot>(
                         Products: Seq(owned),

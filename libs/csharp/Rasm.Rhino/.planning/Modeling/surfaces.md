@@ -110,6 +110,7 @@ public abstract partial record SumExtent {
 - Law: geodesic fitting has two modalities on one vocabulary — `GeodesicCurve` answers the fitted `NurbsCurve` as a product, `GeodesicSamples` answers the intermediate uv rows as a `UvRows` fact with no product; both consume the same surface lease and point rows.
 - Law: fit and rebuild are value-semantic constructions — `SurfaceFitLaw` selects tolerance fit, grid rebuild, or directional rebuild inside one `Fit` arm, and each member owns the returned surface without mutating the input handle.
 - Law: compatibility answers pairs — `MakeCompatible` confirms and crosses both reparameterized surfaces with symmetric disposal on a half-crossed failure.
+- Law: variable offsetting is corner-driven construction — `VariableOffset` carries the four corner distances plus optional interior `(uv, distance)` rows, the row set selects the host overload, and the offset tolerance derives from the domain absolute tolerance, never a payload literal.
 - Growth: a new freeform constructor is one case with its arm; the spine and every consumer read it with zero new surface.
 
 ```csharp
@@ -134,6 +135,7 @@ public sealed partial class SurfaceSlot {
     public static readonly SurfaceSlot Summed = new(key: 15);
     public static readonly SurfaceSlot Bounded = new(key: 16);
     public static readonly SurfaceSlot Refitted = new(key: 17);
+    public static readonly SurfaceSlot Offsetted = new(key: 18);
 }
 
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -162,6 +164,9 @@ public abstract partial record SurfaceOp {
     public sealed record BoundedPlane(PlaneFrame Frame, BoundingBox Box) : SurfaceOp;
     public sealed record Revolve(RevolveProfile Profile, Line Axis, Option<(double StartRadians, double EndRadians)> Sweep = default) : SurfaceOp;
     public sealed record Fit(GeometryHandle Surface, SurfaceFitLaw Law) : SurfaceOp;
+    public sealed record VariableOffset(
+        GeometryHandle Surface, double UMinVMin, double UMinVMax, double UMaxVMin, double UMaxVMax,
+        Seq<(Point2d Uv, double Distance)> Interior = default) : SurfaceOp;
 
     internal Fin<Built<SurfaceSlot>> Apply(Context domain) =>
         Switch(
@@ -379,6 +384,19 @@ public abstract partial record SurfaceOp {
                                 direction: law.Direction, pointCount: law.PointCount, loftType: law.Kind,
                                 refitTolerance: ctx.Domain.Absolute.Value))
                             select built));
+            },
+            variableOffset: static (model, edit) => {
+                Op op = Op.Of(name: nameof(VariableOffset));
+                return ModelGate.Borrow<Surface, Built<SurfaceSlot>>(handle: edit.Surface, key: op, body: surface =>
+                    Single(op, SurfaceSlot.Offsetted, () => edit.Interior.IsEmpty
+                        ? surface.VariableOffset(
+                            uMinvMin: edit.UMinVMin, uMinvMax: edit.UMinVMax, uMaxvMin: edit.UMaxVMin, uMaxvMax: edit.UMaxVMax,
+                            tolerance: model.Absolute.Value)
+                        : surface.VariableOffset(
+                            uMinvMin: edit.UMinVMin, uMinvMax: edit.UMinVMax, uMaxvMin: edit.UMaxVMin, uMaxvMax: edit.UMaxVMax,
+                            interiorParameters: edit.Interior.Map(static row => row.Uv).AsEnumerable(),
+                            interiorDistances: edit.Interior.Map(static row => row.Distance).AsEnumerable(),
+                            tolerance: model.Absolute.Value)));
             });
 
     private static Fin<Built<SurfaceSlot>> Single(Op op, SurfaceSlot slot, Func<GeometryBase?> run) =>

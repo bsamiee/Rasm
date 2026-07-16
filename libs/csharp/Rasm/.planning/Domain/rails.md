@@ -1,8 +1,8 @@
 # [RASM_RAILS]
 
-The kernel ROP substrate (`Rasm.Domain`). This page owns the operation key `Op` with its fault and acceptance factory, the kernel fault band `Expected`/`Fault`, the `Lease<T>` resource-ownership rail, the corpus-wide validity fold (`IValidityEvidence` + `ValidityClaim`), the union-ops generator contracts, and the ONE Op-threading law every kernel page obeys. Nothing in the kernel compiles without this floor: every fallible surface fails through `Fault`, every disposable crossing rides `Lease<T>`, every receipt proves itself through the fold, and every operation is keyed by one `Op` value.
+Kernel ROP substrate (`Rasm.Domain`). This page owns the operation key `Op` with its fault and acceptance factory, the kernel fault band `Expected`/`Fault`, the `Lease<T>` resource-ownership rail, the corpus-wide validity fold (`IValidityEvidence` + `ValidityClaim`), the union-ops generator contracts, and the ONE Op-threading law every kernel page obeys. Nothing in the kernel compiles without this floor: every fallible surface fails through `Fault`, every disposable crossing rides `Lease<T>`, every receipt proves itself through the fold, and every operation is keyed by one `Op` value.
 
-The namespace mirrors the folder path and is consumer-pinned: the union-ops generator emits `global::Rasm.Domain.Op.Of`, eleven Grasshopper sources alias `using Op = Rasm.Domain.Op`, `Directory.Build.props` injects `Rasm.Domain` as the Grasshopper-aware global using, and the sibling planning corpus anchors `Rasm.Domain` by name.
+Namespace mirrors the folder path and is consumer-pinned: the union-ops generator emits `global::Rasm.Domain.Op.Of`, eleven Grasshopper sources alias `using Op = Rasm.Domain.Op`, `Directory.Build.props` injects `Rasm.Domain` as the Grasshopper-aware global using, and the sibling planning corpus anchors `Rasm.Domain` by name.
 
 ## [01]-[INDEX]
 
@@ -15,12 +15,12 @@ The namespace mirrors the folder path and is consumer-pinned: the union-ops gene
 
 ## [02]-[OPERATION_KEY]
 
-- Owner: `Op` `[ValueObject<string>]` readonly struct — ordinal equality AND ordinal ordering, one collation, so comparison-zero and equality never diverge for case-differing member names — the identity of one kernel operation. Every fault minted through the key's factory carries the `Op` that raised it; every acceptance gate is keyed by the `Op` that demanded it. The ambient cases carry their own evidence instead — a check-row key, a rejected scalar with its requirement, a unit system — because no single operation identity exists where they arise.
+- Owner: `Op` `[ValueObject<string>]` readonly struct — ordinal equality AND ordinal ordering, one collation, so comparison-zero and equality never diverge for case-differing member names — the identity of one kernel operation. Every fault minted through the key's factory carries the `Op` that raised it; every acceptance gate is keyed by the `Op` that demanded it. Ambient cases carry their own evidence instead — a check-row key, a rejected scalar with its requirement, a unit system — because no single operation identity exists where they arise.
 - Entry: `Op.Of([CallerMemberName] string name = "")` mints the key from the calling member with zero ceremony; a `[GenerateUnionOps]` union case carries its generated `SelfOp` instead of re-minting per call. Public polymorphic surfaces accept `Op? key = null` and resolve through `OrDefault()` (the extension is `validation.md`'s); internal kernels demand a required `Op key` tail parameter.
-- Cases: fault factories `MissingContext()`/`InvalidInput()`/`InvalidResult(detail?)`/`Unsupported(geometryType, outputType)`/`Caution(concern)` → `Error`; acceptance bridges `AcceptInput`/`AcceptValue`/`AcceptText`/`Confirm`/`Need`(class + `Option<T>`) → `Fin<T>` delegating to `OpAcceptance` (`validation.md`'s oracle); scalar guards `Finite`/`Positive` → `Fin<double>` lifting the `[06]` claim rows; boundary-exception rail `Catch<T>(Func<Fin<T>>)` + side-effect brackets `Side(Action)`/`SideWhen(bool, Action)`.
-- Law: `Catch` is the one inbound exception funnel — `Try.lift` captures the throwing body, a captured `OperationCanceledException` surfaces as `Fault.Cancelled` (`Error.HasException<E>` discriminates, recursing `ManyErrors`, so a host call cancelled mid-body keeps its category — derived cancellations included — instead of masquerading as a result failure), every other capture survives as the `InvalidResult` detail, and the self-flattening `Match` collapses the outer `Try` rail into the body's inner `Fin`. A bare `try`/`catch` in domain flow is the deleted form.
+- Cases: fault factories `MissingContext()`/`InvalidInput()`/`InvalidResult(detail?)`/`Unsupported(geometryType, outputType)`/`Caution(concern)` → `Error`; acceptance bridges `AcceptInput`/`AcceptValue`/`AcceptText`/`Confirm`/`Need`(class + `Option<T>`) → `Fin<T>` delegating to `OpAcceptance` (`validation.md`'s oracle); scalar guards `Finite`/`Positive` → `Fin<double>` lifting the `[06]` claim rows; boundary-exception rail `Catch<T>(Func<Fin<T>>)` + `Catch(Action)` → `Fin<Unit>` + side-effect brackets `Side(Action)`/`SideWhen(bool, Action)`.
+- Law: `Catch` is the one inbound exception funnel — `Try.lift` captures the throwing body, a captured `OperationCanceledException` surfaces as `Fault.Cancelled` (`Error.HasException<E>` discriminates, recursing `ManyErrors`, so a host call cancelled mid-body keeps its category — derived cancellations included — instead of masquerading as a result failure), every other capture survives as the `InvalidResult` detail, and the self-flattening `Match` collapses the outer `Try` rail into the body's inner `Fin`. Input shape selects the arm — a rail-returning body rides `Catch<T>`, a void host body rides `Catch(Action)` onto the same funnel as `Fin<Unit>` — so the `Catch(() => Fin.Succ(value: Op.Side(act)))` three-combinator spelling and a bare `try`/`catch` in domain flow are the deleted forms.
 - Law: `Finite`/`Positive` lift the `[06]` claim rows (`ValidityClaim.Finite`/`Positive`) into key-bound admission — the host predicate is stated once, on the claim row, never re-spelled here; collection- and shape-level admission is `validation.md`'s `Admit` vocabulary, never re-spelled per kernel.
-- Boundary: `Op` is a key, never a message channel — diagnostic text lives on the `Fault` case payloads; the key renders inside the case `Message` and nowhere else. The `ValidateFactoryArguments` partial rejects a blank key at mint — `[CallerMemberName]` never supplies one, so a whitespace literal is a caller defect surfacing at the generated factory, never a silent empty identity.
+- Boundary: `Op` is a key, never a message channel — diagnostic text lives on the `Fault` case payloads; the key renders inside the case `Message` and nowhere else. Its `ValidateFactoryArguments` partial rejects a blank key at mint — `[CallerMemberName]` never supplies one, so a whitespace literal is a caller defect surfacing at the generated factory, never a silent empty identity.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -58,6 +58,11 @@ public readonly partial struct Op {
                 Fail: error => Fin.Fail<T>(error: error.HasException<OperationCanceledException>() ? new Fault.Cancelled() : self.InvalidResult(detail: error.Message))));
     }
     [BoundaryAdapter]
+    public Fin<Unit> Catch(Action body) {
+        Op self = this;
+        return Optional(body).ToFin(Fail: self.InvalidInput()).Bind(valid => self.Catch(() => Fin.Succ(value: Side(action: valid))));
+    }
+    [BoundaryAdapter]
     public static Unit Side(Action action) {
         ArgumentNullException.ThrowIfNull(argument: action);
         action();
@@ -69,10 +74,10 @@ public readonly partial struct Op {
 
 ## [03]-[GENERATOR_CONTRACTS]
 
-- Owner: `GenerateUnionOpsAttribute` — the one local analyzer/generator marker. The union-ops generator resolves it by metadata name `Rasm.Domain.GenerateUnionOpsAttribute` (`ForAttributeWithMetadataName`); the spelling is frozen contract.
+- Owner: `GenerateUnionOpsAttribute` — the one local analyzer/generator marker. Union-ops generation resolves it by metadata name `Rasm.Domain.GenerateUnionOpsAttribute` (`ForAttributeWithMetadataName`); the spelling is frozen contract.
 - Auto: for every sealed record case of a `[GenerateUnionOps]` union, the generator emits `internal static readonly global::Rasm.Domain.Op SelfOp = global::Rasm.Domain.Op.Of(name: nameof(<Case>));` into a partial case declaration — each case carries its own operation key, minted once, named after the case.
 - Law: emission is strictly opt-in — `SelfOp` exists only for `[GenerateUnionOps]`-marked unions, whose cases are operations. A `[Union]` whose cases are carriers, resources, or requests simply carries no marker (`Fault` and `Lease<T>` on this page — failure and resource cases are carriers, never operations): the generator never visits an unmarked union, so no suppression attribute exists or is needed, and a `[SkipUnionOps]` opt-out marker is the deleted form.
-- Boundary: the attribute is designed vocabulary, not runtime behavior — it carries no members, applies to classes and structs, and never inherits; a marked union with no sealed record cases is inert (the generator emits nothing). The generator and its analyzer rules live with the repository analyzer; this page owns only the contract name and the emitted `SelfOp` shape.
+- Boundary: the attribute is designed vocabulary, not runtime behavior — it carries no members, applies to classes and structs, and never inherits; a marked union with no sealed record cases is inert (the generator emits nothing). Generator and analyzer rules live with the repository analyzer; this page owns only the contract name and the emitted `SelfOp` shape.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -158,7 +163,7 @@ public static class FaultExtensions {
 - Entry: `Use(project)` and the state-threaded `Use(state, project)` — the sole consumption gate: an `Owned` value is projected inside a `using` window and disposed the moment the projection returns; a `Borrowed` value is projected untouched. `Resource` reads the live value where the caller manages the extent; `Dispose()` releases `Owned` and no-ops `Borrowed`.
 - Law: ownership is a case, never a flag — the coercion lattice (`Domain/normalization.md`) returns `Fin<Lease<Curve|Surface|Brep>>` deciding owned-versus-borrowed per recovery path, `Requirement`'s lease-aware checks (`validation.md`) thread it, and the projection carriers ride `Lease<GeometryBase>`; a raw `IDisposable` field, a scattered `using`, or a parallel owned/borrowed wrapper pair is the deleted form.
 - Law: the state-threaded `Use` overload keeps projections closure-free — state rides the fold, lambdas stay `static`.
-- Boundary: unmarked by declaration — resource cases are not operations, so `Lease<T>` never carries `[GenerateUnionOps]` and no `SelfOp` is emitted. The `using` statement inside `Owned.Project` is the named platform-forced disposal seam.
+- Boundary: unmarked by declaration — resource cases are not operations, so `Lease<T>` never carries `[GenerateUnionOps]` and no `SelfOp` is emitted. `Owned.Project`'s `using` statement is the named platform-forced disposal seam.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -185,10 +190,10 @@ public abstract partial record Lease<T> where T : class, IDisposable {
 
 - Owner: `IValidityEvidence` — the corpus-wide evidence floor (one member, `IsValid`) every kernel receipt and carrier implements — plus `ValidityClaim`, the claim vocabulary whose `All` fold is the one mechanism a receipt's `IsValid` body composes.
 - Entry: a receipt spells `public bool IsValid => ValidityClaim.All(...)` over claim rows; the implicit `bool` conversion makes the fold the body. Claim rows: `Of(bool)` · `Finite(double)` · `Finite(Point3d)` · `Finite(Vector3d)` · `Finite(ReadOnlySpan<double>)` · `Nonnegative(double)` · `Positive(double)` · `UnitInterval(double)` · `Ordered(lower, upper)` · `CountAtLeast(count, floor)` · `CountExactly(count, expected)` · `Evidence(IValidityEvidence?)` for nested receipts.
-- Law: this fold retires the receipt-validity swarm — roughly forty mature receipts each hand-rolled an `IsValid` as a private `&&` chain re-deriving finiteness, non-negativity, count, and order semantics per receipt. The claim vocabulary states each predicate once; a receipt declares WHICH claims hold, never HOW a predicate is computed. A hand-rolled predicate chain in a receipt body is the deleted form.
+- Law: this fold retires the receipt-validity swarm — roughly forty mature receipts each hand-rolled an `IsValid` as a private `&&` chain re-deriving finiteness, non-negativity, count, and order semantics per receipt. One claim vocabulary states each predicate once; a receipt declares WHICH claims hold, never HOW a predicate is computed. A hand-rolled predicate chain in a receipt body is the deleted form.
 - Law: predicate policy is named once, HERE — the scalar `Finite` is `RhinoMath.IsValidDouble`, which screens both non-finite values and the host `RhinoMath.UnsetValue` sentinel, because scalar fields on kernel receipts can carry host-read material; the span `Finite` is the vectorized `TensorPrimitives.IsFiniteAll` gate, correct for solver-produced arrays that never carry the host sentinel. `Admit` (`validation.md`) lifts these same claim rows into `Op`-keyed admission faults — one predicate statement serves both rails. A host-neutral-shaped receipt (`Numerics/*` pages) folds `Of(...)` claims over its owned `double.IsFinite` + epsilon policy — same mechanism, page-owned predicate.
 - Law: implementing `IValidityEvidence` is oracle registration — `OpAcceptance.ValidityOf` (`validation.md`) reads one `IValidityEvidence` arm, so a new receipt reaches the acceptance oracle with zero oracle edits. `ClosestHit` (`evaluation.md`), `TopologyProjection` (`normalization.md`), `Stat`/`Distribution` (`stats.md`), the Analysis result receipts (`Analysis/*`), and every kernel receipt register through this floor; the mature per-type oracle arms and the `AnalysisAcceptance` fork are the deleted forms.
-- Boundary: the fold is validity evidence, never admission — admission rejects raw material at the boundary with typed faults (`validation.md`); the fold answers whether an already-constructed receipt carries coherent evidence. The span loop inside `All` is the named kernel exemption.
+- Boundary: the fold is validity evidence, never admission — admission rejects raw material at the boundary with typed faults (`validation.md`); the fold answers whether an already-constructed receipt carries coherent evidence. `All`'s span loop is the named kernel exemption.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -229,10 +234,10 @@ public readonly record struct ValidityClaim(bool Holds) {
 
 ## [07]-[THREADING_LAW]
 
-The ONE Op-threading law. Every kernel page obeys it; no page re-decides it.
+One Op-threading law rules every kernel page; no page re-decides it.
 
-- Law: `Op` is an explicit VALUE — minted once at the public entry through `Op.Of()` caller-member-name or read off a union case's generated `SelfOp`, threaded as the trailing parameter of every fallible kernel (`Op key` required on internal kernels, `Op? key = null` resolved through `OrDefault()` on public polymorphic surfaces), and read by every fault factory. The key identifies the operation that failed; it is never runtime capability. Repeated `OrDefault()` inside ONE member is value-identical, never a split key: `Op` is a string-keyed `[ValueObject<string>]` and `[CallerMemberName]` resolves lexically to the enclosing member (lambdas included), so every resolution in that member mints the equal value — bind `Op op = key.OrDefault();` once for read clarity, but the law is value identity, not call count.
-- Law: `Eff<Env>` is the runtime CARRIAGE — a pipeline needing tolerance context, progress, or cancellation is `Eff<Env, T>` composing `Env.Asks`/`Env.EnvAsks`; `Env` carries `Context`, `IProgress<double>?`, and `CancellationToken`, and nothing else rides it. The `Op` key never enters `Env`, and no ambient static, `AsyncLocal`, or second key mechanism exists anywhere in the kernel.
+- Law: `Op` is an explicit VALUE — minted once at the public entry through `Op.Of()` caller-member-name or read off a union case's generated `SelfOp`, threaded as the trailing parameter of every fallible kernel (`Op key` required on internal kernels, `Op? key = null` resolved through `OrDefault()` on public polymorphic surfaces), and read by every fault factory. This key identifies the failed operation; it is never runtime capability. Repeated `OrDefault()` inside ONE member is value-identical, never a split key: `Op` is a string-keyed `[ValueObject<string>]` and `[CallerMemberName]` resolves lexically to the enclosing member (lambdas included), so every resolution in that member mints the equal value — bind `Op op = key.OrDefault();` once for read clarity, but the law is value identity, not call count.
+- Law: `Eff<Env>` is the runtime CARRIAGE — a pipeline needing tolerance context, progress, or cancellation is `Eff<Env, T>` composing `Env.Asks`/`Env.EnvAsks`; `Env` carries `Context`, `IProgress<double>?`, and `CancellationToken`, and nothing else rides it. No `Op` key enters `Env`, and no ambient static, `AsyncLocal`, or second key mechanism exists anywhere in the kernel.
 - Law: below the `Eff` floor, the synchronous rails thread `Context` and `CancellationToken` as explicit parameters (`Requirement.Apply(context, value, cancel)` is the canonical shape); at the floor and above, `Env` carries both. One operation is written in exactly one paradigm — a kernel is a `Fin`/`Validation` body with a key tail, or an `Eff<Env, T>` pipeline threading the same key as a value — never both, never a hybrid.
 - Boundary: `Env` is `Analysis/query.md`'s frozen record — the Grasshopper binding constructs it directly; this page legislates the carriage law, that page owns the record and demonstrates the pipeline shape.
 
@@ -242,7 +247,7 @@ One substrate floor; growth is a case, a claim row, or a generated `SelfOp` — 
 
 | [INDEX] | [CONCERN]          | [OWNER]                               | [KIND]                               | [RAIL]                     | [CASES] |
 | :-----: | :----------------- | :------------------------------------ | :----------------------------------- | :------------------------- | :-----: |
-|  [01]   | Operation identity | `Op`                                  | `[ValueObject<string>]` fault/accept | `Op → Error`/`Op → Fin<T>` |   17    |
+|  [01]   | Operation identity | `Op`                                  | `[ValueObject<string>]` fault/accept | `Op → Error`/`Op → Fin<T>` |   18    |
 |  [02]   | Codegen contract   | `GenerateUnionOps`                    | opt-in marker + generated `SelfOp`   | `[Union] case → Op`        |    1    |
 |  [03]   | Substrate faults   | `Expected` + `Fault`                  | typed `Expected`/`Fault` payloads    | `Fault → Error` subtype    |   12    |
 |  [04]   | Resource ownership | `Lease<T>`                            | `[Union]` Owned/Borrowed cases       | `Lease<T>.Use → TResult`   |    2    |

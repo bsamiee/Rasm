@@ -603,7 +603,7 @@ public static class ViewportModes {
         Op op = key.OrDefault();
         return from mode in Optional(DisplayModeDescription.GetDisplayMode(id: modeId)).ToFin(Fail: op.InvalidInput())
                from lease in ViewportLease.Of(session: session, target: target, key: op)
-               from _ in lease.Use(borrow: row => op.Catch(() => Fin.Succ(value: Op.Side(() => row.Viewport.DisplayMode = mode))), key: op)
+               from _ in lease.Use(borrow: row => op.Catch(() => row.Viewport.DisplayMode = mode), key: op)
                select unit;
     }
 
@@ -659,7 +659,7 @@ public sealed partial class BuiltinAnalysis {
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------
-public sealed record AnalysisReceipt(Seq<Guid> Objects, Seq<Guid> Active);
+public sealed record AnalysisReceipt(Seq<Guid> Objects, Seq<Guid> Active) : IDetachedDocumentResult;
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record AnalysisOp {

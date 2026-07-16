@@ -11,14 +11,15 @@ Two-backend mark algebra (`Rasm.Rhino.Display`). One `Mark` `[Union]` carries ev
 
 ## [02]-[STYLE_ROWS]
 
-- Owner: `Stroke` — width, kernel `PerceptualColor`, cap/join rows carrying dual Eto/host columns (`PenLineCap`/`LineCapStyle`, `PenLineJoin`/`LineJoinStyle`), dash selection whose width-relative dashes-and-gaps column feeds both the Eto `DashStyle` and the host `SetPattern`, an optional halo color/thickness pair, an optional taper triple lowered through `SetTaper(startThickness:, endThickness:, taperPoint:)`, and the world/screen thickness space; `ToEtoPen()` mints the `Eto.Drawing.Pen` and `ToDisplayPen()` mints the full host `DisplayPen` — `Color`/`Thickness`/`ThicknessSpace`/`CapStyle`/`JoinStyle`/halo/taper/pattern — so one stroke value serves both backends at full host fidelity. `Quant` — the ONE Display-namespace backend-mint owner: `Sys` mints `System.Drawing.Color`, `Tint` mints `Eto.Drawing.Color`, `Vec` mints the render `Color4f`, each carrying the kernel alpha, and `Pt` projects a `Point2d` onto the Eto `PointF` seat; conduit, mode, and render fences compose the color mints, and a re-derived `ToRgb` destructure or an inline float-cast point pair beside a mint is the deleted form. `FillStyle` `[Union]` — `SolidCase(PerceptualColor)`, `LinearCase(PerceptualColor, PerceptualColor, Point2d, Point2d)` over `LinearGradientBrush`, `RadialCase(PerceptualColor, PerceptualColor, Point2d, Point2d, Size2f)` over `RadialGradientBrush`, `TextureCase(Eto.Drawing.Image, float)` over `TextureBrush` — brushes mint per draw inside a `using` because Eto brushes are disposable natives. `TextStyle` — the `SystemFontRole` `[SmartEnum<int>]` row (`Default`/`Bold`/`Label`/`Menu`/`Message`/`ToolTip` over the `Eto.Drawing.SystemFonts` roster) plus an optional size override, minting one `Eto.Drawing.Font`.
-- Law: every color quantizes through `Quant` at the mint — gradient interior stops, when a row needs them, come from `PerceptualColor.Ramp` over a `BlendPath` row; `Eto.Drawing.Color.Blend` and componentwise lerp are the deleted forms.
+- Owner: `Stroke` — width, kernel `PerceptualColor`, cap/join rows carrying dual Eto/host columns (`PenLineCap`/`LineCapStyle`, `PenLineJoin`/`LineJoinStyle`), dash selection whose width-relative dashes-and-gaps column feeds both the Eto `DashStyle` and the host `SetPattern`, an optional halo color/thickness pair, an optional taper triple lowered through `SetTaper(startThickness:, endThickness:, taperPoint:)`, and the world/screen thickness space; `ToEtoPen()` mints the `Eto.Drawing.Pen` and `ToDisplayPen()` mints the full host `DisplayPen` — `Color`/`Thickness`/`ThicknessSpace`/`CapStyle`/`JoinStyle`/halo/taper/pattern — so one stroke value serves both backends at full host fidelity. `Quant` — the ONE Display-namespace backend-mint owner: `Sys` mints `System.Drawing.Color`, `Vec` mints the render `Color4f`, each carrying the kernel alpha, and `Pt` projects a `Point2d` onto the Eto `PointF` seat; the Eto color seat composes `Pigment.ToColor` — the Eto sub-domain's one `PerceptualColor` → `Eto.Drawing.Color` quantizer — so exactly one quantization exists per backend target; conduit, mode, and render fences compose the color mints, and a re-derived `ToRgb` destructure, a second Eto quantizer, or an inline float-cast point pair beside a mint is the deleted form. `FillStyle` `[Union]` — `SolidCase(PerceptualColor)`, `LinearCase(PerceptualColor, PerceptualColor, Point2d, Point2d)` over `LinearGradientBrush`, `RadialCase(PerceptualColor, PerceptualColor, Point2d, Point2d, Size2f)` over `RadialGradientBrush`, `TextureCase(Eto.Drawing.Image, float)` over `TextureBrush` — brushes mint per draw inside a `using` because Eto brushes are disposable natives. `TextStyle` — the `SystemFontRole` `[SmartEnum<int>]` row (`Default`/`Bold`/`Label`/`Menu`/`Message`/`ToolTip` over the `Eto.Drawing.SystemFonts` roster) plus an optional size override, minting one `Eto.Drawing.Font`.
+- Law: every color quantizes at the mint — `Quant.Sys`/`Quant.Vec` for the host targets, `Pigment.ToColor` for the Eto target — and gradient interior stops, when a row needs them, come from `PerceptualColor.Ramp` over a `BlendPath` row; `Eto.Drawing.Color.Blend` and componentwise lerp are the deleted forms.
 - Law: style values are immutable rows shared across marks; the disposable native (pen, brush, font) is minted at the draw edge and scoped to the draw — a cached Eto pen crossing frames is the leak the mint-per-draw shape forecloses.
 
 ```csharp
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Numerics;
+using Rasm.Rhino.Eto;
 using Rasm.Rhino.Viewport;
 
 namespace Rasm.Rhino.Display;
@@ -96,7 +97,7 @@ public sealed record Stroke(
     }
 
     internal Eto.Drawing.Pen ToEtoPen() =>
-        new(Quant.Tint(Color), (float)Width) {
+        new(Pigment.ToColor(Color), (float)Width) {
             LineCap = Cap.Native,
             LineJoin = Join.Native,
             DashStyle = Dash.Native(),
@@ -148,11 +149,11 @@ public abstract partial record FillStyle {
 
     private Eto.Drawing.Brush Mint() =>
         Switch(
-            solidCase: static fill => (Eto.Drawing.Brush)new Eto.Drawing.SolidBrush(Quant.Tint(fill.Color)),
+            solidCase: static fill => (Eto.Drawing.Brush)new Eto.Drawing.SolidBrush(Pigment.ToColor(fill.Color)),
             linearCase: static fill => new Eto.Drawing.LinearGradientBrush(
-                Quant.Tint(fill.Start), Quant.Tint(fill.End), Quant.Pt(fill.From), Quant.Pt(fill.To)),
+                Pigment.ToColor(fill.Start), Pigment.ToColor(fill.End), Quant.Pt(fill.From), Quant.Pt(fill.To)),
             radialCase: static fill => new Eto.Drawing.RadialGradientBrush(
-                Quant.Tint(fill.Start), Quant.Tint(fill.End), Quant.Pt(fill.Center), Quant.Pt(fill.Origin),
+                Pigment.ToColor(fill.Start), Pigment.ToColor(fill.End), Quant.Pt(fill.Center), Quant.Pt(fill.Origin),
                 new Eto.Drawing.SizeF(fill.Radius.Width, fill.Radius.Height)),
             textureCase: static fill => new Eto.Drawing.TextureBrush(fill.Image, fill.Opacity));
 }
@@ -177,11 +178,6 @@ public static class Quant {
     public static System.Drawing.Color Sys(PerceptualColor color) {
         (byte r, byte g, byte b, double alpha) = color.ToRgb();
         return System.Drawing.Color.FromArgb((int)Math.Clamp(alpha * 255.0, 0.0, 255.0), r, g, b);
-    }
-
-    public static Eto.Drawing.Color Tint(PerceptualColor color) {
-        (byte r, byte g, byte b, double alpha) = color.ToRgb();
-        return new Eto.Drawing.Color(r / 255f, g / 255f, b / 255f, (float)alpha);
     }
 
     public static Display.Color4f Vec(PerceptualColor color) {
@@ -424,26 +420,26 @@ public static class Marks {
                 pen: m.Stroke.ToDisplayPen())),
             pathCase: static (ctx, m) => Hud(frame: ctx.Frame, key: ctx.Op, draw: () =>
                 _ = m.Stroke.Iter(stroke => m.Path.Curves().Iter(curve => ctx.Frame.Pipeline.DrawCurve(curve: curve, pen: stroke.ToDisplayPen())))),
-            labelCase: static (ctx, m) => World(key: ctx.Op, draw: () => {
+            labelCase: static (ctx, m) => ctx.Op.Catch(() => {
                 Eto.Drawing.Font font = m.Style.Font();
                 ctx.Frame.Pipeline.Draw2dText(text: m.Text, color: Quant.Sys(m.Color), screenCoordinate: m.At, middleJustified: m.MiddleJustified, height: (int)font.Size, fontface: font.FamilyName);
             }),
             screenSpriteCase: static (ctx, m) => ctx.Sprites.Resolve(source: m.Sprite, blend: m.Blend, key: ctx.Op)
                 .Map(bitmap => Op.Side(() => ctx.Frame.Pipeline.DrawSprite(bitmap: bitmap, screenLocation: m.At, width: m.Extent.Width, height: m.Extent.Height))),
-            curveCase: static (ctx, m) => World(key: ctx.Op, draw: () => ctx.Frame.Pipeline.DrawCurve(curve: m.Value, pen: m.Stroke.ToDisplayPen())),
-            meshShadedCase: static (ctx, m) => World(key: ctx.Op, draw: () => ctx.Frame.Pipeline.DrawMeshShaded(mesh: m.Value, material: m.Material)),
+            curveCase: static (ctx, m) => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawCurve(curve: m.Value, pen: m.Stroke.ToDisplayPen())),
+            meshShadedCase: static (ctx, m) => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawMeshShaded(mesh: m.Value, material: m.Material)),
             meshBandedCase: static (ctx, m) => m.Banding.Mint(key: ctx.Op)
                 .Map(effect => Op.Side(() => ctx.Frame.Pipeline.DrawMeshShaded(mesh: m.Value, diffuseMaterialColor: Quant.Sys(m.Color), zebraSettings: effect))),
-            meshFalseColorsCase: static (ctx, m) => World(key: ctx.Op, draw: () => ctx.Frame.Pipeline.DrawMeshFalseColors(mesh: m.Value)),
-            subDShadedCase: static (ctx, m) => World(key: ctx.Op, draw: () => ctx.Frame.Pipeline.DrawSubDShaded(subd: m.Value, material: m.Material)),
-            subDWiresCase: static (ctx, m) => World(key: ctx.Op, draw: () => ctx.Frame.Pipeline.DrawSubDWires(subd: m.Value, color: Quant.Sys(m.Color), thickness: m.Thickness)),
-            brepShadedCase: static (ctx, m) => World(key: ctx.Op, draw: () => ctx.Frame.Pipeline.DrawBrepShaded(brep: m.Value, material: m.Material)),
-            brepWiresCase: static (ctx, m) => World(key: ctx.Op, draw: () => ctx.Frame.Pipeline.DrawBrepWires(brep: m.Value, color: Quant.Sys(m.Color), wireDensity: m.Density)),
-            blockShadedCase: static (ctx, m) => World(key: ctx.Op, draw: () => ctx.Frame.Pipeline.DrawInstanceDefinitionShaded(instanceDefinition: m.Definition, material: m.Material, xform: m.Placement)),
-            clipWiresCase: static (ctx, m) => World(key: ctx.Op, draw: () => ctx.Frame.Pipeline.DrawClippingPlaneWires(clippingPlane: m.Value, color: Quant.Sys(m.Color))),
-            hatchCase: static (ctx, m) => World(key: ctx.Op, draw: () => ctx.Frame.Pipeline.DrawHatch(hatch: m.Value, hatchColor: Quant.Sys(m.Line), boundaryColor: Quant.Sys(m.Fill))),
-            worldTextCase: static (ctx, m) => World(key: ctx.Op, draw: () => ctx.Frame.Pipeline.DrawText(text: m.Value, color: Quant.Sys(m.Color))),
-            annotationCase: static (ctx, m) => World(key: ctx.Op, draw: () => ctx.Frame.Pipeline.DrawAnnotation(annotation: m.Value, parentObject: m.Owner, color: Quant.Sys(m.Color))),
+            meshFalseColorsCase: static (ctx, m) => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawMeshFalseColors(mesh: m.Value)),
+            subDShadedCase: static (ctx, m) => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawSubDShaded(subd: m.Value, material: m.Material)),
+            subDWiresCase: static (ctx, m) => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawSubDWires(subd: m.Value, color: Quant.Sys(m.Color), thickness: m.Thickness)),
+            brepShadedCase: static (ctx, m) => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawBrepShaded(brep: m.Value, material: m.Material)),
+            brepWiresCase: static (ctx, m) => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawBrepWires(brep: m.Value, color: Quant.Sys(m.Color), wireDensity: m.Density)),
+            blockShadedCase: static (ctx, m) => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawInstanceDefinitionShaded(instanceDefinition: m.Definition, material: m.Material, xform: m.Placement)),
+            clipWiresCase: static (ctx, m) => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawClippingPlaneWires(clippingPlane: m.Value, color: Quant.Sys(m.Color))),
+            hatchCase: static (ctx, m) => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawHatch(hatch: m.Value, hatchColor: Quant.Sys(m.Line), boundaryColor: Quant.Sys(m.Fill))),
+            worldTextCase: static (ctx, m) => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawText(text: m.Value, color: Quant.Sys(m.Color))),
+            annotationCase: static (ctx, m) => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawAnnotation(annotation: m.Value, parentObject: m.Owner, color: Quant.Sys(m.Color))),
             worldSpriteCase: static (ctx, m) => ctx.Sprites.Resolve(source: m.Sprite, blend: m.Blend, key: ctx.Op)
                 .Map(bitmap => Op.Side(() => ctx.Frame.Pipeline.DrawSprite(
                     bitmap: bitmap, worldLocation: m.At, size: m.Size,
@@ -457,9 +453,9 @@ public static class Marks {
                         None: () => Op.Side(() => list.SetPoints(points: m.Points.AsEnumerable())));
                     ctx.Frame.Pipeline.DrawSprites(bitmap: bitmap, items: list, size: m.Size, sizeInWorldSpace: m.WorldSized);
                 })),
-            directionIndicatorsCase: static (ctx, m) => World(key: ctx.Op, draw: () => ctx.Frame.Pipeline.DrawSurfaceDirectionIndicators(directionIndicators: m.Value)),
-            curvaturePreviewCase: static (ctx, m) => World(key: ctx.Op, draw: () => ctx.Frame.Pipeline.DrawCurvaturePreview(brep: m.Value, color: Quant.Sys(m.Color))),
-            draftPreviewCase: static (ctx, m) => World(key: ctx.Op, draw: () => ctx.Frame.Pipeline.DrawDraftAnglePreview(mesh: m.Value, color: Quant.Sys(m.Color))));
+            directionIndicatorsCase: static (ctx, m) => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawSurfaceDirectionIndicators(directionIndicators: m.Value)),
+            curvaturePreviewCase: static (ctx, m) => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawCurvaturePreview(brep: m.Value, color: Quant.Sys(m.Color))),
+            draftPreviewCase: static (ctx, m) => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawDraftAnglePreview(mesh: m.Value, color: Quant.Sys(m.Color))));
 
     private static Fin<Unit> Surface(Eto.Drawing.Graphics graphics, SpriteSheet sprites, Mark mark, Op key) =>
         mark.Switch(
@@ -489,7 +485,7 @@ public static class Marks {
                         None: () => Fin.Succ(value: unit)));
             }),
             labelCase: static (ctx, m) => ctx.Op.Catch(() => {
-                using Eto.Drawing.SolidBrush ink = new(Quant.Tint(m.Color));
+                using Eto.Drawing.SolidBrush ink = new(Pigment.ToColor(m.Color));
                 using Eto.Drawing.FormattedText laid = new() { Text = m.Text, Font = m.Style.Font(), ForegroundBrush = ink };
                 Eto.Drawing.SizeF measured = laid.Measure();
                 Eto.Drawing.PointF at = m.MiddleJustified
@@ -525,10 +521,8 @@ public static class Marks {
     private static Fin<Unit> NotOnSurface(Mark mark, Op key) =>
         Fin.Fail<Unit>(key.Unsupported(geometryType: mark.GetType(), outputType: typeof(Eto.Drawing.Graphics)));
 
-    private static Fin<Unit> World(Op key, Action draw) => key.Catch(() => Fin.Succ(value: Op.Side(draw)));
-
     private static Fin<Unit> Hud(ConduitFrame frame, Op key, Action draw) =>
-        RenderStates.Hud.Scope(pipeline: frame.Pipeline, draw: () => World(key: key, draw: draw), key: key);
+        RenderStates.Hud.Scope(pipeline: frame.Pipeline, draw: () => key.Catch(draw), key: key);
 }
 ```
 

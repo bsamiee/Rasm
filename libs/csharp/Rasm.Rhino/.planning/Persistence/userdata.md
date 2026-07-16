@@ -183,7 +183,7 @@ internal abstract partial record CustodyMove {
             duplicate: static (key, move) =>
                 from source in Optional(move.Source).ToFin(Fail: key.InvalidInput())
                 from destination in Optional(move.Destination).ToFin(Fail: key.InvalidInput())
-                from _ in key.Catch(() => Fin.Succ(value: Op.Side(() => UserData.Copy(source, destination))))
+                from _ in key.Catch(() => UserData.Copy(source, destination))
                 select Option<Guid>.None,
             harvest: static (key, move) =>
                 from source in Optional(move.Source).ToFin(Fail: key.InvalidInput())
@@ -197,7 +197,7 @@ internal abstract partial record CustodyMove {
                 from holding in move.HoldingId != Guid.Empty
                     ? Fin.Succ(value: move.HoldingId)
                     : Fin.Fail<Guid>(error: key.InvalidInput())
-                from _ in key.Catch(() => Fin.Succ(value: Op.Side(() => UserData.MoveUserDataTo(target, holding, move.Append))))
+                from _ in key.Catch(() => UserData.MoveUserDataTo(target, holding, move.Append))
                 select Option<Guid>.None);
 }
 
@@ -248,7 +248,7 @@ public static class DataRoster {
                from disposition in Optional(release).ToFin(Fail: op.InvalidInput())
                from _remove in op.Catch(() => op.Confirm(success: list.Remove(userdata: value)))
                from _dispose in disposition == DataRelease.Dispose
-                   ? op.Catch(() => Fin.Succ(value: Op.Side(value.Dispose)))
+                   ? op.Catch(value.Dispose)
                    : Fin.Succ(value: unit)
                select unit;
     }
@@ -256,7 +256,7 @@ public static class DataRoster {
     internal static Fin<Unit> Purge(UserDataList roster, Op? key = null) {
         Op op = key.OrDefault();
         return from list in Optional(roster).ToFin(Fail: op.InvalidInput())
-               from _ in op.Catch(() => Fin.Succ(value: Op.Side(list.Purge)))
+               from _ in op.Catch(list.Purge)
                select unit;
     }
 }

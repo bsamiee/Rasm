@@ -71,7 +71,7 @@ It references no sibling package — every alignment travels down the one kernel
 
 [RENDER]:
 - [46]-[CONTENT](.planning/Render/content.md): `ContentRef` addresses the RDK content graph behind the kind axis, change bracket, and snapshot.
-- [47]-[KINDS](.planning/Render/kinds.md): `MaterialBridge` bakes material, texture, and environment specializations into leased document values.
+- [47]-[KINDS](.planning/Render/kinds.md): `MaterialBridge` borrows baked material and PBR projections per window; mint verbs yield leased content.
 - [48]-[FIELDS](.planning/Render/fields.md): `FieldValue` owns every typed content parameter through one polymorphic write, recover, and box dispatch.
 - [49]-[REGISTRY](.planning/Render/registry.md): `Contents.Commit` runs the content rail through factory vocabulary, receipts, and events.
 - [50]-[SETTINGS](.planning/Render/settings.md): `Settings.Commit` applies total render state across the document, archive, and free-floating duality.

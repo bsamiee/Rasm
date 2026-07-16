@@ -1230,8 +1230,8 @@ public static class Sheets {
             from _removed in exclusive
                 ? toSeq(page.GetPageViewGroupList())
                     .Filter(index => index != pageGroup.Index)
-                    .TraverseM(index => op.Catch(() => Fin.Succ(value: Op.Side(() =>
-                        page.RemoveFromPageViewGroup(pageViewGroupIndex: index)))))
+                    .TraverseM(index => op.Catch(() =>
+                        page.RemoveFromPageViewGroup(pageViewGroupIndex: index)))
                     .As()
                     .Map(static _ => unit)
                 : Fin.Succ(value: unit)
@@ -1240,8 +1240,8 @@ public static class Sheets {
                 op.InvalidResult()).ToFin()
             from _added in page.IsInPageViewGroup(pageViewGroupIndex: pageGroup.Index)
                 ? Fin.Succ(value: unit)
-                : op.Catch(() => Fin.Succ(value: Op.Side(() =>
-                    page.AddToPageViewGroup(pageViewGroupIndex: pageGroup.Index))))
+                : op.Catch(() =>
+                    page.AddToPageViewGroup(pageViewGroupIndex: pageGroup.Index))
             from _addedPostcondition in guard(
                 page.IsInPageViewGroup(pageViewGroupIndex: pageGroup.Index),
                 op.InvalidResult()).ToFin()

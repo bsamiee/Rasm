@@ -1,8 +1,20 @@
 # [RASM_RHINO_ARCHITECTURE]
 
-`Rasm.Rhino` maps the Rhino 9 host boundary over the RhinoCommon document, persistence, object, command, block, annotation, modeling, viewport, display, render, and exchange surfaces, owning the native Eto UI sub-domain and the `Rhino.UI` shell above it and composing the `Rasm` kernel for every host-neutral computation. Each sub-domain folder maps to exactly one namespace; the folder references only the kernel and lowers every host mutation onto the one document-session demand and the shared `UndoBracket`. Seam map names only the contracts crossing the boundary — each a frozen-name value type consumed down from the kernel — while all host-internal wiring graduates to the `[03]` mutation spine.
+`Rasm.Rhino` maps the Rhino 9 host boundary over the RhinoCommon document, persistence, object, command, block, annotation, modeling, viewport, display, render, and exchange surfaces, owning the native Eto UI sub-domain and the `Rhino.UI` shell above it and composing the `Rasm` kernel for every host-neutral computation. Each sub-domain folder maps to exactly one namespace; the folder references only the kernel and lowers every host mutation onto the one document-session demand and the shared `UndoBracket`. Seam map names only the contracts crossing the boundary — each a frozen-name value type consumed down from the kernel — while all host-internal wiring graduates to the `[04]` mutation spine.
 
-## [01]-[DOMAIN_MAP]
+## [01]-[STRATA]
+
+Five strata order the sub-domain folders; a folder composes its own owners and lower strata only, so every dependency edge points down this list and an upward edge has no spelling. `Rasm` kernel namespaces underlie the whole boundary as the host-neutral floor, never a stratum of this map.
+
+- [01]: `Document` — spine under everything: session demand, undo bracketing, geometry custody, and event subscription; every sibling composes it.
+- [02]: `Persistence`, `Commands`, `Blocks`, `Modeling`, `Annotation`, `Eto` — single-seam domains composing `Document` alone; Modeling reaches only the geometry-custody capsule, never the session, and Eto reaches only the spine's event-detach capsule.
+- [03]: `Objects`, `HostUi` — composite domains: Objects adds Commands' picked-reference custody and Blocks' graph evidence; HostUi adds the whole Eto sub-domain.
+- [04]: `Viewport` — adds HostUi's `HostThread.OnSession` command-thread marshal, the seam every viewport borrow crosses.
+- [05]: `Render`, `Display`, `Exchange` — terminal composers over Viewport's camera and capture surface; Display also draws through the Eto canvas; no folder composes these three.
+
+One edge crosses upward by rule: the Document session's configured-open source carries Persistence's `ArchiveMap` as its typed open-options payload, minted before any session exists — the map's single counter-edge. Every other edge points strictly down, so the strata are cycle-free with that one ruled exception. A new folder seats one stratum above its highest composed owner, and a new dependency is legal only when it points down.
+
+## [02]-[DOMAIN_MAP]
 
 ```text codemap
 Rasm.Rhino/             # Rhino host boundary over the Rasm kernel
@@ -88,7 +100,7 @@ Rasm.Rhino/             # Rhino host boundary over the Rasm kernel
     └── Dialogs.cs      # Capability-gated inquiry rail and preview projection
 ```
 
-## [02]-[SEAMS]
+## [03]-[SEAMS]
 
 ```mermaid
 ---
@@ -141,7 +153,7 @@ flowchart LR
 
 Every kernel contract is a frozen-name value type the host binds and never re-mints — one `[BOUNDARY]` rail per sub-domain, each carrying the exact member set its owner consumes. Kernel is host-neutral and mirrors none of these edges downward, so the strata-locked dependency is source-only by construction.
 
-## [03]-[INTERNAL]
+## [04]-[INTERNAL]
 
 Every host mutation walks one path — no sub-domain opens the document directly. Document-session demand gates capability, the shared `UndoBracket` frames the change, the sub-domain executor runs inside it, and the sealing commit lands the fact receipt with redraw compensation; a denied demand and every mid-stage fault converge on the one rail that still releases the bracket. Exact per-stage wiring lives on the owning implementation pages.
 
@@ -196,9 +208,9 @@ flowchart LR
     class Ledger data
 ```
 
-## [04]-[NAMESPACES]
+## [05]-[NAMESPACES]
 
-Namespace mirrors folder path — `.editorconfig` sets `dotnet_style_namespace_match_folder = true:error`, so every fence under `Rasm.Rhino/<Folder>/` declares `namespace Rasm.Rhino.<Folder>;` and the `[01]` codemap folders are the namespace roots verbatim.
+Namespace mirrors folder path — `.editorconfig` sets `dotnet_style_namespace_match_folder = true:error`, so every fence under `Rasm.Rhino/<Folder>/` declares `namespace Rasm.Rhino.<Folder>;` and the `[02]` codemap folders are the namespace roots verbatim.
 
 Boundary compiles as ONE assembly — the single `Rasm.Rhino.csproj` — so internal members cross namespaces with no build edge, and the project references only `Rasm.csproj`. Kernel-neutral value types compose freely from the kernel, while a live host handle, a native carrier, or a `System.Drawing` screen struct never crosses out of the sub-domain that leases it.
 

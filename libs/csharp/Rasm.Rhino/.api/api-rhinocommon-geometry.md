@@ -42,7 +42,7 @@ This catalog owns the host-bound `GeometryBase` crossing — the native-geometry
 - `Rhino.Geometry.GeometryBase.IsShallowDuplicate : bool` — whether this instance shares another's native pointer.
 - `Rhino.Geometry.GeometryBase.Duplicate() : GeometryBase` — deep-copies the geometry off document control.
 - `Rhino.Geometry.GeometryBase.IsDocumentControlled : bool` — whether the document owns the lifetime of this geometry.
-- `Rhino.Geometry.GeometryBase.ObjectType : ObjectType` — the geometry-type discriminant.
+- `Rhino.Geometry.GeometryBase.ObjectType : ObjectType` — names the geometry-type discriminant.
 - `Rhino.Geometry.GeometryBase.DataCRC(uint currentRemainder) : uint` — content hash for change and identity detection.
 
 [GEOMETRY_TRANSFORM]:
@@ -59,7 +59,7 @@ This catalog owns the host-bound `GeometryBase` crossing — the native-geometry
 [USER_STRINGS]:
 - `Rhino.Geometry.GeometryBase.SetUserString(string key, string value) : bool` — writes a key-value user string onto the geometry.
 - `Rhino.Geometry.GeometryBase.GetUserString(string key) : string` — reads a user string by key.
-- `Rhino.Geometry.GeometryBase.GetUserStrings() : NameValueCollection` — the full user-string collection.
+- `Rhino.Geometry.GeometryBase.GetUserStrings() : NameValueCollection` — answers the full user-string collection.
 - `Rhino.Geometry.GeometryBase.DeleteUserString(string key) : bool` — removes a user string by key.
 
 [TRANSFORM_FACTORY]:
@@ -73,19 +73,20 @@ This catalog owns the host-bound `GeometryBase` crossing — the native-geometry
 - `Rhino.Geometry.Transform.DecomposeSimilarity(out Vector3d translation, out double dilation, out Transform rotation, double tolerance) : TransformSimilarityType` — splits a similarity into translation, dilation, and rotation.
 - `Rhino.Geometry.Transform.DecomposeRigid(out Vector3d translation, out Transform rotation, double tolerance) : int` — splits a rigid transform into translation and rotation.
 - `Rhino.Geometry.Transform.DecomposeAffine(out Vector3d translation, out Transform linear, out Transform rotation, out Vector3d diagonal) : bool` — splits an affine transform into its linear, rotation, and scaling factors.
-- `Rhino.Geometry.Transform.TransformBoundingBox(BoundingBox bbox) : BoundingBox` — the bounds of a transformed box.
-- `Rhino.Geometry.Transform.TryGetInverse(out Transform inverse) : bool` — the inverse transform when invertible.
+- `Rhino.Geometry.Transform.TransformBoundingBox(BoundingBox bbox) : BoundingBox` — answers the bounds of a transformed box.
+- `Rhino.Geometry.Transform.TryGetInverse(out Transform inverse) : bool` — answers the inverse transform when invertible.
 
 [BOUNDING_BOX]:
 - `Rhino.Geometry.BoundingBox.Center : Point3d` — box center.
 - `Rhino.Geometry.BoundingBox.Diagonal : Vector3d` — min-to-max diagonal vector.
+- `Rhino.Geometry.BoundingBox.Inflate(double amount) : void` — grows the box uniformly; negative amounts shrink, invalid boxes never inflate.
 - `Rhino.Geometry.BoundingBox.Inflate(double xAmount, double yAmount, double zAmount) : void` — grows the box per axis.
-- `Rhino.Geometry.BoundingBox.GetCorners() : Point3d[]` — the eight corner points.
-- `Rhino.Geometry.BoundingBox.GetEdges() : Line[]` — the twelve edge lines.
+- `Rhino.Geometry.BoundingBox.GetCorners() : Point3d[]` — answers the eight corner points.
+- `Rhino.Geometry.BoundingBox.GetEdges() : Line[]` — answers the twelve edge lines.
 - `Rhino.Geometry.BoundingBox.Transform(Transform xform) : bool` — transforms the box corners in place.
 
 [CLIP_PARTICIPATION]:
-- `Rhino.Geometry.ClippingPlaneSurface.PlaneDepth : double` — the finite clip depth below the plane.
+- `Rhino.Geometry.ClippingPlaneSurface.PlaneDepth : double` — reads the finite clip depth below the plane.
 - `Rhino.Geometry.ClippingPlaneSurface.PlaneDepthEnabled : bool` — whether the finite clip depth is active.
 - `Rhino.Geometry.ClippingPlaneSurface.ParticipationListsEnabled : bool` — whether the participation lists are active.
 - `Rhino.Geometry.ClippingPlaneSurface.AddClipViewportId(Guid viewportId) : bool` — adds a clipped viewport.

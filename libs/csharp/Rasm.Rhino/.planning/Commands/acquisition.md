@@ -1,6 +1,6 @@
 # [RASM_RHINO_ACQUISITION]
 
-The declarative input-acquisition owner (`Rasm.Rhino.Commands`). One `InputKind` matrix carries every command-line acquisition modality the host admits — constrained dynamic points, filtered object picks, bounded numbers and integers, text, toggles, colors, distances, the one-shot geometric primitives, views and viewport sets, and interactive transforms — each row one declared capability: the native route, the typed payload projection, the option participation, and the request-slot admission are row data, so a new modality is one row and the census-era `typeof(T)` registry with its per-getter factory branches is dead. One `Acquire` request record parameterizes every row — prompt, typed default, accept policy, command-line options, point constraints, snap and construction points, dynamic-draw feedback, numeric bounds, object filters — and one `Acquisition.Get` entry proves the session `Acquire` grant around the getter window, drives the getter with the internalized option loop, and returns one `AcquiredReceipt` whose terminal discriminates value, cancel, empty, and host exit on the rail. Scripted execution needs no second path: the host getters consume script tokens natively under the scripted run lane, so interactive and scripted acquisition are one matrix.
+Declarative input-acquisition owner (`Rasm.Rhino.Commands`). One `InputKind` matrix carries every command-line acquisition modality the host admits — constrained dynamic points, filtered object picks, bounded numbers and integers, text, toggles, colors, distances, the one-shot geometric primitives, views and viewport sets, and interactive transforms — each row one declared capability: the native route, the typed payload projection, the option participation, and the request-slot admission are row data, so a new modality is one row and the census-era `typeof(T)` registry with its per-getter factory branches is dead. One `Acquire` request record parameterizes every row — prompt, typed default, accept policy, command-line options, point constraints, snap and construction points, dynamic-draw feedback, numeric bounds, object filters — and one `Acquisition.Get` entry proves the session `Acquire` grant around the getter window, drives the getter with the internalized option loop, and returns one `AcquiredReceipt` whose terminal discriminates value, cancel, empty, and host exit on the rail. Scripted execution needs no second path: the host getters consume script tokens natively under the scripted run lane, so interactive and scripted acquisition are one matrix.
 
 ## [01]-[INDEX]
 
@@ -254,7 +254,7 @@ public abstract partial record PointConstraint {
 - Law: scripted acquisition is the same matrix — the host getters read script tokens under the scripted lane and `RhinoGet` consumes command-line input directly, so no parallel scripted decode path exists; the scripted lane still proves the `Acquire` grant, whose row already admits the scripted mode.
 - Law: numeric bounds are getter facts — the `Number` and `Count` rows push `SetLowerLimit`/`SetUpperLimit` onto the native getter so the host enforces the band during typing, and the projected value re-checks nothing.
 - Law: the object row hands its picks to the selection owner at the terminal — `Objects()` projects through `Picks.Capture` inside the getter window, so no `ObjRef` survives the row.
-- RESEARCH: the scalar-expression parse members (`StringParser.ParseNumber`, the angle-expression parser, `LengthValue.Create`) and the `GetString` custom-message surface are unverified — a units-aware text-to-scalar row lands after catalog verification; until then the `Text` row returns the raw string and the caller admits it through kernel validation.
+- Law: units-aware text lands scalar through `ScalarText` — `StringParser.ParseLengthExpession(string, StringParserSettings, UnitSystem, out double) : int` answers characters consumed (the host misspells `Expession`; the long-form angle sibling `ParseAngleExpession` shares the misspelling), `ParseAngleExpressionDegrees`/`ParseAngleExpressionRadians(string, out double) : bool` answer angles, presets ride `StringParserSettings.DefaultParseSettings`, and `StringParser.ParseNumber` plus the `LengthValue.Create`/`IsUnset` round trip stay unit-text scope on the same verified family — a partially consumed expression is a typed refusal, so the `Text` row's raw string admits to a unit-carried scalar with no kernel re-parse.
 - Growth: a new host getter modality is one row with its `Run` delegate and slot admission; `Acquisition.Get`, the receipt, and the command page's `Acquire` stage read it with zero new surface.
 
 ```csharp
@@ -543,6 +543,36 @@ internal static class InputRuns {
 
     private static AcquiredReceipt Receipt(AcquireTerminal terminal) =>
         new(Terminal: terminal, Options: Seq<OptionChoice>(), GotDefault: false);
+}
+
+public static class ScalarText {
+    public static Fin<double> Length(string expression, UnitSystem output, Option<StringParserSettings> settings = default, Op? key = null) {
+        Op op = key.OrDefault();
+        return from text in op.AcceptText(value: expression)
+               from parsed in op.Catch(() => StringParser.ParseLengthExpession(
+                       expression: text,
+                       parse_settings_in: settings.IfNone(StringParserSettings.DefaultParseSettings),
+                       output_unit_system: output,
+                       value_out: out double value) == text.Length
+                   ? Fin.Succ(value: value)
+                   : Fin.Fail<double>(error: op.InvalidInput()))
+               select parsed;
+    }
+
+    public static Fin<double> Angle(string expression, AngleUnitSystem output, Op? key = null) {
+        Op op = key.OrDefault();
+        return from text in op.AcceptText(value: expression)
+               from parsed in op.Catch(() => output switch {
+                   AngleUnitSystem.Radians => StringParser.ParseAngleExpressionRadians(expression: text, angle_radians: out double radians)
+                       ? Fin.Succ(value: radians)
+                       : Fin.Fail<double>(error: op.InvalidInput()),
+                   AngleUnitSystem.Degrees => StringParser.ParseAngleExpressionDegrees(expression: text, angle_degrees: out double degrees)
+                       ? Fin.Succ(value: degrees)
+                       : Fin.Fail<double>(error: op.InvalidInput()),
+                   _ => Fin.Fail<double>(error: op.Unsupported(geometryType: typeof(AngleUnitSystem), outputType: typeof(double))),
+               })
+               select parsed;
+    }
 }
 
 // --- [BOUNDARIES] -------------------------------------------------------------------------

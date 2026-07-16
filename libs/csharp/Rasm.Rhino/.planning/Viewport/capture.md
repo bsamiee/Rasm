@@ -1,6 +1,6 @@
 # [RASM_RHINO_CAPTURE]
 
-The capture render specification (`Rasm.Rhino.Viewport`). `CapturePlan` owns the settings-representable subject, area, scale, media layout, and decoration axes without delivery state; `CaptureRequest` pairs a non-empty plan span with one settings-driven egress and admits scalar bitmap/SVG delivery only at cardinality one; `TransparentCaptureSpec` owns the distinct facade path whose transparency and screen-item flags have no `ViewCaptureSettings` representation; and `DepthCaptureSpec` owns the z-buffer facade path — per-pixel depth with screen-to-world recovery, distinct from `DepthProbe`'s single-distance camera read. `Captures` crosses `HostThread.OnSession` once, resolves every target inside that UI-scoped demand, binds the addressed viewport before viewport-dependent writes, constructs each basis `ViewCaptureSettings` once, and derives a preview only after its basis is complete. Preparation folds iteratively into one reverse-disposed lease set, so scalar capture, PDF staging, and printer spooling share one acquisition body without exposing or retaining a settings handle. `FrameSequenceSpec` custodies the document animation-capture spec — turntable, path, flythrough, and sun-study frame sequences the host animation tools record — through one copy-edit-commit rail whose frame receipts read back as evidence.
+Capture render specification (`Rasm.Rhino.Viewport`). `CapturePlan` owns the settings-representable subject, area, scale, media layout, and decoration axes without delivery state; `CaptureRequest` pairs a non-empty plan span with one settings-driven egress and admits scalar bitmap/SVG delivery only at cardinality one; `TransparentCaptureSpec` owns the distinct facade path whose transparency and screen-item flags have no `ViewCaptureSettings` representation; and `DepthCaptureSpec` owns the z-buffer facade path — per-pixel depth with screen-to-world recovery, distinct from `DepthProbe`'s single-distance camera read. `Captures` crosses `HostThread.OnSession` once, resolves every target inside that UI-scoped demand, binds the addressed viewport before viewport-dependent writes, constructs each basis `ViewCaptureSettings` once, and derives a preview only after its basis is complete. Preparation folds iteratively into one reverse-disposed lease set, so scalar capture, PDF staging, and printer spooling share one acquisition body without exposing or retaining a settings handle. `FrameSequenceSpec` custodies the document animation-capture spec — turntable, path, flythrough, and sun-study frame sequences the host animation tools record — through one copy-edit-commit rail whose frame receipts read back as evidence.
 
 ## [01]-[INDEX]
 
@@ -14,7 +14,7 @@ The capture render specification (`Rasm.Rhino.Viewport`). `CapturePlan` owns the
 - Owner: `Size2i`, `Offset2i`, and `CaptureDpi` — private-construction values for positive integer extents, nonnegative integer origins, and finite positive DPI, each `Of` deriving from the one `IsValid` predicate the ghost seams re-read. `CaptureAnchor` and `CaptureColor` `[SmartEnum<int>]` — package-owned rows carrying the complete host anchor and output-color projections. `CaptureSubject` `[Union]` — factory-only view and page bases plus a preview that wraps either admitted base; every target is scalar, and the page case requires `ViewportTarget.PageCase`. `CaptureArea` and `CaptureScale` `[Union]` — factory-only closed families; window geometry admits at the factory, and model scale re-enters the kernel `PositiveMagnitude` gate ONCE there — the struct-default ghost seam — with no later re-check.
 - Owner: `CaptureCrop`, `CaptureMargins`, `CaptureOffset`, `MediaLayout`, `CaptureBanner`, and `PrintFidelity` — admitted settings-only values; `CaptureDecor` — the invariant-free decoration carrier whose `init` slots default to host-faithful draws and `CaptureColor.Display`. Crop admission performs checked `long` bounds arithmetic; every physical magnitude is finite and nonnegative in a known physical unit; and `MediaLayout` admits exactly one explicit crop strategy or automatic maximization before `Apply` lifts `SetMargins` and `MatchViewportAspectRatio` refusal into the rail.
 - Law: `MediaLayout` and `CaptureDecor` contain only members represented by `ViewCaptureSettings`. `DrawGridAxes`, `ScaleScreenItems`, and transparency belong exclusively to `TransparentCaptureSpec`; no settings-driven request silently ignores them.
-- Law: native `System.Drawing.Size` and `Rectangle` values are minted only inside preparation, and integer position never rides the extent type. Preview preparation configures its view/page basis in full, calls `CreatePreviewSettings` once, validates the derived settings, and retires the basis before egress.
+- Law: native `System.Drawing.Size` and `Rectangle` values mint only through the owners' own projections — `Size2i.Native` and `Offset2i.Window(Size2i)` — and integer position never rides the extent type. Preview preparation configures its view/page basis in full, calls `CreatePreviewSettings` once, validates the derived settings, and retires the basis before egress.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -49,6 +49,7 @@ public readonly record struct Offset2i {
         new Offset2i(x: x, y: y) is { IsValid: true } value ? Fin.Succ(value) : Fin.Fail<Offset2i>(key.OrDefault().InvalidInput());
 
     internal bool IsValid => X >= 0 && Y >= 0;
+    internal System.Drawing.Rectangle Window(Size2i extent) => new(X, Y, extent.Width, extent.Height);
 }
 
 public readonly record struct CaptureDpi {
@@ -144,18 +145,16 @@ public abstract partial record CaptureArea {
 
     internal Fin<Unit> Apply(ViewCaptureSettings settings, Op key) => Switch(
         state: (Settings: settings, Op: key),
-        fullViewCase: static (ctx, _) => ctx.Op.Catch(() => Fin.Succ(
-            value: Op.Side(() => ctx.Settings.ViewArea = ViewCaptureSettings.ViewAreaMapping.View))),
-        extentsCase: static (ctx, _) => ctx.Op.Catch(() => Fin.Succ(
-            value: Op.Side(() => ctx.Settings.ViewArea = ViewCaptureSettings.ViewAreaMapping.Extents))),
-        screenWindowCase: static (ctx, area) => ctx.Op.Catch(() => Fin.Succ(value: Op.Side(() => {
+        fullViewCase: static (ctx, _) => ctx.Op.Catch(() => ctx.Settings.ViewArea = ViewCaptureSettings.ViewAreaMapping.View),
+        extentsCase: static (ctx, _) => ctx.Op.Catch(() => ctx.Settings.ViewArea = ViewCaptureSettings.ViewAreaMapping.Extents),
+        screenWindowCase: static (ctx, area) => ctx.Op.Catch(() => {
             ctx.Settings.ViewArea = ViewCaptureSettings.ViewAreaMapping.Window;
             ctx.Settings.SetWindowRect(screenPoint1: area.A, screenPoint2: area.B);
-        }))),
-        worldWindowCase: static (ctx, area) => ctx.Op.Catch(() => Fin.Succ(value: Op.Side(() => {
+        }),
+        worldWindowCase: static (ctx, area) => ctx.Op.Catch(() => {
             ctx.Settings.ViewArea = ViewCaptureSettings.ViewAreaMapping.Window;
             ctx.Settings.SetWindowRect(worldPoint1: area.A, worldPoint2: area.B);
-        }))));
+        }));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -175,10 +174,8 @@ public abstract partial record CaptureScale {
     internal Fin<Unit> Apply(ViewCaptureSettings settings, Op key) => Switch(
         state: (Settings: settings, Op: key),
         nativeCase: static (_, _) => Fin.Succ(value: unit),
-        toValueCase: static (ctx, value) => ctx.Op.Catch(() => Fin.Succ(
-            value: Op.Side(() => ctx.Settings.SetModelScaleToValue(scale: value.Scale.Value)))),
-        toFitCase: static (ctx, _) => ctx.Op.Catch(() => Fin.Succ(
-            value: Op.Side(() => ctx.Settings.SetModelScaleToFit(promptOnChange: false)))));
+        toValueCase: static (ctx, value) => ctx.Op.Catch(() => ctx.Settings.SetModelScaleToValue(scale: value.Scale.Value)),
+        toFitCase: static (ctx, _) => ctx.Op.Catch(() => ctx.Settings.SetModelScaleToFit(promptOnChange: false)));
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------
@@ -332,7 +329,7 @@ public sealed record MediaLayout {
         return key.Catch(() => {
             _ = self.Crop.Iter(crop => settings.SetLayout(
                 mediaSize: crop.Media.Native,
-                cropRectangle: new System.Drawing.Rectangle(crop.Origin.X, crop.Origin.Y, crop.Extent.Width, crop.Extent.Height)));
+                cropRectangle: crop.Origin.Window(extent: crop.Extent)));
             return self.Margins
                 .Match(
                     Some: margins => key.Confirm(success: settings.SetMargins(
@@ -400,7 +397,7 @@ public sealed record CaptureDecor {
 ## [03]-[DELIVERY_ROWS]
 
 - Owner: `CaptureSink` `[Union]` — factory-only bitmap, SVG, and printer delivery over one prepared batch. Bitmap and SVG admit exactly one plan; printer delivery consumes any non-empty plan sequence in one `SendToPrinter` call. `CaptureArtifact` `[Union]` — capture-minted, publicly readable leased raster, SVG document, or dispatched page count; its one raster transfer disposes the native bitmap unless lease construction settles. Every capture, conversion, and printer call crosses `Op.Catch`; a null bitmap/SVG and a refused printer dispatch remain typed failures.
-- Owner: `TransparentDecor` and `TransparentCaptureSpec` — the separate `ViewCapture` facade request carrying only target, extent, grid, axes, combined grid-axes, and screen-item scaling. The facade path cannot receive media layout, model scale, settings color, or print-fidelity fields.
+- Owner: `TransparentDecor` and `TransparentCaptureSpec` — the separate `ViewCapture` facade request carrying only target, extent, grid, axes, combined grid-axes, and screen-item scaling. No media layout, model scale, settings color, or print-fidelity field reaches the facade path.
 - Owner: `DepthChannels`, `DepthProjection`, and `DepthCaptureSpec` — the z-buffer facade request over `ZBufferCapture`: seven channel toggles applied unconditionally so no native default leaks, an optional display-mode id through `SetDisplayMode`, and one projection union selecting stats, pixel samples with world recovery, or the grayscale rendering. `CaptureArtifact.DepthCase` carries the detached `DepthField` evidence — hit count, z extrema, and the projected payload — never the live buffer.
 - Law: depth configuration precedes projection — `SetDisplayMode` and every `Show*` write invalidate the native grayscale cache, so the depth rail applies mode and channels once, then projects. `MinZ`/`MaxZ`/`ZValueAt` return `float` host precision carried unwidened; `WorldPointAt` is the per-pixel screen-to-world unprojection `DepthProbe`'s single-distance camera read cannot answer; `GrayscaleDib` returns the capture-cached bitmap, which survives capsule disposal and transfers into the artifact lease exactly once.
 - Boundary: `CaptureSink` cannot name transparency or depth, and `CaptureRequest` cannot carry facade-only flags. Delivery incompatibility is structurally unrepresentable.
@@ -1164,7 +1161,7 @@ public static class Captures {
         select settings;
 
     private static Fin<Unit> Apply(ViewportRef row, ViewCaptureSettings settings, CapturePlan plan, Op key) =>
-        from _bind in key.Catch(() => Fin.Succ(value: Op.Side(() => settings.SetViewport(viewport: row.Viewport))))
+        from _bind in key.Catch(() => settings.SetViewport(viewport: row.Viewport))
         from _area in plan.Area.Apply(settings: settings, key: key)
         from _layout in plan.Layout.Apply(settings: settings, key: key)
         from _scale in plan.Scale.Apply(settings: settings, key: key)

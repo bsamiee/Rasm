@@ -112,10 +112,10 @@ public sealed record OutputPolicy(CollisionRule Collision, DirectoryRule Directo
                 from bytes in ReadNonempty(path: temporary, op: op)
                 from _staged in validate.Map(check => check(arg: bytes)).IfNone(Fin.Succ(value: unit))
                 from _durable in Flush(path: temporary, op: op)
-                from _committed in op.Catch(() => Fin.Succ(value: Op.Side(() => System.IO.File.Move(
+                from _committed in op.Catch(() => System.IO.File.Move(
                     sourceFileName: temporary,
                     destFileName: settled.Value,
-                    overwrite: collision.Overwrite))))
+                    overwrite: collision.Overwrite))
                 from landed in ReadNonempty(path: settled.Value, op: op)
                 from _same in guard(bytes.AsSpan().SequenceEqual(landed), op.InvalidResult()).ToFin()
                 from _landed in validate.Map(check => check(arg: landed)).IfNone(Fin.Succ(value: unit))

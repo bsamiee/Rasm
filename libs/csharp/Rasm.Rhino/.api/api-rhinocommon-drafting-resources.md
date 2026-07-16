@@ -104,11 +104,11 @@ This catalog owns the drafting-resource boundary the annotation styles reference
 [FONT_RESOLUTION]:
 - `Rhino.DocObjects.Font.FromQuartetProperties(string quartetName, bool bold, bool italic) : Font` [static] — resolves one face from a family quartet.
 - `Rhino.DocObjects.Font.InstalledFonts() : Font[]` [static] / `InstalledFonts(string familyName) : Font[]` [static] / `InstalledFontsAsQuartets() : FontQuartet[]` [static] / `AvailableFontFaceNames() : string[]` [static] — the installed-font census by face, family, and quartet.
-- `Rhino.DocObjects.Font.GetSubstituteFont() : Font` — the substitute for an uninstalled font; `IsInstalled : bool` reports installation.
+- `Rhino.DocObjects.Font.GetSubstituteFont() : Font` — substitute for an uninstalled font; `IsInstalled : bool` reports installation.
 - `Rhino.DocObjects.Font(string familyName[, FontWeight weight, FontStyle style[, FontStretch stretch], bool underlined, bool strikethrough])` — direct construction from family and style axes.
 - `Rhino.DocObjects.Font.FaceName : string` / `FamilyName : string` / `FamilyPlusFaceName : string` / `PostScriptName : string` / `LogfontName : string` / `QuartetName : string` / `RichTextFontName : string` / `Description : string` — the name projections; exactly three carry English twins (`EnglishFaceName`, `EnglishFamilyName`, `EnglishQuartetName`); `Weight : FontWeight`, `Style : FontStyle`, `Stretch : FontStretch`, `Bold`/`Italic`/`Underlined`/`Strikeout : bool`, `PointSize : double`, `IsEngravingFont`/`IsSymbolFont`/`IsSingleStrokeFont`/`IsGeometricToleranceFont`/`IsSimulated : bool` carry the resolved metrics.
 - `Rhino.DocObjects.FontQuartet.QuartetName : string` / `HasRegularFont : bool` / `HasBoldFont : bool` / `HasItalicFont : bool` / `HasBoldItalicFont : bool` — one family's four-face availability.
-- `Rhino.RhinoDoc.Fonts : FontTable` — the document accessor; `FontTable.FindOrCreate(string face, bool bold, bool italic) : int` / `FindOrCreate(string face, bool bold, bool italic, DimensionStyle template_style) : int` answer a `DimStyles` INDEX, not a font, and `Count`, `CurrentIndex`, the indexer (`DimStyles[index].Font`), and enumeration all project the `DimStyles` table (`FontTable` is a face over dimension styles with no font-authoring surface).
+- `Rhino.RhinoDoc.Fonts : FontTable` — obsolete accessor (`Use DimStyles table instead`), so `FontTable.FindOrCreate` never composes; document face binding probes `DimStyles` rows (`DimensionStyle.Font` get/set) and lands `DimStyleTable.Add(dimstyle, reference) : int`, every `FontTable` member (`Count`, `CurrentIndex`, indexer, enumeration) a projection of the `DimStyles` table with no font-authoring surface.
 
 [SECTION_STYLE]:
 - `new Rhino.DocObjects.SectionStyle()` / `new SectionStyle(SectionStyle other)` — fresh and copy construction, the copy constructor being the duplicate seed because no `Duplicate()` member exists; every presentation property below is settable.
@@ -124,7 +124,7 @@ This catalog owns the drafting-resource boundary the annotation styles reference
 - `Rhino.DocObjects.Tables.SectionStyleTable.Add(SectionStyle sectionstyle) : int` / `AddReferenceSectionStyle(SectionStyle sectionstyle) : int` — adds from a definition or reference source.
 - `Rhino.DocObjects.Tables.SectionStyleTable.Modify(SectionStyle sectionstyle, int index, bool quiet) : bool` — rewrites one.
 - `Rhino.DocObjects.Tables.SectionStyleTable.Delete(int index, bool quiet) : bool` / `Delete(IEnumerable<int> sectionStyleIndices, bool quiet[, int deleteWarning]) : int` — lifecycle.
-- `Rhino.DocObjects.Tables.SectionStyleTable.InUse(int index, out int instanceDefinitionCount, out int objectCount, out int layerCount) : bool` — the three-way usage census before delete; `GetUnusedSectionStyleName() : string` and `ActiveCount : int` read table state.
+- `Rhino.DocObjects.Tables.SectionStyleTable.InUse(int index, out int instanceDefinitionCount, out int objectCount, out int layerCount) : bool` — three-way usage census before delete; `GetUnusedSectionStyleName() : string` and `ActiveCount : int` read table state.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

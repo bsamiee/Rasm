@@ -511,7 +511,7 @@ public sealed record PresetProgram {
                     .Map(static facts => new PresetReceipt(Facts: facts));
                 return undo.Seal(outcome: outcome, stamp: static (receipt, _) => receipt, key: op)
                     .Bind(receipt => Redraw.Enabled
-                        ? op.Catch(() => Fin.Succ(value: Op.Side(() => document.Views.Redraw(deferred: Redraw.Defers)))).Map(_ => receipt)
+                        ? op.Catch(() => document.Views.Redraw(deferred: Redraw.Defers)).Map(_ => receipt)
                         : Fin.Succ(value: receipt));
             }),
             key: op,

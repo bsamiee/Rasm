@@ -368,7 +368,7 @@ public sealed record PreviewPatch {
             archive.SetPreviewImage(image: detached);
             return Fin.Succ(value: unit);
         }),
-        None: () => op.Catch(() => Fin.Succ(value: Op.Side(() => archive.SetPreviewImage(image: null!)))));
+        None: () => op.Catch(() => archive.SetPreviewImage(image: null!)));
 }
 
 public sealed record ArchiveChange(ResourceNode Resource, Seq<ExchangeEvidence> Evidence) {
