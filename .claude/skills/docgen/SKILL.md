@@ -129,20 +129,32 @@ Enable the merge-edges option and the network-simplex placement strategy in the 
 Layout blocks carry `mergeEdges: true` and `nodePlacementStrategy: NETWORK_SIMPLEX`.
 ```
 
+[PROSE_CODE_BOUNDARY] — Prose names owners; code carries mechanism. A prose line names at most the owning symbol as a code span and states its law; signatures, parameter lists, member chains, option rosters, and per-member behavior live in the fence, catalog, or table that tooling keeps true — carried in prose they are drift debt the next code edit falsifies. A list entry is one focused decision: one owner, one charter phrase; an enumeration tail, a second clause, or a package-mechanism aside demotes to the owning surface or splits into a sibling entry, never a longer line.
+
+```markdown rejected
+- [03]-[LENS](lens.md): `DocumentLens` recover-to inverse over PDF, raster, or workbook, plus the examination ops — glyphs, layout metrics, OCG layers, separation inks, page labels, FDF/XFDF form data.
+```
+
+```markdown accepted
+- [03]-[LENS](lens.md): `DocumentLens` recover-to inverse rebuilding a node tree from an emitted container, plus the examination ops.
+```
+
 Rebuilding an existing document under this register is its own discipline — the source's frame is the primary contaminant; run the `rewriting.md` procedure.
 
 ## [04]-[FACT_LAW]
+
+[REBUILD_TEST] — One admission test rules every prose sentence: it stays true, unchanged, across any doctrine-conforming rebuild of the surfaces it accompanies. Prose couples to intent — charter, invariant, boundary, ruling, trap; the fence couples to shape — the current best collapse of cases, members, signatures, and mechanism. A sentence whose truth depends on the current fence body drifts the moment the fence improves, and a sentence that names the current shape walls the next rebuild inside today's design; drift and anchoring are one defect — shape-coupled prose — read from opposite directions, and both cure the same way: state what the rebuild must preserve, and let the fence own the shape. A page passes when a stronger fence body lands with zero prose edits.
 
 [FACT_CLASSES] — Every fact in a durable doc is exactly one of:
 - [LAW]: Intent, invariant, boundary, prohibition. Survives any rename. Carried in prose.
 - [REPRESENTATION]: A structure snapshot — tree, codemap, diagram. Regenerable from disk, tool-verified, fenced, never restated in prose.
 - [REGISTRY]: A fact whose system of record is the doc itself — the only class allowed to enumerate.
 
-[REGENERATION_TEST] — Delete the sentence. A fresh agent regenerating the fact from disk plus the document's stated invariants proves it was a mirror: delete it, or demote it to a fenced representation when structure must be shown. A fact that cannot be regenerated is law kept at the altitude that owns it, still answerable to every defect class: surviving regeneration rules out the mirror alone, never a freeze, hedge, or ledger the catalog deletes.
+[REGENERATION_TEST] — Probes the rebuild test's drift direction. Delete the sentence. A fresh agent regenerating the fact from disk plus the document's stated invariants proves it was a mirror: delete it, or demote it to a fenced representation when structure must be shown. A fact that cannot be regenerated is law kept at the altitude that owns it, still answerable to every defect class: surviving regeneration rules out the mirror alone, never a freeze, hedge, or ledger the catalog deletes.
 
 [ONE_OWNER] — A second prose copy of any fact, at any altitude, is a fork waiting to drift. A pointer names the owner and the one consumed symbol, nothing of its internals; a doctrine is stated once at its charter and never recited per page. A corpus's vocabulary, owners, and policy values arrive settled in every later document — composed as given, never re-taught, renamed, or locally re-defined.
 
-[ANCHOR] — Loaded prose is the working model the next agent generates inside, so every shape the prose names becomes a wall: a member roster anchors the rebuild to today's census, a forbidden-alternative litany anchors it to the anti-shape, a frozen count or seal anchors it to the ceiling. Its cure is always the extension rule — how one new row, case, or member lands — stated where the anchor stood, with the roster living on the surface tooling keeps true.
+[ANCHOR] — Probes the rebuild test's wall direction. Loaded prose is the working model the next agent generates inside, so every shape the prose names becomes a wall: a member roster anchors the rebuild to today's census, a forbidden-alternative litany anchors it to the anti-shape, a frozen count or seal anchors it to the ceiling. Its cure is always the extension rule — how one new row, case, or member lands — stated where the anchor stood, with the roster living on the surface tooling keeps true.
 
 Altitude tiers, routing law, representation choice, table design, file-kind schemas, and marker systems are `structure.md`'s.
 
