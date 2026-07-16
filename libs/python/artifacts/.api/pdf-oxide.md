@@ -22,7 +22,7 @@
 [PUBLIC_TYPE_SCOPE]: document roots and creation entries
 - rail: pdf
 
-`PdfDocument` is the single open-edit-extract-render root; `Pdf`/`DocumentBuilder` are the two creation modalities (declarative-from-source vs fluent-tagged-chain). `AsyncPdfDocument`/`AsyncPdf`/`AsyncOfficeConverter` mirror them on a built-in single-worker thread pool — `pdf_oxide` owns its async offload natively, so the rail composes `anyio.to_thread.run_sync` for the *sync* root and the native async mirror where the consumer is already on the loop.
+`PdfDocument` is the single open-edit-extract-render root; `Pdf`/`DocumentBuilder` are the two creation modalities (declarative-from-source vs fluent-tagged-chain). `AsyncPdfDocument`/`AsyncPdf`/`AsyncOfficeConverter` mirror them on a built-in single-worker thread pool — `pdf_oxide` owns its async offload natively, so the rail crosses the runtime `LanePolicy.offload` thread lane for the *sync* root and the native async mirror where the consumer is already on the loop.
 
 Members by index:
 - [01]: `PdfDocument` — open/authenticate/edit an existing PDF; extract, render, redact, sanitize, sign-read, validate, save
@@ -30,7 +30,7 @@ Members by index:
 - [03]: `DocumentBuilder` — high-level fluent tagged-PDF/UA author; `register_embedded_font`, per-page `a4_page`/`letter_page`/`page`, `build`
 - [04]: `FluentPageBuilder` — buffered page-op chain returned by `DocumentBuilder.{a4_page,letter_page,page}`; single-use, sealed by `done()`
 - [05]: `PdfPage` — per-page edit/annotate surface returned by `PdfDocument.page(index)`: `add_text`/`add_highlight`/`add_link`/`add_note`/`set_text`/`find_text_containing`/`find_images`/`get_element`/`children`/`annotations`/`remove_annotation`/`remove_element` + `width`/`height`/`index`
-- [06]: `Page` — per-page extract/render surface yielded by iterating `PdfDocument.pages`: `text`/`words`/`chars`/`lines`/`spans`/`tables`/`images`/`paths`/`annotations`/`markdown`/`plain_text`/`html`/`render`/`render_pixmap`/`search`/`region` + `bbox`/`width`/`height`/`index`
+- [06]: `Page` — per-page extract/render surface yielded by iterating `PdfDocument.pages`: `text`/`words`/`chars`/`lines`/`spans`/`tables`/`images`/`paths`/`annotations`/`markdown`/`plain_text`/`html`/`render`/`render_pixmap`/`search`/`region` + `bbox`/`width`/`height`/`index`; `region($self, x, y, width, height)` is reflection-proven `(x, y, w, h)` — the one crop surface NOT in the `(x0, y0, x1, y1)` bbox convention
 - [07]: `AsyncPdfDocument` — full `PdfDocument` mirror over an owned single-worker pool; `open`/`from_bytes`/`close` + every op as a coroutine
 - [08]: `AsyncPdf` — `Pdf` mirror; `from_*` static coroutines returning `AsyncPdf`, `save`/`to_bytes`
 - [09]: `OfficeConverter` / `AsyncOfficeConverter` — DOCX/PPTX/XLSX → `Pdf`/`AsyncPdf` (`convert`/`from_docx`/`from_pptx`/`from_xlsx` + `_bytes` variants)
@@ -57,7 +57,7 @@ Members by index:
 - [02]: `TextWord` — `text`/`bbox`/`font_name`/`font_size`/`is_bold`/`is_italic`/`chars: list[TextChar]`
 - [03]: `TextLine` — `text`/`bbox`/`words: list[TextWord]`/`chars: list[TextChar]`
 - [04]: `TextSpan` — `text`/`bbox`/`font_name`/`font_size`/`color`/`is_bold`/`is_italic`/`is_monospace`/`char_widths` (the styled-run unit feeding `RunNode`)
-- [05]: `FormField` — `name`/`field_type`/`value`/`tooltip`/`bounds`/`flags`/`max_length`/`is_readonly`/`is_required`
+- [05]: `FormField` — `name`/`field_type`/`value`/`tooltip`/`bounds`/`flags`/`max_length`/`is_readonly`/`is_required`; `field_type` is a lowercase token string and a raw AcroForm `/Btn` (checkbox included) reads back `"button"` with a `bool` `value`; `tooltip`/`max_length`/`flags` reflect `None` when unset (reflection-proven)
 - [06]: `PdfPageRegion` — bbox-restricted re-extraction: `extract_text`/`extract_words`/`extract_text_lines`/`extract_tables`/`extract_images`/`extract_paths`
 - [07]: `PdfElement` — `is_text`/`is_image`/`is_path`/`is_table`/`is_structure` discriminants + `as_text`/`as_image` + `bbox`
 - [08]: `PdfText` / `PdfImage` / `PdfAnnotation` — recovered text (`value`/`font_name`/`is_bold`/`contains`/`starts_with`), image (`width`/`height`/`aspect_ratio`/`bbox`), annotation (`subtype`/`rect`/`contents`/`color`/`is_modified`/`is_new`)
@@ -154,7 +154,7 @@ Members by index:
 [ENTRYPOINT_SCOPE]: open, authenticate, save
 - rail: pdf
 
-`PdfDocument(path, password=)` and `from_bytes(data, password=)` are the two intake forms; `save`/`to_bytes` and their `_encrypted` variants are the emission surface. `page_count`/`pages`/`page(i)` walk the page space; `version` reads the PDF version.
+`PdfDocument(path, password=)` and `from_bytes(data, password=)` are the two intake forms; `save`/`to_bytes` and their `_encrypted` variants are the emission surface. `page_count`/`pages`/`page(i)` walk the page space; `version` reads the PDF version. `PdfDocument` is a context manager (reflection-proven `__enter__`/`__exit__`), so `with PdfDocument.from_bytes(data) as doc:` closes the Rust handle deterministically.
 
 Call shapes by index:
 - [01]: `PdfDocument` — `PdfDocument(path: Path \| str, password: str \| None = None)`
@@ -165,7 +165,7 @@ Call shapes by index:
 - [06]: `PdfDocument.to_bytes` — `to_bytes(compress=True, garbage_collect=True, linearize=False) -> bytes`
 - [07]: `PdfDocument.save_encrypted` — `save_encrypted(path, user_password, owner_password=None, allow_print=True, allow_copy=True, allow_modify=True, allow_annotate=True)`
 - [08]: `PdfDocument.to_bytes_encrypted` — `to_bytes_encrypted(user_password, owner_password=None, allow_print=, allow_copy=, allow_modify=, allow_annotate=) -> bytes`
-- [09]: `PdfDocument.permissions` / `version` / `save_page` — `permissions() -> ...` / `version() -> str` / `save_page(page) -> bytes`
+- [09]: `PdfDocument.permissions` / `version` / `save_page` — `permissions() -> ...` / `version() -> tuple[int, int]` (the `(major, minor)` pair, reflection-proven; the shipped `.pyi` claims `str`) / `save_page(page) -> bytes`
 
 | [INDEX] | [SURFACE]                                           | [CAPABILITY]                                          |
 | :-----: | :-------------------------------------------------- | :---------------------------------------------------- |
@@ -198,7 +198,7 @@ Call shapes by index:
 - [11]: `PdfDocument.to_html` / `to_html_all` — `to_html(page, preserve_layout=, detect_headings=, include_images=, image_output_dir=, embed_images=, include_form_fields=) -> str`
 - [12]: `PdfDocument.to_plain_text` / `to_plain_text_all` — `to_plain_text(page, preserve_layout=, detect_headings=, include_images=, image_output_dir=) -> str`
 - [13]: `PdfDocument.search` / `search_page` — `search(pattern, case_insensitive=False, literal=False, whole_word=False, max_results=0)` / `search_page(page, pattern, ...)`
-- [14]: `PdfDocument.classify_document` / `classify_page` — `classify_document() -> str` / `classify_page(page) -> str`
+- [14]: `PdfDocument.classify_document` / `classify_page` — `classify_document() -> str` / `classify_page(page) -> str`; both return JSON — document keys `pages` (per-page kind list), `pages_needing_ocr`, `summary`; page keys `page`, `kind`, `confidence`, `reason`, `signals` (runtime-proven)
 - [15]: `PdfDocument.page_layout_params` — `page_layout_params(page) -> LayoutParams`
 
 | [INDEX] | [SURFACE]                                                       | [CAPABILITY]                                             |
@@ -253,7 +253,7 @@ Call shapes by index:
 - [04]: `PdfDocument.sanitize_document` — `sanitize_document(scrub_metadata=True, remove_javascript=True, remove_embedded_files=True)`
 - [05]: `PdfDocument.erase_region` / `erase_regions` — `erase_region(page, llx, lly, urx, ury)` / `erase_regions(page, rects)`
 - [06]: `PdfDocument.erase_header` / `erase_footer` / `erase_artifacts` — `erase_header(page)` / `erase_footer(page)` / `erase_artifacts(page)`
-- [07]: `PdfDocument.remove_headers` / `remove_footers` / `remove_artifacts` — `remove_headers(threshold=0.8)` / `remove_footers(...)` / `remove_artifacts(...)`
+- [07]: `PdfDocument.remove_headers` / `remove_footers` / `remove_artifacts` — `remove_headers(threshold=0.8) -> int` (removed-block count, reflection-proven) / `remove_footers(...)` / `remove_artifacts(...)`
 - [08]: `PdfDocument.redaction_count` / `is_page_marked_for_redaction` / `clear_erase_regions` — `redaction_count(page)` / `is_page_marked_for_redaction(page)` / `clear_erase_regions(page)`; `unmark_page_for_redaction(page)`
 
 | [INDEX] | [SURFACE]                                                                              | [CAPABILITY]                                    |
@@ -339,10 +339,10 @@ Tagged-structure recovery + the standards-validation triple — the `exchange/co
 Call shapes by index:
 - [01]: `PdfDocument.has_structure_tree` / `has_text_layer` / `has_xfa` — `has_structure_tree() -> bool` / `has_text_layer(page) -> bool` / `has_xfa() -> bool`
 - [02]: `PdfDocument.structured_warnings` / `flatten_warnings` — `structured_warnings() -> ...` / `flatten_warnings() -> ...`
-- [03]: `PdfDocument.validate_pdf_a` — `validate_pdf_a(level: str = "1b") -> Any`
-- [04]: `PdfDocument.validate_pdf_ua` — `validate_pdf_ua() -> Any`
-- [05]: `PdfDocument.validate_pdf_x` — `validate_pdf_x(level: str = "1a_2001") -> Any`
-- [06]: `PdfDocument.convert_to_pdf_a` — `convert_to_pdf_a(level: str = "2b") -> Any`
+- [03]: `PdfDocument.validate_pdf_a` — `validate_pdf_a(level: str = "1b") -> ConformanceReport` — `TypedDict{valid: bool, level: str, errors: list[str], warnings: list[str]}`
+- [04]: `PdfDocument.validate_pdf_ua` — `validate_pdf_ua() -> AccessibilityReport` — `TypedDict{valid: bool, errors: list[str], warnings: list[str]}`
+- [05]: `PdfDocument.validate_pdf_x` — `validate_pdf_x(level: str = "1a_2001") -> ConformanceReport` — `TypedDict{valid: bool, level: str, errors: list[str], warnings: list[str]}`
+- [06]: `PdfDocument.convert_to_pdf_a` — `convert_to_pdf_a(level: str = "2b") -> ConversionReport` — `TypedDict{success: bool, actions: list[str], errors: list[str]}`
 
 | [INDEX] | [SURFACE]                                                       | [CAPABILITY]                                             |
 | :-----: | :-------------------------------------------------------------- | :------------------------------------------------------- |
@@ -422,7 +422,7 @@ Call shapes by index:
 - [05]: `DocumentBuilder.build` / `save` / `save_encrypted` / `to_bytes_encrypted` — `build() -> bytes` / `save(path)` / `save_encrypted(path, user_password, owner_password)` / `to_bytes_encrypted(...)`
 - [06]: `FluentPageBuilder` text — `font(name, size)` / `at(x, y)` / `text(t)` / `paragraph(t)` / `heading(level, t)` / `columns(column_count, gap_pt, text)` / `text_in_rect(x, y, w, h, t, align=)` / `inline*`/`newline`/`space`/`measure(t)`/`remaining_space`
 - [07]: `FluentPageBuilder` graphics — `line` / `rect` / `filled_rect(x, y, w, h, r, g, b)` / `stroke_line(...)` / `stroke_rect(...)` / `stroke_line_dashed(...)` / `horizontal_rule`
-- [08]: `FluentPageBuilder` content — `image_artifact(bytes, x, y, w, h)` / `image_with_alt(..., alt_text)` / `table(table: Table)` / `streaming_table(columns, repeat_header=, mode=, sample_rows=, ...)` / `footnote(ref_mark, note_text)`
+- [08]: `FluentPageBuilder` content — `image_artifact(bytes, x, y, w, h)` / `image_with_alt(..., alt_text)` / `table(table: Table)` / `streaming_table(columns, repeat_header=False, mode='fixed', sample_rows=50, min_col_width_pt=20.0, max_col_width_pt=400.0, max_rowspan=1, batch_size=256)` / `footnote(ref_mark, note_text)`
 - [09]: `FluentPageBuilder` annotations — `highlight(color)` / `underline` / `strikeout` / `squiggly` / `sticky_note(text)` / `sticky_note_at(x, y, text)` / `stamp(name)` / `freetext(x, y, w, h, text)` / `watermark(text)` / `watermark_confidential` / `watermark_draft`
 - [10]: `FluentPageBuilder` forms — `text_field(name, x, y, w, h, default_value=)` / `checkbox(name, x, y, w, h, checked)` / `radio_group(name, buttons, selected=)` / `combo_box(name, x, y, w, h, options, selected=)` / `push_button(name, x, y, w, h, caption)` / `signature_field(name, x, y, w, h)`
 - [11]: `FluentPageBuilder` field scripts — `field_validate(script)` / `field_format(script)` / `field_calculate(script)` / `field_keystroke(script)` / `link_javascript(script)` / `on_open`/`on_close(script)`
@@ -509,7 +509,7 @@ Call shapes by index:
 - conformance axis (`exchange/conformance#CONFORMANCE`, `document/tagged#ACCESS`): `validate_pdf_a(level=)`/`validate_pdf_x(level=)`/`validate_pdf_ua()` are the in-process standards oracle; `convert_to_pdf_a(level=)` upgrades to archival; `has_structure_tree`/`has_text_layer`/`has_xfa` are the tagged-PDF discriminants. These complement the `veraPDF` JRE oracle — `pdf_oxide` is the dependency-free in-process validator, `veraPDF` the authoritative external cross-check.
 - signing axis (`exchange/conformance#CONFORMANCE`): `sign_pdf_bytes_pades(pdf_data, cert, level=PadesLevel.B_LTA, tsa_url=, revocation=RevocationMaterial(certs=, crls=, ocsps=))` is the byte-level PAdES signer with TSA + DSS/LTV; `Certificate.load_pkcs12(data, password)` loads the signer; `TsaClient(url).request_timestamp(data)` is the RFC-3161 client; `signatures()`/`Signature.verify_detached(data)` + `dss()` are the audit-read half. This stacks beside the `pyhanko` conformance owner as the dependency-free signer where `pyhanko`'s cryptography stack is unavailable; `PadesLevel` is a frozen 0..3 ABI code, never renumbered. The pluggable provider surface (`crypto_set_policy`/`crypto_use_fips`/`crypto_cbom`) is FIPS/CBOM-grade.
 - office axis: `OfficeConverter.from_docx(path)` → `Pdf` (and `from_pptx`/`from_xlsx` + `_bytes`) imports Office in-process (no LibreOffice subprocess); `PdfDocument.to_docx`/`to_xlsx`/`to_pptx` (+ `_bytes`) exports the reverse. The XLSX export composes the `visualization/table#TABLE` rail's tabular output, never a re-authored spreadsheet model.
-- async axis: `pdf_oxide` owns its async offload — `AsyncPdfDocument`/`AsyncPdf`/`AsyncOfficeConverter` run every op on a built-in single-worker pool, so a consumer already on the loop awaits them directly. For the *sync* `PdfDocument`/`Pdf` root, the rail crosses `anyio.to_thread.run_sync` under the shared `_OFFLOAD`/`_THREAD_GATE` `CapacityLimiter` (the GIL-releasing Rust render/extract runs off the scheduler) — never inline on the event loop, mirroring how `document/egress#FINISH` and `exchange/conformance#CONFORMANCE` cross their native arms. Do not double-offload the async mirror through another thread.
+- async axis: `pdf_oxide` owns its async offload — `AsyncPdfDocument`/`AsyncPdf`/`AsyncOfficeConverter` run every op on a built-in single-worker pool, so a consumer already on the loop awaits them directly. For the *sync* `PdfDocument`/`Pdf` root, the rail crosses the runtime `LanePolicy.offload` thread lane (`self.lane.offload(..., modality=Modality.THREAD)` — the GIL-releasing Rust render/extract runs off the scheduler under the runtime-owned band, never a folder-minted limiter) — never inline on the event loop, mirroring how `document/egress#FINISH` and `exchange/conformance#CONFORMANCE` cross their native arms. Do not double-offload the async mirror through another thread.
 - search axis: `search(pattern, case_insensitive=, literal=, whole_word=, max_results=)`/`search_page` is the native regex/literal full-text search → hit-region `AnnotationNode(annot=HIGHLIGHT)` leaves in the `SEARCH` `LensOp`; `classify_document`/`classify_page` route the auto-extraction profile.
 - split axis (`package` / `composition/imposition#IMPOSE`): `split_by_bookmarks(src_bytes, level=, include_front_matter=)` (with `plan_split_by_bookmarks` dry-run) is the bookmark-driven document split; `extract_page_ranges_to_bytes(ranges)`/`extract_pages_to_bytes(pages)` are the explicit-range split arms feeding plan-set assembly.
 - logging axis: `set_log_level("debug")`/`disable_logging()` route the Rust core's diagnostics; bridge them into the `structlog` rail at the boundary rather than letting the core log independently. `set_max_ops_per_stream(limit)`/`set_preserve_unmapped_glyphs(preserve)` are the content-stream-safety + glyph-fidelity boundary controls for untrusted-PDF intake.

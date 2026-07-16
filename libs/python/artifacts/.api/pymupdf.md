@@ -170,7 +170,7 @@ Document-level sanitization rows; `scrub` is the redaction-grade remover, `bake`
 - rail: pdf
 - call: `Page.get_pixmap`: rasterization policy -> `Pixmap`; `Page.get_text`: text mode plus clip/sort policy; `Page.get_textpage`: clip plus flags; `get_textpage_ocr(flags=0, language="eng", dpi=72, full=False, tessdata=None) -> TextPage`; `Page.search_for`: needle plus match policy; `Page.get_images`: full-image flag; `apply_redactions(images=PDF_REDACT_IMAGE_PIXELS, graphics=PDF_REDACT_LINE_ART_REMOVE_IF_TOUCHED, text=PDF_REDACT_TEXT_REMOVE) -> bool` (literal defaults `2`/`1`/`0`; note `PDF_REDACT_TEXT_REMOVE==0` and `PDF_REDACT_TEXT_NONE==1`, inverted from the image family); `insert_image(rect, *, stream=None, filename=None, pixmap=None, xref=0, alpha=-1, keep_proportion=True, overlay=True, rotate=0, width=0, height=0, mask=None) -> int`; `Pixmap(*args)` (e.g. `Pixmap(doc, xref)`, `Pixmap(colorspace, irect, alpha)`); `Pixmap.save`: target plus output policy; `tobytes(output="png", jpg_quality=95) -> bytes`; `pil_tobytes(format, **pil_kwargs) -> bytes`; `set_alpha` / `invert_irect` / `gamma_with` / `tint_with` / `shrink` / `warp` / `color_count` / `digest`; `rewrite_images(dpi_threshold=None, dpi_target=0, quality=0, lossy=True, lossless=True, color=True, gray=True, set_to_gray=False) -> None`; `table.TableFinder.tables`: attribute -> `list[Table]`; `extract(**kwargs) -> list[list[str \| None]]`; `to_pandas(**kwargs) -> pandas.DataFrame`; `to_markdown(clean=True) -> str`; `bbox -> (x0,y0,x1,y1)` / `row_count` / `col_count` / `rows -> list[TableRow]` / `header -> TableHeader`.
 
-Render and extraction rows share matrix/dpi, color, clip, text mode, textpage, search, image, redaction, and raster-output policy.
+Render and extraction rows share matrix/dpi, color, clip, text mode, textpage, search, image, redaction, and raster-output policy. `Pixmap.tobytes` accepts `"psd"` but faults `FzErrorArgument: cannot seek in buffer` on the in-memory path — PSD writes only through the seekable-file `Pixmap.save`.
 
 | [INDEX] | [SURFACE]                  | [CAPABILITY]                                                |
 | :-----: | :------------------------- | :---------------------------------------------------------- |
@@ -184,7 +184,7 @@ Render and extraction rows share matrix/dpi, color, clip, text mode, textpage, s
 |  [08]   | `Page.insert_image`        | embed a raster losslessly from stream/file/pixmap           |
 |  [09]   | `Pixmap`                   | construct a raster buffer from a doc xref or spec           |
 |  [10]   | `Pixmap.save`              | encode raster to PNG/JPEG/etc.                              |
-|  [11]   | `Pixmap.tobytes`           | encode PNG/PSD/PPM/PNM/PGM/PBM/PAM/PS/PSD/JPEG bytes        |
+|  [11]   | `Pixmap.tobytes`           | encode PNG/PPM/PNM/PGM/PBM/PAM/PS/JPEG bytes (CMYK: JPEG)   |
 |  [12]   | `Pixmap.pil_tobytes`       | bridge to Pillow's WEBP/AVIF/TIFF encoders via `Image.save` |
 |  [13]   | `Pixmap` color ops         | in-place color/geometry ops + dedup digest (`samples` mv)   |
 |  [14]   | `Document.rewrite_images`  | recompress/downsample embedded images in place              |
@@ -234,7 +234,7 @@ Render and extraction rows share matrix/dpi, color, clip, text mode, textpage, s
 
 [ENTRYPOINT_SCOPE]: OCG layers and journalled editing
 - rail: pdf
-- call: `add_ocg(name, config=-1, on=True, intent="View", usage="Artwork") -> int`; `set_ocmd(xref=0, ocgs=None, policy=None, ve=None) -> int`; `Document.set_oc` / `get_oc` / `get_ocmd`: xref + ocg-xref; `Document.layer_ui_configs` / `set_layer`: config selectors; `journal_enable()` then `journal_start_op(name)` / `journal_stop_op()`; `Document.journal_undo` / `journal_redo`: no-arg; `save_snapshot(filename)`.
+- call: `add_ocg(name, config=-1, on=True, intent="View", usage="Artwork") -> int`; `set_ocmd(xref=0, ocgs=None, policy=None, ve=None) -> int`; `Document.set_oc` / `get_oc` / `get_ocmd`: xref + ocg-xref; `Document.layer_ui_configs` / `set_layer(config, *, on=, off=, locked=, ...)`: config selectors — `config=-1` addresses the default OC configuration and `0..n` an alternate `/Configs` entry, so `set_layer(0, ...)` on a document with no alternate configs raises `ValueError: bad config number`; `journal_enable()` then `journal_start_op(name)` / `journal_stop_op()`; `Document.journal_undo` / `journal_redo`: no-arg; `save_snapshot(filename)`.
 
 Optional-content groups gate visibility; the journal is the native undo/redo + snapshot rail for transactional document edits.
 

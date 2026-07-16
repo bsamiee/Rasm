@@ -128,19 +128,19 @@ Every drawable node derives `Shape(SVGElement, GraphicObject, Transformable)` (o
 [ENTRYPOINT_SCOPE]: value objects
 - rail: figure
 
-`Length`/`Color`/`Angle`/`Point` are spec-faithful value objects; each owns its parse and resolution so figure egress never hand-multiplies a float or hand-parses a color string. `Length(value).value(ppi=None, relative_length=None, font_size=None, font_height=None, viewbox=None)` resolves to absolute px; the static `Color.parse(color_string)` and `Color.parse_color_hex/hsl/rgb/rgbp/lookup` parse a literal; `Color.over(c1, c2)`/`distance(c1, c2)` are static and `instance.blend(other, opacity=None)` bound; `Point.polar_to(angle, dist)` builds by polar coordinates.
+`Length`/`Color`/`Angle`/`Point` are spec-faithful value objects; each owns its parse and resolution so figure egress never hand-multiplies a float or hand-parses a color string. `Length(value).value(ppi=None, relative_length=None, font_size=None, font_height=None, viewbox=None)` resolves to absolute px; `to_mm()`/`to_cm()`/`to_inch()` return a converted `Length` whose `.amount` carries the numeric value and `.units` the token (`value_in_units` is a property, not a unit-taking call); the static `Color.parse(color_string)` and `Color.parse_color_hex/hsl/rgb/rgbp/lookup` parse a literal; `Color.over(c1, c2)`/`distance(c1, c2)` are static and `instance.blend(other, opacity=None)` bound; `Point.polar_to(angle, dist)` builds by polar coordinates.
 
-| [INDEX] | [MEMBER]                                                                     | [KIND]  | [ROLE]                                       |
-| :-----: | :--------------------------------------------------------------------------- | :------ | :------------------------------------------- |
-|  [01]   | `Length(value).value(...)`                                                   | resolve | resolve a length to absolute px              |
-|  [02]   | `Length.to_mm/to_cm/to_inch/in_pixels` / `value_in_units(unit, ...)`         | convert | absolute-unit conversions                    |
-|  [03]   | `Color(*args)` / `Color.parse` / `Color.parse_color_hex/hsl/rgb/rgbp/lookup` | parse   | color literal -> `Color` or int (static)     |
-|  [04]   | `Color.red/green/blue/alpha/hex/hexa/hue/saturation/lightness/luminance`     | channel | channel + derived-property read/write access |
-|  [05]   | `Color.rgb/rgba/hsl` / `Color.over(c1, c2)` / `distance(c1, c2)`             | math    | construct, alpha-over composite, distance    |
-|  [06]   | `Angle.parse(value)` / `normalized()`                                        | angle   | CSS-angle parse and normalize                |
-|  [07]   | `Angle.as_degrees/as_radians/as_turns/as_gradians`                           | angle   | unit projection                              |
-|  [08]   | `Point(x, y)` / `distance_to/angle_to/reflected_across`                      | point   | construct, distance, angle, reflect          |
-|  [09]   | `Point.matrix_transform(m)` / `polar_to(angle, dist)`                        | point   | matrix transform / polar build               |
+| [INDEX] | [MEMBER]                                                                 | [KIND]  | [ROLE]                                         |
+| :-----: | :----------------------------------------------------------------------- | :------ | :--------------------------------------------- |
+|  [01]   | `Length(value).value(...)`                                               | resolve | resolve a length to absolute px                |
+|  [02]   | `Length.to_mm/to_cm/to_inch/in_pixels` / `.amount` / `.units`            | convert | absolute-unit conversions returning a `Length` |
+|  [03]   | `Color(*args)` / `Color.parse` / `Color.parse_color_*`                   | parse   | color literal -> `Color` or int (static)       |
+|  [04]   | `Color.red/green/blue/alpha/hex/hexa/hue/saturation/lightness/luminance` | channel | channel + derived-property read/write access   |
+|  [05]   | `Color.rgb/rgba/hsl` / `Color.over(c1, c2)` / `distance(c1, c2)`         | math    | construct, alpha-over composite, distance      |
+|  [06]   | `Angle.parse(value)` / `normalized()`                                    | angle   | CSS-angle parse and normalize                  |
+|  [07]   | `Angle.as_degrees/as_radians/as_turns/as_gradians`                       | angle   | unit projection                                |
+|  [08]   | `Point(x, y)` / `distance_to/angle_to/reflected_across`                  | point   | construct, distance, angle, reflect            |
+|  [09]   | `Point.matrix_transform(m)` / `polar_to(angle, dist)`                    | point   | matrix transform / polar build                 |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

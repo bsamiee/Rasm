@@ -75,6 +75,8 @@
 |  [11]   | `OutputContainer.default_video_codec`      | property -> `str`                                    | muxer default video codec         |
 |  [12]   | `OutputContainer.supported_codecs`         | property -> `set[str]`                               | codecs the active muxer admits    |
 |  [13]   | `Container.close`                          | `close() -> None`; `__enter__`/`__exit__`            | flush trailer; use `with av.open` |
+|  [14]   | `Container.set_chapters`                   | `set_chapters(chapters: list[Chapter]) -> None`      | bind the chapter list on a remux  |
+|  [15]   | `Stream.metadata`                          | `dict[str, str]` (mutable before header write)       | per-stream tags (title/language)  |
 
 [ENTRYPOINT_SCOPE]: container demux, decode, and seek (read side)
 - rail: media
@@ -89,11 +91,12 @@
 |  [04]   | `InputContainer.streams`  | `-> StreamContainer` (`.video`/`.audio`/`.best(...)`)     | typed stream selectors                     |
 |  [05]   | `Stream.decode`           | `decode(packet=None) -> list[VideoFrame \| AudioFrame]`   | decode a demuxed packet; `None` flushes    |
 |  [06]   | `InputContainer.chapters` | `chapters() -> list[Chapter]`; `.metadata`/`.duration`    | chapter/metadata/duration structure        |
+|  [07]   | `Chapter`                 | `TypedDict` — `id`/`start`/`end`/`time_base`/`metadata`   | one navigation chapter row                 |
 
 [ENTRYPOINT_SCOPE]: frame-sequence encode
 - rail: media
 
-`VideoFrame.from_ndarray` lifts a NumPy buffer to a frame; `pts`/`time_base`/`format`/`pix_fmt` are assigned before `encode`. `encode(frame)` returns a `Packet` list; `encode(None)` flushes the encoder. The encode loop muxes each returned packet, then flushes with a `None` frame at end-of-stream. `from_dlpack` imports a frame zero-copy from a DLPack producer (torch/cupy/jax) including from CUDA device memory via `cuda_context`, the GPU-native ingest that avoids a host round-trip; `from_dlpack` also carries `width`/`height`/`stream`/`device_id`/`primary_ctx`; `reformat` carries `src_colorspace`/`dst_colorspace`/`interpolation`/`color_range`/`color_trc`/`color_primaries`/`threads`. `from_bytes` lifts a raw RGBA buffer with `flip_horizontal`/`flip_vertical`; `to_rgb`/`to_ndarray`/`to_image` are the egress mirrors; `make_writable` forces a copy before mutation of a shared buffer. `Packet` carries `dts`/`pts`/`duration`/`is_keyframe`/`stream` and `packet.decode() -> list[VideoFrame | AudioFrame]`.
+`VideoFrame.from_ndarray` lifts a NumPy buffer to a frame; `pts`/`time_base`/`format`/`pix_fmt` are assigned before `encode`. `encode(frame)` returns a `Packet` list; `encode(None)` flushes the encoder. The encode loop muxes each returned packet, then flushes with a `None` frame at end-of-stream. `from_dlpack` imports a frame zero-copy from a DLPack producer (torch/cupy/jax) including from CUDA device memory via `cuda_context`, the GPU-native ingest that avoids a host round-trip; `from_dlpack` also carries `width`/`height`/`stream`/`device_id`/`primary_ctx`; `reformat` carries `src_colorspace`/`dst_colorspace`/`interpolation`/`color_range`/`color_trc`/`color_primaries`/`threads`. `from_bytes` lifts a raw RGBA buffer with `flip_horizontal`/`flip_vertical`; `to_rgb`/`to_ndarray`/`to_image` are the egress mirrors; `make_writable` forces a copy before mutation of a shared buffer. `Packet(bytes)` constructs a raw packet whose `stream`/`time_base`/`pts`/`dts`/`duration` slots admit a timed subtitle payload; `CodecContext.extradata` carries the subtitle codec header, and `Container.format.name` identifies the source muxer before a `BytesIO` output opens with an explicit `format=`.
 
 | [INDEX] | [SURFACE]                      | [CALL_SHAPE]                                              | [CAPABILITY]                            |
 | :-----: | :----------------------------- | :-------------------------------------------------------- | :-------------------------------------- |
@@ -111,27 +114,53 @@
 |  [12]   | `Packet`                       | attrs `dts`/`pts`/`duration`/`is_keyframe`/`stream`       | per-packet mux; `decode()` in place     |
 |  [13]   | `AudioFrame.from_ndarray`      | `from_ndarray(array, format="s16", layout="stereo")`      | lift a NumPy array to an audio frame    |
 |  [14]   | `AudioStream.encode`           | `encode(frame=None) -> list[Packet]`                      | encode an audio frame; `None` flushes   |
+|  [15]   | `Packet.__init__`              | `Packet(input: int \| bytes \| None = None)`              | construct a raw timed packet            |
+|  [16]   | `Packet.time_base`             | writable `Fraction`                                       | timestamp unit for `pts`/`dts`          |
+|  [17]   | `CodecContext.extradata`       | writable `bytes \| None`                                  | codec-private header payload            |
+|  [18]   | `Container.format.name`        | property -> `str`                                         | active muxer identifier                 |
 
 [ENTRYPOINT_SCOPE]: filter graph, bitstream filter, and resample
 - rail: media
 
-`av.filter.Graph` is the single `libavfilter` owner: `add_buffer(template, width, height, format, name, time_base)`/`add_abuffer(template, sample_rate, format, layout, channels, name, time_base)` create the source node from a stream template, `add(name, args, **kwargs)` adds a named filter (`scale`/`crop`/`overlay`/`fps`/`format`/`loudnorm`), `link_nodes(*nodes)` chains them, and `push(frame)`/`pull()` drive frames through — never a hand-rolled scale/crop/overlay loop. `BitStreamFilterContext(description, in_stream, out_stream)` rewrites a packet bitstream (`h264_mp4toannexb`, `hevc_mp4toannexb`, `extract_extradata`) for a remux without decode/re-encode. `AudioResampler.resample` converts format/rate/layout; `AudioFifo.read(samples=-1, partial=False)` rebuffers samples to a fixed `frame_size` for encoders (AAC) that require exact frame sizes. `CodecContext.create` returns a `VideoCodecContext`/`AudioCodecContext`/`CodecContext` by codec.
+`av.filter.Graph` is the single `libavfilter` owner: `add_buffer(template, width, height, format, name, time_base)`/`add_abuffer(template, sample_rate, format, layout, channels, name, time_base)` create the source node from a stream template, `add(name, args, **kwargs)` adds a named filter (`scale`/`crop`/`overlay`/`fps`/`format`/`loudnorm`), `link_nodes(*nodes)` chains them, and `push(frame)`/`pull()` drive frames through — never a hand-rolled scale/crop/overlay loop. `BitStreamFilterContext(description, in_stream, out_stream)` rewrites a packet bitstream (`h264_mp4toannexb`, `hevc_mp4toannexb`, `extract_extradata`) for a remux without decode/re-encode. `AudioResampler.resample` converts format/rate/layout; `AudioFifo.read(samples=-1, partial=False)` rebuffers samples to a fixed `frame_size` for encoders (AAC) that require exact frame sizes. `CodecContext.create` returns a `VideoCodecContext`/`AudioCodecContext`/`CodecContext` by codec. `av.filter.loudnorm.stats(loudnorm_args, stream)` runs the two-pass EBU R128 measurement over an `AudioStream` and returns the loudnorm JSON (`input_i`/`input_tp`/`input_lra`/`input_thresh`) as bytes — the gated integrated-LUFS read a single-pass encode cannot expose.
 
-| [INDEX] | [SURFACE]                       | [CALL_SHAPE]                                                | [CAPABILITY]                         |
-| :-----: | :------------------------------ | :---------------------------------------------------------- | :----------------------------------- |
-|  [01]   | `Graph.add_buffer`              | `add_buffer(template=None, ...) -> FilterContext`           | create a video source node           |
-|  [02]   | `Graph.add_abuffer`             | `add_abuffer(template=None, ...) -> FilterContext`          | create an audio source node          |
-|  [03]   | `Graph.add`                     | `add(filter, args=None, **kwargs) -> FilterContext`         | add a named libavfilter node         |
-|  [04]   | `Graph.link_nodes`              | `link_nodes(*nodes) -> Graph`                               | link a sequence of filter contexts   |
-|  [05]   | `Graph.push` / `Graph.pull`     | `push(frame) -> None`; `pull() -> VideoFrame \| AudioFrame` | drive frames through the graph       |
-|  [06]   | `Graph.configure`               | `configure(auto_buffer=True, force=False) -> None`          | validate/configure before pull       |
-|  [07]   | `BitStreamFilterContext`        | `BitStreamFilterContext(filter_description, ...)`           | bitstream rewrite (annexb/extradata) |
-|  [08]   | `BitStreamFilterContext.filter` | `filter(packet=None) -> list[Packet]`; `flush() -> None`    | rewrite a packet bitstream           |
-|  [09]   | `AudioResampler`                | `AudioResampler(format, layout, rate, frame_size)`          | format/rate/layout resample owner    |
-|  [10]   | `AudioResampler.resample`       | `resample(frame_or_None) -> list[AudioFrame]`               | resample a frame; `None` flushes     |
-|  [11]   | `AudioFifo.write` / `.read`     | `write(frame)`; `read(samples=-1, partial=False)`           | rebuffer to a fixed frame size       |
-|  [12]   | `CodecContext.create`           | `create(codec, mode=None, hwaccel=None) -> CodecContext`    | standalone codec context             |
-|  [13]   | `CodecContext.parse`            | `parse(raw_input=None) -> list[Packet]`                     | split a raw elementary stream        |
+| [INDEX] | [SURFACE]                         | [CALL_SHAPE]                                                | [CAPABILITY]                          |
+| :-----: | :-------------------------------- | :---------------------------------------------------------- | :------------------------------------ |
+|  [01]   | `Graph.add_buffer`                | `add_buffer(template=None, ...) -> FilterContext`           | create a video source node            |
+|  [02]   | `Graph.add_abuffer`               | `add_abuffer(template=None, ...) -> FilterContext`          | create an audio source node           |
+|  [03]   | `Graph.add`                       | `add(filter, args=None, **kwargs) -> FilterContext`         | add a named libavfilter node          |
+|  [04]   | `Graph.link_nodes`                | `link_nodes(*nodes) -> Graph`                               | link a sequence of filter contexts    |
+|  [05]   | `Graph.push` / `Graph.pull`       | `push(frame) -> None`; `pull() -> VideoFrame \| AudioFrame` | drive frames through the graph        |
+|  [06]   | `Graph.configure`                 | `configure(auto_buffer=True, force=False) -> None`          | validate/configure before pull        |
+|  [07]   | `BitStreamFilterContext`          | `BitStreamFilterContext(filter_description, ...)`           | bitstream rewrite (annexb/extradata)  |
+|  [08]   | `BitStreamFilterContext.filter`   | `filter(packet=None) -> list[Packet]`; `flush() -> None`    | rewrite a packet bitstream            |
+|  [09]   | `AudioResampler`                  | `AudioResampler(format, layout, rate, frame_size)`          | format/rate/layout resample owner     |
+|  [10]   | `AudioResampler.resample`         | `resample(frame_or_None) -> list[AudioFrame]`               | resample a frame; `None` flushes      |
+|  [11]   | `AudioFifo.write` / `.read`       | `write(frame)`; `read(samples=-1, partial=False)`           | rebuffer to a fixed frame size        |
+|  [12]   | `CodecContext.create`             | `create(codec, mode=None, hwaccel=None) -> CodecContext`    | standalone codec context              |
+|  [13]   | `CodecContext.parse`              | `parse(raw_input=None) -> list[Packet]`                     | split a raw elementary stream         |
+|  [14]   | `av.filter.loudnorm.stats`        | `stats(loudnorm_args: str, stream: AudioStream) -> bytes`   | two-pass EBU R128 measurement JSON    |
+|  [15]   | `Graph.pull` (drain signals)      | raises `BlockingIOError` (needs input) / `EOFError` (EOF)   | drain-loop terminal signals           |
+|  [16]   | `AudioFormat.packed`/`.is_planar` | property -> `AudioFormat` / `bool`                          | planar and packed sample-format twins |
+
+[ENTRYPOINT_SCOPE]: build registries, capability probes, and per-context filter wiring
+- rail: media
+
+The linked FFmpeg build publishes its registered names as module-level sets — `av.codecs_available`, `av.bitstream_filters_available`, and `av.filter.filters_available` — so codec, bsf, and filter admission is a membership probe before `add_stream`/`BitStreamFilterContext`/`Graph.add`, never a deep `*NotFoundError` raise. `av.codec.hwaccel.hwdevices_available()` is a CALL returning the hardware device-type name list, and `HWAccel(device_type, allow_software_fallback)` is the decode-acceleration context `av.open(hwaccel=)` consumes. Multi-input filters wire per context: `FilterContext.link_to(input_, output_idx, input_idx)` binds explicit pads where `Graph.link_nodes` raises `ArgumentError 22`, and `FilterContext.push`/`pull` drive one source among several where the single-source `Graph.push` cannot disambiguate; a dynamic-input filter (`amix`) reports an empty static `Filter(name).inputs` tuple, so arity travels as caller data. `av.time_base` is the 1e6 container timestamp denominator and `Frame.time` the derived presentation seconds (`pts * time_base`); `OutputContainer.metadata` accepts container tags before the header writes.
+
+| [INDEX] | [SURFACE]                                     | [CALL_SHAPE]                                         | [CAPABILITY]                             |
+| :-----: | :-------------------------------------------- | :--------------------------------------------------- | :--------------------------------------- |
+|  [01]   | `av.codecs_available`                         | module attr -> `set[str]`                            | registered encoder/decoder names         |
+|  [02]   | `av.bitstream_filters_available`              | module attr -> `set[str]`                            | registered bitstream-filter names        |
+|  [03]   | `av.filter.filters_available`                 | module attr -> `set[str]`                            | registered libavfilter names             |
+|  [04]   | `av.codec.hwaccel.hwdevices_available`        | `hwdevices_available() -> list[str]`                 | hardware decode device-type names        |
+|  [05]   | `av.codec.hwaccel.HWAccel`                    | `HWAccel(device_type, allow_software_fallback, ...)` | GPU decode context for `open(hwaccel=)`  |
+|  [06]   | `FilterContext.link_to`                       | `link_to(input_, output_idx=0, input_idx=0) -> None` | explicit-pad multi-input wiring          |
+|  [07]   | `FilterContext.push` / `.pull`                | `push(frame) -> None`; `pull() -> Frame`             | per-source drive in a multi-input graph  |
+|  [08]   | `av.library_versions` / `ffmpeg_version_info` | module attrs -> `dict[str, tuple]` / `str`           | bundled libav majors, ffmpeg build       |
+|  [09]   | `av.time_base`                                | module attr -> `int` (1_000_000)                     | container timestamp denominator          |
+|  [10]   | `Frame.time`                                  | property -> `float \| None`                          | presentation seconds (`pts * time_base`) |
+|  [11]   | `OutputContainer.metadata`                    | `dict[str, str]` (mutable before header write)       | container tags (title/artist/comment)    |
 
 [ENTRYPOINT_SCOPE]: stream and codec-context configuration
 - rail: media
@@ -162,6 +191,10 @@ The stream exposes its codec parameters directly and through `codec_context`. `w
 |  [20]   | `VideoFrame.pict_type` / `key_frame` / `rotation`       | attribute                             | picture type (I/P/B), keyframe, rot  |
 |  [21]   | `AudioStream.sample_rate`                               | `int`                                 | audio sample rate                    |
 |  [22]   | `AudioStream.layout`                                    | `AudioLayout`                         | channel layout                       |
+|  [23]   | `AudioCodecContext.frame_size`                          | `int`                                 | encoder fixed frame size (0 = free)  |
+|  [24]   | `AudioCodecContext.format`/`.layout`/`.rate`            | settable attributes                   | sample format / layout / sample rate |
+|  [25]   | `AudioFrame.rate`                                       | `int` (settable)                      | sample-rate stamp before resample    |
+|  [26]   | `AudioFrame.to_ndarray`                                 | `to_ndarray() -> ndarray`             | extract samples to NumPy             |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

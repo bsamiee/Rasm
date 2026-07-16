@@ -17,16 +17,16 @@
 [PUBLIC_TYPE_SCOPE]: task, cancellation, and run lifecycle
 - rail: concurrency
 
-| [INDEX] | [SYMBOL]              | [TYPE_FAMILY] | [RAIL]                                        |
-| :-----: | :-------------------- | :------------ | :-------------------------------------------- |
-|  [01]   | `CancelScope`         | scope class   | scoped cancellation boundary (`shield=`)      |
-|  [02]   | `TaskInfo`            | info record   | running task identity (`id`/`name`/`coro`)    |
-|  [03]   | `TaskHandle`          | handle class  | handle to a spawned task; `.result()`         |
-|  [04]   | `TASK_STATUS_IGNORED` | sentinel      | default `task_status` for non-reporting tasks |
-|  [05]   | `TaskCancelled`       | exception     | task was cancelled                            |
-|  [06]   | `TaskFailed`          | exception     | task raised an exception                      |
-|  [07]   | `TaskNotFinished`     | exception     | result read before task done                  |
-|  [08]   | `RunFinishedError`    | exception     | portal/loop call after the event loop closed  |
+| [INDEX] | [SYMBOL]              | [TYPE_FAMILY] | [RAIL]                                                                                             |
+| :-----: | :-------------------- | :------------ | :------------------------------------------------------------------------------------------------- |
+|  [01]   | `CancelScope`         | scope class   | scoped cancellation boundary (`shield=`)                                                           |
+|  [02]   | `TaskInfo`            | info record   | running task identity (`id`/`name`/`coro`)                                                         |
+|  [03]   | `TaskHandle`          | handle class  | spawned-task handle; `.return_value`/`.start_value`/`.status`/`.wait()`/`.cancel()`/`.exception()` |
+|  [04]   | `TASK_STATUS_IGNORED` | sentinel      | default `task_status` for non-reporting tasks                                                      |
+|  [05]   | `TaskCancelled`       | exception     | task was cancelled                                                                                 |
+|  [06]   | `TaskFailed`          | exception     | task raised an exception                                                                           |
+|  [07]   | `TaskNotFinished`     | exception     | result read before task done                                                                       |
+|  [08]   | `RunFinishedError`    | exception     | portal/loop call after the event loop closed                                                       |
 
 [PUBLIC_TYPE_SCOPE]: synchronization primitives
 - rail: concurrency
@@ -223,7 +223,7 @@
 |  [05]   | `from_thread.check_cancelled()`                                      | bridge         | raise if the portal task was cancelled       |
 |  [06]   | `to_process.run_sync(func, *args, cancellable=False, ...)`           | process        | run sync in a worker subprocess (pickle hop) |
 |  [07]   | `to_process.current_default_process_limiter()`                       | limiter        | per-loop default process limiter (CPU count) |
-|  [08]   | `to_interpreter.run_sync(func, *args, limiter=None)`                 | interp         | run sync in a subinterpreter (no pickle)     |
+|  [08]   | `to_interpreter.run_sync(func, *args, limiter=None)`                 | interp         | run sync in a subinterpreter (in-process)    |
 |  [09]   | `to_interpreter.current_default_interpreter_limiter()`               | limiter        | per-loop default subinterpreter limiter      |
 
 [ENTRYPOINT_SCOPE]: low-level checkpoints and run-locals
@@ -243,11 +243,11 @@
 [ANYIO_TOPOLOGY]:
 - backends: `asyncio` (default) and `trio`, selected at `run(backend=...)` or the `anyio_backend` pytest fixture; domain code never imports backend modules.
 - task groups enforce structured concurrency: every child started via `tg.start_soon`/`tg.start` completes before the `async with` block exits; failures aggregate into a `BaseExceptionGroup` (use `except*`).
-- `tg.start(func, ...)` waits for the child to call `task_status.started(value)` and returns that value; `tg.start_soon(func, ...)` fires-and-tracks without a readiness handshake.
+- `tg.start(func, ...)` waits for the child to call `task_status.started(value)` and returns that value (`return_handle=True` returns the `TaskHandle` whose `.start_value` carries the handshake); `tg.start_soon(func, ...)` runs no readiness handshake and returns `TaskHandle[T]` — `.return_value` reads the child's terminal after the `async with` closes, `.status` the closed `TaskHandle.Status` disposition.
 - `CancelScope(deadline=, shield=)` is the cancellation primitive; `fail_after`/`move_on_after` return one as a context manager. Cancellation is level-triggered: a scope stays cancelled, and a swallowed cancellation re-raises at the next checkpoint unless shielded.
 - `create_memory_object_stream[T](max_buffer_size, item_type)` returns a `(MemoryObjectSendStream[T], MemoryObjectReceiveStream[T])` pair; subscript the call for the item type, `send_nowait`/`receive_nowait` raise `WouldBlock`, and a closed receive end raises `BrokenResourceError` on send.
 - `connect_tcp(..., tls=True, tls_hostname=...)` performs the TLS handshake inline and returns a `TLSStream`; otherwise wrap any `ByteStream` with `streams.tls.TLSStream.wrap(...)` and read peer-cert/ALPN via `stream.extra(TLSAttribute.peer_certificate)` etc.
-- `to_thread.run_sync` dispatches to a `CapacityLimiter`-bounded thread pool (default 40 tokens); pass an explicit limiter to bound a subsystem. `to_process.run_sync` forks a persistent worker subprocess and crosses arguments/results by pickle. `to_interpreter.run_sync` dispatches into a PEP-734 subinterpreter (each carrying its own GIL on a runnable `concurrent.interpreters`) with no pickle round-trip on the worker hop; a worker raise/death surfaces as `BrokenWorkerProcess`/`BrokenWorkerInterpreter` respectively.
+- `to_thread.run_sync` dispatches to a `CapacityLimiter`-bounded thread pool (default 40 tokens); pass an explicit limiter to bound a subsystem. `to_process.run_sync` forks a persistent worker subprocess and crosses arguments/results by pickle. `to_interpreter.run_sync` dispatches into a PEP-734 subinterpreter (each carrying its own GIL on a runnable `concurrent.interpreters`) — no process spawn, but only PEP-734-SHAREABLE values cross copy-free: an ordinary non-shareable payload still pickles in-process on the hop, so serialization cost stays a lane-selection input; a worker raise/death surfaces as `BrokenWorkerProcess`/`BrokenWorkerInterpreter` respectively.
 - `from_thread.BlockingPortalProvider(backend, backend_options)` lets many threads share one event loop; `portal.call`/`portal.start_task_soon`/`portal.wrap_async_context_manager` bridge sync callers into async code, raising `RunFinishedError` after the loop closes.
 - typed-attribute introspection (`stream.extra(attr)`) is the single polymorphic surface for socket/TLS/file metadata — never reach for `raw_socket` properties directly; declare a `TypedAttributeSet` for owner-local stream wrappers.
 

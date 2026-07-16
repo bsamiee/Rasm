@@ -56,16 +56,16 @@
 [ENTRYPOINT_SCOPE]: universal conversion and adaptation
 - rail: colour
 
-`convert` carries the scale kwargs `from_reference_scale, to_reference_scale, **kwargs`; the sRGB fast paths and named-colourspace projections share the tail `illuminant, chromatic_adaptation_transform, apply_cctf_encoding` (`apply_cctf_decoding` on the inverse).
+`convert` carries the scale kwargs `from_reference_scale, to_reference_scale, **kwargs`; the sRGB fast paths and named-colourspace projections share the tail `illuminant, chromatic_adaptation_transform, apply_cctf_encoding` (`apply_cctf_decoding` on the inverse). `chromatic_adaptation` keys `method=` over `CHROMATIC_ADAPTATION_METHODS` — CIE 1994 / CMCCAT2000 / Fairchild 1990 / Li 2025 / Von Kries / vK20 / Zhai 2018.
 
-| [INDEX] | [SURFACE]                                                    | [ENTRY_FAMILY]         | [CAPABILITY]                                 |
-| :-----: | :----------------------------------------------------------- | :--------------------- | :------------------------------------------- |
-|  [01]   | `convert(a, source, target, *, …)`                           | universal gateway      | single entry for all model-pair conversions  |
-|  [02]   | `chromatic_adaptation(XYZ, XYZ_w, XYZ_wr, method, **kwargs)` | adaptation transform   | Von Kries / CMCCAT2000 / Li 2025 / Zhai 2018 |
-|  [03]   | `XYZ_to_sRGB(XYZ, …)`                                        | fast path              | D65-normalised XYZ to sRGB                   |
-|  [04]   | `sRGB_to_XYZ(RGB, …)`                                        | fast path              | sRGB to D65-normalised XYZ                   |
-|  [05]   | `XYZ_to_RGB(XYZ, colourspace, …)`                            | colourspace projection | XYZ to named RGB space                       |
-|  [06]   | `RGB_to_XYZ(RGB, colourspace, …)`                            | colourspace projection | named RGB to XYZ                             |
+| [INDEX] | [SURFACE]                                                    | [ENTRY_FAMILY]         | [CAPABILITY]                                   |
+| :-----: | :----------------------------------------------------------- | :--------------------- | :--------------------------------------------- |
+|  [01]   | `convert(a, source, target, *, …)`                           | universal gateway      | single entry for all model-pair conversions    |
+|  [02]   | `chromatic_adaptation(XYZ, XYZ_w, XYZ_wr, method, **kwargs)` | adaptation transform   | registry-keyed adaptation between white points |
+|  [03]   | `XYZ_to_sRGB(XYZ, …)`                                        | fast path              | D65-normalised XYZ to sRGB                     |
+|  [04]   | `sRGB_to_XYZ(RGB, …)`                                        | fast path              | sRGB to D65-normalised XYZ                     |
+|  [05]   | `XYZ_to_RGB(XYZ, colourspace, …)`                            | colourspace projection | XYZ to named RGB space                         |
+|  [06]   | `RGB_to_XYZ(RGB, colourspace, …)`                            | colourspace projection | named RGB to XYZ                               |
 
 [ENTRYPOINT_SCOPE]: spectral and CCTF operations
 - rail: colour
@@ -84,7 +84,7 @@
 [ENTRYPOINT_SCOPE]: appearance model and colorimetry operations
 - rail: colour
 
-The CAM and perceptual-space rows each take `(XYZ)` (plus model kwargs). The CAM row spans `XYZ_to_CIECAM02` / `XYZ_to_CIECAM16` / `XYZ_to_CAM16` / `XYZ_to_Hunt`, the perceptual row `XYZ_to_Oklab` / `XYZ_to_ICtCp` / `XYZ_to_OSA_UCS` / `XYZ_to_hdr_CIELab`, and the scale-context trio `domain_range_scale(scale)` / `get_domain_range_scale()` / `set_domain_range_scale(scale)`.
+The CAM and perceptual-space rows each take `(XYZ)` (plus model kwargs). The CAM row spans `XYZ_to_CIECAM02` / `XYZ_to_CIECAM16` / `XYZ_to_CAM16` / `XYZ_to_Hunt`, the perceptual row `XYZ_to_Oklab` / `XYZ_to_ICtCp` / `XYZ_to_OSA_UCS` / `XYZ_to_hdr_CIELab`, and the scale-context trio `domain_range_scale(scale)` / `get_domain_range_scale()` / `set_domain_range_scale(scale)`. `describe_conversion_path` carries `(source, target, mode='Short', width=79, padding=3, print_callable=print)` and emits the path description through `print_callable`, returning nothing; `mode='Long'` plus a `print_callable` sink captures the printed lines, and a caller needing the path as data walks `colour.graph.conversion_path(source, target)` instead.
 
 | [INDEX] | [SURFACE]                                                          | [ENTRY_FAMILY]         | [CAPABILITY]                             |
 | :-----: | :----------------------------------------------------------------- | :--------------------- | :--------------------------------------- |
@@ -93,12 +93,12 @@ The CAM and perceptual-space rows each take `(XYZ)` (plus model kwargs). The CAM
 |  [03]   | `XYZ_to_CIECAM02` / … / `XYZ_to_Hunt`                              | CAM appearance         | appearance-model transforms              |
 |  [04]   | `XYZ_to_Oklab` / … / `XYZ_to_hdr_CIELab`                           | perceptual space       | uniform perceptual spaces                |
 |  [05]   | `domain_range_scale` / `get_…` / `set_…`                           | scale context          | `'reference'`/`'1'`/`'100'` mode control |
-|  [06]   | `describe_conversion_path(source, target)`                         | graph query            | list path between two colour models      |
+|  [06]   | `describe_conversion_path(source, target, …)`                      | graph query            | print the path between two colour models |
 
 [ENTRYPOINT_SCOPE]: RGB-space, transfer-function, and colour-correction operations
 - rail: colour
 
-The transfer trio shares `(value, function=…)` with defaults `'ITU-R BT.709'` (oetf) / `'ITU-R BT.1886'` (eotf) / `'ITU-R BT.2100 PQ'` (ootf); the correction rows key `method=` over `Cheung 2004`/`Finlayson 2015`/`Vandermonde`. `RGB_to_RGB`/`matrix_RGB_to_RGB` share `(input_colourspace, output_colourspace, chromatic_adaptation_transform='CAT02')` (`RGB_to_RGB` leads with `RGB` and adds `apply_cctf_decoding`/`apply_cctf_encoding`).
+The transfer trio shares `(value, function=…)` with defaults `'ITU-R BT.709'` (oetf) / `'ITU-R BT.1886'` (eotf) / `'ITU-R BT.2100 PQ'` (ootf); `OETFS`/`EOTFS`/`OOTFS` are disjoint registries — `'ITU-R BT.709'` keys only `OETFS`, `'ITU-R BT.1886'` only `EOTFS`, `OOTFS` admits only the `'ITU-R BT.2100 PQ'`/`'ITU-R BT.2100 HLG'` pair — so a kind-curve pairing is proven against the owning registry before dispatch; the correction rows key `method=` over `Cheung 2004`/`Finlayson 2015`/`Vandermonde`. `RGB_to_RGB`/`matrix_RGB_to_RGB` share `(input_colourspace, output_colourspace, chromatic_adaptation_transform='CAT02')` (`RGB_to_RGB` leads with `RGB` and adds `apply_cctf_decoding`/`apply_cctf_encoding`).
 
 | [INDEX] | [SURFACE]                                                  | [ENTRY_FAMILY]       | [CAPABILITY]                                    |
 | :-----: | :--------------------------------------------------------- | :------------------- | :---------------------------------------------- |
@@ -125,6 +125,19 @@ The CCT rows share `(coords, method)`; `dominant_wavelength`/`complementary_wave
 |  [06]   | `sd_to_aces_relative_exposure_values(sd, illuminant)` | scene-referred       | SPD to ACES2065-1 relative exposure values         |
 |  [07]   | `msds_to_XYZ(msds, ...)`                              | scene-referred       | multi-spectral batch SPD to XYZ                    |
 
+[ENTRYPOINT_SCOPE]: CVD, reflectance recovery, and Munsell notation
+- rail: colour
+
+`matrix_cvd_Machado2009(deficiency, severity)` returns the 3x3 anomalous-trichromacy matrix for a `'Protanomaly'`/`'Deuteranomaly'`/`'Tritanomaly'` deficiency at a `[0, 1]` severity — the physiologically-graded CVD simulation the `derive#DERIVE` `Simulate` arm applies where a binary filter row cannot express severity. `XYZ_to_sd(XYZ, method='Meng 2015', **kwargs)` recovers a reflectance `SpectralDistribution` from an XYZ seed over `'Jakob 2019'`/`'Mallett 2019'`/`'Meng 2015'`/`'Otsu 2018'`/`'Smits 1999'` — the RGB-to-spectral round-trip the `Recover` arm starts a material color plane from. The Munsell pair `munsell_colour_to_xyY(munsell_colour)`/`xyY_to_munsell_colour(xyY)` maps a Munsell notation string to and from CIE xyY — the `Notate` arm's bidirectional discriminant.
+
+| [INDEX] | [SURFACE]                                         | [ENTRY_FAMILY]       | [CAPABILITY]                                          |
+| :-----: | :------------------------------------------------ | :------------------- | :---------------------------------------------------- |
+|  [01]   | `matrix_cvd_Machado2009(deficiency, severity)`    | CVD matrix           | severity-graded anomalous-trichromacy 3x3 matrix      |
+|  [02]   | `XYZ_to_sd(XYZ, method='Meng 2015', …)`           | reflectance recovery | XYZ to a recovered reflectance `SpectralDistribution` |
+|  [03]   | `munsell_colour_to_xyY` / `xyY_to_munsell_colour` | Munsell notation     | Munsell name to/from CIE xyY                          |
+
+The appearance roster the universal `convert` gateway spans beside CIECAM02/CAM16: `XYZ_to_ZCAM`/`XYZ_to_Hellwig2022`/`XYZ_to_Kim2009`/`XYZ_to_RLAB`/`XYZ_to_Hunt` register `'ZCAM'`/`'Hellwig 2022'`/`'Kim 2009'`/`'RLAB'`/`'Hunt'` as `convert` model nodes, so a derive `ColorModel` names them as convert targets, never a per-model wrapper.
+
 [ENTRYPOINT_SCOPE]: dataset registries
 - rail: colour
 
@@ -145,7 +158,7 @@ The CCT rows share `(coords, method)`; `dominant_wavelength`/`complementary_wave
 - transfer vs CCTF: `cctf_encoding`/`cctf_decoding` are the generic gamma/log CCTF rows, while `oetf`/`eotf`/`ootf` select the named broadcast transfer functions (`'ITU-R BT.709'`, `'ITU-R BT.1886'`, `'ITU-R BT.2100 PQ'`, …) — distinct registries, both `function=` rows; `RGB_to_RGB` carries `chromatic_adaptation_transform=` and optional `apply_cctf_decoding`/`apply_cctf_encoding`, so an HDR or wide-gamut RGB→RGB conversion is one call, never a hand-chained XYZ round-trip; `colour_correction` derives and applies a measured-to-reference CCM keyed by `method=` (`Cheung 2004`/`Finlayson 2015`/`Vandermonde`)
 - colourspace catalog: `RGB_COLOURSPACES` is a keyed registry; `RGB_Colourspace` instances carry primaries, whitepoint, encoding/decoding CCTFs, and derivable XYZ matrices
 - dataset registries: `MSDS_CMFS`, `SDS_ILLUMINANTS`, `CCS_ILLUMINANTS`, `SDS_LIGHT_SOURCES` are keyed dataset maps; CMFS and illuminant SPDs are looked up by name, never reconstructed
-- spectral: `SpectralShape(start, end, interval)` drives wavelength grids; SPDs align via `SpectralDistribution.align(shape)` and interpolate/extrapolate through the registered interpolator family (`SpragueInterpolator` for uniform CIE work, `Extrapolator` for boundary extension)
+- spectral: `SpectralShape(start, end, interval)` drives wavelength grids; SPDs align via `SpectralDistribution.align(shape)` and interpolate/extrapolate through the registered interpolator family (`SpragueInterpolator` for uniform CIE work, `Extrapolator` for boundary extension); `SpectralDistribution.domain`/`.values` expose the wavelength and sample `ndarray` axes, and `.copy()` clones before a mutating `align`
 - LUTs: `LUT1D`/`LUT3D`/`LUT3x1D` compose into a `LUTSequence`; `read_LUT`/`write_LUT` handle `.cube`, `.clf`, and `.csp` formats
 - SciPy / Matplotlib are optional accelerators — interpolation/optimisation degrades and `plot_*` surfaces are absent (with a `ColourUsageWarning`) when they are not installed
 

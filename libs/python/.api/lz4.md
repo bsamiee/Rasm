@@ -54,6 +54,9 @@
 |  [04]   | `create_decompression_context` / `decompress_chunk` / `reset_decompression_context` | decode stream  | incremental frame decompression |
 |  [05]   | `lz4.frame.open(...)`                                                               | file           | file-like framed read/write     |
 |  [06]   | `lz4.frame.get_frame_info(frame)`                                                   | inspect        | parse frame metadata            |
+|  [07]   | `LZ4FrameDecompressor.decompress`                                                   | decode stream  | bounded frame peel              |
+
+Full signature: `LZ4FrameDecompressor.decompress(data, max_length=-1)`; `eof` and `unused_data` expose completion and tail, and `needs_input` splits the two non-`eof` states — `True` means the frame is input-starved (truncated), `False` means `max_length` capped the output mid-frame (the bomb disposition); `unused_data` stays `None` until the frame completes with trailing bytes, so a tail consumer normalizes `unused_data or b""` (live-verified).
 
 [ENTRYPOINT_SCOPE]: raw block codec
 - rail: compression and wire

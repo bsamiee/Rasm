@@ -106,6 +106,7 @@ Pens are the outline read/write algebra: `TTFont.getGlyphSet()[name].draw(pen)` 
 `varLib.build` compiles a variable font from a designspace; `varLib.instancer.instantiateVariableFont` is the partial/full instancing engine — limit a subset of axes to pin a static or reduced-axis cut that downstream shaping/subsetting consumes.
 - call: `varLib.build(designspace, master_finder=…, exclude=[], optimize=True, colr_layer_reuse=True, drop_implied_oncurves=False)`
 - call: `varLib.instancer.instantiateVariableFont(varfont, axisLimits, inplace=False, optimize=True, overlap=OverlapMode.KEEP_AND_SET_FLAGS, updateFontNames=False, *, downgradeCFF2=False, static=False)`
+- call: `varLib.instancer.AxisLimits({tag: float | (min, max) | None})` — the typed `axisLimits` container normalizing per-axis pin/range/drop values
 - call: `DesignSpaceDocument.read(path)` / `.write(path)` / `.addAxis(a)` / `.addSource(s)` / `.addInstance(i)`
 
 | [INDEX] | [SURFACE]                           | [ENTRY_FAMILY]  | [CAPABILITY]                                           |

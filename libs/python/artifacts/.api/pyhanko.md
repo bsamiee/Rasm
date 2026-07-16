@@ -68,7 +68,7 @@
 |  [09]   | `ModificationLevel`                 | diff-level enum    | the modification level a diff policy reports                            |
 |  [10]   | `KeyUsageConstraints`               | usage policy       | key-usage / extended-key-usage acceptance constraints                   |
 
-- [02]-[PDFSIGNATURESTATUS]: `trusted`, `revoked`, `coverage`, `modification_level`, `docmdp_ok`, `seed_value_ok`, `diff_result`, `bottom_line`.
+- [02]-[PDFSIGNATURESTATUS]: `trusted`, `revoked`, `coverage`, `modification_level`, `docmdp_ok`, `seed_value_ok`, `diff_result`, `bottom_line`, `signing_cert` (`asn1crypto` `x509.Certificate`), `md_algorithm`, `pkcs7_signature_mechanism`, `signer_reported_dt`, `timestamp_validity` / `content_timestamp_validity` (`TimestampSignatureStatus | None`), and `qualification_result` (`QualificationResult | None` whose `status` is a `QualifiedStatus` carrying `qualified`/`qc_type`/`qc_key_security`).
 
 [PUBLIC_TYPE_SCOPE]: document I/O and certvalidator context
 - rail: pdf — `pyhanko.pdf_utils`, `pyhanko_certvalidator`
@@ -113,7 +113,7 @@
 |  [04]   | `load_certs_from_pemder(cert_files)`                             | cert loader       | parse a PEM/DER cert list                    |
 
 [ENTRYPOINT_SCOPE]: PDF signing
-- rail: pdf — `pyhanko.sign`. The sign entrypoints share the `existing_fields_only=False, bytes_reserved=None, in_place=False, output=None` tail (the `…`); the module-level `sign_pdf` full signature is `sign_pdf(pdf_out, signature_meta, signer, timestamper=None, new_field_spec=None, …)`.
+- rail: pdf — `pyhanko.sign`. The sign entrypoints share the `existing_fields_only=False, bytes_reserved=None, in_place=False, output=None` tail (the `…`); the module-level `sign_pdf` full signature is `sign_pdf(pdf_out, signature_meta, signer, timestamper=None, new_field_spec=None, …)`. In the two-phase flow `Signer.async_sign_prescribed_attributes(algorithm, attrs)` is the primary CMS finalizer between `signed_attrs` and `fill_with_cms`; `Signer.sign_prescribed_attributes` is its synchronous fallback.
 
 | [INDEX] | [SURFACE]                                                     | [ENTRY_FAMILY]    | [CAPABILITY]                                       |
 | :-----: | :------------------------------------------------------------ | :---------------- | :------------------------------------------------- |
@@ -124,6 +124,9 @@
 |  [05]   | `PdfSigner.async_sign_pdf(pdf_out, …)`                        | object async sign | coroutine variant of instance sign                 |
 |  [06]   | `PdfSigner.digest_doc_for_signing(pdf_out, …)`                | two-phase prepare | `-> (PreparedByteRangeDigest, PdfTBSDocument, IO)` |
 |  [07]   | `PdfSigner.async_digest_doc_for_signing(pdf_out, ...)`        | two-phase async   | coroutine variant of two-phase prepare             |
+|  [08]   | `ExternalSigner.signed_attrs(digest, algorithm, …)`           | async attributes  | coroutine producing signed CMS attributes          |
+|  [09]   | `Signer.async_sign_prescribed_attributes(algorithm, attrs)`   | CMS finalize      | coroutine CMS assembly over prescribed attrs       |
+|  [10]   | `PreparedByteRangeDigest.fill_with_cms(output, cms)`          | PDF finalize      | fill the prepared byte-range reservation           |
 
 [ENTRYPOINT_SCOPE]: signing descriptor knobs
 - rail: pdf — `pyhanko.sign.PdfSignatureMetadata`
@@ -204,7 +207,7 @@
 - signing path: `SimpleSigner.load`/`load_pkcs12` (or `ExternalSigner` for HSM/remote) -> `PdfSignatureMetadata(...)` -> `sign_pdf(pdf_out, meta, signer, timestamper)` or `PdfSigner(meta, signer, stamp_style=...).sign_pdf(pdf_out)`. The async mirror is functionally equivalent and preferred inside a coroutine.
 - incremental update: always sign over an `IncrementalPdfFileWriter(stream)`; signing mutates append-only revisions, never a fresh writer, so existing signatures keep `ENTIRE_REVISION` coverage.
 - field path: `SigFieldSpec(name, on_page, box, seed_value_dict=SigSeedValueSpec(...))` -> `append_signature_field` to register; `enumerate_sig_fields` to locate existing; `SigSeedValueSpec`/`SigCertConstraints` enforce signer policy at field-creation time, never a post-sign rejection.
-- two-phase signing: `digest_doc_for_signing` returns a `PreparedByteRangeDigest` + `PdfTBSDocument`; the external HSM/remote service signs the digest, the bytes are injected via `ExternalSigner.signature_value`, and the TBS document is finalized — the only path for non-exportable keys.
+- two-phase signing: `digest_doc_for_signing(pdf_out, existing_fields_only=, bytes_reserved=, *, appearance_text_params=, output=)` returns `(PreparedByteRangeDigest, PdfTBSDocument, IO)`; async `ExternalSigner.signed_attrs(data_digest, digest_algorithm, use_pades=True)` builds the CMS signed-attributes over `PreparedByteRangeDigest.document_digest` and enters a synchronous offload kernel once through `anyio.run(partial(...))`; the external HSM/remote service signs the DER `CMSAttributes.dump()`, a sealed `ExternalSigner(signature_value=raw_sig)` folds it through synchronous `sign_prescribed_attributes(digest_algorithm, signed_attrs)`, and `PreparedByteRangeDigest.fill_with_cms(output, cms)` finalizes the reserved region — the only path for non-exportable keys; an `int` `signature_value` is the size-estimation placeholder the prepare pass accepts.
 - timestamp: `HTTPTimeStamper(url, https=True, timeout=..., auth=..., headers=...)` passes as the `timestamper` argument (PAdES B-T) or drives `PdfTimeStamper` directly; `DummyTimeStamper` is test-only.
 - PAdES ladder: `subfilter=SigSeedSubFilter.PADES` is B-B; add a `timestamper` for B-T; set `embed_validation_info=True` with a `validation_context` for B-LT; set `use_pades_lta=True` and run `update_archival_timestamp_chain` for B-LTA archival refresh.
 - validation path: `PdfFileReader(stream)` -> `EmbeddedPdfSignature` (from `reader.embedded_signatures`) -> `validate_pdf_signature(sig, signer_validation_context=ValidationContext(...), diff_policy=DEFAULT_DIFF_POLICY)` -> `PdfSignatureStatus`. The status carries `trusted`, `revoked`, `coverage` (`SignatureCoverageLevel`), `modification_level`, `docmdp_ok`, `seed_value_ok`, and `diff_result`; the validation receipt reads these fields, never a stringified `summary`.

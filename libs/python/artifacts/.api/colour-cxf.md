@@ -87,9 +87,9 @@ Field shapes:
 
 Field shapes (`*` marks a required node/attribute, `@` an XML attribute):
 - [01]-[OBJECT]: `(creation_date*, comment, color_values, color_difference_values, device_color_values, tag_collection, physical_attributes, @object_type*, @name*, @id*, @guid)`
-- [02]-[COLORSPECIFICATION]: `(tristimulus_spec, measurement_spec*, physical_attributes, @id*)`
+- [02]-[COLORSPECIFICATION]: `(tristimulus_spec, measurement_spec: MeasurementSpec | None, physical_attributes, @id*)` — the binding holds ONE `MeasurementSpec` (`None`-defaulted), never a list; the XSD requiredness is schema-level only, yet a non-`None` `MeasurementSpec` is REQUIRED whenever a referencing row's `ColorValues.choice` carries a `ReflectanceSpectrum`/`TransmittanceSpectrum`/`EmissiveSpectrum` (a spectrum resolves only against its `wavelength_range`), and `None` is admissible only when every referencing row is non-spectral (`ColorCielab`/`ColorCiexyz`/`ColorDensity` and peers)
 - [03]-[TRISTIMULUSSPEC]: `(illuminant_or_custom_illuminant: Illuminant | CustomIlluminant, observer*, method*)`
-- [04]-[MEASUREMENTSPEC]: `(measurement_type*, geometry_choice*, wavelength_range, luminance_units_type, calibration_standard, aperture, backing, bandpass_corrected, device)`
+- [04]-[MEASUREMENTSPEC]: `(measurement_type: MeasurementType | None, geometry_choice*, wavelength_range, luminance_units_type, calibration_standard, aperture, backing, bandpass_corrected, device)` — `MeasurementType(value: EspectrumType | None)` wraps the spectrum-type token; a bare `EspectrumType` in the slot is the mis-shape
 - [05]-[ILLUMINANT]: `(value: EilluminantType*, @name, @x, @y, @z)`
 - [06]-[OBSERVER]: `(value: EobserverType*, @name, @angle, @age)`
 - [07]-[METHOD]: `(value: EastmTableType*)`
@@ -99,7 +99,7 @@ Field shapes (`*` marks a required node/attribute, `@` an XML attribute):
 [MODEL_SCOPE]: colorimetric + spectral color values — `ColorValues` union members
 - rail: color
 
-`Object.color_values` is a `ColorValues` whose single `choice: list[...]` is the closed `xsd:choice` over every spectral and colorimetric encoding. This is the spectral/CIE half of the CxF interchange — the data that crosses into `colour-science` for SPD/XYZ resolution. Each spectrum carries its samples as `value: list[float]` with a `start_wl` attribute; the sampling step lives on the referenced `MeasurementSpec.wavelength_range.increment`.
+`Object.color_values` is a `ColorValues` whose single `choice: list[...]` is the closed `xsd:choice` over every spectral and colorimetric encoding. This is the spectral/CIE half of the CxF interchange — the data that crosses into `colour-science` for SPD/XYZ resolution. Each spectrum carries its samples as `value: list[float]` with a `start_wl` attribute; the sampling step lives on the referenced `MeasurementSpec.wavelength_range.increment`, so a spectral row's referenced `ColorSpecification` MUST carry a non-`None` `MeasurementSpec`; colorimetric-only rows (`ColorCielab`/`ColorCiexyz`/`ColorDensity`) admit its omission.
 
 Every color-value row carries the trailing `@name, @color_specification` attributes (`*` = required); each spectrum row shares `(value: list[float], @name, @measure_date, @start_wl, @color_specification*)`.
 

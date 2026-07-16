@@ -129,6 +129,8 @@ Full signatures for the `...`-abbreviated constructors; the mutually-exclusive `
 |  [09]   | `msgpack.Decoder(type, *, strict, dec_hook, ext_hook)`        | codec          | typed msgpack decoder; `ext_hook` decodes `Ext` |
 |  [10]   | `msgpack.Encoder.encode_into(obj, buffer, offset)`            | zero-alloc     | encode msgpack into a caller `bytearray`        |
 
+`Encoder(order="deterministic")` rejects any dict with non-`str` keys (`TypeError`) regardless of `enc_hook`, and `frozenset`/`ndarray` values reach `enc_hook` rather than encoding natively — a canonical-identity preimage over such payloads frames the offending fields as raw length-framed bytes instead of routing the whole value through the deterministic encoder. `enc_hook` fires ONLY for types the codec does not support natively: a `Struct`-typed value always encodes natively (an enc_hook keyed on a `Struct` subclass is dead code), and a native int field outside `[-2**63, 2**64 - 1]` raises `OverflowError` on the msgpack codec rather than routing to the hook — a u128-bearing key struct (`ContentKey.value`) is projected or nulled BEFORE joining any msgpack preimage (live-verified).
+
 [ENTRYPOINT_SCOPE]: struct utilities
 - rail: serialization
 

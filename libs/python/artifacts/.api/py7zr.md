@@ -73,7 +73,7 @@ Filter rows are filter-chain vocabulary consumed as `filters=[{ 'id': FILTER_...
 [ENTRYPOINT_SCOPE]: archive open, read, and write
 - rail: compression
 
-`SevenZipFile(file, mode='r', *, filters=None, dereference=False, password=None, header_encryption=False, blocksize=None, mp=False, max_extract_size=None)` opens or creates an archive; the rows below are methods on it, and `extract`/`extractall` share the `*, callback=None, factory=None` sink kwargs (the `…` tail).
+`SevenZipFile(file, mode='r', *, filters=None, dereference=False, password=None, header_encryption=False, blocksize=None, mp=False, max_extract_size=None)` opens or creates an archive; the rows below are methods on it, and `extract`/`extractall` share the `*, callback=None, factory=None` sink kwargs (the `…` tail). `archiveinfo()` asserts a filename and faults on a `BytesIO`-opened archive — sum `FileInfo.uncompressed` there instead.
 
 | [INDEX] | [CALL_SHAPE]                                           | [CAPABILITY]                                           |
 | :-----: | :----------------------------------------------------- | :----------------------------------------------------- |

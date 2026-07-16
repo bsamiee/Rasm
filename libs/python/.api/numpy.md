@@ -92,26 +92,27 @@
 [ENTRYPOINT_SCOPE]: array creation
 - rail: compute
 
-| [INDEX] | [SURFACE]                                                        | [ENTRY_FAMILY] | [RAIL]                                           |
-| :-----: | :--------------------------------------------------------------- | :------------- | :----------------------------------------------- |
-|  [01]   | `zeros(shape, dtype)`                                            | creation       | zero-filled array                                |
-|  [02]   | `ones(shape, dtype)`                                             | creation       | one-filled array                                 |
-|  [03]   | `empty(shape, dtype)`                                            | creation       | uninitialized array                              |
-|  [04]   | `full(shape, fill_value)`                                        | creation       | constant-filled array                            |
-|  [05]   | `zeros_like(a)`/`ones_like(a)`/`empty_like(a)`/`full_like(a, v)` | creation       | shape/dtype-matched fill of an existing array    |
-|  [06]   | `fromiter(iterable, dtype, count)`                               | creation       | 1-D array from an iterable, no temp list         |
-|  [07]   | `array(object, dtype=None, *, copy=True, order='K', ndmin=0)`    | creation       | new copied array (vs `asarray` no-copy intake)   |
-|  [08]   | `arange(start, stop, step)`                                      | range creation | evenly spaced integers/floats                    |
-|  [09]   | `linspace(start, stop, num)`                                     | range creation | evenly spaced floats                             |
-|  [10]   | `logspace(start, stop, num)`                                     | range creation | log-spaced floats                                |
-|  [11]   | `eye(N, M, k)`                                                   | creation       | identity / shifted diagonal                      |
-|  [12]   | `meshgrid(*xi)`                                                  | creation       | coordinate grid from 1-D axes                    |
-|  [13]   | `asarray(a, dtype, *, copy)`                                     | conversion     | array-like to `ndarray`, no copy when conforming |
-|  [14]   | `ascontiguousarray(a)`                                           | conversion     | force C-contiguous layout for kernel/FFI         |
-|  [15]   | `frombuffer(buffer, dtype)`                                      | zero-copy      | wrap a bytes buffer as an `ndarray` view         |
-|  [16]   | `load(file)`                                                     | I/O            | load `.npy`/`.npz` from path                     |
-|  [17]   | `save(file, arr)` / `savez(file, *arrays)`                       | I/O            | write `.npy` / `.npz` archive                    |
-|  [18]   | `loadtxt(fname)`                                                 | I/O            | load text-file array                             |
+| [INDEX] | [SURFACE]                                                     | [ENTRY_FAMILY] | [RAIL]                                           |
+| :-----: | :------------------------------------------------------------ | :------------- | :----------------------------------------------- |
+|  [01]   | `zeros(shape, dtype)`                                         | creation       | zero-filled array                                |
+|  [02]   | `ones(shape, dtype)`                                          | creation       | one-filled array                                 |
+|  [03]   | `empty(shape, dtype)`                                         | creation       | uninitialized array                              |
+|  [04]   | `full(shape, fill_value)`                                     | creation       | constant-filled array                            |
+|  [05]   | `zeros_like`/`ones_like`/`empty_like`/`full_like(a, v)`       | creation       | shape/dtype-matched fill of an existing array    |
+|  [06]   | `fromiter(iterable, dtype, count)`                            | creation       | 1-D array from an iterable, no temp list         |
+|  [07]   | `array(object, dtype=None, *, copy=True, order='K', ndmin=0)` | creation       | new copied array (vs `asarray` no-copy intake)   |
+|  [08]   | `arange(start, stop, step)`                                   | range creation | evenly spaced integers/floats                    |
+|  [09]   | `linspace(start, stop, num)`                                  | range creation | evenly spaced floats                             |
+|  [10]   | `logspace(start, stop, num)`                                  | range creation | log-spaced floats                                |
+|  [11]   | `eye(N, M, k)`                                                | creation       | identity / shifted diagonal                      |
+|  [12]   | `meshgrid(*xi)`                                               | creation       | coordinate grid from 1-D axes                    |
+|  [13]   | `asarray(a, dtype, *, copy)`                                  | conversion     | array-like to `ndarray`, no copy when conforming |
+|  [14]   | `ascontiguousarray(a)`                                        | conversion     | force C-contiguous layout for kernel/FFI         |
+|  [15]   | `frombuffer(buffer, dtype)`                                   | zero-copy      | wrap a bytes buffer as an `ndarray` view         |
+|  [16]   | `load(file)`                                                  | I/O            | load `.npy`/`.npz` from path                     |
+|  [17]   | `save(file, arr)` / `savez(file, *arrays)`                    | I/O            | write `.npy` / `.npz` archive                    |
+|  [18]   | `loadtxt(fname)`                                              | I/O            | load text-file array                             |
+|  [19]   | `geomspace(start, stop, num)`                                 | range creation | same-sign or complex geometric progression       |
 
 [ENTRYPOINT_SCOPE]: shape and manipulation
 - rail: compute
@@ -138,6 +139,7 @@
 |  [18]   | `append(arr, values, axis)`                                     | join           | concatenated copy with `values` appended     |
 |  [19]   | `delete(arr, obj, axis)`                                        | edit           | copy with elements at `obj` indices removed  |
 |  [20]   | `roll(a, shift, axis)`                                          | shift          | cyclic shift along axis (wraps; no fill)     |
+|  [21]   | `ix_(*args)`                                                    | indexing       | open mesh for cross-axis advanced indexing   |
 
 [ENTRYPOINT_SCOPE]: math and reduction
 - rail: compute
@@ -175,6 +177,12 @@
 |  [29]   | `diff(a, n, axis)`                               | calculus        | n-th discrete difference along axis                            |
 |  [30]   | `trapezoid(y, x, dx, axis)`                      | calculus        | trapezoidal integral (supersedes `trapz`)                      |
 |  [31]   | `issubdtype(arg1, arg2)`                         | dtype query     | dtype subclass test vs an abstract scalar base                 |
+|  [32]   | `searchsorted(a, v, side)`                       | selection       | insertion indices in a sorted array                            |
+|  [33]   | `percentile(a, q, axis, method)`                 | statistics      | percentile reduction along an axis                             |
+|  [34]   | `signbit(x)`                                     | predicate ufunc | element-wise negative-sign mask                                |
+|  [35]   | `any(a, axis)` / `all(a, axis)`                  | reduction       | existential or universal boolean reduction                     |
+|  [36]   | `deg2rad(x)` / `rad2deg(x)`                      | ufunc           | degree-radian angle conversion                                 |
+|  [37]   | `cross(a, b, axis)`                              | vector op       | 3-vector cross product over the chosen axis                    |
 
 [ENTRYPOINT_SCOPE]: top-level constants
 - rail: compute
@@ -228,6 +236,7 @@
 |  [06]   | `Generator.choice(a, size, replace)` | sampling       | random selection from array |
 |  [07]   | `Generator.shuffle(x)`               | permutation    | in-place shuffle            |
 |  [08]   | `Generator.permutation(x)`           | permutation    | permuted copy               |
+|  [09]   | `Generator.standard_normal(size)`    | sampling       | standard normal samples     |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -242,7 +251,7 @@
 - random Generator is the preferred API; `numpy.random.RandomState` is legacy and non-reentrant; `SeedSequence.spawn(n)` derives independent child seeds for parallel streams
 
 [STACKS_WITH]:
-- msgspec wire round-trip: a numeric block crosses the wire as a base64/`bytes` field or `Raw`; `np.frombuffer(buf, dtype).reshape(shape)` reconstructs a zero-copy view on the consumer side, and `ascontiguousarray` guarantees the C-contiguous layout before a `Struct` re-encodes the buffer — `numpy` owns the dtype, `msgspec` owns the envelope.
+- msgspec wire round-trip: a numeric block crosses the wire as a base64/`bytes` field or `Raw`; the producer flattens through `ndarray.tobytes()` (a C-order copy, the content-identity preimage chunk, its span pre-read from `ndarray.nbytes`), `np.frombuffer(buf, dtype).reshape(shape)` reconstructs a zero-copy view on the consumer side, and `ascontiguousarray` guarantees the C-contiguous layout before a `Struct` re-encodes the buffer — `numpy` owns the dtype, `msgspec` owns the envelope.
 - otel measurement: scalar reductions (`mean`/`std`/`isfinite().sum()`) yield the `float`/`int` values fed to `Histogram.record` / `Gauge.set`; cast NumPy scalars with `float(x)` before handing to the attribute map (which rejects NumPy scalar types).
 - linalg solver hand-off: `asarray(..., dtype=float64)` conditions an array before `linalg.solve`/`lstsq`/`pinv`; `isfinite(result).all()` is the post-solve finiteness gate that maps a non-converged `LinAlgError`-adjacent result to a typed solver-failure rail.
 - FFI / kernel boundary: `ascontiguousarray` + `ndarray.__array_interface__`/buffer protocol expose the raw pointer that downstream C-extension owners (geometry/mesh kernels) read without a copy.
@@ -256,6 +265,6 @@
 
 [RAIL_LAW]:
 - Package: `numpy`
-- Owns: N-d array construction (incl. the copying `array` constructor), dtype algebra and the abstract scalar hierarchy (`integer`/`floating`/`number` + `issubdtype`/`intp`), ufunc dispatch (incl. `reduce`/`accumulate`/`outer`/`at`, element-wise extrema `maximum`/`minimum`, the complex-math `angle`/`conj`/`conjugate`), numerical calculus (`gradient`/`diff`/`trapezoid`/`interp`) and `median`, the top-level math constants (`pi`/`e`/`inf`/`nan`), `einsum` contraction, linalg (incl. eigenvalues-only `eigvalsh`), fft, finiteness predicates, and random sampling
+- Owns: N-d array construction (incl. copying `array` constructor), dtype algebra and abstract scalar hierarchy (`integer`/`floating`/`number` + `issubdtype`/`intp`), ufunc dispatch (incl. `reduce`/`accumulate`/`outer`/`at`, element-wise extrema `maximum`/`minimum`, complex-math `angle`/`conj`/`conjugate`), numerical calculus (`gradient`/`diff`/`trapezoid`/`interp`) and `median`, top-level math constants (`pi`/`e`/`inf`/`nan`), `einsum` contraction, linalg (incl. eigenvalues-only `eigvalsh`), fft, finiteness predicates, and random sampling
 - Accept: `ndarray`-first APIs, explicit `dtype`, `asarray`/`frombuffer` zero-copy intake, `einsum`/ufunc-method fused reductions, `random.default_rng`/`SeedSequence` seeding, `isfinite` finiteness gates, batched `linalg`/`fft`/`random` usage
 - Reject: hand-rolled numerical loops replaceable by ufuncs or `einsum`, indexed Python accumulation replaceable by `ufunc.at`, module-level `numpy.random` functions, `numpy.matrix` for new code, comparing floats for finiteness without `isfinite`

@@ -47,7 +47,7 @@ This catalog drives the layered-export rail where `PhotoshopAPI` owns native PSD
 [PUBLIC_TYPE_SCOPE]: `psapi.enum` bounded vocabularies
 - rail: `export/layered`
 
-The closed discriminant vocabularies under the `psapi.enum` submodule. These are the native owners the layered arm's `_PSD_BLEND`/color-mode/compression derivation tables map the page's `BlendMode`/`ExportTarget` rows onto — never re-minted local enums. `ChannelID.mask` is the user-supplied-layer-mask slot (logical channel index `-2`), distinct from `ChannelID.alpha` (index `-1`). Each family's members carry below the grid.
+The closed discriminant vocabularies under the `psapi.enum` submodule. These are the native owners the layered arm derives onto by member value or name — `getattr(psapi.enum.BlendMode, blend.value.replace("-", ""))`, `getattr(psapi.enum.Compression, channel.name.lower().replace("_", ""))` — never re-minted local enums or parallel tables. `ChannelID.mask` is the user-supplied-layer-mask slot (logical channel index `-2`), distinct from `ChannelID.alpha` (index `-1`). Each family's members carry below the grid.
 
 | [INDEX] | [FAMILY]          | [DRIVES]                                                                         |
 | :-----: | :---------------- | :------------------------------------------------------------------------------- |
@@ -151,76 +151,92 @@ The document-level properties carry in the grid (all on `LayeredFile_<bit>`); th
 [INTEGRATION_SCOPE]: the `export/layered#LAYERED` PSD/PSB arm — stacking onto the unified `LayeredExport` owner
 - rail: `export/layered`
 
-`export/layered.md` admits a `PSD` (and `PSB`) member on the closed `ExportTarget` `StrEnum` plus one `LayerEngine` row binding a `_psd` arm to `Band.WORKER` (libphotoshopapi is off the runtime loader path exactly as libvips is, so the arm crosses the module-level `_GATE`-bounded `to_process.run_sync` worker seam, never the event loop). The arm folds the page's `tuple[Layer, ...]` rows — already placed by the visual producers and decoded to RGBA `numpy` planes (the same pre-rendered, `ContentKey`-keyed raster the `ORA`/`TIFF` arms consume from `graphic/raster/io#RASTER`) — into one `psapi.ImageLayer_<bit>` per row, keyed by `ChannelID`-keyed channel dicts, attaches the editor-panel axis through native setters, and writes the channel-stack document. This is the categorical-best supersession the brief mandates: where the retained `psdtags`/`tifffile` arm grafts `PsdLayer` records onto a *TIFF* container, this arm authors a real `.psd`/`.psb` with native compression and the full attribute axis, so PSD authority moves off the layered-TIFF approximation.
+`export/layered.md` admits a `PSD` (and `PSB`) member on the closed `ExportTarget` `StrEnum` plus one `LayerEngine` row binding the `_psd` arm to `Modality.PROCESS` (libphotoshopapi is off the runtime loader path exactly as libvips is, so the arm crosses `self.lane.offload(engine.arm, self, modality=Modality.PROCESS, retry=RetryClass.OCCT)`, never the event loop). The arm folds the page's `tuple[Layer, ...]` rows — already placed by the visual producers and decoded to RGBA `numpy` planes (the same pre-rendered, `ContentKey`-keyed raster the `ORA`/`TIFF` arms consume from `graphic/raster/io#RASTER`) — into one `psapi.ImageLayer_<bit>` per row, keyed by `ChannelID`-keyed channel dicts, attaches the editor-panel axis through native setters, and writes the channel-stack document. This is the categorical-best supersession the brief mandates: where the retained `psdtags`/`tifffile` arm grafts `PsdLayer` records onto a *TIFF* container, this arm authors a real `.psd`/`.psb` with native compression and the full attribute axis, so PSD authority moves off the layered-TIFF approximation.
 
 ```python conceptual
-# export/layered#LAYERED — the PSD/PSB arm, run on the `Band.WORKER` `to_process` seam under `_GATE`.
+# export/layered#LAYERED — the PSD/PSB arm, crossed as `Modality.PROCESS` on the page's lane seam.
 # `psapi` is off the loader path (like `pyvips`/`lxml`), so it stays the crash-isolated subprocess worker;
 # the bit-depth specialization is picked off the source channel dtype, never a caller-set knob.
+_DEPTH: frozendict[np.dtype, tuple[type, type, type]] = frozendict({
+    np.dtype(np.uint8): (psapi.LayeredFile_8bit, psapi.ImageLayer_8bit, psapi.GroupLayer_8bit),
+    np.dtype(np.uint16): (psapi.LayeredFile_16bit, psapi.ImageLayer_16bit, psapi.GroupLayer_16bit),
+    np.dtype(np.float32): (psapi.LayeredFile_32bit, psapi.ImageLayer_32bit, psapi.GroupLayer_32bit),
+})
+
+
 def _psd(export: LayeredExport) -> LayerFact:
-    width, height = (int(extent) for extent in _viewport(export.layers))
-    document = psapi.LayeredFile_8bit(psapi.enum.ColorMode.rgb, width, height)  # 8-bit RGB document
-    folders: dict[
-        str, psapi.GroupLayer_8bit
-    ] = {}  # one native group per distinct `group` label — the PSD counterpart to the SVG `<g>` / OCG `/Order` / ORA `<stack>` folder
-    for layer in export.layers:
-        rgba = _rgba_array(pyvips.Image.new_from_buffer(layer.source, ""))  # the shared decode the ORA/TIFF arms use
-        channels = {  # the ChannelID-keyed dict is the preferred construction form (logical indices are the lossy fallback)
-            psapi.enum.ChannelID.red: rgba[:, :, 0],
-            psapi.enum.ChannelID.green: rgba[:, :, 1],
-            psapi.enum.ChannelID.blue: rgba[:, :, 2],
-            psapi.enum.ChannelID.alpha: rgba[:, :, 3],
-        }
-        node = psapi.ImageLayer_8bit(
-            channels,
+    width, height = (ceil(extent) for extent in _viewport(export.layers))
+    planes = tuple((layer, _rgba_array(pyvips.Image.new_from_buffer(layer.source, ""))) for layer in export.layers)  # the shared decode the ORA/TIFF arms use
+    depths = {rgba.dtype for _, rgba in planes}
+    if len(depths) != 1 or not depths <= set(_DEPTH):
+        raise ValueError(f"unsupported channel dtypes {sorted(str(depth) for depth in depths)}")  # lane boundary → BoundaryFault; never a silent 8-bit narrow
+    document_type, image_type, group_type = _DEPTH[next(iter(depths))]  # one polymorphic arm — the specialization rides the plane dtype
+    document = document_type(psapi.enum.ColorMode.rgb, width, height)
+    folders: dict[str, psapi.GroupLayer_8bit | psapi.GroupLayer_16bit | psapi.GroupLayer_32bit] = {}  # one native group per distinct `group` — the SVG `<g>` / OCG `/Order` / ORA `<stack>` counterpart
+    for layer, rgba in planes:
+        node = image_type(
+            {  # the ChannelID-keyed dict is the preferred construction form (logical indices are the lossy fallback)
+                psapi.enum.ChannelID.red: rgba[:, :, 0],
+                psapi.enum.ChannelID.green: rgba[:, :, 1],
+                psapi.enum.ChannelID.blue: rgba[:, :, 2],
+                psapi.enum.ChannelID.alpha: rgba[:, :, 3],
+            },
             layer_name=layer.name,
-            width=width,
-            height=height,
-            blend_mode=_PSD_BLEND[layer.blend],  # the page's BlendMode -> psapi.enum.BlendMode derivation table
+            width=rgba.shape[1],
+            height=rgba.shape[0],
+            blend_mode=getattr(psapi.enum.BlendMode, layer.blend.value.replace("-", "")),  # BlendMode derived by member value
+            pos_x=int(layer.bbox[0]),
+            pos_y=int(layer.bbox[1]),
             opacity=layer.opacity,
+            compression=getattr(psapi.enum.Compression, export.policy.channel.name.lower().replace("_", "")),
+            color_mode=psapi.enum.ColorMode.rgb,
             is_visible=layer.visible,
             is_locked=layer.locked,
-            compression=psapi.enum.Compression.zipprediction,  # best ratio; the page's LayerPolicy carries the knob
-            color_mode=psapi.enum.ColorMode.rgb,
         )
-        node.clipping_mask = layer.clip  # native clipping-mask toggle (the layered-TIFF arm cannot express it)
-        (
-            folders.setdefault(layer.group, _group(document, folders, layer.group)).add_layer(document, node)
-            if layer.group
-            else document.add_layer(node)
-        )
-    sink = Path(_scratch(export)) / f"{export.target}.{export.target.value}"  # psapi writes to a path, not a buffer
-    document.write(sink, force_overwrite=True)  # consumes the document; reuse is undefined behavior
-    return LayerFact(sink.read_bytes(), width=width, height=height, layers=len(export.layers))
+        if not layer.group:
+            document.add_layer(node)
+            continue
+        if layer.group not in folders:
+            folders[layer.group] = group_type(layer.group, width=width, height=height)
+            document.add_layer(folders[layer.group])
+        folders[layer.group].add_layer(document, node)
+    with TemporaryDirectory(prefix="rasm-layered-") as scratch:
+        sink = Path(scratch) / f"layered.{export.target.value}"  # psapi writes to a path, not a buffer; suffix selects PSD vs PSB
+        document.write(str(sink), force_overwrite=True)  # consumes the document; reuse is undefined behavior
+        reopened = psd_tools.PSDImage.open(sink)  # structural readback proof before any receipt mints
+        if missing := [layer.name for layer, _ in planes if reopened.find(layer.name) is None]:
+            raise ValueError(f"readback lost layers {missing}")  # lane boundary → BoundaryFault; malformed output never returns bytes
+        data = sink.read_bytes()
+    return LayerFact(preview=(data, width, height, len(export.layers)))
 ```
 
-`_PSD_BLEND` is the page's settled `frozendict[BlendMode, object]` derivation, retargeted from `psdtags.PsdBlendMode` to `psapi.enum.BlendMode` (28 native members vs the page's 16-mode CSS vocabulary — every page mode has a native correspondent, and the extra natives `vividlight`/`linearlight`/`pinlight`/`hardmix`/`subtract`/`divide` extend the table when the page's `BlendMode` grows). The arm consumes `Layer.name`/`source`/`bbox` plus the full `visible`/`locked`/`opacity`/`blend`/`group`/`clip` editor axis the page already models — no new `Layer` field. The bit-depth specialization is selected off the decoded plane dtype (`uint8`→`_8bit`, `uint16`→`_16bit`, `float32`→`_32bit`), never a caller knob, matching the page's "one polymorphic owner discriminates on input value" law.
+Blend and compression derive by shared member correspondence, never a parallel table: the page's 16-mode CSS `BlendMode` values map onto `psapi.enum.BlendMode` by hyphen-stripped value (`color-dodge` → `colordodge`), and the `PsdCompression` policy members map by underscore-stripped lowered name (`ZIP_PREDICTION` → `zipprediction`); the extra natives (`vividlight`/`linearlight`/`pinlight`/`hardmix`/`subtract`/`divide`) become reachable the moment the page's `BlendMode` grows a member. The arm consumes `Layer.name`/`source`/`bbox` plus the full `visible`/`locked`/`opacity`/`blend`/`group` editor axis the page models — no new `Layer` field. The bit-depth specialization is selected off the decoded plane dtype (`uint8`→`_8bit`, `uint16`→`_16bit`, `float32`→`_32bit`), never a caller knob, matching the page's "one polymorphic owner discriminates on input value" law.
 
 [INTEGRATION_SCOPE]: cross-tier rails — the shared `libs/python/.api` substrate beneath the layered arm
 - rail: `export/layered`
 
 The layered arm composes the universal substrate tier ON TOP OF this folder package, never a folder-only subset:
 - `numpy` (`libs/python/.api/numpy.md`) — the channel planes are `numpy.ndarray`. The arm slices the shared `_rgba_array` `(H, W, 4)` `uint8` buffer (the ORA/TIFF arms' own decode) into per-`ChannelID` views; `psapi` constructors and `get_image_data`/`get_channel_by_id` round-trip the same array protocol, so the planar↔channel-dict conversion stays one `numpy` reshape with no provider value object crossing the owner boundary.
-- `anyio` (`libs/python/.api/anyio.md`) — `psapi` is off the loader path, so the `_psd` arm rides the page's existing `to_process.run_sync(arm, export, limiter=_GATE)` worker seam (the same `CapacityLimiter`-bounded crossing the `ORA`/`TIFF` arms and `export/indesign#INDESIGN`'s IDML worker use); the GIL-releasing native PSD write parallelizes across the bounded subprocess pool, never on the event loop.
-- `expression` (`libs/python/.api/expression.md`) — the arm returns a `LayerFact`; the page's `exported(...)` entry wraps `_exported` in one `async_boundary`, so a `psapi`-raised error (a `ValueError` on a name >255 chars, a mask-size mismatch, an opacity out of range, or a native write failure) folds into the runtime `BoundaryFault` rail through the boundary's `CLASSIFY` table, never an exception escaping the interior. `psapi`'s `ValueError`/`KeyError` surface (documented per constructor and per lookup) is the boundary input, the typed `RuntimeRail[Block[ContentKey]]` the egress.
-- `msgspec` (`libs/python/.api/msgspec.md`) — `LayerFact`/`Layer`/`LayerPolicy` are frozen `msgspec.Struct` rows; the arm reads `Layer` fields and threads the produced `LayerFact` onto the frozen owner through `copy.replace`, never mutating a seed, exactly as the sibling arms do.
-- `structlog` + `opentelemetry-api` (`libs/python/.api/structlog.md`, `opentelemetry-api.md`) — the page's `@receipted` definition-time weave and the runtime `async_boundary` span own emission and tracing; the `_psd` arm adds no telemetry of its own, contributing the shared `ArtifactReceipt.Preview(key, fact.width, fact.height)` case (the named-document facts — the PSD is a layered preview deliverable, the same shape the `SVG`/`ORA`/`TIFF` arms contribute), the authored-layer count riding the receipt fact.
+- `anyio` (`libs/python/.api/anyio.md`) — `psapi` is off the loader path, so the `_psd` arm rides the page's lane seam at `Modality.PROCESS` (the same bounded crossing the `ORA`/`TIFF` arms and `export/indesign#INDESIGN`'s IDML worker use); the GIL-releasing native PSD write parallelizes across the bounded subprocess pool, never on the event loop.
+- `expression` (`libs/python/.api/expression.md`) — the arm returns a `LayerFact`; the lane's boundary converts a `psapi`-raised error (a `ValueError` on a name >255 chars, a mask-size mismatch, an opacity out of range, or a native write failure) into the runtime `BoundaryFault` rail, never an exception escaping the interior. `psapi`'s `ValueError`/`KeyError` surface (documented per constructor and per lookup) is the boundary input, the typed `RuntimeRail[ArtifactReceipt]` the egress.
+- `msgspec` (`libs/python/.api/msgspec.md`) — `Layer`/`LayerPolicy` are frozen `msgspec.Struct` rows and `LayerFact` is the closed preview/egress `tagged_union`; the arm reads `Layer` fields and returns one `LayerFact.preview` payload, never mutating a seed, exactly as the sibling arms do.
+- `structlog` + `opentelemetry-api` (`libs/python/.api/structlog.md`, `opentelemetry-api.md`) — the runtime lane's boundary span owns emission and tracing; the `_psd` arm adds no telemetry of its own, contributing the shared `ArtifactReceipt.Preview` case with the authored-layer count and target riding the `scores` band — the same shape the `SVG`/`ORA`/`TIFF` arms contribute.
 
 [INTEGRATION_SCOPE]: folder-tier no-overlap boundary — PSD authority vs the read/codec/TIFF siblings
 - rail: `export/layered`
 
 The brief's categorical-best, zero-overlap mandate partitions the PSD/layered concern across four folder packages meeting at decoded RGBA planes or container bytes — `PhotoshopAPI` owns exactly the *author* slice:
 - `PhotoshopAPI` — native PSD/PSB author (and full-fidelity read with bit-depth deduction). The `export/layered` `PSD`/`PSB` arms, and any read-then-re-author template flow (read a `.psd`, mutate specific layers/text via the live setters, `invalidate_text_cache`, `write`). This is the system-of-record PSD writer.
-- `psd-tools` (`libs/python/artifacts/.api/psd-tools.md`) — pure-Python/abi3 PSD read/inspect + composite, and the `cp315`-present fallback authoring path while `PhotoshopAPI` has no `cp315` wheel (`psd-tools` ships an abi3 + pure-Python wheel importable on this interpreter). On `cp315` the layered arm's `PSD` member binds the `psd-tools` author path; once a `PhotoshopAPI` `cp315` wheel or source build lands, the native writer is the categorical-best owner and the `psd-tools` arm reverts to read/inspect. No two packages own the *same* slice on the *same* interpreter.
+- `psd-tools` (`libs/python/artifacts/.api/psd-tools.md`) — pure-Python/abi3 PSD read/inspect + composite. The `_psd` arm reopens the `PhotoshopAPI` output through `PSDImage.open(max_alloc_bytes=…)` and proves every authored layer stays addressable through `find` — structural readback evidence, never a second author. No two packages own the *same* slice on the *same* interpreter.
 - `imagecodecs` (`libs/python/artifacts/.api/imagecodecs.md`) — the PackBits/ZIP channel codec for the *layered-TIFF* container path (`psdtags` writes compressed channel bytes through it); `PhotoshopAPI` owns its own native PSD compression (`Compression.raw`/`rle`/`zip`/`zipprediction`) and never routes channel bytes through `imagecodecs`.
 - `psdtags` + `tifffile` (`libs/python/artifacts/.api/psdtags.md`, `tifffile.md`) — Photoshop-compatible layered-TIFF tags + container, the `export/layered` `TIFF` arm. Retained for the TIFF container only; PSD/PSB authority moves to `PhotoshopAPI` per the brief, so the `TIFF` arm is the right owner when the deliverable must be a layered `.tif` (a TIFF-consuming pipeline), the `PSD`/`PSB` arms when it must be a native Photoshop document.
 
-The deleted forms: a second PSD writer admitted beside this one on the same interpreter (the `psd-tools` author path is the `cp315` fallback, not a parallel owner); a `psapi`-`numpy`-array passed straight to `tifffile` (the TIFF arm owns its own `psdtags.PsdLayer` lowering); a raw `LayeredFile`/`ImageLayer`/`ChannelID` schema name crossing the `export/layered` owner boundary (downstream receives only `LayerFact`, `ContentKey`, and `ArtifactReceipt`); an in-process `psapi` call on the event loop (the arm is a `Band.WORKER` `to_process` crossing); a per-bit-depth arm family (`_psd_8`/`_psd_16`/`_psd_32`) where one arm selects the specialization off the plane dtype; a `bit_depth=` knob on `exported` where the input value discriminates; and an ICC color *conversion* attempted through `LayeredFile.icc` (it is an interpretation hint only — real device-link/proof conversion stays Pillow `ImageCms`/lcms2, the `graphic/color/managed` egress owner).
+The deleted forms: a second PSD writer admitted beside this one on the same interpreter (the `psd-tools` author path is the `cp315` fallback, not a parallel owner); a `psapi`-`numpy`-array passed straight to `tifffile` (the TIFF arm owns its own `psdtags.PsdLayer` lowering); a raw `LayeredFile`/`ImageLayer`/`ChannelID` schema name crossing the `export/layered` owner boundary (downstream receives only `LayerFact`, `ContentKey`, and `ArtifactReceipt`); an in-process `psapi` call on the event loop (the arm is a `Modality.PROCESS` lane crossing); a per-bit-depth arm family (`_psd_8`/`_psd_16`/`_psd_32`) where one arm selects the specialization off the plane dtype; a `bit_depth=` knob on the export owner where the input value discriminates; and an ICC color *conversion* attempted through `LayeredFile.icc` (it is an interpretation hint only — real device-link/proof conversion stays Pillow `ImageCms`/lcms2, the `graphic/color/managed` egress owner).
 
 ## [05]-[NOTES]
 
 - The `.pyi` stub at `_layered_file.pyi` names the flat-layers property `layers_flat`, but the runtime `pybind11` declaration (`DeclareLayeredFile.h`) and the class docstring bind and document it as `flat_layers` — the stub has drifted; the bound runtime name is `flat_layers`. Re-confirm against the installed dist once a `cp315` wheel is provisioned (`uv run --frozen python -m tools.assay api resolve photoshopapi` → reflect the `LayeredFile_8bit` symbol).
 - `write` consumes the document via move semantics; the instance is invalid afterward and reusing it is undefined behavior. The `_psd` arm constructs one `LayeredFile` per `_emit`, writes once, reads the bytes back, and discards — never re-uses a written document.
 - `LayeredFile.write` targets a filesystem path, not an in-memory buffer (unlike the page's other arms that return bytes directly). The `_psd` arm writes to a scratch path on the `to_process` worker and reads the bytes back into the `LayerFact`; the scratch file is worker-local and reaped with the subprocess.
-- The fixed-`width`/`height` per-channel-plane contract: every channel plane (and the optional mask) must be exactly `width * height`; `ImageLayer` raises `ValueError` on a size mismatch, a name >255 chars, a negative dimension, or an opacity outside range — all caught by the page's `async_boundary` `CLASSIFY` table, so the page's `ExportFault` vocabulary (`empty`/`duplicate`/`payload`) stays the admission-side faults and the native raises stay boundary-classified.
+- The fixed-`width`/`height` per-channel-plane contract: every channel plane (and the optional mask) must be exactly `width * height`; `ImageLayer` raises `ValueError` on a size mismatch, a name >255 chars, a negative dimension, or an opacity outside range — all converted at the page's lane boundary, so the page's `ExportFault` vocabulary stays the admission-side faults and the native raises stay boundary-classified.
 - The `ChannelID`-keyed constructor is the preferred (explicit, lossless) form; the docs flag the bare logical-index dict and the enum-dict as having had construction edge cases historically, so the arm uses the `ChannelID`-keyed dict with all color-mode channels present (R,G,B,A for RGB; C,M,Y,K,A for CMYK; Gray,A for grayscale).
