@@ -5,6 +5,7 @@ The Bim spatial-structure VIEW over the seam `Graph/element#ELEMENT_GRAPH` `Elem
 ## [01]-[INDEX]
 
 - [01]-[SPATIAL_STRUCTURE]: the `SpatialClass` `[SmartEnum<string>]` spatial-interpretation vocabulary (`Rank` with the derived `IsRoot`/`IsContainer` role and the `CanContain` rank law, over the generated `IfcClass`-stamped codes), the `SpatialAxis` traversal discriminant, the `SpatialStructure` derived spatial-tree view folded from the seam's OWNING spatial `Compose` edges (`Aggregate`/`Contain`) into a `QuikGraph` `BidirectionalGraph`, the ONE polymorphic `Walk(NodeId, SpatialAxis)` traversal, the `Container`/`Containment`/`Root`/`Level` accessors, and the `Separations` space-separation adjacency pairing spaces through their shared 2nd-level boundary elements off the seam `Generic("IfcRelSpaceBoundary")` edges.
+- [02]-[LINEAR_POSITIONING]: the `PositioningProjection.Attrs` deep reader lowering the IFC4.3 linear-referencing axis onto typed seam attribute payloads — per-segment alignment design parameters, referent station marks, and each linearly-placed product's station/offset quadruple — the `StructuralProjection.Attrs` idiom (transient topology reads emitting SI scalars, geometry staying content-keyed) composed by the `Projection/semantic#SEMANTIC_PROJECTOR` `SourceBag` synthesis, so a station-interval selection is the existing `Model/query#ELEMENT_SET` `ByProperty` range arm with zero query edits.
 
 ## [02]-[SPATIAL_STRUCTURE]
 
@@ -248,9 +249,108 @@ public sealed class SpatialStructure {
 }
 ```
 
-## [03]-[RESEARCH]
+## [03]-[LINEAR_POSITIONING]
+
+- Owner: `PositioningProjection` the linear-referencing deep reader — the positioning peer of the `Model/structural#STRUCTURAL_PROJECTION` reader, lowering the IFC4.3 alignment axis onto typed seam attribute payloads: the per-segment design parameters off each `IfcAlignmentSegment.DesignParameters` (`IfcAlignmentHorizontalSegment`/`IfcAlignmentVerticalSegment`/`IfcAlignmentCantSegment`), the `IfcReferent` station-mark `RestartDistance`, and each linearly-placed product's station/offset quadruple off its `IfcLinearPlacement.Distance` `IfcPointByDistanceExpression`. The rows land as one `Projection/semantic#SEMANTIC_PROJECTOR` `SourceBag` Import bag per entity, so every infra consumer addresses elements as "1+240 to 1+380" through the standing property machinery.
+- Entry: `PositioningProjection.Attrs(IfcObjectDefinition definition, UnitScale scale, Op key)` reads one entity's positioning facts into the typed attr map — `Fin<T>` because a malformed station magnitude faults typed through `MeasureValue.OfSi`, never a swallowed NaN row; a non-positioning entity yields the empty map, so the `SourceBag` synthesis mints no empty bag.
+- Auto: the segment arm switches `DesignParameters` — a horizontal segment lands `StartDirection` (the angle coerced by `UnitScale.Angle`), `StartRadiusOfCurvature`/`EndRadiusOfCurvature`/`SegmentLength`/`GravityCenterLineHeight` (lengths coerced by `UnitScale.L`) and its `IfcAlignmentHorizontalSegmentTypeEnum` token as `Text`; a vertical segment lands `StartDistAlong`/`HorizontalLength`/`StartHeight`/`RadiusOfCurvature` lengths, the `StartGradient`/`EndGradient` dimensionless ratios, and its token; a cant segment lands its `StartDistAlong`/`HorizontalLength` and four cant lengths plus its token — the segment's curve geometry stays content-keyed in `Representations` [M2], never an inlined `StartPoint` coordinate; the referent arm lands `RestartDistance` (the `PredefinedType` `STATION`/`KILOMETREPOINT` token rides the node's own predefined read); the placement arm probes `IfcProduct.ObjectPlacement` for `IfcLinearPlacement` and lands `Station` off `Distance.DistanceAlong` (the `IfcCurveMeasureSelect` length leg coerced by `UnitScale.L`, the parameter leg dimensionless) plus the `OffsetLateral`/`OffsetVertical`/`OffsetLongitudinal` lengths — the positioned element's alignment identity rides the rostered `Generic("IfcRelPositions")` edge the `Projection/relations#RELATION_ALGEBRA` roster already lands, never a duplicate bag row.
+- Receipt: the attr rows are the station evidence the `Model/query#ELEMENT_SET` `ByProperty` range arm selects over (a station-interval query is `Range` over the `Station` measure with ZERO query edits), the `Rasm.AppUi` station-addressed reports render, and a setting-out or progress-reporting consumer keys on — the IFC4.3 infra support deepened from spatial-tree-only to the stationing axis the `Model/spatial#SPATIAL_STRUCTURE` Bridge/Road/Railway rows already claim.
+- Packages: GeometryGymIFC_Core (`IfcAlignment`/`IfcAlignmentSegment`/`IfcAlignmentParameterSegment` concretes, `IfcLinearPlacement`, `IfcPointByDistanceExpression`, `IfcReferent`, `IfcRelPositions` — decompile-verified members), Rasm.Element, LanguageExt.Core, Rasm (the kernel `Op`).
+- Growth: a new segment parameter is one row read off the owning segment arm; a new positioning entity family is one arm on the `Attrs` switch and zero `SourceBag` edits (the synthesis dispatches on the returned map); a station-interval query, a per-alignment rollup, or a station-sorted schedule composes the existing query algebra over the landed rows — never a positioning-specific selection surface.
+- Boundary: the reader emits SI SCALARS onto Import bags — the alignment curve, the segment start points, and the placement basis curve are geometry the inline prohibition keeps off bags and edges [M2], content-keyed in `Representations` and resolved one-hop by `Rasm.Compute`; the alignment↔element join is the rostered `Generic("IfcRelPositions")` edge, never a bag-row duplicate of graph topology; the synthesized bag is ingest-landed evidence the egress skips like its `PortAttributeSet`/`StructuralDefinitionSet` peers — the `IfcLinearPlacement` re-author is a NAMED bounded drop (a re-emitted infra model re-anchors placement from its content-keyed geometry, the station rows riding the fidelity receipt), and forcing a phantom placement entity from scalar rows is the deleted form; stationing INTERPRETATION stays this page's — the segment-geometry evaluation (station→cartesian) is the kernel/Compute lane's over the content-keyed curves.
+
+```csharp signature
+// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// The positioning deep reader — the StructuralProjection.Attrs idiom over the IFC4.3 linear-referencing surface;
+// composed by the Projection/semantic#SEMANTIC_PROJECTOR SourceBag synthesis, the bag symbol declared beside its
+// peers on the projector.
+using GeometryGym.Ifc;
+using LanguageExt;
+using Rasm.Bim.Projection;
+using Rasm.Element.Properties;
+using Op = Rasm.Domain.Op;
+using static LanguageExt.Prelude;
+
+namespace Rasm.Bim.Model;
+
+// --- [OPERATIONS] -------------------------------------------------------------------------
+public static class PositioningProjection {
+    // One entity's positioning facts -> the typed attr rows the SourceBag Import bag carries. A non-positioning
+    // entity yields the empty map (no bag minted); a malformed magnitude faults typed through MeasureValue.OfSi.
+    public static Fin<Map<PropertyName, PropertyValue>> Attrs(IfcObjectDefinition definition, UnitScale scale, Op key) =>
+        definition switch {
+            IfcAlignmentSegment segment => segment.DesignParameters switch {
+                IfcAlignmentHorizontalSegment h => Rows(key,
+                    ("SegmentKind", Token(h.PredefinedType.ToString())),
+                    ("StartDirection", Angle(h.StartDirection, scale)),
+                    ("StartRadiusOfCurvature", Length(h.StartRadiusOfCurvature, scale)),
+                    ("EndRadiusOfCurvature", Length(h.EndRadiusOfCurvature, scale)),
+                    ("SegmentLength", Length(h.SegmentLength, scale)),
+                    ("GravityCenterLineHeight", Length(h.GravityCenterLineHeight, scale))),
+                IfcAlignmentVerticalSegment v => Rows(key,
+                    ("SegmentKind", Token(v.PredefinedType.ToString())),
+                    ("StartDistAlong", Length(v.StartDistAlong, scale)),
+                    ("HorizontalLength", Length(v.HorizontalLength, scale)),
+                    ("StartHeight", Length(v.StartHeight, scale)),
+                    ("StartGradient", Ratio(v.StartGradient)),
+                    ("EndGradient", Ratio(v.EndGradient)),
+                    ("RadiusOfCurvature", Length(v.RadiusOfCurvature, scale))),
+                IfcAlignmentCantSegment c => Rows(key,
+                    ("SegmentKind", Token(c.PredefinedType.ToString())),
+                    ("StartDistAlong", Length(c.StartDistAlong, scale)),
+                    ("HorizontalLength", Length(c.HorizontalLength, scale)),
+                    ("StartCantLeft", Length(c.StartCantLeft, scale)),
+                    ("EndCantLeft", Length(c.EndCantLeft, scale)),
+                    ("StartCantRight", Length(c.StartCantRight, scale)),
+                    ("EndCantRight", Length(c.EndCantRight, scale))),
+                _ => FinSucc(Map<PropertyName, PropertyValue>()),
+            },
+            IfcReferent referent => Rows(key, ("RestartDistance", Length(referent.RestartDistance, scale))),
+            IfcProduct { ObjectPlacement: IfcLinearPlacement { Distance: { } distance } } => Rows(key,
+                ("Station", distance.DistanceAlong switch {
+                    IfcLengthMeasure along => Length(along.Measure, scale),
+                    IfcParameterValue parameter => Ratio(parameter.Measure),
+                    _ => Option<Fin<PropertyValue>>.None,
+                }),
+                ("OffsetLateral", Length(distance.OffsetLateral, scale)),
+                ("OffsetVertical", Length(distance.OffsetVertical, scale)),
+                ("OffsetLongitudinal", Length(distance.OffsetLongitudinal, scale))),
+            _ => FinSucc(Map<PropertyName, PropertyValue>()),
+        };
+
+    // The row fold: absent slots (a NaN GG default, an unset optional) drop before the rail so an unset radius
+    // never fabricates a zero row; a present-but-malformed magnitude faults typed through the slot's own rail.
+    static Fin<Map<PropertyName, PropertyValue>> Rows(Op key, params ReadOnlySpan<(string Name, Option<Fin<PropertyValue>> Value)> slots) =>
+        toSeq(Iterable<(string Name, Option<Fin<PropertyValue>> Value)>.FromSpan(slots))
+            .Choose(static slot => slot.Value.Map(fin => fin.Map(value => (slot.Name, Value: value))))
+            .TraverseM(identity).As()
+            .Map(static rows => rows.Fold(Map<PropertyName, PropertyValue>(),
+                static (bag, row) => bag.AddOrUpdate(PropertyName.Create(row.Name), row.Value)));
+
+    static Option<Fin<PropertyValue>> Length(double native, UnitScale scale) =>
+        double.IsFinite(native)
+            ? Some(MeasureValue.OfSi(Dimension.LengthDim, native * scale.L).Map(static m => (PropertyValue)new PropertyValue.Measure(m)))
+            : Option<Fin<PropertyValue>>.None;
+
+    static Option<Fin<PropertyValue>> Angle(double native, UnitScale scale) =>
+        double.IsFinite(native)
+            ? Some(MeasureValue.OfSi(Dimension.Dimensionless, native * scale.Angle).Map(static m => (PropertyValue)new PropertyValue.Measure(m)))
+            : Option<Fin<PropertyValue>>.None;
+
+    static Option<Fin<PropertyValue>> Ratio(double native) =>
+        double.IsFinite(native)
+            ? Some(MeasureValue.OfSi(Dimension.Dimensionless, native).Map(static m => (PropertyValue)new PropertyValue.Measure(m)))
+            : Option<Fin<PropertyValue>>.None;
+
+    static Option<Fin<PropertyValue>> Token(string value) =>
+        value is { Length: > 0 } ? Some(FinSucc<PropertyValue>(new PropertyValue.Text(value))) : Option<Fin<PropertyValue>>.None;
+}
+```
+
+## [04]-[RESEARCH]
 
 - [SPATIAL_VOCABULARY]: `SpatialClass` maps every spatial-structure class to one canonical rank, derives root/container roles, and admits monotone level skips plus same-rank aggregation. `IfcSpatialZone` remains in `BimZoneKind`, while classification remains in generated `IfcClass`; the three vocabularies share codes without duplicating ownership.
 - [SEAM_DECOMPOSITION]: the `Compose.Aggregate`/`Compose.Contain`/`Compose.Reference` reading grounds against the seam `Relations/relation#EDGE_ALGEBRA` `ComposeKind` vocabulary (`Aggregate` whole-decomposes-into-parts, `Contain` spatial containment, `Reference` non-owning spatial reference) and `ELEMENT-REBUILD-PLAN.md` §4-RT C5 — the seam carries the neutral five-case `Relationship` algebra, the `Projection/relations#RELATION_ALGEBRA` `EdgeProjection` lowering `IfcRelAggregates`→`Compose.Aggregate`, `IfcRelContainedInSpatialStructure`→`Compose.Contain`, and `IfcRelReferencedInSpatialStructure`→`Compose.Reference`, with the IFC wire-name/directionality riding the projector's `IfcRelKind` roster, NOT a seam `IfcRel*` case; the egress `Projection/egress#IFC_EGRESS` `Emit` reads the same `ComposeKind` back to re-author the `IfcRel*` entity, so the spatial structure rides the typed `ComposeKind` round-trip and never names an IFC relationship; the seam `Edges`/`EdgesAt` yield frozen `ImmutableArray<Relationship>` rows, folded through `toSeq` exactly as the seam's own operations spell it, and the ONE `Choose` pass feeding both the tagged tree and the `Contain`-filtered containment index keeps the two structures agreeing on the spatial-whole gate by construction (a second unfiltered edge scan whose index admits a non-spatial whole the tree excludes is the closed asymmetry); the single-parent `Compose.Contain` containment is the orthogonal companion to the `Model/zones#ZONE_GRAPH` many-to-many grouping overlay (`IfcRelAssignsToGroup`/`IfcRelReferencedInSpatialStructure` zone membership), the two coexisting on one element collection, never collapsed, and the `Model/query#ELEMENT_SET` `BySpatialContainer` arm joins the same relation — `Direct` off the seam incidence, `SpatialReach.Ancestry` walking the same `Contain`/`Aggregate` up-chain this tree encodes, per candidate, so the query never constructs the view and the view never re-implements the predicate.
 - [TRAVERSAL_COLLAPSE]: the one polymorphic `Walk` over the shared `QuikGraph` substrate grounds against `libs/csharp/.api/api-quikgraph` (the `BidirectionalGraph<NodeId, STaggedEdge<NodeId, ComposeKind>>` container, the `STaggedEdge` `ComposeKind`-tagged value edge, the `AlgorithmExtensions.TreeBreadthFirstSearch` path accessor, the `Roots` no-incoming-edge source, and the `BreadthFirstSearchAlgorithm` + `DiscoverVertex` algorithm-object event fold the catalog names for accumulating a reached set) and the no-operation-family law — the `BimAssembly.Traverse(globalId, TraversalDirection)` hand-rolled breadth-first `Closure` fold over a `Map<string, Seq<string>>` adjacency with a mutated `HashSet<string>` visited set is the deleted form, the descendants closure riding the package event fold (O(reachable), replacing the all-vertex `TryFunc` path-probe sweep that re-recovered a path per vertex) and the ancestors chain the root path accessor built once at `Of`; the focused `ComposeKind`-tagged spatial subgraph is the Bim-stratum view (OWNING spatial `Compose` edges only — `Aggregate`/`Contain` — tagged so an aggregate/contain filter is one read, the non-owning `Reference` read off the seam incidence), distinct from the seam's unfiltered `Graph/element#ELEMENT_GRAPH` `Topology()` `SEdge` view (every edge kind, no tag) and the `csharp:Rasm.Persistence/Query/topology` durable-store lane — each stratum folds its OWN transient view over the shared `QuikGraph` substrate, aligned through the seam graph, never one referencing another; totality is per-axis (the tree-backed arms guard `ContainsVertex` because `OutEdges` throws on an absent vertex; `Referenced` and `Container` stay total over the whole graph off the seam incidence and the prebuilt index), all six axes one `Walk` discriminating on the `SpatialAxis` value, never a `TraverseDescendants`/`TraverseAncestors`/`TraverseContained` method family; the `Review/validation#IDS_FACETS` `PartOf` `Contained` relation and the `Model/query#ELEMENT_SET` containment arm read the same `Compose.Contain` join this view indexes, so container resolution has one law across query, validation, and view.
+- [LINEAR_REFERENCING]: the positioning roster is decompile-verified against the GeometryGym surface — `IfcAlignment : IfcLinearPositioningElement` (`Axis : IfcCurve`, `PredefinedType : IfcAlignmentTypeEnum`), `IfcAlignmentSegment.DesignParameters : IfcAlignmentParameterSegment` with the three concretes `IfcAlignmentHorizontalSegment` (`StartDirection`/`StartRadiusOfCurvature`/`EndRadiusOfCurvature`/`SegmentLength`/`GravityCenterLineHeight`/`PredefinedType`), `IfcAlignmentVerticalSegment` (`StartDistAlong`/`HorizontalLength`/`StartHeight`/`StartGradient`/`EndGradient`/`RadiusOfCurvature`/`PredefinedType`), and `IfcAlignmentCantSegment` (`StartDistAlong`/`HorizontalLength`/`StartCantLeft`/`EndCantLeft`/`StartCantRight`/`EndCantRight`/`PredefinedType`); `IfcLinearPlacement : IfcObjectPlacement` (`Distance : IfcPointByDistanceExpression`, `Orientation`/`RelativePlacement`/`CartesianPosition`); `IfcPointByDistanceExpression` (`DistanceAlong : IfcCurveMeasureSelect`, `OffsetLateral`/`OffsetVertical`/`OffsetLongitudinal`, `BasisCurve`); `IfcRelPositions : IfcRelConnects` (`RelatingPositioningElement`, `RelatedProducts`); `IfcReferent : IfcPositioningElement` (`PredefinedType : IfcReferentTypeEnum`, `RestartDistance`); the `IfcCurveMeasureSelect` legs are `IfcLengthMeasure`/`IfcParameterValue`, each reading its magnitude off the `IfcMeasureValue.Measure` double.
 - [SEPARATION_ADJACENCY]: the `Separations` space↔space join grounds against the `Projection/relations#RELATION_ALGEBRA` `SpatialBoundaries` fold — every `IfcRelSpaceBoundary` lands as `Relationship.Generic(IfcRelKind.SpaceBoundary.Key, space, element, attrs)` with the three-valued `SemanticProjector.BoundaryLevel` `PropertyValue.Text` (`"2nd"`/`"1st"`/`""`, the exact-subtype discriminant the egress refined-construct re-authors) — and the IFC 2nd-level space-boundary semantics: paired `IfcRelSpaceBoundary2ndLevel` instances on one separating element are the schema's own space-adjacency encoding, so grouping the `"2nd"`-leveled edges by their `Related` element and pairing the distinct `Relating` spaces IS the separation topology (the separator the shared element — the fire reviewer's "compartment wall between zone A and zone B", the acoustician's party wall), with the unordered pair ordinal-ordered for a stable re-read; the raw boundary edges were previously consumed only by the up-stratum Compute OSM build, so the join closes the space-boundary graph's in-package consumer gap the `Model/query#ELEMENT_SET` `ByGeneric("IfcRelSpaceBoundary", …)` arm complements element-centrically (the arm asks "does this space bound that element", the view asks "which spaces meet through it").

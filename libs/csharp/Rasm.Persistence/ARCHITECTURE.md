@@ -236,26 +236,30 @@ One `IDocumentSession` commits the `GraphDelta` event and the identity row toget
 
 ## [04]-[BOUNDARIES]
 
-- Persistence is not a domain service layer, repository framework, ORM wrapper, provider wrapper, or host-boundary package; it is RhinoCommon-free, depends up on the `Rasm.Element` seam plus the `Rasm` kernel, and never references a sibling AEC-domain peer.
-- Marten owns the durable append and the rebuildable read views; the op-log/CRDT/time-travel/`StructuralMerge`/causal-DAG engine PROJECTS from its events — never a bespoke op-log store beneath Marten, never re-implementing event storage or stream folding.
-- One transaction owner for identity plus event is the `IDocumentSession` with identity a Marten document in the same session; the geometry blob is write-first and reference-after with no free two-ORM atomicity.
-- Authoritative topology/containment reads bind the synchronous inline projection and the in-process QuikGraph view; AGE and DuckDB are async analytical lanes with an explicit staleness watermark, and interactive-correctness reads block on `WaitForNonStaleProjectionDataAsync`.
-- Typed projection records and the seam `ElementGraph` are the only egress; entity types never cross the package boundary, and provider failure converts into a typed fault at exactly one site per rail.
-- AppHost owns scheduling, drain conduction, hop retry, correlation, classification taxonomy, and the cache port; Persistence contributes rows and never reverses the dependency. Database is excluded from the AppHost hop law — `EnableRetryOnFailure` on the pg row and busy-retry on the sqlite rows are the only database retry owners.
+- Persistence is not a domain service layer, repository framework, ORM wrapper, provider wrapper, or host-boundary package; it is RhinoCommon-free.
+- It depends up on the `Rasm.Element` seam plus the `Rasm` kernel and never references a sibling AEC-domain peer.
+- Marten owns the durable append and the rebuildable read views; the version engine PROJECTS from its events, never a bespoke op-log store beneath it.
+- One transaction owner for identity plus event is the `IDocumentSession`, identity a Marten document in the same session.
+- Geometry blobs are write-first and reference-after, with no free two-ORM atomicity.
+- Authoritative topology reads bind the inline projection and the in-process QuikGraph view; analytical lanes are async under a watermark.
+- Typed projection records and the seam `ElementGraph` are the only egress; provider failure converts once per rail.
+- AppHost owns scheduling, drain, hop retry, correlation, and the cache port; Persistence contributes rows, never reversing the dependency.
+- Database retry is excluded from the AppHost hop law; the relational rows own their own retry.
 
 ## [05]-[PROHIBITIONS]
 
-Closed NEVER list — the deleted patterns the owner regions foreclose.
+Deleted patterns the owner regions foreclose:
 
 - NEVER a public type outside a sub-domain owner region; a new capability is a row, case, or policy value on a budgeted owner.
-- NEVER a bespoke op-log/event store beneath Marten, a per-`NodeId` stream grain, or a whole-graph event body; the stream is per-model and the body is the `GraphDelta`.
-- NEVER route an interactive-correctness read to an async projection without `WaitForNonStaleProjectionDataAsync`; strong-consistency reads go through the inline projection and the synchronous topology.
+- NEVER a bespoke op-log store beneath Marten, a per-node stream grain, or a whole-graph event body; per-model streams carry the `GraphDelta`.
+- NEVER route an interactive-correctness read to an async projection; strong-consistency reads block on non-stale data through the inline projection.
 - NEVER a second materializer beside `Crdt.Apply`/`GraphDelta.Apply`; the projection, the live merge, and the AS-OF reconstruction fold the one delta.
-- NEVER a second content-hash, identity, CRDT, selection-shape, or geometry-representation owner; the spine rides the one kernel `XxHash128` content address, the one `OpLogEntry` changefeed, the one `ElementSet`, and the one canonical wire geometry.
+- NEVER a second content-hash, identity, CRDT, selection-shape, or geometry-representation owner; each spine concept rides its one owner.
 - NEVER a head-only geometry GC; reachability runs over the full event history, or geometry GC is forbidden in favor of dedup and cold-tiering.
-- NEVER `DateTime.UtcNow`, `Stopwatch`, or direct timers; the injected `ProjectionContext` frame is the only time seam and the HLC the only causal clock — an AppHost `ClockPolicy` parameter on a Persistence signature is the named strata inversion.
-- NEVER hand-written converters/formatters/migration code beside the generated rails; Thinktecture converters, Marten/EF migrations, and the source-generated resolvers own those forms.
-- NEVER a generic receipt abstraction; `GraphReceipt`, `SyncApplyReceipt`, `ConflictReceipt`, `TimeTravelReceipt`, `SweepReceipt`, `RecoveryFact`, `BlobTransferReceipt`, and `RetentionFact` stay typed.
-- NEVER admit a new relational engine row — the sweep is closed to PostgreSQL and embedded SQLite only; PostgreSQL is never spawned or bundled by a Rasm process, and provisioning is verification-only.
+- NEVER a raw clock, stopwatch, or timer; the injected `ProjectionContext` frame is the only time seam and the HLC the only causal clock.
+- An AppHost `ClockPolicy` parameter on a Persistence signature is the named strata inversion.
+- NEVER hand-written converters, formatters, or migration code beside the generated rails.
+- NEVER a generic receipt abstraction; each sub-domain outcome stays its own typed receipt or fact record.
+- NEVER admit a new relational engine row; the sweep is closed, PostgreSQL is never spawned by a Rasm process, and provisioning is verification-only.
 - NEVER reference a sibling AEC-domain peer or a host-SDK type; alignment travels through the `Rasm.Element` seam and the content-keyed wire.
 - CSP analyzer diagnostics are architecture pressure: fix the shape, refine the rule on a false positive, never suppress.

@@ -13,7 +13,7 @@ allowed-tools: Bash(uvx *), Bash(python3 *), Bash(uv run *), Bash(jq *)
 
 # [TAVILY_DYNAMIC_SEARCH]
 
-Search the web, filter results, and extract content so that raw search data never enters the context window — only curated `print()` output comes back. A raw search with full page content returns hundreds of kilobytes of navigation, cookie banners, and boilerplate; processed inside a Python sandbox, the same query lands as one to three kilobytes of pure signal. The Python process is the sandbox: variables hold the raw data, `print()` is the only channel into context, and the filtering logic is written fresh per query.
+Search the web, filter results, and extract content so that raw search data never enters the context window — only curated `print()` output comes back. A raw search with full page content returns hundreds of kilobytes of navigation, cookie banners, and boilerplate; processed inside a Python sandbox, the same query lands as one to three kilobytes of pure signal. A Python process is the sandbox: variables hold the raw data, `print()` is the only channel into context, and the filtering logic is written fresh per query.
 
 Every `tvly` command runs as `uvx --from tavily-cli tvly …` — uv resolves and caches the CLI on first use, and auth reads the ambient `TAVILY_API_KEY` with no install step and no `tvly login`. This law covers the whole tavily family; the sibling skills compose it by name.
 
@@ -80,8 +80,8 @@ Filtering code binds to these shapes.
 Two building blocks compose freely: `tvly search` returns titles, URLs, snippets, and scores, with full pages under `--include-raw-content markdown`; `tvly extract` fetches full content for specific URLs already identified.
 
 - [PIPE]: Simple filters of three to five lines pipe `tvly` output into `python3 -c`.
-- [HEREDOC]: Anything more complex rides a single-quoted heredoc — one Bash call, clean multi-line Python, no escaping, no temp files. The default for most tasks.
-- [SCRIPT]: A file on disk only when the same script runs across multiple turns; one-shot code is a heredoc, never a scratch file. Data saved for later turns belongs on disk; code does not.
+- [HEREDOC]: Anything complex rides a single-quoted heredoc — one Bash call, multi-line Python, no escaping or temp files. Most tasks default here.
+- [SCRIPT]: A disk file only when one script runs across turns; one-shot code is a heredoc, never a scratch file. Data persists on disk, never code.
 
 ```bash template
 python3 << 'PYEOF'
@@ -99,7 +99,7 @@ PYEOF
 
 ## [04]-[MULTI_TURN]
 
-Open-ended research explores before it extracts: save raw results to a scratch file, triage titles, then write targeted extraction against what the triage revealed. The file is the persistent state between turns; the raw content never enters context. Known-keyword factual queries stay single-turn.
+Open-ended research explores before it extracts: save raw results to a scratch file, triage titles, then write targeted extraction against what the triage revealed. That file is the persistent state between turns; the raw content never enters context. Known-keyword factual queries stay single-turn.
 
 Turn one — search, save, triage:
 
@@ -180,13 +180,13 @@ PYEOF
 
 ## [05]-[FILTERING_LAW]
 
-The Python written per query is the filtering logic; there are no fixed templates.
+Each query gets its own filtering logic in Python; no fixed template exists.
 
 - [TRIAGE_FIRST]: Inspect titles and scores before fetching full pages; blind extraction floods disk and wastes calls.
-- [MATCH_THE_QUERY]: A financial query filters for numbers and financial terms, a technical query for code blocks and specifications, a news query for dates and quotes.
-- [STRUCTURAL_FLOOR]: Lines under roughly 50-80 characters are usually navigation; headings plus their following paragraphs carry the signal — starting points, adapted to what the page shows.
+- [MATCH_THE_QUERY]: A financial query filters for numbers and terms, a technical query for code blocks and specs, a news query for dates and quotes.
+- [STRUCTURAL_FLOOR]: Lines under 50-80 characters are navigation; headings plus their paragraphs carry signal — starting points, adapted per page.
 - [ERROR_RAILS]: Pages 404, extractions time out; `try/except` with `continue` skips failures without killing the pass.
-- [TOKEN_BUDGET]: Target 150-600 printed tokens per source; a page printing thousands of characters is under-filtered unless it carries a critical data table.
+- [TOKEN_BUDGET]: Target 150-600 printed tokens per source; thousands of characters means under-filtered unless it carries a critical data table.
 
 A multi-angle pass runs several queries in one heredoc, deduplicates by URL, sorts by score, and prints one indexed triage — the shape in [04]-[MULTI_TURN] extends directly.
 

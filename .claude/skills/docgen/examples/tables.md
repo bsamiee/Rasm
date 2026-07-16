@@ -176,7 +176,7 @@ Every row needs a comma-bearing sentence to explain itself, so the table is the 
 
 ## [08]-[INDEX_LABEL_PROSE]
 
-The rows carry exactly an index, a label, and one prose clause — the indexed-list shape, not a table.
+Rows carrying exactly an index, a label, and one prose clause are the indexed-list shape, not a table.
 
 - Detection: The table holds exactly an index, a bracketed label, and one prose clause per row.
 - Rejected:
@@ -248,7 +248,7 @@ A link rides inside a comparison cell, so it drifts with the attribute grid inst
 
 ## [11]-[SEQUENCE_ROWS]
 
-The rows are ordered steps a reader executes in order — a sequence wearing a grid — so the standardized carrier is the `OrderedStep` record set, one of the two earned conversions.
+Rows that are ordered steps a reader executes in order are a sequence wearing a grid, so the standardized carrier is the `OrderedStep` record set, one of the two earned conversions.
 
 - Detection: Rows are steps with an execution order; the action column carries imperative commands; row order is the payload.
 - Rejected:

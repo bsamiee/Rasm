@@ -1,25 +1,26 @@
 # [COMPUTE_SOLVER_SATISFY]
 
-Rasm.Compute rule satisfaction: the SMT owner beside the optimizer — CP-SAT OPTIMIZES, Z3 VERIFIES-AND-EXPLAINS, orthogonal concerns on two admitted engines, one page each. A typed rule set lowers to `Microsoft.Z3` assertions NATURALLY from the CAS: each rule is a `Symbolic/expression#SYMBOLIC_EXPR` constraint (an AngouriMath `Entity.Statement` — an (in)equality-sorted `Entity`) walked term-by-term onto `Context.Mk*` terms (`MkRealConst`/`MkAdd`/`MkMul`/`MkPower`/`MkGe`/`MkAnd` — the nonlinear real/integer arithmetic NRA/NIA theories CP-SAT cannot reach), asserted through `Solver.AssertAndTrack` with one tracking literal PER RULE so an UNSATISFIABLE verdict's `UnsatCore` names the EXACT violated rules, never an opaque refusal. The verdict is a typed three-way `SatisfyVerdict` — SATISFIABLE carrying the `Model` witness values, UNSATISFIABLE the unsat-core rule names, UNKNOWN a typed `(Solve, Numeric)` shortfall naming the solver's reason — and surfaces as an `AssessmentResult` a discipline route carries. Ownership law: ONE `Context` per `Runtime/scheduling#JOB_GRAPH` sweep worker, the AST factory and owning arena (`IDisposable`; every `Expr`/`Sort`/`Solver` it mints dies with it), disposed at the `AssessmentResult` boundary — never a shared global context and never a context outliving its verdict. The osx-arm64 `libz3` provisions through the Forge nix lane (the NuGet stable ships win-x64/osx-x64 natives only); a `Context` operation without the provisioned native FAULTS AT INIT, never a silent degrade. A seam `Discipline.Compliance` row exists ONLY IF a rule verdict must persist as its own content-keyed `Node.Assessment` the `Analysis/assessment` Sweep dispatches — a verdict that merely enriches an existing discipline's `AssessmentResult` rides that discipline's route, the seam growth law the mechanism either way (no `Compliance` row is minted this campaign).
+Rasm.Compute rule satisfaction: the SMT owner beside the optimizer — Z3 VERIFIES-AND-EXPLAINS where CP-SAT OPTIMIZES, orthogonal concerns on two admitted engines, one page each. A typed `ComplianceRule` set lowers to `Microsoft.Z3` assertions from the CAS — each rule an AngouriMath `Entity.Statement` walked term-by-term onto `Context.Mk*` terms (the nonlinear NRA/NIA arithmetic CP-SAT cannot reach), asserted through `Solver.AssertAndTrack` under one tracking literal PER RULE so an UNSATISFIABLE `UnsatCore` names the EXACT violated rules, never an opaque refusal. Verdict is the three-way `SatisfyVerdict` — SATISFIABLE carries the `Model` witness, UNSATISFIABLE the unsat-core rule names, UNKNOWN a typed `(Solve, Numeric)` shortfall — surfacing as an `AssessmentResult` a discipline route carries.
+
+Ownership is ONE `Context` per `Runtime/scheduling#JOB_GRAPH` sweep worker — the AST factory and arena (`IDisposable`; every `Expr`/`Sort`/`Solver` it mints dies with it), disposed at the `AssessmentResult` boundary, never a shared global nor a context outliving its verdict. Osx-arm64 `libz3` provisions through the Forge nix lane (NuGet stable ships win-x64/osx-x64 natives only); a `Context` operation without the native FAULTS AT INIT, never a silent degrade. A `Discipline.Compliance` seam row mints ONLY when a verdict must persist as its own content-keyed `Node.Assessment` the `Analysis/assessment` Sweep dispatches — a verdict enriching an existing discipline's `AssessmentResult` rides that route, no `Compliance` row minted this campaign.
 
 ## [01]-[INDEX]
 
-- [02]-[RULE_SATISFACTION]: the `ComplianceRule` typed rule carrier, the `SymbolicExpr` → Z3 term lowering, the tracked assertion set, the `SatisfyVerdict` three-way outcome with the unsat-core explanation, and the per-worker `Context` arena law.
+- [02]-[RULE_SATISFACTION]: typed `ComplianceRule` set lowered CAS→Z3, the tracked-assertion `SatisfyVerdict` three-way with unsat-core explanation, per-worker `Context` arena.
 
 ## [02]-[RULE_SATISFACTION]
 
-- Owner: `ComplianceRule` the typed rule carrier — a rule name, the `SymbolicExpr` constraint (an `Entity.Statement`), and the citation it enforces — so a rule set is DATA the callers author, never code; `RuleLowering` the `Entity`-to-Z3 term walk — the SAME node-record patterns the `Symbolic/dimensional#DIMENSION_PROOF` fold descends (`Sumf`/`Mulf`/`Divf`/`Powf`/`Minusf` positional records, `Entity.Variable.Name`, the numeric leaves), each arm minting through the `Context.Mk*` factories — one walk, never a per-rule hand lowering; `SatisfyVerdict` `[Union]` the three-way outcome (`Satisfiable(Map<string, double> Witness)` · `Unsatisfiable(Seq<string> ViolatedRules)` · `Unknown(string Reason)`); `RuleSatisfaction` the fold — assert-tracked rules, one `Check`, the typed projection.
-- Cases: `SatisfyVerdict.Satisfiable` carries the `Model` witness (each free variable's evaluated value — the concrete design point PROVING the rules consistent); `Unsatisfiable` carries the `UnsatCore` tracking literals mapped back to rule names — the EXACT violated subset, the explanation a compliance report needs; `Unknown` is the honest incompleteness arm (a nonlinear system past the decidable fragment, a timeout) surfaced as the typed `(Solve, Numeric)` shortfall, never coerced onto either definite verdict.
-- Entry: `public static Fin<SatisfyVerdict> Check(Seq<ComplianceRule> rules, Map<string, (double Lower, double Upper)> bounds, SatisfyPolicy policy, ClockPolicy clocks)` — mints ONE `Context` (the fault-at-init boundary: an absent provisioned `libz3` throws at construction and converts to the typed `ComputeFault` there), lowers each rule through `RuleLowering.Lower(context, rule.Constraint)` (a rule whose expression fails the walk — an unmapped node, a non-statement — is a typed admission fault naming the rule), asserts each through `Solver.AssertAndTrack(term, context.MkBoolConst(rule.Name))` plus the variable-bound assertions, runs `Solver.Check()` under the policy timeout, and projects `Status.SATISFIABLE`/`UNSATISFIABLE`/`UNKNOWN` onto the verdict — the `Model.Evaluate(var, completion: true)` witness reads on SAT, the `Solver.UnsatCore` literal names on UNSAT; the whole fold brackets the `Context` so every minted AST dies at the verdict boundary.
-- Receipt: the verdict surfaces as an `AssessmentResult` fact stream on the carrying discipline's route — `rule:<name>` `Flag` facts (violated rules false), the witness values as dimensionless `Measure` facts on SAT, the governing ratio `1.0` on UNSAT (exceeded) and `0.0` on SAT — riding the one `ComputeReceipt.Assessment` case; no satisfy-local receipt.
-- Packages: Microsoft.Z3 (the `Context` AST factory/arena, `Solver.AssertAndTrack`/`Check`/`Model`/`UnsatCore`, `Status`, the `MkRealConst`/`MkAdd`/`MkMul`/`MkPower`/`MkGe`/`MkGt`/`MkLe`/`MkLt`/`MkEq`/`MkAnd`/`MkNot` term factories — MIT; the arm64 native Forge-provisioned, fault-at-init), AngouriMath (the `Entity.Statement` rule source — the CAS is the lowering source, never a second expression algebra), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox.
-- Growth: a new rule is one `ComplianceRule` DATA row the caller authors; a new lowered node family is one `RuleLowering` arm (the walk breaks typed on an unmapped node, never silently); a new verdict projection is one field on the verdict case; an OPTIMIZING rule query (maximize slack under the rules) is the `Optimize` growth row on this same owner — recorded, not built, and never a second CP-SAT (exact optimization stays `Solver/optimizer`'s); zero new surface.
-- Boundary: Z3 VERIFIES-AND-EXPLAINS and CP-SAT OPTIMIZES — a rule-consistency question with an unsat-core explanation lands here, a design-space search lands on `Solver/optimizer`'s cp-sat/milp rows, and cross-wiring either onto the other engine is the rejected form; the lowering source is the CAS — a rule authored as a `SymbolicExpr` statement lowers through the ONE `Entity` walk, so the dimensional gate (`Symbolic/dimensional#DIMENSION_PROOF`) can prove a rule's unit-consistency BEFORE it asserts and a stringly rule DSL beside the CAS is the deleted form; ONE `Context` per sweep worker, minted at `Check` and disposed at the verdict boundary — every `Expr`/`Sort`/`Solver` is arena-owned, a cached global context is the rejected form (Z3 contexts are not thread-safe across workers), and the tracking literals are per-rule `MkBoolConst` names so `UnsatCore` maps 1:1 back to `ComplianceRule.Name`; `UNKNOWN` is honest — the NRA/NIA fragment is undecidable in general, so the policy timeout and the solver's `ReasonUnknown` surface as the typed shortfall, never a coerced SAT/UNSAT; the native is Forge-provisioned (nixpkgs `z3` carries the arm64 derivation) and a `Context` ctor without it faults at init through the one lifted boundary — never a managed fallback SMT.
+- Owner: `ComplianceRule` the typed rule carrier (name, `SymbolicExpr` constraint as `Entity.Statement`, enforced citation) — a rule set is DATA the caller authors, never code; `RuleLowering` the `Entity`→Z3 walk over the SAME positional node-records the `Symbolic/dimensional#DIMENSION_PROOF` fold descends, each arm minting through `Context.Mk*`, one walk never a per-rule hand lowering; `SatisfyVerdict` `[Union]` the three-way outcome; `RuleSatisfaction` the assert-track/`Check`/project fold.
+- Cases: `Satisfiable` carries the `Model` witness (each free variable's evaluated value, the concrete point PROVING the rules consistent); `Unsatisfiable` carries the `UnsatCore` literals mapped back to rule names, the EXACT violated subset a compliance report needs; `Unknown` is the honest incompleteness arm (nonlinear past the decidable fragment, a timeout) as the typed `(Solve, Numeric)` shortfall, never coerced onto a definite verdict.
+- Entry: `Check` mints ONE bracketed `Context` — an absent `libz3` throws at construction and converts to the typed `ComputeFault` HERE (fault-at-init); a rule whose expression fails the `RuleLowering` walk (unmapped node, non-statement) faults typed naming the rule; each rule asserts under its `MkBoolConst` tracking literal plus the bound assertions, and the bracket disposes every minted AST at the verdict boundary.
+- Receipt: the verdict surfaces as an `AssessmentResult` fact stream on the carrying discipline's route — `rule:<name>` `Flag` facts (violated false), the SAT witness as dimensionless `Measure` facts, the governing ratio `1.0` on UNSAT / `0.0` on SAT — riding the one `ComputeReceipt.Assessment` case; no satisfy-local receipt.
+- Packages: Microsoft.Z3 (the `Context` AST factory/arena and `AssertAndTrack`/`Check`/`Model`/`UnsatCore`/`Mk*` term surface — MIT; arm64 native Forge-provisioned, fault-at-init), AngouriMath (the `Entity.Statement` rule source, the one lowering algebra), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox.
+- Growth: a new rule is one `ComplianceRule` DATA row; a new lowered node family is one `RuleLowering` arm (the walk breaks typed on an unmapped node, never silently); a new verdict projection is one field on the verdict case; an OPTIMIZING rule query (maximize slack, Z3 soft assertions with weights) is the recorded `Optimize` growth row on this SAME owner and engine — never a second exact rail beside `Solver/optimizer`'s CP-SAT/MILP; zero new surface.
+- Boundary: Z3 VERIFIES-AND-EXPLAINS, CP-SAT OPTIMIZES — a rule-consistency question with an unsat-core explanation lands here, a design-space search on `Solver/optimizer`'s cp-sat/milp rows, and cross-wiring either engine onto the other is rejected; the lowering source is the CAS, so the `Symbolic/dimensional#DIMENSION_PROOF` gate proves a rule's unit-consistency BEFORE it asserts and a stringly rule DSL beside the CAS is rejected; a cached global `Context` is rejected because Z3 contexts are not thread-safe across workers; `UNKNOWN` stays honest — the NRA/NIA fragment is undecidable in general, so the policy timeout and `ReasonUnknown` surface as the typed shortfall, never a coerced SAT/UNSAT nor a managed fallback SMT when the Forge-provisioned native is absent.
 
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
-// A compliance rule is DATA: the name the unsat-core reports, the CAS statement it asserts, the citation
-// it enforces. A rule set is authored by the caller (a code-compliance table, a design-guideline pack).
+// A rule is DATA: the unsat-core name, the CAS statement it asserts, the citation it enforces — caller-authored.
 public sealed record ComplianceRule(string Name, SymbolicExpr Constraint, string Citation);
 
 public sealed record SatisfyPolicy(Duration Timeout, bool WitnessCompletion = true) {
@@ -37,9 +38,8 @@ public abstract partial record SatisfyVerdict {
 
 // --- [OPERATIONS] --------------------------------------------------------------------------
 public static class RuleSatisfaction {
-    // ONE Context per check — the AST factory and owning arena, bracketed so every minted Expr/Sort/Solver
-    // dies at the verdict boundary; an absent provisioned libz3 throws at construction and converts HERE
-    // (fault-at-init, never a silent managed degrade).
+    // ONE bracketed Context per check — the AST arena; every minted Expr/Sort/Solver dies at the verdict boundary,
+    // and an absent libz3 throws at construction, converting HERE (fault-at-init, never a silent managed degrade).
     public static Fin<SatisfyVerdict> Check(Seq<ComplianceRule> rules, Map<string, (double Lower, double Upper)> bounds, SatisfyPolicy policy, ClockPolicy clocks) =>
         Try.lift(() => {
             using var context = new Microsoft.Z3.Context();
@@ -68,8 +68,8 @@ public static class RuleSatisfaction {
             };
         }).Run().MapFail(static error => (Error)new ComputeFault.AnalysisFailed(SolvePhase.Solve, FailureKind.Numeric, $"<z3:{error.GetType().Name}:{error.Message}>"));
 
-    // The verdict as the uniform fact stream a carrying discipline's route writes back: per-rule Flag facts,
-    // the SAT witness as dimensionless Measures, the governing ratio 1.0 on UNSAT / 0.0 on SAT / NaN on UNKNOWN.
+    // Verdict as the uniform fact stream the carrying discipline writes back: per-rule Flag facts, SAT witness
+    // as dimensionless Measures, governing ratio 1.0 on UNSAT / 0.0 on SAT / NaN on UNKNOWN.
     public static Fin<Seq<AssessmentFact>> Facts(Seq<ComplianceRule> rules, SatisfyVerdict verdict) =>
         verdict switch {
             SatisfyVerdict.Satisfiable sat =>
@@ -84,8 +84,8 @@ public static class RuleSatisfaction {
         };
 }
 
-// The Entity -> Z3 term walk: the SAME positional node-record patterns the dimensional fold descends,
-// each arm minting through the Context factories — the CAS is the lowering source, one walk for every rule.
+// Entity -> Z3 walk: the SAME positional node-records the dimensional fold descends, each arm minting through
+// the Context factories — the CAS is the one lowering source, one walk for every rule.
 public static class RuleLowering {
     public static Microsoft.Z3.BoolExpr Lower(Microsoft.Z3.Context context, Map<string, Microsoft.Z3.RealExpr> variables, ComplianceRule rule) =>
         rule.Constraint.Entity switch {
@@ -99,8 +99,8 @@ public static class RuleLowering {
             var node => throw new InvalidOperationException($"<rule-non-statement:{rule.Name}:{node.GetType().Name}>"),
         };
 
-    // The arithmetic sub-walk over the Entity node records — Sumf/Minusf/Mulf/Divf/Powf and the leaves; the
-    // NRA MkPower reach is exactly what CP-SAT's linear model cannot express.
+    // Arithmetic sub-walk over the Entity node records — Sumf/Minusf/Mulf/Divf/Powf and the leaves; the NRA
+    // MkPower reach is exactly what CP-SAT's linear model cannot express.
     static Microsoft.Z3.ArithExpr Arith(Microsoft.Z3.Context context, Map<string, Microsoft.Z3.RealExpr> variables, Entity node) =>
         node switch {
             Entity.Number.Rational rational => context.MkReal(rational.Stringize()),
@@ -123,5 +123,8 @@ public static class RuleLowering {
 
 ## [03]-[RESEARCH]
 
-- [OPTIMIZE_GROWTH]: the Z3 `Optimize` surface (maximize rule slack, soft assertions with weights) is the recorded growth row on this owner — an optimizing compliance query stays HERE when it lands (the engine and arena law unchanged), never a second exact-optimization rail beside `Solver/optimizer`'s CP-SAT/MILP rows.
-- [COMPLIANCE_ROW_GATE]: a seam `Discipline.Compliance` row mints ONLY when a rule verdict must persist as its own content-keyed `Node.Assessment` the `Analysis/assessment` Sweep dispatches; today a verdict enriches the carrying discipline's `AssessmentResult` through `RuleSatisfaction.Facts`, so no row exists and the seam growth law is the mechanism when one is needed.
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+-->
+
+(none)

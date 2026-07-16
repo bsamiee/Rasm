@@ -22,12 +22,12 @@ A skill is deployed law plus packaged capability: the description competes for s
 [REFERENCES]:
 - [01]-[ANATOMY](references/anatomy.md): bundle anatomy, budgets, frontmatter policy, the root schema, freedom calibration
 - [02]-[TRIGGERS](references/triggers.md): trigger science and listing economics
-- [03]-[DEFECTS](references/defects.md): the authoring defect catalog, each class carrying its copyable repair
-- [04]-[EVALS](references/evals.md): the eval loop that proves firing and adherence
+- [03]-[DEFECTS](references/defects.md): catalogs each authoring defect class with its copyable repair
+- [04]-[EVALS](references/evals.md): runs the eval loop that proves firing and adherence
 - [05]-[ESTATE](references/estate.md): fleet-scale governance, audit cadence, mirror discipline
 
 [TEMPLATES]:
-- [01]-[SKILL](templates/skill.template.md): the root schema as a copyable skeleton; fill the slots, leave zero residual tokens
+- [01]-[SKILL](templates/skill.template.md): carries the root schema as a copyable skeleton; fill the slots, leave zero residual tokens
 
 [SCRIPTS]:
 - [01]-[ESTATE_AUDIT](scripts/estate_audit.py): one-pass fleet sweep; invocation in the estate section
@@ -39,23 +39,25 @@ A skill exists only when its material is a reusable procedure or deliverable-bou
 - [MEMORY]: An always-true project convention rides the memory hierarchy — it binds every session, so on-demand loading only delays it.
 - [RULE]: A convention true only for a subtree rides a path-scoped rule; the path predicate is the trigger, no description competes.
 - [SKILL]: A procedure, doctrine, or artifact contract selected by task shape rides a skill; the description is the classifier.
-- [SUBAGENT]: Work whose transcript pollutes the parent context moves to a subagent; a skill changes what the active agent knows, a subagent changes where work happens — orthogonal axes, freely combined.
+- [SUBAGENT]: Work whose transcript pollutes the parent context moves to a subagent.
+- [AXES]: A skill changes what the active agent knows, a subagent changes where work happens — orthogonal, freely combined.
 - [SCRIPT]: Deterministic mechanics ride an executable the skill invokes, never prose the agent re-derives.
 
 A recurring prompt pattern graduates into a skill after it has recurred, never before; a skill authored for an imagined future task is deleted, not improved.
 
 ## [03]-[BUDGETS]
 
-- [ROOT]: `SKILL.md` holds at most 500 lines and is the bundle's only router — a `README.md` or secondary index at any depth is a defect; references carry depth one hop down, and a route's target never routes onward.
-- [DESCRIPTION]: At most 1024 characters, third person, deliverable and primary triggers in the first clause — listings truncate, and the tail dies first.
-- [BODY]: Loaded body persists across turns and rides compaction inside a token budget; it lands late in context where attention is dense, which is why loaded law binds and why every dead line taxes every task the skill touches for the rest of the session.
+- [ROOT]: `SKILL.md` holds at most 500 lines and is the bundle's only router; a `README.md` or secondary index at any depth is a defect.
+- [DEPTH]: References carry depth one hop down, and a route's target never routes onward.
+- [DESCRIPTION]: At most 1024 characters, third person, deliverable and primary triggers first — listings truncate, and the tail dies first.
+- [BODY]: A loaded body persists across turns and lands late where attention is dense — its law binds, and every dead line taxes the whole session.
 - [SCRIPTS]: Execute without entering context; their cost is invocation and receipt, never implementation.
 
 Admission tests per file kind, the frontmatter policy surface, and the freedom bands are [references/anatomy.md](references/anatomy.md).
 
 ## [04]-[TRIGGERS]
 
-Selection runs on name and description alone — the body is invisible until after the choice is made. The description names the owned deliverable, the discriminating objects and verbs that select it, and the adjacent deliverable it refuses; under-triggering is the dominant field failure, so descriptions lean assertive. Listing truncation law, invocation-mode policy, path scoping, measured description A/B, and collision repair are [references/triggers.md](references/triggers.md).
+Selection runs on name and description alone — the body is invisible until after the choice is made. Each description names the owned deliverable, the discriminating objects and verbs that select it, and the adjacent deliverable it refuses; under-triggering is the dominant field failure, so descriptions lean assertive. Listing truncation law, invocation-mode policy, path scoping, measured description A/B, and collision repair are [references/triggers.md](references/triggers.md).
 
 ## [05]-[DEFECTS]
 
@@ -71,12 +73,12 @@ A skill is proven, never assumed: trigger evals show it fires on the tasks it ow
 
 ## [07]-[GATE]
 
-Every bundle file passes the docgen skill's prose gate before return — it mechanically binds frontmatter shape, name and directory identity, description voice and budgets, the root line ceiling, orphan bundle files, and nested reference hops, beside the full prose floor. The register inside every bundle file answers to the docgen catalog; this skill owns what the bundle is, docgen owns how its prose speaks.
+Every bundle file passes the docgen skill's prose gate before return — it mechanically binds frontmatter shape, name and directory identity, description voice and budgets, the root line ceiling, orphan bundle files, and nested reference hops, beside the full prose floor. Register inside every bundle file answers to the docgen catalog; this skill owns what the bundle is, docgen owns how its prose speaks.
 
 ## [08]-[COMPOSITION]
 
-- Each skill owns one deliverable kind and names in its description the adjacent deliverable it refuses; two skills matching one prompt is a boundary defect repaired on both descriptions.
-- Shared doctrine has one owning skill and every sibling composes it silently by name; a policy sentence or marker vocabulary spelled in two bundles is a fork.
+- Each skill owns one deliverable kind and names the adjacent one it refuses; two skills matching one prompt is a defect on both descriptions.
+- Shared doctrine has one owning skill every sibling composes silently; a policy sentence or marker vocabulary spelled in two bundles is a fork.
 - A mixed task routes by deliverable, never by topic: prose to the prose owner, fences to the fence owner, bundles to this skill, in sequence.
 
 ## [09]-[ESTATE]

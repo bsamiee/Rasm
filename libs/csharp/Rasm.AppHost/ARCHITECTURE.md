@@ -13,7 +13,7 @@ Rasm.AppHost/
 │   ├── Resources.cs     # Bounded resource lanes: hybrid cache, object pools, drainable queues
 │   ├── Modules.cs       # One composition root folding and freezing the service graph
 │   ├── Config.cs        # Ranked config-source chain with fail-closed source-gen binding
-│   ├── Secrets.cs       # Credential-material lifecycle: lease acquire/renew/zeroize, PEM wire, KMS-unwrap port
+│   ├── Secrets.cs       # Credential-material lifecycle behind the KMS-unwrap port
 │   ├── Ports.cs         # Inward port records — the cross-package seam
 │   ├── Determinism.cs   # Reproducibility kernel: pinned RNG/float-mode and hash-chained command log
 │   ├── Orchestration.cs # Crash-durable workflow and persistent-job owner over the command/event/schedule ports
@@ -210,7 +210,7 @@ config:
 ---
 flowchart LR
     accTitle: AppHost boot-to-drain spine
-    accDescr: Profile resolution feeds host boot, configuration, composition, and the lifecycle cell; runtime rails surround Running and surface through the seven ports; the drain conductor folds participants into one unload receipt.
+    accDescr: Profile resolution feeds host boot, configuration, composition, and the lifecycle cell; runtime rails surround Running and surface through the runtime ports; the drain conductor folds participants into one unload receipt.
     Resolve(["ProfileSurface.Resolve"]) --> Boot["ProfileBoot.Boot"]
     Boot --> Compose["ConfigSource.Compose"]
     Compose --> Admit["PolicyBinding + OptionsAdmission"]
@@ -218,7 +218,7 @@ flowchart LR
     Fold --> Ready["Lifecycle: Boot to Ready"]
     Ready --> Running["Running"]
     Running --> Rails["SignalGovernance / HealthSurface / SupportCapture / OutboundSurface"]
-    Rails --> Ports[("Seven runtime ports")]
+    Rails --> Ports[("Runtime ports")]
     Running --> Drain["DrainConductor.Drain"]
     Drain --> Unloaded(["DrainReceipt: Unloaded"])
     classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
@@ -233,41 +233,49 @@ Boot resolves the one `ResolvedProfile`, folds and freezes the module graph behi
 
 ## [04]-[BOUNDARIES]
 
-- AppHost is not a domain service layer, job framework, DI wrapper, telemetry wrapper, UI package, persistence package, compute implementation, or host-boundary package.
-- AppHost owns runtime state and policy; app roots own process attachment, host events, and the composition-root-only pins — the OTLP exporter, the Serilog host bridge and sinks, `Grpc.AspNetCore.Web` middleware, and Kestrel public binding.
-- Protocol runtimes whose types the fences carry — `Wasmtime`, `MQTTnet`, OPC-UA, `FluentModbus`, `System.IO.Ports`, `Grpc.AspNetCore`, `ModelContextProtocol.AspNetCore`, BACnet, MTConnect — stay lib references, never app-root pins.
-- Statement carve-outs are named per fence: `Lifecycle`, `FaultSpine`, `ConfigLayer`, `Applied`, `Bundle`, `Evict`, `Publish`, `Connect`, `Execute`, `EventLog.Append`, `SandboxRows.Load`, `SupplyChainGate.Admit`, `AppRootVerbs.Mount`, `GeometryPacking.Pack`, and `PowerProbe.Read` are the boundary capsules; every other member stays expression-shaped on typed rails.
-- AppHost owns the op catalog, command transaction, grant/cost broker, MCP projection, plugin sandbox, solver contract, reactive external binding, and reproducibility kernel as runtime-policy axes; op execution stays Compute, durability stays Persistence, and the MCP protocol routes to the official SDK.
+- AppHost is not a domain-service, job, DI, telemetry, UI, persistence, compute, or host-boundary package.
+- AppHost owns runtime state and policy; app roots own process attachment and host events.
+- Composition-root-only pins — the OTLP exporter, the Serilog bridge and sinks, gRPC-Web middleware, Kestrel public binding — stay at the app root.
+- Protocol-runtime types the fences carry stay lib references, never app-root pins; the Sandbox and Wire owners hold the certified transport stack.
+- Statement carve-outs are boundary capsules named per fence on the owning page; every other member stays expression-shaped on typed rails.
+- Op catalog, command transaction, grant/cost broker, MCP projection, sandbox, solver, binding, and determinism are runtime-policy axes.
+- Op execution stays Compute, durability stays Persistence, and the MCP protocol routes to the official SDK.
 - Grant broker owns permission-shape evaluation as its own typed `PermissionShape` × `GrantScope` value-object predicate.
-- Sentinels stop at the admission seam: `ClockPolicy.Admit` projects platform defaults to `Option<Instant>`; interiors never see nulls, sentinels, or provider shapes.
-- AppHost owns support trigger and correlation; contributing packages own artifact classification and payload projection through `SupportContributorPort` rows.
+- Sentinels stop at the admission seam: `ClockPolicy.Admit` projects defaults to `Option<Instant>`; interiors never see provider shapes.
+- AppHost owns support trigger and correlation; contributors own artifact classification and payload projection through `SupportContributorPort` rows.
 - Lib level emits `ILogger` and minted `ActivitySource`/`Meter` pairs only; exporter projection belongs to composition roots.
 
 ## [05]-[PROHIBITIONS]
 
-Closed NEVER list — the deleted patterns the owner regions foreclose.
-
-- NEVER a public type outside a sub-domain owner region; an eighth port record is the named defect.
+Deleted patterns the owner regions foreclose:
+- NEVER a public type outside a sub-domain owner region; the port records own the cross-package seam.
 - NEVER wrappers, rename adapters, helper or utility files, or thin forwarding surfaces over admitted packages.
 - NEVER a generic receipt, ledger, or reported-value abstraction; every receipt stays its typed record.
-- NEVER a second state machine, shutdown flag, or sibling phase enum beside `Lifecycle`; never a free-floating `CancellationTokenSource` below the `CancelScope` spine.
-- NEVER `DateTime.UtcNow`, `DateTime.Now`, or direct `Stopwatch` call sites; `ClockPolicy` owns both clocks, and sentinels project to `Option<T>` at the admission seam.
+- NEVER a second state machine, shutdown flag, or sibling phase enum beside `Lifecycle`.
+- NEVER a free-floating `CancellationTokenSource` below the `CancelScope` spine.
+- NEVER a raw wall-clock or stopwatch call site; `ClockPolicy` owns both clocks and projects sentinels at the admission seam.
 - NEVER a bare duration literal; every bound traces to a `DeadlineClass` row or a page policy table.
 - NEVER a second scheduler, a second cache owner, or a second retry owner on one seam; database retry stays at the Persistence execution strategy.
 - NEVER ambient `IConfiguration` reads past bootstrap or interior `IOptions` handles; interiors read frozen policy records published at ready.
-- NEVER `AddSingleton`/`AddScoped`/`AddTransient`/`AddKeyed*` descriptor spellings or closure-walking scans; `Describe`/`DescribeKeyed` rows and `FromAssemblies` only.
-- NEVER a process-static `Meter` or `ActivitySource` outliving its provider; never Serilog types below composition roots; never OTLP exporter pins below service app roots.
-- NEVER a hand-written STJ converter beside the generated Thinktecture and NodaTime converters; never an unredacted classified value at an exporter or bundle seam.
+- NEVER hand-written service-descriptor spellings or closure-walking scans; the `Describe`/`DescribeKeyed` rows and `FromAssemblies` own registration.
+- NEVER a process-static `Meter` or `ActivitySource` outliving its provider.
+- NEVER Serilog types below composition roots, and never OTLP exporter pins below service app roots.
+- NEVER a hand-written STJ converter beside the generated Thinktecture and NodaTime converters.
+- NEVER an unredacted classified value at an exporter or bundle seam.
 - NEVER posix traps or single-instance enforcement on plugin rows; host-attach injection drives phases there.
-- NEVER a hand-rolled MCP JSON-RPC transport beside the official SDK, or a hand-rolled OPC-UA/MQTT/Modbus/serial/WASM client beside the certified stack (OPC-UA, `MQTTnet`, `FluentModbus`, `System.IO.Ports`, `Wasmtime` core-module).
-- NEVER an unbrokered external-MCP side channel or a second tool catalog: a federated server's tools, resources, and prompts enter only as brokered `CapabilityDescriptor` rows through the one registry, and the in-process reasoning loop reuses the one brokered `CommandAIFunction` tool-adoption seam.
-- NEVER an opaque model call: every `IChatClient` invocation composes the one `Microsoft.Extensions.AI` middleware pipeline — metered in `CostUnit.ModelTokens` through the `GrantBroker`, content-cached over the resources-lane `HybridCache`, traced through the GenAI span, and content-addressed into the `EventLog`; a second model cache, a per-call span beside the decorators, or an unmetered draw is the deleted form.
-- NEVER a second op-metadata owner beside `CapabilityDescriptor`, a second permission-and-cost owner beside `GrantBroker`, an in-process third-party plugin outside the WASM/process isolation boundary, or a plugin-private geometry representation; a plugin speaks the Compute canonical `EncodedTensor` and dispatches through the command algebra.
-- NEVER a second RNG or non-chained event log: `DeterminismContext` owns the seed and float mode, `EventLog` is the single hash-chained content-addressed command log riding the durable `OpLog`.
-- NEVER a second notification sender, external-binding poller, alerting owner, or power monitor: `DeliveryFanout`, `ExternalTransport`/`LiveWire`, `AlertEngine`, and `FidelityScale` are read consumers of the existing hop/health/power signals, never parallel state machines.
-- NEVER a second token-validation owner beside `Agent/identity` `TokenValidation`, a hand-rolled JWKS fetch or `.well-known` parse beside `IssuerTrust`, a per-flow OAuth service beside `OpenIddictClientService`, or a claims/role check outside `PolicyGate`; authentication produces one `Principal` consumed by `GrantBroker`.
-- NEVER an unverified release or plugin install: `SupplyChainGate.Admit` proves the artifact's Sigstore signature and SLSA provenance against a pinned offline trust root and its SemVer contract through `VersionRange.Satisfies` before `UpdateRail.Stage` commits; a `System.Version` check, a hand-split range string, a network-bound verify on an air-gapped node, or a skipped admit is the deleted form.
-- NEVER a backing-service health probe outside the one `Observability/health` `DriverProbe` adapter or on a second connection: a `Store`/`Remote`/`Pressure` driver row binds the shared pooled driver and routes onto an existing degradation rule, never a parallel registration or an out-of-pool probe.
-- NEVER an AEC-domain reference (`Rasm.Element`, `Rasm.Materials`, `Rasm.Bim`, `Rasm.Fabrication`) or a GeometryGym/IFC type on AppHost: it stays reference-light, contributing only the `ProjectionContext` primitive ingredients — `ClockPolicy` instant, `CorrelationId`, `TenantContext` — the app composition root assembles, never an AppHost type crossing the seam.
-- An ArchUnitNET fitness rule asserts no GeometryGym dependency edge points at or below the element seam; the kernel `Rasm`, `Rasm.Element`, and AppHost stay GeometryGym-free, `Rasm.Bim` the sole owner above the seam.
+- NEVER a hand-rolled MCP transport or industrial-protocol client beside the certified Sandbox and Wire stack; the official SDKs own those wires.
+- NEVER an unbrokered external-MCP side channel or a second tool catalog; federated capability enters only as brokered `CapabilityDescriptor` rows.
+- NEVER a second tool-adoption seam in the reasoning loop; it reuses the one brokered `CommandAIFunction`.
+- NEVER an opaque model call; every `IChatClient` call rides the one middleware pipeline, metered by `GrantBroker`, cached, and traced.
+- NEVER a second op-metadata owner beside `CapabilityDescriptor` or a second permission-and-cost owner beside `GrantBroker`.
+- NEVER an in-process third-party plugin outside the isolation boundary or a plugin-private geometry shape; plugins speak the Compute `EncodedTensor`.
+- NEVER a second RNG or non-chained event log; `DeterminismContext` owns seed and float mode, `EventLog` the one hash-chained command log.
+- NEVER a second notification sender, external-binding poller, alerting owner, or power monitor.
+- `DeliveryFanout`, `LiveWire`, `AlertEngine`, and `FidelityScale` read the existing hop, health, and power signals, never parallel state machines.
+- NEVER a second token-validation, JWKS, OAuth, or claims owner beside the `Agent/identity` authorities.
+- Authentication produces one `Principal` that `GrantBroker` consumes.
+- NEVER an unverified release or plugin install; `SupplyChainGate.Admit` proves signature and provenance against the pinned offline root first.
+- NEVER a backing-service probe outside the one `DriverProbe` adapter or on a second connection; a driver row binds the shared pooled driver.
+- NEVER an AEC-domain reference or a GeometryGym/IFC type on AppHost; it contributes only the `ProjectionContext` primitives the app root assembles.
+- An ArchUnitNET rule asserts no GeometryGym edge at or below the element seam; `Rasm.Bim` is the sole owner above it.
 - CSP analyzer diagnostics are architecture pressure: fix the shape, refine the rule on a false positive, never suppress.

@@ -1,6 +1,8 @@
 # [APPHOST]
 
-`Rasm.AppHost` owns the APP-PLATFORM runtime spine — the host-neutral C# backbone `Compute`, `Persistence`, and `AppUi` adapt to and never reverse, minting one owner per runtime axis across the Runtime, Agent, Wire, Sandbox, and Observability folders. It holds no AEC-domain reference, contributing only the `ProjectionContext` ingredients the app composition root assembles.
+`Rasm.AppHost` is the federation's runtime spine — the host-neutral backbone every app root folds. It owns the composition-root doctrine, the reproducibility kernel — pinned RNG and float mode, the hash-chained command log, replay and bisect — the crash-durable workflow engine over one `CommandDispatch`, the agentic capability surface — a self-describing op catalog, commit-or-rollback command algebra, fenced grant and cost broker, MCP projection with external-server federation, governed model reasoning — the industrial external-binding studio, fleet provisioning and supply-chain admission, and the four-signal observability plane. Its bar is distributed honesty: a crash-durable claim covers node death, not just process reboot; delivery honesty is stated per sink; a dead holder's in-flight work reclaims under a fresh fenced lease; a replay claim survives process restarts against the durable store.
+
+`Compute`, `Persistence`, and `AppUi` adapt to the spine and never reverse it; it mints one owner per runtime axis across the Runtime, Agent, Wire, Sandbox, and Observability folders, holds no AEC-domain reference, and contributes only the `ProjectionContext` ingredients the app composition root assembles.
 
 ## [01]-[ROUTER]
 
@@ -64,23 +66,23 @@ AppHost-domain libraries admitted by this folder; versions centralize in the one
 - `FluentValidation`
 - `FluentValidation.DependencyInjectionExtensions`
 - `Scrutor`
-- `System.CommandLine` — the app-root verb table projected onto `CommandDispatch.Run`.
+- `System.CommandLine` — projects the app-root verb table onto `CommandDispatch.Run`.
 - `Cronos`
 - `Microsoft.Extensions.Caching.Hybrid`
 - `Microsoft.Extensions.ObjectPool`
-- `System.Threading.Tasks.Dataflow` — the drainable-queue dataflow blocks, framework-provided with no package row.
+- `System.Threading.Tasks.Dataflow` — carries the drainable-queue dataflow blocks, framework-provided with no package row.
 
 [OBSERVABILITY]:
 - `Microsoft.Extensions.Diagnostics.HealthChecks`
 - `Microsoft.Extensions.Diagnostics.ResourceMonitoring`
 - `Microsoft.Diagnostics.NETCore.Client` — process-dump and EventPipe capture feeding the support-bundle fan.
-- `Microsoft.Diagnostics.Tracing.TraceEvent` — the EventPipe event-stream decoder over the diagnostics session.
+- `Microsoft.Diagnostics.Tracing.TraceEvent` — decodes the EventPipe event stream off the diagnostics session.
 - `AspNetCore.HealthChecks.NpgSql`
 - `AspNetCore.HealthChecks.Redis`
 - `AspNetCore.HealthChecks.System`
 - `AspNetCore.HealthChecks.Uris`
 - `AspNetCore.HealthChecks.Kafka`
-- `AspNetCore.HealthChecks.Nats` — the NATS broker-anchor probe binding the pooled connection.
+- `AspNetCore.HealthChecks.Nats` — probes the NATS broker anchor over the pooled connection.
 - `Microsoft.Extensions.Compliance.Redaction`
 - `Microsoft.Extensions.Logging.Abstractions`
 - `Microsoft.Extensions.Telemetry`
@@ -89,7 +91,7 @@ AppHost-domain libraries admitted by this folder; versions centralize in the one
 - `OpenTelemetry.Extensions.Hosting`
 - `OpenTelemetry.Instrumentation.Http`
 - `OpenTelemetry.Instrumentation.Runtime`
-- `OpenTelemetry.Exporter.OpenTelemetryProtocol` — the composition-root exporter projection.
+- `OpenTelemetry.Exporter.OpenTelemetryProtocol` — projects the OTLP exporter at the composition root.
 - `Pyroscope.OpenTelemetry`
 - `Serilog`
 - `Serilog.Extensions.Hosting`
@@ -103,7 +105,7 @@ AppHost-domain libraries admitted by this folder; versions centralize in the one
 - `Polly.RateLimiting`
 - `Microsoft.Extensions.ServiceDiscovery`
 - `Grpc.AspNetCore.HealthChecks`
-- `Grpc.AspNetCore.Web` — the composition-root `UseGrpcWeb` middleware.
+- `Grpc.AspNetCore.Web` — binds the `UseGrpcWeb` middleware at the composition root.
 - `Grpc.Core.Api`
 - `Microsoft.AspNetCore.JsonPatch.SystemTextJson`
 
@@ -123,7 +125,7 @@ AppHost-domain libraries admitted by this folder; versions centralize in the one
 - `Microsoft.IdentityModel.JsonWebTokens`
 - `Microsoft.IdentityModel.Tokens`
 - `Microsoft.IdentityModel.Protocols.OpenIdConnect`
-- `Microsoft.IdentityModel.Protocols` — the `ConfigurationManager<T>` refresh seam under OpenIdConnect.
+- `Microsoft.IdentityModel.Protocols` — drives the `ConfigurationManager<T>` refresh seam under OpenIdConnect.
 - `Sigstore`
 - `NuGet.Versioning`
 - `Velopack`
@@ -135,8 +137,8 @@ AppHost-domain libraries admitted by this folder; versions centralize in the one
 - `OPCFoundation.NetStandard.Opc.Ua.PubSub`
 - `MQTTnet`
 - `FluentModbus`
-- `BACnet` — the building-automation `bacnet` `ExternalTransport` row feeding twin calibration.
-- `MTConnect.NET-Common` — the machine-tool `mtconnect` `ExternalTransport` row feeding Fabrication tool-life and probing.
+- `BACnet` — backs the building-automation `bacnet` `ExternalTransport` row feeding twin calibration.
+- `MTConnect.NET-Common` — backs the machine-tool `mtconnect` `ExternalTransport` row feeding Fabrication tool-life and probing.
 - `System.IO.Ports`
 
 ## [03]-[SUBSTRATE_PACKAGES]

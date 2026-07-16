@@ -22,7 +22,7 @@ Generate and validate production-ready GitHub Actions workflows and custom actio
 7. Resolve action versions — `git ls-remote`, Context7 MCP, or WebSearch for latest SHA.
 8. Generate — SHA-pinned actions, minimal permissions, concurrency, caching, timeouts, harden-runner.
 9. Validate — `gha check <files>` gates actionlint, zizmor, and ratchet as one typed envelope; apply the best-practice checks.
-10. Prove locally — `gha run [-j JOB] [-e EVENT.json]` executes Linux jobs through the container runtime; `gha pin` freezes mutable refs; hosted CI stays the merge authority.
+10. Prove locally — `gha run [-j JOB] [-e EVENT.json]` runs Linux jobs in containers; `gha pin` freezes mutable refs; hosted CI rules merges.
 11. Fix and re-validate until passing (max 3 iterations).
 
 [SCOPE]:
@@ -71,7 +71,7 @@ Generate and validate production-ready GitHub Actions workflows and custom actio
 Every generated workflow enforces defense-in-depth: supply chain integrity prevents compromised actions from executing, minimal permissions limit blast radius if a job is compromised, and harden-runner detects anomalous behavior at runtime. These layers are independent — failure of one leaves others intact.
 
 [CRITICAL]:
-- [ALWAYS]: SHA-pin every `uses:` reference — mutable tags (`@v1`, `@main`) enable supply chain attacks. The tj-actions incident (CVE-2025-30066) retargeted mutable tags to compromise consuming repos.
+- [ALWAYS]: SHA-pin every `uses:` reference — CVE-2025-30066 retargeted `tj-actions` mutable tags (`@v1`, `@main`) to compromise consuming repos.
 - [ALWAYS]: `step-security/harden-runner` as first step in every job — detected the tj-actions breach.
 - [ALWAYS]: Top-level `permissions: {}` (deny-all default); grant minimal per-job permissions.
 - [ALWAYS]: `timeout-minutes:` on every job — prevents runaway billing on stuck workflows.

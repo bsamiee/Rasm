@@ -1,6 +1,8 @@
 # [CSHARP_BRANCH]
 
-`libs/csharp` routes the C# packages in strata order — the `Rasm` kernel at the base up to the host-boundary shells — and owns the substrate registry every folder composes. A package earns a registry row only where two or more folders share it; a folder README owns its own additions, `libs/csharp/.api/` holds the shared API catalogues, and the one C# manifest pins versions.
+`libs/csharp` is the platform's producer branch — the Rhino 9/GH2-aware AEC platform spanning the geometry kernel, the AEC domain, the app platform, and the host boundaries, minting the wire vocabulary and capability descriptors every peer runtime consumes. It routes the C# packages in strata order — the `Rasm` kernel at the base up to the host-boundary shells — and owns the substrate registry every folder composes.
+
+A package earns a registry row only where two or more folders share it; a folder README owns its own additions, `libs/csharp/.api/` holds the shared API catalogues, and the one C# manifest pins versions.
 
 ## [01]-[ROUTER]
 
@@ -58,7 +60,7 @@ Cross-folder substrate every C# package composes; each folder README names the r
 
 [WIRE_CODEGEN]:
 - `Generator.Equals` — source-generated structural equality and member-level diff; runtime `Generator.Equals.Runtime`.
-- `Google.Protobuf` — the `rasm.element.v1` graph wire messages.
+- `Google.Protobuf` — carries the `rasm.element.v1` graph wire messages.
 - `Grpc.AspNetCore` — gRPC server hosting for measured-execution endpoints.
 - `Grpc.Net.Client` — outbound gRPC channels with retry and hedging.
 - `Grpc.Tools` — message-only codegen (`GrpcServices=None`).
@@ -70,5 +72,5 @@ Cross-folder substrate every C# package composes; each folder README names the r
 - `coverlet.MTP`
 - `Microsoft.Extensions.TimeProvider.Testing` — `FakeTimeProvider` deterministic clock for the proof gauges.
 - `Microsoft.Testing.Platform` stack.
-- `BenchmarkDotNet` — the benchmark session over the hot paths.
+- `BenchmarkDotNet` — drives the benchmark session over the hot paths.
 - `Verify.XunitV3` + `Verify.DiffPlex` — architecture and generator snapshot laws.

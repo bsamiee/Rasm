@@ -5,13 +5,13 @@ description: Inspect, query, validate, edit, and convert IFC/BIM building models
 
 # [IFC_BIM]
 
-Two surfaces own IFC work, chosen by task. The `ifc` MCP (the official IfcOpenShell server, launched by `forge-ifcmcp`) holds one model in memory across calls for live query and edit. The `ifcopenshell` batch CLI runs deterministic file-to-file conversion, validation, and extraction with no session. Reach for the MCP to investigate a model; reach for the CLI to produce an artifact.
+Two surfaces own IFC work, chosen by task. `ifc` MCP (the official IfcOpenShell server, launched by `forge-ifcmcp`) holds one model in memory across calls for live query and edit. `ifcopenshell` batch CLI runs deterministic file-to-file conversion, validation, and extraction with no session. Reach for the MCP to investigate a model; reach for the CLI to produce an artifact.
 
 ## [01]-[SURFACE_SELECTION]
 
 Pick the lowest tier that does the job:
 
-1. `ifc` MCP — live inspection or edit of a loaded model. `ifc_load` once, then query and edit across calls against the in-memory model; `ifc_save` to persist. The default for ad-hoc element, property, spatial, and geometry questions.
+1. `ifc` MCP — answers ad-hoc element, property, spatial, and geometry questions: `ifc_load` once, query and edit across calls, `ifc_save` to persist.
 2. `ifcopenshell` CLI — batch convert, validate, or extract to a file.
 3. `ifcopenshell` Python API — an operation with no MCP tool and no CLI: a `forge-companion-env uv run` script against `import ifcopenshell`.
 
@@ -20,10 +20,11 @@ Pick the lowest tier that does the job:
 One model is held in memory across calls. Load first, then operate.
 
 - Session: `ifc_new` (schema, default `IFC4`), `ifc_load` (path), `ifc_save` (path), `ifc_reset`.
-- Inspect: `ifc_summary`, `ifc_tree`, `ifc_info` (`element_id`), `ifc_select` (ifcopenshell selector query), `ifc_relations` (`element_id`, `traverse`), `ifc_contexts`, `ifc_materials`, `ifc_list` (`module`), `ifc_schema` (`entity_type`).
-- Analyze: `ifc_validate` (`express_rules`), `ifc_quantify` (`rule`, `selector`), `ifc_clash` (`element_id`, `clearance`, `tolerance`, `scope`), `ifc_schedule`, `ifc_cost`.
-- Author: `ifc_edit` (`function_path`, `params`) dispatches the `ifcopenshell.api` mutation surface; read `ifc_docs` (`function_path`) for the signature before the edit.
-- Geometry: `ifc_shape_list`/`ifc_shape_docs`/`ifc_shape` for geometry-evaluation methods, `ifc_plot` (2D floorplan, elevation, or section as PNG/SVG), `ifc_render` (3D PNG).
+- Inspect: `ifc_summary`, `ifc_tree`, `ifc_info` (`element_id`), `ifc_select` (selector query), `ifc_relations` (`element_id`, `traverse`), `ifc_contexts`, `ifc_materials`, `ifc_list` (`module`), `ifc_schema` (`entity_type`).
+- Analyze: `ifc_validate` (`express_rules`), `ifc_quantify` (`rule`, `selector`), `ifc_clash` (`element_id`, `clearance`, `tolerance`, `scope`).
+- Plan: `ifc_schedule`, `ifc_cost`.
+- Author: `ifc_edit` (`function_path`, `params`) dispatches `ifcopenshell.api` mutations; read `ifc_docs` (`function_path`) for the signature first.
+- Geometry: `ifc_shape_list`/`ifc_shape_docs`/`ifc_shape` for evaluation methods, `ifc_plot` (plan/elevation/section, PNG/SVG), `ifc_render` (3D PNG).
 
 ## [03]-[THE_IFCOPENSHELL_BATCH_CLI]
 

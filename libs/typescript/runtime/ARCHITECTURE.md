@@ -1,6 +1,6 @@
 # [TS_RUNTIME_ARCHITECTURE]
 
-`runtime` owns the branch's execution substrate across both process planes: `proc`, `net`, `otel`, `serve`, `work`, and `ai` meet through one runtime-row table, one budget ledger, one fault law, and one front-door assembly law, and `browser` is the same package under the browser condition, never a sibling. Owners align with the core, security, and data peers by seam contract, never a cross-package reference.
+`runtime` owns the branch's execution substrate across both process planes: `proc`, `net`, `otel`, `serve`, `work`, and `ai` meet through one runtime-row table, one budget ledger, one fault law, and one front-door assembly law, and `browser` is the same package under the browser condition, never a sibling. Owners align with the core, security, and data peers, the interface and deploy planes, and the C# host by seam contract, never a cross-package reference.
 
 ## [01]-[DOMAIN_MAP]
 
@@ -21,7 +21,7 @@ runtime/
     ├── otel/                  # OTLP wire: export/ingest, crash capture, browser RUM
     │   ├── emit.ts            # One OTLP egress Layer and collector ingress under the redaction scrub
     │   ├── crash.ts           # Total Cause-to-fatal-emission fold through the core forensic fault band
-    │   └── vital.ts           # Six RUM vital rows over one scoped PerformanceObserver bridge
+    │   └── vital.ts           # RUM vital rows over one scoped PerformanceObserver bridge
     ├── serve/                 # One public front door
     │   ├── api.ts             # Assembly law: sub-domains export group data, the app assembles one HttpApi
     │   ├── route.ts           # HttpLayerRouter serving fold: api mount, upload dispatch, and intake verify
@@ -36,7 +36,7 @@ runtime/
     │   ├── deliver.ts         # One channel table for mail and webhook egress: one receipt, one fault, one suppression
     │   └── report.ts          # Report specs folded through three engine arms over the same decoded rows
     ├── ai/                    # Intelligence spine
-    │   ├── model.ts           # Five provider families on one capability-asymmetry table with ranked fallback
+    │   ├── model.ts           # Provider families on one capability-asymmetry table with ranked fallback
     │   ├── embed.ts           # Deterministic chunking and embedding rows satisfying the data retrieval ports
     │   ├── tool.ts            # Schema-typed tools and toolkit assembly across both MCP lanes under one safety owner
     │   └── agent.ts           # Agent altitude: transition-machine sessions with persisted-chat durability
@@ -100,6 +100,7 @@ flowchart LR
     Browser e6@<-->|"[BOUNDARY]: OAuth redirect"| Security
     Security e7@-->|"[PORT]: BearerGuard"| Serve
     Security e8@-->|"[BOUNDARY]: Intake verify"| Serve
+    Security e13@-->|"[PORT]: FlagGate"| Proc
     Data e9@-->|"[BOUNDARY]: Tus dispatcher"| Serve
     Data e10@-->|"[SHAPE]: Reactivity feed"| Serve
     Work e11@<-->|"[BOUNDARY]: Outbox claim"| Data
@@ -113,7 +114,7 @@ flowchart LR
     class Core,Security external
     class Data data
     class e4 edgeData
-    class e1,e2,e3,e5,e6,e7,e8,e9,e10,e11,e12 edgeControl
+    class e1,e2,e3,e5,e6,e7,e8,e9,e10,e11,e12,e13 edgeControl
 ```
 
 ```mermaid
@@ -181,6 +182,6 @@ flowchart LR
 ## [04]-[BOUNDARIES]
 
 - App root, never this folder, assembles the `HttpApi`, satisfies port `Tag`s, selects runtime rows, and binds the browser composition root.
-- Data wave owns the record of truth; work surfaces compose its outbox and mailbox statements, never a second store, and NATS carries fanout and replay, never the system of record.
+- Data owns the record of truth; work composes its outbox and mailbox, never a second store; NATS carries fanout and replay, never truth.
 - Content identity is never minted here; the browser decode worker delegates to the core `Digest` engine.
-- Cluster runs leaderless over `RunnerStorage` advisory locks, so the node-bound `@effect/cluster-node`, `@effect/cluster-browser`, `@effect/cluster-workflow`, and `@effect/rpc-http` upstreams are never admitted.
+- Cluster runs leaderless over `RunnerStorage` advisory locks; the node-bound cluster and rpc-http upstreams are never admitted.

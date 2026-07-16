@@ -1,6 +1,8 @@
 # [PY_GEOMETRY]
 
-`geometry` owns the host-free geometry and IFC/BIM band of the Python branch — the IfcOpenShell GLB tessellation daemon the C# Bim/Compute rail and the TS viewer consume, IFC analysis and buildingSMART validation, point-cloud registration and reconstruction, mesh algebra and non-manifold topology, and the out-of-process Ladybug Tools energy companion. It is a peer producer, never a Rasm consumer: it meets C# only at the wire through content identity and the GLB tessellation rail over the `ComputeService`/`ArtifactSync` gRPC contract, and graduates evidence through the geometry-minted `rasm.geometry.graduation` spine, never an import.
+`geometry` is the host-free geometry and IFC/BIM evaluation companion of the Python branch — an independent peer producer, never a Rasm consumer. It owns the IfcOpenShell GLB tessellation daemon, scan verification from ingest through registration, deviation, and watertight reconstruction, IFC analysis, authoring, costing, and structural evaluation, exact mesh algebra and non-manifold topology, graph analytics, and the out-of-process Ladybug Tools building-physics band. Its bar is evaluation-grade evidence: every result is content-keyed, receipted, graded, and produced off the event loop — the C# Bim/Compute rail and the TypeScript viewer consume the tessellation stream, construction-verification and energy evidence feed artifacts reports, and the scan plane verifies as-built buildings against the content-keyed reference model.
+
+It meets C# only at the wire through content identity and the GLB tessellation rail over the `ComputeService`/`ArtifactSync` gRPC contract, and graduates evidence through the geometry-minted `rasm.geometry.graduation` spine, never an import.
 
 ## [01]-[ROUTER]
 
@@ -46,52 +48,52 @@
 Domain libraries the folder admits; substrate lives in `[03]-[SUBSTRATE_PACKAGES]`. Admission is per-group, never one manifest — worker rows carry a root `pyproject.toml` entry, the AGPL companion band carries no manifest row and provisions through the Forge scientific-environment companion lane, and the recipe schema binding is `[RUNTIME]`-owned. Every admitted package carries either a manifest row or a companion-lane home; a `Deferred` tag marks a library a forward task draws on that no admission yet backs.
 
 [IFC_BIM]:
-- `ifcopenshell` - IFC model, geometry, and tessellation spine
-- `ifctester` - buildingSMART IDS validation
-- `ifcclash` - BCF-producing clash detection
-- `bcf-client` - buildingSMART BCF I/O
-- `ifc5d` - Quantity take-off and cost-schedule rollup
-- `ifc4d` - Construction scheduling
-- `ifcpatch` - Recipe transformation
-- `ifcdiff` - Model revision comparison
-- `lark` - IDS and selector grammar engine
+- `ifcopenshell` — IFC model, geometry, and tessellation spine
+- `ifctester` — buildingSMART IDS validation
+- `ifcclash` — BCF-producing clash detection
+- `bcf-client` — buildingSMART BCF I/O
+- `ifc5d` — Quantity take-off and cost-schedule rollup
+- `ifc4d` — Construction scheduling
+- `ifcpatch` — Recipe transformation
+- `ifcdiff` — Model revision comparison
+- `lark` — IDS and selector grammar engine
 
 [SCAN]:
-- `open3d` - Point-cloud registration and reconstruction
-- `small-gicp` - Fine point-cloud registration
-- `kiss-matcher` - Global initialization-free registration
-- `pye57` - E57 I/O
-- `pdal` - Scan-ingestion filter graph
+- `open3d` — Point-cloud registration and reconstruction
+- `small-gicp` — Fine point-cloud registration
+- `kiss-matcher` — Global initialization-free registration
+- `pye57` — E57 I/O
+- `pdal` — Scan-ingestion filter graph
 
 [TOPOLOGY_GRAPH]:
-- `topologicpy` - Non-manifold cell-complex topology
-- `compas` - Network adjacency, form-finding, and mesh algebra
-- `compas_dr` - Dynamic relaxation
-- `compas_tna` - Thrust-network analysis
+- `topologicpy` — Non-manifold cell-complex topology
+- `compas` — Network adjacency, form-finding, and mesh algebra
+- `compas_dr` — Dynamic relaxation
+- `compas_tna` — Thrust-network analysis
 
 [MESH_CAD]:
-- `trimesh` - In-memory mesh operations, proximity, ray, and containment
-- `manifold3d` - Exact-boolean and clearance backend
-- `cadquery-ocp` - OCCT B-rep kernel and XCAF assembly for the STEP/IGES hop
-- `sectionproperties` - Warping, plastic, and shear enrichment
-- `rtree` - R-tree bounding-box index for the spatial bounds arm
-- `python-fcl` - Narrow-phase collision and signed-distance for the clearance arm
-- `gmsh` - Deferred
+- `trimesh` — In-memory mesh operations, proximity, ray, and containment
+- `manifold3d` — Exact-boolean and clearance backend
+- `cadquery-ocp` — OCCT B-rep kernel and XCAF assembly for the STEP/IGES hop
+- `sectionproperties` — Warping, plastic, and shear enrichment
+- `rtree` — R-tree bounding-box index for the spatial bounds arm
+- `python-fcl` — Narrow-phase collision and signed-distance for the clearance arm
+- `gmsh` — Deferred
 
 [ENERGY]:
-- `ladybug-geometry` - Planar and solid value-object substrate of the Ladybug band
-- `ladybug-core` - Climate backbone: weather, unit registry, Sunpath, and results
-- `ladybug-comfort` - Thermal-comfort models and spatial comfort maps
-- `honeybee-core` - HBJSON building-model object graph and the `check_all` spine
-- `honeybee-energy` - Building-energy constructions, loads, schedules, and HVAC exchange
-- `honeybee-openstudio` - In-process OpenStudio/EnergyPlus translator
-- `honeybee-standards` - Baseline construction, schedule, and program data
-- `honeybee-energy-standards` - ASHRAE 90.1 and DOE-prototype construction sets
-- `dragonfly-core` - District 2.5-D massing model exploding to Honeybee
-- `dragonfly-energy` - District-energy translation
-- `queenbee` - Recipe and workflow schema contract
-- `lbt-recipes` - Recipe binding and input coercion
-- `pollination-handlers` - Model-to-recipe-input handler adapters
+- `ladybug-geometry` — Planar and solid value-object substrate of the Ladybug band
+- `ladybug-core` — Climate backbone: weather, unit registry, Sunpath, and results
+- `ladybug-comfort` — Thermal-comfort models and spatial comfort maps
+- `honeybee-core` — HBJSON building-model object graph and the `check_all` spine
+- `honeybee-energy` — Building-energy constructions, loads, schedules, and HVAC exchange
+- `honeybee-openstudio` — In-process OpenStudio/EnergyPlus translator
+- `honeybee-standards` — Baseline construction, schedule, and program data
+- `honeybee-energy-standards` — ASHRAE 90.1 and DOE-prototype construction sets
+- `dragonfly-core` — District 2.5-D massing model exploding to Honeybee
+- `dragonfly-energy` — District-energy translation
+- `queenbee` — Recipe and workflow schema contract
+- `lbt-recipes` — Recipe binding and input coercion
+- `pollination-handlers` — Model-to-recipe-input handler adapters
 
 ## [03]-[SUBSTRATE_PACKAGES]
 

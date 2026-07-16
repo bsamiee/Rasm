@@ -3,7 +3,7 @@ export const meta = {
     whenToUse:
         'The standing hostile rebuild pass for any libs/ planning corpus: pass targets (file / sub-folder / package root, any number, any language mix); it maps every .planning sub-folder, ideates per package, hostile-rebuilds every page batch concurrently at the owning-language doctrine bar, and closes with a finder fan plus one terminal fixer.',
     description:
-        'Language-agnostic hostile-rebuild engine over the libs/{csharp,python,typescript} planning corpora. args = a target path, an array of paths, or {targets} — languages mix freely, {root} retargets an isolated checkout, empty = no-op; every page derives doctrine, both .api tiers, casing, and its member-verification rail from its owning package. Plan expands targets to pages in dependency + seam-cohesion order under the owning-package charter. Map fans one deep-map lane and one two-tier .api inventory lane per .planning sub-folder unit — an oversize sub-folder splits into ceiling-bounded segments, so map and batch seams stay congruent — each writing a per-unit dossier the batches reuse. Ideate runs two lanes per package with disjoint charters: a corrections census (the non-binding fix addendum) and a bigger-ideas worklist (new capability beyond correction). Build packs whole sub-folder units into batches under the packing ceiling, all concurrent under one slot scheduler; per batch a doctrine-bar lens, then implement, critique (workspace-write, fixlog to disk), and redteam folding the critique rows forward — every writer under the own-pass-first input ladder (own blind hostile pass primary, map dossiers grounding, census addendum, ideas ambition) with libs-wide ripple authority under the four bounds and seam-ledger coordination; handoffs carry navigation facts only. The spine is per-package pipelined: each package advances Map -> Ideate -> Build the moment its own inputs land, never waiting on the slowest sibling package, and Close is the one whole-run barrier. Close: a read-only finder fan plus one governance finder per language, then ONE terminal fixer draining findings, the deferred backlog, and unclaimed census rows in a fixpoint loop, then two concurrent terminals — an ideas-disposition writer giving every bigger-ideas dossier entry exactly one outcome (realized on disk, carded into the owning IDEAS.md, or rejected with reason) and a doctrine lander adjudicating pooled harvest nominations. Stage law lives in the prompt blocks; CODEX=false restores native lanes throughout.',
+        'Language-agnostic hostile-rebuild engine over the libs/{csharp,python,typescript} planning corpora. args = a target path, an array of paths, or {targets} — languages mix freely, {root} retargets an isolated checkout, empty = no-op; every page derives doctrine, both .api tiers, casing, and its member-verification rail from its owning package. Plan expands targets to pages in dependency + seam-cohesion order under the owning-package charter. Map fans one deep-map lane and one two-tier .api inventory lane per .planning sub-folder unit — an oversize sub-folder splits into ceiling-bounded segments, so map and batch seams stay congruent — each writing a per-unit dossier the batches reuse. Ideate runs two lanes per package with disjoint charters: a corrections census (the non-binding fix addendum) and a bigger-ideas worklist (new capability beyond correction). Build packs whole sub-folder units into batches under the packing ceiling, all concurrent under one slot scheduler; per batch a doctrine-bar lens, then implement, critique (workspace-write, fixlog to disk), and redteam folding the critique rows forward — every writer under the own-pass-first input ladder (own blind hostile pass primary, map dossiers grounding, census addendum, ideas ambition) with libs-wide ripple authority under the four bounds and seam-ledger coordination; handoffs carry navigation facts only. Each package chain closes with one ideas-realization writer implementing the bigger-ideas worklist against its landed corpus, gated entries carded via indexRows. The spine is per-package pipelined: each package advances Map -> Ideate -> Build the moment its own inputs land, never waiting on the slowest sibling package, and Close is the one whole-run barrier. Close: a read-only finder fan plus one governance finder per language, then ONE terminal fixer draining findings, the deferred backlog, and unclaimed census rows in a fixpoint loop, then two concurrent terminals — an ideas-disposition writer giving every bigger-ideas dossier entry exactly one outcome (realized on disk, carded into the owning IDEAS.md, or rejected with reason) and a doctrine lander adjudicating pooled harvest nominations. Stage law lives in the prompt blocks; CODEX=false restores native lanes throughout.',
     phases: [
         {
             title: 'Plan',
@@ -19,7 +19,7 @@ export const meta = {
         },
         {
             title: 'Build',
-            detail: 'sub-folder-packed batches, all concurrent, each package starting on its own ideate rather than the run-wide fan: per batch a doctrine-bar lens, then implement, critique (fixlog to disk), redteam folding the critique forward — every writer on the own-pass-first ladder with bounded libs-wide ripple authority and seam-ledger coordination',
+            detail: 'sub-folder-packed batches, all concurrent, each package starting on its own ideate rather than the run-wide fan: per batch a doctrine-bar lens, then implement, critique (fixlog to disk), redteam folding the critique forward — every writer on the own-pass-first ladder with bounded libs-wide ripple authority and seam-ledger coordination; after the package\'s last batch, one ideas-realization writer implements the worklist against the landed corpus',
         },
         {
             title: 'Close',
@@ -1492,6 +1492,34 @@ const redteamPrompt = (L, batch, dossiers, ideate, scopes, roster, unmapped, nav
         ])
         .join('\n\n');
 
+const ideasRealizePrompt = (L, pkg, ideaPath, scopes) =>
+    [
+        CONTEXT(L),
+        REG.claude.stance(L),
+        BUILD_LAW(L),
+        BODY(L),
+        VERIFY(L),
+        RIPPLE_LAW,
+        CURRENT_STATE,
+        PROSE_COMMENTS(L),
+        readFirst(L, pkg, ''),
+        LEDGER(scratchBase(pkg, 'ideas'), scopes),
+        'TASK: IDEAS REALIZATION for `' +
+            pkg +
+            "` — the package's batches have landed; you implement its bigger-ideas worklist against the CURRENT corpus. Read `" +
+            ideaPath +
+            '` IN FULL. Per entry, in dossier order, exactly one outcome: (1) REALIZED-PRIOR — current disk already carries ' +
+            'the capability fully or in a stronger form: record the landing anchor, never re-build. (2) IMPLEMENTED-NOW — disk ' +
+            "admits the entry: build it at the strongest form the doctrine allows, in the owning pages' existing form, growth " +
+            'as cases, rows, fields, and operations on existing owners, seams aligned both ends per RIPPLE LAW. (3) CARDED — ' +
+            'gated on a decision, a provenance-bound data source, or a frozen wire: one fully-specified card row via ' +
+            '`indexRows` targeting the owning IDEAS.md, naming the gate. (4) DECLINED — the value claim fails re-derivation ' +
+            'against current disk: the reason rides `summary`. Ambition is the charter here and truth outranks it: never ' +
+            'fabricate provenance-bound data, never unfreeze a wire, never force a gated ruling. Return the fix-log — ' +
+            '`deltas` exact, `deferred` for cross-batch ripples, cards via `indexRows`. ' +
+            HARVEST_LAW,
+    ].join('\n\n');
+
 const finderPrompt = (L, pages, i, seams, reg) =>
     [
         CONTEXT(L),
@@ -1957,13 +1985,27 @@ const built = (
                 }).length;
                 log('Map ' + pkg.split('/').pop() + ': ' + pkgUnits.length + ' unit segment(s) mapped; ' + live + ' with a live dossier');
                 await ideatePkg(pkg);
-                return (
+                const out = (
                     await Promise.all(
                         BATCHES.filter((b) => b.pkg === pkg)
                             .map(runBatch)
                             .map((p) => p.catch(() => null)),
                     )
                 ).filter(Boolean);
+                // Per-package IDEAS REALIZATION: one writer after the package's last batch implements the bigger-ideas
+                // worklist against the landed corpus — realization gets a dedicated context instead of starving behind
+                // defect work; gated entries route to IDEAS.md as cards via indexRows; Close audits the remainder.
+                const ideaPath = (pkgIdeate[pkg] && pkgIdeate[pkg].idea) || '';
+                if (ideaPath && out.some((d) => d.fix)) {
+                    const realize = await slot(() =>
+                        agent(
+                            ideasRealizePrompt(Lof(pkg), pkg, ideaPath, SCOPES),
+                            wopts('ideas:' + pkg.split('/').pop(), 'Build', 'fable', FIXLOG_SCHEMA),
+                        ),
+                    );
+                    if (realize) out.push({ pkg, pages: [], fix: realize, crit: null, rt: null });
+                }
+                return out;
             } catch (e) {
                 log('Package chain FAILED (' + pkg + '): ' + ((e && e.message) || e));
                 return [];

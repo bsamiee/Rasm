@@ -4,7 +4,7 @@ Each deliverable type is a fixed composition: a layout class from the style refe
 
 ## [01]-[SELECTION]
 
-The reader's first question selects the type; everything else on the page serves that question or leaves.
+A reader's first question selects the type; everything else on the page serves that question or leaves.
 
 | [INDEX] | [TYPE]       | [READER_QUESTION]                    | [LAYOUT_CLASS] | [ENVELOPE_KIND] |
 | :-----: | :----------- | :----------------------------------- | :------------- | :-------------- |
@@ -14,11 +14,11 @@ The reader's first question selects the type; everything else on the page serves
 |  [04]   | plan         | how, stage by stage — approve or not | operational    | `plan`          |
 |  [05]   | decision-doc | which option, on what grounds        | reading        | `decision`      |
 
-A type with no envelope kind ships no drawer send section; a type with one ships the full capture grammar from the interaction reference. The `kind` field is closed to this table plus the variant kinds below — a novel deliverable claims the nearest kind and carries its distinguishing fields under `extensions`.
+A type with no envelope kind ships no drawer send section; a type with one ships the full capture grammar from the interaction reference. `kind` is closed to this table plus the variant kinds below — a novel deliverable claims the nearest kind and carries its distinguishing fields under `extensions`.
 
 ## [02]-[REPORT]
 
-The report argues a verdict from evidence; the verdict leads and the evidence descends by weight.
+A report argues a verdict from evidence; the verdict leads and the evidence descends by weight.
 
 - [SPINE]: header triad with verdict chips baseline-beside the title; a bottom-line keyline rail stating the finding in two sentences; the metric strip (`.stat` chips with signed deltas); the evidence body; follow-ups with owners; appendix material behind `<details>`.
 - [STATUS_FORM]: shipped and slipped group as separate sections, never one interleaved list; each slipped row carries its reason and its new expectation; the metric strip answers the Monday-morning skim before any scrolling.
@@ -29,7 +29,7 @@ The report argues a verdict from evidence; the verdict leads and the evidence de
 
 ## [03]-[DASHBOARD]
 
-The dashboard answers its headline question in the default state with zero interaction; every control past that point is a lens, never a gate.
+A dashboard answers its headline question in the default state with zero interaction; every control past that point is a lens, never a gate.
 
 - [SPINE]: the stat row (headline numerals with trend deltas) above the fold; the primary chart region; the breakdown tables; the anomaly or exception list last — a healthy dashboard's exception list renders its authored empty state.
 - [MARKS]: chart form, palette, and mark law defer to the dataviz owner; the page contributes the shell, the `--series-*` bindings, and the zero-baseline hairline order.
@@ -41,7 +41,7 @@ The dashboard answers its headline question in the default state with zero inter
 
 ## [04]-[ROADMAP]
 
-The roadmap sequences outcomes by confidence, and the page renders confidence as structure — bands, not dates.
+A roadmap sequences outcomes by confidence, and the page renders confidence as structure — bands, not dates.
 
 - [SPINE]: header triad naming the destination; the horizon bands in confidence order (committed, expected, exploratory — nearest first); per-band outcome cards; the dependency figure; the promotion ledger.
 - [HORIZONS]: each horizon is one band section with its confidence stated in the band header; `<time>` renders only at the precision the estimate holds — a quarter-grade claim never renders day-precise, and the exploratory band carries no dates at all.
@@ -53,7 +53,7 @@ The roadmap sequences outcomes by confidence, and the page renders confidence as
 
 ## [05]-[PLAN]
 
-The plan orders its sections by tweak pressure, never by execution order: the decisions most exposed to movement lead, and trusted mechanics collapse below the decision surface.
+A plan orders its sections by tweak pressure, never by execution order: the decisions most exposed to movement lead, and trusted mechanics collapse below the decision surface.
 
 - [SPINE]: header triad with the plan's one-line thesis; the decision sections first — data shapes, interfaces, user-facing flows, each stating its chosen form and the live alternative it beat; the stage sequence; the risk table; mechanical work last, inside `<details>` per stage.
 - [DECISIONS]: each leading decision renders the chosen shape as real material — a schema block, a signature, a rendered flow — never prose describing an unbuilt surface; the alternative it beat carries its one-line cost so a reviewer can reopen it deliberately.
@@ -64,7 +64,7 @@ The plan orders its sections by tweak pressure, never by execution order: the de
 
 ## [06]-[DECISION_DOC]
 
-The decision doc confronts the reader with rendered rivals and returns a ruling; it is the one type whose body is the option set itself.
+A decision doc confronts the reader with rendered rivals and returns a ruling; it is the one type whose body is the option set itself.
 
 - [SPINE]: header triad stating the question as the deck line; the constraint frame (what any option must survive) as a keyline rail; the option grid; the scoring matrix where the choice is weighed; the ruling section; rejected options with their reopen conditions.
 - [OPTIONS]: the option grid renders two to four `article.option` cards, each carrying its thesis, its cost in the same units as its rivals, a one-line tradeoff, and its evidence anchors; a visual or structural choice renders live variants — real code, real layout, judged under both themes — because taste reacts to the thing, never to its description.
@@ -106,6 +106,6 @@ Each variant resolves onto a core type and earns only its named deltas; everythi
 - prototype: stage class, linked screens under `data-step` nav or a timed micro-interaction; live timing controls with replay, fake data declared as fake.
 
 - A variant page keeps its base type's spine inside the variant shell: a deck of plan stages still orders decisions before mechanics; a wargame still states its constraint frame before any direction renders.
-- The diff-review's author-side writeup form leads motivation and before-and-after evidence with a file tour ordered by review focus; a prototype spends fidelity only where the judgment needs it.
+- A diff-review's author-side writeup form leads motivation and before-and-after evidence with a file tour ordered by review focus; a prototype spends fidelity only where the judgment needs it.
 - Two-way flow is the default posture for every capturing variant: the page is a disposable editor for exactly the judgment it collects, and the copy-as-prompt control is the floor when no return channel serves it.
 - Work larger than one page ships as a sibling chain — exploration, then prototype, then plan, then verification — each page one type linked by relative links, the chosen option collapsing forward into the next page; one page serving the whole chain is the two-type defect at chain scale.

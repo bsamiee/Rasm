@@ -166,8 +166,13 @@ flowchart LR
 
 Each sub-domain charter is the codemap comment; the boundary law below fixes the one ownership each holds, so a planned-but-empty sub-domain and a misplaced concern both read as gaps. Exact refusals and their enforcing mechanisms live on the owning implementation pages.
 
-- `observability` — produces local evidence only, never an AppHost envelope or health status: the one shared OTLP exporter and single `MeterProvider` install behind the profile gate, every receipt folding through one attribute-keyed drain, and every span riding the inbound C# parent context.
-- `reliability` — owns the one boundary-fault surface and the single retry policy; every failure returns as a typed fault through `boundary`, never a sentinel, a `None`, or a second retry owner.
-- `execution` — admits host facts caller-owned rather than discovered, reads secrets only through the one settings-admitted boundary, and mints no causal stamp or tenant beside the C#-minted inbound frame. Concurrency stays bounded under `StagePlan` and the one `apscheduler` owner, every lane draining to a `DrainReceipt`.
-- `evidence` — keys identity by content through the one hashing owner reproducing the C# `XxHash128` seed, and owns the one catalogue and grammar surface, emitting the evidence the `assay code` rail consumes.
-- `clock` — owns the one `Hlc`/`ElementId`/`Tenant` spelling: the two-half stamp reproduces the C# `AppHost/Runtime` NodaTime mint bit-identically and is never re-minted, its physical half host-minted rather than wall-clock and its element id content-stable. The wire codec and admission context consume this owner.
+- `observability` — produces local evidence only, never an AppHost envelope or health status.
+- One shared OTLP exporter and one `MeterProvider` install behind the profile gate; every receipt folds through one attribute-keyed drain.
+- Every span rides the inbound C# parent context.
+- `reliability` — owns the one boundary-fault surface and the single retry policy; every failure returns as a typed fault, never a sentinel.
+- `execution` — admits host facts caller-owned, reads secrets through the settings-admitted boundary, and mints no stamp beside the inbound frame.
+- Concurrency stays bounded under `StagePlan` and the one scheduler owner, every lane draining to a `DrainReceipt`.
+- `evidence` — keys identity by content through the one hashing owner reproducing the C# `XxHash128` seed.
+- Evidence catalogue and grammar surfaces emit what the `assay code` rail consumes.
+- `clock` — owns the one `Hlc`/`ElementId`/`Tenant` spelling; the two-half stamp reproduces the C# mint bit-identically and is never re-minted.
+- A stamp's physical half is host-minted rather than wall-clock, its element id content-stable; the wire codec and admission consume this owner.

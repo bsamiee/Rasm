@@ -1,6 +1,8 @@
 # [PERSISTENCE_ELEMENT_AUTHORITY]
 
-Rasm.Persistence gates every durable object interaction through one object-ACL authorization algebra — a TOTAL, pure set-algebra with zero `KmsProvider` and zero store operation, split cleanly from the crypto custody tier (`Element/identity#KMS_CUSTODY` owns signing and DEK envelopes; this page owns WHO MAY). `Grant` is the one `[SmartEnum<string>]` object-authorization vocabulary — object, audit, and branch rights in a single wire-keyed set — whose combinable membership is the `GrantSet` frozen-set value with superuser-aware `Admits` containment; `AclScope` is the gated-object-kind altitude ladder (`tenant ← branch ← document ← element-set`) whose `Parent` invariant rejects a mis-stacked inheritance chain; `AclEntry` is the per-subject allow/deny grant with provenance and a `[From, Until)` window; `ObjectAcl` the owner-plus-inherited grant chain; `Authority.Admit` the one deny-over-allow fold producing the closed `AuthDecision` authz verdict (`Granted`/`Denied`/`ScopeMismatch`/`Expired` — the authz half of the fissioned decision union; the crypto half lives on identity as `CustodyVerdict`). Every actor slot is the Persistence-owned `Element/graph#STORE_RAIL` `StoreActor` (subject + role claims) — never an AppHost `Principal`. The `Version/commits#COMMIT_DAG` `BranchRef` grant is this same `GrantSet` narrowed under `AclScope.Branch`, never a parallel branch enum; the `Element/identity#ELEMENT_IDENTITY` `Tenant` RLS column is the coarse partition and this object ACL the fine within-tenant grant, two altitudes never duplicated. `ObjectAcl` is the frozen vocabulary its consumers import — `ElementIdentity.Acl` persists it as the jsonb column and the AppHost identity-store PORT decodes it — so the split never forks the type. Faults: NONE — the algebra is total over its closed verdicts; a persistence failure around an ACL row rails the composed `Element/identity#SCHEMA_VERDICT` `IdentityFault` band (8340), never a new band.
+Rasm.Persistence gates every durable object interaction through one object-ACL authorization algebra that decides WHO MAY — a total, pure set-algebra carrying zero `KmsProvider` and zero store operation, cleanly fissioned from the crypto custody tier that owns signing and DEK envelopes (`Element/identity#KMS_CUSTODY`). `Grant` is the one `[SmartEnum<string>]` object-authorization vocabulary spanning object, audit, and branch rights in a single wire-keyed set; `GrantSet` its combinable frozen-set value with superuser-aware `Admits` containment; `AclScope` the gated-object-kind altitude ladder (`tenant ← branch ← document ← element-set`) whose `Parent` invariant rejects a mis-stacked chain; `AclEntry` the per-subject allow/deny grant with provenance and a `[From, Until)` window; `ObjectAcl` the owner-plus-inherited grant chain; `Authority.Admit` the one deny-over-allow fold producing the closed `AuthDecision` verdict (`Granted`/`Denied`/`ScopeMismatch`/`Expired`), the authz half of the fissioned decision union whose crypto half is the identity-tier `CustodyVerdict`. Faults are NONE — the algebra stays total over its closed verdicts.
+
+Every actor slot is the Persistence-owned `Element/graph#STORE_RAIL` `StoreActor` (subject + role claims), never an AppHost `Principal`; a `Version/commits#COMMIT_DAG` `BranchRef` grant is this same `GrantSet` narrowed under `AclScope.Branch`, never a parallel branch enum; a `Element/identity#ELEMENT_IDENTITY` `Tenant` RLS column is the coarse partition and this object ACL the fine within-tenant grant, two altitudes never duplicated. `ObjectAcl` is the frozen vocabulary its consumers import — `ElementIdentity.Acl` persists it as the jsonb column, the AppHost identity-store port decodes it — so the split never forks the type. A persistence failure around an ACL row rails the composed `Element/identity#SCHEMA_VERDICT` `IdentityFault` band (8340), never a new one.
 
 ## [01]-[INDEX]
 
@@ -10,12 +12,12 @@ Rasm.Persistence gates every durable object interaction through one object-ACL a
 
 ## [02]-[GRANT_ALGEBRA]
 
-- Owner: `Grant` the one `[SmartEnum<string>]` object-authorization vocabulary every ACL entry draws from — wire-keyed rows, because the membership CROSSES the wire: the `Element/identity#ELEMENT_IDENTITY` jsonb `Acl` column persists it under `ElementJson` and the AppHost identity-store PORT round-trips it, so each grant travels as its bare key through the generated Thinktecture converters with zero hand codec (a keyless row would strand the jsonb round-trip); `GrantSet` the `[Equatable]` frozen-set value carrying the `[SetEquality]` `Grant` set, the value-derived `Owner` superset, and the set-algebra `Admits`/`Union`/`Without` operators.
-- Cases: `Read`, `Write`, `Delete`, `Share`, `Revoke` (object), `Audit` (the blame/audit-log lane), `Merge`, `Rebase`, `ForcePush` (branch), `Admin` (the explicit superuser bit) — `GrantSet.Owner` is `Grant.Items.ToFrozenSet()`, the full vocabulary frozen once off the generated `Items` surface so a new `Grant` row joins the owner superset with zero edits.
-- Entry: `GrantSet.Of(params ReadOnlySpan<Grant>)` mints a membership value; `Admits(GrantSet demand)` is superuser-aware containment (an `Admin`-bearing set admits any demand); `Union`/`Without` are the allow/deny fold primitives the `#AUTHORITY` fold composes.
-- Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<string>]` + generated `Items`/`Switch` + the wire converters `Element/codec#CODEC_AXIS` registers once), Generator.Equals (`[Equatable]` + `[SetEquality]` — `ISet<T>.SetEquals` fast path), System.Collections.Frozen (`FrozenSet` `Union`/`Except`/`IsSubsetOf`/`Contains`), LanguageExt.Core, BCL inbox.
-- Growth: one `Grant` row per new permission — `Owner` absorbs it value-derived, `Admits` and the fold are membership-generic, so a new right is ONE static line; zero new surface — a `[Flags]` enum bitfield (the `shapes.md` `ReplaceFlags` law), a second branch-only grant enum, or a per-right boolean column is the deleted form.
-- Boundary: `Grant` is distinct in name and concept from the AppHost `Agent/capability#CAPABILITY_REGISTRY` effect-gating `Capability` (`LocalCompute`/`StoreRead`/`StoreWrite`/`RemoteCompute`) — the two never share a name across the strata; `[SetEquality]` equality is exact set membership BUT its hash contribution is ALWAYS ZERO (`SetEqualityComparer<T>.GetHashCode` returns 0), so a `GrantSet` must NEVER key a dictionary, `HashMap`, or `HashSet` — every `GrantSet` collides into bucket 0 and a set-keyed lookup degrades to a linear scan; `ObjectAcl` therefore keys its entries by the string SUBJECT and carries the `GrantSet` as the VALUE, the safe fold shape; equality-compare and `Admits`-fold freely — only hashing is off-limits.
+- Owner: `Grant` the one `[SmartEnum<string>]` object-authorization vocabulary every ACL entry draws from, wire-keyed because membership crosses the wire — the jsonb `Acl` column persists it under `ElementJson` and the AppHost identity-store port round-trips each grant as its bare key through the generated Thinktecture converters, so a keyless row strands that round-trip; `GrantSet` the `[Equatable]` frozen-set value carrying the `[SetEquality]` `Grant` set, the value-derived `Owner` superset, and the `Admits`/`Union`/`Without` operators.
+- Cases: grants group into object (`Read`/`Write`/`Delete`/`Share`/`Revoke`), audit (`Audit`, the blame lane), and branch (`Merge`/`Rebase`/`ForcePush`) rights beside the explicit `Admin` superuser bit; `GrantSet.Owner` derives off the generated `Items` so a new row joins the full-vocabulary superset with zero edits.
+- Entry: `GrantSet.Of(params ReadOnlySpan<Grant>)` mints a membership; `Admits` is superuser-aware containment (an `Admin`-bearing set admits any demand); `Union`/`Without` are the allow/deny fold primitives the `#AUTHORITY` fold composes.
+- Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<string>]` + the wire converters `Element/codec#CODEC_AXIS` registers), Generator.Equals (`[Equatable]`/`[SetEquality]`), System.Collections.Frozen, LanguageExt.Core, BCL inbox.
+- Growth: one `Grant` row per new permission — `Owner` absorbs it value-derived and the fold stays membership-generic, so a new right is ONE static line; a `[Flags]` bitfield (the `shapes.md` `ReplaceFlags` law), a second branch-only enum, or a per-right boolean column is the deleted form.
+- Boundary: `Grant` is distinct in name and concept from the AppHost `Agent/capability#CAPABILITY_REGISTRY` effect-gating `Capability`, the two never sharing a name across strata. HASH-0 TRAP: `[SetEquality]` compares exact set membership but its hash contribution is ALWAYS zero (`SetEqualityComparer<T>.GetHashCode` returns 0), so a `GrantSet` must NEVER key a dictionary, `HashMap`, or `HashSet` — every set collides into bucket 0 and the lookup degrades to a linear scan; `ObjectAcl` therefore keys entries by the string subject and carries the `GrantSet` as the value, equality-comparing and `Admits`-folding freely.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
@@ -29,10 +31,8 @@ using static LanguageExt.Prelude;
 namespace Rasm.Persistence.Element;
 
 // --- [TYPES] ---------------------------------------------------------------------------
-// The object-authorization vocabulary: wire-keyed rows — the jsonb `ElementIdentity.Acl` column and the
-// AppHost identity-store PORT round-trip each grant as its bare key through the generated Thinktecture
-// converters (zero hand codec). Distinct from the AppHost effect-gating `Capability`. Combinable authority
-// is the GrantSet frozen-set value below, NOT a [Flags] enum (the ReplaceFlags law).
+// Wire-keyed rows: the jsonb `ElementIdentity.Acl` column round-trips each grant as its bare key through the
+// generated Thinktecture converters. Combinable authority is the GrantSet value below, never a [Flags] enum.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class Grant {
@@ -48,13 +48,9 @@ public sealed partial class Grant {
     public static readonly Grant Admin = new("admin");
 }
 
-// Combinable authority as set algebra (ReplaceFlags): the frozen Grant set, value-equal by SET membership through
-// Generator.Equals `[SetEquality]` (NOT a Thinktecture key owner — the two equality models never stack; a
-// multi-member structural value is `[Equatable]`), so two sets with the same grants compare equal regardless of
-// order. HASH-0 BOUNDARY: set-equality members contribute 0 to `GetHashCode`, so a GrantSet is NEVER a
-// dictionary/HashMap/HashSet KEY — key by subject string, carry the set as the value. `Owner` is the
-// value-derived full vocabulary; `Admits` is superuser-aware containment (an Admin-bearing set admits any
-// demand); union/difference are the allow/deny fold primitives.
+// Set-algebra value, value-equal by SET membership through Generator.Equals `[SetEquality]` — `[Equatable]`, NOT
+// a Thinktecture key owner (the two equality models never stack). HASH-0: `[SetEquality]` contributes 0 to
+// `GetHashCode`, so a GrantSet NEVER keys a dictionary/HashMap/HashSet — key by subject string, set as value.
 [Equatable]
 public sealed partial record GrantSet([property: SetEquality] FrozenSet<Grant> Grants) {
     public static readonly GrantSet None = new(FrozenSet<Grant>.Empty);
@@ -69,12 +65,12 @@ public sealed partial record GrantSet([property: SetEquality] FrozenSet<Grant> G
 
 ## [03]-[OBJECT_ACL]
 
-- Owner: `AclScope` the `[SmartEnum<string>]` gated-object-kind vocabulary carrying its altitude `Parent`; `AclEntry` the per-subject allow/deny grant record with provenance (`GrantedBy` the Persistence-owned `StoreActor`) and a `[From, Until)` validity window; `ObjectAcl` the owner-plus-inherited grant chain keyed by string subject with the `LadderValid` chain invariant.
-- Cases: `AclScope` is `tenant ← branch ← document ← element-set` — each row carries `Option<AclScope> Parent` so the inheritance chain's legality is data on the vocabulary, never a validation table; `AclEntry.Live(now)` is the window admission (a future `From` stays denied, a passed `Until` lapses), `AclEntry.Lapsed(now)` the expiry probe the `Expired` verdict reads.
-- Entry: `ObjectAcl.LadderValid` recursively asserts `child.Kind.Parent == Some(parent.Kind)` down the `Inherited` chain so a mis-stacked ACL (a document inheriting from an element-set) rejects at `Admit` as `ScopeMismatch`, never silently grants.
-- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core (`HashMap`/`Option` structural value equality by construction — no Generator.Equals or Thinktecture owner stacked on `ObjectAcl`, the deleted over-ownership), NodaTime, BCL inbox.
-- Growth: one `AclScope` row per new gated kind (its `Parent` slots it into the ladder); a new entry axis (a group, a service account) is rows in the existing subject-keyed maps, never a third map shape; zero new surface — a parallel role-ACL type, a per-scope ACL class, or an unvalidated inheritance chain is the deleted form.
-- Boundary: `ObjectAcl` is THE frozen vocabulary its consumers import — `Element/identity#ELEMENT_IDENTITY` persists it (`ElementIdentity.Acl`, the jsonb `ComplexProperty`), the `Rasm.AppHost/Runtime` identity-store PORT decodes it, and `Version/commits#Movable` gates branch movement on its `GrantSet` under `AclScope.Branch` — one type, three consumers, never a fork; `Principals`/`Roles` key by string SUBJECT (the `StoreActor.Subject` and role-claim strings) because the `GrantSet` hash-0 boundary forbids set-keyed maps and because the subject is the wire-stable identity the AppHost port round-trips; the `Owner` slot is the full `StoreActor` value for provenance while owner RECOGNITION compares `Subject` only (role claims are session facts, not identity); the `[From, Until)` window time-boxes both ends so a scheduled grant and a lapsed one are data states, never mutation events.
+- Owner: `AclScope` the `[SmartEnum<string>]` gated-object-kind vocabulary carrying its altitude `Parent`; `AclEntry` the per-subject allow/deny grant with provenance (`GrantedBy` the Persistence-owned `StoreActor`) and a `[From, Until)` window; `ObjectAcl` the owner-plus-inherited grant chain keyed by string subject with the `LadderValid` invariant.
+- Cases: each `AclScope` row carries `Option<AclScope> Parent` so the inheritance chain's legality is data on the vocabulary, never a validation table; `AclEntry.Live(now)` is window admission (a future `From` denies, a passed `Until` lapses) and `AclEntry.Lapsed(now)` the expiry probe the `Expired` verdict reads.
+- Entry: `ObjectAcl.LadderValid` recursively asserts `child.Kind.Parent == Some(parent.Kind)` down the `Inherited` chain so a mis-stacked ACL rejects at `Admit` as `ScopeMismatch`, never silently grants.
+- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core (`HashMap`/`Option` structural value equality — no Generator.Equals or Thinktecture owner stacked on `ObjectAcl`), NodaTime, BCL inbox.
+- Growth: one `AclScope` row per new gated kind (its `Parent` slots it into the ladder); a new subject axis (a group, a service account) is rows in the existing subject-keyed maps, never a third map; a parallel role-ACL type, a per-scope ACL class, or an unvalidated chain is the deleted form.
+- Boundary: `Principals`/`Roles` key by string subject (the `StoreActor.Subject` and role-claim strings) because the `GrantSet` hash-0 trap forbids set-keyed maps and the subject is the wire-stable identity the AppHost port round-trips; the `Owner` slot carries the full `StoreActor` for provenance while owner RECOGNITION compares `Subject` only, role claims being session facts not identity; the `[From, Until)` window time-boxes both ends so a scheduled grant and a lapsed one are data states, never mutation events.
 
 ```csharp signature
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -90,18 +86,14 @@ public sealed partial class AclScope {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-// `GrantedBy` is the Persistence-owned `StoreActor` (`Element/graph#STORE_RAIL`) — the AppHost `Principal`
-// never crosses down; the port maps at the boundary.
+// `GrantedBy` is the Persistence-owned `StoreActor` — the AppHost `Principal` never crosses down.
 public sealed record AclEntry(GrantSet Allow, GrantSet Deny, StoreActor GrantedBy, Instant At, Option<Instant> From, Option<Instant> Until) {
     public bool Live(Instant now) => From.Match(Some: f => now >= f, None: static () => true) && Until.Match(Some: u => now < u, None: static () => true);
     public bool Lapsed(Instant now) => Until.Match(Some: u => now >= u, None: static () => false);
 }
 
-// A plain record: LanguageExt HashMap/Option carry structural value equality by construction, so no
-// Generator.Equals or Thinktecture owner is needed (stacking either over the already-value-equal LanguageExt
-// collections is the deleted over-ownership) — the recursive Inherited chain compares whole by default equality.
-// Subject-string keys are the hash-safe fold shape (the GrantSet hash-0 boundary) and the wire-stable identity
-// the AppHost identity-store PORT round-trips.
+// Plain record: LanguageExt HashMap/Option give structural value equality, so no Generator.Equals or Thinktecture
+// owner stacks here and the recursive Inherited chain compares whole. Subject-string keys are the hash-safe shape.
 public sealed record ObjectAcl(
     UInt128 Scope, AclScope Kind, StoreActor Owner,
     HashMap<string, AclEntry> Principals, HashMap<string, AclEntry> Roles, Option<ObjectAcl> Inherited) {
@@ -111,18 +103,16 @@ public sealed record ObjectAcl(
 
 ## [04]-[AUTHORITY]
 
-- Owner: `AuthDecision` the closed `[Union]` authz verdict — the authorization half of the fissioned decision union (the crypto half is `Element/identity#KMS_CUSTODY` `CustodyVerdict`; the two never re-fuse); `Authority` the static surface owning the deny-over-allow `Effective` fold, the `LapsedFor` expiry probe, the one `Admit` entry, and the `Shift` grant-diff projection feeding the `Grant.Audit` lane.
-- Cases: `Granted(GrantSet Effective)` carries the computed effective set so a caller never re-folds; `Denied(StoreActor Actor, GrantSet Demand, UInt128 Scope)` names the refused demand; `ScopeMismatch(UInt128 Demanded, UInt128 Actual)` covers both a wrong-object demand and an invalid inheritance ladder; `Expired(StoreActor Actor, Instant LapsedAt)` distinguishes a grant that WOULD have admitted but lapsed, `LapsedAt` the entry's real `Until` (the latest across direct/role/inherited candidates) — the operator-actionable renewal signal a bare deny would bury.
-- Entry: `public static AuthDecision Admit(ObjectAcl acl, StoreActor actor, GrantSet demand, UInt128 scope, Instant now)` is the one polymorphic admission — roles ride the actor's own `Roles` claims, so the entry takes no parallel roles parameter; `Effective` folds owner, direct, role, and inherited grants with deny-over-allow (an explicit deny set-difference overrides every inherited allow); `LapsedFor` resolves the latest lapse instant among entries that would have admitted the demand; `Shift(GrantSet before, GrantSet after)` projects the member-level `Added`/`Removed` grant deltas as typed audit rows.
-- Packages: Thinktecture.Runtime.Extensions, Generator.Equals (`EqualityComparer.Default.Inequalities` + `MemberPathSegmentKind.Added`/`Removed` — the structured set-membership diff), LanguageExt.Core, NodaTime, BCL inbox.
-- Growth: one `AuthDecision` case per new verdict; a new admission dimension (a quota, an IP fence) is a clause inside the one `Admit` fold, never a second entry; the audit trail is `Shift` rows appended through the `Version/provenance#ATTESTED_LEDGER` consumer under the `Grant.Audit` right, never a parallel audit log; zero new surface — a boolean `CanAccess`, a per-scope `Admit` overload family, or a re-fused authz+crypto union is the deleted form.
-- Boundary: the fold is deny-over-allow — `allow.Without(deny)` runs LAST so an explicit `AclEntry.Deny` at any altitude defeats every inherited and role allow; the `Owner` subject carries `GrantSet.Owner` so the creator never locks itself out; `Admit` is TOTAL — every input resolves to exactly one verdict, no exception path and no fault band (Band NONE; a persistence failure around the ACL row is the composed `IdentityFault`, raised by the store tier, not by this algebra); the branch gate is THIS `Admit` under `AclScope.Branch` with the branch rights (`Merge`/`Rebase`/`ForcePush`) in the demanded set — `Version/commits#Movable` composes it, a second branch-permission surface is the deleted form; `Shift` is an in-memory audit projection over `[SetEquality]` `Inequalities` rows — it complements, never replaces, the content-keyed attested ledger (tamper evidence stays `Version/provenance`).
+- Owner: `AuthDecision` the closed `[Union]` authz verdict (the crypto half is `Element/identity#KMS_CUSTODY` `CustodyVerdict`, the two never re-fuse); `Authority` the static surface owning the deny-over-allow `Effective` fold, the `LapsedFor` expiry probe, the one `Admit` entry, and the `Shift` grant-diff projection feeding the `Grant.Audit` lane.
+- Cases: `Granted(GrantSet Effective)` carries the computed effective set so a caller never re-folds; `Denied(...)` names the refused demand; `ScopeMismatch(...)` covers a wrong-object demand or an invalid inheritance ladder; `Expired(StoreActor Actor, Instant LapsedAt)` distinguishes a grant that lapsed after once admitting, `LapsedAt` the entry's real `Until` (the latest across direct/role/inherited candidates) — the operator-actionable renewal signal a bare deny buries.
+- Entry: `Admit(ObjectAcl acl, StoreActor actor, GrantSet demand, UInt128 scope, Instant now)` is the one polymorphic admission — roles ride the actor's own `Roles` claims, so it takes no parallel roles parameter; `Effective` folds owner, direct, role, and inherited grants deny-over-allow (an explicit deny set-difference overrides every inherited allow); `LapsedFor` resolves the latest lapse instant among entries that once admitted the demand; `Shift(before, after)` projects the member-level `Added`/`Removed` deltas as typed audit rows.
+- Packages: Thinktecture.Runtime.Extensions, Generator.Equals (`Inequalities` + `MemberPathSegmentKind.Added`/`Removed` — the structured set-membership diff), LanguageExt.Core, NodaTime, BCL inbox.
+- Growth: one `AuthDecision` case per new verdict; a new admission dimension (a quota, an IP fence) is a clause inside the one `Admit` fold, never a second entry; the audit trail is `Shift` rows appended through the `Version/provenance#ATTESTED_LEDGER` consumer under `Grant.Audit`, never a parallel log; a boolean `CanAccess`, a per-scope `Admit` overload family, or a re-fused authz+crypto union is the deleted form.
+- Boundary: the fold is deny-over-allow — `allow.Without(deny)` runs LAST so an explicit `AclEntry.Deny` at any altitude defeats every inherited and role allow; the `Owner` subject carries `GrantSet.Owner` so the creator never locks itself out; `Admit` is TOTAL — every input resolves to one verdict with no exception path and no fault band (a persistence failure around the ACL row is the composed `IdentityFault`, raised by the store tier); the branch gate is THIS `Admit` under `AclScope.Branch` with the branch rights in the demanded set, `Version/commits#Movable` composing it rather than a second branch-permission surface; `Shift` is an in-memory audit projection over `[SetEquality]` `Inequalities` rows — it complements, never replaces, the content-keyed attested ledger.
 
 ```csharp signature
 // --- [TYPES] ---------------------------------------------------------------------------
-// The authz half of the fissioned decision union: Granted/Denied/ScopeMismatch/Expired. The crypto half
-// (Attested/Authentic/Unsigned/Unauthored/Forged/DigestWidth/Wrapped/Unwrapped/KeyUnusable) is
-// `Element/identity#KMS_CUSTODY` `CustodyVerdict` — the two never re-fuse into one union.
+// Authz half of the fissioned decision union; the crypto half is the identity-tier `CustodyVerdict` — the two never re-fuse.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record AuthDecision {
     private AuthDecision() { }
@@ -133,15 +123,12 @@ public abstract partial record AuthDecision {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-// One grant-membership delta: the `Grant.Audit`-lane row `Shift` projects off the `[SetEquality]`
-// member diff — `Granted: true` is an Added segment, `false` a Removed one.
+// One grant-membership delta off the `[SetEquality]` member diff — `Granted: true` is an Added segment, `false` Removed.
 public readonly record struct AclShift(Grant Grant, bool Granted);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Authority {
-    // Deny-over-allow: owner, inherited, role, and direct allows union first; direct + role denies subtract
-    // LAST, so an explicit deny at any altitude defeats every inherited allow. Owner recognition compares
-    // Subject only — role claims are session facts, never identity.
+    // Deny-over-allow: allows union first, denies subtract LAST. Owner recognition compares Subject only.
     public static GrantSet Effective(ObjectAcl acl, StoreActor actor, Instant now) {
         var owned = string.Equals(acl.Owner.Subject, actor.Subject, StringComparison.Ordinal) ? GrantSet.Owner : GrantSet.None;
         var direct = acl.Principals.Find(actor.Subject).Filter(e => e.Live(now));
@@ -152,8 +139,7 @@ public static class Authority {
         return allow.Without(deny);
     }
 
-    // The lapsed-would-have-admitted probe resolves the LATEST lapse instant across direct, role, and
-    // inherited entries, so `Expired.LapsedAt` names the real `Until`, never the observation time.
+    // Resolves the LATEST lapse instant across direct, role, and inherited entries, so `Expired.LapsedAt` is the real `Until`.
     static Option<Instant> LapsedFor(ObjectAcl acl, StoreActor actor, GrantSet demand, Instant now) {
         Seq<AclEntry> local = acl.Principals.Find(actor.Subject).ToSeq() + actor.Roles.Bind(role => acl.Roles.Find(role).ToSeq());
         Seq<Instant> lapses = local.Filter(e => e.Lapsed(now) && e.Allow.Admits(demand)).Bind(static e => e.Until.ToSeq())
@@ -161,9 +147,7 @@ public static class Authority {
         return lapses.Fold(Option<Instant>.None, static (acc, at) => Some(acc.Match(Some: held => Instant.Max(held, at), None: () => at)));
     }
 
-    // TOTAL admission: every input resolves to exactly one verdict. An invalid ladder rejects as
-    // ScopeMismatch (a mis-stacked chain never silently grants); a lapsed would-have-admitted entry
-    // surfaces as Expired carrying its real lapse instant — the renewal signal a bare deny would bury.
+    // TOTAL: every input resolves to one verdict — an invalid ladder is ScopeMismatch, a lapsed entry Expired.
     public static AuthDecision Admit(ObjectAcl acl, StoreActor actor, GrantSet demand, UInt128 scope, Instant now) =>
         acl.Scope != scope || !acl.LadderValid ? new AuthDecision.ScopeMismatch(scope, acl.Scope)
         : Effective(acl, actor, now) is var grant && grant.Admits(demand) ? new AuthDecision.Granted(grant)
@@ -171,9 +155,8 @@ public static class Authority {
             Some: at => new AuthDecision.Expired(actor, at),
             None: () => new AuthDecision.Denied(actor, demand, scope));
 
-    // The Audit-lane grant diff: the generated `[SetEquality]` member diff reports set-membership deltas as
-    // Added/Removed path segments; each becomes one typed AclShift row the audit trail appends through the
-    // attested ledger. In-memory projection only — tamper evidence stays `Version/provenance#ATTESTED_LEDGER`.
+    // Audit-lane grant diff: the generated `[SetEquality]` member diff reports Added/Removed segments, each a typed
+    // AclShift row. In-memory projection only — tamper evidence stays `Version/provenance`.
     public static Seq<AclShift> Shift(GrantSet before, GrantSet after) =>
         toSeq(GrantSet.EqualityComparer.Default.Inequalities(before, after))
             .Bind(static delta => delta.Path.Segments[^1].Kind switch {
@@ -193,3 +176,11 @@ public static class Authority {
 |  [05]   | branch gate     | same `GrantSet` under `AclScope.Branch`   | `Version/commits#Movable` composes `Admit`; no second enum          |
 |  [06]   | audit diff      | `Shift` over `Inequalities` Added/Removed | typed `AclShift` rows into the attested ledger                      |
 |  [07]   | fault band      | NONE — total algebra                      | store-tier failures rail `IdentityFault` 8340                       |
+
+## [05]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+-->
+
+(none)

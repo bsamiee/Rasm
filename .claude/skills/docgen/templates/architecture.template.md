@@ -4,7 +4,7 @@
 
 ## [01]-[DOMAIN_MAP]
 
-The codemap is the unit's file index as a fenced representation: one node per eventual source file, named in the language's folder and file casing. Each comment carries the concept the file owns in one aligned tail — the `#` column aligns within a block, the whole line stays under 150 columns, and no method chain, type roster, or design-decision detail rides a tree comment. A comment that cannot fit aligned under the cap is trimmed to its load-bearing concept, never spaced around.
+A codemap is the unit's file index as a fenced representation: one node per eventual source file, named in the language's folder and file casing. Each comment carries the concept the file owns in one aligned tail — the `#` column aligns within a block, the whole line stays under 150 columns, and no method chain, type roster, or design-decision detail rides a tree comment. A comment that cannot fit aligned under the cap is trimmed to its load-bearing concept, never spaced around.
 
 ```text codemap
 core/
@@ -17,7 +17,7 @@ core/
 
 ## [02]-[SEAMS]
 
-The seam map is cross-boundary by construction and partner-package grain: home sub-domain owners in the `subgraph`, one node per counterpart package, one edge per contract labeled `[KIND]: shape-name`, rails colored by kind. An in-package relation is never a seam — it lives in the codemap or the `[03]-[INTERNAL]` diagram. Construction, the closed KIND vocabulary, the kind-to-rail-class map, node shape-by-role, and the hub-split rule are the mermaid-diagramming seam-graph archetype's; a unit whose cross-boundary seams overflow one clean fence splits into two fences by counterpart group, each with its own `accTitle`.
+A seam map is cross-boundary by construction and partner-package grain: home sub-domain owners in the `subgraph`, one node per counterpart package, one edge per contract labeled `[KIND]: shape-name`, rails colored by kind. An in-package relation is never a seam — it lives in the codemap or the `[03]-[INTERNAL]` diagram. Construction, the closed KIND vocabulary, the kind-to-rail-class map, node shape-by-role, and the hub-split rule are the mermaid-diagramming seam-graph archetype's; a unit whose cross-boundary seams overflow one clean fence splits into two fences by counterpart group, each with its own `accTitle`.
 
 ```mermaid
 ---

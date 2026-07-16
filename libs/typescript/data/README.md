@@ -1,35 +1,15 @@
 # [TS_DATA]
 
-`data` owns the branch's durable-persistence surface: the append-only journal as record of truth, the guarantee-lane matrix pricing what each engine promises, the content-addressed object plane over one `ContentKey`, and the typed read side. A backend enters as a semantic-guarantee row on its owning lane, never a sibling shape; the folder holds no keys and enforces the security-declared tenancy contract at every write.
+`data` is the branch's durable-persistence plane — one body: the guarantee-lane matrix pricing what each engine promises, the append-only journal as the record of truth, the content-addressed object plane over the one `ContentKey`, and the typed read side. Its bar is trust made structural: no engine boots unproven — every extension and relation demand is proven at `Layer` construction; truth is never rewritten — evolution is read-time upcasting and aging folds behind the causal frontier; atomicity is one commit — outbox rows, projection slots, the idempotency claim, and their events settle together, a replay returning the stored receipt; erasure is cryptographically total — destroying the sole wrapped key folds every sealed read to a redaction marker. Apps at fleet scale under row, schema, and database isolation share one pool and one code path with tenancy a scope value rather than a deployment, and the wire peers demand bit-identical content identity, so an artifact hashed in any runtime is reusable by every other.
+
+A backend enters as a semantic-guarantee row on its owning lane, never a sibling shape. This folder stores only wrapped key material — custody stays with security — and enforces the security-declared tenancy contract at every write through the one pinned transaction path; the deploy plane applies schema at provision while data proves it fail-closed at startup and never mutates it.
 
 ## [01]-[ROUTER]
 
-[LANE]:
-- [01]-[POSTGRES](.planning/lane/postgres.md): First-party relational spine whose extension matrix is ruled data.
-- [02]-[SQLITE](.planning/lane/sqlite.md): Embedded lane degrading one relational contract across five profiles.
-- [03]-[OLAP](.planning/lane/olap.md): Analytical lane over DuckDB and ClickHouse engine rows.
-- [04]-[CACHE](.planning/lane/cache.md): Latency lane — single-flight dedup over restart-surviving cache rows.
-- [05]-[CAPABILITY](.planning/lane/capability.md): Fail-closed capability rail probed at `Layer` construction.
-- [06]-[TENANT](.planning/lane/tenant.md): Tenancy write path pinning the tenancy GUC across RLS, schema, and database cases.
-
-[JOURNAL]:
-- [07]-[APPEND](.planning/journal/append.md): One atomic write owner — journal, outbox, and idempotency ledger in a single commit.
-- [08]-[EVOLVE](.planning/journal/evolve.md): Read-time upcasting — per-tag version chains keeping the log append-only.
-- [09]-[FACT](.planning/journal/fact.md): Durable fact journal folding audit and metering into one buffered family.
-- [10]-[RETAIN](.planning/journal/retain.md): Retention classes, crypto-shredding, and DSAR portability folds.
-
-[OBJECT]:
-- [11]-[STORE](.planning/object/store.md): S3-conditional content-addressed object store over the one `ContentKey`.
-- [12]-[STREAM](.planning/object/stream.md): Resumable rail — BYOB ingress, checkpointed identity fold, tus server.
-- [13]-[FILE](.planning/object/file.md): Filesystem plane — gated content-addressed intake and derivative codec.
-- [14]-[REMOTE](.planning/object/remote.md): Remote-origin plane — scheme-dispatched non-local sources through the identity fold.
-
-[READ]:
-- [15]-[QUERY](.planning/read/query.md): Typed CRUD with arity as combinator over `Model` codec pairs.
-- [16]-[BATCH](.planning/read/batch.md): Request-batching engine — structural dedup and windowed resolvers.
-- [17]-[FOLD](.planning/read/fold.md): Durable projection plane binding one `Fold.Plan` at three staleness budgets.
-- [18]-[LIVE](.planning/read/live.md): Reactivity-keyed reads — invalidation keys stamped at publish, read at query.
-- [19]-[SEARCH](.planning/read/search.md): Five-lane retrieval fused by reciprocal rank inside the database.
+- [01]-[LANE](.planning/lane/): A backend is a semantic-guarantee row on its lane — fail-closed proof and the single `Tenant.within` write path.
+- [02]-[JOURNAL](.planning/journal/): One atomic write owner folding journal, outbox, and idempotency into one commit; upcasting over migrations.
+- [03]-[OBJECT](.planning/object/): Every object key IS the one `ContentKey` — one admission fold over the store, stream, file, and remote planes.
+- [04]-[READ](.planning/read/): Every row leaves a relation as a decoded value — arity, staleness, and reactivity as combinators on one owner.
 
 ## [02]-[DOMAIN_PACKAGES]
 
@@ -48,7 +28,7 @@ Data-specific libraries admitted by this folder; versions centralize in `pnpm-wo
 - `@effect/sql-clickhouse`
 - `@duckdb/node-api`
 - `@duckdb/duckdb-wasm`
-- `apache-arrow` (`../ui/.api/apache-arrow.md`)
+- `apache-arrow` — carries the zero-copy columnar format shared with the interface plane.
 
 [OBJECT_TRANSPORT]:
 - `@aws-sdk/client-s3`

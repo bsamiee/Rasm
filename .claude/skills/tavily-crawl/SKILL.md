@@ -55,7 +55,7 @@ uvx --from tavily-cli tvly crawl "https://docs.example.com" --instructions "Find
 
 ## [03]-[LANE_SELECTION]
 
-- [AGENTIC]: Results feeding an LLM always ride `--instructions` plus `--chunks-per-source` — relevant chunks instead of full pages, no context explosion.
+- [AGENTIC]: LLM-bound results always ride `--instructions` plus `--chunks-per-source` — relevant chunks, not full pages, no context explosion.
 - [COLLECTION]: Data collection to disk rides `--output-dir` without `--chunks-per-source` — full pages as markdown files.
 
 ```bash template
@@ -65,6 +65,7 @@ uvx --from tavily-cli tvly crawl "https://docs.example.com" --max-depth 2 --outp
 
 ## [04]-[SCOPE_CONTROL]
 
-- A crawl starts conservative — `--max-depth 1`, `--limit 20` — and scales only after the shape of the site is known; `--limit` always binds to prevent runaway crawls.
+- A crawl starts conservative — `--max-depth 1`, `--limit 20` — and scales only once the site shape is known.
+- `--limit` always binds, preventing runaway crawls.
 - `--select-paths` narrows to the section that matters before depth grows.
-- A tavily-map pass first reveals site structure when the target section is uncertain; a few specific pages route to tavily-extract instead of a crawl.
+- A tavily-map pass reveals site structure when the target section is uncertain; a few specific pages route to tavily-extract instead of a crawl.

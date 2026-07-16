@@ -1,6 +1,8 @@
 # [APPUI]
 
-`Rasm.AppUi` owns the APP-PLATFORM product UI — one Avalonia shell mounting onto any admitted substrate through the abstract `SurfaceHost` axis, folding AppHost ports, Persistence queries, and Compute receipts into settled product vocabulary. It references no host toolkit directly, so every Rhino and GH2 surface reaches the shell through a seam contract.
+`Rasm.AppUi` is the federation's product surface — one Avalonia body spanning the shell, the GPU viewport engine — render-graph pass-DAG over one wgpu device, cluster-LOD residency streamed from Compute's content-keyed payloads, path-traced appearance from the Materials BSDF, reality capture, OpenXR — the 2D documentation surface consuming the hidden-line receipt into sheets and DWG/DXF/PDF emit, the chart and dashboard plane, the typed-edit plane with revert algebra and a reactive data spine, the reproducible-notebook document plane, live collaboration whose durable truth replays in any runtime, the diagnostics plane, and the theme vocabulary every visual literal traces to. Its bar is product honesty: every screen windows through one virtualization fabric, every fault crosses one typed envelope, every collaborative surface converges through one merge authority, and every visual export leaves color-managed and print-honest.
+
+Its shell mounts onto any admitted substrate through the abstract `SurfaceHost` axis, folding AppHost ports, Persistence queries, and Compute receipts into settled product vocabulary. It references no host toolkit directly, so every Rhino and GH2 surface reaches the shell through a seam contract.
 
 ## [01]-[ROUTER]
 
@@ -171,7 +173,7 @@ Substrate libraries from the C# registry that this folder consumes directly. Ful
 - `UnitsNet`
 
 [GRAPH_ALGORITHM]:
-- `QuikGraph` — the parametric graph-canvas topology walks.
+- `QuikGraph` — walks the parametric graph-canvas topology.
 
 [COLOR_SCIENCE]:
 - `Wacton.Unicolour` — perceptual color math for theme tokens and contrast proofs.

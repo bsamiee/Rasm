@@ -162,12 +162,16 @@ flowchart LR
 
 ## [04]-[ORGANIZATION]
 
-Sub-domains are independent numeric-science concerns meeting only through the one solve receipt, the one study spine, and the one graduation rail. Each discriminates its variation by problem structure — solve route, program class, experiment stage — and composes the numeric substrate and solver owners rather than re-owning them, so a new numeric route or program class lands as a case on the owning discriminant, never a parallel owner. The per-owner wiring — which substrate each route folds, which adjoint the sensitivity owner reads, how the study spine stages its sampling — lives on the owning implementation pages.
+Sub-domains are independent numeric-science concerns meeting only through the one solve receipt, the one study spine, and the one graduation rail. Each discriminates its variation by problem structure — solve route, program class, experiment stage — and composes the numeric substrate and solver owners rather than re-owning them, so a new numeric route or program class lands as a case on the owning discriminant, never a parallel owner. Per-owner wiring — which substrate each route folds, which adjoint the sensitivity owner reads, how the study spine stages its sampling — lives on the owning implementation pages.
 
 ## [05]-[BOUNDARIES]
 
-- `compute` is not a production compute runtime, benchmark authority, substrate selector, tensor-session owner, or product-receipt owner; it owns offline evidence that graduates through the one rail.
-- Columnar and labelled-array interchange stays in the `data` branch; `compute` composes the `xarray`/`dask` shapes — `numerics/array`'s `Labelled` arm extracts `.data` and coords, `experiments/study`'s DOE-frame arm admits through the published data contract — and never re-owns the data interior.
-- Columnar and gridded statistical aggregation — grouped reductions, rolling windows, per-cell and per-band summaries — is the `data` branch gridded/field owner; `numerics/statistics` operates on an in-memory sample array only.
-- Geometry tessellation, registration, and topology stay in the `geometry` branch and graduate as `GeometryHandoff` receipt data under the geometry-minted `GeometrySubject` union; `compute` decodes the crossing at its `HandoffAxis` geometry case, never re-implements it and never imports geometry.
-- Classical statistics, validated numerics, surrogate and classification model assets, and gradient-MCMC inference are in-scope; generative and deep-learning model authoring is out of scope across every sub-domain.
+- `compute` is not a production runtime, benchmark authority, substrate selector, tensor-session owner, or product-receipt owner.
+- It owns offline evidence that graduates through the one rail.
+- Columnar and labelled-array interchange stays in the `data` branch; `compute` composes its shapes, never re-owning the data interior.
+- Labelled arms extract `.data` and coords; the study DOE-frame arm admits through the published data contract.
+- Columnar and gridded statistical aggregation is the `data` branch gridded/field owner; `numerics/statistics` operates on in-memory samples only.
+- Geometry tessellation, registration, and topology stay in the `geometry` branch, graduating as `GeometryHandoff` data under its minted union.
+- `compute` decodes the crossing at its `HandoffAxis` geometry case; it never re-implements geometry and never imports it.
+- Classical statistics, validated numerics, surrogate and classification model assets, and gradient-MCMC inference are in-scope.
+- Generative and deep-learning model authoring is out of scope across every sub-domain.

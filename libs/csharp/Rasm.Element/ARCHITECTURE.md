@@ -7,29 +7,29 @@ Domain map of `Rasm.Element` — the lowest AEC-DOMAIN seam between the `Rasm` k
 ```text codemap
 Rasm.Element/             # refs ../Rasm ONLY; no GeometryGym; no host geometry (geometry by content hash)
 ├── Graph/                # Authoritative property graph and its mutation algebra
-│   ├── Element.cs        # Property-graph spine
-│   ├── Delta.cs          # Mutation algebra
-│   ├── Wire.cs           # Content-key-preserving crossing
+│   ├── Element.cs        # Frozen property-graph spine and the memoized Bake fold every consumer reads flat
+│   ├── Delta.cs          # Live working-graph mutation algebra and the persistable GraphDelta body
+│   ├── Wire.cs           # Content-key-preserving rasm.element.v1 crossing every peer runtime decodes
 │   └── element.proto     # Language-neutral rasm.element.v1 oneof contract
 ├── Relations/            # Neutral objectified-edge algebra
-│   └── Relation.cs       # Neutral edge algebra
+│   └── Relation.cs       # Closed neutral edge kinds plus a Generic passthrough so no foreign relation drops
 ├── Classification/       # Neutral cross-cutting axes
-│   └── Classification.cs # Cross-cutting axes
+│   └── Classification.cs # Generic system-and-code classification pair and the shared discipline axis
 ├── Properties/           # Typed property/quantity value vocabulary
-│   ├── Property.cs       # Typed value vocabulary
-│   └── Quantity.cs       # Physical-quantity carrier
+│   ├── Property.cs       # One PropertyValue union closing the IFC-value family with typed data, never strings
+│   └── Quantity.cs       # SI-exponent signature and the MeasureValue carrier with uncertainty bounds
 ├── Composition/          # Material composition and intrinsic acoustic folds
-│   ├── Material.cs       # Material composition
-│   └── Acoustic.cs       # Intrinsic acoustic folds
+│   ├── Material.cs       # MaterialComposition family and the discipline-keyed engineering-property rows
+│   └── Acoustic.cs       # Banded acoustic carrier and the shared RatingContour contour-fit kernel
 ├── Assessment/           # Generic analysis receipt
-│   └── Assessment.cs     # Generic analysis receipt
+│   └── Assessment.cs     # AssessmentPayload receipt keyed by discipline, route, and input content key
 ├── Geospatial/           # Georeferenced coverage and CRS
-│   ├── Coverage.cs       # Georeferenced coverage
-│   └── Reference.cs      # Map-conversion-and-CRS record
+│   ├── Coverage.cs       # By-ref raster coverage grid over a band schema and affine placement
+│   └── Reference.cs      # GeoReference record over the three-state projected-CRS identity
 └── Projection/           # Cross-stratum contracts, the content codec, and the fault band
-    ├── Projection.cs     # Cross-stratum contracts
-    ├── Address.cs        # Content codec
-    └── Fault.cs          # Fault band
+    ├── Projection.cs     # IElementProjection and IGraphConstraint floors plus the assemble composition
+    ├── Address.cs        # Order-independent ContentAddress codec over the kernel seed-zero hash
+    └── Fault.cs          # Cross-federation FaultBand registry and the ElementFault union
 ```
 
 `Graph` is the spine every other sub-domain feeds: each owns a `Node` case payload or a cross-cutting value the one `ElementGraph` composes, and the `Graph/Element` `Bake` applies both the type→occurrence inheritance and the `Properties/Property` `InheritanceMode` bag merge. Seam identity re-mints nothing the kernel owns — the content-identity seed, the op-key, and the fault base are the kernel `XxHash128` seed-zero entry, `Op`, and `Expected`. Per-page declarations, the shared `Projection/Address` codec fan-in, and the inheritance merge rules live on the owning implementation pages.
@@ -170,6 +170,9 @@ flowchart LR
 `[PROJECTION]` rows are inversion of control: every provider — GeometryGym, VividOrange, and peers — stays in the AEC peer that implements `IElementProjection` and lowers its foreign source onto a `GraphDelta`, so no provider edge points down into the seam and no second IFC or section-property stack forms. Each provider owns its concept and mints its own `Object` identity under the owner-mints-its-identity law, so a minter never stamps a foreign projector's egress and the one type representation is authored and ingested unified; per-provider Type and Occurrence minting lives on the owning implementation pages. Acyclic strata holds: every AEC peer references `{Rasm, Rasm.Element}` as a shared lower stratum and peers never reference each other, and the live element assembly — registering the `Seq<IElementProjection>`, binding the tessellation adapter, running `Assemble` against a live source — is an APP/HOST-BOUNDARY composition-root concern, the seam owning the `Assemble` capability and the apps the wiring.
 
 [CONTENT_KEY_IDIOM]:
-- Every page joining the persistence, projection, assessment-cache, or diff lane derives its typed `UInt128` through the `Projection/address` `XxHash128.HashToUInt128` seed-zero entry over the one `CanonicalWriter` projection, one content space shared with the kernel `GeometryHash` and the Python/TypeScript peers; a second hasher or a non-zero seed is the named cross-folder drift defect.
-- `Graph/wire` carries every content key verbatim, so the codec re-derives no identity on either side of the wire and the cross-runtime parity corpus anchors byte-for-byte agreement.
-- Non-rooted `NodeId` is the self-hash of the node's own canonical bytes; a rooted `Object` id carries one regime with two `ObjectKind`-keyed seedings — an Occurrence's Guid-v7 placement identity and a Type's deterministic derivation over canonical bytes with the volatile `Representations` excluded — never a second identity owner. Exact `NodeId.Content` mint, the `Verify` dual, and per-lane key derivations live on the owning implementation pages.
+- Every lane derives its typed `UInt128` through the `Projection/address` seed-zero entry over the one `CanonicalWriter` projection.
+- Content space is shared with the kernel `GeometryHash` and the Python and TypeScript peers; a second hasher or non-zero seed is the named drift.
+- `Graph/wire` carries every content key verbatim; the codec re-derives no identity, and the parity corpus anchors byte-for-byte agreement.
+- Non-rooted `NodeId` is the self-hash of the node's own canonical bytes.
+- A rooted `Object` id carries one regime with two `ObjectKind`-keyed seedings — Guid-v7 placement identity and the exclusion-seeded Type derivation.
+- Exact `NodeId.Content` mint, the `Verify` dual, and per-lane key derivations live on the owning implementation pages.

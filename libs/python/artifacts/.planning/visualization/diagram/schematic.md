@@ -1,21 +1,21 @@
-# [PY_ARTIFACTS_VISUALIZATION_DIAGRAM_SCHEMATIC]
+# [PY_ARTIFACTS_DIAGRAM_SCHEMATIC]
 
-The named-symbol schematic producer — the diagram class the seven-mark `visualization/diagram/glyphset#GLYPHSET` grammar cannot express, where a mark IS a resistor, an op-amp, a NAND gate, an ADC block, or a flowchart decision with bound anchor terminals. `schemdraw` owns the authoring spine: the 226-symbol closed `elements` vocabulary plus the `flow`/`logic`/`dsp` domain modules, the fluent relative-placement algebra (`.at`/`.right`/`.up`/`.to`/`.anchor`/`.label`) chaining each symbol off the prior element's named anchor, `parsing.logicparse` building a gate network from a boolean expression, and the `logic.Kmap`/`Table`/`TimingDiagram`/`BitField` data-driven owners for Karnaugh maps, truth tables, timing diagrams, and bit-field registers. The standalone `'svg'` backend renders in-process with `svgconfig.text = 'path'` so every emitted SVG is font-independent, and `get_imagedata(ImageFormat.SVG)` is the one egress the receipt content-addresses.
+`Schematic` is the named-symbol producer — the diagram class the seven-mark `visualization/diagram/glyphset#GLYPHSET` grammar cannot express, where a mark IS a resistor, an op-amp, a NAND gate, or a flowchart decision with bound anchor terminals. `schemdraw` owns the authoring spine: the closed `elements` vocabulary, the `flow`/`logic`/`dsp` domain modules, the fluent relative-placement algebra chaining each symbol off the prior element's named anchor, `parsing.logicparse` for boolean-expression gate networks, and the `logic` data-driven owners. Its standalone `'svg'` backend renders in-process under `svgconfig.text = 'path'` so every SVG is font-independent, `get_imagedata(SVG)` the one receipt-addressed egress.
 
-Authoring is DATA over the closed grammar: a `SchematicSpec` carries symbol rows (element name, anchor chain, label, style key) or the domain payload (`expression` for logic, the truth/timing dicts), never imperative canvas code at a consumer; theme aesthetics arrive as `graphic/style#STYLE` diagram rows lowered onto schemdraw's `config`/`theme` surface; labels shape through `typography/shape#SHAPE` conventions (the `text='path'` outline egress keeps them portable); the drawn result projects into `graphic/layer#LAYER` as an editorial-named tree. The `Segment*`/`ElementCompound` custom-geometry spine stays `drawing/symbol#SYMBOL`'s — a parametric drafting mark is not a schematic symbol. `emit()` lands the one producer node with its pre-run input key; the GIL-bound render crosses the runtime offload seam.
+Authoring is DATA over the closed grammar: a `SchematicSpec` carries symbol rows or a domain payload, never imperative canvas code at a consumer; theme aesthetics arrive as `graphic/style#STYLE` diagram rows on schemdraw's `config`/`theme`, labels through `typography/shape#SHAPE`. Custom-geometry `Segment*`/`ElementCompound` marks stay `drawing/symbol#SYMBOL`'s — a parametric drafting mark is not a schematic symbol. `emit()` lands the one producer node with its pre-run input key; the GIL-bound render crosses the runtime offload seam.
 
 ## [01]-[INDEX]
 
-- [01]-[SCHEMATIC]: the schemdraw catalog owner — `SchematicSpec` the closed authoring union (`circuit` symbol rows, `logic` boolean expression, `flow` flowchart rows, `dsp` block rows, `kmap`/`timing`/`bitfield`/`truth_table` data payloads), `SymbolRow` the relative-placement data row, `Schematic` the producer whose `emit()`/`_emit` pair mints `ArtifactReceipt.Diagram`, and the `SchematicFault` rail — consuming glyphset's kind vocabulary boundary, style theme rows, and the layer tree; consumed by `core/issue#ISSUE`'s diagram suite.
+- [01]-[SCHEMATIC]: the schemdraw catalog owner — `SchematicSpec` the closed authoring union (circuit/flow/dsp symbol rows, a logic boolean expression, kmap/timing/bitfield/truth-table data payloads), `SymbolRow` the relative-placement row, `Schematic` the producer minting `ArtifactReceipt.Diagram`, and the `SchematicFault` rail; consumed by `core/issue#ISSUE`'s diagram suite.
 
 ## [02]-[SCHEMATIC]
 
-- Owner: `Schematic` is the one producer `(spec, theme)` — it resolves the spec case onto the schemdraw canvas in a single authoring fold, renders once through the standalone SVG backend, and mints one receipt. The element vocabulary is the provider's closed catalog addressed by NAME (`elements.Resistor`, `flow.Decision`, `dsp.Adc`, `logic.Nand` resolve by row string through one registry read), so a new symbol is a data row, never a method.
-- Cases: `SchematicSpec` closes the domain union — `circuit(tuple[SymbolRow, ...])` the electrical/electronic net authored by relative anchor chains; `flow(tuple[SymbolRow, ...])` flowcharts; `dsp(tuple[SymbolRow, ...])` signal-flow blocks; `logic(str)` a boolean expression `parsing.logicparse` lays out (its Buchheim tree placement is the built-in fallback, never the corpus routing engine); `kmap(Mapping)`/`truth_table(Mapping)`/`timing(Mapping)`/`bitfield(Mapping)` the data-driven owners rendered from their dict payloads. `SymbolRow(element, at, anchor, direction, length, label, style)` is the whole placement grammar as data — `at` names a prior row's anchor (`"U1.out"`), `direction` the fluent heading, `style` a theme diagram-row key.
-- Entry: `emit()` returns ONE `ArtifactWork` — `key` minted PRE-RUN over the canonical spec+theme bytes, `work=self._emit`, `admission=Admission(keyed=None)`; `_emit` authors, renders, and mints `ArtifactReceipt.Diagram(key, kind, nodes, edges, "schemdraw")` threading the same key. A schematic inside a diagram SUITE arrives as one node beside draw's per-kind nodes — per-member elision holds.
-- Auto: the authoring+render fold offloads through `LanePolicy.offload(..., modality=Modality.INTERPRETER)`; `svgconfig.text = 'path'` is set once per render context; provider raises map into `SchematicFault` at the arm (`element` an unknown symbol name, `anchor` an unresolvable placement reference, `parse` a logic-expression failure, `render` a backend failure).
-- Growth: a new symbol is one row (the registry resolves the provider catalog by name); a new domain is one `SchematicSpec` case plus one authoring arm; a new aesthetic axis is one theme diagram row; zero new surface for a new consumer.
-- Boundary: no generic graph layout or routing (`visualization/diagram/layout#LAYOUT` and its engines); no seven-mark rendering (`visualization/diagram/draw#DRAW`); no custom `Segment*`/`ElementCompound` geometry (`drawing/symbol#SYMBOL`); no rasterization (resvg/vl-convert over the SVG at the consuming plane); no matplotlib backend (the standalone SVG backend is the egress; raster routes to the corpus rasterizers); no receipt beyond the one `Diagram` case; no identity beyond the runtime mint. Hand-emitted SVG tags, imperative consumer canvas code, and a parallel symbol vocabulary are the deleted forms.
+- Owner: `Schematic` the one producer `(spec, theme)` — it resolves the spec case onto the schemdraw canvas in a single authoring fold, renders once through the standalone SVG backend, and mints one receipt; the element vocabulary is the provider's closed catalog addressed by NAME (`elements.Resistor`, `flow.Decision`, `dsp.Adc`, `logic.Nand` resolve by row string), so a new symbol is a data row, never a method.
+- Cases: `SchematicSpec` closes the domain union — `circuit`/`flow`/`dsp` each a `SymbolRow` tuple authored by relative anchor chains, `logic` a boolean expression `parsing.logicparse` lays out via its Buchheim tree (never the corpus routing engine), `kmap`/`truth_table`/`timing`/`bitfield` the data-driven owners from dict payloads. `SymbolRow` is the whole placement grammar as data — `at` names a prior row's anchor (`"U1.out"`), `style` a theme diagram-row key.
+- Entry: `emit()` returns ONE `ArtifactWork` keyed PRE-RUN over the canonical spec+theme bytes; `_emit` authors, renders, and mints `ArtifactReceipt.Diagram(...)` threading the same key. A schematic inside a diagram suite arrives as one node beside draw's per-kind nodes, per-member elision holding.
+- Auto: the authoring+render fold offloads through `LanePolicy.offload(..., modality=Modality.INTERPRETER)`, `svgconfig.text = 'path'` set once per render context; provider raises map into `SchematicFault` (`element` an unknown symbol, `anchor` an unresolvable placement reference, `parse` a logic-expression failure, `render` a backend failure).
+- Growth: a new symbol is one row (the registry resolves the provider catalog by name); a new domain one `SchematicSpec` case plus one authoring arm; a new aesthetic axis one theme diagram row; zero new surface for a new consumer.
+- Boundary: no generic graph layout or routing (`visualization/diagram/layout#LAYOUT`'s engines), no seven-mark rendering (`visualization/diagram/draw#DRAW`'s), no custom `Segment*`/`ElementCompound` geometry (`drawing/symbol#SYMBOL`'s), no rasterization or matplotlib backend (the standalone SVG backend is the egress), no receipt or identity beyond the runtime mint; hand-emitted SVG, imperative consumer canvas code, and a parallel symbol vocabulary are the rejected forms.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -58,9 +58,9 @@ class SchematicKind(StrEnum):  # the receipt kind facet — one member per Schem
 
 # --- [MODELS] ---------------------------------------------------------------------------
 class SymbolRow(Struct, frozen=True):
-    # one placed symbol as data: the provider element by name, chained off a prior row's named anchor.
-    ref: str  # the row's own reference ("U1", "R3") — anchor addresses compose "<ref>.<anchor>"
-    element: str  # provider catalog name — "Resistor", "Opamp", "Decision", "Adc", "Nand"
+    # one placed symbol as data, chained off a prior row's named anchor.
+    ref: str  # the row's own reference ("U1", "R3"); anchor addresses compose "<ref>.<anchor>"
+    element: str  # provider catalog name
     at: str = ""  # "<ref>.<anchor>" placement source; "" = chain off the previous row
     anchor: str = ""  # which own anchor seats on `at`
     direction: Direction = "right"
@@ -86,9 +86,9 @@ class SchematicSpec:
 @tagged_union(frozen=True)
 class SchematicFault:
     tag: Literal["element", "anchor", "parse", "render"] = tag()
-    element: str = case()  # unknown provider symbol name
-    anchor: str = case()  # unresolvable "<ref>.<anchor>" placement reference
-    parse: str = case()  # logic-expression grammar failure
+    element: str = case()
+    anchor: str = case()
+    parse: str = case()
     render: str = case()
 
 
@@ -112,8 +112,7 @@ class Schematic(Struct, frozen=True):
         )
 
     def _render(self) -> Result[tuple[bytes, SchematicKind, int, int], SchematicFault]:
-        # one authoring fold: resolve the spec case onto the Drawing canvas, svgconfig.text='path',
-        # get_imagedata(SVG) once; the SVG bytes ride the layer projection and the receipt facts.
+        # one authoring fold: resolve the spec onto the Drawing canvas, svgconfig.text='path', get_imagedata(SVG) once.
         schemdraw.use("svg")
         schemdraw.svgconfig.text = "path"
         match self.spec:
@@ -154,9 +153,8 @@ class Schematic(Struct, frozen=True):
                 return Result.Ok((_lone(_logic.BitField(**dict(data))), SchematicKind.BITFIELD, len(data), 0))
 
     def layers(self, svg: bytes, /) -> LayerPlan:
-        # editorial layer projection: schemdraw renders ONE SVG (symbols and lettering fused in the
-        # path-text backend), so the plan carries one content-bearing LINEWORK root — a content-less
-        # sibling is dropped by `flattened()` and would hand exporters a phantom branch.
+        # schemdraw renders ONE SVG (symbols + lettering fused), so the plan carries one LINEWORK root;
+        # a content-less sibling `flattened()` drops as a phantom branch.
         return LayerPlan(
             schema=NamingSchema.EDITORIAL,
             roots=(
@@ -182,4 +180,10 @@ __all__ = [
 ]
 ```
 
-The seven marks stay honest and the symbol world gets its own producer: a single-line electrical diagram, a controls logic network, an equipment signal chain, a flowchart, a Karnaugh map, and a timing diagram all author as data rows over the provider's closed catalog, render font-independent through the path-text SVG backend, and land as `Diagram` receipts beside draw's suite nodes with per-member elision on re-issue. Theme rows keep the office ink and lettering on schematics identical to every other plane, the layer projection hands editors the one content-bearing symbols group (schemdraw fuses linework and path-text lettering in a single SVG), and the boundary rows keep parametric drafting marks with `drawing/symbol#SYMBOL` and generic graph routing with the layout engines — one concern, one owner, no grammar bent past its law.
+## [03]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+-->
+
+(none)

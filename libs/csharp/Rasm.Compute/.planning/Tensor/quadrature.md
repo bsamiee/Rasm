@@ -1,10 +1,8 @@
 # [COMPUTE_QUADRATURE]
 
-Rasm.Compute owned-build numeric lane for integration and spectral operators — the accuracy-routed quadrature owner, the embedded-pair adaptive integrator over the additive-module carrier, and the constant-coefficient periodic spectral operator. Each result leaves as typed evidence carrying its conditioning channel, its terminal partition, or its imaginary residual rather than a bare `double`, a sampled trajectory, or a raw `Complex[]`, so a gate rejects on quality and a caller recovers a budget-exhausted run rather than reading best-so-far as convergence.
+Rasm.Compute owned-build numeric lane for integration and spectral operators: an accuracy-routed quadrature owner, an embedded-pair adaptive integrator over an additive-module carrier, and a constant-coefficient periodic spectral operator. Each result leaves as typed evidence carrying its conditioning channel, terminal partition, or imaginary residual — never a bare `double`, a sampled trajectory, or a raw `Complex[]` — so a gate rejects on quality and a caller resumes a budget-exhausted run rather than reading best-so-far as convergence.
 
-`Integrate` ships the four quadrature kernels but refuses every gate: no route inspects a return for non-finiteness, `GaussKronrod` alone yields the `error`/`L1Norm` conditioning channel, and only `DoubleExponential`/`GaussLegendre` substitute infinite bounds through their baked-in abscissa transform while `GaussKronrod`/`OnRectangle`/`OnCuboid` integrate the raw interval — so the owner re-imposes the finite guard, the cancellation gate, the skip ledger, and a per-route infinite-bound capability. `RungeKutta` ships only fixed-step `SecondOrder`/`FourthOrder` over a scalar `double` state returning a sampled trajectory — no embedded error pair, no arbitrary Butcher tableau, no carrier polymorphism, no step control, and no receipt — so the embedded-pair adaptive integrator over the `IModule<TSelf>` carrier with the rooted-tree order proof is owned end to end. `Fourier.Forward`/`Inverse` transform a `Complex[]` in place but expose no operator symbol algebra, so the symbol vocabulary, the pointwise composition, the parity-derived Nyquist handling, and the imaginary-residual admissibility are owned.
-
-The lane is host-local and crosses no wire. Statement exemption: the `StepTableau` stage fold, the `RootedTree` elementary-weight recursion and Butcher-tree order walk, the per-evaluation skip counters inside guarded integrands, the adaptive integrate driver loop, the `WaveAxis.K()` split-spectrum build, and the internal in-place `Fourier` transform on the spectral copy are this page's named in-place numeric kernels.
+MathNet ships the kernels but no gate: no route inspects a return for non-finiteness, only `GaussKronrod` yields the `error`/`L1Norm` conditioning channel, only `DoubleExponential`/`GaussLegendre` substitute infinite bounds through a baked-in abscissa transform, `RungeKutta` is fixed-step scalar with no embedded pair or receipt, and `Fourier` exposes no operator-symbol algebra — so the finite guard, cancellation gate, per-route infinite-bound capability, the rooted-tree order proof over the `IModule<TSelf>` carrier, and the symbol vocabulary with parity-derived Nyquist handling are all owned here. Host-local, crossing no wire; the guarded-integrand skip counters, tableau stage folds, `RootedTree` order walk, and in-place `Fourier` transform on the spectral copy are its sanctioned statement-form numeric kernels.
 
 ## [01]-[INDEX]
 
@@ -14,14 +12,15 @@ The lane is host-local and crosses no wire. Statement exemption: the `StepTablea
 
 ## [02]-[QUADRATURE_ROUTE]
 
-- Owner: the owned-build quadrature lane re-imposing the gates `Integrate` refuses — `QuadratureRoute` the `[SmartEnum<string>]` accuracy axis carrying each kernel's `KernelOutcome` delegate column and an `InfiniteBounds` capability column; `IntegrationDomain` the `[Union]` arity axis carrying the genuine 1-D/2-D/3-D integrand delegates; `IntervalSpec` the bound value-object resolving its infinite flags; `Quadrature` the one entry whose `Admit` combinator reads the delegate column once.
-- Cases: `QuadratureRoute` rows double-exponential · gauss-legendre · gauss-kronrod (3 accuracy kernels); `IntegrationDomain` `[Union]` cases `Line(f, bounds, route)` · `Rectangle(f, x, y, order)` · `Cuboid(f, x, y, z, order)` (3 arities) — tensor-product cubature is the genuine `Rectangle`/`Cuboid` multi-dimensional integrand, never a 1-D delegate forced through a 2-D rule.
-- Entry: `public static Fin<QuadratureEvidence> Integrate(IntegrationDomain domain, double floor, QuadratureControl? control = null)` folds the arity through the generated total `Switch`; the `Line` arm runs the `QuadratureRoute` accuracy kernel, the `Rectangle`/`Cuboid` arms run the Gauss-Legendre product rules, and every arm lifts its outcome through the one `Admit` combinator.
-- Auto: each arm wraps its integrand in the guarded delegate counting non-finite evaluations because no route inspects returns and a pole poisons the weighted sum silently; the `Line` arm faults a route that lacks `InfiniteBounds` against an infinite `IntervalSpec` rather than feeding infinity into a finite-only kernel; `GaussKronrod` is the only row returning the `error`/`L1Norm` channel, so the cancellation ratio binds only where `L1Norm` is `Some`; the `Admit` combinator reads `KernelOutcome` once across all routes, never re-spelled per kernel.
-- Receipt: `QuadratureEvidence(Value, Error, L1Norm, Ratio, Skipped)` carries `Option<double>` for the error, L1, and cancellation ratio so a non-adaptive route reports honest absence rather than a fabricated `NaN`, and the skip count rides the receipt never silently as coverage; the gate rejects on the cancellation ratio breaching `floor`, not on slow convergence.
+- Owner: `QuadratureRoute` the `[SmartEnum<string>]` accuracy axis carrying each kernel's `KernelOutcome` delegate and `InfiniteBounds` capability; `IntegrationDomain` the `[Union]` arity axis over genuine 1-D/2-D/3-D integrands; `IntervalSpec` the bound value-object resolving infinite flags; `Quadrature.Integrate` the one entry whose `Admit` combinator reads the delegate column once.
+- Cases: `QuadratureRoute` rows double-exponential, gauss-legendre, gauss-kronrod; `IntegrationDomain` cases `Line`, `Rectangle`, `Cuboid`, cubature riding `Rectangle`/`Cuboid` as a genuine multi-dimensional integrand.
+- Auto: each arm wraps its integrand in a skip-counting guard because no route inspects returns and a pole poisons the weighted sum silently; a `Line` arm faults a route lacking `InfiniteBounds` against an infinite `IntervalSpec` rather than feeding infinity to a finite-only kernel; only `GaussKronrod` returns the `error`/`L1Norm` channel, so the cancellation ratio binds only where `L1Norm` is `Some`.
+- Receipt: `QuadratureEvidence` carries `Option<double>` error, L1, and ratio so a non-adaptive route reports honest absence, never a fabricated `NaN`; the skip count rides the receipt, never silently as coverage; a gate rejects on cancellation ratio breaching `floor`, not on slow convergence.
 - Packages: MathNet.Numerics, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
-- Growth: a new accuracy kernel is one `QuadratureRoute` row carrying its `KernelOutcome` delegate and infinite-bound capability; a new integration arity is one `IntegrationDomain` case carrying its integrand delegate; zero new surface.
-- Boundary: the quadrature route is the accuracy decision with order secondary — double-exponential, fixed Gauss-Legendre, and adaptive Gauss-Kronrod are distinct `QuadratureRoute` rows whose delegate column binds `Integrate.DoubleExponential`/`Integrate.GaussLegendre`/`Integrate.GaussKronrod` — never three sibling factories, and the finite-guard-then-admit combinator applies ONCE over the uniform `KernelOutcome` column, never re-spelled in a per-kernel method (the special-cased Kronrod whose row delegate then went dead is the deleted form); tensor-product cubature is a genuine multi-dimensional integrand carried on the `Rectangle`/`Cuboid` arity cases over `Integrate.OnRectangle`/`Integrate.OnCuboid` because a `Func<double, double>` forced through a 2-D rule by discarding the second variable integrates `(b−a)·∫f` and is the deleted phantom; infinite bounds resolve through `IntervalSpec.ResolvedLower`/`ResolvedUpper` and the facade routes them only into `DoubleExponential`/`GaussLegendre`, whose MathNet entries substitute infinity through a baked-in abscissa transform, while `GaussKronrod` and the cubature rules integrate the raw interval and fault on an infinite bound rather than evaluating an abscissa at infinity for `NaN` weights — the `InfiniteBounds` column is the load-bearing capability, not a dead flag; the `error`/`L1Norm`/`Ratio` channels are `Option<double>` because only the adaptive Kronrod row yields them and a `NaN` sentinel masquerading as a value is the deleted form; the cancellation ratio `|value/L1|` is the free conditioning diagnostic the short `GaussKronrod` overload discards, read here from the out-param overload so a gate rejects an ill-conditioned cancellation, not a converged small result.
+- Growth: a new accuracy kernel is one `QuadratureRoute` row with its delegate and infinite-bound capability; a new arity is one `IntegrationDomain` case; zero new surface.
+- Boundary — accuracy is the primary decision with order secondary: double-exponential, fixed Gauss-Legendre, and adaptive Gauss-Kronrod bind `Integrate.DoubleExponential`/`GaussLegendre`/`GaussKronrod` as `QuadratureRoute` rows, never three sibling factories, and the finite-guard-then-admit combinator applies once over the uniform `KernelOutcome` column, never re-spelled per kernel.
+- Boundary — infinite bounds route only into `DoubleExponential`/`GaussLegendre`, whose MathNet entries substitute infinity through a baked-in abscissa transform; `GaussKronrod` and the cubature rules integrate the raw interval and fault on an infinite bound rather than yielding `NaN` weights, so `InfiniteBounds` is load-bearing. A 1-D delegate forced through a 2-D rule integrates `(b−a)·∫f` and is rejected.
+- Boundary — `error`/`L1Norm`/`Ratio` are `Option<double>` because only the adaptive Kronrod row yields them; a `NaN` sentinel posing as a value is rejected. Cancellation ratio `|value/L1|` is the free conditioning diagnostic the short `GaussKronrod` overload discards, read here from the out-param overload so a gate rejects ill-conditioned cancellation, not a converged small result.
 
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
@@ -39,10 +38,8 @@ public readonly record struct KernelOutcome(double Value, Option<double> Error, 
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class QuadratureRoute {
-    // DoubleExponential and GaussLegendre substitute infinite bounds inside the MathNet entry (the abscissa
-    // transform is baked in), so InfiniteBounds is true; GaussKronrod integrates the raw interval and is
-    // finite-only. Every row returns the uniform KernelOutcome — only the adaptive Kronrod row carries the
-    // error/L1 conditioning channel — so the one Admit combinator reads a single delegate column.
+    // InfiniteBounds is true for DoubleExponential/GaussLegendre — the MathNet abscissa transform is baked in —
+    // and false for GaussKronrod, which integrates the raw interval and is finite-only.
     public static readonly QuadratureRoute DoubleExponential = new("double-exponential", infiniteBounds: true,
         kernel: static (f, lo, hi, c) => new KernelOutcome(Integrate.DoubleExponential(f, lo, hi, c.AbsoluteError), None, None));
     public static readonly QuadratureRoute GaussLegendre = new("gauss-legendre", infiniteBounds: true,
@@ -110,10 +107,8 @@ public static class Quadrature {
             });
     }
 
-    // The one combinator over the KernelOutcome column: reject a non-finite weighted sum, and where the
-    // adaptive route supplied L1 gate the cancellation ratio against floor so an ill-conditioned subtractive
-    // cancellation fails while a genuinely small converged integral passes. A route without L1 carries None
-    // through to the receipt — never a fabricated ratio.
+    // Reject a non-finite sum; where the adaptive route supplied L1, gate |value/L1| against floor so ill-conditioned
+    // cancellation fails and a small converged integral passes. No L1 carries None through, never a fabricated ratio.
     static Fin<QuadratureEvidence> Admit(KernelOutcome outcome, double floor, int skipped) =>
         !double.IsFinite(outcome.Value)
             ? Fin.Fail<QuadratureEvidence>(new ComputeFault.ModelRejected($"<quadrature-nonfinite:skipped={skipped}>"))
@@ -127,14 +122,16 @@ public static class Quadrature {
 
 ## [03]-[INTEGRATOR_TABLEAU]
 
-- Owner: the owned-build initial-value integrator with no library surface — `StepTableau` the embedded-pair Butcher tableau deriving both propagating and embedded order at construction; `IModule<TSelf>` the additive-module carrier constraint over which one step writes; `RootedTree` the Butcher-tree algebra proving order uncapped; `AdaptiveControl` the frozen step-control policy; `IntegratorTerminal` the terminal partition; `IntegratorEvidence` the run receipt.
-- Cases: `IModule<TSelf>` carriers `Scalar` · `ComplexState` · `VectorState` (scalar/complex/fixed-rank-vector and grid-slab states unified, collapsing the scalar-versus-vector transcription class); `IntegratorTerminal` `[SmartEnum<string>]` rows completed · budget-exhausted · step-underflow · non-finite (4) carrying `Resolved`/`Retryable` columns.
-- Entry: `public static Fin<StepTableau> Create(double[,] a, double[] b, double[] bHat, double[] c)` validates the tableau and derives both orders or returns a typed structural fault; `public StepOutcome<V> Step<V>(AdaptiveControl control, Func<double, V, V> rhs, double t, V state, double h) where V : IModule<V>` is the one embedded-pair step over the carrier; `public Fin<IntegratorEvidence<V>> Integrate<V>(AdaptiveControl control, Func<double, V, V> rhs, double t0, V state0, double t1, double h0) where V : IModule<V>` drives the adaptive loop to the target.
-- Auto: `Create` validates strict-lower-triangular `A` for the explicit stage loop, row-sum consistency `Σ_j A[i,j] = C[i]`, and weight consistency `Σ B = Σ BHat = 1`, then derives `Order` from `B` and `EmbeddedOrder` from `BHat` through the `RootedTree` walk rather than asserting either; `Step` shares the stage vector between the high-order `B` update and the embedded `BHat` update so the scaled difference is the local error estimate at one fold; the driver accepts a step on scaled error `≤ 1` and grows, rejects and shrinks otherwise, consumes the consecutive-reject budget, clamps the final step to land on `t1`, and partitions the terminal so a budget-exhausted or step-underflow run surfaces as retryable best-so-far rather than convergence.
-- Receipt: `IntegratorEvidence<V>(State, Terminal, Achieved, Steps, Rejects, RejectBudget)` records the terminal partition with the achieved time and step/reject counts because the three exhaustion mechanisms — convergence, budget, underflow — return best-so-far indistinguishable from convergence without the marker, and the `Resolved`/`Retryable` columns let a caller relax tolerance or budget and resume rather than losing the partial integration.
+- Owner: `StepTableau` the embedded-pair Butcher tableau deriving both propagating and embedded order at construction; `IModule<TSelf>` the additive-module carrier one step writes over; `RootedTree` the Butcher-tree algebra proving order uncapped; `AdaptiveControl` the frozen step-control policy; `IntegratorTerminal` the terminal partition; `IntegratorEvidence` the run receipt.
+- Cases: `IModule<TSelf>` carriers `Scalar`, `ComplexState`, `VectorState` (scalar/complex/fixed-rank-vector and grid-slab unified, collapsing the scalar-versus-vector transcription class); `IntegratorTerminal` rows completed, budget-exhausted, step-underflow, non-finite carrying `Resolved`/`Retryable` columns.
+- Auto: `Create` validates strict-lower-triangular `A`, row-sum consistency `Σⱼ A[i,j] = C[i]`, and `Σ B = Σ BHat = 1`, then derives order through the `RootedTree` walk rather than asserting it; `Step` shares the stage vector between the `B` and `BHat` updates so the scaled difference is the local error at one fold; the driver grows on scaled error ≤ 1, shrinks otherwise, consumes the consecutive-reject budget, clamps the final step to `t1`, and partitions the terminal so exhaustion surfaces as retryable best-so-far.
+- Receipt: `IntegratorEvidence` records the terminal partition with achieved time and step/reject counts because convergence, budget, and underflow all return best-so-far indistinguishable without the marker; `Resolved`/`Retryable` let a caller relax tolerance or budget and resume rather than lose the partial integration.
 - Packages: MathNet.Numerics, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
-- Growth: a new method is one `StepTableau.Create` call over its coefficient arrays — order is derived, never transcribed; a new state shape is one `IModule<TSelf>` carrier; a new terminal is one `IntegratorTerminal` row; zero new surface.
-- Boundary: the tableau carries the embedded pair `B`/`BHat` so the local error estimate is the genuine scaled difference of two orders sharing one stage vector — a single `B` row with an `AdaptiveControl` whose `NextStep` is never called is the deleted fixed-step-masquerading-as-adaptive form, and the driver reads `control` on every step; verified order is derived as the largest integer for which every rooted tree of that order satisfies `Σ_i b_i Φ_i(t) = 1/γ(t)`, generated by `RootedTree.OfOrder` and bounded by the stage count (an explicit s-stage method cannot exceed order s by the Butcher barrier) — a hand-transcribed `switch` capped at a literal order with a runtime `_ => false` arm misreports a 5(4) pair as order 4 and is the deleted form; the error norm is the carrier's static-abstract `ScaledError`, the per-component scaled two-pass RMS that divides each component by its own `atol + rtol·max` before squaring so large-magnitude state never overflows the naive squared-sum-then-root — a default `=> 0.0` that gates nothing is the deleted stub; the step writes over the minimal additive-module operations (`+`, scalar `*`) through the `IModule<TSelf>` constraint so scalar, complex, fixed-rank-vector, and grid-slab carriers share one transcription; the terminal partitions `Completed | BudgetExhausted | StepUnderflow | NonFinite` because mapping budget-exhaustion to `Fin.Fail` destroys the caller's relaxed-criterion retry — only an inadmissible span (`t1 ≤ t0` or a non-positive initial step) faults, every termination succeeds with its marker.
+- Growth: a new method is one `StepTableau.Create` call over its coefficient arrays — order derived, never transcribed; a new state shape is one `IModule<TSelf>` carrier; a new terminal is one `IntegratorTerminal` row; zero new surface.
+- Boundary — the embedded pair `B`/`BHat` makes the local error the genuine scaled difference of two orders sharing one stage vector: a single `B` row with an `AdaptiveControl` whose `NextStep` never fires is fixed-step masquerading as adaptive, and the driver reads `control` every step.
+- Boundary — order is derived as the largest p for which every rooted tree of order p satisfies `Σᵢ bᵢ Φᵢ(t) = 1/γ(t)`, bounded by the stage count (Butcher barrier); a hand-transcribed `switch` capped at a literal with a runtime `_ => false` misreports a 5(4) pair as order 4 and is rejected.
+- Boundary — error norm is the carrier's static-abstract `ScaledError`, a per-component two-pass RMS dividing by `atol + rtol·max` before squaring so large-magnitude state never overflows the naive squared-sum-then-root; a default `=> 0.0` gating nothing is rejected.
+- Boundary — every termination succeeds with its marker; only an inadmissible span (`t1 ≤ t0` or non-positive initial step) faults, because mapping budget-exhaustion to `Fin.Fail` destroys the caller's relaxed-criterion retry.
 
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
@@ -142,9 +139,8 @@ public interface IModule<TSelf> where TSelf : IModule<TSelf> {
     static abstract TSelf operator +(TSelf left, TSelf right);
     static abstract TSelf operator *(double scalar, TSelf value);
 
-    // The embedded-difference scaled error the step driver gates on (target 1.0). Each carrier owns the
-    // per-component reduction so the integrator stays generic over the state shape — no instance default,
-    // no stub: a carrier that cannot weigh its own error cannot be integrated.
+    // Embedded-difference scaled error the driver gates on (target 1.0); each carrier owns the per-component
+    // reduction — no instance default, no stub — so a carrier that cannot weigh its error cannot be integrated.
     static abstract double ScaledError(TSelf high, TSelf low, double absoluteTolerance, double relativeTolerance);
 }
 
@@ -177,9 +173,7 @@ public readonly record struct VectorState(double[] Values) : IModule<VectorState
         return new(scaled);
     }
 
-    // Scaled two-pass RMS: divide each component by its own atol + rtol·max(|high|,|low|) scale BEFORE
-    // squaring so a large-magnitude grid-slab state never overflows the squared-sum-then-root the naive norm
-    // computes; an infinity in this channel is then attributable to norm policy, not accumulation overflow.
+    // Scaled two-pass RMS: divide by atol + rtol·max BEFORE squaring, so an infinity here is norm policy, not overflow.
     public static double ScaledError(VectorState high, VectorState low, double atol, double rtol) {
         double sum = 0.0;
         for (int i = 0; i < high.Values.Length; i++) {
@@ -205,10 +199,8 @@ public sealed partial class IntegratorTerminal {
     public bool Retryable { get; }
 }
 
-// The Butcher-tree algebra: a rooted tree is a multiset of subtrees, its order the node count, its density
-// γ(t) = |t|·Π γ(children). The order conditions Σ_i b_i Φ_i(t) = 1/γ(t) over every tree of order ≤ p ARE
-// the verified order — generated, never hand-transcribed, so a high-order embedded pair derives its true
-// order instead of being capped at a literal.
+// Butcher-tree algebra: a rooted tree is a multiset of subtrees, its order the node count, its density
+// γ(t) = |t|·Π γ(children); the order conditions Σ_i b_i Φ_i(t) = 1/γ(t) over every tree of order ≤ p are the verified order.
 public sealed record RootedTree(ImmutableArray<RootedTree> Children) {
     public static readonly RootedTree Leaf = new(ImmutableArray<RootedTree>.Empty);
 
@@ -233,9 +225,8 @@ public sealed record RootedTree(ImmutableArray<RootedTree> Children) {
         return order;
     }
 
-    // Elementary weight Φ_i(t): a single node weights 1 at every stage; a composite multiplies, over its
-    // child subtrees, the stage-local g_i = Σ_j a_ij Φ_j(child) — so [τ] yields c_i and [[τ]] yields
-    // Σ_j a_ij c_j, the order conditions falling out of the recursion rather than enumeration.
+    // Elementary weight Φ_i(t): a single node weights 1 at every stage; a composite multiplies the stage-local
+    // g_i = Σ_j a_ij Φ_j(child) over its child subtrees — so [τ] yields c_i and [[τ]] yields Σ_j a_ij c_j.
     public double[] Weight(double[,] a, int stages) {
         var phi = new double[stages];
         Array.Fill(phi, 1.0);
@@ -251,8 +242,8 @@ public sealed record RootedTree(ImmutableArray<RootedTree> Children) {
         return phi;
     }
 
-    // All rooted trees of exactly `order` nodes: a root over a multiset of subtrees whose orders sum to
-    // order − 1, the subtrees chosen in non-decreasing pool index so each multiset is emitted once.
+    // All rooted trees of exactly `order` nodes: a root over a multiset of subtrees whose orders sum to order − 1,
+    // chosen in non-decreasing pool index so each multiset is emitted once.
     public static IEnumerable<RootedTree> OfOrder(int order) {
         if (order <= 1) { return [Leaf]; }
         ImmutableArray<RootedTree> pool = Enumerable.Range(1, order - 1).SelectMany(OfOrder).ToImmutableArray();
@@ -271,8 +262,8 @@ public sealed record RootedTree(ImmutableArray<RootedTree> Children) {
 public sealed record AdaptiveControl(double Safety, double MinRatio, double MaxRatio, int RejectBudget, double AbsoluteTolerance, double RelativeTolerance, double MinStep) {
     public static readonly AdaptiveControl Default = new(Safety: 0.9, MinRatio: 0.2, MaxRatio: 5.0, RejectBudget: 8, AbsoluteTolerance: 1e-9, RelativeTolerance: 1e-6, MinStep: 1e-12);
 
-    // The PI-free elementary controller over the embedded order: error < 1 grows, error > 1 shrinks, both
-    // clamped. The exponent uses the lower (embedded) order + 1 — the order governing the local error term.
+    // PI-free elementary controller: error < 1 grows, error > 1 shrinks, both clamped; the exponent uses the
+    // lower (embedded) order + 1, the order governing the local error term.
     public double NextStep(double h, double error, int embeddedOrder) =>
         h * Math.Clamp(Safety * Math.Pow(Math.Max(error, double.Epsilon), -1.0 / (embeddedOrder + 1)), MinRatio, MaxRatio);
 }
@@ -348,14 +339,14 @@ public sealed record StepTableau(double[,] A, double[] B, double[] BHat, double[
 
 ## [04]-[SPECTRAL_OPERATOR]
 
-- Owner: the owned-build constant-coefficient periodic operator with no symbol-algebra surface — `SpectralSymbol` the `[SmartEnum<string>]` Fourier-multiplier vocabulary carrying each operator's symbol delegate and its parity; `SymbolParity` the composing parity policy; `Spectral` the pointwise-product composition carrier; `WaveAxis` the split-spectrum wavenumber owner; `SpectralOperator` the forward-multiply-inverse application with the imaginary-residual gate.
-- Cases: `SpectralSymbol` rows derivative (`i·k`) · laplacian (`−k²`) · biharmonic (`k⁴`) · hilbert (`−i·sgn k`) · anti-derivative (`1/(i·k)` with the zero mode killed) (5); `SymbolParity` `[SmartEnum<string>]` even · odd (2) carrying the `ZeroesNyquist` column.
-- Entry: `public static Fin<SpectralEvidence> Apply(double[] field, WaveAxis axis, Spectral op)` lifts the real field to the spectrum, multiplies by the composed symbol per wavenumber, inverts, and gates; `Spectral.Of(symbol)` and `Spectral.Then(symbol)` compose operators by appending a symbol row.
-- Auto: the composed symbol `Spectral.At(k)` is the pointwise product of its factor rows, and `Spectral.Parity` is the XOR-fold of the factor parities, so the Nyquist bin zeroes exactly when the composition is odd; `Apply` allocates an internal spectral copy so the caller's field is never mutated by the in-place `Fourier` transform; the imaginary residual is the max `|Im|` over max `|Re|` of the inverted field, gated because a real-field real-symbol operator owes a machine-zero imaginary part.
-- Receipt: `SpectralEvidence(Field, ImaginaryResidual, Parity)` carries the real result, the imaginary-residual diagnostic the gate read, and the composed parity so a consumer reads the operator's symmetry class off the evidence; an excess residual fails the run because it diagnoses broken Hermitian symmetry, not a usable result.
+- Owner: `SpectralSymbol` the `[SmartEnum<string>]` Fourier-multiplier vocabulary carrying each operator's symbol delegate and parity; `SymbolParity` the composing parity policy; `Spectral` the pointwise-product composition carrier; `WaveAxis` the split-spectrum wavenumber owner; `SpectralOperator.Apply` the forward-multiply-inverse application with the imaginary-residual gate.
+- Cases: `SpectralSymbol` rows derivative (`i·k`), laplacian (`−k²`), biharmonic (`k⁴`), hilbert (`−i·sgn k`), anti-derivative (`1/(i·k)`, zero mode killed); `SymbolParity` even, odd carrying `ZeroesNyquist`.
+- Auto: `Spectral.At(k)` is the pointwise product of factor rows and `Spectral.Parity` the XOR-fold of factor parities, so the Nyquist bin zeroes exactly when the composition is odd; `Apply` works over an internal spectral copy so the caller's field is never mutated; imaginary residual is max `|Im|` over max `|Re|`, gated because a real-field real-symbol operator owes a machine-zero imaginary part.
+- Receipt: `SpectralEvidence` carries the real result, the imaginary residual the gate read, and the composed parity so a consumer reads the operator's symmetry class off the evidence; excess residual fails the run as broken Hermitian symmetry, never a usable result.
 - Packages: MathNet.Numerics, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
-- Growth: a new operator is one `SpectralSymbol` row carrying its symbol delegate and parity; a composite operator is a `Spectral.Then` chain composed by pointwise multiplication; zero new code path.
-- Boundary: every constant-coefficient periodic operator collapses to one `SpectralSymbol` row applied pointwise to the forward transform — symbols compose by pointwise multiplication through `Spectral` before a single inverse, and a new operator is a new row, never a new code path nor a bare `Func<double, Complex>` riding beside the call because the parity is row data the operator owns; the split-spectrum wavenumber derives once at grid construction through `Generate.LinearRangeMap` — ascending positives through Nyquist then descending negatives scaled by `2π/extent` — because hand-indexing the bin number applies an aliased symbol past the half length silently; the Nyquist bin zeroes when the composed `SymbolParity` is odd, derived from the symbol rows rather than a `bool oddOrder` knob passed beside the field; `Fourier.Forward`/`Inverse` pin `FourierOptions.AsymmetricScaling` in the owner because the symmetric default cancels only on round trips and is the most common silent error; the field is lifted into an internal `Complex[]` copy so the in-place transform never mutates the caller's array; the result is inadmissible on excess imaginary residual because a real-symbol operator owes a machine-zero imaginary part and excess diagnoses broken Hermitian symmetry — a bare `Complex[]` returned with no residual gate is the deleted form.
+- Growth: a new operator is one `SpectralSymbol` row with its symbol delegate and parity; a composite is a `Spectral.Then` chain; zero new code path.
+- Boundary — every constant-coefficient periodic operator is one `SpectralSymbol` row applied pointwise to the forward transform; symbols compose by pointwise multiplication before a single inverse, and parity is row data the operator owns, never a `bool oddOrder` knob nor a bare `Func<double, Complex>` riding beside the call.
+- Boundary — the split-spectrum wavenumber derives once at grid construction (ascending positives through Nyquist, then descending negatives, scaled by `2π/extent`) because hand-indexing the bin applies an aliased symbol past the half length silently; `Fourier.Forward`/`Inverse` pin `AsymmetricScaling` because the symmetric default cancels only on round trips, the most common silent error; excess imaginary residual is inadmissible because a real-symbol operator owes a machine-zero imaginary part and excess diagnoses broken Hermitian symmetry.
 
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
@@ -368,8 +359,7 @@ public sealed partial class SymbolParity {
 
     public bool ZeroesNyquist { get; }
 
-    // even∘even = even, odd∘odd = even, mixed = odd: parity composes by XOR, and the composed operator
-    // zeroes the Nyquist bin iff it is odd (an odd symbol is discontinuous across ±Nyquist).
+    // Parity composes by XOR (even∘even = even, odd∘odd = even, mixed = odd); an odd composite zeroes the Nyquist bin (odd symbols are discontinuous across ±Nyquist).
     public SymbolParity Compose(SymbolParity other) => this == other ? Even : Odd;
 }
 
@@ -377,9 +367,8 @@ public sealed partial class SymbolParity {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SpectralSymbol {
-    // σ(k): the Fourier multiplier of a constant-coefficient periodic operator. Each is Hermitian-conjugate
-    // symmetric (σ(−k) = conj σ(k)) so it maps a real field to a real field; the anti-derivative kills the
-    // undetermined zero mode rather than dividing by zero.
+    // σ(k): the Fourier multiplier, Hermitian-conjugate symmetric (σ(−k) = conj σ(k)) so it maps real to real;
+    // the anti-derivative kills the undetermined zero mode rather than dividing by zero.
     public static readonly SpectralSymbol Derivative = new("derivative", symbol: static k => new Complex(0.0, k), parity: SymbolParity.Odd);
     public static readonly SpectralSymbol Laplacian = new("laplacian", symbol: static k => new Complex(-k * k, 0.0), parity: SymbolParity.Even);
     public static readonly SpectralSymbol Biharmonic = new("biharmonic", symbol: static k => new Complex(k * k * k * k, 0.0), parity: SymbolParity.Even);
@@ -446,3 +435,11 @@ public static class SpectralOperator {
     }
 }
 ```
+
+## [05]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+-->
+
+(none)

@@ -192,7 +192,7 @@ jobs:
 |  [02]   | `max-parallel`      | Unlimited (runner pool cap) | Limits concurrent matrix jobs. Omit for maximum parallelism.        |
 |  [03]   | `continue-on-error` | `false`                     | Per-job override: `true` shields that job's failure from fail-fast. |
 
-[INTERACTION_SEMANTICS]: `continue-on-error: true` on a matrix job masks its failure from `fail-fast` — remaining matrix jobs continue. However, downstream `needs:` jobs see the failed job's result as `success`, which can hide real failures. The matrix policy: `fail-fast: false` (let all matrix jobs run) without `continue-on-error`, then aggregate results in a downstream job via `needs.*.result`.
+[INTERACTION_SEMANTICS]: `continue-on-error: true` on a matrix job masks its failure from `fail-fast` — remaining matrix jobs continue. However, downstream `needs:` jobs see the failed job's result as `success`, which can hide real failures. Matrix policy: `fail-fast: false` (let all matrix jobs run) without `continue-on-error`, then aggregate results in a downstream job via `needs.*.result`.
 
 [IMPORTANT] `uses:` values are static strings — not dynamically generated. Max 256 jobs per matrix.
 

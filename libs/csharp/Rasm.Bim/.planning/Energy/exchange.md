@@ -120,7 +120,7 @@ public static class EnergyExchange {
             var projector = new EnergyProjector(r.Source);
             return EnergyProjector.Serves(r.Source.Format)
                 ? ProjectionAssembly.Assemble(
-                        ProjectionSuite.Of(Seq<IElementProjection>(projector), Seq<IGraphConstraint>(new IfcLegality())),
+                        ProjectionSuite.Of(Seq<IElementProjection>(projector), Seq(ConstraintRegistration.Of(new IfcLegality()))),
                         r.Seed, r.Ctx)
                     .Map(result => (EnergyOutcome)new EnergyOutcome.Raised(
                         result.Graph, result.Delta, projector.Footprints, projector.Receipt(r.Ctx.At)))

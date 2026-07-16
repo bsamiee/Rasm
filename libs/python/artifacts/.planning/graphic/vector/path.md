@@ -1,24 +1,23 @@
 # [PY_ARTIFACTS_GRAPHIC_VECTOR_PATH]
 
-The s1 parse/query/affine/measure/sample substrate of the vector plane — the one `svgelements` owner every geometry consumer composes one hop, minting no receipt and emitting no document. `Path` is ONE modal owner over the closed `PathOp` family, normalizing `PathOp | Iterable[PathOp]` at the head so a lone bounds query and a mixed measure + sample + centroid batch are the same entrypoint, traversing the ops into one `RuntimeRail[Block[PathResult]]` whose every outcome is the typed `PathResult` (`extent`/`measure`/`sampled`/`oriented`/`reduced`/`anchor`/`contours`/`fragment`/`placed`), never an erased `bytes` a consumer re-parses. Beside the rail the page exposes ONE public composable geometry surface — `scene`/`combined`/`bounds`/`measure`/`sample`/`point_at`/`decimate`/`centroid`/`flatten`/`subpaths`/`project`/`fit_matrix`/`compose`/`reflect`/`polar`/`px`/`in_units`/`fragment` — that `graphic/vector/region#REGION`, `graphic/vector/pattern#PATTERN`, the drawing producers (`symbol`/`dimension`/`detail`), the placement plane (`composition/compose#COMPOSE`, `composition/sheet#SHEET`), `export/dxf#DXF`, `visualization/diagram/solar#SOLAR`, and `graphic/marks/encode#ENCODE` import and compose in-process. Every fallible arm rails its provider raise into the closed `PathFault` `@tagged_union` (`parse`/`singular`/`empty`/`contract`); the interior is total over `Result[PathResult, PathFault]`.
+The s1 parse/query/affine/measure/sample substrate of the vector plane — the one `svgelements` owner every geometry consumer composes one hop, minting no receipt and emitting no document. `Path` is ONE modal owner over the closed `PathOp` family, normalizing `PathOp | Iterable[PathOp]` at the head so a lone query and a mixed batch are the same entrypoint, traversing the ops into one `RuntimeRail[Block[PathResult]]` whose every outcome is the typed `PathResult`, never an erased `bytes` a consumer re-parses. Beside the rail it exposes the composable geometry surface — `scene`/`combined`/`bounds`/`measure`/`sample`/`point_at`/`decimate`/`centroid`/`flatten`/`subpaths`/`project`/`fit_matrix`/`compose`/`reflect`/`polar`/`px`/`in_units`/`fragment` — that `graphic/vector/region#REGION`, `graphic/vector/pattern#PATTERN`, the drawing producers, the placement plane, `export/dxf#DXF`, `visualization/diagram/solar#SOLAR`, and `graphic/marks/encode#ENCODE` import in-process. Every fallible arm rails its provider raise into the closed `PathFault` `@tagged_union`; the interior is total over `Result[PathResult, PathFault]`.
 
-`svgelements` (pure-Python, zero-native, host-free) parses an SVG document into a typed `Shape` tree, resolves bounding geometry through `Shape.bbox(with_stroke=)`, transforms each shape through `SvgPath(geometry) * Matrix`, fits a source extent into a target viewport through the `Viewbox` preserve-aspect `Matrix`, measures total arc length and vectorized-samples parametric points over the combined outline through the numpy-accelerated `SvgPath.npoint`, decomposes the outline into per-contour `Subpath` views, and flattens curves to cubics/quads/arcs for a polyline/toolpath consumer. The expensive `SVG.parse(reify=True)` ingestion is memoized on the source `bytes` by the one `@lru_cache(maxsize=128)` `_parsed` core that captures the parse fault, so a consumer that queries `bounds`, then `measure`, then `point_at` over one source parses it once and a malformed source rails once — the hot ingress every downstream re-parse short-circuits on. Three owned metric kernels close what the parametric surface cannot answer: `point_at` resolves points AND unit tangents at metric arc-length distances over one numpy cumulative-chord sweep (the tick-spacing/text-on-path substrate — a `t ∈ [0,1]` parametric sample is NOT proportional to distance across mixed segment lengths, the rejected form), `decimate` reduces a sampled polyline under a max-deviation tolerance (Ramer-Douglas-Peucker over the same sweep), and `centroid` folds per-contour shoelace areas into the area-weighted document centroid (the vertex-mean stand-in `drawing/detail#DETAIL` carried is the rejected form). Every tolerance and density anchor lives on the one `Tolerance` policy row — `flatten=0.1`/`conic=0.25`/`ppi=96.0`/`tangent=1e-3` — never an inline magic float. Because the parse/measure/sample sweep is synchronous CPU work, the modal rail crosses the whole op batch through the runtime lane's `offload(..., modality=Modality.PROCESS)` under the runtime-owned worker bound, while the composable functions stay synchronous for consumers that own their own lane crossing. This page owns ONLY the parse/query/affine substrate; boolean/offset/outline algebra, document serialization, and rasterization are `graphic/vector/region#REGION`'s, and repeating fill geometry is `graphic/vector/pattern#PATTERN`'s.
+`svgelements` (pure-Python, host-free) parses an SVG document into a typed `Shape` tree, resolves bounds through `Shape.bbox(with_stroke=)`, transforms through `SvgPath(geometry) * Matrix`, fits a source extent into a viewport through the `Viewbox` preserve-aspect `Matrix`, measures and vectorized-samples over the combined outline through `SvgPath.npoint`, and flattens curves for a polyline/toolpath consumer. The expensive `SVG.parse(reify=True)` ingestion is memoized on the source `bytes` by the `@lru_cache` `_parsed` core, so a consumer that queries `bounds`, then `measure`, then `point_at` parses once and a malformed source rails once. Three owned metric kernels close what the parametric surface cannot answer over one numpy cumulative-chord sweep: `point_at` resolves points AND unit tangents at metric arc-length distances (a `t ∈ [0,1]` sample is NOT proportional to distance across mixed segment lengths, the rejected form), `decimate` reduces a sampled polyline under a max-deviation tolerance (Ramer-Douglas-Peucker), and `centroid` folds per-contour shoelace areas into the area-weighted document centroid (the vertex-mean stand-in is the rejected form). Every tolerance and density anchor lives on the one `Tolerance` policy row, never an inline float. Because the sweep is synchronous CPU work, the modal rail crosses the whole batch through the runtime lane's `offload(modality=Modality.PROCESS)`, while the composable functions stay synchronous for consumers owning their own lane crossing. This page owns ONLY the parse/query/affine substrate — boolean/offset/outline algebra, serialization, and rasterization are `graphic/vector/region#REGION`'s, and repeating fill is `graphic/vector/pattern#PATTERN`'s.
 
 ## [01]-[INDEX]
 
-- [01]-[PATH]: the SVG parse/query/affine/measure/sample substrate over the closed-payload `PathOp` family, the typed `PathResult` outcome, and the closed `PathFault` provider-exception vocabulary — the memoized `_parsed` `SVG.parse(reify=True)` ingestion core, the `elements(conditional=isinstance Shape)` drawable narrowing, the combined-outline fold, the `Matrix` affine (`scale`/`translate`/`rotate`/`skew` factories, ordered `pre_*`/`post_*` `compose`, `determinant`-guarded copy-inverse `project`), the `Viewbox` preserve-aspect `fit_matrix`, the metric arc-length kernels (`point_at`/`decimate`/`centroid` over one numpy cumulative-chord sweep), the `FlattenKind`-keyed curve flatten, per-contour `subpaths`, the `Point` `reflect`/`polar` helpers, the `Length` unit egress (`px`/`in_units`), and the `fragment` d-string egress — the public composable surface region/pattern/drawing/placement/dxf/solar/marks import one hop, and the `Path.over`/`of` modal rail the awaited uniform-op contract over `Block[PathResult]`.
+- [01]-[PATH]: the SVG parse/query/affine/measure/sample substrate over the closed `PathOp` family — the memoized `_parsed` core, the `Matrix` affine, the `Viewbox` fit, the metric arc-length kernels (`point_at`/`decimate`/`centroid` over one numpy sweep), and the `Length` unit egress — the composable surface region/pattern/drawing/placement/dxf/solar/marks import one hop, on the `Path.over`/`of` modal rail over `Block[PathResult]`.
 
 ## [02]-[PATH]
 
-- Owner: `Path` the one parse/query/affine substrate owner holding `ops: tuple[PathOp, ...]` and discriminating operation over the closed `PathOp` `expression.tagged_union` whose every case carries its own typed payload, never a `StrEnum` keyed against a shared erased `dict[str, object]`; projecting one closed `PathResult` family whose every case carries its own typed outcome; and railing every provider raise into the closed `PathFault` `@tagged_union`, never `None`-as-failure. The `svgelements` `SVG` document is the working surface, the `Matrix`/`SvgPath`/`Length`/`Point`/`bbox` algebra the geometry-and-transform surface. This owner reads `bbox` over the `Shape`-narrowed `elements(conditional=)` sweep, folds the document shapes into one combined `SvgPath` for the measure/sample/metric/flatten/subpaths queries, and serializes geometry ONLY as `d` strings through the one `fragment` egress — document assembly (`<svg>` framing, `<path>` elements, defs, paint) is `graphic/vector/region#REGION`'s drawsvg surface, never an f-string here.
-- Cases: `PathOp` cases — `Bounds(source, kind=GEOMETRIC)` (the union `(xmin, ymin, xmax, ymax)` `extent` over `Shape.bbox(with_stroke=kind is INK)`, keyed by the `BoundsKind` policy value, never a `with_stroke: bool` knob) · `Measure(source)` (total arc length over the combined `SvgPath.length()`) · `Sample(source, positions)` (parametric points at `t ∈ [0, 1]` over the numpy-backed `npoint`, `positions` normalized to one tuple at the factory head per `MODAL_ARITY`) · `PointAt(source, distances)` (the METRIC kernel: points + unit tangents at arc-length distances in user units over the `_polyline` cumulative-chord sweep — the tick-spacing law `drawing/dimension#DIMENSION` keys and the text-on-path positions `graphic/vector/region#REGION` threads; distances normalize at the factory head) · `Decimate(source, epsilon)` (Ramer-Douglas-Peucker polyline reduction under the max-deviation `epsilon`, defaulted from the `Tolerance` row — the toolpath/plot-weight reducer) · `Centroid(source)` (the area-weighted document centroid: per-contour shoelace areas weight per-contour centroids, holes subtracting by signed area) · `Flatten(source, kind, error)` (replace every `Arc`/cubic through the `FlattenKind`-keyed `_FLATTEN` row, emitting the flattened `d` string) · `Subpaths(source)` (per-contour `Subpath.d()` strings over `as_subpaths`, the `contours` family a winding/hole/toolpath consumer keys per closed loop) · `Project(points, matrix, kind=POINT, inverse=False)` (map each point through `Point.matrix_transform` or each direction through `Matrix.transform_vector` keyed by `ProjectKind`, optionally inverse-through a `determinant`-guarded `Matrix(matrix)` copy — `Matrix.inverse()` mutates its receiver and divides by the determinant, so the copy-and-guard is the only sound form) · `FitMatrix(source, target)` (the `Viewbox` preserve-aspect fit `Matrix` from the resolved source bbox into the `target` viewport — the source→target scale-fit `composition/compose#COMPOSE` delegates; the MATRIX is the outcome, the placed document is region's) — matched by one total `match`/`case`; never a per-source parse sibling, never a per-shape transform method. `PathResult` cases — `extent` (the bounds tuple), `measure` (the arc-length float), `sampled` (parametric `tuple[Point2, ...]`), `oriented` (metric `tuple[(point, unit_tangent), ...]` rows), `reduced` (the decimated polyline), `anchor` (the centroid `Point2`), `contours` (per-subpath d-strings), `fragment` (a flattened/transformed `d` string), `placed` (the fit/composed `Matrix`) — structurally addressable, never `bytes` discriminated by length.
-- Modality: `Path.over` is the one modal-arity entrypoint normalizing `PathOp | Iterable[PathOp]` into the `ops` tuple by a structural `match` at the head, so a lone geometry query is the one-element case and a mixed batch is the multi-element case under the identical surface — never a `batch: bool`, never a per-op sibling. The operation is the value's `PathOp` case; the arity is the value's shape.
-- Auto: `_parsed` is the one `@lru_cache(maxsize=128)` ingestion core — `SVG.parse(BytesIO(source), reify=True)` keyed on the source `bytes`, wrapped in one `try` mapping `ParseError`/`ValueError`/`TypeError` onto `PathFault.parse`, `reify=True` resolving transforms so every downstream `bbox()`/`SvgPath` read returns absolute coordinates, the cache collapsing the repeated parse a multi-query consumer would otherwise pay per op (a malformed source rails once, never per arm); `scene` narrows through `elements(conditional=lambda element: isinstance(element, Shape))` so the non-drawable `SVG` root and the `Group`/`Use` containers are excluded (the root carries a `bbox` attribute, so an attribute post-filter admits it and `SvgPath(root)` then crashes every outline fold — the rejected form); `combined` folds every shape's `SvgPath(shape).segments()` through `chain.from_iterable` into one outline, railing an empty segment set onto `PathFault.empty`; `_polyline` is the one metric kernel core — `npoint` over `tolerance.samples` evenly-spaced parameters, cumulative chord lengths via one `np.cumsum` of segment norms — that `point_at`/`decimate`/`centroid` share, one vectorized sweep instead of three re-derivations; `point_at` interpolates each metric distance onto the polyline (`np.searchsorted` over the cumulative lengths, linear blend within the chord) and reads the unit tangent off the local chord under the `tolerance.tangent` step; `fragment` composes `(SvgPath(geometry) * matrix).d()` (identity when `matrix is None`) — the `d`-string egress every serializing consumer receives, never a styled `<path>` element; `px` resolves a CSS `Length` through `Length(length).value(ppi=tolerance.ppi, viewbox=...)`; `in_units` converts through the catalogued `to_mm`/`to_cm`/`to_inch` rows and strips the target unit's own declared suffix (`"25.4mm"` → `25.4`) — the conversion emits exactly its unit token, so the strip is total, never a general string parse.
-- Faults: `PathFault` is the one closed `@tagged_union` vocabulary every arm maps its provider raise into — `parse` (an `xml.etree.ElementTree.ParseError`/`ValueError`/`TypeError` from `SVG.parse` over malformed markup; `ParseError` is the real raise svgelements' default `on_error='ignore'` still surfaces on a structural XML fault), `singular` (a `project` inverse against a `determinant == 0` matrix, guarded before the `1/det` raise), `empty` (a document with no drawable shape, an outline with no segment, or a zero-length metric sweep — the `min()`-over-empty and `npoint`-`None` causes the interior would otherwise raise on), `contract` (a `BeartypeCallHintViolation` the `_contracted` weave lifts onto `_dispatch`'s rail) — each raise named at the arm that incurs it, never a bare `except Exception`. `Color(value)` is lenient (a malformed color resolves rather than raising), so no color fault case is minted.
-- Receipt: `Path` is a geometry substrate — its rail returns one `Block[PathResult]` and its composable functions return geometry values that the consuming producer keys into its own `ContentIdentity.of` and contributes to `core/receipt#RECEIPT`; this substrate mints no content key and adds no receipt case.
-- Growth: a new geometry query is one `PathOp` case plus one composable function over the existing `svgelements` surface — a curvature query rides the `_polyline` sweep plus a second difference — never a re-implemented geometry engine; a new flatten target is one `FlattenKind` member plus one `_FLATTEN` row; a new projection mode is one `ProjectKind` member plus one `_PROJECT` row; a new unit egress is one `Unit` member (its suffix the strip token); a new tolerance/density anchor is one `Tolerance` field, never an inline float; a new fault cause is one `PathFault` case; a new outcome shape is one `PathResult` case; zero new surface.
-- Packages: `svgelements` (`SVG.parse(reify=True)`/`elements(conditional=)`, `SvgPath.d`/`bbox(with_stroke=)`/`length`/`npoint`/`segments`/`as_subpaths`/`approximate_arcs_with_cubics`/`approximate_arcs_with_quads`/`approximate_bezier_with_circular_arcs`, `Matrix` factories + `pre_*`/`post_*` + `determinant`/`inverse` + `transform_point`/`transform_vector`, `Viewbox(content, preserve_aspect_ratio=).transform(Viewbox(viewport))`, `Length.value(ppi=, viewbox=)`/`to_mm`/`to_cm`/`to_inch`, `Point.distance_to`/`angle_to`/`polar_to`/`reflected_across`/`matrix_transform`); `numpy` (the `npoint` array sweep, `cumsum`/`searchsorted`/`linalg.norm` metric kernels); `expression` (`tagged_union`/`case`/`tag`, `Result`/`Ok`/`Error`, `Block`, `Map.of_seq` dispatch tables, `traverse`); `msgspec` (`Struct` the `Tolerance` policy row and the modal owner); `beartype` (the `_contracted` definition-time contract weave); runtime `lanes` (`LanePolicy.offload`/`Modality.PROCESS` the one worker seam), runtime `faults` (`RuntimeRail`).
-- Boundary: no boolean/offset/stroke/winding algebra and no `pathops` import (that is `graphic/vector/region#REGION`); no document assembly, `<svg>`/`<path>` element emission, paint, or raster (region's drawsvg/resvg surface); no repeating fill geometry (`graphic/vector/pattern#PATTERN`); no receipt or identity minting (the consuming producer's); no folder-minted limiter or retry — the one native seam is the runtime lane's `offload`.
+- Owner: `Path` the one parse/query/affine substrate owner holding `ops: tuple[PathOp, ...]` and discriminating over the closed `PathOp` `expression.tagged_union` whose every case carries its own typed payload, never a `StrEnum` keyed against a shared erased `dict`; projecting one closed `PathResult` family; and railing every provider raise into `PathFault`, never `None`-as-failure. This owner reads `bbox` over the `Shape`-narrowed `elements(conditional=)` sweep, folds the document shapes into one combined `SvgPath` for the measure/sample/metric/flatten/subpaths queries, and serializes geometry ONLY as `d` strings through the one `fragment` egress — document assembly is `graphic/vector/region#REGION`'s drawsvg surface, never an f-string here.
+- Cases: `PathOp` cases split by return kind — `Bounds` (the union extent over `Shape.bbox(with_stroke=)` keyed by `BoundsKind`, never a `with_stroke: bool` knob), `Measure`/`Sample` (arc length and parametric `npoint` points), `PointAt` (the METRIC kernel: points + unit tangents at arc-length distances the tick-spacing law keys and text-on-path threads), `Decimate` (RDP polyline reduction), `Centroid` (area-weighted, holes subtracting by signed area), `Flatten`/`Subpaths` (`FlattenKind`-keyed `d` string, per-contour `d` strings), `Project` (`Point.matrix_transform` or `Matrix.transform_vector` keyed by `ProjectKind`, inverse through a `determinant`-guarded `Matrix(matrix)` copy because `Matrix.inverse()` mutates its receiver), `FitMatrix` (the `Viewbox` preserve-aspect fit `Matrix` `composition/compose#COMPOSE` delegates) — matched by one total `match`, never a per-source parse sibling or per-shape transform method. `PathResult` cases are structurally addressable (`extent`/`measure`/`sampled`/`oriented`/`reduced`/`anchor`/`contours`/`fragment`/`placed`), never `bytes` discriminated by length.
+- Entry: `Path.over` normalizes `PathOp | Iterable[PathOp]` into the `ops` tuple by a structural `match` at the head, so a lone query is the one-element case and a mixed batch the multi-element case under the identical surface — never a `batch: bool`, never a per-op sibling.
+- Auto: `_parsed` is the one `@lru_cache` ingestion core keyed on the source `bytes`, `reify=True` resolving transforms so every `bbox()`/`SvgPath` read returns absolute coordinates and the cache collapsing the repeated parse a multi-query consumer otherwise pays per op; `scene` narrows through `isinstance(element, Shape)` to exclude the non-drawable root and `Group`/`Use` containers (the root carries a `bbox` attribute, so an attribute post-filter admits it and then crashes every outline fold — the rejected form); `combined` folds every shape's segments into one outline; `_polyline` is the one metric kernel core (`npoint` over `tolerance.samples`, cumulative chord lengths via one `np.cumsum`) that `point_at`/`decimate`/`centroid` share, one vectorized sweep for three queries; `in_units` converts through the catalogued `to_mm`/`to_cm`/`to_inch` rows and strips the target unit's own emitted token, so the strip is total, never a general string parse.
+- Receipt: `Path` is a geometry substrate — its rail returns one `Block[PathResult]` and its composable functions return geometry values the consuming producer keys into its own `ContentIdentity.of`; this substrate mints no content key and adds no receipt case.
+- Growth: a new geometry query is one `PathOp` case plus one composable function over the existing `svgelements` surface (a curvature query rides the `_polyline` sweep plus a second difference), never a re-implemented engine; a new flatten target is one `FlattenKind` member plus one `_FLATTEN` row; a new projection mode one `ProjectKind` member plus one `_PROJECT` row; a new unit egress one `Unit` member (its suffix the strip token); a new tolerance anchor one `Tolerance` field; a new fault cause one `PathFault` case; a new outcome shape one `PathResult` case; zero new surface.
+- Packages: `svgelements` (`SVG.parse(reify=True)`/`elements(conditional=)`, `SvgPath.d`/`bbox(with_stroke=)`/`length`/`npoint`/`segments`/`as_subpaths`/`approximate_arcs_with_cubics`/`approximate_arcs_with_quads`/`approximate_bezier_with_circular_arcs`, `Matrix` factories + `pre_*`/`post_*` + `determinant`/`inverse` + `transform_point`/`transform_vector`, `Viewbox(...).transform(...)`, `Length.value`/`to_mm`/`to_cm`/`to_inch`, `Point.distance_to`/`angle_to`/`polar_to`/`reflected_across`/`matrix_transform`); `numpy` (the `npoint` sweep, `cumsum`/`searchsorted`/`linalg.norm` kernels); `expression` (`tagged_union`, `Result`, `Block`, `Map.of_seq`, `traverse`); `msgspec` (`Struct`); `beartype` (the `_contracted` weave); runtime `lanes`/`faults`.
+- Boundary: no boolean/offset/stroke/winding algebra and no `pathops` import (that is `graphic/vector/region#REGION`); no document assembly, `<svg>`/`<path>` emission, paint, or raster (region's drawsvg/resvg surface); no repeating fill geometry (`graphic/vector/pattern#PATTERN`); no receipt or identity minting (the consuming producer's); no folder-minted limiter or retry — the one native seam is the runtime lane's `offload`.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -74,8 +73,7 @@ class BoundsKind(StrEnum):
     INK = "ink"  # stroke-inclusive visual extent (bbox with_stroke=True)
 
 
-# each member NAME mirrors the svgelements `Matrix.<order>_<step>` compose method, so `getattr(matrix, f"{order}_{step}")`
-# is ONE derivation, never a parallel map; `Unit` members carry their own strip token so `in_units` is total.
+# each member NAME mirrors the svgelements Matrix.<order>_<step> compose method, so getattr is ONE derivation, never a parallel map.
 class ComposeStep(StrEnum):
     SCALE = "scale"
     TRANSLATE = "translate"
@@ -104,8 +102,8 @@ class Element(Protocol):
 
 # --- [MODELS] ---------------------------------------------------------------------------
 class Tolerance(Struct, frozen=True):
-    # the ONE tolerance/density policy row — every arc-flatten error, conic tolerance, resolution
-    # anchor, tangent step, and metric-sweep density reads here, never an inline magic float.
+    # the ONE tolerance/density policy row — every arc-flatten error, conic tolerance, resolution,
+    # tangent step, and sweep density reads here, never an inline float.
     flatten: float = 0.1  # arc->cubic max deviation (user units)
     conic: float = 0.25  # conic->quad tolerance the region draw-back composes
     ppi: float = 96.0  # CSS px resolution anchor for Length.value
@@ -118,12 +116,12 @@ TOLERANCE: Final[Tolerance] = Tolerance()
 
 # --- [ERRORS] ---------------------------------------------------------------------------
 @tagged_union(frozen=True)
-class PathFault:
+class PathFault:  # the closed provider-raise vocabulary; Color(value) is lenient (a malformed color resolves), so no color fault case
     tag: PathFaultTag = tag()
-    parse: str = case()
-    singular: None = case()
-    empty: None = case()
-    contract: str = case()
+    parse: str = case()  # ParseError/ValueError/TypeError from SVG.parse over malformed markup
+    singular: None = case()  # a project inverse against a determinant==0 matrix, guarded before the 1/det raise
+    empty: None = case()  # no drawable shape, an outline with no segment, or a zero-length metric sweep
+    contract: str = case()  # a BeartypeCallHintViolation the _contracted weave lifts onto _dispatch's rail
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -136,8 +134,7 @@ def _parsed(source: bytes) -> Result["SVG", PathFault]:
 
 
 def scene(source: bytes) -> Result[list["Shape"], PathFault]:
-    # the drawable sweep: isinstance(Shape) excludes the SVG root and Group/Use containers the
-    # outline fold would crash on; region and the placement plane read this surface one hop.
+    # the drawable sweep: isinstance(Shape) excludes the SVG root and Group/Use containers the outline fold would crash on.
     return _parsed(source).map(lambda document: list(document.elements(conditional=lambda element: isinstance(element, Shape))))
 
 
@@ -178,8 +175,8 @@ def sample(source: bytes, positions: tuple[float, ...]) -> Result[tuple[Point2, 
 
 
 def _polyline(outline: "SvgPath", tolerance: Tolerance, /) -> Result[tuple[np.ndarray, np.ndarray], PathFault]:
-    # the ONE metric kernel core: a dense parametric npoint sweep plus cumulative chord lengths;
-    # point_at/decimate/centroid all interpolate over this pair, one vectorized pass, three queries.
+    # the ONE metric kernel core: a dense npoint sweep plus cumulative chord lengths; point_at/decimate/centroid
+    # interpolate over this pair, one pass, three queries.
     xy = outline.npoint(np.linspace(0.0, 1.0, tolerance.samples))
     if xy is None or len(xy) < 2:
         return Error(PathFault(empty=None))
@@ -188,8 +185,8 @@ def _polyline(outline: "SvgPath", tolerance: Tolerance, /) -> Result[tuple[np.nd
 
 
 def point_at(source: bytes, distances: tuple[float, ...], tolerance: Tolerance = TOLERANCE) -> Result[tuple[Oriented, ...], PathFault]:
-    # METRIC point-at-distance: searchsorted onto the cumulative chord lengths, linear blend within the
-    # chord, unit tangent off the local chord — parametric t is NOT proportional to distance (the rejected form).
+    # METRIC point-at-distance: searchsorted onto the cumulative chord lengths, linear blend, unit tangent
+    # off the local chord — parametric t is NOT proportional to distance (the rejected form).
     def _rows(sweep: tuple[np.ndarray, np.ndarray], /) -> tuple[Oriented, ...]:
         xy, lengths = sweep
         total = float(lengths[-1])
@@ -212,8 +209,8 @@ def point_at(source: bytes, distances: tuple[float, ...], tolerance: Tolerance =
 
 
 def decimate(source: bytes, epsilon: float | None = None, tolerance: Tolerance = TOLERANCE) -> Result[tuple[Point2, ...], PathFault]:
-    # Ramer-Douglas-Peucker over the metric sweep: keep the farthest-deviating vertex while it exceeds
-    # epsilon (default: the flatten row) — the plot-weight/toolpath reducer, iterative, never recursive.
+    # RDP over the metric sweep: keep the farthest-deviating vertex while it exceeds epsilon (default the
+    # flatten row) — the plot-weight/toolpath reducer, iterative, never recursive.
     def _reduced(sweep: tuple[np.ndarray, np.ndarray], /) -> tuple[Point2, ...]:
         xy, _ = sweep
         limit = tolerance.flatten if epsilon is None else epsilon
@@ -238,8 +235,8 @@ def decimate(source: bytes, epsilon: float | None = None, tolerance: Tolerance =
 
 
 def centroid(source: bytes, tolerance: Tolerance = TOLERANCE) -> Result[Point2, PathFault]:
-    # area-weighted document centroid: per-contour shoelace area weights the per-contour centroid,
-    # holes subtracting by signed area; a degenerate zero-area document rails empty, never a NaN.
+    # area-weighted centroid: per-contour shoelace area weights the per-contour centroid, holes
+    # subtracting by signed area; a zero-area document rails empty, never a NaN.
     def _weighted(outline: "SvgPath", /) -> Result[Point2, PathFault]:
         total_area, moment = 0.0, np.zeros(2)
         for contour in outline.as_subpaths():
@@ -304,8 +301,8 @@ def fit_matrix(source: bytes, target: Bounds) -> Result["Matrix", PathFault]:
 
 
 def compose(steps: tuple[tuple[ComposeStep, float, float], ...], order: ComposeOrder = ComposeOrder.POST) -> "Matrix":
-    # ONE ordered affine through the Matrix.pre_*/post_* compose family: rotate takes the lone angle,
-    # scale/translate/skew the pair — a declared sequence, never a hand-built 6-tuple.
+    # ONE ordered affine through Matrix.pre_*/post_*: rotate takes the lone angle, scale/translate/skew
+    # the pair — a declared sequence, never a hand-built 6-tuple.
     matrix = Matrix()
     for step, a, b in steps:
         composed = getattr(matrix, f"{order.value}_{step.value}")
@@ -328,15 +325,14 @@ def px(length: Span, viewbox: object = None, tolerance: Tolerance = TOLERANCE) -
 
 
 def in_units(length: Span, unit: Unit = Unit.MM) -> float:
-    # the unit egress: the catalogued to_mm/to_cm/to_inch conversion emits exactly its own unit token
-    # ("25.4mm"), so removing the declared suffix is total — never a general string parse.
+    # the unit egress: the catalogued to_mm/to_cm/to_inch conversion emits exactly its unit token, so the
+    # suffix strip is total — never a general string parse.
     converted = str(getattr(Length(length), unit.converter)())
     return float(converted.removesuffix(unit.value))
 
 
 def fragment(geometry: object, matrix: "Matrix | None" = None) -> str:
-    # the d-string egress: base and transformed geometry serialize through ONE owner; the <path>
-    # element, paint, and document framing are region's drawsvg surface, never emitted here.
+    # the d-string egress through ONE owner; the <path> element, paint, and framing are region's drawsvg surface, never emitted here.
     return (SvgPath(geometry) if matrix is None else SvgPath(geometry) * matrix).d()
 
 
@@ -469,8 +465,8 @@ class Path(Struct, frozen=True):
                 return cls(ops=tuple(ops))
 
     async def of(self, lane: LanePolicy, /) -> RuntimeRail[Block[PathResult]]:
-        # the parse/measure/sample sweep is synchronous CPU work: the whole batch crosses the runtime
-        # lane's PROCESS offload under the runtime-owned worker bound — zero folder-minted limiters.
+        # the sweep is synchronous CPU work: the whole batch crosses the runtime lane's PROCESS offload
+        # under the runtime-owned worker bound — zero folder-minted limiters.
         return await lane.offload(_worked, self.ops, modality=Modality.PROCESS)
 
 
@@ -515,8 +511,6 @@ __all__ = [
 ]
 ```
 
-The `svgelements` surface is the spec-faithful primitive every consumer reads through one memoized, fault-railed ingestion: `SVG.parse(BytesIO(source), reify=True)` is the single polymorphic ingestion, `reify=True` baking transforms into shape geometry so a downstream `bbox()`/`SvgPath` read returns absolute coordinates, and the `@lru_cache` `_parsed` core keying on the source `bytes` so a multi-query consumer pays the parse once and a malformed source rails `PathFault.parse` once. `elements(conditional=)` is the single selection surface — a predicate discriminates which resolved nodes the iterator yields, never a `find`/`select`/`filter` family — and `scene` narrows it by `isinstance(element, Shape)` into the drawable set. `Matrix` is the one affine owner whose bare `scale`/`translate`/`rotate`/`skew` factories build a transform, `*` composes, `pre_*`/`post_*` fold an ordered sequence through the one `compose` builder, and `determinant`/`inverse` answer invertibility — `inverse()` mutates in place and divides by the determinant, so `project` guards `determinant == 0` onto `PathFault.singular` before inverting a `Matrix(matrix)` copy, mapping each point through `Point.matrix_transform` (full affine) or each direction through `Matrix.transform_vector` (translation-free) keyed by `ProjectKind`. The metric kernels are one numpy sweep: `_polyline` runs `npoint` over `Tolerance.samples` evenly-spaced parameters and folds cumulative chord lengths through one `cumsum`, `point_at` interpolates metric distances by `searchsorted` + linear blend and reads unit tangents off the local chord under the `tangent` step, `decimate` keeps the farthest-deviating vertex while it exceeds the tolerance (iterative Ramer-Douglas-Peucker over the same array), and `centroid` folds per-contour shoelace areas so holes subtract by signed area — three consumer-critical metric queries the parametric `Path.point` grammar cannot answer, one vectorized core, zero per-query re-derivation. `Length` closes the unit axis both ways: `px` resolves CSS spans against the `Tolerance.ppi` anchor and the caller's viewbox, and `in_units` converts through the catalogued `to_mm`/`to_cm`/`to_inch` rows then strips exactly the target unit's own emitted token, so a `pt`-free scalar egress exists without a general string parse. `fragment` is the one geometry egress — a bare `d` string, base or transformed — and the page emits no `<path>` element, no `<svg>` frame, no paint, and no raster: document assembly is `graphic/vector/region#REGION`'s drawsvg surface, and the modal rail's only native seam is the runtime lane's `offload(modality=PROCESS)` under the runtime-owned worker bound.
-
 ```mermaid
 flowchart LR
     Over["Path.over (PathOp | Iterable)"] --> Of["Path.of(lane) -> offload PROCESS"]
@@ -548,3 +542,11 @@ flowchart LR
     Result -->|traverse fold| Block["Block[PathResult]"]
     Block -.->|awaited rail| Consumers["region / pattern / drawing symbol+dimension+detail / compose / sheet / dxf / solar / marks-encode"]
 ```
+
+## [03]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+-->
+
+(none)

@@ -1,6 +1,8 @@
 # [PY_COMPUTE]
 
-`libs/python/compute` owns the monorepo's host-free offline scientific evidence: independent solver, optimization, experiment, numeric, and analysis sub-domains converge through one solve receipt, one study spine, and one graduation rail that hands every result across the wire to the C# managed owner. It imports no host runtime and re-owns no peer interior — geometry, columnar data, and tensor sessions cross only as receipt data at the `HandoffAxis`.
+`compute` is the terminal evidence plane of the Python branch: host-free scientific computation — route-discriminated solvers, differentiation, validated and certified numerics, unit-bearing uncertainty, signal, symbolic, and spatial analysis, design-of-experiments, Bayesian inference, and model assets — converging on the one graduation hub through which every Python-branch result, compute-own and geometry-minted alike, crosses to the C# managed owner. Its bar is the composed hub, not the solver roster: evidence is produced under receipts, admitted against governed ceilings, keyed over canonical bytes through one identity convention, and emitted self-describing so the C# graduation gate decodes without re-derivation — every heavy solve runs off the event loop, and a study resumes from history under provably equal keys.
+
+It imports no host runtime and re-owns no peer interior — geometry, columnar data, and tensor sessions cross only as receipt data at the `HandoffAxis`, converging through one solve receipt, one study spine, and one graduation rail.
 
 ## [01]-[ROUTER]
 
@@ -103,13 +105,13 @@ Shared substrate consumed from the `libs/python/.planning/README.md` registry; t
 
 [NUMERIC_SUBSTRATE]:
 - `numpy`
-- `dask` (passive `array_namespace` backend only — the branch-tier catalog is the owner; compute imports no Dask runtime)
+- `dask` — passive array-backend row only; the branch-tier catalog is the owner, and compute imports no Dask runtime.
 - `xarray`
-- `narwhals` (the study DOE-frame admission arm, consumed through the published `data/tabular` contract surfaces)
+- `narwhals` — admits the study DOE frame, consumed through the published `data/tabular` contract surfaces.
 - `meshio`
 
 [OBSERVABILITY]:
-- `opentelemetry-api` (the hub `evidence_run` weave imports `trace`/`Span`/`Status`/`StatusCode`; SDK binding stays at composition root)
+- `opentelemetry-api` — traces the hub evidence weave; SDK binding stays at composition root.
 
 [RESOURCES]:
 - `universal-pathlib`

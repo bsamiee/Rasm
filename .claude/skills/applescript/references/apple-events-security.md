@@ -10,7 +10,7 @@ Four-character codes are the ABI, not display terminology — the scripting dict
 
 ## [02]-[TARGET_AND_DESCRIPTOR_TYPES]
 
-The target descriptor decides routing before terminology resolves. `typeApplicationBundleID` binds stable local application identity and survives a binary move; `typeKernelProcessID` binds one already-running process instance and isolates a specific vetted target; `typeApplicationURL` binds a local or remote application URL; `typeProcessSerialNumber` remains only as a legacy receiver for callers that still emit it.
+A target descriptor decides routing before terminology resolves. `typeApplicationBundleID` binds stable local application identity and survives a binary move; `typeKernelProcessID` binds one already-running process instance and isolates a specific vetted target; `typeApplicationURL` binds a local or remote application URL; `typeProcessSerialNumber` remains only as a legacy receiver for callers that still emit it.
 
 Descriptor type selection carries its own security and coercion behavior. Text payloads ride `typeUTF8Text` or `typeUTF16ExternalRepresentation`; file references ride `typeFileURL` or `typeBookmarkData`; structured payloads ride `typeAERecord` for keyed records and `typeAEList` for ordered collections; object references ride object-specifier descriptors; numeric payloads ride explicit fixed-width descriptor types rather than a coerced string.
 
@@ -93,7 +93,7 @@ func quitApplication(bundleID: String) throws -> NSAppleEventDescriptor {
 
 ## [04]-[SEND_MODE_BITFIELD]
 
-`AESendMode` is a bitfield over independent axes, not an opaque flag. The reply axis is mutually exclusive, the interaction axis is mutually exclusive, and the remaining flags compose freely across both.
+`AESendMode` is a bitfield over independent axes, not an opaque flag. Reply and interaction axes are each mutually exclusive, and the remaining flags compose freely across both.
 
 | [INDEX] | [AXIS]      | [FLAG]              | [HEX]    | [EFFECT]                               |
 | :-----: | :---------- | :------------------ | :------- | :------------------------------------- |
@@ -109,7 +109,7 @@ func quitApplication(bundleID: String) throws -> NSAppleEventDescriptor {
 |  [10]   | Modifier    | `kAEDontRecord`     | `0x1000` | excludes the event from recording      |
 |  [11]   | Modifier    | `kAEDontExecute`    | `0x2000` | builds the event without executing it  |
 
-The Cocoa mirror `NSAppleEventSendOptions` renames each surviving flag (`NSAppleEventSendNoReply`/`NSAppleEventSendQueueReply`/`NSAppleEventSendWaitForReply` on the reply axis, `NSAppleEventSendNeverInteract`/`NSAppleEventSendCanInteract`/`NSAppleEventSendAlwaysInteract` on the interaction axis, plus `NSAppleEventSendCanSwitchLayer`, `NSAppleEventSendDontRecord`, `NSAppleEventSendDontExecute`) and drops `kAEDontReconnect` and `kAEWantReceipt` outright. It adds one net-new flag, `NSAppleEventSendDontAnnotate` (`kAEDoNotAutomaticallyAddAnnotationsToEvent`), which suppresses the sandbox annotations the system otherwise stamps onto the event. `NSAppleEventSendDefaultOptions` composes `NSAppleEventSendWaitForReply | NSAppleEventSendCanInteract`, so a sender that names neither axis still blocks its run loop and still permits receiver UI.
+`NSAppleEventSendOptions`, the Cocoa mirror, renames each surviving flag (`NSAppleEventSendNoReply`/`NSAppleEventSendQueueReply`/`NSAppleEventSendWaitForReply` on the reply axis, `NSAppleEventSendNeverInteract`/`NSAppleEventSendCanInteract`/`NSAppleEventSendAlwaysInteract` on the interaction axis, plus `NSAppleEventSendCanSwitchLayer`, `NSAppleEventSendDontRecord`, `NSAppleEventSendDontExecute`) and drops `kAEDontReconnect` and `kAEWantReceipt` outright. It adds one net-new flag, `NSAppleEventSendDontAnnotate` (`kAEDoNotAutomaticallyAddAnnotationsToEvent`), which suppresses the sandbox annotations the system otherwise stamps onto the event. `NSAppleEventSendDefaultOptions` composes `NSAppleEventSendWaitForReply | NSAppleEventSendCanInteract`, so a sender that names neither axis still blocks its run loop and still permits receiver UI.
 
 `kAEDoNotPromptForUserConsent` (`0x00020000`) turns a send into a consent probe: a sender that OR-s it into `AESendMode` and cannot surface UI receives `errAEEventWouldRequireUserConsent` in place of the consent sheet. This mode drives background-safe permission checks without spending the one visible prompt on a non-user-initiated path.
 
@@ -125,7 +125,7 @@ Reply parsing separates application errors from transport status. `AESendMessage
 
 TCC Automation rows bind sender identity, receiver identity, and code requirement under the service `kTCCServiceAppleEvents`. Grants live in the `access` table of the per-user store at `~/Library/Application Support/com.apple.TCC/TCC.db`; the system store at `/Library/Application Support/com.apple.TCC/TCC.db` sits behind SIP under the `com.apple.rootless.storage.TCC` entitlement and reads only under Full Disk Access.
 
-The `access` row keys on `(service, client, client_type, indirect_object_identifier)`. `client` carries the sender identity, `client_type` is `0` for a bundle ID and `1` for an absolute path, and `csreq` carries the sender's code-requirement blob. Automation is unique among TCC services because the row is a relation, not a single-party grant: the target application rides `indirect_object_identifier`, and the target's own code requirement rides `indirect_object_code_identity` — neither endpoint alone makes the row meaningful.
+Each `access` row keys on `(service, client, client_type, indirect_object_identifier)`. `client` carries the sender identity, `client_type` is `0` for a bundle ID and `1` for an absolute path, and `csreq` carries the sender's code-requirement blob. Automation is unique among TCC services because the row is a relation, not a single-party grant: the target application rides `indirect_object_identifier`, and the target's own code requirement rides `indirect_object_code_identity` — neither endpoint alone makes the row meaningful.
 
 | [INDEX] | [AUTH_VALUE] | [MEANING] |
 | :-----: | :----------: | :-------- |
@@ -142,17 +142,17 @@ The `access` row keys on `(service, client, client_type, indirect_object_identif
 |  [04]   |      `6`      | MDM policy     |
 |  [05]   |     `11`      | entitled       |
 
-The columns `pid_version`, `boot_uuid`, `last_modified`, and `last_reminded` bind the grant to one process generation and reminder cadence. `tccutil reset AppleEvents [bundle-id]` is the sanctioned reset path — it clears the client-to-target relationship rows and forces re-consent. Resetting a sender, moving a path-identified binary, or changing receiver identity invalidates an existing approval. The `csreq` is a code-requirement predicate, not a fixed hash, so a stable Team-ID-plus-bundle-ID designated requirement carries the grant across rebuilds and re-signs, while an ad-hoc or cdhash-pinned identity — every unsigned or `--compile` rebuild a fresh code identity — stops satisfying the stored requirement and silently fails the next send with `errAEEventNotPermitted` (`-1743`); an agent that rebuilds an applet signs it under a stable designated requirement or re-earns consent every build. Enterprise pre-grants flow through PPPC, never through direct `TCC.db` edits.
+Columns `pid_version`, `boot_uuid`, `last_modified`, and `last_reminded` bind the grant to one process generation and reminder cadence. `tccutil reset AppleEvents [bundle-id]` is the sanctioned reset path — it clears the client-to-target relationship rows and forces re-consent. Resetting a sender, moving a path-identified binary, or changing receiver identity invalidates an existing approval. `csreq` is a code-requirement predicate, not a fixed hash, so a stable Team-ID-plus-bundle-ID designated requirement carries the grant across rebuilds and re-signs, while an ad-hoc or cdhash-pinned identity — every unsigned or `--compile` rebuild a fresh code identity — stops satisfying the stored requirement and silently fails the next send with `errAEEventNotPermitted` (`-1743`); an agent that rebuilds an applet signs it under a stable designated requirement or re-earns consent every build. Enterprise pre-grants flow through PPPC, never through direct `TCC.db` edits.
 
 ## [07]-[AUDIT_TOKEN_ATTRIBUTION]
 
-Attribution binds to the sender's audit token, not its PID. `keySenderPIDAttr` (`'spid'`) and `keySenderAuditTokenAttr` (`'tokn'`) both ride the event, but `tccd` charges the request against the audit token, because a raw PID is kernel-recycled and the window between an `AESend` and TCC resolution is a confused-deputy surface where a recycled PID misattributes a grant. The audit token carries the PID, a `pidversion` generation counter, and the UID set, so it stays collision-free across process death.
+Attribution binds to the sender's audit token, not its PID. `keySenderPIDAttr` (`'spid'`) and `keySenderAuditTokenAttr` (`'tokn'`) both ride the event, but `tccd` charges the request against the audit token, because a raw PID is kernel-recycled and the window between an `AESend` and TCC resolution is a confused-deputy surface where a recycled PID misattributes a grant. That audit token carries the PID, a `pidversion` generation counter, and the UID set, so it stays collision-free across process death.
 
 `keyActualSenderAuditToken` (`'acat'`) names the responsible token when a helper acts on behalf of a parent, and EndpointSecurity surfaces the same concept as `responsible_audit_token` on `es_process_t`. A bridge that logs only the PID cannot reconstruct which signed identity actually owns a grant.
 
 ## [08]-[PREFLIGHT_AND_ERROR_TRIAD]
 
-`AEDeterminePermissionToAutomateTarget` owns explicit preflight. The target `AEAddressDesc` must identify a running application; `theAEEventClass` and `theAEEventID` bind a specific command, while `typeWildCard` tests broad target automation. `askUserIfNeeded` selects a visible-prompt path or a silent-status path, and the call is thread-safe and UI-blocking, so a production sender calls it from an explicit permission lane rather than from launch, render, autosave, or the main actor.
+`AEDeterminePermissionToAutomateTarget` owns explicit preflight. Its target `AEAddressDesc` must identify a running application; `theAEEventClass` and `theAEEventID` bind a specific command, while `typeWildCard` tests broad target automation. `askUserIfNeeded` selects a visible-prompt path or a silent-status path, and the call is thread-safe and UI-blocking, so a production sender calls it from an explicit permission lane rather than from launch, render, autosave, or the main actor.
 
 ```objc conceptual
 typedef NS_ENUM(NSInteger, AutomationConsent) {
@@ -209,11 +209,11 @@ func checkAutomationConsent(
 |  [02]   | `-1743` | `errAEEventNotPermitted`            | a standing user denial exists for this Automation pair          |
 |  [03]   | `-1744` | `errAEEventWouldRequireUserConsent` | the target is undecided and reached through a suppressed prompt |
 
-The distinction is load-bearing: preflight with `askUserIfNeeded: false`, and a send carrying `kAEDoNotPromptForUserConsent`, returns `-1744` for an undecided target and cannot silently read a prior denial — a prior denial surfaces only as `-1743`. Only `askUserIfNeeded: true` yields the authoritative `noErr`/`-1743` verdict, at the cost of a possible visible prompt. A background checker treats `-1744` as unknown, routed to the explicit permission lane, never as denied.
+This distinction is load-bearing: preflight with `askUserIfNeeded: false`, and a send carrying `kAEDoNotPromptForUserConsent`, returns `-1744` for an undecided target and cannot silently read a prior denial — a prior denial surfaces only as `-1743`. Only `askUserIfNeeded: true` yields the authoritative `noErr`/`-1743` verdict, at the cost of a possible visible prompt. A background checker treats `-1744` as unknown, routed to the explicit permission lane, never as denied.
 
 ## [09]-[SANDBOX_AND_ENTERPRISE_POLICY]
 
-The sandbox carries a separate automation policy layer beneath TCC. A sandboxed receiver always accepts and responds to events sent to itself; a sandboxed sender needs scripting-targets or temporary Apple-events exceptions to cross the app-sandbox boundary at all, and the request still crosses TCC Automation afterward where that policy applies.
+App Sandbox carries a separate automation policy layer beneath TCC. A sandboxed receiver always accepts and responds to events sent to itself; a sandboxed sender needs scripting-targets or temporary Apple-events exceptions to cross the app-sandbox boundary at all, and the request still crosses TCC Automation afterward where that policy applies.
 
 `com.apple.security.scripting-targets` binds receiver-declared access groups: the receiver's `sdef` annotates a terminology subset, the sender entitlement names the receiver bundle ID and its group strings, and the system admits only that declared slice. This is the fine-grained path for Mac App Store automation against a cooperative receiver.
 
@@ -229,7 +229,7 @@ The sandbox carries a separate automation policy layer beneath TCC. A sandboxed 
 
 `com.apple.security.temporary-exception.apple-events` is a broad sender-to-target exception reserved for receivers without access groups, reviewed as a bounded compatibility declaration. Finder and System Events targets carry high rejection and abuse pressure, because either entitlement turns into broad operating-system control.
 
-MDM PPPC pre-grants encode the same sender/receiver graph declaratively. The profile payload `com.apple.TCC.configuration-profile-policy` carries `Services` entries, and each `AppleEvents` entry names sender `Identifier`, `IdentifierType`, and `CodeRequirement` alongside receiver identity fields. The designated `CodeRequirement` is the stable trust anchor — a bundle ID alone never constitutes an enterprise grant.
+MDM PPPC pre-grants encode the same sender/receiver graph declaratively. Profile payload `com.apple.TCC.configuration-profile-policy` carries `Services` entries, and each `AppleEvents` entry names sender `Identifier`, `IdentifierType`, and `CodeRequirement` alongside receiver identity fields. A designated `CodeRequirement` is the stable trust anchor — a bundle ID alone never constitutes an enterprise grant.
 
 ```xml template
 <key>Services</key>
@@ -260,9 +260,9 @@ PPPC merging is restrictive: multiple payloads can land on one Mac, and conflict
 
 ## [10]-[DIAGNOSTIC_RAILS]
 
-TCC diagnostics start at attribution. `log stream --debug --predicate 'subsystem == "com.apple.TCC" AND eventMessage BEGINSWITH "AttributionChain"'` names the binary actually charged for a request, and that binary is the one that owns the entitlement, the usage string, the PPPC sender identity, and the user-facing remediation copy. The unified-log format underneath is private and unstable, so it functions as a diagnostic tap, never a monitoring contract.
+TCC diagnostics start at attribution. `log stream --debug --predicate 'subsystem == "com.apple.TCC" AND eventMessage BEGINSWITH "AttributionChain"'` names the binary actually charged for a request, and that binary is the one that owns the entitlement, the usage string, the PPPC sender identity, and the user-facing remediation copy. That unified-log format underneath is private and unstable, so it functions as a diagnostic tap, never a monitoring contract.
 
-No EndpointSecurity event intercepts an individual `AESend`; the full `es_event_type_t` enum carries no Apple-event case, and `TCC_MODIFY` is its only TCC-adjacent event. The supported primitive is `ES_EVENT_TYPE_NOTIFY_TCC_MODIFY`, which fires on any TCC grant or revoke, including `kTCCServiceAppleEvents`. Its `es_event_tcc_modify_t` exposes `service`, `identity`, `identity_type` (`es_tcc_identity_type_t`: bundle ID, executable path, file-provider domain, policy ID), `update_type` (`es_tcc_event_type_t`), `instigator_token` (an `audit_token_t` by value), `instigator` (`es_process_t *`), a nullable `responsible_token`/`responsible` pair, and one `right`/`reason` field. The struct carries no prior-versus-current value pair — it observes a decision change, not per-event access, and a CLI-initiated grant attributes to the parent process. Continuous automation monitoring composes three signals together: `ES_EVENT_TYPE_NOTIFY_TCC_MODIFY` for policy transitions, the `com.apple.TCC` unified-log rail for attribution chains, and EndpointSecurity process events carrying `audit_token`/`responsible_audit_token` for the acting identity.
+No EndpointSecurity event intercepts an individual `AESend`; the full `es_event_type_t` enum carries no Apple-event case, and `TCC_MODIFY` is its only TCC-adjacent event. `ES_EVENT_TYPE_NOTIFY_TCC_MODIFY` is the supported primitive, firing on any TCC grant or revoke, including `kTCCServiceAppleEvents`. Its `es_event_tcc_modify_t` exposes `service`, `identity`, `identity_type` (`es_tcc_identity_type_t`: bundle ID, executable path, file-provider domain, policy ID), `update_type` (`es_tcc_event_type_t`), `instigator_token` (an `audit_token_t` by value), `instigator` (`es_process_t *`), a nullable `responsible_token`/`responsible` pair, and one `right`/`reason` field. That struct carries no prior-versus-current value pair — it observes a decision change, not per-event access, and a CLI-initiated grant attributes to the parent process. Continuous automation monitoring composes three signals together: `ES_EVENT_TYPE_NOTIFY_TCC_MODIFY` for policy transitions, the `com.apple.TCC` unified-log rail for attribution chains, and EndpointSecurity process events carrying `audit_token`/`responsible_audit_token` for the acting identity.
 
 ## [11]-[HOST_SURFACE_AND_PLATFORM_POSTURE]
 
@@ -270,7 +270,7 @@ No EndpointSecurity event intercepts an individual `AESend`; the full `es_event_
 
 Compiled scripts change identity only when packaged as executables. `osacompile` emits `.scpt`, `.scptd`, or `.app`; a flat compiled script still runs under the invoking host, while an applet runs as a signed bundle carrying its own `Info.plist` and entitlements. `UTType.appleScript` (`com.apple.applescript.text`), `UTType.osaScript` (`com.apple.applescript.script`), and `UTType.osaScriptBundle` (`com.apple.applescript.script-bundle`) classify source and storage form, and only a launched, signed bundle shifts TCC attribution away from the invoking host. JXA and AppleScript share this identical Apple Event security envelope — language choice changes source syntax and bridge ergonomics, never TCC service identity, receiver consent, entitlement need, or event-code semantics.
 
-The entitlement graph, the consent model, and the TCC Automation relation are the stable core of the Apple Event security model, and the erosion sits at the legacy edges — `tell application "iTunes"` no longer resolves against a music player — while a genuine security-relevant drift shows up in ASObjC scripts that touch protected frameworks such as CoreLocation: the automatic consent prompt no longer fires for those calls, so the grant requires a manual toggle in System Settings. An OS update resets some standing automation approvals outright, so a production consent lane rechecks authorization on every launch rather than trusting a stored grant across an update.
+Entitlement graph, consent model, and TCC Automation relation are the stable core of the Apple Event security model, and the erosion sits at the legacy edges — `tell application "iTunes"` no longer resolves against a music player — while a genuine security-relevant drift shows up in ASObjC scripts that touch protected frameworks such as CoreLocation: the automatic consent prompt no longer fires for those calls, so the grant requires a manual toggle in System Settings. An OS update resets some standing automation approvals outright, so a production consent lane rechecks authorization on every launch rather than trusting a stored grant across an update.
 
 ## [12]-[SECURITY_PATTERNS]
 

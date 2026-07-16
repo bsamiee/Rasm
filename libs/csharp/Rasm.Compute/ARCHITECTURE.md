@@ -284,14 +284,17 @@ Spine admits once, selects substrate over row data, enqueues on bounded lanes, d
 ## [04]-[CROSS_PACKAGE]
 
 Seam graph carries which owner exchanges which shape; the load-bearing cross-boundary invariants each Compute owner holds are:
-- `Substrate.DeviceWgpu` binds the AppUi-owned `ONE_WGPU_DEVICE` `Device`/`Queue` and holds the compute-only resources, so a Compute lane acquires no second device and stands up no residency lattice parallel to `OrtResidency.DeviceResident`.
-- `Tensor/residency` consumes only the host-neutral `EncodedGeometry` payload wrapped as `EncodedTensor`; host geometry folds inside the kernel `Rasm.Drawing` (`Encode.Apply`) and the `Rasm.AppHost` `GeometryPacking` capsule, and no host type reaches an interior `Tensor`/`Solve`/`Estimator` signature.
-- Compute owns the channel and the companion-rpc orchestration; `Rasm.Bim` owns every bSDD response, IDS parse, semantic projection, and the `LocalShape` degrade, so no Bim-minted transport or Compute-side semantic read crosses the seam.
-- Strata graph runs one direction: `Symbolic/units` owns the `QuantityFamily` SI-canonicalization and `Tensor/blas`/`Model/inference` own the host-free `LevenbergMarquardt`/thin-QR and ONNX spectral solves, so `Rasm.Fabrication/Process`, `Rasm.Materials/Appearance`, and the `Rasm.Materials` BRDF fit admit `UnitsNet` and stay in-folder rather than reference the app-platform owner downward.
-- `Analysis` reads the concrete `Rasm.Element` `ElementGraph` upward and writes a content-keyed `Node.Assessment` `GraphDelta` the caller applies, implementing no `IElementProjection`, referencing no AEC-domain peer, and mutating no graph in place.
-- C# owns inference plus classical fit; every offline-learned model — deep training, learned distributions, PCE/neural-field surrogates, residual predictors — is the Python companion's, decoded by content key over `ONE_GRADUATION_EVIDENCE`.
-- `EnergyToolchain` resolves EnergyPlus by env var, configured path, or bundle and `EnergyRoute` converges local and cloud runs on `SqlFile`, so no hardcoded path, shipped Forge dependency, or token column on `EnergyPolicy` enters.
-- Closed-form ISO/EN folds and the multi-ply `AssemblyAggregator` (U, STC, mixtures, GWP, cost) live in `Analysis`; single-material acoustic folds and the seam-owned `RatingContour` `Stc.Fit`/`Rw.Fit` kernel stay in `Rasm.Element` and `Analysis` composes them, and design codes ride the `DesignCode`×`LimitState` capacity table.
+- `Substrate.DeviceWgpu` binds the AppUi-owned wgpu device and holds compute-only resources; no second device or residency lattice.
+- `Tensor/residency` consumes only the host-neutral `EncodedGeometry` payload wrapped as `EncodedTensor`.
+- Host geometry folds at the kernel and AppHost capsules; no host type reaches an interior `Tensor`/`Solve`/`Estimator` signature.
+- Compute owns the channel and companion-rpc orchestration; `Rasm.Bim` owns every semantic read, and neither crosses the seam.
+- Strata run one direction: the AEC peers admit `UnitsNet` in-folder rather than reference the app-platform unit and solve owners downward.
+- `Analysis` reads the concrete `ElementGraph` upward and writes a content-keyed assessment `GraphDelta` the caller applies; it mutates nothing.
+- C# owns inference plus classical fit; every offline-learned model is the Python companion's, decoded by content key over the graduation evidence.
+- `EnergyToolchain` resolves EnergyPlus by env var, configured path, or bundle; no hardcoded path or token column enters the policy.
+- `EnergyRoute` converges local and cloud runs on the one `SqlFile` fold.
+- Closed-form ISO/EN folds and the multi-ply `AssemblyAggregator` live in `Analysis`; single-material folds stay seam-owned, composed here.
+- Design codes ride the `DesignCode`×`LimitState` capacity table.
 
 ## [05]-[OWNER_LAW]
 

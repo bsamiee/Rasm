@@ -1,27 +1,23 @@
 # [PY_ARTIFACTS_DXF]
 
-The CAD-exchange editable hand-off owner authoring, salvaging, rendering, querying, and geometry-bridging DXF documents. `Dxf` is ONE owner over the closed-payload `DxfOp` `expression.tagged_union` — `New` authors a fresh document from a `DxfDocument` spec, `Read` ingests a conforming DXF, `Recover` salvages a damaged one, `Render` lowers a DXF figure into the composition/graphic plane over seven in-process backends, `Query` extracts an attribute/spatial sub-selection, `Transform` applies an affine (translate/scale/rotate) to an ingested document or a queried selection through `transform.inplace`/`copies`, and `Bridge` crosses the DXF↔SVG↔GeoJSON↔glyph geometry wire — each case its own typed payload, never a `StrEnum` keyed against an erased `dict[str, object]`, dispatched by one total `match` and folded ONCE into a `DxfComposed` evidence struct the `of`/`contribute` projections share. `ezdxf` (pure-Python `py3-none-any`, no cp-gate on any interpreter) is the sole categorical-best owner of the DXF R12→R2018 read/write/recover/render surface: this owner composes `ezdxf.new`, the polymorphic `readfile`/`read`/`readzip`/`decode_base64` ingestion family, `recover.read`/`readfile` salvage, the `GraphicsFactory.add_*` builder family under the uniform `GfxAttribs` attribute axis, the `xref.attach` external-reference surface, the `ezdxf.path.Path` command-segment algebra, the `ezdxf.addons.drawing` `Frontend`+backend render stack, the `doc.query`/`groupby`/`select` spatial/`bbox` read side, and the `addons.geo`/`addons.text2path` boundary surfaces — it re-implements no DXF tag grammar, no OCS/WCS transform, no B-spline evaluator, no entity-to-SVG conversion, and it never re-authors the IFC semantic model (`csharp:Rasm.Bim` holds that) nor the sheet placement/scale the `composition/sheet#SHEET` owner holds nor the SVG framing the `graphic/vector/region#REGION` owner holds.
+`Dxf` owns the CAD-exchange editable hand-off — ONE owner over the closed `DxfOp` `tagged_union` — `New` authors a fresh document from a `DxfDocument` spec, `Read` ingests a conforming DXF, `Recover` salvages a damaged one, `Render` lowers a DXF figure into the composition/graphic plane over the in-process backend family, `Query` extracts an attribute/spatial sub-selection, `Transform` applies an affine, `Bridge` crosses the DXF↔SVG↔GeoJSON↔glyph geometry wire — each arm a typed payload dispatched by one total `match` and folded ONCE into a `DxfComposed` evidence struct the `of`/`contribute` projections share. `ezdxf` (pure-Python, no interpreter gate) is the sole owner of the DXF R12→R2018 read/write/recover/render surface, so this owner re-implements no tag grammar, OCS/WCS transform, B-spline evaluator, or entity-to-SVG conversion.
 
-The rail is the branch `RuntimeRail[ArtifactReceipt] = Result[ContentKey, BoundaryFault]` the `runtime/faults#FAULTS` owner legislates, minted ONCE at `async_boundary(f"dxf.{self.op.tag}", lambda: _offloaded(self.op), catch=_FAULTS)` inside `_emit` — the pre-run `_key` mints the `ContentKey` over the canonical op payload BEFORE the fold runs — over the real engine raise tuple `_FAULTS = (DXFError, RuntimeError, ValueError, KeyError, OSError, BeartypeCallHintViolation)` — `DXFError` (the `ezdxf` error base, `Exception`-derived and NOT a stdlib subclass, so it is named explicitly exactly as the sibling `composition/imposition#IMPOSE` names `PdfImposeUserError`) admits `DXFStructureError`/`DXFVersionError`/`DXFValueError` from a malformed conforming read or a bad builder call, `RuntimeError` admits the `PyMuPdfBackend`/`pymupdf`/`matplotlib` native-render raise, `ValueError` a `matplotlib`/`msgspec.json`/EQL or a malformed entity-query raise, `KeyError` a `_DIM`/`_SPATIAL_TEST` table miss, `OSError` an engine font/resource/stream fault, and `BeartypeCallHintViolation` a non-positive render `dpi`/`scale`/flatten `distance` the `_GUARD`-contracted `_admit` scalar seam rejects — each discriminated into its own `BoundaryFault` case rather than the `Exception` catch-all the faults owner rejects. A transient `OSError` (a font/resource/stream load crossing the disk boundary) is re-armed by the `RetryClass.OCCT` retry row `LanePolicy.offload` threads around the worker seam BEFORE the boundary converts a persistent one, the cancellation class excluded from the retry set. The Auditor evidence is NOT a parallel `DxfFault` `Literal` the boundary never reads (the deleted illusion the sibling `composition/sheet#SHEET` `[RAIL_SETTLED]` warns against): a salvageable damaged file produces bytes and its `auditor.errors`/`auditor.fixes` counts ride the `Cad` receipt as evidence, a truly-unparseable input raises `DXFStructureError` the boundary converts, so `Recover` never double-rails and the salvage cleanliness is honest receipt evidence exactly as the `algorithms.md` `SolveReceipt` carries its residual. Cancellation is excluded from `_FAULTS` and re-raises as the structured signal.
-
-`DxfEntity` is the closed-payload build vocabulary each drawable carries — one `expression.tagged_union` over `Line`/`Arc`/`Circle`/`Ellipse`/`Spline`/`LwPolyline`/`Hatch`/`Text`/`Mtext`/`Leader`/`MultiLeader`/`Dimension`/`BlockRef`/`Point`/`Mesh`, every case bundling a shared `DxfAttribs` value object projected to the UNIFORM `dxfattribs=GfxAttribs(...).asdict()` payload the WHOLE `add_*` family takes, so layer/color/linetype application is one axis across the vocabulary, never a per-entity `set_layer`/`set_color` setter; the `Hatch` case's `HatchFill` sub-axis routes SOLID/PATTERN/GRADIENT fill through `set_solid_fill`/`set_pattern_fill`/`set_gradient` (the ISO 128-50 material-indication primitive the `drawing/standard` hatch table lowers `tools.pattern.ISO_PATTERN` definitions onto), the `MultiLeader` case's `MLeaderKind` selects the `add_multileader_mtext`/`add_multileader_block` fluent builder threading `render.mleader.ConnectionSide` dogleg sides, and the `Dimension` case's `DimKind` sub-axis routes the seven ISO 129-1 dimension kinds through the `_DIM` `frozendict` to the matching `add_*_dim` builder. `TableEntry` is the closed symbol-table row family — `Layer`/`Linetype`/`Textstyle`/`Dimstyle` folded onto `doc.layers`/`doc.linetypes`/`doc.styles`/`doc.dimstyles` `.add(...)` — the ezdxf-shaped substrate the future `drawing/standard` AEC vocabularies (ISO 128 line types → `Linetype`, ISO 3098 text heights → `Textstyle`, ISO 129-1 styles → `Dimstyle`, the ISO 13567 layer codec → `Layer`) LOWER their computed rows onto; dxf owns the table-authoring shape, the ISO semantics stay their own owners. `Xref` is the external-reference row `xref.attach` binds so a `DxfDocument` composes an external drawing without copying its geometry. `DxfSource` is the closed polymorphic ingestion — `Blob`/`File`/`Zip`/`Base64` folding the `ezdxf.read`/`readfile`/`readzip`/`decode_base64` conforming family and the `recover.read`/`readfile` salvage family, never a per-source reader class. `Spatial` is the closed spatial-query family (`Window`/`Circle`/`Polygon`/`Fence`/`Point`) the `_SPATIAL_TEST` table routes to the rtree-backed `select.*` predicate.
-
-`ezdxf` resolves on the runtime (pure-Python authoring, but the `PyMuPdfBackend`/`matplotlib` render backends are GIL-releasing native code), so every op defers `ezdxf` through a module-scope `lazy` import and the `_composed` fold offloads off the event loop through `LanePolicy.offload(_composed, op, modality=Modality.THREAD, retry=RetryClass.OCCT)` — the thread modality carries the WHOLE fold because the fold returns the `msgspec`-backed `DxfComposed` owner the subinterpreter modality cannot load the C-extension for, and the GIL-releasing PyMuPDF/Matplotlib render shares the address space with zero serialization, so a per-arm `to_interpreter` split is impossible rather than merely suboptimal (the sibling `composition/sheet#SHEET`/`graphic/vector/region#REGION` chooser). The `Render` arm lowers a rendered DXF figure into `composition/sheet#SHEET` (the `PyMuPdfBackend.get_pdf_bytes` one-page PDF the `show_pdf_page` seam places) and `graphic/vector/region#REGION` (the `SVGBackend.get_string` SVG the placement owner composites), adds `MatplotlibBackend` EPS/PS publication-vector output and `CustomJSONBackend`/`GeoJSONBackend` structured-geometry export; the `Bridge` arm crosses the `graphic/vector/region#REGION` `document` egress at the vertex/`d`-string wire, `ezdxf.path.make_path(entity).flattening(distance)` → `Vec3.list` → `numpy.asarray` per drawable folded into the vector owner's `svg` framing, and the `addons.geo` GeoJSON wire and `addons.text2path` glyph-outline wire in the inverse. Every operation returns a `RuntimeRail[ArtifactReceipt]` and contributes ONE `core/receipt#RECEIPT` `ArtifactReceipt.Cad` case off the one `DxfComposed` fold — the `dxfversion`, the units, the artifact format, the `Counter(dxftype)` entity-census map, the `doc.layers`/`doc.blocks` roster counts, the `Auditor` error+fix counts, the `bbox.extents` model AABB, and the output byte length — the receipt owner's named flat-scalar mint, never a second render and never a parallel DXF-receipt rail.
+`RuntimeRail[ArtifactReceipt]` is the rail the `runtime/faults#FAULTS` owner legislates, minted ONCE at `async_boundary(catch=_FAULTS)` over the real engine raise tuple, each raise discriminated into its own `BoundaryFault` case; the pre-run `_key` mints the `ContentKey` over the canonical op payload before the fold. `ezdxf` defers through a module-scope `lazy` import and the whole fold offloads through `LanePolicy.offload(modality=Modality.THREAD, retry=RetryClass.OCCT)` — thread-carried because the fold returns the `msgspec`-backed `DxfComposed` a subinterpreter cannot load the C-extension for and the GIL-releasing PyMuPDF/Matplotlib render shares the address space, so a per-arm process split is impossible; a transient `OSError` re-arms on the retry row before the boundary converts a persistent one, cancellation excluded. `Render` lowers into `composition/sheet#SHEET` (the one-page PDF the `show_pdf_page` seam places) and `graphic/vector/region#REGION` (the framed SVG the placement owner composites); `Bridge` meets `graphic/vector/region#REGION` at the vertex/`d`-string wire, imported one hop as `svg_frame`. Every op contributes one `core/receipt#RECEIPT` `ArtifactReceipt.Cad` case off the one fold and one `core/plan#PLAN` `ArtifactWork` node.
 
 ## [01]-[INDEX]
 
-- [01]-[DXF]: the CAD-exchange owner over the closed-payload `DxfOp` `tagged_union` (`New`/`Read`/`Recover`/`Render`/`Query`/`Transform`/`Bridge`) folded once into the `DxfComposed` evidence struct the `of`/`contribute` projections share, rail-typed `RuntimeRail[ArtifactReceipt]` over `async_boundary(catch=_FAULTS)`, offloaded through `LanePolicy.offload(modality=Modality.THREAD, retry=RetryClass.OCCT)` with the transient-`OSError` retry row; the `DxfEntity` closed build vocabulary under the uniform `DxfAttribs`→`GfxAttribs.asdict()` axis with the `DimKind`-keyed `_DIM` dimension family, the `HatchFill` SOLID/PATTERN/GRADIENT fill sub-axis over `set_solid_fill`/`set_pattern_fill`(+`tools.pattern.ISO_PATTERN`)/`set_gradient`, the `MLeaderKind` multileader builder axis over `add_multileader_mtext`/`add_multileader_block`+`mleader.ConnectionSide`, the `TableEntry` symbol-table row family the `drawing/standard` ISO vocabularies lower onto, the `Xref` external-reference row, the `DxfSource` polymorphic ingestion over `ezdxf.read`/`readfile`/`readzip`/`decode_base64` + `recover.read`/`readfile`, the `Spatial` closed spatial-query family over the `_SPATIAL_TEST`-keyed `select.*` rtree predicates, the `TransformSpec` affine over `transform.inplace`/`copies`, the `ezdxf.path` `make_path`/`flattening`/`control_vertices`/`from_vertices`/`render_lines` + `addons.geo`/`addons.text2path` bridge at the `graphic/vector/region#REGION` wire, the `ezdxf.addons.drawing` `Frontend`+`SVGBackend`/`PyMuPdfBackend`/`MatplotlibBackend`/`CustomJSONBackend`/`GeoJSONBackend` render stack under the `RenderPolicy` bundle (background/lineweight/hatch/text/color/proxy/line + `ctb=` CTB plot-style + `export_mode`) lowering into `composition/sheet#SHEET` and `graphic/vector/region#REGION`, the `doc.query`/`groupby`/`select`/`bbox` read side, and the `@_GUARD`-contracted `_admit` scalar seam; contributes ONE `core/receipt#RECEIPT` `ArtifactReceipt.Cad` case and one `core/plan#PLAN` `ArtifactWork` node.
+- [01]-[DXF]: the CAD-exchange owner over the closed `DxfOp` `tagged_union` (`New`/`Read`/`Recover`/`Render`/`Query`/`Transform`/`Bridge`) folded once into `DxfComposed`, thread-offloaded and rail-typed, `ezdxf` the sole read/write/recover/render surface.
 
 ## [02]-[DXF]
 
-- Owner: `Dxf` the one CAD-exchange owner holding `op: DxfOp` and discriminating operation over the closed `DxfOp` `expression.tagged_union` whose every case carries its own typed payload, every arm folded ONCE into the `DxfComposed` evidence struct (`data` bytes, `kind` the `DxfArtifact` format discriminant, plus the `dxfversion`/`units`/`counts`/`layers`/`blocks`/`errors`/`fixes`/`extent` CAD evidence) the `of`/`contribute` projections share — no second render and no `@cache` memo standing in for the one fold. `DxfDocument` is the New-arm authoring spec (version/units/setup + the `TableEntry` symbol-table rows + the `Xref` external references + the `BlockDef` reusable-block definitions + the modelspace `DxfEntity` drawables + the `DxfFormat` egress encoding), admitting the whole document graph as one owner the `_authored` fold lowers onto `ezdxf.new` + the builder family. `DxfEntity` is the closed drawable vocabulary each modelspace/block entity carries, bundling a shared `DxfAttribs` value object whose `.gfx()` projects the ONE `GfxAttribs(layer=, color=, rgb=, linetype=, lineweight=, transparency=, ltscale=).asdict()` payload the WHOLE `add_*` family takes, so a layer/color/linetype change is one `DxfAttribs` field, never a per-entity setter; the `Hatch` case's `HatchFill` sub-axis (`Solid`/`Pattern`/`Gradient`) dispatches `set_solid_fill`/`set_pattern_fill` (the ISO 128-50 material-indication fill, `drawing/standard` supplying the `tools.pattern.ISO_PATTERN` definition)/`set_gradient`, so solid-only hatch is no longer the ceiling; the `MultiLeader` case's `MLeaderKind` selects the `add_multileader_mtext`/`add_multileader_block` fluent builder folding each `LeaderLine` through `add_leader_line(mleader.ConnectionSide, …)`; the `Dimension` case's `DimKind` sub-axis (`LINEAR`/`ALIGNED`/`ANGULAR`/`RADIUS`/`DIAMETER`/`ORDINATE`/`ARC`) keys the `_DIM` `frozendict` to the matching `add_*_dim` builder whose returned `DimStyleOverride.render()` generates the dimension geometry. `TableEntry` is the closed `Layer`/`Linetype`/`Textstyle`/`Dimstyle` symbol-table row family the `_table_entry` fold lowers onto `doc.layers`/`doc.linetypes`/`doc.styles`/`doc.dimstyles` `.add(...)`, the ezdxf-shaped substrate the `drawing/standard` ISO 128/3098/129-1/13567 vocabularies compute their rows into — a new AEC standard lowers as `TableEntry` rows, never a re-implemented DXF table writer. `Xref` is the external-reference value object (`block_name`/`filename`/`insert`/`scale`/`rotation`) the `_attach_xref` fold binds through `xref.attach`, so a `DxfDocument` composes an external drawing by reference. `DxfSource` is the closed `Blob`/`File`/`Zip`/`Base64` polymorphic ingestion the `_ingest` conforming fold routes to `ezdxf.read`/`readfile`/`readzip`/`decode_base64` and the `_recovered` salvage fold routes to `recover.read`/`readfile`, never a per-source parser. `PageSpec` is the render page model (`width`/`height` at zero auto-detecting from extents, `margin`, `dpi`, `fit_page`, `scale`, and the `RenderPolicy` bundle) projecting the `ezdxf.addons.drawing.layout.Page`/`Settings`, the full `config.Configuration(background_policy=/lineweight_policy=/hatch_policy=/text_policy=/color_policy=/proxy_graphic_policy=/line_policy=)` render-policy bundle (each ezdxf enum derived by owned member name so the payload stays ezdxf-free, `LineweightPolicy.ABSOLUTE` honoring ISO 128 mm lineweight groups for AEC plot fidelity), and the `RenderContext(doc, ctb=, export_mode=)` CTB plot-style + paperspace-export seam; `Selection` is the read-side query spec (the `doc.query` EQL string plus the optional `Spatial` spatial refinement); `TransformSpec` is the affine spec (`translate`/`scale`/`rotate` composed into a `Matrix44`, an EQL `eql` selection, and a `TransformMode` `INPLACE`/`COPIES`) the `_transformed` fold applies through `transform.inplace`/`copies`. `Spatial` is the closed spatial-query family (`Window`/`Circle`/`Polygon`/`Fence`/`Point`) the `_spatial` fold routes to the rtree-backed `select.Window`/`Circle`/`Polygon` shape under a `SpatialTest` (`INSIDE`/`OUTSIDE`/`OVERLAP`) `_SPATIAL_TEST` row or the `select.bbox_crosses_fence`/`point_in_bbox` predicate, never a `get_by_layer`/`find` family. `ezdxf` owns `new`/`readfile`/`read`/`readzip`/`decode_base64`/`recover.read`/`readfile`/`saveas`/`write`/`encode_base64`/`audit`/`modelspace`/`blocks`/`layers`/`linetypes`/`styles`/`dimstyles`/`add_entity`, the `add_*` builder family + `GfxAttribs`/`colors.RGB`, the `Hatch.set_solid_fill`/`set_pattern_fill`/`set_gradient` + `tools.pattern.ISO_PATTERN`/`load`/`scale_pattern` hatch-fill surface, the `add_multileader_mtext`/`add_multileader_block` builder + `render.mleader.ConnectionSide`, `transform.inplace`/`copies`, `xref.attach`, `path.make_path`/`flattening`/`control_vertices`/`from_vertices`/`render_lines`, `math.Vec3`/`Matrix44`/`BoundingBox`, the `Frontend`/`RenderContext(ctb=, export_mode=)`/`Configuration`+`LineweightPolicy`/`HatchPolicy`/`TextPolicy`/`ColorPolicy`/`BackgroundPolicy`/`ProxyGraphicPolicy`/`LinePolicy`/`SVGBackend`/`PyMuPdfBackend`/`MatplotlibBackend`/`CustomJSONBackend`/`GeoJSONBackend` render stack, `query`/`groupby`/`select`/`bbox.extents`, and the `addons.geo`/`addons.text2path`/`addons.Importer` boundary surfaces; no DXF grammar, affine, spline evaluator, or entity-to-SVG conversion is re-implemented.
-- Cases: `DxfOp` cases — `New(document)` (author a fresh DXF from a `DxfDocument` spec — `ezdxf.new(version, setup=, units=)` mints the document, `_table_entry` folds each `TableEntry` onto its symbol table, `_attach_xref` binds each `Xref`, `doc.blocks.new(name)` + `_build_entity` populates each `BlockDef`, `_build_entity` folds every modelspace `DxfEntity` onto `msp.add_*` with the uniform `DxfAttribs.gfx()` payload, `doc.audit()` structurally validates before egress, and `_serialize` encodes to the `DxfFormat` bytes — the Auditor error/fix counts riding the `Cad` receipt) · `Read(source)` (ingest a CONFORMING DXF — the `DxfSource` folds through `_ingest` to `ezdxf.readfile`/`read`/`readzip`/`decode_base64`, `doc.audit()` normalizes, `_serialize` re-emits the audit-clean canonical bytes, a malformed source raising the `DXFStructureError` the `_FAULTS` tuple admits) · `Recover(source)` (SALVAGE a damaged/non-conforming DXF — `recover.readfile`/`read` (the ONLY correct loader for non-conforming DXF) returns `(doc, auditor)`, `_serialize` emits the salvaged bytes, the `auditor.errors`/`auditor.fixes` counts riding the `Cad` receipt as honest salvage evidence, a truly-unparseable input raising the `DXFStructureError` the boundary converts — never a parallel `DxfFault.recovered` `Literal` the boundary double-rails) · `Render(source, backend, page)` (lower a DXF figure into the composition/graphic plane — `Frontend(RenderContext(doc), backend, Configuration(...)).draw_layout(msp, finalize=True)` walks the layout resolving every entity's layer/linetype/lineweight/color into pen properties, and the `DxfBackend` selects the sink: `SVGBackend.get_string(page, settings)` for the SVG `graphic/vector/region#REGION` composites, `PyMuPdfBackend.get_pdf_bytes(page, settings=)` for the one-page PDF `composition/sheet#SHEET` places, `PyMuPdfBackend.get_pixmap_bytes(page, dpi=)` for the raster preview, `MatplotlibBackend` + `Figure.savefig(fmt="eps"/"ps")` for the publication-vector EPS/PS the pub plane needs, `CustomJSONBackend`/`GeoJSONBackend.get_string()` for the structured geometry export — no foreign renderer) · `Query(source, selection)` (extract an attribute/spatial sub-selection — `doc.query(selection.eql)` runs the DXF entity-query language, the optional `_spatial` fold refines it through the rtree-backed `select.Window`/`Circle`/`Polygon` shape under a `SpatialTest` or the `bbox_crosses_fence`/`point_in_bbox` predicate, `addons.Importer` copies the matched entities into a fresh document `_serialize` emits, the `Counter(dxftype)` census and `bbox.extents` riding the receipt — never a `find`/`get_by_layer`/`filter` family) · `Transform(source, spec)` (apply an affine to an ingested document or a queried sub-selection — `_transformed` composes `Matrix44.chain(scale, z_rotate, translate)`, resolves the `spec.eql` selection through `doc.query`, and folds it through `transform.inplace` (mutate) or `transform.copies` (duplicate onto the modelspace) under the `TransformMode`, `doc.audit()` re-validating before `_serialize` — the affine `ezdxf.math`/`transform` kernel owns, never a re-implemented OCS/WCS matrix) · `Bridge(spec)` (cross the DXF↔SVG↔GeoJSON↔glyph geometry wire — `ToSvg` folds `path.make_path(entity)` over the path-convertible drawables, `flattening(distance)` or `control_vertices()` sampling each into a `Vec3` sequence `numpy.asarray` records as the shared `(N, 3)` lane and `_polyline` emits as one d-fragment the `graphic/vector/region#REGION` `document` owner frames once; `FromSvg` crosses `svgelements.Path` vertex rings through `path.from_vertices` + `path.render_lines` onto a fresh modelspace; `ToGeoJson`/`FromGeoJson` cross the `addons.geo.GeoProxy` georeferenced wire; `TextPaths` crosses `addons.text2path.make_paths_from_str` glyph outlines to DXF — the two path owners meeting at the vertex/`d`-string wire, neither re-implementing the other's geometry) — matched by one total `match`/`case` lowering to the one `DxfComposed` fold; never a per-version reader sibling, never a per-entity `_emit` method, never a per-backend render family.
-- Auto: `_composed(op) -> DxfComposed` is the ONE total `match` over `DxfOp` both `of` and `contribute` read — no second render: the `New` arm calls `_authored(document)` (the `_table_entry`/`_attach_xref`/block/`_build_entity` fold + `doc.audit()`) then `_serialize`, the `Read` arm `_ingest`s and re-serializes the audit-clean form, the `Recover` arm `_recovered`s and reads the auditor counts, the `Render` arm `_admit`s the `dpi`/`scale`/`margin` scalars then drives `_rendered` (building the full `Configuration` policy bundle + `RenderContext(ctb=, export_mode=)` off the `RenderPolicy`) over the seven-member `DxfBackend`, the `Query` arm folds `doc.query`/`_spatial`/`Importer` into a matched sub-document, the `Transform` arm applies the `Matrix44` affine through `transform.inplace`/`copies` under the `TransformMode`, and the `Bridge` arm crosses the five geometry wires — each arm reading `doc.dxfversion`, the `_counts` `Counter(dxftype)` census, the `_extent` `bbox.extents` AABB, and the `doc.layers`/`doc.blocks` roster into `DxfComposed`, any ezdxf/backend failure propagating as the provider raise the boundary admits. `_build_entity(layout, entity)` is the total `match` over `DxfEntity` folding each onto its `add_*` builder with the shared `attribs.gfx()` payload, the `Hatch` arm building the boundary loops then dispatching the `HatchFill` sub-axis (`set_solid_fill`/`set_pattern_fill` with the ISO 128-50 definition/`set_gradient` over `colors.RGB`), the `MultiLeader` arm selecting the `MLeaderKind` fluent builder and folding each `LeaderLine` through `add_leader_line(mleader.ConnectionSide, …)` before `build(insert=)`, the `Dimension` arm keying `_DIM[kind]` to the matching `add_*_dim` and calling `.render()` on the returned override; `_table_entry(doc, entry)` is the total `match` lowering each `TableEntry` onto its `doc.<table>.add`. The ezdxf `Drawing` is pure-Python and GC-safe (no native handle to bracket, unlike the sibling `pymupdf` documents), so `_serialize` writes it through one `io.StringIO`/`io.BytesIO`/`encode_base64` egress; the render backends open their own native `pymupdf` documents (or a GC-safe `matplotlib.figure.Figure`) internally, which the backend owns and closes. Each arm returns `DxfComposed(data, kind, dxfversion, units, counts, layers, blocks, errors, fixes, extent)`, so the body stays one `match`-shaped path — never an inline `try`/`except` ladder beside it, never a `@cache` memo standing in for the one fold, never a second `match` re-rendering for the receipt.
-- Bridge: the `graphic/vector/path#PATH`/`graphic/vector/region#REGION` geometry seam is FIVE crossings on one `BridgeSpec` family, none re-implementing the other owner's geometry — `ToSvg` folds `path.make_path(entity)` over the `_PATH_TYPES`-filtered drawables (a TOTAL `dxftype` predicate, so no per-element `TypeError` from a `Text`/`Insert` drives the loop), `Path.flattening(distance)` adaptively sampling each curve or `Path.control_vertices()` reading the exact NURBS frame keyed by `BridgeSample`, `Vec3.list(verts)` round-tripping to tuples `numpy.asarray(...)` records as one `(N, 3)` array the offset/simplify/hull numeric lane crosses, `_polyline` emitting each as one `<path d="M…">` and the whole fragment stream framed ONCE by the `graphic/vector/region#REGION` `document(fragments, viewbox)` owner (imported one hop as `svg_frame`, never a hand-rolled `<svg>` and never the last-entity-only fold the naive form kept); `FromSvg` folds each `svgelements.Path` vertex ring through `path.from_vertices(ring)` into a `Path` and `path.render_lines(msp, paths)` back onto a fresh modelspace, so a `skia-pathops` boolean or an `svgelements.Path` transform crosses INTO DXF and a DXF NURBS curve crosses OUT at the shared `numpy` vertex array; `ToGeoJson`/`FromGeoJson` cross the `addons.geo.GeoProxy` georeferenced wire (`geo.proxy(entities).__geo_interface__` out over the `_GEO_TYPES`-filtered convertibles, `GeoProxy.parse(mapping).to_dxf_entities()` in), ezdxf holding only the DXF↔GeoJSON conversion and the geospatial owners the CRS authority; `TextPaths` crosses `addons.text2path.make_paths_from_str(text, FontFace(family=), size, m=Matrix44.translate(*insert))` glyph outlines (composing `fonttools`, never re-shaping) to DXF through the same `render_lines` egress.
-- Receipt: each operation contributes ONE `core/receipt#RECEIPT` `ArtifactReceipt.Cad(key, dxfversion, units, artifact, bytes, layers, blocks, errors, fixes, counts)` off the one `DxfComposed` fold through the receipt owner's named flat-scalar mint — the `dxfversion` string, the `units` name, the `artifact` format (`"dxf"` for a DXF-producing arm, `"svg"`/`"pdf"`/`"png"`/`"eps"`/`"ps"`/`"json"`/`"geojson"` for a render or geometry-export arm, from `composed.kind`), the output byte count, the `doc.layers`/`doc.blocks` roster counts, the `Auditor` error+fix counts (zero for the always-clean `New`/`Read` normalize, non-zero for a salvaged `Recover`), and the `Counter(dxftype)` entity-census `frozendict` the receipt owner's `cad` arm flattens into per-type facts beside the scalar summary. `contribute` reads the SAME `_composed(op)` the `of` projection reads, mints the content key over `composed.data` through the same `ContentIdentity.of` `_keyed` uses, and yields `ArtifactReceipt.Cad(...).contribute()` — the receipt owner's `Cad` mint being the closed family's own constructor exactly as `Ok`/`Some` are `Result`/`Option`'s, the flat positional shape the `_facts` `cad` arm projects, never a per-kind `CadFacts` `Struct` re-wrapping the scalars the mint already takes and never a phantom `ArtifactReceipt.of(key, facts)` the receipt owner rejects. A failed production raises the ezdxf/backend fault the `async_boundary` converts to a `BoundaryFault` (the receipt owner's own `rejected` line projecting it) rather than a zero-byte placeholder hand-built in the projection.
-- Growth: a new DXF version is one `DxfVersion` member — never a per-version reader; a new drawable is one `DxfEntity` case plus one `_build_entity` arm (the `assert_never` tail breaking the fold at type-check until the arm exists) — never a per-entity `_emit`; a new hatch fill mode is one `HatchFill` case plus one `_build_entity` fill arm; a new multileader attachment side or content source is one `LeaderSide`/`MLeaderKind` member; a new dimension kind is one `DimKind` member plus one `_DIM` row; a new symbol-table row (a `View`/`UCS`/`AppId`) is one `TableEntry` case plus one `_table_entry` arm; a new ingestion source is one `DxfSource` case plus one `_ingest`/`_recovered` arm; a new render backend or format is one `DxfBackend`+`DxfArtifact` member plus one `_rendered` arm — never a parallel renderer; a new egress encoding (a zipped bundle, the `r12writer` streaming fast-writer for millions of R12 entities) is one `DxfFormat` member plus one `_serialize` arm, the collapsed "Emit" axis a policy value not a parallel op; a new spatial refinement (a `select` bounding-shape, a `PlanarSearchIndex` reuse) is one `Spatial` case plus one `_spatial` arm; a new render policy is one `RenderPolicy` field plus one `Configuration`/`RenderContext` kwarg in `_rendered`; a new affine application mode is one `TransformMode` member plus one `_transformed` arm; a new bridge direction (a DXF↔DXF `xref` binding, a `addons.geo` CRS transform, a `MTextEditor` fluent-content stream) is one `BridgeSpec` case plus one arm over the existing `ezdxf.addons` surface; a new query refinement (a `groupby` key function, the `EntityQuery.union`/`difference`/`intersection` set-algebra combining two selections) is one `Selection` field; a new receipt scalar is one slot on the `Cad` case tuple plus one `_facts` field; a new engine raise is one type in the `_FAULTS` module tuple. Zero new surface.
-- Boundary: a hand-assembled DXF tag stream where the `add_*` builder family + `GfxAttribs` exist; a per-entity `set_layer`/`set_color` setter where the uniform `dxfattribs=` axis applies; a re-implemented affine/B-spline/OCS transform where `ezdxf.math` owns it; a hand-rolled `<svg>` wrapper or a per-entity-overwriting fold where the `graphic/vector/region#REGION` `document` owner frames the whole `make_path`/`flattening` fragment stream; a re-parsed SVG `d`-string where `from_vertices`/`render_lines` bridge the geometry; a foreign DXF renderer where the `Frontend`+backend family renders; a `find`/`get_by_layer`/`filter` query family where `doc.query`/`groupby`/`select` discriminate; a per-element `try`/`except make_path` where the `_PATH_TYPES`/`_GEO_TYPES` total predicate filters; the conforming `readfile` on a damaged file where `recover.readfile` is the correct salvage path; a parallel `DxfFault` `Literal` the boundary never reads where the Auditor evidence rides the `Cad` receipt and the hard raise crosses `_FAULTS`; a per-version reader class, a per-backend render method, a per-kind receipt `Struct`, an inline `try`/`except` ladder beside the fold, a second full render for the receipt, and a `@cache` memo standing in for the one fold are the deleted forms. `ezdxf` owns DXF read/write/recover, the graphic-entity vocabulary, the `Path` geometry algebra, the `ezdxf.math` kernel, and the DXF render frontend; the IFC semantic model stays `csharp:Rasm.Bim`; the AEC standards vocabularies (ISO 128/129-1/3098/13567) stay the future `drawing/standard` owned-vocabulary owners that LOWER onto the `TableEntry` rows; SVG framing shared with the figure rail meets `graphic/vector/region#REGION` at the `document`/`d`-string wire; PDF page assembly and sheet placement stay `composition/sheet#SHEET`/`composition/imposition#IMPOSE`; font shaping stays `typography` (`text2path` composes `fonttools`, it does not re-shape); the geospatial CRS authority stays the geospatial owner (`addons.geo` holds only the DXF↔GeoJSON conversion); identity minting the runtime owns.
-- Packages: `ezdxf` (`new`/`readfile`/`read`/`readzip`/`decode_base64`/`recover`/`audit`/`write`/`encode_base64`; the `add_*` builder family + `GfxAttribs`/`colors.RGB`; the `Hatch.set_solid_fill`/`set_pattern_fill`/`set_gradient` + `tools.pattern.ISO_PATTERN`/`load`/`scale_pattern` hatch-fill surface; `add_multileader_mtext`/`add_multileader_block` + `render.mleader.ConnectionSide`; `xref.attach`; `path.make_path`/`flattening`/`control_vertices`/`from_vertices`/`render_lines`; `math.Vec3`/`Matrix44`; `transform.inplace`/`copies`; `addons.drawing` `Frontend`/`RenderContext(ctb=, export_mode=)`/`Configuration`+`LineweightPolicy`/`HatchPolicy`/`TextPolicy`/`ColorPolicy`/`BackgroundPolicy`/`ProxyGraphicPolicy`/`LinePolicy`/`SVGBackend`/`PyMuPdfBackend`/`MatplotlibBackend`/`CustomJSONBackend`/`GeoJSONBackend`/`layout.Page`/`Settings`/`Margins`; `query`/`groupby`/`select.Window`/`Circle`/`Polygon`/`bbox_inside`/`bbox_outside`/`bbox_overlap`/`bbox_crosses_fence`/`point_in_bbox`/`bbox.extents`; `addons.Importer`/`addons.geo.GeoProxy`/`addons.text2path.make_paths_from_str`/`fonts.FontFace`); `matplotlib` (`figure.Figure` + `savefig` the EPS/PS publication-vector sink the `MatplotlibBackend` renders into, GC-safe with no `pyplot` global); `graphic/vector/region#REGION` (`document` the SVG-framing egress, imported `as svg_frame`, the `ToSvg` bridge composes one hop); `numpy` (the `Vec3.list` → `asarray` `(N, 3)` vertex lane the flatten result crosses); `expression` (`tagged_union`/`tag`/`case` the `DxfOp`/`DxfEntity`/`TableEntry`/`DxfSource`/`BridgeSpec`/`Spatial` unions); `msgspec` (`Struct(frozen=True)` the value objects, `json.encode`/`decode` the GeoJSON wire); `beartype` (the `_GUARD` scalar contract over `_admit`); `rasm.runtime.lanes` (`LanePolicy.offload` the `Modality.THREAD` render offload); `builtins.frozendict` (the `_DIM`/`_UNITS`/`_SPATIAL_TEST` policy tables); `collections.Counter` (the dxftype census); runtime (`identity.ContentIdentity`/`ContentKey`, `faults.RuntimeRail`/`async_boundary`); `core/receipt#RECEIPT` (`ArtifactReceipt.Cad`).
+- Owner: `Dxf` holds `op: DxfOp` and discriminates over the closed `tagged_union`, every arm folding once into `DxfComposed`. `DxfDocument` is the New-arm authoring spec admitting the whole document graph (version/units/setup, `TableEntry` rows, `Xref` references, `BlockDef` blocks, modelspace `DxfEntity` drawables, `DxfFormat` egress). `DxfEntity` is the closed drawable vocabulary; each case bundles a shared `DxfAttribs` whose `.gfx()` projects the ONE `GfxAttribs(...).asdict()` payload the whole `add_*` family takes, so a layer/color/linetype change is one field, never a per-entity setter. `Hatch`'s `HatchFill` sub-axis routes SOLID/PATTERN/GRADIENT through `set_solid_fill`/`set_pattern_fill`/`set_gradient` (the ISO 128-50 material-indication fill `drawing/standard` supplies the `tools.pattern.ISO_PATTERN` definition for); `MultiLeader`'s `MLeaderKind` selects the mtext/block builder; `Dimension`'s `DimKind` keys the `_DIM` table to the matching `add_*_dim` builder. `TableEntry` is the `Layer`/`Linetype`/`Textstyle`/`Dimstyle` symbol-table family the `drawing/standard` ISO 128/3098/129-1/13567 vocabularies lower computed rows onto — dxf owns the table-authoring shape, the ISO semantics stay their owners. `Xref` binds an external drawing by reference through `xref.attach`. `DxfSource` is the closed `Blob`/`File`/`Zip`/`Base64` ingestion the conforming `_ingest` and salvage `_recovered` folds route. `Spatial` is the closed `Window`/`Circle`/`Polygon`/`Fence`/`Point` family the `_SPATIAL_TEST` table routes to the rtree-backed `select.*` predicate.
+- Cases: `New` authors from a `DxfDocument` (`ezdxf.new` + the builder folds + `doc.audit()` before egress); `Read` ingests a CONFORMING DXF and re-emits the audit-clean bytes, a malformed source raising the `DXFStructureError` `_FAULTS` admits; `Recover` SALVAGES a damaged file through `recover.readfile`/`read` (the only correct loader for non-conforming DXF), the `auditor.errors`/`fixes` counts riding the `Cad` receipt as honest salvage evidence; `Render` drives the `Frontend`+backend stack selecting the sink (`SVGBackend` for `region#REGION`, `PyMuPdfBackend` for the `sheet#SHEET` PDF and the raster preview, `MatplotlibBackend` for EPS/PS, `CustomJSONBackend`/`GeoJSONBackend` for structured export); `Query` runs `doc.query` refined by the optional `_spatial` fold and copies matches through `addons.Importer`; `Transform` applies a `Matrix44` affine through `transform.inplace`/`copies` under the `TransformMode`; `Bridge` crosses five geometry wires on one `BridgeSpec` family — `ToSvg` folds `path.make_path`/`flattening` over the `_PATH_TYPES`-filtered drawables into a `(N,3)` numpy lane the `region#REGION` `document` owner frames ONCE, `FromSvg` crosses vertex rings through `from_vertices`/`render_lines`, `ToGeoJson`/`FromGeoJson` cross the `addons.geo.GeoProxy` wire, `TextPaths` crosses `addons.text2path` glyph outlines — neither path owner re-implementing the other's geometry.
+- Auto: `_composed(op) -> DxfComposed` is the ONE total `match` both `of` and `contribute` read — no second render, no `@cache` memo standing in for the fold. `_build_entity` folds each `DxfEntity` onto its `add_*` builder with the shared `attribs.gfx()` payload; `_table_entry` lowers each `TableEntry` onto its `doc.<table>.add`. ezdxf's `Drawing` is pure-Python and GC-safe (no native handle to bracket, unlike the sibling `pymupdf` documents), so `_serialize` writes one `io.StringIO`/`BytesIO`/`encode_base64` egress; the render backends open and close their own native `pymupdf`/`matplotlib` handles.
+- Output: `DxfComposed` is the one evidence struct — the serialized `data`, the `kind` format discriminant, and the `dxfversion`/`units`/`counts`/`layers`/`blocks`/`errors`/`fixes`/`extent` CAD evidence, the `Auditor` counts non-zero only for a salvaged `Recover`.
+- Receipt: each op contributes ONE `ArtifactReceipt.Cad` case off the one fold through the receipt owner's named flat-scalar mint — the `dxfversion`, units, `artifact` format (from `composed.kind`), byte count, layer/block roster counts, `Auditor` error+fix counts, and the `Counter(dxftype)` census. `contribute` re-enters the SAME `_composed` fold and mints the content key over `composed.data`; a failed production raises the ezdxf/backend fault the `async_boundary` converts, never a zero-byte placeholder.
+- Packages: `ezdxf` owns the read/write/recover/audit surface, the `add_*` builder family + `GfxAttribs`/`colors.RGB`, the hatch-fill and multileader builders, `xref.attach`, the `ezdxf.path` algebra, the `ezdxf.math` kernel, the `addons.drawing` render stack, the `query`/`groupby`/`select`/`bbox` read side, and the `addons.geo`/`text2path`/`Importer` boundary surfaces; `matplotlib` (`figure.Figure` + `savefig`, the GC-safe EPS/PS sink, no `pyplot` global); `graphic/vector/region#REGION` (`document`, the SVG-framing egress the `ToSvg` bridge composes one hop as `svg_frame`); `numpy` (the `(N,3)` vertex lane); `expression`/`msgspec` (the unions and value objects, the GeoJSON `json.encode`/`decode` wire); `beartype` (the `_GUARD` scalar contract); runtime (`identity`, `faults`, `lanes`); `core/receipt#RECEIPT`/`core/plan#PLAN`.
+- Growth: a new DXF version is one `DxfVersion` member; a new drawable is one `DxfEntity` case plus one `_build_entity` arm (the `assert_never` tail breaking the fold at type-check); a new hatch fill is one `HatchFill` case; a new dimension kind is one `DimKind` member plus one `_DIM` row; a new symbol-table row is one `TableEntry` case plus one `_table_entry` arm; a new ingestion source is one `DxfSource` case; a new render backend or format is one `DxfBackend`+`DxfArtifact` member plus one `_rendered` arm; a new egress encoding (the `r12writer` streaming fast-writer) is one `DxfFormat` member plus one `_serialize` arm; a new spatial refinement is one `Spatial` case; a new render policy is one `RenderPolicy` field; a new affine mode is one `TransformMode` member; a new bridge direction is one `BridgeSpec` case over the existing `ezdxf.addons` surface; a new query refinement (`groupby`, the `EntityQuery` set-algebra) is one `Selection` field; a new receipt scalar is one `Cad` slot; a new engine raise is one type in the `_FAULTS` tuple. Zero new surface.
+- Boundary: a hand-assembled DXF tag stream where the `add_*` family exists; a per-entity `set_layer`/`set_color` setter where the uniform `dxfattribs=` axis applies; a re-implemented affine/B-spline/OCS transform where `ezdxf.math` owns it; a hand-rolled `<svg>` wrapper where the `region#REGION` `document` owner frames the fragment stream; a foreign DXF renderer where the `Frontend`+backend family renders; a `find`/`get_by_layer` query family where `doc.query`/`select` discriminate; the conforming `readfile` on a damaged file where `recover.readfile` is the salvage path; a parallel `DxfFault` `Literal` the boundary never reads where the Auditor evidence rides the `Cad` receipt and the hard raise crosses `_FAULTS`. `csharp:Rasm.Bim` holds the IFC semantic model; the AEC standards vocabularies (ISO 128/129-1/3098/13567) stay the future `drawing/standard` owners that lower onto `TableEntry`; SVG framing meets `graphic/vector/region#REGION` at the `document`/`d`-string wire; PDF page assembly stays `composition/sheet#SHEET`/`composition/imposition#IMPOSE`; font shaping stays `typography` (`text2path` composes `fonttools`); the geospatial CRS authority stays the geospatial owner (`addons.geo` holds only the DXF↔GeoJSON conversion); identity minting the runtime owns.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -52,9 +48,8 @@ from artifacts.core.plan import Admission, ArtifactWork
 from artifacts.core.receipt import ArtifactReceipt
 from artifacts.graphic.vector.region import document as svg_frame  # the graphic/vector/region#REGION framing egress the ToSvg bridge composes one hop
 
-# `DXFError` is the `ezdxf` error base, `Exception`-derived (NOT a stdlib subclass), so it is named
-# eagerly for the `_FAULTS` tuple exactly as the sibling `composition/imposition#IMPOSE` names
-# `PdfImposeUserError`; the heavy `ezdxf` surface stays lazy behind the module boundary.
+# `DXFError` is the `ezdxf` error base, `Exception`-derived (NOT a stdlib subclass), so it imports eagerly
+# for the `_FAULTS` tuple while the heavy `ezdxf` surface stays lazy behind the module boundary.
 from ezdxf import DXFError
 
 lazy import ezdxf
@@ -97,17 +92,13 @@ type PositiveInt = Annotated[int, Is[lambda value: value > 0]]
 type PatternLine = tuple[float, Point2, Point2, tuple[float, ...]]  # ezdxf hatch pattern-line def: (angle, base, offset, dash items)
 type LeaderLine = tuple[LeaderSide, tuple[Point3, ...]]  # one multileader leader: (dogleg attachment side, vertices)
 
-# real ezdxf/backend raise tuple: `DXFError` admits `DXFStructureError`/`DXFVersionError`/`DXFValueError`
-# (malformed read, bad builder call), `RuntimeError` the `PyMuPdfBackend`/`pymupdf`/`matplotlib` native render,
-# `ValueError` a `matplotlib`/`msgspec.json`/EQL raise, `KeyError` a `_DIM`/`_SPATIAL_TEST` miss, `OSError` a
-# font/resource/stream fault, and `BeartypeCallHintViolation` the `_GUARD`-contracted `_admit` non-positive reject.
+# real ezdxf/backend raise tuple: `DXFError` a malformed read/bad builder call, `RuntimeError` the native render,
+# `ValueError` a matplotlib/msgspec.json/EQL raise, `KeyError` a `_DIM`/`_SPATIAL_TEST` miss, `OSError` a
+# font/resource/stream fault, `BeartypeCallHintViolation` the `_admit` non-positive reject — each its own `BoundaryFault`.
 _FAULTS: tuple[type[BaseException], ...] = (DXFError, RuntimeError, ValueError, KeyError, OSError, BeartypeCallHintViolation)
-# the native-offload lane: the GIL-releasing PyMuPDF/Matplotlib render crosses `LanePolicy.offload`'s
-# thread modality off the event loop; forced for the whole fold because it returns the `msgspec`-backed
-# `DxfComposed` the subinterpreter modality cannot load the C-extension for.
 
 
-class DxfVersion(StrEnum):  # the `ezdxf.new(dxfversion=)` target; a new version is one member, never a reader subtype
+class DxfVersion(StrEnum):  # the `ezdxf.new(dxfversion=)` target
     R12 = "AC1009"
     R2000 = "AC1015"
     R2004 = "AC1018"
@@ -127,20 +118,20 @@ class DxfUnits(IntEnum):  # the `ezdxf.units` InsertUnits `doc.units` value (dra
     KILOMETER = 7
 
 
-class DxfFormat(StrEnum):  # the egress encoding — the collapsed "Emit" axis as a policy value, not a parallel op
+class DxfFormat(StrEnum):  # the egress encoding as a policy value
     ASC = "asc"  # ascii DXF (`doc.write` text stream)
     BIN = "bin"  # binary DXF (`doc.write(fmt="bin")`)
     BASE64 = "b64"  # `doc.encode_base64()` blob
 
 
-class DxfBackend(StrEnum):  # the `Render` sink — seven in-process backends, no foreign renderer
-    SVG = "svg"  # SVGBackend.get_string — the graphic/vector/region#REGION composite
-    PDF = "pdf"  # PyMuPdfBackend.get_pdf_bytes — the composition/sheet#SHEET placement
-    PNG = "png"  # PyMuPdfBackend.get_pixmap_bytes — the raster preview
-    EPS = "eps"  # MatplotlibBackend + Figure.savefig — the publication-vector output
-    PS = "ps"  # MatplotlibBackend + Figure.savefig — the PostScript publication output
-    JSON = "json"  # CustomJSONBackend.get_string — the structured geometry export
-    GEOJSON = "geojson"  # GeoJSONBackend.get_string — the georeferenced geometry export
+class DxfBackend(StrEnum):  # the `Render` sink — in-process backends, each member its own ezdxf sink
+    SVG = "svg"  # SVGBackend.get_string
+    PDF = "pdf"  # PyMuPdfBackend.get_pdf_bytes
+    PNG = "png"  # PyMuPdfBackend.get_pixmap_bytes
+    EPS = "eps"  # MatplotlibBackend + Figure.savefig
+    PS = "ps"  # MatplotlibBackend + Figure.savefig
+    JSON = "json"  # CustomJSONBackend.get_string
+    GEOJSON = "geojson"  # GeoJSONBackend.get_string
 
 
 class DxfArtifact(StrEnum):  # the `DxfComposed.kind` format discriminant the `Cad` receipt carries
@@ -192,9 +183,9 @@ class TransformMode(StrEnum):  # `transform.inplace` (mutate) vs `transform.copi
     COPIES = "copies"
 
 
-# owned render-policy vocabularies mirroring the `ezdxf.addons.drawing.config` policy enums by member name, so the
-# payload stays ezdxf-free (laziness preserved) and `_rendered` derives each ezdxf enum via `getattr(<policy>, member.name)`.
-class BackgroundPolicy(StrEnum):  # render canvas background — the collapsed `dark` knob as a policy value
+# owned render-policy vocabularies mirroring the `ezdxf.addons.drawing.config` enums by member name, so the payload
+# stays ezdxf-free and `_rendered` derives each ezdxf enum via `getattr(<policy>, member.name)`.
+class BackgroundPolicy(StrEnum):  # render canvas background
     DEFAULT = "default"
     WHITE = "white"
     BLACK = "black"
@@ -252,13 +243,12 @@ class LinePolicy(StrEnum):  # linetype rendering accuracy
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 _ZERO_EXTENT: Extent = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
-# the dxftypes `ezdxf.path.make_path` lifts into a `Path` and `addons.geo.proxy` converts to GeoJSON — a TOTAL
-# predicate the bridge folds filter on so a non-convertible `Text`/`Insert`/`Dimension` never reaches the raise.
+# the dxftypes `make_path`/`addons.geo.proxy` convert — a TOTAL predicate the bridge folds filter on so a
+# non-convertible `Text`/`Insert` never reaches the raise.
 _PATH_TYPES: frozenset[str] = frozenset({"LINE", "ARC", "CIRCLE", "ELLIPSE", "SPLINE", "LWPOLYLINE", "POLYLINE", "HATCH"})
 _GEO_TYPES: frozenset[str] = frozenset({"LINE", "ARC", "CIRCLE", "ELLIPSE", "SPLINE", "LWPOLYLINE", "POLYLINE", "POINT"})
 _UNITS: frozendict[DxfUnits, str] = frozendict({unit: unit.name.lower() for unit in DxfUnits})
-# the ISO 129-1 dimension family -> the matching `add_*_dim` builder; each returns a `DimStyleOverride`
-# whose `.render()` generates the geometry, so a new kind is one member plus one row, never a per-kind method.
+# the ISO 129-1 dimension family -> the matching `add_*_dim` builder; each returns a `DimStyleOverride` whose `.render()` generates the geometry.
 _DIM: frozendict[DimKind, Builder] = frozendict({
     DimKind.LINEAR: lambda msp, pts, ds, at: msp.add_linear_dim(base=pts[0], p1=pts[1], p2=pts[2], dimstyle=ds, dxfattribs=at),
     DimKind.ALIGNED: lambda msp, pts, ds, at: msp.add_aligned_dim(p1=pts[0], p2=pts[1], distance=pts[2][0], dimstyle=ds, dxfattribs=at),
@@ -270,8 +260,7 @@ _DIM: frozendict[DimKind, Builder] = frozendict({
     DimKind.ORDINATE: lambda msp, pts, ds, at: msp.add_ordinate_x_dim(feature_location=pts[0], offset=pts[1], dimstyle=ds, dxfattribs=at),
     DimKind.ARC: lambda msp, pts, ds, at: msp.add_arc_dim_3p(base=pts[0], center=pts[1], p1=pts[2], p2=pts[3], dimstyle=ds, dxfattribs=at),
 })
-# the `Spatial` area-test row -> the rtree-backed `select` predicate; fence/point cross their own `select`
-# functions (no `SelectionShape`), so a new area test is one `SpatialTest` member plus one row.
+# the area-test row -> the rtree-backed `select` predicate; fence/point cross their own `select` functions.
 _SPATIAL_TEST: frozendict[SpatialTest, Callable[[object, "EntityQuery"], "Iterable[DXFGraphic]"]] = frozendict({
     SpatialTest.INSIDE: lambda shape, entities: select.bbox_inside(shape, entities),
     SpatialTest.OUTSIDE: lambda shape, entities: select.bbox_outside(shape, entities),
@@ -281,9 +270,7 @@ _SPATIAL_TEST: frozendict[SpatialTest, Callable[[object, "EntityQuery"], "Iterab
 
 # --- [MODELS] ---------------------------------------------------------------------------
 class DxfAttribs(Struct, frozen=True):
-    # the ONE graphic-attribute value object across the whole `add_*` family; `.gfx()` is the uniform
-    # `dxfattribs=` payload, never a per-entity setter. The `drawing/standard` layer/linetype codecs
-    # supply `layer`/`linetype` as data; the ISO semantics stay their owner's.
+    # `.gfx()` is the uniform `dxfattribs=` payload; the `drawing/standard` codecs supply `layer`/`linetype` as data.
     layer: str = "0"
     color: int = 256  # ACI; 256=ByLayer, 0=ByBlock, 1-255 indexed
     rgb: tuple[int, int, int] | None = None  # true-color; None = ACI `color`
@@ -312,7 +299,7 @@ class Xref(Struct, frozen=True):  # an external DXF reference `xref.attach` bind
     rotation: float = 0.0
 
 
-class RenderPolicy(Struct, frozen=True):  # the ezdxf render-policy bundle as POLICY_VALUES over owned enums — AEC plot fidelity, not knobs
+class RenderPolicy(Struct, frozen=True):  # the ezdxf render-policy bundle as POLICY_VALUES over owned enums
     background: BackgroundPolicy = BackgroundPolicy.WHITE
     lineweight: LineweightPolicy = LineweightPolicy.ABSOLUTE  # ABSOLUTE honors ISO 128 mm lineweight groups
     hatch: HatchPolicy = HatchPolicy.NORMAL
@@ -334,7 +321,7 @@ class PageSpec(Struct, frozen=True):  # the `ezdxf.addons.drawing.layout.Page`/`
     policy: RenderPolicy = RenderPolicy()  # the full render-policy bundle (background/lineweight/hatch/text/color/proxy/line + ctb + export_mode)
 
 
-class DxfComposed(Struct, frozen=True):  # the one evidence struct of/contribute read — no second render
+class DxfComposed(Struct, frozen=True):  # the one evidence struct of/contribute read
     data: bytes
     kind: DxfArtifact = DxfArtifact.DXF  # the format the bytes ARE, riding the `Cad` receipt's `artifact` slot
     dxfversion: str = ""
@@ -348,7 +335,7 @@ class DxfComposed(Struct, frozen=True):  # the one evidence struct of/contribute
 
 
 @tagged_union(frozen=True)
-class TableEntry:  # the symbol-table row family the `drawing/standard` ISO vocabularies lower onto
+class TableEntry:
     tag: Literal["layer", "linetype", "textstyle", "dimstyle"] = tag()
     layer: tuple[str, int, str, int] = case()  # (name, color, linetype, lineweight) — ISO 13567 layer codec target
     linetype: tuple[str, tuple[float, ...], str] = case()  # (name, dash/gap pattern, description) — ISO 128 target
@@ -373,7 +360,7 @@ class TableEntry:  # the symbol-table row family the `drawing/standard` ISO voca
 
 
 @tagged_union(frozen=True)
-class HatchFill:  # the hatch fill sub-axis — solid color, ISO 128-50 pattern, or two-color gradient; drawing/standard lowers `tools.pattern.ISO_PATTERN` defs onto Pattern
+class HatchFill:  # solid color, ISO 128-50 pattern, or two-color gradient
     tag: Literal["solid", "pattern", "gradient"] = tag()
     solid: int = case()  # ACI fill color -> set_solid_fill
     pattern: tuple[str, tuple[PatternLine, ...], int, float, float] = (
@@ -395,7 +382,7 @@ class HatchFill:  # the hatch fill sub-axis — solid color, ISO 128-50 pattern,
 
 
 @tagged_union(frozen=True)
-class DxfEntity:  # the closed drawable vocabulary; each case bundles the shared `DxfAttribs` uniform axis
+class DxfEntity:
     tag: Literal[
         "line",
         "arc",
@@ -506,7 +493,7 @@ class BlockDef(Struct, frozen=True):  # a reusable block definition `add_blockre
     entities: tuple[DxfEntity, ...] = ()
 
 
-class DxfDocument(Struct, frozen=True):  # the New-arm authoring spec — the whole document graph as one owner
+class DxfDocument(Struct, frozen=True):  # the New-arm authoring spec — the whole document graph
     version: DxfVersion = DxfVersion.R2018
     units: DxfUnits = DxfUnits.MILLIMETER
     setup: bool = True  # load standard linetypes/styles/dimstyles
@@ -518,7 +505,7 @@ class DxfDocument(Struct, frozen=True):  # the New-arm authoring spec — the wh
 
 
 @tagged_union(frozen=True)
-class DxfSource:  # the polymorphic ingestion the `_ingest` conforming + `_recovered` salvage folds route
+class DxfSource:
     tag: Literal["blob", "file", "zip", "base64"] = tag()
     blob: bytes = case()  # a DXF byte stream -> `ezdxf.read` / `recover.read`
     file: str = case()  # a filesystem path -> `ezdxf.readfile` / `recover.readfile`
@@ -543,7 +530,7 @@ class DxfSource:  # the polymorphic ingestion the `_ingest` conforming + `_recov
 
 
 @tagged_union(frozen=True)
-class Spatial:  # the rtree-backed spatial-query family the `_spatial` fold routes to `select.*`
+class Spatial:
     tag: Literal["window", "circle", "polygon", "fence", "point"] = tag()
     window: tuple[Point2, Point2, SpatialTest] = case()  # (corner, corner, area-test) -> select.Window
     circle: tuple[Point2, float, SpatialTest] = case()  # (center, radius, area-test) -> select.Circle
@@ -586,7 +573,7 @@ class TransformSpec(Struct, frozen=True):  # an affine (translate∘scale∘z-ro
 
 
 @tagged_union(frozen=True)
-class BridgeSpec:  # the DXF<->SVG<->GeoJSON<->glyph geometry wire at the `graphic/vector/path#PATH`/`region#REGION` seam
+class BridgeSpec:  # the DXF<->SVG<->GeoJSON<->glyph geometry wire
     tag: Literal["to_svg", "from_svg", "to_geojson", "from_geojson", "text_paths"] = tag()
     to_svg: tuple[DxfSource, float, BridgeSample] = case()  # (source, flatten distance, sample mode) -> framed SVG
     from_svg: tuple[tuple[tuple[Point2, ...], ...], DxfVersion, DxfAttribs] = case()  # (vertex rings, version, attribs) -> DXF
@@ -668,9 +655,8 @@ _GUARD = beartype(conf=BeartypeConf(violation_type=BeartypeCallHintViolation))
 
 @_GUARD
 def _admit(dpi: PositiveInt, scale: Positive, margin: NonNegative, distance: Positive, /) -> None:
-    # the scalar admission seam beartype deep-checks: a non-positive `dpi`/`scale`/`distance` rails as the
-    # `api` BoundaryFault BEFORE the render/bridge divide, the `Is`-refined aliases load-bearing where a
-    # `@_GUARD` on `_composed(op: DxfOp)` would be dead (beartype never recurses into a case-tuple payload).
+    # the scalar admission seam beartype deep-checks: a non-positive `dpi`/`scale`/`distance` rails before the
+    # render/bridge divide; the guard sits here because beartype never recurses into a `_composed(op)` case-tuple payload.
     return None
 
 
@@ -712,8 +698,7 @@ def _recovered(source: DxfSource, /) -> tuple["Drawing", object]:  # `recover.re
 
 
 def _build_entity(layout: "Modelspace | BlockLayout", entity: DxfEntity, /) -> None:
-    # Exemption: the ezdxf `Drawing` is a mutable builder, so each `add_*` is the platform-forced
-    # construction statement — the domain shape is the closed `DxfEntity` match, the mutation is ezdxf's.
+    # Exemption: the ezdxf `Drawing` is a mutable builder — each `add_*` is platform-forced construction, the domain shape the closed match.
     match entity:
         case DxfEntity(tag="line", line=(start, end, at)):
             layout.add_line(start, end, dxfattribs=at.gfx())
@@ -851,10 +836,8 @@ def _dxf_composed(doc: "Drawing", auditor: object, fmt: DxfFormat, /) -> DxfComp
 
 
 def _flattened(doc: "Drawing", distance: float, sample: BridgeSample, /) -> Iterator[np.ndarray]:
-    # the lazy per-entity vertex fold: only `_PATH_TYPES` drawables cross `make_path` (a TOTAL predicate, so
-    # no per-element `TypeError` from a `Text`/`Insert` drives the loop), `flattening` adaptively samples a
-    # curve and `control_vertices` reads the exact NURBS frame; the `(N, 3)` numpy array is the shared
-    # offset/simplify/hull lane the `render_lines` result crosses back through, materialized only at `svg`.
+    # only `_PATH_TYPES` drawables cross `make_path` (a TOTAL predicate, so no per-element `TypeError` from a
+    # `Text`/`Insert`); `flattening` adaptively samples a curve, `control_vertices` reads the exact NURBS frame.
     for entity in doc.modelspace():
         if entity.dxftype() in _PATH_TYPES:
             outline = dxfpath.make_path(entity)
@@ -865,8 +848,7 @@ def _flattened(doc: "Drawing", distance: float, sample: BridgeSample, /) -> Iter
 
 
 def _polyline(vertices: np.ndarray, /) -> str:
-    # one drawable's flattened polyline as an SVG `<path>` `d` over the numeric `(N, 3)` lane — trusted
-    # geometry at the d-fragment altitude, the whole stream framed once by the imported `svg_frame` (`region#REGION` `document`).
+    # one drawable's flattened polyline as an SVG `<path>` `d`.
     body = "M" + " L".join(f"{x:g},{y:g}" for x, y, _ in vertices)
     return f'<path fill="none" stroke="black" d="{body}"/>'
 
@@ -891,7 +873,6 @@ def _rendered(source: DxfSource, backend: DxfBackend, page: PageSpec, /) -> DxfC
     _admit(page.dpi, page.scale, page.margin, 1.0)
     doc = _ingest(source)
     pol = page.policy
-    # the full render-policy bundle + CTB plot-style + export_mode seam — each ezdxf enum derived by owned member name so the payload stays ezdxf-free
     context = RenderContext(doc, ctb=pol.ctb, export_mode=pol.export_mode)
     config = dwgconfig.Configuration(
         background_policy=getattr(dwgconfig.BackgroundPolicy, pol.background.name),
@@ -1057,9 +1038,6 @@ def _composed(op: DxfOp) -> DxfComposed:  # the one pure fold both `of` and `con
 
 # --- [SERVICES] -------------------------------------------------------------------------
 async def _offloaded(op: DxfOp, /) -> DxfComposed:
-    # the GIL-releasing render / disk-read fold crosses the thread lane off the loop; `RetryClass.OCCT`
-    # re-arms a transient `OSError` before the boundary converts a persistent one, the cancellation class
-    # excluded from the retry set.
     return (await LanePolicy.offload(_composed, op, modality=Modality.THREAD, retry=RetryClass.OCCT)).default_with(_dxf_raise)
 
 
@@ -1075,7 +1053,6 @@ class Dxf(Struct, frozen=True):
         return ContentIdentity.of(f"dxf-{self.op.tag}", self.op, policy=CANONICAL_POLICY)
 
     async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
-        # the renamed private thunk (the of()+contribute() weave converges here); slot = pre-run key.
         return (await async_boundary(f"dxf.{self.op.tag}", lambda: _offloaded(self.op), catch=_FAULTS)).map(
             lambda composed: self._receipt(self._key, composed)
         )
@@ -1095,9 +1072,6 @@ class Dxf(Struct, frozen=True):
         )
 
     def contribute(self) -> "Iterable[Receipt]":
-        # `contribute` re-enters the SAME deterministic `_composed` fold `of` reads (the sibling
-        # `composition/sheet#SHEET` producer contract), mints the content key over its bytes, and yields the
-        # one `Cad` case; no memo stands in for the fold, no parallel DXF-receipt rail.
         yield from self._receipt(self._key, _composed(self.op)).contribute()
 
 
@@ -1139,3 +1113,11 @@ __all__ = [
     "Xref",
 ]
 ```
+
+## [03]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+-->
+
+(none)

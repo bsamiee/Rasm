@@ -22,7 +22,7 @@ Each diagram type answers one question with a bounded mark vocabulary. Per type:
     - Keep annotation traffic on dashed Comment traces so the solid control rail stays the loudest ink on the canvas.
     - Broadcast with `A --> B & C` only for genuinely symmetric fan-out; asymmetric hops get their own labeled edges.
 - Failure modes:
-    - the god-flowchart absorbing lifecycle, sequence, or schema payloads.
+    - god-flowchart absorbing lifecycle, sequence, or schema payloads.
     - control flow drawn beside data flow, both unlabeled.
     - decorative arrowheads on a symmetric relation.
     - branch arms that never rejoin, leaking the merge.
@@ -50,14 +50,14 @@ Each diagram type answers one question with a bounded mark vocabulary. Per type:
     - Show lifetime with `create`/`destroy` instead of a static roster when the scenario births or kills a participant.
     - Group participants into `box` blocks by process boundary, so the wire crossings stand apart from in-process calls.
 - Failure modes:
-    - the god-participant sending and receiving everything, hiding decomposition.
+    - god-participant sending and receiving everything, hiding decomposition.
     - response arrows omitted, leaving causality unverifiable.
     - `alt` or `par` blocks nesting past two levels, the signal to split the scenario.
     - data objects promoted to participants.
 - Logic checks:
     - every request expecting a reply carries its dotted return.
     - no message departs a participant destroyed or never created.
-    - the message order is achievable, no reply preceding its request.
+    - message order is achievable, no reply preceding its request.
 
 [STATE]:
 - Question: which modes an entity occupies and which events move it.
@@ -84,7 +84,7 @@ Each diagram type answers one question with a bounded mark vocabulary. Per type:
 - Logic checks:
     - every non-terminal state holds an exit.
     - an absorbing state is declared terminal or gains an exit.
-    - the machine carries its initial `[*]` entry.
+    - machine carries its initial `[*]` entry.
     - guards leaving one state are mutually exclusive and cover the event's domain.
     - each composite's substates genuinely share its external transitions.
 

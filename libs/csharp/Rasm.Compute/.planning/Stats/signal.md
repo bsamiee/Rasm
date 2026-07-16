@@ -1,21 +1,23 @@
 # [COMPUTE_SIGNAL]
 
-Rasm.Compute signal/spectral lane: one `SpectralTransform` `[SmartEnum<string>]` frequency-domain axis whose every row carries its own transform kernel as a row delegate, folding to ONE `Transform.Apply` that returns the polymorphic `SpectralOutput` `[Union]` (`Bins(Spectrum)` per-bin · `Frames(Spectrogram)` time-frequency · `Bands(WaveletDecomposition)` multi-resolution), and one `FilterDesign` `[SmartEnum<string>]` axis whose IIR rows each carry their analog `Prototype` pole-zero delegate folded through ONE shared `Bilinear` map and whose FIR rows fold to the windowed-sinc or the equiripple `DenseRoute` least-squares route. The per-bin transforms ride `MathNet.Numerics.IntegralTransforms.Fourier.Forward`/`Inverse`/`ForwardReal` over a split real/imaginary `double[]` pair, the windowing rides the `MathNet.Numerics.Window` factory through the `WindowKind` row, the magnitude/phase read through the vectorized `TensorPrimitives.Hypot`/`Atan2` (never a per-element `Math.Sqrt(re²+im²)` loop), the bin spacing reads the real `Fourier.FrequencyScale` resolution (never `1/N`), the FFT overlap-add spectral product rides the `Tensor/dispatch#KERNEL_DISPATCH` `ComplexZip(TensorOpFamily.Multiply)`, and the FIR convolution and the wavelet QMF cascade ride the `Tensor/factor#KERNEL_LOWERING` `Conv1D` — never re-implementing the radix-2/Bluestein kernel, the GEMM, or a second Complex carrier. The page owns the `SpectralTransform`/`FilterDesign`/`WindowKind`/`WaveletFamily` vocabulary, the `SpectralOutput`/`Spectrum`/`Spectrogram`/`WaveletDecomposition`/`FilterCoefficients` carriers, the `SignalPolicy`/`FilterSpec` policy records, and the `Transform` Apply/Design surface; the Fourier/window surfaces ride the admitted `MathNet.Numerics` assembly, the spectral product and the magnitude read the dispatch lane, the convolution rides the factor lane, the equiripple FIR fit and the modal eigen-spectra cross to the `Tensor/blas#DENSE_ALGEBRA` `DenseRoute`/`Evd` route, and `ComputeFault`, `ClockPolicy`, and the `ComparerAccessors.StringOrdinal` accessor arrive settled. Spectral features feed the `Stats/estimator#ESTIMATOR_LANE` time-series and classification rows, and filtered/conditioned signals feed those estimators and the `Solver/clash#CLASH_AND_TWIN` Twin anomaly lane.
+Rasm.Compute signal/spectral lane: one `SpectralTransform` `[SmartEnum<string>]` frequency-domain axis whose every row carries its transform kernel as a row delegate, folding to ONE `Transform.Apply` that returns the polymorphic `SpectralOutput` `[Union]` (`Bins(Spectrum)` per-bin, `Frames(Spectrogram)` time-frequency, `Bands(WaveletDecomposition)` multi-resolution), beside one `FilterDesign` `[SmartEnum<string>]` axis whose IIR rows each carry an analog `Prototype` pole-zero delegate folded through ONE shared `Bilinear` map and whose FIR rows fold to the windowed-sinc or the equiripple `DenseRoute` least-squares route. Every transform, window, wavelet, and filter family is a row, never a per-transform class.
+
+Vocabulary owned here: `SpectralTransform`/`FilterDesign`/`WindowKind`/`WaveletFamily`, the `SpectralOutput`/`Spectrum`/`Spectrogram`/`WaveletDecomposition`/`FilterCoefficients` carriers, the `SignalPolicy`/`FilterSpec` records, and the `Transform` Apply/Design surface. Per-bin transforms ride `MathNet.Numerics.IntegralTransforms.Fourier` over a split real/imaginary `double[]` pair, windowing rides the `MathNet.Numerics.Window` factory through `WindowKind`, magnitude/phase read the vectorized `TensorPrimitives.Hypot`/`Atan2`, bin spacing reads the real `Fourier.FrequencyScale`, the FFT overlap-add product rides the `Tensor/dispatch#KERNEL_DISPATCH` `ComplexZip(TensorOpFamily.Multiply)`, and the FIR convolution and wavelet QMF cascade ride the `Tensor/factor#KERNEL_LOWERING` `Conv1D` — never a re-implemented radix-2/Bluestein kernel, GEMM, or second `Complex` carrier; the equiripple FIR fit and modal eigen-spectra cross to `Tensor/blas#DENSE_ALGEBRA`, and `ComputeFault`, `ClockPolicy`, and `ComparerAccessors.StringOrdinal` arrive settled. Spectral features feed the `Stats/estimator#ESTIMATOR_LANE` time-series and classification rows, and filtered/conditioned signals feed those estimators and the `Solver/clash#CLASH_AND_TWIN` Twin anomaly lane.
 
 ## [01]-[INDEX]
 
-- [01]-[SIGNAL_LANE]: spectral `Transform` axis (FFT/STFT/PSD/wavelet) over MathNet Fourier + Window returning one `SpectralOutput` union; FIR/IIR filter design over one band-aware bilinear map (LP/HP/BP/BS) and three application routes (short-FIR Conv1D, long-FIR FFT overlap-add, IIR direct-form-II recurrence).
+- [01]-[SIGNAL_LANE]: spectral `Transform` axis (FFT/STFT/PSD/wavelet) over MathNet Fourier + Window returning one `SpectralOutput` union, and FIR/IIR filter design over one band-aware `Bilinear` map with three application routes (short-FIR `Conv1D`, long-FIR FFT overlap-add, IIR direct-form-II recurrence).
 
 ## [02]-[SIGNAL_LANE]
 
-- Owner: `SpectralTransform` `[SmartEnum<string>]` the frequency-domain rows, each carrying a `Windowed` flag and a `Kernel` row delegate `(ReadOnlyMemory<float>, SignalPolicy, Instant) → Fin<SpectralOutput>` that IS the transform — so `Transform.Apply` is one delegate dispatch, never a switch cascade; `FilterDesign` `[SmartEnum<string>]` the filter rows carrying a `Recursive` column (FIR feed-forward versus IIR feedback) and, for the IIR rows, the analog `Prototype` delegate `(FilterSpec) → (Complex[] Zeros, Complex[] Poles, double Gain)` placing the normalized-lowpass s-plane pole/zero set; `WindowKind` `[SmartEnum<string>]` the window rows binding the `MathNet.Numerics.Window` factory through one `(width, periodic) → double[]` taper delegate; `WaveletFamily` `[SmartEnum<string>]` the wavelet rows carrying the frozen analysis scaling coefficients from which the QMF high-pass derives; `SpectralOutput` `[Union]` the one transform result (`Bins`/`Frames`/`Bands`); `Spectrum`/`Spectrogram`/`WaveletDecomposition` the case payloads; `FilterCoefficients` the typed FIR/IIR coefficient record whose `Apply` routes to `Conv1D` (short FIR), FFT overlap-add (long FIR), or the direct-form-II recurrence (IIR); `SignalPolicy`/`FilterSpec` the policy records; `Transform` the static spectral-and-filter surface.
-- Cases: `SpectralTransform` rows fft · ifft · rfft · stft · spectrogram · welch-psd · dwt (7); `FilterDesign` rows fir-window · fir-remez · iir-butterworth · iir-chebyshev1 · iir-chebyshev2 · iir-elliptic (6); `FilterBand` rows low-pass · high-pass · band-pass · band-stop (4, each owning its FIR combine, analog→s-plane transform, and equiripple desired/weight); `WindowKind` rows hann · hamming · blackman · blackman-harris · blackman-nuttall · nuttall · flat-top · bartlett · bartlett-hann · cosine · lanczos · triangular · gauss · tukey · rectangular (15, the full `MathNet.Numerics.Window` catalog; the periodic-paired rows carry both forms, the single-form rows one); `WaveletFamily` rows haar · db2 · db4 · sym4 · coif1 (5).
-- Entry: `public static Fin<SpectralOutput> Apply(SpectralTransform transform, ReadOnlyMemory<float> signal, SignalPolicy policy, ClockPolicy clocks)` is the one spectral fold dispatching to the row's `Kernel` — `Fin<T>` aborts on an empty signal or a frame larger than the signal, while the wavelet cascade truncates to the depth the signal admits (`WaveletDecomposition.Levels` reports the realized count); the fold is correlation-free and allocation-light because receipt evidence rides the sink edge, never the hot path; `public static Fin<FilterCoefficients> Design(FilterDesign design, FilterSpec spec)` runs the `FilterSpec.Admit` ingress gate (order ≥ 1, cutoff in `(0, Nyquist)`, ordered band edges for BP/BS) then dispatches to the row's `Designer` delegate, producing the typed coefficients (windowed-sinc, equiripple, or the band-transformed bilinear-prototype); `FilterCoefficients.Apply(ReadOnlyMemory<float> signal)` folds the FIR convolution or the IIR recurrence; `FilterCoefficients.ZeroPhase(ReadOnlyMemory<float> signal)` runs the forward-backward `filtfilt`.
-- Auto: each `SpectralTransform` row's `Kernel` realizes its transform — fft widens the signal to a `double[]` once through `TensorPrimitives.ConvertChecked<float,double>`, runs `Fourier.Forward(real, imaginary, policy.Scaling)` over the split pair (imaginary zeroed), and reads `TensorPrimitives.Hypot(real, imaginary, magnitude)`/`Atan2(imaginary, real, phase)` into a full-length `Spectrum`; rfft runs `Fourier.ForwardReal` over the `N+2` packed buffer and yields the Hermitian half-spectrum (bins `0..N/2`); ifft runs `Fourier.Inverse(real, imaginary, policy.Scaling)` and returns the reconstructed real part; stft/spectrogram frame the signal by `policy.HopSize`, window each frame through the `WindowKind` taper, transform per frame, and stack the power columns into a `Spectrogram`; welch-psd averages the windowed periodograms of the overlapping segments into a `Spectrum`; dwt cascades the `policy.Wavelet` QMF analysis filters (the family selected across the haar/db2/db4/sym4/coif1 rows) through the stride-2 `Conv1D` lowering into a `WaveletDecomposition`; `Design` produces the FIR taps (windowed-sinc through the `WindowKind` factory plus the band transform, or the equiripple Lawson weighted-least-squares — band-aware over an explicit transition band — iterated over the `DenseRoute.Solve(FactorRoute.Orthonormal)` thin-QR route) or the IIR `(b, a)` coefficients (one `Bilinear` map that band-transforms the row's analog `Prototype` to the LP/HP/BP/BS s-plane — origin zeros for HP, order-doubling root split for BP, ±jω₀ notch for BS — before discretizing); `FilterCoefficients.Apply` reverses the FIR taps and folds them through `KernelLowering.Lower(TensorOpFamily.Conv1D, …)` (short FIR, true convolution from the cross-correlation kernel), the FFT overlap-add spectral product through `Fourier` + `ComplexZip(TensorOpFamily.Multiply)` (long FIR), or the IIR `(b, a)` through the direct-form-II-transposed recurrence.
-- Receipt: the spectral fold emits no receipt on the hot path — evidence rides the typed carrier (`Spectrum.Length`/`BinHz`, `Spectrogram.Frames`·`Bins`, `WaveletDecomposition.Levels`) and, for the tensor-lowered legs only, the `Runtime/receipts#RECEIPT_UNION` `ComputeReceipt.TensorRun(Family, Dtype, Elements, SimdWidth, Partitions)` the composed op already stamps: a short-FIR application and the wavelet QMF cascade ride the `Tensor/factor#KERNEL_LOWERING` `Family = TensorOpFamily.Conv1D` (im2col→GEMM, inheriting the factor lane's GEMM provider/determinism evidence) and the long-FIR overlap-add rides the `Tensor/dispatch#KERNEL_DISPATCH` `Family = TensorOpFamily.Multiply` `ComplexZip` (elementwise SIMD, inheriting the dispatch lane's `SimdWidth`/`Partitions` determinism — no GEMM provider), both reproducible, while the IIR direct-form-II-transposed recurrence and the bare MathNet `Fourier` transforms (per-bin/framed/Welch) ride no tensor op and so mint no `TensorRun` — a per-bin FFT's evidence is its typed `Spectrum` shape, never a fabricated `TensorRun` over a `TensorOpFamily` that never executed.
+- Owner: `SpectralTransform` `[SmartEnum<string>]` rows each carry a `Windowed` flag and a `Kernel` row delegate `(ReadOnlyMemory<float>, SignalPolicy, Instant) → Fin<SpectralOutput>` that IS the transform, so `Transform.Apply` is one delegate dispatch never a switch cascade; `FilterDesign` `[SmartEnum<string>]` rows carry a `Recursive` column (FIR feed-forward vs IIR feedback) and, for IIR, the analog `Prototype` delegate `(FilterSpec) → (Complex[] Zeros, Complex[] Poles, double Gain)` placing the normalized-lowpass s-plane pole/zero set; `WindowKind` binds the `MathNet.Numerics.Window` factory through one `(width, periodic) → double[]` taper delegate; `WaveletFamily` carries the frozen analysis scaling coefficients from which the QMF high-pass derives; `SpectralOutput` `[Union]` is the one transform result (`Bins`/`Frames`/`Bands`) over the `Spectrum`/`Spectrogram`/`WaveletDecomposition` payloads; `FilterCoefficients` is the typed FIR/IIR record whose `Apply` routes to `Conv1D` (short FIR), FFT overlap-add (long FIR), or the direct-form-II recurrence (IIR); `FilterBand` owns the LP/HP/BP/BS band modalities as row data; `Transform` is the static spectral-and-filter surface.
+- Cases: `SpectralTransform` fft · ifft · rfft · stft · spectrogram · welch-psd · dwt; `FilterDesign` fir-window · fir-remez · iir-butterworth · iir-chebyshev1 · iir-chebyshev2 · iir-elliptic; `FilterBand` low-pass · high-pass · band-pass · band-stop (each owning its FIR combine, analog→s-plane transform, and equiripple desired/weight); `WindowKind` hann · hamming · blackman · blackman-harris · blackman-nuttall · nuttall · flat-top · bartlett · bartlett-hann · cosine · lanczos · triangular · gauss · tukey · rectangular (the full `MathNet.Numerics.Window` catalog, periodic-paired rows carrying both forms); `WaveletFamily` haar · db2 · db4 · sym4 · coif1.
+- Entry: `public static Fin<SpectralOutput> Apply(SpectralTransform transform, ReadOnlyMemory<float> signal, SignalPolicy policy, ClockPolicy clocks)` dispatches to the row's `Kernel` — `Fin<T>` aborts on an empty signal or a frame larger than the signal, while the wavelet cascade truncates to the depth the signal admits (`WaveletDecomposition.Levels` reports the realized count); receipt evidence rides the sink edge, never the hot path. `Design(FilterDesign design, FilterSpec spec)` runs the `FilterSpec.Admit` gate (order ≥ 1, cutoff in `(0, Nyquist)`, ordered BP/BS edges) then dispatches to the row's `Designer`; `FilterCoefficients.Apply(ReadOnlyMemory<float> signal)` folds the FIR convolution or IIR recurrence, `ZeroPhase` runs the forward-backward `filtfilt`.
+- Auto: each `SpectralTransform` `Kernel` realizes its transform over the split real/imaginary `Fourier` pair — fft/ifft full-length, rfft the Hermitian half-spectrum via `ForwardReal`, stft/spectrogram per-frame windowed by `HopSize`, welch-psd the averaged windowed periodograms, dwt the `policy.Wavelet` QMF cascade through the stride-2 `Conv1D`; `Design` produces FIR taps (windowed-sinc via `WindowKind`, or the equiripple Lawson weighted-least-squares over the `DenseRoute.Solve(FactorRoute.Orthonormal)` thin-QR across an explicit transition band) or IIR `(b, a)` (one `Bilinear` band-transforming the row's analog `Prototype` to the LP/HP/BP/BS s-plane before discretizing); `FilterCoefficients.Apply` routes short-FIR `Conv1D`, long-FIR FFT overlap-add `ComplexZip(Multiply)`, or the IIR direct-form-II-transposed recurrence.
+- Receipt: the spectral fold mints no receipt on the hot path — evidence rides the typed carrier (`Spectrum.Length`/`BinHz`, `Spectrogram.Frames`·`Bins`, `WaveletDecomposition.Levels`); only the tensor-lowered legs ride the `Runtime/receipts#RECEIPT_UNION` `ComputeReceipt.TensorRun(Family, Dtype, Elements, SimdWidth, Partitions)` the composed op already stamps — short-FIR and the wavelet QMF cascade the `Tensor/factor#KERNEL_LOWERING` `Conv1D` (im2col→GEMM provider/determinism), long-FIR overlap-add the `Tensor/dispatch#KERNEL_DISPATCH` `Multiply` `ComplexZip` (SIMD `SimdWidth`/`Partitions`, no GEMM provider) — while the IIR recurrence and the bare `Fourier` transforms ride no tensor op and mint no `TensorRun`, a per-bin FFT's evidence being its typed `Spectrum` shape, never a fabricated `TensorRun` over a `TensorOpFamily` that never executed.
 - Packages: MathNet.Numerics, System.Numerics.Tensors, CommunityToolkit.HighPerformance, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
-- Growth: a new spectral transform is one `SpectralTransform` row binding its `Kernel` delegate over `Fourier`; a new window is one `WindowKind` row binding its `Window` factory; a new wavelet is one `WaveletFamily` row carrying its scaling coefficients (selected at the wire through `SignalPolicy.Wavelet`); a new filter family is one `FilterDesign` row binding its `Designer` delegate — a new IIR family also carrying its analog `Prototype` folded through the unchanged band-aware `Bilinear`; zero new surface — an `FftTransform`/`StftTransform`/`PsdEstimator`/`WaveletTransform` class family is the rejected form collapsed onto the one `Transform.Apply` delegate dispatch, a `FirFilter`/`IirFilter` sibling family is collapsed onto the one `FilterCoefficients` carrier, a `ButterworthDesigner`/`ChebyshevDesigner`/`EllipticDesigner` trio is collapsed onto the one `Bilinear` over per-row prototypes, and a re-implemented radix-2/Bluestein FFT, GEMM, or QR beside the admitted owners is the deleted form.
-- Boundary: `MathNet.Numerics.IntegralTransforms.Fourier` operates in place with its `FourierOptions` scaling conventions, so the per-bin and framed transform kernels apply the policy's `FourierOptions.Default` (symmetric `1/√N` on BOTH directions, so a standalone forward∘inverse already composes to identity) while the two normalization-owning paths instead pin `FourierOptions.NoScaling` and apply their lone scale by hand — the FFT-convolution overlap-add (no per-transform scaling either way would otherwise round-trip to `N`×) divides the `1/N` the convolution theorem owns after the inverse, and the Welch periodogram divides the `1/(fs·U·segments)` power-density normalizer the PSD owns; either path never re-implements the radix-2/Bluestein kernel; the split real/imaginary `Forward(double[], double[], options)` form is preferred over the `Complex[]` form because it lets `TensorPrimitives.Hypot`/`Atan2` read magnitude/phase over contiguous vectorized spans with no `Complex` marshalling, while `ForwardReal`/`InverseReal` own the `N+2` packed half-spectrum the rfft/ifft-real rows deinterleave, and the bin resolution reads `Fourier.FrequencyScale(length, policy.SampleRate)` (the real `Δf = fs/N`) rather than the meaningless `1/N`; the window functions ride `MathNet.Numerics.Window` — the symmetric form (`Hann`/`Hamming`/`Cosine`/`Lanczos`/`Bartlett`/`BartlettHann`/`Blackman`/`BlackmanHarris`/`BlackmanNuttall`/`Nuttall`/`FlatTop`/`Triangular`, the `Gauss(width, sigma)` and `Tukey(width, r)` parameter-baked rows, and `Dirichlet` as the all-ones rectangular taper) for filter design, the `*Periodic` form (`HannPeriodic`/`HammingPeriodic`/`CosinePeriodic`/`LanczosPeriodic`, the only four MathNet ships) for the FFT-periodic STFT posture — so the periodic flag is honored only where MathNet exposes both forms, never a hand-rolled cosine taper or an `Enumerable.Repeat` rectangular reimplementation; the complex magnitude never runs a per-element `x.Magnitude` loop — `TensorPrimitives.Hypot` is the overflow-safe vectorized owner the split real/imaginary rows read, and the `Tensor/dispatch#KERNEL_DISPATCH` `ComplexAbs` `MagnitudeKernel` is the `Complex[]`-form magnitude sibling this page never needs — every magnitude-bearing row runs over the split `double[]` pair, while the overlap-add path holds its `Complex[]` only for the `ComplexZip(Multiply)` convolution product read back through `product[i].Real`, never a magnitude; IIR filters are recursive (feedback) so they do NOT lower to the feed-forward `Conv1D` GEMM — only FIR application rides the convolution route (short FIR through `KernelLowering`, long FIR through FFT overlap-add) while the `FilterCoefficients.Apply` fold routes IIR to the direct-form-II-transposed recurrence, three application mechanisms selected by the `Fir` discriminant and tap length (a forced `Conv1D` lowering for an IIR filter is the deleted form because the recurrence has feedback the GEMM cannot express); the FIR taps are REVERSED before the `Conv1D` feed because the lowering kernel computes cross-correlation while a filter is true convolution — for a linear-phase symmetric FIR the two coincide, but the reversal makes the route correct for any tap set; zero-phase `filtfilt` odd-reflects the edges, runs the recurrence forward then backward, and trims the pad — cancelling the IIR group delay (zero phase, `|H|²`) with the boundary transient a bare double pass would leave suppressed; the IIR coefficient SOURCE is one band-aware `Bilinear` map (pre-warp the band edge(s), frequency-transform the normalized-lowpass prototype to the LP/HP/BP/BS band — the lp2{lp,hp,bp,bs} zpk algebra, BP/BS doubling the order — bilinear-transform each s-plane root to z, expand the conjugate-paired roots to real `(b, a)` polynomials) consuming each row's closed-form analog `Prototype` (Butterworth poles on the unit circle, Chebyshev-I poles on an ellipse via `asinh(1/ε)/n`, Chebyshev-II reciprocal poles plus imaginary-axis zeros with the `∏(−p)/∏(−z)` gain, elliptic poles/zeros via the descending-Landen Jacobi `sn`/`cd` and the `sne`-product degree equation), never a per-family designer; the equiripple `fir-remez` row grounds the Lawson weighted-least-squares iteration over the `Tensor/blas#DENSE_ALGEBRA` `DenseRoute.Solve(FactorRoute.Orthonormal)` thin-QR (the `FilterBand`-supplied band-aware cosine design matrix solved across an EXPLICIT transition band under the ripple-derived `δp/δs` weight, the error envelope reweighting the active bands toward the Chebyshev minimax), never a hand-rolled normal-equations solve and never a brick-wall target that Gibbs-rings; the dwt cascade rides the `Tensor/factor#KERNEL_LOWERING` stride-2 `Conv1D` exactly as the FIR application rides convolution, and MathNet ships no wavelet surface so the `WaveletFamily` scaling tables are authored here (the analysis family selected at the wire by `policy.Wavelet`) and the high-pass derives by the QMF mirror `g[k] = (−1)ᵏ·h[N−1−k]`; the spectral features feed the `Stats/estimator#ESTIMATOR_LANE` time-series and classification rows, the modal spectra cross to the `Tensor/blas#DENSE_ALGEBRA` `Evd`/`SpectralResult` eigen lane (the FFT of a transient `Solver/contract#SOLVE_CONTRACT` `fea-transient` march on the modal seam), and the conditioned signal feeds the learning and Twin lanes — the transform shares the dispatch Complex kernels and never re-mints a second Complex carrier.
+- Growth: a new spectral transform is one `SpectralTransform` row binding its `Kernel` over `Fourier`; a new window one `WindowKind` row binding its `Window` factory; a new wavelet one `WaveletFamily` row carrying its scaling coefficients (selected at the wire through `SignalPolicy.Wavelet`); a new filter family one `FilterDesign` row binding its `Designer` — a new IIR family also carrying its analog `Prototype` folded through the unchanged band-aware `Bilinear`; zero new surface — an `FftTransform`/`StftTransform`/`PsdEstimator`/`WaveletTransform` family collapses onto the one `Transform.Apply` delegate dispatch, a `FirFilter`/`IirFilter` family onto the one `FilterCoefficients` carrier, a `ButterworthDesigner`/`ChebyshevDesigner`/`EllipticDesigner` trio onto the one `Bilinear` over per-row prototypes, and a re-implemented radix-2/Bluestein FFT, GEMM, or QR beside the admitted owners is the deleted form.
+- Boundary: `MathNet.Numerics.IntegralTransforms.Fourier` operates in place — per-bin and framed kernels apply the policy's `FourierOptions.Default` (symmetric `1/√N` both directions, so a standalone forward∘inverse composes to identity) while the two normalization-owning paths pin `FourierOptions.NoScaling` and apply their lone scale by hand: overlap-add divides the `1/N` the convolution theorem owns, Welch divides the `1/(fs·U·segments)` PSD normalizer; the split real/imaginary `Forward(double[], double[])` form is chosen over `Complex[]` so `TensorPrimitives.Hypot`/`Atan2` read magnitude/phase over contiguous spans, `ForwardReal`/`InverseReal` own the `N+2` packed half-spectrum, and bin resolution reads `Fourier.FrequencyScale` (real `Δf = fs/N`), never `1/N`. Window functions ride `MathNet.Numerics.Window` — the symmetric form for filter design, the `*Periodic` form (only four ship) for the FFT-periodic STFT posture — so the periodic flag is honored only where MathNet exposes both, never a hand-rolled taper. IIR filters are recursive (feedback) so they do NOT lower to the feed-forward `Conv1D` GEMM — only FIR application rides convolution (short FIR through `KernelLowering`, long FIR through FFT overlap-add), the IIR routing to the direct-form-II-transposed recurrence: three mechanisms by the `Fir` discriminant and tap length, a forced `Conv1D` for IIR the deleted form. IIR coefficients come from one band-aware `Bilinear` consuming each row's closed-form analog `Prototype` (Butterworth unit-circle poles, Chebyshev-I/II elliptic-locus and reciprocal poles, elliptic Landen `sn`/`cd` lattice), never a per-family designer; the equiripple `fir-remez` grounds the Lawson weighted-least-squares over the `Tensor/blas#DENSE_ALGEBRA` thin-QR across an EXPLICIT transition band under the ripple-derived `δp/δs` weight, never a brick-wall target that Gibbs-rings. MathNet ships no wavelet surface, so the `WaveletFamily` scaling tables are authored here and the high-pass derives by the QMF mirror `g[k] = (−1)ᵏ·h[N−1−k]`, the dwt cascade riding the stride-2 `Conv1D` as the FIR application does. Spectral features feed the `Stats/estimator#ESTIMATOR_LANE` time-series and classification rows, the modal spectra cross to the `Tensor/blas#DENSE_ALGEBRA` `Evd`/`SpectralResult` eigen lane (the FFT of a `Solver/contract#SOLVE_CONTRACT` `fea-transient` march), and the conditioned signal feeds the learning and `Solver/clash#CLASH_AND_TWIN` Twin lanes — the transform shares the dispatch `Complex` kernels and never re-mints a second `Complex` carrier.
 
 ```csharp signature
 // --- [TYPES] ----------------------------------------------------------------------------
@@ -49,8 +51,7 @@ public sealed partial class WindowKind {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class WaveletFamily {
-    // Daubechies/symlet/coiflet analysis scaling (low-pass) coefficients; the analysis high-pass and the
-    // synthesis pair derive by the quadrature-mirror relation, so one frozen table per family owns the bank.
+    // Daubechies/symlet/coiflet analysis scaling (low-pass) coefficients; the high-pass and synthesis pair derive by the QMF relation, one frozen table per family owning the bank.
     public static readonly WaveletFamily Haar  = new("haar",  [0.70710678118654752, 0.70710678118654752]);
     public static readonly WaveletFamily Db2   = new("db2",   [0.48296291314469025, 0.83651630373746899, 0.22414386804185735, -0.12940952255092145]);
     public static readonly WaveletFamily Db4   = new("db4",   [0.23037781330885523, 0.71484657055254153, 0.63088076792959036, -0.02798376941698385, -0.18703481171888114, 0.03084138183598697, 0.03288301166698295, -0.01059740178499728]);
@@ -104,12 +105,11 @@ public sealed partial class FilterDesign {
 
     public bool Recursive { get; }
 
-    // The analog normalized-lowpass pole/zero placement; FIR rows carry none (their Designer routes to WindowedSinc/Equiripple).
+    // Analog normalized-lowpass pole/zero placement; FIR rows carry none (their Designer routes to WindowedSinc/Equiripple).
     public (Complex[] Zeros, Complex[] Poles, double Gain) Prototype(FilterSpec spec) =>
         (prototype ?? throw new InvalidOperationException(Key))(spec);
 
-    // The row's design mechanism IS the dispatch: a new FilterDesign row cannot compile without binding its
-    // Designer, so Transform.Design folds to one delegate call with no runtime-silent fall-through arm.
+    // Design mechanism IS the dispatch: a new FilterDesign row cannot compile without binding its Designer, so Transform.Design folds to one delegate call with no runtime-silent fall-through arm.
     public Fin<FilterCoefficients> Run(FilterSpec spec) => design(this, spec);
 }
 
@@ -117,10 +117,8 @@ public sealed partial class FilterDesign {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class FilterBand {
-    // One band owns all three modalities as row data — the FIR windowed-sinc combine, the analog→s-plane zpk
-    // transform the Bilinear consumes, and the equiripple desired/weight at a normalized frequency — so a new
-    // band (all-pass, shelving) is one row each consumer's delegate dispatch breaks on at compile time, never a
-    // runtime-silent switch fall-through; `Upper` reports whether the band reads the second edge (BP/BS).
+    // One band owns all three modalities as row data — the FIR windowed-sinc combine, the analog→s-plane zpk transform the Bilinear consumes, and the equiripple desired/weight at a normalized frequency.
+    // A new band (all-pass, shelving) is one row each consumer's delegate dispatch breaks on at compile time; `Upper` reports whether the band reads the second edge (BP/BS).
     public static readonly FilterBand LowPass  = new("low-pass",  upper: false,
         combine: static (lower, _, _)           => lower,
         analog:  static (p, w1, _)              => ([.. p.Zeros.Select(z => z * w1)], [.. p.Poles.Select(s => s * w1)], Math.Pow(w1, p.Poles.Length - p.Zeros.Length)),
@@ -144,8 +142,7 @@ public sealed partial class FilterBand {
 
     public bool Upper { get; }
 
-    // FIR windowed-sinc combine (lower/upper band kernels → taps); the s-plane zpk band-transform of the analog
-    // prototype; the equiripple desired/weight at normalized frequency f with transition tr and band weights.
+    // FIR windowed-sinc combine (lower/upper kernels → taps); the s-plane zpk band-transform; the equiripple desired/weight at normalized frequency f with transition tr and band weights.
     public double[] Combine(double[] lower, double[] upper, int taps) => combine(lower, upper, taps);
     public (Complex[] Zeros, Complex[] Poles, double Gain) ToAnalog((Complex[] Zeros, Complex[] Poles, double Gain) prototype, double w1, double w2) => analog(prototype, w1, w2);
     public (double Desired, double Weight) Ideal(double f, double c1, double c2, double transition, double passWeight, double stopWeight) => ideal(f, c1, c2, transition, passWeight, stopWeight);
@@ -183,8 +180,7 @@ public sealed record FilterSpec(FilterBand Band, int Order, double Cutoff, doubl
     public double NormalizedCutoff => Cutoff / Nyquist;          // [0, 1) cutoff for the FIR sinc.
     public double NormalizedUpper => UpperCutoff / Nyquist;
 
-    // Ingress gate: a degenerate order, an out-of-band cutoff (the bilinear pre-warp tan(π·f/2) needs f∈(0,1)),
-    // or unordered band edges fault cleanly here instead of producing NaN coefficients downstream.
+    // Ingress gate: a degenerate order, an out-of-band cutoff (the bilinear pre-warp tan(π·f/2) needs f∈(0,1)), or unordered band edges fault cleanly instead of producing NaN coefficients downstream.
     public Fin<FilterSpec> Admit() =>
         Order < 1 ? Fin.Fail<FilterSpec>(ComputeFault.Create($"<filter-order:{Order}>"))
         : Cutoff <= 0.0 || NormalizedCutoff >= 1.0 ? Fin.Fail<FilterSpec>(ComputeFault.Create($"<filter-cutoff:{Cutoff}/{Nyquist}>"))
@@ -218,9 +214,8 @@ public abstract partial record SpectralOutput {
 public sealed record FilterCoefficients(FilterDesign Design, ReadOnlyMemory<double> B, ReadOnlyMemory<double> A) {
     public bool Fir => A.Length <= 1;
 
-    // Short FIR rides the feed-forward Conv1D GEMM, long FIR the FFT overlap-add spectral product, IIR the
-    // direct-form-II-transposed recurrence with the feedback the convolution cannot express. The taps are
-    // REVERSED for the Conv1D feed because the lowering kernel cross-correlates while a filter convolves.
+    // Short FIR rides the feed-forward Conv1D GEMM, long FIR the FFT overlap-add product, IIR the direct-form-II-transposed recurrence with the feedback convolution cannot express.
+    // Taps are REVERSED for the Conv1D feed because the lowering kernel cross-correlates while a filter convolves.
     public Fin<float[]> Apply(ReadOnlyMemory<float> signal) =>
         signal.Length == 0
             ? Fin.Fail<float[]>(ComputeFault.Create("<signal-empty>"))
@@ -234,9 +229,7 @@ public sealed record FilterCoefficients(FilterDesign Design, ReadOnlyMemory<doub
                         .Map(static y => y.ToColumnMajorArray().Select(static v => (float)v).ToArray())
                 : Fin.Succ(DirectFormII(signal.Span));
 
-    // Direct-Form-II Transposed: y[n] = (b₀·x[n] + w₀[n−1]) / a₀ threading one state vector w of order
-    // max(|b|,|a|)−1, wₖ[n] = bₖ₊₁·x[n] − aₖ₊₁·y[n] + wₖ₊₁[n−1]. a₀-normalized once, the feedback the
-    // feed-forward Conv1D GEMM cannot express, never two separate input/output history buffers.
+    // Direct-Form-II Transposed, a₀-normalized once: one state vector w of order max(|b|,|a|)−1 threads the feedback the feed-forward Conv1D GEMM cannot express, never two separate input/output history buffers.
     float[] DirectFormII(ReadOnlySpan<float> signal) {
         ReadOnlySpan<double> b = B.Span, a = A.Span;
         double a0 = a.Length > 0 && a[0] != 0.0 ? a[0] : 1.0;
@@ -256,9 +249,7 @@ public sealed record FilterCoefficients(FilterDesign Design, ReadOnlyMemory<doub
         return y;
     }
 
-    // FFT overlap-add: block the signal, transform each padded block and the taps once to the frequency
-    // domain, take the dispatch-lane ComplexZip(Multiply) spectral product, inverse-transform, and accumulate
-    // the (B.Length−1) tail across blocks. The long-FIR mechanism the same Apply fold selects by tap length.
+    // FFT overlap-add (long FIR): the dispatch-lane ComplexZip(Multiply) spectral product per block, accumulating the (B.Length−1) tail across blocks — the mechanism the Apply fold selects by tap length.
     Fin<float[]> OverlapAdd(ReadOnlySpan<float> signal) {
         int taps = B.Length, block = 4 * taps, nfft = Transform.NextPow2(block + taps - 1);
         var filterSpec = new Complex[nfft];
@@ -280,9 +271,8 @@ public sealed record FilterCoefficients(FilterDesign Design, ReadOnlyMemory<doub
         return Fin.Succ(y);
     }
 
-    // Zero-phase filtfilt: odd-reflect the signal edges, filter forward, reverse, filter again, reverse back,
-    // then trim the pad — the forward-backward cascade cancels the IIR group delay (zero phase, |H|²) and the
-    // 3·(order) odd reflection suppresses the start/stop transients a bare double pass would leave ringing.
+    // Zero-phase filtfilt: odd-reflect the edges, filter forward, reverse, filter again, reverse back, trim the pad — the forward-backward cascade cancels the IIR group delay (zero phase, |H|²).
+    // The 3·(order) odd reflection suppresses the start/stop transients a bare double pass would leave ringing.
     public Fin<float[]> ZeroPhase(ReadOnlyMemory<float> signal) {
         if (signal.Length == 0) { return Fin.Fail<float[]>(ComputeFault.Create("<signal-empty>")); }
         ReadOnlySpan<float> x = signal.Span;
@@ -306,8 +296,7 @@ public static class Transform {
             ? Fin.Fail<SpectralOutput>(ComputeFault.Create("<signal-empty>"))
             : transform.Run(signal, policy with { Transform = transform }, clocks.Now);   // the argument transform is authoritative — the policy stamp can never disagree with the kernel that ran.
 
-    // Admit the spec then dispatch to the row's Designer delegate — one delegate call, no design-identity
-    // ternary, so a new FilterDesign row breaks at compile time (unbound Designer) rather than routing silently.
+    // Admit the spec then dispatch to the row's Designer — one delegate call, no design-identity ternary, so a new FilterDesign row breaks at compile time (unbound Designer) rather than routing silently.
     public static Fin<FilterCoefficients> Design(FilterDesign design, FilterSpec spec) =>
         spec.Admit().Bind(design.Run);
 
@@ -365,8 +354,7 @@ public static class Transform {
         return Fin.Succ<SpectralOutput>(new SpectralOutput.Frames(new Spectrogram(frames, bins, hop, BinHz(frame, policy.SampleRate), stack, at)));
     }
 
-    // Welch PSD: average the windowed periodograms |Xf|²/(fs·U) of the overlapping segments, U the window
-    // power normalizer; the averaged density is a Spectrum carrier whose Magnitude is the one-sided PSD.
+    // Welch PSD: average the windowed periodograms |Xf|²/(fs·U) of the overlapping segments (U the window power normalizer); the averaged density is a Spectrum whose Magnitude is the one-sided PSD.
     internal static Fin<SpectralOutput> Welch(ReadOnlyMemory<float> signal, SignalPolicy policy, Instant at) {
         int frame = policy.FrameSize, hop = policy.HopSize, bins = frame / 2 + 1;
         if (frame > signal.Length || hop <= 0) { return Fin.Fail<SpectralOutput>(ComputeFault.Create($"<welch-frame-overruns:{frame}>")); }
@@ -391,9 +379,7 @@ public static class Transform {
         return Fin.Succ<SpectralOutput>(new SpectralOutput.Bins(new Spectrum(policy.Transform, psd, ReadOnlyMemory<double>.Empty, bins, BinHz(frame, policy.SampleRate), policy.SampleRate, at)));
     }
 
-    // DWT cascade: each level low/high-pass filters the running approximation through the WaveletFamily QMF
-    // pair over the stride-2 Conv1D lowering, halving the length; details accumulate, the approximation feeds
-    // the next level — the same convolution lowering the FIR application rides, never a bespoke filter bank.
+    // DWT cascade over the stride-2 Conv1D lowering, halving the length per level — the same convolution lowering the FIR application rides, never a bespoke filter bank.
     internal static Fin<SpectralOutput> Wavelet(ReadOnlyMemory<float> signal, SignalPolicy policy, Instant at) {
         WaveletFamily family = policy.Wavelet;                  // policy-selected across haar/db2/db4/sym4/coif1.
         int levels = Math.Max(1, policy.Levels);
@@ -403,18 +389,14 @@ public static class Transform {
         return Cascade(Fin.Succ((seed, Seq<ReadOnlyMemory<double>>())), 0)
             .Map(state => (SpectralOutput)new SpectralOutput.Bands(new WaveletDecomposition(family, state.Details.Count, state.Approx, state.Details, at)));
 
-        // Mallat cascade as an immutable Fin-threaded fold: each level prepends its detail band (coarsest ends
-        // at the head) and threads the halved approximation forward, with NO mutable list and no side effect
-        // inside a combinator; the cascade stops when the running approximation can no longer fill the QMF
-        // support, so the realized `Levels` is whatever depth the signal admits.
+        // Mallat cascade as an immutable Fin-threaded fold (coarsest detail at the head), no mutable list or side effect inside a combinator; the cascade stops when the approximation can no longer fill the QMF support, so realized `Levels` is whatever depth the signal admits.
         Fin<(double[] Approx, Seq<ReadOnlyMemory<double>> Details)> Cascade(Fin<(double[] Approx, Seq<ReadOnlyMemory<double>> Details)> state, int level) =>
             level >= levels ? state : state.Bind(s => s.Approx.Length < h.Length
                 ? Fin.Succ(s)
                 : Convolve2(s.Approx, h, g).Bind(band => Cascade(Fin.Succ((band.Low, ((ReadOnlyMemory<double>)band.High).Cons(s.Details))), level + 1)));
     }
 
-    // One stride-2 Conv1D per QMF tap set: the approximation lowers through the factor lane against the
-    // reversed analysis filters (true convolution from the cross-correlation kernel), downsampled by 2.
+    // One stride-2 Conv1D per QMF tap set: the approximation lowers through the factor lane against the reversed analysis filters (true convolution from cross-correlation), downsampled by 2.
     static Fin<(double[] Low, double[] High)> Convolve2(double[] x, double[] h, double[] g) =>
         Downsample(x, h).Bind(low => Downsample(x, g).Map(high => (low, high)));
 
@@ -427,9 +409,7 @@ public static class Transform {
 
     // --- [FILTER_DESIGN] -- FIR windowed-sinc, equiripple-over-QR, and the shared IIR bilinear map.
 
-    // Windowed-sinc FIR: the ideal band impulse response tapered by the WindowKind window. The FilterBand row
-    // owns the band combine — low-pass IS the sinc kernel, high-pass spectral-inverts it, band-pass/stop
-    // difference (and BS inverts) the two low-pass kernels — so the windowed-sinc carries no per-band branch.
+    // Windowed-sinc FIR: the ideal band impulse response tapered by the WindowKind window, the FilterBand row owning the band combine — so the windowed-sinc carries no per-band branch.
     internal static FilterCoefficients WindowedSinc(FilterSpec spec) {
         int taps = spec.Order | 1;                              // odd length for a Type-I linear-phase center tap.
         double[] window = spec.Window.Taper(taps, periodic: false);
@@ -451,12 +431,8 @@ public static class Transform {
         }
     }
 
-    // Equiripple FIR by the Lawson weighted-least-squares iteration over the blas thin-QR route: the cosine
-    // design matrix solves the band-error system over an EXPLICIT transition (don't-care) band, the `FilterBand`
-    // row supplies the per-frequency desired/weight (honoring LP/HP/BP/BS and the ripple-derived passband-vs-
-    // stopband weight δp/δs), and the error envelope reweights the active bands toward the Chebyshev minimax —
-    // the transition rows stay zero-weight so the solve never rings the brick-wall discontinuity a raw target
-    // would impose (a single hard 0/1 step with uniform weight is the deleted naive form that Gibbs-rings).
+    // Equiripple FIR by the Lawson weighted-least-squares over the blas thin-QR across an EXPLICIT transition (don't-care) band, the `FilterBand` row supplying the per-frequency desired/weight (ripple-derived δp/δs) and the error envelope reweighting toward the Chebyshev minimax.
+    // Transition rows stay zero-weight so the solve never rings the brick-wall discontinuity — a single hard 0/1 step with uniform weight is the deleted naive form that Gibbs-rings.
     internal static Fin<FilterCoefficients> Equiripple(FilterSpec spec) {
         int taps = spec.Order | 1, half = taps / 2 + 1, grid = 8 * taps;
         double c1 = spec.NormalizedCutoff;
@@ -491,11 +467,8 @@ public static class Transform {
         }
     }
 
-    // One bilinear map for every IIR family AND band: pre-warp the band edge(s), let the `FilterBand` row
-    // frequency-transform the normalized-lowpass prototype to the LP/HP/BP/BS s-plane (the lp2{lp,hp,bp,bs}
-    // zpk algebra the band owns — BP/BS double the order, HP adds origin zeros, BS adds ±jω₀ notch zeros),
-    // bilinear-transform each s-plane root to z, and expand the conjugate-paired roots to real (b, a)
-    // polynomials. Per-family variation is the analog Prototype; per-band variation is `FilterBand.ToAnalog`.
+    // One bilinear map for every IIR family AND band: pre-warp the band edge(s), the `FilterBand` row frequency-transforming the normalized-lowpass prototype to the LP/HP/BP/BS s-plane
+    // (the lp2{lp,hp,bp,bs} zpk algebra — BP/BS double the order, HP adds origin zeros, BS adds ±jω₀ notch zeros); per-family variation is the analog Prototype, per-band variation `FilterBand.ToAnalog`.
     internal static FilterCoefficients Bilinear(FilterDesign design, FilterSpec spec) {
         var proto = design.Prototype(spec);
         double fs2 = 2.0 * spec.SampleRate;
@@ -530,9 +503,8 @@ public static class Transform {
 
 // --- [COMPOSITION] ----------------------------------------------------------------------
 
-// Closed-form analog normalized-lowpass prototypes (cutoff Ω=1 rad/s); Bilinear frequency-transforms and
-// discretizes them. Butterworth places poles on the unit circle; Chebyshev on an ellipse; elliptic solves the
-// degree equation by the Landen `Sne` product and places the equiripple pole/zero lattice via the Jacobi sn/cd.
+// Closed-form analog normalized-lowpass prototypes (cutoff Ω=1 rad/s); Bilinear frequency-transforms and discretizes them.
+// Butterworth places poles on the unit circle, Chebyshev on an ellipse, elliptic solving the degree equation by the Landen `Sne` product and placing the equiripple lattice via the Jacobi sn/cd.
 public static class Prototypes {
     public static (Complex[] Zeros, Complex[] Poles, double Gain) Butterworth(FilterSpec spec) {
         int n = spec.Order;
@@ -571,11 +543,9 @@ public static class Prototypes {
         return (zeros, poles, (pn / zn).Real);
     }
 
-    // Elliptic (Cauer) prototype: equiripple in both bands, the densest IIR prototype sharing the one Bilinear
-    // discretizer. The εp/εs selectivity sets the passband modulus k through the Landen `Sne`-product degree
-    // equation; the normalized Jacobi `Sne`/`Cde` (ascending Landen) place the imaginary-axis zeros, the
-    // complex poles, and the odd-order real pole; the `v0` offset is the algebraic arc-form `Asne`. The pole
-    // lattice is verified equal to the textbook analog Cauer prototype (poles in the LHP, equiripple stopband).
+    // Elliptic (Cauer) prototype: equiripple in both bands, the densest IIR prototype sharing the one Bilinear discretizer; εp/εs selectivity sets the passband modulus k through the Landen `Sne`-product degree equation.
+    // The normalized Jacobi `Sne`/`Cde` (ascending Landen) place the imaginary-axis zeros, complex poles, and odd-order real pole; the `v0` offset is the algebraic arc-form `Asne`.
+    // Pole lattice is verified equal to the textbook analog Cauer prototype (poles in the LHP, equiripple stopband).
     public static (Complex[] Zeros, Complex[] Poles, double Gain) Elliptic(FilterSpec spec) {
         int n = spec.Order, half = n / 2, parity = n & 1;
         double gp = Math.Pow(10.0, -spec.RippleDb / 20.0);                                  // passband gain Gp.
@@ -605,8 +575,7 @@ public static class Prototypes {
             double kp = Math.Pow(kc, n) * prod;
             return Math.Sqrt(1.0 - kp * kp);
         }
-        // Jacobi cd/sn in the normalized argument (uK over the quarter period), built by the ASCENDING Landen
-        // recursion w ← (1+kₙ)·w/(1+kₙ·w²) from the descending modulus ladder seeded at sin(u·π/2) (the k=0 value).
+        // Jacobi cd/sn in the normalized argument, built by the ASCENDING Landen recursion w ← (1+kₙ)·w/(1+kₙ·w²) from the descending modulus ladder seeded at sin(u·π/2) (the k=0 value).
         static Complex Cde(Complex u, double k) => Sne(Complex.One - u, k);
         static Complex Sne(Complex u, double k) {
             Span<double> v = stackalloc double[8];
@@ -615,8 +584,7 @@ public static class Prototypes {
             for (int i = v.Length - 1; i >= 0; i--) { w = (1.0 + v[i]) * w / (1.0 + v[i] * w * w); }
             return w;
         }
-        // Inverse sn: undo each ascending step (last-applied first) by the algebraic quadratic root, then refine
-        // by Newton from that BOUNDED seed — the seed keeps u small so `Sne`'s `Complex.Sin` never overflows.
+        // Inverse sn: undo each ascending step (last-applied first) by the algebraic quadratic root, then Newton-refine from that BOUNDED seed — the seed keeps u small so `Sne`'s `Complex.Sin` never overflows.
         static Complex Asne(Complex w, double k) {
             Span<double> v = stackalloc double[8];
             Landen(k, v);
@@ -645,6 +613,9 @@ public static class Prototypes {
 
 ## [03]-[RESEARCH]
 
-- [IIR_BILINEAR]: every IIR row grounds the analog-prototype-to-digital map on ONE `Bilinear` consuming the row's closed-form `Prototype` — Butterworth poles on the unit circle, Chebyshev-I all-pole on an ellipse via `asinh(1/ε)/n` carrying the `∏(−pₖ)` leading gain, Chebyshev-II reciprocal poles with imaginary-axis zeros carrying the `∏(−pₖ)/∏(−zₖ)` gain, and the elliptic equiripple lattice via the descending-Landen Jacobi `sn`/`cd` (the degree equation solved by the Landen `sne` product, the `v0` offset by the algebraic arc-form `asne`, the leading gain `Gpᵖᵃʳⁱᵗʸ⁻¹·∏(−pₖ)/∏(−zₖ)`); the recurrence consumes whatever `(b, a)` the bilinear expansion produces and the conjugate-paired-root polynomial expansion guarantees the real coefficient output. The Jacobi kernel is the ascending-Landen `sne` seeded at `sin(u·π/2)` (the modulus-zero value) and its descending-Landen algebraic inverse `asne` Newton-refined from that bounded seed — never the unseeded Newton that overflows for a small-ripple `j/ε` argument; the pole/zero set is verified equal to the textbook analog Cauer prototype, so a higher elliptic order only deepens the Landen ladder.
-- [REMEZ_EXCHANGE]: the equiripple `fir-remez` row grounds the Lawson weighted-least-squares iteration over the `Tensor/blas#DENSE_ALGEBRA` `DenseRoute.Solve(FactorRoute.Orthonormal)` thin-QR Chebyshev route — the `FilterBand`-supplied band-aware cosine design matrix is solved across an EXPLICIT transition (don't-care) band under the ripple-derived `δp/δs` passband-vs-stopband weight, the error envelope reweights the active bands, and the iteration drives toward the minimax equioscillation; the transition band is load-bearing — a hard `0/1` brick-wall target with uniform weight Gibbs-rings (≈50% passband ripple) rather than converging, the deleted naive form. The windowed-sinc `fir-window` row rides the `WindowKind` `MathNet.Numerics.Window` factory directly with the `FilterBand` combine (spectral inversion for high-pass, kernel difference for band-pass/stop). The open leaf is the exact alternation-set convergence proof, grounded against the Chebyshev equioscillation theorem at the filter-design gate.
-- [DWT_CASCADE]: the discrete wavelet transform `dwt` row grounds the filter-bank decomposition on the same stride-2 `Tensor/factor#KERNEL_LOWERING` `Conv1D` lowering the FIR application rides — the `WaveletFamily` carries the frozen Daubechies/symlet/coiflet analysis scaling coefficients (MathNet ships no wavelet surface) and the analysis high-pass derives by the QMF mirror `g[k] = (−1)ᵏ·h[N−1−k]`, so one frozen table per family owns the whole orthonormal bank. The open leaf is the boundary mode — the `Conv1D` lowering zero-pads, while a symmetric/periodic extension preserves perfect reconstruction at the signal edges; the synthesis (inverse-DWT) bank derives from the same analysis table by time-reversal and grounds at the reconstruction gate.
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+-->
+
+- [REMEZ_EXCHANGE]-[OPEN]: exact alternation-set convergence proof for the equiripple Lawson weighted-least-squares iteration; verify against the Chebyshev equioscillation theorem at the filter-design gate.
+- [DWT_CASCADE]-[OPEN]: boundary mode for the DWT cascade — the `Conv1D` lowering zero-pads while a symmetric/periodic extension preserves perfect reconstruction at signal edges — and the synthesis (inverse-DWT) bank derived from the analysis table by time-reversal; verify at the reconstruction gate.

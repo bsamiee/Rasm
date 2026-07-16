@@ -55,7 +55,7 @@ flowchart LR
 - Precedence runs Mermaid defaults, then site `initialize()`, then diagram frontmatter; the fence owns its render face.
 - `secure`, `securityLevel`, `startOnLoad`, `maxTextSize`, `suppressErrorRendering`, and `maxEdges` are blocked from frontmatter by the secure config model — they resolve through `initialize()` alone; `look`, `theme`, `themeVariables`, and `themeCSS` are not on that list, so the fence always owns its own appearance.
 - Root keys with render impact: `htmlLabels`, `markdownAutoWrap`, `deterministicIds`/`deterministicIDSeed`, `handDrawnSeed`, `themeCSS`; `fontFamily` lives in `themeVariables`, never at config root.
-- The config block holds one key order on every fence: `theme`, `look`, `layout`, root render keys, per-type blocks, `themeVariables` (opening `darkMode`, `fontFamily`, `useGradient`, `dropShadow`, then colors), `themeCSS` last.
+- Config block holds one key order on every fence: `theme`, `look`, `layout`, root render keys, per-type blocks, `themeVariables` (opening `darkMode`, `fontFamily`, `useGradient`, `dropShadow`, then colors), `themeCSS` last.
 - Diagram padding is `25` universally — `flowchart.padding: 25` and every family's equivalent breathing-room knob take the same value, so no fence crowds its viewport edge.
 - Every diagram type nests its own block — `flowchart:`, `sequence:`, `er:`, `architecture:`, `kanban:`, and the rest — carrying that type's own keys.
 
@@ -112,7 +112,7 @@ flowchart TD
 - A flowchart takes ELK through `layout: elk` or `flowchart.defaultRenderer: elk`; swimlane consumes only the `flowchart.defaultRenderer: elk` route into its own layout.
 - Dagre is the engine's unset-layout behavior, never this corpus's declaration; `flowchart TD` with `dagre-d3` is rejected by the detector, and legacy `graph TD` plus `dagre-d3` exists only as an engine boundary fact.
 - ELK routes orthogonally on its own and overrides the curve selector with a fixed rounded joint over its bend points, so `flowchart.curve` never shapes an ELK route; the corpus still declares `flowchart.curve: linear` because it holds the elbow posture wherever a host lacks the ELK loader and falls back to dagre.
-- The unified state, class, and ER renderers pass `layout: elk` through when a host registers the loader, but only flowchart falls back to dagre when the loader is missing — the other families hard-require it, so only flowchart fences declare `layout: elk` and every other family stays on its own engine for portability.
+- Unified state, class, and ER renderers pass `layout: elk` through when a host registers the loader, but only flowchart falls back to dagre when the loader is missing — the other families hard-require it, so only flowchart fences declare `layout: elk` and every other family stays on its own engine for portability.
 
 ELK tuning nests under `elk:`:
 
@@ -159,7 +159,7 @@ mmdc -i - -o - -e svg
 - Format derives from the output extension (`.svg`, `.png`, `.pdf`); `-b` sets background, `-s` a fractional raster scale, `-w`/`-H` the viewport, `-j` parallel jobs in markdown mode.
 - `--theme` exposes only `default`, `forest`, `dark`, and `neutral`; `base` plus `themeVariables` and every schema theme require `--configFile` JSON.
 - `--iconPacks @iconify-json/<pack>` fetches over the network; `iconPacksNamesAndUrls` in the CLI config maps pack names to `file://` or internal URLs, so a deterministic render never touches unpkg.
-- The CLI loads KaTeX and FontAwesome CSS, registers ELK and zenuml, and waits on `document.fonts` before render.
+- CLI loads KaTeX and FontAwesome CSS, registers ELK and zenuml, and waits on `document.fonts` before render.
 
 A schema theme or `themeVariables` reaches the CLI only through `--configFile`, since `--theme` cannot select it:
 
@@ -171,7 +171,7 @@ A schema theme or `themeVariables` reaches the CLI only through `--configFile`, 
 }
 ```
 
-A sandboxed or CI render pins `executablePath` through `--puppeteerConfigFile` to the machine's `PUPPETEER_EXECUTABLE_PATH` (the Nix Chrome-for-Testing). Launch args carry `--use-mock-keychain` and `--password-store=basic` so a throwaway-profile render never reaches the macOS keychain; `--no-sandbox` and `--disable-dev-shm-usage` are the headless-CI defaults. The pin is a headless-safe Chromium build, never the branded `/Applications/Google Chrome.app`, which a sandboxed headless caller aborts at `_RegisterApplication`.
+A sandboxed or CI render pins `executablePath` through `--puppeteerConfigFile` to the machine's `PUPPETEER_EXECUTABLE_PATH` (the Nix Chrome-for-Testing). Launch args carry `--use-mock-keychain` and `--password-store=basic` so a throwaway-profile render never reaches the macOS keychain; `--no-sandbox` and `--disable-dev-shm-usage` are the headless-CI defaults. A headless-safe Chromium build is the pin, never the branded `/Applications/Google Chrome.app`, which a sandboxed headless caller aborts at `_RegisterApplication`.
 
 ```json copy-safe
 {
@@ -212,6 +212,6 @@ A fully offline deterministic render pins every input: the toolchain pins the CL
 - Theme resolution converts ordinal color variables through hsl and strips 8-digit alpha — `cScale`/`git` translucency rides `fill-opacity` stamps, while `fillType`, quadrant fills, and tag backgrounds pass alpha hexes intact.
 - `classDef` styles land as inline `!important` declarations; on treemap they lock section fills against every stylesheet correction, so that family carries no classes.
 - Wardley emits no stylesheet — `themeCSS` and the mono stack never reach it, and its anchor label inks engine-black.
-- The EBNF railroad dialect reads `? ... ?` as a special sequence: optionality spells `[ ... ]` and repetition `{ ... }`, never a postfix `?`.
+- EBNF railroad dialect reads `? ... ?` as a special sequence: optionality spells `[ ... ]` and repetition `{ ... }`, never a postfix `?`.
 - C4 packs loose shapes in rows above every boundary; a third loose shape lands beneath the first where relations cross it, so externals home in their own `Boundary`.
 - Kanban column classes index from `section-1`, one past the `cScale` ordinals, so the full range is set.

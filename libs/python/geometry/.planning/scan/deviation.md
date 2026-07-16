@@ -1,23 +1,23 @@
 # [PY_GEOMETRY_SCAN_DEVIATION]
 
-Scan-vs-model deviation and primitive extraction — the central AEC value of a host-free scan companion, on top of the registered pose. `ScanDeviation` is one stage-discriminated owner folding a single construction-verification pipeline rather than parallel modes: RANSAC plane/primitive segmentation classifying the extracted planar primitives into the `PrimitiveClass` vocabulary (wall/slab/column/generic) by plane-normal axis, the per-segment signed nearest-surface deviation between the registered cloud and the IFC-tessellated GLB over one amortized `trimesh.proximity.ProximityQuery`, and the folded `DeviationBand` — signed extrema, the absolute `max`/`mean`/`std`/`rms` magnitudes, and the over-build/under-build inlier counts that the construction-verification verdict and the colored overlay both read. The three stages are arms of one `evaluate` fold keyed by a `DeviationStage` request value, never a flat mode flag returning a vacuous result: `SEGMENT` extracts and classifies, `DEVIATE` folds the signed band over the whole element, and `ATTRIBUTED` composes both so the per-primitive grouping and the `on_surface` triangle-id attribution ride the same index the overlay egress reads.
+Scan-vs-model deviation and primitive extraction — the AEC payoff of a host-free scan companion, on top of the registered pose. `ScanDeviation` folds one construction-verification pipeline discriminated by a `DeviationStage` request value, never parallel modes: `SEGMENT` runs RANSAC plane segmentation classifying dominant planar primitives into the `PrimitiveClass` vocabulary by plane-normal axis, `DEVIATE` folds the signed nearest-surface deviation between the registered cloud and the IFC-tessellated reference into one `DeviationBand`, and `ATTRIBUTED` composes both so the per-primitive grouping and the per-face triangle-id attribution ride the one amortized proximity index the colored overlay reads. `signed_distance` is positive inside the watertight design solid and negative outside, so under-build (missing material, positive) and over-build (excess, negative) separate; the verdict reads the absolute band against tolerance while the overlay reads the sign and the triangle id.
 
-The registered transform from `scan/registration.md#REGISTRATION` is the precondition; the reference surface arrives BY CONTENT KEY — the `mesh/daemon.md#DAEMON` welded GLB fetched keyed over the `Rasm.Bim/Model` seam, scan never re-tessellating. The watertight precondition is a composed gate, not a bare raise: `_query` folds the reference through `mesh/quality`'s public `closure_fold` (quality tiers below the scan producers) and an open reference raises the typed `DeviationFault` the lane fence converts — never a domain `ValueError`. The entry is `async` and the multi-second proximity/segmentation kernel rides `lane.offload` under the graduation `evidence_run` weave (`EvidenceScope.SCAN_DEVIATION` the seed row — no page-local tracer mint). The deviation graduates through the geometry-minted `rasm.geometry.graduation` spine as the `GeometrySubject.SCAN_DEVIATION` member keyed to the IFC element GlobalId — `graduates()` returns the local `GeometryHandoff` carrier whose `wire()` projection is the compute crossing, the tolerance/fraction ceilings `DeviationPolicy` rows. `trimesh.proximity.signed_distance` is positive inside the watertight design solid and negative outside, so under-build (built material missing, positive) is distinguished from over-build (excess material, negative); the verdict reads the absolute band against tolerance while the colored overlay reads the sign and the per-face triangle id.
+The registered transform from `scan/registration.md#REGISTRATION` is the precondition, never re-derived here; the reference surface arrives by content key — the welded GLB from `mesh/daemon.md#DAEMON` fetched over the `Rasm.Bim/Model` seam, scan never re-tessellating. `_query` folds that reference through `mesh/quality`'s public `closure_fold` watertight gate and raises the typed `DeviationFault` on an open reference. The `async` entry rides `lane.offload` under the `evidence_run` graduation weave seeded on `EvidenceScope.SCAN_DEVIATION`; the deviation graduates through the geometry-minted `rasm.geometry.graduation` spine as `GeometrySubject.SCAN_DEVIATION` keyed to the IFC element GlobalId, `graduates()` returning the local `GeometryHandoff` whose `wire()` projection is the compute crossing and whose ceilings are `DeviationPolicy` rows.
 
 ## [01]-[INDEX]
 
-- [01]-[DEVIATION]: plane/primitive segmentation with `PrimitiveClass` classification and the folded signed `DeviationBand` under one stage-discriminated owner over the open3d segmentation and trimesh `ProximityQuery` surfaces — the entry an `async` composition of the graduation `evidence_run` weave over `lane.offload`, the `@beartype(conf=FAULT_CONF)` `SignedField` finiteness fence on the band fold, the `mesh/quality` `closure_fold` watertight gate, `Block.unfold` the RANSAC-peel state machine, and the weave's harvest the one receipt egress.
+- [01]-[DEVIATION]: plane/primitive segmentation, `PrimitiveClass` classification, and the folded signed `DeviationBand` under one stage-discriminated `async` owner over the open3d RANSAC and trimesh `ProximityQuery` surfaces.
 
 ## [02]-[DEVIATION]
 
-- Owner: `ScanDeviation` — the frozen owner discriminating by `DeviationStage` request value over a registered `o3d.geometry.PointCloud` and a content-keyed IFC-tessellated GLB reference, carrying a `DeviationPolicy` value object (segmentation gains, the worst-point `tolerance` ceiling, the tighter per-point `working_tolerance` acceptance band, the noncompliant `fraction` bar, the slab/wall verticality thresholds — every ceiling a policy row, never a module `Final`) with derived `segment_args`/`verticality` projections; `DeviationBand` the value object folding the signed proximity array into the signed `over_extreme`/`under_extreme`, the absolute `max`/`mean`/`std`/`rms`, the over/under inlier counts, and the `noncompliant_fraction` residual, with a `DeviationBand.fold` factory that runs the whole numpy reduction once and a `verdict(tolerance, fraction)` method so the band math lives in one place; `Segment` the classified-primitive value object holding the `[a,b,c,d]` plane model, the unit normal, the inlier count, and the `PrimitiveClass` the plane-normal axis resolves, with a per-segment `DeviationBand` when the `ATTRIBUTED` stage groups deviation by primitive; `DeviationFault` the typed `@tagged_union(Exception)` the kernel raises INTO the lane fence when the quality closure fold reads the reference open — never a bare `ValueError` in domain flow; `DeviationResult` the per-element typed receipt carrying the stage, the element GlobalId, the folded element `DeviationBand`, the classified `Segment` tuple, and the optional triangle-id attribution map, with a `DeviationResult.of` factory that defaults the empty arms; `PrimitiveClass` the wall/slab/column/generic vocabulary the plane-normal axis classifies.
-- Cases: `DeviationStage` rows `SEGMENT` (RANSAC `segment_plane` iterative outlier-peel oversegmentation over a `Block.unfold` extracting and classifying the dominant planar primitives into `PrimitiveClass`), `DEVIATE` (the signed nearest-surface `ProximityQuery.signed_distance` query folded once into the element `DeviationBand` and the construction-verification verdict), and `ATTRIBUTED` (the full pass composing both — per-`Segment` `DeviationBand` grouping plus the `ProximityQuery.on_surface` triangle-id attribution the colored-overlay egress reads off the same amortized index) — matched by `match`/`assert_never`. The three stages are arms of one pipeline keyed by the request value, never three parallel result shapes; `SEGMENT` returns a `DeviationResult` carrying the classified segments and an identity (zero-magnitude) band the `verdict` reads as the as-yet-unmeasured element, never a vacuous `compliant=True`, so a segmentation-only request never graduates a false-positive compliant handoff.
-- Entry: `ScanDeviation.evaluate` is `async` — it admits the registered cloud, the content-keyed reference GLB bytes, an element GlobalId, and a `DeviationStage`, and returns `RuntimeRail[DeviationResult]` by composing `evidence_run(EvidenceScope.SCAN_DEVIATION, f"evaluate.{stage}", partial(self.lane.offload, _deviation_kernel, cloud, reference_glb, element, stage, self.policy))` — the graduation weave opens the seeded span, fences the offload, and flattens the lane's rail; the weave's harvest emits the structurally-conforming `DeviationResult.contribute` stream exactly once on the cleared `Ok`. The module-level `_deviation_kernel` runs the stage through one `match`: the `SEGMENT` arm unfolds `segment_plane` over the residual cloud through `Block.unfold` (re-segmenting the `select_by_index(invert=True)` remainder) into a classified `Segment` tuple; the `DEVIATE` arm builds one `ProximityQuery` over the quality-gated reference and folds `signed_distance` once into the element `DeviationBand` through `DeviationBand.fold`; the `ATTRIBUTED` arm threads both off that one index — grouping the signed band per classified segment by the inlier index sets and composing `on_surface` for the per-face triangle-id map. A watertight-precondition breach or a non-finite band raises inside the kernel and converts through the lane's `async_boundary` onto the rail the weave records on the live span.
-- Auto: `PointCloud.segment_plane(distance_threshold, ransac_n, num_iterations)` returns the `[a,b,c,d]` plane model plus the inlier index set, `select_by_index(inliers, invert=True)` peels the remainder so the next `Block.unfold` step extracts the next dominant plane, and the unit normal `[a,b,c]` resolves the `PrimitiveClass` by its dominant axis — the classification is a data-table lookup over the normal axis, never a per-class extraction method; `_query` loads the reference GLB, composes `mesh/quality.closure_fold` as the watertight gate (an open reference raises the typed `DeviationFault(open_reference=element)` the fence converts — the second consumer of the quality owner's one closure truth, never a re-computed per-consumer closure), then one `ProximityQuery(mesh)` amortizes the rtree triangle-index build across the whole point batch, its `signed_distance(points)` returning the per-point signed distance, and `DeviationBand.fold` runs the whole reduction once under the `@beartype(conf=FAULT_CONF)` `SignedField` finiteness fence: the signed `over_extreme` is `signed.min` (excess material outside), the `under_extreme` is `signed.max` (missing material inside), the absolute band is `numpy` `abs` then `max`/`mean`/`std` plus the `rms` as `linalg.norm(magnitude) / sqrt(n)`, the over/under inlier counts are the `numpy.where`/`sign` partition mask sums, and the `noncompliant_fraction` is the fraction of `abs` magnitudes exceeding the tighter per-point `working_tolerance` (distinct from the worst-point `tolerance` ceiling, so the bulk-surface gate stays independent of the max-distance gate) via a `clip`-bounded mask sum — one fold, not a stat-by-stat re-scan; the same query's `on_surface(points)` returns the closest surface point, the unsigned distance, and the triangle id the `ATTRIBUTED` stage composes into the per-face attribution map, never a second rtree build.
-- Receipt: `DeviationResult.contribute` returns the one-element `tuple[Receipt, ...]` the graduation weave's harvest emits exactly once on the cleared `Ok` — never a page-local `@receipted` leg — an `emitted`-phase `Receipt.of("geometry.scan.deviation", ("emitted", element, facts))` row carrying the stage, the band's signed extrema and absolute `max`/`mean`/`std`/`rms`, the over/under inlier counts, the `noncompliant_fraction`, the classified-segment count spread by `PrimitiveClass`, and the compliant verdict — the band facts produced once through `DeviationBand.facts` so the receipt and the graduation ledger read the same fold. `DeviationResult.graduates(evidence_key, policy)` returns the local `GeometryHandoff` carrier — `GeometryHandoff.of(GeometrySubject.SCAN_DEVIATION, key, measured, ceilings)` with TWO measured keys, `max_distance` against `policy.tolerance` and `noncompliant_fraction` against `policy.fraction`, so an element whose single worst point clears tolerance but whose bulk surface is out of band does not cross clean on the extremum alone, and a `SEGMENT`-stage result crosses with an EMPTY measured dict so the spine's unmeasured-ceiling law breaches it — the identity band's zeros never admit — both keys ride the graduation owner's residual-over-ceiling `admitted` direction unchanged, and the crossing to compute is the carrier's `wire()` data, never an import. The graduated subject is keyed to the IFC element GlobalId so the per-element deviation reaches the C# owner system and the TS viewer as a colored overlay through the one graduation rail.
-- Packages: `open3d` (`geometry.PointCloud.segment_plane`/`select_by_index`/`points` the RANSAC peel surface), `trimesh` (`load_mesh(io.BytesIO(glb), file_type="glb")` the GLB reader, `proximity.ProximityQuery`/`signed_distance`/`on_surface` the one amortized index), `numpy` (`abs`/`sign`/`where`/`clip`/`mean`/`std`/`min`/`max`/`sum`/`sqrt`/`isfinite`/`linalg.norm`/`arange`/`delete` the band and peel folds), `beartype` (`@beartype(conf=FAULT_CONF)` + `vale.Is` the `SignedField` finiteness refinement), `expression` (`Block.unfold` the peel state machine, `Option`/`Some`/`Nothing` its step), `msgspec` (`Struct`/`field`/`structs.replace` the carriers), geometry (`evidence_run`/`EvidenceScope`/`GeometryHandoff`/`GeometrySubject` the graduation spine, `mesh/quality.closure_fold` the watertight gate — quality tiers below the scan producers), runtime (`RuntimeRail`/`FAULT_CONF`, `LanePolicy.offload`, `ContentKey` from `rasm.runtime.identity`, `Receipt`).
-- Growth: a new primitive class is one `PrimitiveClass` member plus one classification row; a new band statistic is one `DeviationBand` field inside the one fold; a stricter verdict is a `DeviationPolicy` value; a per-storey or per-zone grouping is one segmentation post-fold; zero new surface.
-- Boundary: the registered pose is the precondition (the `register` rail from `scan/registration.md#REGISTRATION` supplies it, never re-derived here); the reference GLB is the `mesh/daemon.md#DAEMON` output fetched BY CONTENT KEY over the `Rasm.Bim/Model` seam, never re-tessellated in scan; the watertight truth is `mesh/quality.closure_fold`'s, never a local closure re-computation; learned semantic segmentation is out of host-free CPU scope; no IFC parse, no durable store, no Rhino/GH mutation. The deleted forms: a sync `evaluate` blocking the event loop on the proximity/segmentation kernel; a `lane: LanePolicy | None` accepted yet never composed; a page-local `trace.get_tracer` mint or `@receipted` `_emit` leg re-emitting what the weave's harvest already emits; a bare `raise ValueError` watertight guard where the typed `DeviationFault` composes the quality fold and converts on the fence; a module-`Final` tolerance/fraction/verticality ceiling where the policy rows carry the bars; a compute-interior graduation binding or a `GraduationReceipt.graduates` call where the local `rasm.geometry.graduation` owner mints the vocabulary and `graduates()` returns the local `GeometryHandoff`; a per-primitive `extract_wall`/`extract_slab` family; a `SEGMENT` arm returning a vacuous `compliant=True`; a stat-by-stat re-scan of the signed array; a mutable `list.append` RANSAC loop; a second `ProximityQuery` for the `ATTRIBUTED` triangle ids; an inline `isfinite` band guard where the `SignedField` refinement fences the fold; a hand-rolled point-to-mesh distance kernel; an unsigned-only reduction; and a deviation that re-tessellates the IFC reference.
+- Owner: `ScanDeviation`, the frozen owner discriminating by `DeviationStage` over a registered `PointCloud` and a content-keyed GLB reference. `DeviationBand.fold` runs the whole signed reduction once and `verdict(tolerance, fraction)` keeps the band math in one place; `Segment` carries the plane model, unit normal, original-cloud inlier indices, and the `PrimitiveClass` the plane-normal axis resolves, plus a per-segment band under `ATTRIBUTED`; `DeviationPolicy` carries every ceiling as a value-object row — segmentation gains, the worst-point `tolerance`, the tighter per-point `working_tolerance`, the noncompliant `fraction`, the slab/wall verticality thresholds — never a module `Final`.
+- Cases: `DeviationStage` — `SEGMENT` (RANSAC outlier-peel oversegmentation classifying dominant planar primitives), `DEVIATE` (the signed band folded once over the whole element), `ATTRIBUTED` (both composed — per-`Segment` band plus the `on_surface` triangle-id map off the same index). Three arms of one pipeline keyed by the request value, never three parallel result shapes; `SEGMENT` returns an identity zero-magnitude band the `verdict` reads as the as-yet-unmeasured element, never a vacuous `compliant=True`, so a segmentation-only request never graduates a false-positive handoff.
+- Entry: `evaluate` is `async` — it admits the registered cloud, the reference GLB bytes, an element GlobalId, and a stage, and returns `RuntimeRail[DeviationResult]` by composing `evidence_run` over `lane.offload(_deviation_kernel, …)`. A watertight-precondition breach or a non-finite band raises inside the picklable module-level kernel and converts through the lane's `async_boundary` onto the rail the weave records.
+- Auto: `segment_plane` returns the `[a,b,c,d]` model plus the inlier set, `select_by_index(inliers, invert=True)` peels the remainder for the next `Block.unfold` step, and the unit normal's dominant axis resolves `PrimitiveClass` by table lookup, never a per-class extraction method. `_query` amortizes one `ProximityQuery` rtree build across the whole batch and both the `signed_distance` and `on_surface` reads. `noncompliant_fraction` measures against the tighter `working_tolerance`, independent of the worst-point `tolerance` ceiling, so the bulk-surface gate and the max-distance gate stay separate.
+- Receipt: `DeviationResult.contribute` yields the one `emitted`-phase `Receipt.of("geometry.scan.deviation", ("emitted", element, facts))` the weave's harvest emits, the band facts produced once through `DeviationBand.facts` so receipt and graduation ledger read the same fold. `graduates` hands `GeometryHandoff.of(GeometrySubject.SCAN_DEVIATION, key, measured, ceilings)` TWO measured keys — `max_distance` against `policy.tolerance` and `noncompliant_fraction` against `policy.fraction` — so an element clearing on its worst point alone but out of band on the bulk surface does not cross clean; a `SEGMENT` result hands an EMPTY measured dict so the spine's unmeasured-ceiling law breaches it. The subject is keyed to the IFC GlobalId so the per-element deviation reaches the C# owner system and the TS viewer as a colored overlay.
+- Packages: `open3d` (the `PointCloud.segment_plane`/`select_by_index` RANSAC peel), `trimesh` (the GLB reader and the `proximity.ProximityQuery`/`signed_distance`/`on_surface` amortized index), `numpy` (the band and peel folds), `beartype` (the `SignedField` finiteness refinement under `FAULT_CONF`), `expression` (`Block.unfold` the peel state machine), `msgspec` (the frozen carriers), geometry (`evidence_run`/`EvidenceScope`/`GeometryHandoff`/`GeometrySubject` the graduation spine, `mesh/quality.closure_fold` the watertight gate — quality tiers below the scan producers), runtime (`RuntimeRail`/`FAULT_CONF`, `LanePolicy.offload`, `ContentKey`, `Receipt`).
+- Growth: a new primitive class is one `PrimitiveClass` member plus one classification row; a new band statistic is one `DeviationBand` field inside the one fold; a stricter verdict is a `DeviationPolicy` value; a per-storey or per-zone grouping is one segmentation post-fold.
+- Boundary: the registered pose is `scan/registration.md#REGISTRATION`'s; the reference GLB is `mesh/daemon.md#DAEMON`'s output fetched by content key over the `Rasm.Bim/Model` seam, never re-tessellated here; the watertight truth is `mesh/quality.closure_fold`'s; learned semantic segmentation is out of host-free CPU scope; no IFC parse, no durable store, no Rhino/GH mutation.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -41,7 +41,7 @@ from rasm.runtime.identity import ContentKey
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.receipts import Receipt
 
-if TYPE_CHECKING:  # type-only: every runtime open3d call rides a method on the passed cloud, so no module-level open3d import
+if TYPE_CHECKING:  # every runtime open3d call rides a method on the passed cloud — no module-level import
     import open3d as o3d
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -60,9 +60,7 @@ class PrimitiveClass(StrEnum):
     GENERIC = "generic"  # unclassified planar primitive
 
 
-# finiteness refinement the `@beartype(conf=FAULT_CONF)` fence on `DeviationBand.fold` checks: a
-# `NaN`/`±inf` proximity sample raises the canonical violation INSIDE the fence and the faults
-# `CLASSIFY` `api` row rails it once, never silently corrupting the extrema or the mask sums.
+# the finiteness refinement the `FAULT_CONF` fence on `DeviationBand.fold` checks: a `NaN`/`±inf` sample rails once.
 type SignedField = Annotated[np.ndarray, Is[lambda a: bool(np.isfinite(a).all())]]
 
 
@@ -71,10 +69,9 @@ type SignedField = Annotated[np.ndarray, Is[lambda a: bool(np.isfinite(a).all())
 
 @tagged_union(frozen=True)
 class DeviationFault(Exception):
-    # raised INTO the lane fence so an open reference converts through the one BoundaryFault
-    # taxonomy — the composed quality-closure gate, never a domain `raise ValueError`.
+    # raised into the lane fence so an open reference converts through the BoundaryFault taxonomy.
     tag: Literal["open_reference"] = tag()
-    open_reference: str = case()  # the element whose reference GLB the quality closure fold read open
+    open_reference: str = case()  # the element whose reference GLB the closure fold read open
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -94,17 +91,14 @@ class DeviationBand(Struct, frozen=True, gc=False):
     @staticmethod
     @beartype(conf=FAULT_CONF)
     def fold(signed: SignedField, working_tolerance: float) -> "DeviationBand":
-        # the `SignedField` `Is[isfinite]` refinement fires here under the shared `FAULT_CONF`, so the
-        # band the verdict reads is always finite; one reduction, not a stat-by-stat re-scan.
+        # the `SignedField` refinement fires here, so the band the verdict reads is always finite.
         signed = np.asarray(signed, dtype=np.float64)
         if signed.size == 0:
             return DeviationBand.identity()
         magnitude = np.abs(signed)
         n = magnitude.size
         sign = np.sign(signed)
-        # fraction is measured against the tighter per-point working tolerance, not the worst-point
-        # ceiling, so the bulk-surface gate stays independent of the max-distance gate.
-        over_band = np.clip(magnitude - working_tolerance, 0.0, None)
+        over_band = np.clip(magnitude - working_tolerance, 0.0, None)  # fraction gate on the tighter working band
         return DeviationBand(
             over_extreme=float(signed.min()),
             under_extreme=float(signed.max()),
@@ -160,8 +154,7 @@ class Segment(Struct, frozen=True, gc=False):
         return Segment(tuple(float(c) for c in model), tuple(float(c) for c in unit), tuple(int(i) for i in members), kind)
 
     def attributed(self, signed: np.ndarray, working_tolerance: float) -> "Segment":
-        # fold the per-segment signed sub-band over this segment's original-cloud members so the
-        # `ATTRIBUTED` overlay groups deviation by primitive; the index survives the `_segment` peel.
+        # the per-segment sub-band over this segment's original-cloud members, surviving the peel.
         return replace(self, band=DeviationBand.fold(signed[list(self.members)], working_tolerance))
 
 
@@ -170,11 +163,11 @@ class DeviationPolicy(Struct, frozen=True):
     ransac_n: int = 3
     num_iterations: int = 1000
     max_planes: int = 8
-    tolerance: float = 0.05  # worst-point hard ceiling: no point may exceed it — a policy row, never a module Final
-    working_tolerance: float = 0.02  # tighter per-point acceptance band the fraction measures
-    fraction: float = 0.10  # max share of points allowed past the working band
-    up_axis: float = 0.85  # |n . up| slab threshold; the live policy tunes it per scan campaign
-    flat_axis: float = 0.35  # |n . up| wall threshold
+    tolerance: float = 0.05  # worst-point hard ceiling
+    working_tolerance: float = 0.02  # tighter per-point band the fraction measures against
+    fraction: float = 0.10  # max share past the working band
+    up_axis: float = 0.85  # |n · up| slab threshold
+    flat_axis: float = 0.35  # |n · up| wall threshold
 
     @property
     def segment_args(self) -> tuple[float, int, int]:
@@ -203,20 +196,16 @@ class DeviationResult(Struct, frozen=True):
         segments: tuple[Segment, ...] = (),
         triangle_ids: tuple[int, ...] = (),
     ) -> "DeviationResult":
-        # SEGMENT carries no measured deviation, so it never asserts a compliant verdict and never graduates.
         compliant = stage is not DeviationStage.SEGMENT and band.verdict(policy.tolerance, policy.fraction)
         return DeviationResult(stage, element, band, segments, triangle_ids, compliant)
 
     def contribute(self) -> tuple[Receipt, ...]:
-        # the runtime `Receipt.of(owner, evidence)` two-argument contract minting the `fact` case.
         kinds = {f"class.{c.value}": sum(s.kind is c for s in self.segments) for c in PrimitiveClass}
         facts: dict[str, object] = {"stage": self.stage.value, "compliant": self.compliant, **self.band.facts(), **kinds}
         return (Receipt.of("geometry.scan.deviation", ("emitted", self.element, facts)),)
 
     def graduates(self, evidence_key: ContentKey, policy: DeviationPolicy) -> GeometryHandoff:
-        # two measured keys against two policy-row ceilings: the worst point AND the bulk-surface share.
-        # SEGMENT carries an identity band, not a measurement: its measured dict stays EMPTY so the
-        # spine's unmeasured-ceiling law breaches the crossing — a zero-magnitude band never admits.
+        # a SEGMENT identity band hands an EMPTY measured dict, so the unmeasured-ceiling law breaches it.
         measured: dict[str, float] = (
             {}
             if self.stage is DeviationStage.SEGMENT
@@ -237,22 +226,16 @@ def _query(reference_glb: bytes, cloud: "o3d.geometry.PointCloud", element: str)
     import trimesh  # noqa: PLC0415
 
     mesh = trimesh.load_mesh(io.BytesIO(reference_glb), file_type="glb")
-    # the watertight truth is the quality owner's ONE closure fold (quality tiers below the scan
-    # producers); an open reference raises the typed fault the lane fence converts — signed sign is
-    # unreliable on a non-watertight reference, and the daemon welds vertices upstream.
+    # signed sign is unreliable on a non-watertight reference, so an open closure raises the typed fault.
     if not closure_fold(mesh).watertight:
         raise DeviationFault(open_reference=element)
-    # `ProximityQuery` amortizes the one rtree triangle-index build across the whole point batch and
-    # both the `signed_distance` and `on_surface` reads, never a fresh index per one-shot call.
+    # one rtree index amortized across the batch and both the `signed_distance` and `on_surface` reads.
     return trimesh.proximity.ProximityQuery(mesh), np.asarray(cloud.points)
 
 
 def _segment(cloud: "o3d.geometry.PointCloud", policy: DeviationPolicy) -> tuple[Segment, ...]:
-    # the iterative RANSAC peel is a stateful unfold, not a mutable-accumulator loop: `Block.unfold`
-    # threads the `(remainder, surviving, depth)` state — `surviving` mapping each remainder index
-    # back to its ORIGINAL-cloud index across the `select_by_index(invert=True)` complement — emitting
-    # one classified `Segment` per dominant plane until the `max_planes` budget or the `ransac_n`
-    # floor terminates the generator with `Nothing`, never a `break`-guarded `list.append`.
+    # the peel is a stateful `Block.unfold`, not a mutable accumulator: `surviving` maps each remainder
+    # index back to its ORIGINAL-cloud index across the `invert=True` complement.
     type State = tuple["o3d.geometry.PointCloud", np.ndarray, int]
 
     def peel(state: State) -> Option[tuple[Segment, State]]:
@@ -270,8 +253,6 @@ def _segment(cloud: "o3d.geometry.PointCloud", policy: DeviationPolicy) -> tuple
 def _deviation_kernel(
     cloud: "o3d.geometry.PointCloud", reference_glb: bytes, element: str, stage: DeviationStage, policy: DeviationPolicy
 ) -> DeviationResult:
-    # the module-level picklable kernel the lane offloads; a watertight breach or non-finite band
-    # raises here and converts through the lane's async_boundary onto the rail.
     match stage:
         case DeviationStage.SEGMENT:
             return DeviationResult.of(stage, element, DeviationBand.identity(), policy, segments=_segment(cloud, policy))
@@ -281,9 +262,7 @@ def _deviation_kernel(
             return DeviationResult.of(stage, element, band, policy)
         case DeviationStage.ATTRIBUTED:
             query, points = _query(reference_glb, cloud, element)
-            # one persistent rtree index serves the element band, the per-segment grouping, AND the
-            # per-face triangle ids; `on_surface` returns `(points, distances, triangle_id)`, so the
-            # colored-overlay attribution rides the same index the band reads, never a second build.
+            # `on_surface` returns `(points, distances, triangle_id)` off the same index the band reads.
             signed = query.signed_distance(points)
             _, _, triangle_id = query.on_surface(points)
             segments = tuple(s.attributed(signed, policy.working_tolerance) for s in _segment(cloud, policy))
@@ -309,13 +288,18 @@ class ScanDeviation(Struct, frozen=True):
     async def evaluate(
         self, cloud: "o3d.geometry.PointCloud", reference_glb: bytes, element: str, stage: DeviationStage
     ) -> "RuntimeRail[DeviationResult]":
-        # the one composed entry: the graduation weave (seeded span + fence + harvest) wraps the lane
-        # offload — the reference GLB arrives BY CONTENT KEY (the Rasm.Bim/Model seam; scan never
-        # re-tessellates) — and the weave's harvest emits the conforming `DeviationResult` exactly
-        # once on the cleared Ok; no page-local receipt leg exists.
+        # the graduation weave wraps the lane offload; its harvest emits the conforming result once.
         return await evidence_run(
             EvidenceScope.SCAN_DEVIATION,
             f"evaluate.{stage}",
             partial(self.lane.offload, _deviation_kernel, cloud, reference_glb, element, stage, self.policy),
         )
 ```
+
+## [03]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+-->
+
+(none)

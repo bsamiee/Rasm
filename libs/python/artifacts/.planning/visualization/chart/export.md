@@ -1,27 +1,27 @@
 # [PY_ARTIFACTS_CHART_EXPORT]
 
-The host-free render half of the 2D chart axis — format dispatch AND the vegafusion data pre-pass, one page. `ChartExport` folds the `visualization/chart/spec#CHART` chart case, the typed `RenderPolicy`, and the target `ExportFormat` to bytes and mints one `core/receipt#RECEIPT` `ArtifactReceipt.Chart`. The host-free posture is the decisive axis: vl-convert-python is the Vega/Vega-Lite engine (Rust-native, embedded V8/deno_runtime, inlined Vega sources, zero browser, SVG/PNG/PDF/HTML/JPEG) and stays the ONE chart-origin SVG rasterizer; lets-plot self-renders to bytes in-process (SVG/HTML self-contained, PNG/PDF through pillow) as the second engine on its named consumed rows — `PlotSpec.to_svg`/`to_png`/`to_pdf` self-render, `scale_color_manual`/`scale_fill_manual` threading `graphic/color/derive#DERIVE`'s `Palette`; matplotlib serves the publication case. The `VegaTransform` pre-pass lives IN this page: it server-evaluates the spec's data transforms on the process seam and inlines the reduced result into ONE self-contained spec the `_vl_render` arm renders — vl-convert exposes no external-dataset feed, so the pre-computed data crosses inside the spec, and the `ChartState` self-contained spec serves the interactive HTML row with no live server.
+`ChartExport` is the render half of the 2D chart axis: format dispatch and the vegafusion data pre-pass on one page. It folds the `visualization/chart/spec#CHART` chart case, the typed `RenderPolicy`, and the target `ExportFormat` to bytes, minting one `core/receipt#RECEIPT` `ArtifactReceipt.Chart`. Host-free posture is decisive: vl-convert stays the one chart-origin SVG rasterizer (Rust-native, embedded V8, zero browser), lets-plot self-renders in-process on its named `to_svg`/`to_png`/`to_pdf` rows, matplotlib serves the publication case. `VegaTransform` pre-pass lives in this page because vl-convert exposes no external-dataset feed — server-evaluated transforms inline into one self-contained spec the render arm consumes, so the reduced data crosses inside the spec and the interactive HTML row needs no live server.
 
-`RenderPolicy` carries the full converter axis as typed policy — raster `scale`/`ppi`/`quality`, the `VegaTheme`-typed `theme`, the pinned `vl_version`, `register_font_directory` closing the font-identity loop with the fonttools/uharfbuzz rail, the `format_locale`/`time_format_locale` d3-locale pair pinning deterministic time axes, the `allowed_base_urls` SSRF fence, and the HTML `renderer`/`bundle` — each projected onto its converter through the row's own `keys` tuple. Every native render crosses the runtime-owned offload bound (`LanePolicy.offload` — the vegafusion and matplotlib kernels on `Modality.PROCESS` with `retry=RetryClass.OCCT` for worker death, the GIL-releasing vl-convert core on `Modality.THREAD`, lets-plot on `Modality.INTERPRETER`), inside an OpenTelemetry span carrying engine/dialect/theme plus the pre-pass evidence. The producer lands the one node contract: `emit()` mints the key PRE-RUN over the canonical `(chart, fmt, policy)` input, `_emit` renders once and threads the same key into the receipt; the themed bytes are a flat handoff `composition/compose#COMPOSE` places as parent content keys, re-rendering nothing.
+`RenderPolicy` carries the full converter axis as typed policy — raster `scale`/`ppi`/`quality`, the `VegaTheme` theme, the pinned `vl_version`, `register_font_directory` closing the font-identity loop, the `format_locale`/`time_format_locale` d3-locale pair, the `allowed_base_urls` SSRF fence, and the HTML `renderer`/`bundle` — each projected onto its converter through the row's own `keys` tuple. Every native render crosses the runtime-owned offload bound (vegafusion and matplotlib on `Modality.PROCESS` with `RetryClass.OCCT` for worker death, the GIL-releasing vl-convert core on `Modality.THREAD`, lets-plot on `Modality.INTERPRETER`) inside one OpenTelemetry span. Node contract is `emit()` minting the key PRE-RUN over the canonical `(chart, fmt, policy)` input and `_emit` threading that same key into the receipt; themed bytes are a flat handoff `composition/compose#COMPOSE` places, re-rendering nothing.
 
 ## [01]-[INDEX]
 
-- [01]-[EXPORT]: host-free static-and-interactive export rows over the typed `RenderPolicy` and the per-engine `VL_RENDER`/`LP_RENDER` format tables (each total over `ExportFormat`), the `emit()`/`_emit` node contract minting `ArtifactReceipt.Chart`, every native render across the runtime offload bound inside one span — consuming spec's chart case and derive's `Palette`/`hex_ramp`; consumed by compose as DATA parent keys.
-- [02]-[PREPASS]: the in-page `VegaTransform` pre-pass policy over the gated vegafusion runtime — `Passthrough`/`Inline`/`State` discriminating by transform presence and interactivity, each arm returning `Result[PrePass, TransformFault]` carrying the self-contained spec AND the `PrePassEvidence` (warnings, the three explicit data-loss flags, tz, dataset and comm-plan cardinality, worker-pool occupancy) — plus `planned` the pre-execution cost gate over `build_pre_transform_spec_plan` and the `get_column_usage` input-prune map.
+- [01]-[EXPORT]: host-free static-and-interactive export over the typed `RenderPolicy` and the per-engine `VL_RENDER`/`LP_RENDER` format tables, minting `ArtifactReceipt.Chart` across the runtime offload bound inside one span.
+- [02]-[PREPASS]: in-page `VegaTransform` pre-pass over the gated vegafusion runtime — `Passthrough`/`Inline`/`State` by transform presence and interactivity, each returning the self-contained spec plus its `PrePassEvidence`.
 
 ## [02]-[EXPORT]
 
-- Owner: `ChartExport` the export dispatch over the chart case, the typed `RenderPolicy`, and the `ExportFormat` whose `row` column resolves the `VlRow` converter member; `VlRow` the frozen row carrying each format's vl-convert `convert` member, its `text` flag, and its admitted-policy `keys` tuple so the per-format axis is one `VL_RENDER` table, never a per-format `match` arm; `RenderPolicy.projected(row.keys)` spreads exactly the parameters that converter admits (`scale`/`ppi` only on raster rows, `quality` only on JPEG, `allowed_base_urls` only on non-HTML rows, `renderer`/`bundle` only on HTML, the locale pair on every row). `_export_host_free` over the chart case IS the engine selection — vega pre-transforms on the process seam then renders on the thread lane, lets-plot renders in-process, matplotlib renders on the process seam — with each engine's format axis one table total over `ExportFormat` (the lets-plot JPEG row rasterizes its SVG through the shared vl-convert `resvg` core since lets-plot ships no `to_jpeg`). No parallel engine enum, no Chrome path, no plotly/kaleido.
-- Entry: `emit()` returns ONE `ArtifactWork` — `key` minted PRE-RUN over the canonical `(chart, fmt, policy, transform, retention)` bytes so keyed admission probes the warm seed before any render; `_emit` computes once inside the span, folds any pre-pass evidence onto the span and the one structlog event, and mints `ArtifactReceipt.Chart(key, engine, dialect, scale, theme, byte_len)` — engine the matched `ChartSpec.tag`, dialect the `ExportFormat` value, all flat scalars, `receipt.slot == node.key`.
-- Auto: `_emit` pins the pre-pass `TransformPolicy.local_tz` to the render host's `vlc.get_local_tz()` when unset — vl-convert exposes no `local_tz=` render override, so the pre-pass tz pin is what makes a time-axis chart's content key host-stable; `_register_fonts` routes `RenderPolicy.fonts` through `register_font_directory` so the engineered faces the typography rail produces are the faces the chart renders; `_pin_version` resolves `vl_version` against `get_vegalite_versions()`.
-- Growth: a new export format is one `ExportFormat` member plus one `VL_RENDER` row and one `LP_RENDER` row; a new render knob is one `RenderPolicy` field named in the consuming rows' `keys`; a new pre-pass mode is one `VegaTransform` case plus one `apply` arm plus one `of` branch; a new host-free engine is one `ChartSpec` case plus one `_export_host_free` arm carrying its own format table; zero new surface.
-- Boundary: no chart authoring (`visualization/chart/spec#CHART` owns the typed grammar); no palette derivation (`graphic/color/derive#DERIVE` owns `Palette`/`hex_ramp` — imported from there, never a spec alias); no figure placement (`composition/compose#COMPOSE` consumes the bytes as DATA parents); no Arrow-IPC extract side channel (the `pre_transform_extract`/`transformer` surface stays the `data/tabular` egress owner's — vl-convert accepts no external dataset, so the reduction crosses inside the spec); no folder-minted limiter or retry (the runtime lane owns both). A Chrome/kaleido path, a hand-written Vega-Lite dict downstream of the typed grammar, and a per-format render variant are the deleted forms.
+- Owner: `ChartExport` dispatches over the chart case, the typed `RenderPolicy`, and `ExportFormat` whose `row` resolves the `VlRow` converter; `VlRow` rows the per-format axis as one `VL_RENDER` table, never a per-format arm, and `RenderPolicy.projected(row.keys)` spreads exactly the parameters a converter admits. `_export_host_free` is the engine selection over the three chart cases, each engine's format axis one table total over `ExportFormat`. No parallel engine enum, no Chrome path, no plotly/kaleido.
+- Entry: `emit()` returns one `ArtifactWork` — `key` minted PRE-RUN over the canonical `(chart, fmt, policy, transform, retention)` bytes so keyed admission probes the warm seed before any render; `_emit` computes once inside the span, folds any pre-pass evidence onto the span and one structlog event, and mints `ArtifactReceipt.Chart(key, engine, dialect, scale, theme, byte_len)` as flat scalars, `receipt.slot == node.key`.
+- Auto: `_emit` pins the pre-pass `local_tz` to `vlc.get_local_tz()` when unset — vl-convert exposes no `local_tz=` render override, so the pin is what makes a time-axis chart's content key host-stable; `_register_fonts` routes `RenderPolicy.fonts` through `register_font_directory`; `_pin_version` resolves `vl_version` against `get_vegalite_versions()`.
+- Growth: a new export format is one `ExportFormat` member plus one `VL_RENDER` and one `LP_RENDER` row; a new render knob is one `RenderPolicy` field named in the rows' `keys`; a new pre-pass mode is one `VegaTransform` case plus an `apply` arm plus an `of` branch; a new host-free engine is one `ChartSpec` case plus one `_export_host_free` arm carrying its format table.
+- Boundary: no chart authoring (`visualization/chart/spec#CHART` owns the grammar); no palette derivation (`graphic/color/derive#DERIVE` owns `Palette`/`hex_ramp`); no figure placement (`composition/compose#COMPOSE` consumes bytes as DATA parents); no Arrow-IPC extract side channel — vl-convert accepts no external dataset, so the reduction crosses inside the spec and `pre_transform_extract` stays the `data/tabular` owner's; no folder-minted limiter or retry. A Chrome/kaleido path, a hand-written Vega-Lite dict downstream of the grammar, and a per-format render variant are the rejected forms.
 
 ## [03]-[PREPASS]
 
-- Cases: `VegaTransform` cases — `Passthrough()` (no data transform; the spec passes through with empty evidence) · `Inline(policy, retention)` (folds `runtime.pre_transform_spec` to one self-contained spec with transforms executed and the reduced result inlined, threading `TransformPolicy` and the `Retention` interactivity policy, binding the returned `PreTransformWarning` tail as evidence) · `State(policy)` (the interactive HTML row — `runtime.new_chart_state` then `ChartState.get_transformed_spec`, reading `get_warnings`/`get_comm_plan` as the signal/dataset dependency evidence a host-free renderer needs). There is no Arrow-IPC extract case: the server-side aggregation IS the size reduction and inlines into the spec.
-- Auto: `VegaTransform.of` discriminates once — `_has_transform` RECURSES the composition operators (`layer`/`concat`/`hconcat`/`vconcat`/`spec`) so a transform nested under a facet/repeat sub-view is never misread as `Passthrough`; `apply` folds the matched arm and never discards the warnings tail (`RowLimitExceeded`/`BrokenInteractivity`/`Unsupported` each derived onto its own explicit flag); a malformed spec crosses the substrate `catch(exception=ValueError)` trap and re-spells to `<malformed-spec>`. `planned` is the pre-execution cost gate — `build_pre_transform_spec_plan` predicts the client/server dataset split and the `comm_plan` variable cardinality without executing, and `get_column_usage(spec)` reports the referenced-column map a caller prunes a wide `inline_datasets` frame by BEFORE it crosses the seam. `_tuned` sets the singleton runtime's `worker_threads`/`cache_capacity`/`memory_limit` reset-on-set and `clear_cache()` reclaims pool-preserving; `_occupancy` reads `runtime.size`/`total_memory` onto the evidence at mint time.
-- Growth: a new pre-pass mode is one case + one `apply` arm + one `of` branch; a new runtime knob is one `TransformPolicy` field threaded into `_tuned`; a new retention rule is one `Retention` field; a new evidence fact is one `PrePassEvidence` field the arm fills.
+- Cases: `VegaTransform` cases — `Passthrough()` (no transform; spec passes through with empty evidence), `Inline(policy, retention)` (folds `pre_transform_spec` to one self-contained spec with transforms executed and the reduced result inlined, binding the `PreTransformWarning` tail as evidence), `State(policy)` (the interactive HTML row via `new_chart_state` then `get_transformed_spec`, reading `get_warnings`/`get_comm_plan` as dataset-dependency evidence). No Arrow-IPC extract case — server-side aggregation is the size reduction and inlines into the spec.
+- Auto: `VegaTransform.of` discriminates once — `_has_transform` recurses the composition operators so a transform nested under a facet/repeat sub-view is never misread as `Passthrough`; `apply` never discards the warnings tail (`RowLimitExceeded`/`BrokenInteractivity`/`Unsupported` each on its own explicit data-loss flag); a malformed spec crosses `catch(ValueError)` to `<malformed-spec>`. `planned` prices the client/server split via `build_pre_transform_spec_plan` without executing, and `get_column_usage` reports the referenced-column map a caller prunes a wide `inline_datasets` frame by before it crosses the seam. `_tuned` sets the singleton runtime caps reset-on-change; `_occupancy` reads `size`/`total_memory` onto the evidence.
+- Growth: a new pre-pass mode is one case plus one `apply` arm plus one `of` branch; a new runtime knob is one `TransformPolicy` field threaded into `_tuned`; a new retention rule is one `Retention` field; a new evidence fact is one `PrePassEvidence` field the arm fills.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -54,7 +54,7 @@ lazy from lets_plot import scale_color_manual, scale_fill_manual
 lazy from matplotlib import colormaps, colors
 
 # --- [TYPES] ----------------------------------------------------------------------------
-# closed render domains as policy, never free strings: the 14 bundled themes + `default`, the HTML renderer.
+# closed render domains as policy, never free strings: the bundled Vega themes plus `default`.
 type VegaTheme = Literal[
     "default",
     "carbong10",
@@ -106,16 +106,15 @@ class RenderPolicy(Struct, frozen=True):
     quality: int | None = None
     theme: VegaTheme = "default"
     vl_version: str | None = None
-    fonts: tuple[str, ...] = ()  # register_font_directory roots — the typography-rail faces the chart renders
-    format_locale: str | None = None  # d3-format named locale — localized numbers for journal + ISO 129 annotation
-    time_format_locale: str | None = None  # d3-time-format named locale — localized date/time axes
+    fonts: tuple[str, ...] = ()  # register_font_directory roots
+    format_locale: str | None = None  # d3-format named locale; localized numbers
+    time_format_locale: str | None = None  # d3-time-format named locale; localized date/time axes
     allowed_base_urls: tuple[str, ...] | None = None  # external-data SSRF fence; None allows any
     renderer: Renderer | None = None  # HTML-row renderer; None uses the converter default
     bundle: bool | None = None  # HTML-row: True inlines every dep, None uses the CDN default
 
     def projected(self, keys: tuple[str, ...]) -> dict[str, object]:
-        # tuple-valued knobs coerce to the converter's list[str]; a None knob is dropped so the row
-        # spreads only what its converter admits.
+        # tuple knobs coerce to list[str]; a None knob drops, so the row spreads only what its converter admits.
         return {key: (list(value) if isinstance(value, tuple) else value) for key in keys if (value := getattr(self, key)) is not None}
 
 
@@ -139,26 +138,26 @@ class TransformPolicy(Struct, frozen=True):
     worker_threads: int | None = None  # singleton runtime caps; setters reset the pool only on a changed value
     cache_capacity: int | None = None
     memory_limit: int | None = None
-    reclaim_cache: bool = False  # runtime.clear_cache() — pool-preserving reclaim beside the pool-resetting cap setters
+    reclaim_cache: bool = False  # runtime.clear_cache(); pool-preserving reclaim, not a cap reset
 
 
 class PrePassEvidence(Struct, frozen=True):
     mode: Literal["passthrough", "inline", "state"]
     row_limit: int | None
     local_tz: str
-    transformed_datasets: int  # server-reduced inlined datasets in the returned spec
-    client_vars: int  # State: comm-plan server->client variable cardinality (retained interactivity)
-    server_vars: int  # State: comm-plan client->server cardinality
-    cache_entries: int  # runtime.size after the pre-pass
-    resident_bytes: int  # runtime.total_memory after the pre-pass
-    warnings: tuple[tuple[WarningKind, str], ...]  # the collected PreTransformWarning list — never discarded
-    row_limit_exceeded: bool  # derived explicit data-loss flag
+    transformed_datasets: int
+    client_vars: int  # State comm-plan server->client cardinality (retained interactivity)
+    server_vars: int
+    cache_entries: int
+    resident_bytes: int
+    warnings: tuple[tuple[WarningKind, str], ...]  # collected PreTransformWarning list; never discarded
+    row_limit_exceeded: bool
     interactivity_broken: bool
     unsupported: bool
 
 
 class PrePass(Struct, frozen=True):
-    spec: Spec  # the self-contained spec _vl_render renders directly
+    spec: Spec
     evidence: PrePassEvidence
 
 
@@ -249,8 +248,7 @@ _COMPOSITIONS: Final[tuple[str, ...]] = ("layer", "concat", "hconcat", "vconcat"
 
 
 def _has_transform(node: Spec) -> bool:
-    # recurses the composition operators so a transform nested under a facet/repeat sub-view is never
-    # misread as Passthrough — which would skip the pre-pass and ship raw data client-side.
+    # recurses the composition operators so a transform nested under a facet/repeat sub-view is never misread as Passthrough.
     if isinstance(top := node.get("transform"), list) and top:
         return True
     return any(
@@ -262,8 +260,7 @@ def _has_transform(node: Spec) -> bool:
 
 
 def _tuned(policy: TransformPolicy) -> None:
-    # Exemption: the vegafusion runtime singleton exposes its caps as properties whose setter resets the
-    # pool only on a changed value — an idempotent per-worker tune, never a fresh runtime per transform.
+    # the vegafusion runtime singleton exposes caps as properties whose setter resets the pool only on a changed value.
     if policy.worker_threads is not None:
         vegafusion.runtime.worker_threads = policy.worker_threads
     if policy.cache_capacity is not None:
@@ -336,7 +333,7 @@ def _run_state(spec: Spec, policy: TransformPolicy) -> Result[PrePass, Transform
     tz = policy.local_tz or vegafusion.get_local_tz() or "UTC"
 
     def _read(chart_state: object) -> PrePass:
-        transformed = chart_state.get_transformed_spec()  # the ONE computed fact — spec AND evidence read off it once
+        transformed = chart_state.get_transformed_spec()  # the ONE computed fact: spec AND evidence read off it once
         comm = chart_state.get_comm_plan()
         return PrePass(
             transformed,
@@ -365,7 +362,7 @@ def _run_state(spec: Spec, policy: TransformPolicy) -> Result[PrePass, Transform
 
 
 def _columns(usage: object) -> frozendict[str, tuple[str, ...]]:
-    # {root_dataset: [col, ...] | None}; a None entry (not statically determinable) folds to () — a total map.
+    # {root_dataset: [col, ...] | None}; a None entry folds to () for a total map.
     return frozendict({name: tuple(cols) for name, cols in usage.items() if isinstance(cols, list)}) if isinstance(usage, dict) else frozendict()
 
 
@@ -418,14 +415,12 @@ def _letsplot_to_bytes(plot: object, palette: Palette, fmt: ExportFormat) -> byt
 
 
 def _pre_transform(spec: Spec, interactive: bool, policy: TransformPolicy, retention: Retention) -> Result[PrePass, TransformFault]:
-    # the process-seam kernel: `of` decides the arm, `apply` returns the self-contained spec paired
-    # with the evidence — the whole Result pickles back across the seam.
+    # the process-seam kernel: `of` decides the arm, `apply` returns the self-contained spec plus evidence; the whole Result pickles back.
     return VegaTransform.of(spec, interactive, policy, retention).apply(spec)
 
 
 def _raise_transform(fault: object) -> NoReturn:
-    # terminal collapse at the render boundary: a pre-pass fault or an offload fault reconstructs the raise
-    # the drain's fault capsule folds onto the node's rail — never a Result fed to _vl_render.
+    # terminal collapse at the render boundary: a pre-pass or offload fault reconstructs the raise the drain's capsule folds onto the rail.
     raise ValueError(str(fault))
 
 
@@ -450,8 +445,8 @@ def _matplotlib_savefig(figure: object, palette: Palette, fmt: str, ppi: float) 
         axes.set_prop_cycle(color=hex_ramp(palette))
     figure.set_layout_engine("constrained")  # auto-fit spacing as a figure policy, never a per-call tight_layout
     sink = BytesIO()
-    # the Agg writer covers png/pdf/svg/jpeg but NOT html: the static figure serves the HTML slot as
-    # prolog-stripped inline SVG in a standalone shell — keeping the arm total over ExportFormat.
+    # Agg covers png/pdf/svg/jpeg but NOT html: the static figure serves the HTML slot as prolog-stripped
+    # inline SVG in a standalone shell, keeping the arm total over ExportFormat.
     figure.savefig(
         sink, format="svg" if fmt == "html" else fmt, dpi=ppi, bbox_inches="tight", pad_inches=0.02, metadata={"Creator": "rasm.artifacts"}
     )
@@ -483,8 +478,8 @@ async def _export_host_free(
 
 
 # --- [TABLES] ---------------------------------------------------------------------------
-# each `keys` names ONLY the converter's real parameters: pdf/svg/html drop ppi, only jpeg carries quality,
-# HTML alone carries renderer/bundle and drops allowed_base_urls, the locale pair rides every row.
+# each `keys` names ONLY the converter's real parameters: only raster carries scale/ppi, only jpeg quality,
+# HTML alone renderer/bundle, and the locale pair rides every row.
 VL_RENDER: Final[Map[ExportFormat, VlRow]] = Map.of_seq([
     (ExportFormat.SVG, VlRow(vlc.vegalite_to_svg, True, ("theme", "vl_version", "allowed_base_urls", "format_locale", "time_format_locale"))),
     (
@@ -501,8 +496,7 @@ VL_RENDER: Final[Map[ExportFormat, VlRow]] = Map.of_seq([
         VlRow(vlc.vegalite_to_jpeg, False, ("scale", "quality", "theme", "vl_version", "allowed_base_urls", "format_locale", "time_format_locale")),
     ),
 ])
-# total over ExportFormat: lets-plot ships no to_jpeg, so JPEG rasterizes the lets-plot SVG through the
-# shared vl-convert resvg core — every format has a row, never a missing-key fault.
+# total over ExportFormat: lets-plot ships no to_jpeg, so JPEG rasterizes its SVG through the shared vl-convert resvg core.
 LP_RENDER: Final[Map[ExportFormat, Callable[[object], bytes]]] = Map.of_seq([
     (ExportFormat.SVG, _lp_native("to_svg")),
     (ExportFormat.PNG, _lp_native("to_png")),
@@ -525,15 +519,14 @@ class ChartExport(Struct, frozen=True):
 
     @property
     def _resolved(self) -> TransformPolicy:
-        # vl-convert exposes NO local_tz render override, so the pre-pass tz pin is what makes a
-        # time-axis chart's reduced spec host-tz-stable; ONE resolution feeds both key and render.
+        # vl-convert exposes NO local_tz render override, so the tz pin makes a time-axis chart host-tz-stable;
+        # ONE resolution feeds both key and render.
         return self.transform if self.transform.local_tz is not None else structs.replace(self.transform, local_tz=vlc.get_local_tz() or "UTC")
 
     @property
     def _key(self) -> ContentKey:
-        # key-over-INPUT: the canonical (chart, format, policies) bytes, minted PRE-RUN over the SAME
-        # tz-resolved transform `_emit` renders with, so two hosts resolving different local zones never
-        # share a key — a re-issued unchanged chart elides on its warm key before any pre-pass or render runs.
+        # key-over-INPUT: canonical (chart, format, policies) bytes minted PRE-RUN over the SAME tz-resolved
+        # transform `_emit` renders with, so two hosts resolving different zones never share a key.
         return ContentIdentity.of(f"chart-{self.fmt}", (self.chart, self.fmt, self.policy, self._resolved, self.retention), policy=CANONICAL_POLICY)
 
     async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
@@ -559,4 +552,10 @@ class ChartExport(Struct, frozen=True):
         return Ok(ArtifactReceipt.Chart(self._key, self.chart.tag, self.fmt.value, self.policy.scale, self.policy.theme, len(data)))
 ```
 
-`_export_host_free` IS the engine selection — the band-routing decision over the three chart cases, not byte-emit sprawl. The vega arm threads `_pre_transform` across the process lane with the OCCT worker-death retry, collapses a `<malformed-spec>` fault to the boundary raise, renders `PrePass.spec` on the thread lane, and folds the data-loss flags, pinned tz, and dataset/comm-plan cardinality onto the span and structlog event; lets-plot renders in-process; matplotlib renders on the process lane. Each engine's format axis is one row table total over `ExportFormat`, so a new output format is one row per table and `RenderPolicy.projected(row.keys)` spreads exactly the converter parameters the row names. The pre-pass lives beside the render it feeds: `VegaTransform.of` decides once from the recursive transform-presence scan and the interactive flag, `apply` never discards the warnings tail, `planned` prices the split before paying for execution, and the `inline_datasets` INPUT seam stays distinct from the no-external-OUTPUT constraint the renderer imposes — the reduction crosses inside the spec, and the `pre_transform_extract` Arrow-IPC surface stays the `data/tabular` egress owner's. The node key mints over the chart INPUT, so the warm seed elides an unchanged chart before any engine spins.
+## [04]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+-->
+
+(none)

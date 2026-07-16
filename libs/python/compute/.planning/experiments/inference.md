@@ -1,26 +1,20 @@
 # [PY_COMPUTE_INFERENCE]
 
-The one classical Bayesian-inference owner over an explicit prior/likelihood/posterior graph. `Inference.run` builds a `pymc.Model` from a frozen request, draws the posterior with gradient MCMC across a backend axis, scores convergence and predictive fit with `arviz`, and graduates a typed posterior-evidence receipt through the one `uncertainty_law` admission rail — all inside one `inference.{engine}` span (the `EvidenceScope.INFERENCE` scope row) weaving the `boundary` fault fence over the `@beartype(conf=FAULT_CONF)`-guarded body and the weave's fenced `@receipted(REDACTION)` harvest, the same composed weave `experiments/model.md#ASSET` and `graduation/handoff.md#GRADUATION` hold. The owner is bounded at conjugate and GLM-class models over scalar latent nodes — one `summary.loc[name]` row and one scalar `hdi[name]` interval per latent name; a vector group-level latent the per-variable summary fold cannot key by a single name is out of scope, as are variational, normalizing-flow, and neural-posterior estimation. A posterior failing the `ConvergenceBar` is an admission rejection on the graduation rail, never a graduated handoff.
+The one classical Bayesian-inference owner over an explicit prior/likelihood/posterior graph: `Inference.run` builds a `pymc.Model` from a frozen request, draws the posterior with gradient MCMC across a backend axis, scores convergence and predictive fit with `arviz`, and graduates a typed posterior-evidence receipt through the `uncertainty_law` admission rail. The owner is bounded at conjugate and GLM-class models over scalar latent nodes — a vector group-level latent the per-variable summary fold cannot key by a single name is out of scope, as are variational, normalizing-flow, and neural-posterior estimation. A posterior failing the `ConvergenceBar` is an admission rejection on the graduation rail, never a graduated handoff.
 
-Three polymorphic surfaces carry every variation. `Distribution` is the single `@tagged_union` over the `pymc` distribution families, each case carrying the canonical parameters the `pymc` class names, read in both the prior and likelihood roles off one vocabulary. `SamplerBackend` is the `@tagged_union` discriminating the MCMC engine, each case carrying the per-engine policy `pymc.sample` threads — native step kind, or the accelerated-NUTS name plus its `nuts_sampler_kwargs`. The convergence gate is one `ConvergenceBar` policy row folded against one `_RESIDUALS` dimension table, so a stricter bar is a tighter row, never a new gate.
+Three polymorphic surfaces carry every variation: `Distribution` over the `pymc` families, read in both the prior and likelihood roles off one vocabulary; `SamplerBackend` over the MCMC engine and its per-engine policy; the `ConvergenceBar` policy row folded against the `_RESIDUALS` dimension table, so a stricter bar is a tighter row, never a new gate. The run rides the `EvidenceScope.INFERENCE` weave — span, `boundary` fence, beartype guard, `@receipted` harvest — the same composed form `experiments/model.md#ASSET` and `graduation/handoff.md#GRADUATION` hold.
 
 ## [01]-[INDEX]
 
-- [01]-[BAYESIAN]: the prior/likelihood/posterior graph, the polymorphic distribution union, the parameterized sampler-backend axis, the woven `arviz` diagnostic fold, the data-driven residual table, the traced/fault-fenced/`@receipted` `EvidenceScope.INFERENCE` weave, and the graduation-rail convergence gate on one `Inference` owner.
+- [01]-[BAYESIAN]: the prior/likelihood/posterior graph on one `Inference` owner — the `Distribution` and `SamplerBackend` unions, the `arviz` diagnostic fold, and the graduation-rail convergence gate.
 
 ## [02]-[BAYESIAN]
 
-- Owner: `Inference` is the one Bayesian owner over a prior/likelihood/posterior axis. `InferenceSpec` is the frozen request carrying the observed array, the `Latent` family (each a name plus a `Distribution` prior case), the observation `Distribution` likelihood case, the mean latent, and the `SamplerPlan`. `Inference.run` folds each `Distribution.declare` over a `pymc.Model` context, draws the posterior through `SamplerBackend.draw`, populates the `log_likelihood` group through `pymc.compute_log_likelihood`, draws the predictive check through `pymc.sample_posterior_predictive`, scores all four `arviz` reductions, mints the `model_key` through `ContentIdentity.of`, and returns a railed `InferenceReceipt`.
-- Distribution union: `Distribution` is the ONE `@tagged_union` over the `pymc` distribution families catalogued in `compute/.api/pymc.md` continuous/discrete tables — `normal(mu, sigma)`, `half_normal(sigma)`, `beta(alpha, beta_)`, `gamma(alpha, beta_)`, `student_t(nu, mu, sigma)`, `uniform(lower, upper)`, `bernoulli(p)`, `poisson(mu)`, `binomial(n, p)` — each case carrying the canonical parameters as a typed tuple, type-checked per case rather than a stringly-typed `dict[str, float]` drifting from the class signature. The union's own keyword constructor (`Distribution(normal=(0.0, 1.0))`) is the construction surface; no parallel sibling factory family re-wraps each case. `Distribution.declare(name, *, mu, observed)` is the one total `match` projecting a case to its explicit `pymc` distribution-class construction, `observed=None` keeping a latent prior and the data array minting the observation likelihood. A supplied `mu` is the unconstrained real-valued latent node the likelihood mean reads off a fitted prior: the identity-link `normal`/`student_t` location takes the node directly, while the bounded/positive-support GLM cases route it through the canonical inverse-link the catalogued `pymc.math` owns — `pymc.math.invlogit(mu)` for the `bernoulli`/`binomial` `[0, 1]` rate, `pymc.math.exp(mu)` for the `poisson` positive rate — so a GLM mean rides a valid-support link rather than a real-valued node the `p`/`mu` support rejects. Prior and likelihood are the same union read in two roles, closed by `assert_never`. The union's second fold is `Distribution.canonical`, the one total `match` projecting each case to its `tuple[str, tuple[float, ...]]` tag-and-flattened-parameter pair so the identity payload carries the prior as a deterministic-encoder-native tuple rather than the raw union the no-`enc_hook` `_ENCODER` rejects.
-- Sampler-backend axis: `SamplerBackend` is the `@tagged_union` discriminating the MCMC engine, parameterized over both the engine and its per-engine options. The `pymc_native(kind)` case runs `pymc.sample` with a context-bound `pymc.NUTS` or `pymc.Metropolis` step selected by the carried `SamplerKind`. The `external_nuts(sampler, options)` case routes the three accelerated NUTS engines through the one `pymc.sample(nuts_sampler=..., nuts_sampler_kwargs=...)` dispatch confirmed in `compute/.api/pymc.md` ENTRYPOINTS [01], the `options` `NutsOptions` payload carrying the `nutpie` `backend='jax'`/`'numba'` lever (`nutpie.md` ENTRYPOINTS [01]) or the `numpyro` `chain_method` (`numpyro.md` MCMC [01]) as immutable sorted `(key, value)` pairs so the engine choice and its accelerator knob ride one hashable case rather than a lost kwarg channel or a mutable `dict` defeating the `frozen=True` hash contract; `draw` rebuilds `dict(options)` only at the `pymc.sample` boundary. PyMC owns the model lowering and the JAX/Numba handoff, so the page never re-drives `pymc.sampling.jax`, the `nutpie.compile_pymc_model`/`sample` pair, or the raw `blackjax` kernel algebra. The `engine` projection reads the discriminated name for the receipt and the `boundary` subject; the `canonical` projection folds the case to the `(tag, params)` pair the identity payload carries — the `pymc_native` step kind or the `external_nuts` name plus its already-sorted accelerator pairs — so the backend choice keys the study distinctly without nesting the raw union in the payload. `arviz` reads the posterior and the `sample_stats` group regardless of which engine sampled, so the diagnostic gate is one fold across every backend.
-- Woven diagnostic fold: one `_fit` pass stacks four `arviz` reductions over the fitted trace, then folds the per-variable rows into one `dict[str, PosteriorSummary]`. `PosteriorSummary` is the value object carrying one latent's `mean`/`sd`/`r_hat`/`ess_bulk`/`ess_tail`/`hdi`, so the receipt holds one per-variable summary map rather than six parallel `dict[str, ...]` fields keyed identically — the same output-parameterization discipline `experiments/model.md#ASSET` and `analysis/signal.md#DSP` apply to their evidence unions, carried here as a per-variable row. `arviz.summary(trace, var_names, kind="all")` yields the `mean`/`sd`/`r_hat`/`ess_bulk`/`ess_tail` columns in one frame (ENTRYPOINTS summary [06]) rather than four separate `rhat`/`ess` reductions; the `r_hat` column carries the underscore the `compute/.api/arviz.md` IMPLEMENTATION_LAW fixes, and the interval columns are ETI, so the credible interval reads off the separate `arviz.hdi`. `arviz.hdi(trace, var_names, prob=...)` returns a Dataset with the `ci_bound` coordinate taking `'lower'`/`'upper'` (interval [07]); the field reads `.sel(ci_bound=...)`, never the removed `hdi_3%`/`hdi_97%` columns. `arviz.loo(trace, var_name, pointwise=True)` returns the `ELPDData` whose arviz-1.x fields are `elpd`, `p`, and the pointwise `pareto_k` plus `good_k`/`warning` (PUBLIC_TYPES `ELPDData` [02]) — the page reads `elpd`/`p`/`pareto_k`, never the removed arviz-0.x `elpd_loo`/`p_loo`. `arviz.psense_summary(trace)` is the prior-robustness receipt (sensitivity [02]) — the prior-vs-likelihood power-scaling diagnosis table whose `prior` column folds to one `prior_sensitivity_max` scalar beside the convergence evidence, the column the `ConvergenceBar.prior_sensitivity_ceiling` row gates. `ppc_mean` reads the mean of the `posterior_predictive["observation"]` group off the standalone `ppc.posterior_predictive` child of the `sample_posterior_predictive` `DataTree` (its own tree under the `extend_inferencedata=False` default, not the fitted `trace`), accessed by the group attribute rather than `ppc["posterior_predictive"]`.
-- Log-likelihood seam: `arviz.loo` and `arviz.psense_summary` read the `log_likelihood` group, which `pymc.sample` does NOT populate by default. `Inference._fit` calls `pymc.compute_log_likelihood(trace, model=model)` over the fitted trace (`compute/.api/pymc.md` ENTRYPOINTS [03]) so the PSIS-LOO rollup has the per-observation log-density it requires — never a hand-recomputed pointwise log-lik, and never a `loo` call against an unpopulated group that the runtime would reject into the `boundary`.
-- Convergence bar: `ConvergenceBar` is the policy row carrying `rhat_ceiling`, `ess_floor`, `max_divergences`, `pareto_k_ceiling`, and `prior_sensitivity_ceiling`. `_RESIDUALS` is the `Block[_Residual]` dimension table pairing each residual key with its measured-extractor and its ceiling-extractor over the receipt, so `InferenceReceipt.measured` and `ceiling` each fold the one table rather than two hand-built near-identical dicts; the ess floor enters negated (`neg_min_ess_bulk = -min(ess)` against `-ess_floor`) so the one `measured <= ceiling` fold reads it as a max-deficit, the same negated-floor convention the `graduation/handoff.md#GRADUATION` `_clear` ceiling fold admits. A new convergence dimension is one `_Residual` plus one `ConvergenceBar` field; `converged` folds `measured` against `ceiling`. The `divergences` residual reads `trace.sample_stats["diverging"]` behind a `"diverging" in trace.sample_stats` membership gate so a random-walk `pymc_native="metropolis"` trace — which carries no `diverging` sample stat, the divergence count being a gradient-sampler (NUTS/HMC) diagnostic — contributes `0` rather than raising a spurious `KeyError` the `boundary` fence would mis-rail as a fault; a non-gradient sampler trivially clears the default `max_divergences=0`.
-- Woven rail: `Inference.run(spec, lane)` is the one `async` entrypoint, composing `lane.offload(_fit_kernel, spec, modality=Modality.THREAD)` under the hub `evidence_run` weave — span from the `compute.inference` scope row, fault fence, and the fenced `@receipted(REDACTION)` harvest of the `InferenceReceipt` composed; the former page-local `_TRACER`/`_REDACTION` mints, inline span open, and `_emit` aspect are the deleted forms. Sampling never retries — the posterior draw is the evidence, and worker-death handling stays the lane's.
-- Entry: `Inference.run(spec)` returns `RuntimeRail[InferenceReceipt]` through the inline span-then-fence weave above. `InferenceReceipt.graduates` routes the measured-versus-ceiling ledger through the one `GraduationReceipt.graduates("compute", HandoffAxis(uncertainty_law=subject), model_key, measured, ceiling)` admission rail from `graduation/handoff.md#GRADUATION`, so a non-converged posterior is the `Error(BoundaryFault)` the shared `_admit` fold returns and a converged one is the admitted `GraduationReceipt` — the same residual-over-ceiling gate the sibling solver, convex, and array-layout owners feed, never a parallel admission body. `InferenceReceipt.contribute` returns the `tuple[Receipt, ...]` the `ReceiptContributor` port streams, each row minted through the two-argument `Receipt.of(owner, evidence)` contract over an `("emitted", subject, facts)` triple, never a four-positional call.
-- Model key: `model_key` is `ContentIdentity.of("pymc-model", _study_payload(spec))` over the canonical study payload, resting on the `of` `CANONICAL_POLICY` default rather than a fresh `IdentityPolicy()` allocation, and threaded as the railed `RuntimeRail[ContentKey]` the owner returns rather than assigned raw — the same default-policy threading `numerics/jit.md#JIT` holds. `StudyPayload` is the canonical `msgspec.Struct` the `canonical` `IdentitySource` modality folds through the one cached deterministic `_ENCODER`, but every field is msgspec-native because the runtime `_ENCODER` carries no `enc_hook` and CANNOT serialize an `expression.@tagged_union`: a raw `Distribution`/`SamplerBackend`/`Latent.prior` field nested in the payload is the unencodable shape that would `EncodeError` on every key. The payload instead carries each union's `canonical` projection — the `tuple[str, tuple[float, ...]]` tag-and-flattened-parameter pair the union folds itself to — so the sorted `(name, Distribution.canonical)` latent rows, the likelihood `Distribution.canonical`, the `mean_latent` graph-wiring tag, the backend `SamplerBackend.canonical`, and the observed array's dtype/shape/contiguous-bytes view are all native tuples/bytes/scalars the deterministic encoder lowers, and the runtime content owner mints the key rather than a hand-rolled `msgspec.json.encode` plus `b"\x00".join` reinvention. The `mean_latent` field is load-bearing: it names the latent node the likelihood mean reads off (`mu=nodes[spec.mean_latent]`), so two specs identical in latents, likelihood, backend, and data but rewiring the likelihood mean to a different latent are genuinely different model graphs and key distinctly rather than colliding on one content key. Two studies with the same latent names but different data, prior parameters, mean wiring, backend, or accelerator options key distinctly.
-- Packages: `pymc` (`Model`, `sample` over the `step`/`nuts_sampler`/`nuts_sampler_kwargs`/`return_inferencedata` axis, `compute_log_likelihood`, `sample_posterior_predictive`, `NUTS`, `Metropolis`, the distribution classes, `math.invlogit`/`math.exp` the GLM inverse-links), `numpyro`/`blackjax`/`nutpie` (the accelerated NUTS engines `pymc.sample(nuts_sampler=...)` dispatches to, installed only so PyMC's own dispatch resolves them, never imported here), `arviz` (`summary`, `hdi`, `loo`, `psense_summary`, `ELPDData`), `xarray` (`DataTree` — the posterior container), `numpy`, `expression` (`tagged_union`/`case`/`tag`, `Ok`/`Error` the `run` rail match, `Block` the residual-table fold; `Result` underlies `RuntimeRail`), `msgspec` (`Struct`, `field`), `beartype` (`@beartype(conf=FAULT_CONF)` fencing the `_fit` body), hub (`EvidenceScope`/`evidence_run` — the span/fence/harvest weave), `graduation/handoff.md#GRADUATION` (`GraduationReceipt`, `HandoffAxis`), runtime (`RuntimeRail`, `boundary`, `FAULT_CONF`; `ContentIdentity`/`ContentKey` over the `CANONICAL_POLICY` default; `Receipt`/`ReceiptContributor`/`Redaction`/`receipted`, the `Signals.emit` egress owned by the `@receipted` aspect rather than imported here).
-- Growth: a new distribution is one `Distribution` case plus one `declare` arm usable in either role; a new sampler engine is one `SamplerBackend` case or one `external_nuts` name; a new convergence dimension is one `ConvergenceBar` field plus one `_Residual`; a new per-variable diagnostic is one `PosteriorSummary` field; the LOO and prior-sensitivity scalars are `InferenceReceipt` fields; zero new surface.
+- Owner: `Inference` — `InferenceSpec` is the frozen request; `InferenceReceipt.graduates` routes the measured-versus-ceiling ledger through the shared `graduation/handoff.md#GRADUATION` admission rail, the same gate the sibling solver, convex, and array-layout owners feed, never a parallel admission body.
+- Cases: `Distribution` is one union read in both roles, each case carrying its canonical parameters as a typed tuple — never a stringly `dict[str, float]` drifting from the class signature; the union's own keyword constructor is the construction surface, no parallel factory family re-wraps the cases.
+- Auto: PyMC owns the model lowering and the JAX/Numba handoff — this page never re-drives `pymc.sampling.jax`, the `nutpie.compile_pymc_model`/`sample` pair, or the raw `blackjax` kernel algebra, and the accelerated engines install only so PyMC's own dispatch resolves them, never as imports here. Sampling never retries: the posterior draw is the evidence, and worker-death handling stays the lane's.
+- Output: `ConvergenceBar` folds against the `_RESIDUALS` table, so a new convergence dimension is one `_Residual` row plus one bar field; a `metropolis` trace carries no `diverging` sample stat — divergence counting is a gradient-sampler diagnostic — so the membership gate contributes `0` rather than a spurious `KeyError`, and a non-gradient sampler trivially clears the default bar.
+- Growth: a new distribution is one `Distribution` case plus one `declare` arm usable in either role; a new sampler engine is one `SamplerBackend` case or one `external_nuts` name; a new convergence dimension is one `ConvergenceBar` field plus one `_Residual`; a new per-variable diagnostic is one `PosteriorSummary` field.
 
 ```python signature
 from collections.abc import Callable, Iterable
@@ -64,12 +58,9 @@ class Distribution:
     binomial: tuple[int, float] = case()
 
     def declare(self, name: str, /, *, mu: object = None, observed: np.ndarray | None = None) -> object:
-        # one total projection to the explicit `pymc` class. `mu is None` keeps the case a latent prior
-        # built from its literal in-support parameters; a supplied `mu` is the unconstrained real-valued
-        # latent node the likelihood mean reads off, so the bounded/positive-support GLM cases route it
-        # through the canonical inverse-link (`pymc.math.invlogit` for a `[0, 1]` rate, `pymc.math.exp`
-        # for a positive rate) rather than feeding a real-valued node straight into a `p`/`mu` the
-        # support rejects, while the identity-link `normal`/`student_t` location takes the node directly.
+        # `mu is None` keeps the case a latent prior; a supplied `mu` is the unconstrained real-valued latent node the likelihood
+        # mean reads off, so the bounded/positive-support GLM cases route it through the canonical inverse-link (`invlogit` for a
+        # `[0, 1]` rate, `exp` for a positive rate) rather than feeding a real node into a support that rejects it.
         import pymc
 
         match self:
@@ -96,9 +87,7 @@ class Distribution:
 
     @property
     def canonical(self) -> tuple[str, tuple[float, ...]]:
-        # the encoder-native projection the identity payload carries: the tag plus the case
-        # parameters flattened to one float tuple, so a `Distribution` keys through the no-`enc_hook`
-        # `_ENCODER` as native data rather than the raw `@tagged_union` the encoder rejects.
+        # the encoder-native projection the identity payload carries — the no-`enc_hook` `_ENCODER` rejects a raw `@tagged_union`.
         match self:
             case (
                 Distribution(tag="normal", normal=p)
@@ -120,9 +109,8 @@ class Distribution:
 class SamplerBackend:
     tag: Literal["pymc_native", "external_nuts"] = tag()
     pymc_native: SamplerKind = case()
-    # the `nuts_sampler_kwargs` ride as immutable sorted `(key, value)` pairs, never a `dict`: a `dict`
-    # payload is unhashable and mutable, defeating the `frozen=True` hash/immutability contract and
-    # letting the post-construction options drift from the `canonical` content-key projection.
+    # the `nuts_sampler_kwargs` ride as immutable sorted `(key, value)` pairs — a `dict` payload is unhashable and mutable,
+    # defeating the `frozen=True` contract and letting options drift from the `canonical` content-key projection.
     external_nuts: tuple[NutsSampler, NutsOptions] = case()
 
     @property
@@ -131,9 +119,7 @@ class SamplerBackend:
 
     @property
     def canonical(self) -> tuple[str, NutsOptions]:
-        # the encoder-native projection: the engine name plus its already-sorted `(key, value)` option
-        # pairs, so an accelerator lever (`backend`/`chain_method`) keys the study distinctly and the
-        # immutable pair tuple lowers through the no-`enc_hook` `_ENCODER` as native data with no `repr` coerce.
+        # the engine name plus its already-sorted option pairs, so an accelerator lever keys the study distinctly.
         match self:
             case SamplerBackend(tag="pymc_native", pymc_native=kind):
                 return kind, ()
@@ -143,9 +129,8 @@ class SamplerBackend:
                 assert_never(unreachable)
 
     def draw(self, /, *, draws: int, tune: int, chains: int, seed: int) -> DataTree:
-        # the engine channels `pymc.sample` exposes: `step` binds the context-bound NUTS/Metropolis
-        # method, `nuts_sampler`+`nuts_sampler_kwargs` name the accelerated engine and its accelerator
-        # lever (nutpie `backend`, numpyro `chain_method`); PyMC owns the JAX/Numba handoff.
+        # `step` binds the context-bound NUTS/Metropolis method; `nuts_sampler`+`nuts_sampler_kwargs` name the accelerated engine
+        # and its lever (nutpie `backend`, numpyro `chain_method`).
         import pymc
 
         match self:
@@ -201,11 +186,8 @@ class InferenceSpec(Struct, frozen=True):
 
 
 class StudyPayload(Struct, frozen=True):
-    # the canonical `IdentitySource.canonical` carrier the one content owner folds through its cached
-    # deterministic `_ENCODER` — every field is encoder-native (the unions lowered to their `canonical`
-    # `(tag, params)` projections, never the raw `@tagged_union` the no-`enc_hook` encoder rejects), so
-    # the runtime mints the key off this shape rather than a hand-rolled `b"\x00".join` byte builder.
-    # Container fields (tuples/bytes) keep the struct GC-tracked, never the leaf-only `gc=False` opt-out.
+    # every field is encoder-native — the unions lowered to their `canonical` projections — so the runtime content owner mints the
+    # key, never a hand-rolled byte builder; container fields keep the struct GC-tracked, so the leaf-only `gc=False` opt-out does not apply.
     likelihood: tuple[str, tuple[float, ...]]
     latents: tuple[tuple[str, tuple[str, tuple[float, ...]]], ...]
     mean_latent: str  # the latent node the likelihood mean reads off; rewiring it re-shapes the graph, so it keys distinctly
@@ -217,22 +199,15 @@ class StudyPayload(Struct, frozen=True):
 
 @dataclass(slots=True, frozen=True)
 class _Residual:
-    # one residual dimension: its key, the measured-extractor over the receipt, and the ceiling-extractor
-    # over the bar, so `measured` and `ceiling` fold this one row family rather than two parallel dicts.
-    # A slots dataclass carries the extractor lambdas (never wire-decoded, so not a `msgspec.Struct`); the
-    # forward reference to the later `InferenceReceipt` resolves lazily under PEP 749 deferred annotations.
+    # a slots dataclass carries the extractor lambdas (never wire-decoded, so not a `msgspec.Struct`); the forward reference to
+    # the later `InferenceReceipt` resolves lazily under PEP 749 deferred annotations.
     key: str
     measure: Callable[[InferenceReceipt], float]
     ceiling: Callable[[ConvergenceBar], float]
 
 
 class PosteriorSummary(Struct, frozen=True):
-    # the one per-variable posterior row `arviz.summary` returns, plus the `arviz.hdi` credible
-    # interval — the central tendency, spread, and per-variable convergence diagnostics keyed by one
-    # latent name, so a six-field summary is one value object rather than six parallel `dict[str, ...]`
-    # maps the residual extractors would have to keep in stringly-keyed lockstep. No `gc=False`: the
-    # `hdi` `tuple` is a container field, so the leaf-only opt-out the sibling `gc=False` rows take
-    # does not apply, the same container-aware split `experiments/model.md#ASSET` holds.
+    # one value object per latent name, never six parallel `dict[str, ...]` maps the residual extractors keep in stringly lockstep.
     mean: float
     sd: float
     r_hat: float
@@ -270,9 +245,7 @@ class InferenceReceipt(Struct, frozen=True):
 
     @property
     def span_facts(self) -> dict[str, str | int | float | bool]:
-        # the bounded-scalar source the `EvidenceScope.INFERENCE`-scoped `inference.{engine}` span reads — exactly the set
-        # `Span.set_attributes` admits; the full per-variable `summaries` and `measured` ledger ride
-        # the receipt facts only, the same span/receipt split the sibling owners hold.
+        # bounded scalars only — the full per-variable `summaries` and `measured` ledger ride the receipt facts, never the span.
         return {
             "subject": self.subject(),
             "converged": self.converged,
@@ -285,9 +258,7 @@ class InferenceReceipt(Struct, frozen=True):
         return f"{self.likelihood}:{self.backend}"
 
     def contribute(self) -> Iterable[Receipt]:
-        # the convergence evidence rides the receipt stream as native scalars the `EventDict`
-        # `dict[str, object]` slots and the `enc_hook=repr` renderer serialize without a `str()` coerce:
-        # the discriminants, the verdict, the LOO/sensitivity scalars, and the measured residual ledger.
+        # native scalars only — no `str()` coerce where the deterministic renderer keeps types.
         facts: dict[str, object] = {
             "likelihood": self.likelihood,
             "backend": self.backend,
@@ -306,17 +277,14 @@ class InferenceReceipt(Struct, frozen=True):
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
-# the inference family modality row: PyMC sampling is heavy native/compiled work riding the
-# runtime THREAD band (the external NUTS backends manage their own device state); policy DATA.
+# the family modality row: policy DATA, never a per-page literal; the external NUTS backends manage their own device state.
 _MODALITY: Final[Modality] = Modality.THREAD
 
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# the one residual-dimension catalog: each row pairs a residual key with its measured-extractor over the
-# receipt and its ceiling-extractor over the bar, so `measured` and `ceiling` fold one table rather than
-# two near-identical hand-built dicts. A new convergence dimension is one row plus one `ConvergenceBar`
-# field; the ess floor enters negated so the shared `measured <= ceiling` fold reads a max-deficit.
+# each row pairs a residual key with its measured- and ceiling-extractors, so `measured` and `ceiling` fold one table rather than
+# two near-identical dicts; the ess floor enters negated so the shared `measured <= ceiling` fold reads a max-deficit.
 _RESIDUALS: Final[Block[_Residual]] = Block.of_seq([
     _Residual("max_rhat", lambda r: max(s.r_hat for s in r.summaries.values()), lambda b: b.rhat_ceiling),
     _Residual("neg_min_ess_bulk", lambda r: -min(s.ess_bulk for s in r.summaries.values()), lambda b: -b.ess_floor),
@@ -330,18 +298,14 @@ _RESIDUALS: Final[Block[_Residual]] = Block.of_seq([
 
 
 def _fit_kernel(spec: "InferenceSpec") -> "RuntimeRail[InferenceReceipt]":
-    # the module-level measured kernel — resolvable by import in the worker; the fence converts a
-    # sampler raise and the weave harvests the resolved contributor.
+    # module-level so the worker resolves it by import; the fence converts a sampler raise.
     return boundary(f"inference.{spec.plan.backend.engine}", lambda: Inference._fit(spec))
 
 
 class Inference:
     @staticmethod
     async def run(spec: InferenceSpec, lane: LanePolicy) -> RuntimeRail[InferenceReceipt]:
-        # the sampling offloads on the family modality row under the hub weave — span, fault fence,
-        # and the fenced `@receipted(REDACTION)` harvest composed; the module-level `_fit_kernel`
-        # crosses the lane, so a `pymc`/`arviz` raise converts at the fence and the receipt streams
-        # by composition, never a page-local tracer or `_emit` aspect.
+        # the weave owns span, fence, and the `@receipted` receipt harvest.
         engine = spec.plan.backend.engine
 
         async def dispatch() -> RuntimeRail[InferenceReceipt]:
@@ -366,9 +330,8 @@ class Inference:
         hdi = arviz.hdi(trace, var_names=names, prob=plan.hdi_prob)
         loo = arviz.loo(trace, var_name="observation", pointwise=True)
         psense = arviz.psense_summary(trace)
-        # one per-variable `PosteriorSummary` row off the `summary` frame and the separate `hdi` Dataset:
-        # the `r_hat` column carries the arviz-1.x underscore and the interval reads the `ci_bound` coord,
-        # never the removed `hdi_3%`/`hdi_97%` columns.
+        # the `r_hat` column carries the underscore and the credible interval reads the `hdi` Dataset's `ci_bound` coordinate,
+        # never the removed `hdi_3%`/`hdi_97%` summary columns.
         summaries = {
             n: PosteriorSummary(
                 mean=float(summary.loc[n, "mean"]),
@@ -380,9 +343,8 @@ class Inference:
             )
             for n in names
         }
-        # the impure draw/score above and the pure content fold ride this one fence: `ContentIdentity.of`
-        # returns `RuntimeRail[ContentKey]`, so the key is `match`ed off the rail inside the already-fenced
-        # body and a hash `Error` re-raises onto the `boundary` rather than masking a fabricated empty key.
+        # the key is `match`ed off the rail inside the already-fenced body, so a hash `Error` re-raises onto the `boundary`
+        # rather than masking a fabricated empty key.
         match ContentIdentity.of("pymc-model", _study_payload(spec)):
             case Ok(model_key):
                 pass
@@ -405,10 +367,7 @@ class Inference:
 
 
 def _study_payload(spec: InferenceSpec) -> StudyPayload:
-    # each union lowers to its `canonical` `(tag, params)` projection so the payload is fully
-    # encoder-native; latents sort by name so reorder does not key distinctly, and the observed
-    # array contributes its dtype/shape plus the contiguous byte view the same way the
-    # `numerics/array.md#PAYLOAD`/`optimization/convex.md#CONVEX` identity buffers fold their arrays.
+    # latents sort by name so a reorder does not key distinctly; the observed array contributes dtype/shape plus its contiguous byte view.
     observed = np.ascontiguousarray(spec.observed)
     return StudyPayload(
         likelihood=spec.likelihood.canonical,
@@ -420,3 +379,11 @@ def _study_payload(spec: InferenceSpec) -> StudyPayload:
         observed_bytes=observed.tobytes(),
     )
 ```
+
+## [03]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+-->
+
+(none)

@@ -47,7 +47,7 @@ osadecompile build/Task.scpt
 
 ## [03]-[STORAGE_TYPES_AND_OPTIONS]
 
-Every `osacompile` surface flag is an OSAKit storage-option row, so a programmatic builder calls `OSAScript.compiledDataForType:usingStorageOptions:error:` directly instead of shelling to `osacompile`. The format axis is five storage types:
+Every `osacompile` surface flag is an OSAKit storage-option row, so a programmatic builder calls `OSAScript.compiledDataForType:usingStorageOptions:error:` directly instead of shelling to `osacompile`. Its format axis is five storage types:
 
 - `OSAStorageScriptType` binds `.scpt`
 - `OSAStorageScriptBundleType` binds `.scptd`
@@ -55,13 +55,13 @@ Every `osacompile` surface flag is an OSAKit storage-option row, so a programmat
 - `OSAStorageApplicationBundleType` binds a bundled applet
 - `OSAStorageTextType` binds decompiled source
 
-The trust and lifecycle axis is three storage options composed as a bitmask:
+Its trust and lifecycle axis is three storage options composed as a bitmask:
 
 - `OSAPreventGetSource` binds the `-x` execute-only flag
 - `OSAStayOpenApplet` binds a persistent-agent applet
 - `OSAShowStartupScreen` binds the startup-screen prompt
 
-The `-t`/`-c` type and creator flags and the `-d`/`-r` resource-fork flags are storage-type selection expressed through the CLI rather than a separate axis.
+`-t`/`-c` type and creator flags and the `-d`/`-r` resource-fork flags are storage-type selection expressed through the CLI rather than a separate axis.
 
 ```objc conceptual
 NSData *data = [script compiledDataForType:OSAStorageScriptBundleType
@@ -108,7 +108,7 @@ function run(input, parameters) {
 
 ## [06]-[BUNDLE_AND_LIBRARY_OWNERSHIP]
 
-A script bundle places executable OSA code at `Contents/Resources/Scripts/main.scpt`; resource lookup uses bundle-relative locations, and path construction inside the bundle never assumes a Finder-visible package layout. A script library loads from `~/Library/Script Libraries/`, `/Library/Script Libraries/`, or the `Resources` folder inside the calling script or app bundle — an applet depending on a private library vendors it inside its own bundle and resolves it by name from the resource domain. AppleScript reaches a library through `tell script "Library Name"`; JXA reaches the same library through `Library("Library Name")`; a cross-language library exposes stable handler names and restricts payloads to OSA-coercible values. Script Editor's bundle contents pane is the authoring surface for identifier, version, copyright, description, and resources, while a build rail mutates those same values through `Info.plist` and bundle files directly and reopens Script Editor only for event-log and dictionary inspection. The event log is the Apple-event trace rail: `log` inside an application `tell` block targets the application unless redirected with `tell me to log`, and JXA traces through `console.log()`.
+A script bundle places executable OSA code at `Contents/Resources/Scripts/main.scpt`; resource lookup uses bundle-relative locations, and path construction inside the bundle never assumes a Finder-visible package layout. A script library loads from `~/Library/Script Libraries/`, `/Library/Script Libraries/`, or the `Resources` folder inside the calling script or app bundle — an applet depending on a private library vendors it inside its own bundle and resolves it by name from the resource domain. AppleScript reaches a library through `tell script "Library Name"`; JXA reaches the same library through `Library("Library Name")`; a cross-language library exposes stable handler names and restricts payloads to OSA-coercible values. Script Editor's bundle contents pane is the authoring surface for identifier, version, copyright, description, and resources, while a build rail mutates those same values through `Info.plist` and bundle files directly and reopens Script Editor only for event-log and dictionary inspection. `log` is the Apple-event trace rail: inside an application `tell` block it targets the application unless redirected with `tell me to log`, and JXA traces through `console.log()`.
 
 ## [07]-[AUTOMATOR_SURFACES]
 
@@ -126,7 +126,7 @@ end run
 
 ## [08]-[SHORTCUTS_SURFACES]
 
-The global `Allow Running Scripts` switch under Shortcuts Advanced settings gates five privileged bridge actions — Run AppleScript, Run Shell Script, Run JavaScript for Mac Automation, Run JavaScript on Web Page, and Run Script Over SSH — which execute with full user privileges outside normal action guardrails. TCC for Automation, Files, and Accessibility still attaches to the responsible process, so the same shortcut earns different privacy prompts and different persistence across an app launch, a CLI invocation, and a background-automation launch context; a headless run that meets an unanswered consent prompt blocks rather than fails. External Shortcuts automation enters through the `shortcuts` CLI or the `Shortcuts Events` scripting dictionary. The CLI exposes four verbs — `run`, `list`, `view`, `sign` — and `shortcuts run` owns shell IPC with repeatable `--input-path` (accepting `-` for stdin and shell globs), `--output-path` (accepting `-`), and `--output-type` (a UTI, inferred from the output filename when omitted). `tell application "Shortcuts Events" to run shortcut ... with input ...` dispatches in the background without fronting the Shortcuts UI, while `tell application "Shortcuts"` launches the app. `shortcuts sign --mode anyone|people-who-know-me -i in.shortcut -o out.shortcut` is the distribution gate: `anyone` notarizes through iCloud for open sharing, `people-who-know-me` signs locally for contact-gated import, and an unsigned `.shortcut` file does not import on a hardened install.
+A global `Allow Running Scripts` switch under Shortcuts Advanced settings gates five privileged bridge actions — Run AppleScript, Run Shell Script, Run JavaScript for Mac Automation, Run JavaScript on Web Page, and Run Script Over SSH — which execute with full user privileges outside normal action guardrails. TCC for Automation, Files, and Accessibility still attaches to the responsible process, so the same shortcut earns different privacy prompts and different persistence across an app launch, a CLI invocation, and a background-automation launch context; a headless run that meets an unanswered consent prompt blocks rather than fails. External Shortcuts automation enters through the `shortcuts` CLI or the `Shortcuts Events` scripting dictionary. That CLI exposes four verbs — `run`, `list`, `view`, `sign` — and `shortcuts run` owns shell IPC with repeatable `--input-path` (accepting `-` for stdin and shell globs), `--output-path` (accepting `-`), and `--output-type` (a UTI, inferred from the output filename when omitted). `tell application "Shortcuts Events" to run shortcut ... with input ...` dispatches in the background without fronting the Shortcuts UI, while `tell application "Shortcuts"` launches the app. `shortcuts sign --mode anyone|people-who-know-me -i in.shortcut -o out.shortcut` is the distribution gate: `anyone` notarizes through iCloud for open sharing, `people-who-know-me` signs locally for contact-gated import, and an unsigned `.shortcut` file does not import on a hardened install.
 
 ```applescript conceptual
 tell application "Shortcuts Events"
@@ -175,7 +175,7 @@ A droplet routes Finder drops through AppleScript `open` or JXA `openDocuments`,
 
 ## [11]-[MAIL_RULE_SCRIPTS]
 
-A Mail rule script implements `perform mail action with messages`, whose direct parameter is a message list; `in mailboxes` appears for a menu-invoked script and `for rule` appears for a rule-invoked script. The handler wraps in `using terms from application "Mail"` so compilation succeeds outside Mail while preserving Mail's own command terminology and parameter labels.
+A Mail rule script implements `perform mail action with messages`, whose direct parameter is a message list; `in mailboxes` appears for a menu-invoked script and `for rule` appears for a rule-invoked script. That handler wraps in `using terms from application "Mail"` so compilation succeeds outside Mail while preserving Mail's own command terminology and parameter labels.
 
 ```applescript conceptual
 using terms from application "Mail"
@@ -218,4 +218,4 @@ guard status == noErr, let xml = sdef?.takeRetainedValue() as Data? else {
 
 ## [14]-[PLATFORM_POSTURE]
 
-The Open Scripting Architecture is stable but frozen: AppleScript, JXA, `osascript`, `osacompile`, and Automator all ship and function, none carry a deprecation notice, and none receive language investment. App Intents is the sanctioned successor surface, reaching users through Shortcuts, Siri, and Spotlight, with no CLI verb and no AppleScript command invoking an intent directly — the only scriptable rail into an intent is an enclosing Shortcut through `Shortcuts Events` or `shortcuts run`. Existing scriptable-app control stays on OSA because most apps expose richer dictionaries than their App Intents surface, while new first-party automation targets App Intents and composes OSA only through Shortcuts. The freeze erodes at legacy edges rather than at the core language or the type spine: `tell application "iTunes"` no longer resolves to a running target, Script Editor fails to open some resource-fork-stored scripts and raises `errOSADataFormatObsolete`, and error retrieval on a faulted event stalls a fault path for minutes before returning. Each of these is a packaging and toolchain fact a release rail absorbs by recompiling and re-testing on a current host, never a change to handler contracts, the UTType spine, or the host dispatch matrix.
+Open Scripting Architecture is stable but frozen: AppleScript, JXA, `osascript`, `osacompile`, and Automator all ship and function, none carry a deprecation notice, and none receive language investment. App Intents is the sanctioned successor surface, reaching users through Shortcuts, Siri, and Spotlight, with no CLI verb and no AppleScript command invoking an intent directly — the only scriptable rail into an intent is an enclosing Shortcut through `Shortcuts Events` or `shortcuts run`. Existing scriptable-app control stays on OSA because most apps expose richer dictionaries than their App Intents surface, while new first-party automation targets App Intents and composes OSA only through Shortcuts. That freeze erodes at legacy edges rather than at the core language or the type spine: `tell application "iTunes"` no longer resolves to a running target, Script Editor fails to open some resource-fork-stored scripts and raises `errOSADataFormatObsolete`, and error retrieval on a faulted event stalls a fault path for minutes before returning. Each of these is a packaging and toolchain fact a release rail absorbs by recompiling and re-testing on a current host, never a change to handler contracts, the UTType spine, or the host dispatch matrix.

@@ -1,19 +1,20 @@
 # [PY_ARTIFACTS_DIAGRAM_LAYOUT]
 
-The data-driven diagram coordinate-assignment owner. `DiagramLayout` is ONE owner folding a `data/tabular#GRAPH` adjacency frame into the laid-out `visualization/diagram/glyphset#GLYPHSET` mark sequence for every `DiagramKind` — the AEC sun-path, circulation, stacking, program, and site kinds plus the general/technical node-link, flowchart, entity-relation, Sankey, and section-callout kinds, one `_emit` glyph-fold arm each threading the `NodeShape`/`Port`/`weight`/`EndCap` topology axes the kind demands. It builds a `rustworkx` `PyDiGraph` from the adjacency rows (the stable non-recycled integer node index the coordinates and the glyph marks both key on), assigns coordinates through the `LayoutPolicy` the `DiagramKind` selects — a closed five-case `tagged_union` over `Force` (`rustworkx` `spring_layout`), `Radial` (`circular_layout`/`shell_layout` discriminated by `RingMode`), `Layered` (one `LayeredPolicy` whose `HierarchyEngine` picks the placement provider: `RUSTWORKX` `topological_generations`, `GRANDALF` `SugiyamaLayout`, `FAST_SUGIYAMA` native-Rust Sugiyama, or `ELK` ports/nesting/orthogonal), `Projected` (the deterministic AEC domain transforms — solar-azimuth-to-arc, floor-to-band, parcel-grid — over a closed `ProjectionKind` family), and `Constrained` (a `kiwisolver` Cassowary solve over an alignment/separation/distribution/anchor/mirror `LayoutRule` set, seeded PLAN-ANCHORED: a node carrying typed `east`/`north` plan columns seats at its real plan position under a `strong` stay, so a circulation space or a section-callout frame sits where the building puts it) — then constructs each positioned `DiagramGlyph` with its resolved `x`/`y`/`points`/`ring`/extent and its `GlyphStyle` palette index and layer name. The V15 AREA LAW rules the three area kinds: `STACKING` floor bands segment into per-program `Node` segments whose widths are proportional to the program `area` columns, `PROGRAM` boxes size by the square root of their `area` so drawn footprint tracks real program area, and `SITE` parcels and building footprints render as true `Area` polygons from typed `ring`/`footprint` vertex columns with the shoelace-derived magnitude on the mark — never a fixed-dimension rectangle wearing an area label. `ELK` is the sole owner of true `EdgeRoute.ORTHOGONAL` routing (its layered algorithm emits native `sections[].bendPoints`); `LayoutPolicy.Layered` rewires an `ORTHOGONAL` request to the `ELK` engine so the route never degrades to the straight-line alias a Sugiyama engine cannot escape. The layout owns coordinates and graph-edge point routes only: it emits no SVG (that is `visualization/diagram/draw#DRAW`'s) and re-owns no graph analysis (the `data/graph#GRAPH` `rustworkx` analysis kernel stays at the data plane; this owner builds a presentation graph from the adjacency feed and runs only layout functions). The synchronous graph build, layout, and glyph emission are one `_render` kernel `_compute` offloads onto the runtime thread lane, so the native layout work never blocks the event loop. The diagram receipt is the draw terminal's — layout returns positioned glyph substrate only.
+`DiagramLayout` is the data-driven diagram coordinate-assignment owner: one owner folding a `data/tabular#GRAPH` adjacency frame into the laid-out `visualization/diagram/glyphset#GLYPHSET` mark sequence for every `DiagramKind`. It builds a `rustworkx` `PyDiGraph` from the adjacency rows — the stable non-recycled integer node index the coordinates and marks both key on — assigns coordinates through the `LayoutPolicy` the `DiagramKind` selects, then constructs each positioned `DiagramGlyph` with its resolved geometry, palette index, and layer name. Coordinates and graph-edge routes are all it owns: no SVG (`visualization/diagram/draw#DRAW`'s), no graph analysis (the `data/graph#GRAPH` `rustworkx` kernel stays at the data plane; this owner builds a presentation graph and runs only layout functions).
+
+`LayoutPolicy` is a closed five-case union: `Force` (`spring_layout`), `Radial` (`circular_layout`/`shell_layout` by `RingMode`), `Layered` over the `HierarchyEngine` provider split (`RUSTWORKX` `topological_generations`, `GRANDALF` `SugiyamaLayout`, `FAST_SUGIYAMA` native-Rust Sugiyama, `ELK` ports/nesting/orthogonal), `Projected` over the closed `ProjectionKind` AEC transforms, and `Constrained` over a `kiwisolver` Cassowary solve with PLAN-ANCHORED seeding — a node carrying typed `east`/`north` columns seats at its real plan position under a `strong` stay. `ELK` is sole owner of true `ORTHOGONAL` routing (native `sections[].bendPoints`) and of the `parent`-axis compound-children nesting; `LayoutPolicy.Layered` rewires an `ORTHOGONAL` request to `ELK` so the route never degrades to the straight-line alias a Sugiyama engine cannot escape. V15 area law rules the three area kinds: `STACKING` segments floor bands by program `area`, `PROGRAM` sizes boxes by `sqrt(area)`, `SITE` renders true `Area` polygons from typed `ring`/`footprint` columns with shoelace magnitude, never a fixed rectangle wearing an area label. Plan geometry arrives as typed columns computed upstream, never re-derived here; the synchronous build is one `_render` kernel `_compute` offloads onto the runtime thread lane; the diagram receipt is the draw terminal's — layout returns positioned glyph substrate only.
 
 ## [01]-[INDEX]
 
-- [01]-[LAYOUT]: the `DiagramLayout` coordinate-assignment owner folding a `data/tabular#GRAPH` adjacency frame into a `rustworkx` `PyDiGraph` then assigning coordinates through the `LayoutPolicy` the `DiagramKind` selects — `Force` `spring_layout`, `Radial` `circular_layout`/`shell_layout`, `Layered` over the four-member `HierarchyEngine` (`topological_generations`/`grandalf`/`fast-sugiyama`/`ELK`), `Projected` over the closed `ProjectionKind` AEC domain transforms, and `Constrained` over a `kiwisolver` `Solver` with plan-anchored seeding — emitting the V15 area-law marks (segmented stacking bands, area-sized program boxes, true `Area` site polygons) and the composed solar furniture, constructing each positioned `visualization/diagram/glyphset#GLYPHSET` `DiagramGlyph` keyed on the stable node index, the whole synchronous render offloaded onto the runtime thread lane; the diagram receipt is the draw terminal's.
+- [01]-[LAYOUT]: `DiagramLayout`'s coordinate-assignment fold over a `data/tabular#GRAPH` adjacency frame — coordinates via the `LayoutPolicy` the `DiagramKind` selects (force, radial, four-engine layered, projected AEC transforms, plan-anchored constrained), emitting the V15 area-law marks and the composed solar furniture onto the stable node index, offloaded to the runtime thread lane.
 
 ## [02]-[LAYOUT]
 
-- Owner: `DiagramLayout` the one coordinate-assignment owner discriminating the layout over the `visualization/diagram/glyphset#GLYPHSET` `DiagramKind`; `LayoutPolicy` an `expression.tagged_union` whose every case carries its own typed layout payload — `Force(seed, iterations)` for the `rustworkx` `spring_layout` force-directed kinds, `Radial(scale, mode)` for the `circular_layout` single-ring and `shell_layout` concentric-ring radial kinds (`RingMode` discriminated, the `nlist` shells partitioned by the node `ring` attribute), `Layered(LayeredPolicy(direction, engine, route))` for the four hierarchical placement providers, `Projected(kind, scale)` for the deterministic AEC domain projections over the closed `ProjectionKind` vocabulary, and `Constrained(*rules)` for the `kiwisolver` constraint solve over a `LayoutRule` set — dispatched by one total `match`/`case` folding the policy onto the positioned node coordinate map and optional edge-route map, never a per-diagram-kind layout method family; the adjacency frame is the `data/tabular#GRAPH` BYODF input the `rustworkx` `PyDiGraph` builds from, the stable integer node index the coordinates and the glyph marks both key on, and plan geometry arrives as TYPED COLUMNS on that frame — `east`/`north` plan coordinates, per-program `area`, `ring`/`footprint` polygon vertex lists, `sublayout` container engines, `source_cardinality`/`target_cardinality` edge caps, `latitude`/`longitude`/`year` site rows — computed upstream, never an untyped attribute bag re-derived here. `LayoutMap` is the resolved `dict[int, Point]` node-index-to-coordinate map every policy arm returns, the one carrier the glyph-construction fold reads; `RouteMap` is the optional `dict[tuple[int, int], tuple[Point, ...]]` edge-waypoint overlay the route-capable engines (`ELK` orthogonal `bendPoints`, `fast-sugiyama` dummy-vertex chains, `grandalf` `route_with_*` polylines) fill.
-- Solar: the `SUN_PATH` arm composes `visualization/diagram/solar#SOLAR` — `project` positions each mark through the owner's declared hemisphere projection, and `furniture` supplies the horizon/ring/compass/date-arc/hour-line backdrop as `Furnishing` rows the arm lowers to `DiagramGlyph.Fragment` marks on the "furniture" layer when the frame carries `latitude`/`longitude`/`year` site columns — so sun geometry is computed astronomy under one projection law shared between the positioned marks and their backdrop, and a caller-supplied-angles-only frame degrades to bare marks, never to fake furniture.
-- Cases: `LayoutPolicy` cases — `Force(seed, iterations)` (the `rustworkx` `spring_layout(graph, seed=, num_iter=)` force-directed `Pos2DMapping` for topology-only kinds where node placement minimizes edge crossing) · `Radial(scale, mode)` (`RingMode.CIRCULAR` -> `circular_layout(graph, scale=)`, `RingMode.SHELL` -> `shell_layout(graph, nlist=_shells(graph), scale=)` concentric rings for compass and multi-ring cycle diagrams, the `_RING` table the single dispatch) · `Layered(LayeredPolicy)` (the one hierarchical case whose `engine` selects the provider via the `_ENGINE` table: `RUSTWORKX` deterministic `topological_generations` with `TB`/`BT`/`LR`/`RL` direction, `GRANDALF` `SugiyamaLayout` plus `route_with_lines`/`route_with_splines`, `FAST_SUGIYAMA` native-Rust `from_edges` placement plus dummy-vertex routes, `ELK` `ELK().layout` ports/nesting/orthogonal placement plus native `sections` bend routes) · `Projected(kind, scale)` (the deterministic AEC domain projection over `ProjectionKind` — `SOLAR_ARC` azimuth/altitude to a stereographic sun-path point, `FLOOR_BAND` level to a stacking band, `PARCEL_GRID` east/north to a site cell — the `PROJECTION` table the single dispatch, each transform reading its typed node attributes through `_attr`, never a fragile `attrs[key]` access) · `Constrained(*rules)` (the `kiwisolver` `Solver` over an `x`/`y` `Variable` pair per stable node index, PLAN-ANCHORED seeding — a node carrying typed `east`/`north` columns seats at its plan position under a `strong` stay, every other node takes the `circular_layout` spread under a `weak` stay — the `LayoutRule` family folded to `Constraint`s and solved, `updateVariables()` read back) — matched by one total `match`/`case` over the policy `tag`, each arm returning the `LayoutResult`. `CIRCULATION` and `SECTION_CALLOUT` select `Constrained()` in `_KIND_POLICY`: their marks are plan-anchored building geometry, and the deleted `Force()` default that scattered rooms by graph topology is the rejected form.
-- Auto: `_compute` is the thin async seam that offloads the one synchronous `_render` kernel onto the runtime thread lane so every native placement — the GIL-releasing `rustworkx` Rust core, the `fast-sugiyama` PyO3 pass, the pure-Python `pyelk`/`kiwisolver` solve, the `grandalf` draw — runs off the event loop; `_render` folds graph build, position, and glyph emission into the positioned glyph tuple. `_as_graph` folds the adjacency frame rows into a `PyDiGraph` once — `add_nodes_from` over the node attribute rows yields the stable index, `add_edges_from` over the source/target/weight rows yields the edges, so the presentation graph is built once from the `data/tabular#GRAPH` feed and never re-keyed. `_position` is the total `LayoutPolicy` dispatch; the layered arm reads `_ENGINE[layered.engine]`, the radial arm `_RING[mode]`, the projected arm `PROJECTION[kind]`, so a new provider, ring mode, or projection is one table row. `_sugiyama_layout` maps `graph.edge_list()` through `from_edges(..., dummy_vertices=True)`, folds the `Layouts.dot_layout()` positions into the `LayoutMap` (filtering the synthetic dummy ids, stranding the isolated nodes `from_edges` drops), and traces each long edge's dummy chain into a `RouteMap` polyline. `_elk_layout` lowers the graph to an ELK-JSON document — `_nest` partitioning the node set into roots and a parent-index->child-index map from the `parent` attribute so a `parent`-bearing node lands as a compound `children` sub-graph under `INCLUDE_CHILDREN`, `_elk_node` recursing it with the node's `sublayout` column mapped through `_SUB_ALGORITHM` onto the per-container `elk.algorithm` override, and each `Port` lowered by `_elk_port` with its `width`/`height` and its fixed `at` seat escalating the node to `elk.portConstraints=FIXED_POS` — runs one `ELK().layout` call, and folds the single result (never a second render) into the `LayoutMap` through `_absolutize` (accumulating each container's origin down the compound tree so the parent-relative ELK `x`/`y` become absolute, identical to a flat `collect_nodes` read when un-nested) and each edge's `[startPoint, *bendPoints, endPoint]` from `collect_edges` into the `RouteMap`. `_emit` discriminates the `DiagramKind` and constructs the positioned marks threading the `GlyphStyle(layer=, fill=palette_index, stroke=palette_index)` so each mark binds its named SVG group and its palette color, the edge waypoints the laid-out `points` the layout resolved, and the directed kinds passing typed `EndCap` caps — the circulation/flowchart/node-link arrowhead explicit, the ER `source_cardinality`/`target_cardinality` columns mapped through `_CARDINALITY` onto crow's-foot caps, never a bare-string cardinality label the draw arms reparse.
-- Growth: a new AEC diagram kind is one `DiagramKind` row (in `visualization/diagram/glyphset#GLYPHSET`) plus one `_emit` glyph-fold arm and one `_KIND_POLICY` selection, never a new layout method family; a new layered placement engine is one `HierarchyEngine` member plus one `_ENGINE` row folding the admitted provider, never a fifth `LayeredPolicy` case; a new deterministic AEC projection is one `ProjectionKind` member plus one `_solar_arc`-shaped transform plus one `PROJECTION` row; a new ring mode is one `RingMode` member plus one `_RING` row; a new constraint kind is one `LayoutRule` case plus one `_rule_constraints` arm; a new container engine is one `_SUB_ALGORITHM` row over the registered ELK providers; a new cardinality token is one `_CARDINALITY` row; a new route style rides the engine that owns it (`ORTHOGONAL` the `ELK` bend geometry, `SPLINES` the `grandalf` curve); a new layout knob is one policy-field on the existing case; zero new surface for a new diagram kind.
-- Boundary: no SVG emission (that is `visualization/diagram/draw#DRAW`'s — this owner emits the positioned `DiagramGlyph` sequence the draw owner folds to bytes); no graph analysis (the `data/graph#GRAPH` `rustworkx` analysis kernel — centrality, shortest-path, community — stays at the data plane; this owner builds a presentation graph from the `data/tabular#GRAPH` adjacency feed and runs only layout functions, never a second analysis kernel); no ephemeris computation (the `visualization/diagram/solar#SOLAR` owner solves sun positions and generates furniture; this owner composes `project` and `furniture` and lowers the rows to marks); no ad-hoc color (the `GlyphStyle` indices key the `graphic/color/derive#DERIVE` palette); `rustworkx` owns force/radial/topological data-plane graph algorithms, `grandalf`/`fast-sugiyama` own Sugiyama placement, `pyelk` owns ports/nesting/orthogonal placement and routing, `kiwisolver` owns the Cassowary constraint solve, all behind one local `LayoutPolicy` owner; a per-diagram-kind layout method family, a re-keying of the layout coordinate away from the stable `rustworkx` node index, a hand-rolled Sugiyama or spring or constraint loop where a provider owns it, an `EdgeRoute.ORTHOGONAL` aliased to a straight-line router, a synchronous native layout left on the event loop, a `Force()` default on a plan-anchored kind, a fixed-dimension rectangle standing in for a measured area, and a second graph-analysis kernel are the deleted forms — one coordinate-assignment owner, policy-discriminated layout, stable-index-keyed marks, area-true geometry.
+- Owner: `DiagramLayout` discriminating layout over the `visualization/diagram/glyphset#GLYPHSET` `DiagramKind`; `LayoutPolicy` an `expression.tagged_union` whose every case carries its own typed payload, dispatched by one total `match` folding onto the node coordinate map and optional edge-route map, never a per-diagram-kind layout method family; the adjacency frame is the `data/tabular#GRAPH` BYODF input the `PyDiGraph` builds from, plan geometry riding as typed columns (`east`/`north`, per-program `area`, `ring`/`footprint` vertices, `sublayout` engines, `source_cardinality`/`target_cardinality` caps, `latitude`/`longitude`/`year` site rows) computed upstream, never an untyped attribute bag re-derived here; `LayoutMap` the resolved node-index-to-coordinate map every arm returns, `RouteMap` the optional edge-waypoint overlay the route-capable engines fill.
+- Cases: `Force`/`Radial`/`Layered`/`Projected`/`Constrained`, one total `match` over the policy `tag`; `Layered`'s `engine` selects the provider via the `_ENGINE` table, `Radial` the `_RING` mode, `Projected` the `PROJECTION` transform — each reading typed node attributes through `_attr`, never a fragile `attrs[key]`; `Constrained` seeds plan-anchored (typed `east`/`north` under a `strong` stay, every other node the `circular_layout` spread under a `weak` stay) then folds the `LayoutRule` set to `kiwisolver` `Constraint`s; `CIRCULATION` and `SECTION_CALLOUT` select `Constrained()` in `_KIND_POLICY` because their marks are plan-anchored building geometry, the `Force()` default that scattered rooms by topology being the rejected form.
+- Auto: `_compute` offloads the one synchronous `_render` kernel onto the runtime thread lane so every native placement runs off the event loop; `_position` is the total `LayoutPolicy` dispatch. `FAST_SUGIYAMA` is the default layered placement (native-Rust, superseding the `GRANDALF` core): `_sugiyama_layout` filters the synthetic dummy ids, strands the isolated nodes `from_edges` drops onto a trailing rank, and traces each long edge's dummy chain into a `RouteMap` polyline. `ELK` folds one `ELK().layout` result, never a second render — `_nest` reads the `parent` node-domain-id into a compound-children map under `INCLUDE_CHILDREN`, each `Port`'s fixed `at` escalating its node to `FIXED_POS`, a container's `sublayout` selecting its own inner `elk.algorithm`, and `_absolutize` lifting parent-relative positions to absolute. `SUN_PATH` composes `visualization/diagram/solar#SOLAR`: `project` positions each mark under the declared hemisphere projection and `furniture` supplies the backdrop as `Fragment` marks when the frame carries `latitude`/`longitude`/`year` columns, so a caller-angles-only frame degrades to bare marks, never fake furniture. `_emit` threads the `GlyphStyle` palette-and-layer binding and the typed `EndCap` caps, the ER `source_cardinality`/`target_cardinality` columns mapping through `_CARDINALITY` onto crow's-foot caps.
+- Growth: a new diagram kind is one `DiagramKind` row plus one `_emit` arm and one `_KIND_POLICY` selection, never a new layout method family; a new layered engine one `HierarchyEngine` member plus one `_ENGINE` row, never a fifth `LayeredPolicy` case; a new AEC projection one `ProjectionKind` member plus a `_solar_arc`-shaped transform plus a `PROJECTION` row; a new ring mode one `RingMode`/`_RING` pair; a new constraint one `LayoutRule` case plus one `_rule_constraints` arm; a new container engine one `_SUB_ALGORITHM` row; a new cardinality token one `_CARDINALITY` row; a new route style rides the engine that owns it.
+- Boundary: no SVG emission (`visualization/diagram/draw#DRAW`'s), no graph analysis (`data/graph#GRAPH`'s centrality/shortest-path/community kernel stays at the data plane; this owner runs only layout functions), no ephemeris computation (`visualization/diagram/solar#SOLAR` solves sun positions; this owner composes `project`/`furniture`), no ad-hoc color (the `GlyphStyle` indices key the `graphic/color/derive#DERIVE` palette); `rustworkx` owns force/radial/topological placement, `grandalf`/`fast-sugiyama` Sugiyama, `pyelk` ports/nesting/orthogonal, `kiwisolver` the Cassowary solve, all behind one `LayoutPolicy` owner — a hand-rolled Sugiyama/spring/constraint loop, an `ORTHOGONAL` aliased to a straight-line router, a synchronous native layout left on the event loop, a `Force()` default on a plan-anchored kind, and a fixed rectangle standing for a measured area are the rejected forms.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -72,8 +73,8 @@ type RuleStrength = Literal["weak", "medium", "strong", "required"]
 
 class HierarchyEngine(StrEnum):
     RUSTWORKX = "rustworkx"  # deterministic topological_generations fallback
-    GRANDALF = "grandalf"  # parity oracle + spline routes, superseded-pending-removal
-    FAST_SUGIYAMA = "fast-sugiyama"  # native-Rust Sugiyama placement, supersedes grandalf placement
+    GRANDALF = "grandalf"  # parity oracle + spline routes, superseded by FAST_SUGIYAMA
+    FAST_SUGIYAMA = "fast-sugiyama"  # native-Rust Sugiyama placement, the default
     ELK = "elk"  # ports/nesting/orthogonal, native bendPoints
 
 
@@ -102,8 +103,7 @@ class LayeredPolicy(Struct, frozen=True):
 
 @tagged_union(frozen=True)
 class LayoutRule:
-    # the constraint vocabulary the Constrained policy folds onto the kiwisolver Solver; each case
-    # names the stable node indices and the strength band the rule enters at.
+    # constraint vocabulary the Constrained policy folds onto the kiwisolver Solver; each case names the node indices and strength band.
     tag: Literal["align", "separate", "distribute", "anchor", "mirror"] = tag()
     align: tuple[tuple[int, ...], RuleAxis, RuleStrength] = case()
     separate: tuple[int, int, RuleAxis, float, RuleStrength] = case()
@@ -153,8 +153,7 @@ class LayoutPolicy:
     def Layered(
         direction: LayerDirection = "TB", engine: HierarchyEngine = HierarchyEngine.FAST_SUGIYAMA, route: EdgeRoute = EdgeRoute.LINES
     ) -> "LayoutPolicy":
-        # orthogonal routing is ELK's native capability; force the engine so ORTHOGONAL never
-        # degrades to a straight-line alias on a Sugiyama engine that cannot route around boxes.
+        # ORTHOGONAL is ELK's native capability; force the engine so it never degrades to a straight-line alias on a Sugiyama engine.
         resolved = HierarchyEngine.ELK if route is EdgeRoute.ORTHOGONAL else engine
         return LayoutPolicy(layered=LayeredPolicy(direction=direction, engine=resolved, route=route))
 
@@ -210,7 +209,7 @@ _CARDINALITY: Final[Map[str, EndCap]] = Map.of_seq([
 ])
 _KIND_POLICY: Final[Map[DiagramKind, LayoutPolicy]] = Map.of_seq([
     (DiagramKind.SUN_PATH, LayoutPolicy.Projected(ProjectionKind.SOLAR_ARC, 200.0)),
-    (DiagramKind.CIRCULATION, LayoutPolicy.Constrained()),  # plan-anchored: rooms sit where the building puts them
+    (DiagramKind.CIRCULATION, LayoutPolicy.Constrained()),  # plan-anchored, never a spring scatter
     (DiagramKind.STACKING, LayoutPolicy.Projected(ProjectionKind.FLOOR_BAND, 40.0)),
     (DiagramKind.PROGRAM, LayoutPolicy.Layered(engine=HierarchyEngine.FAST_SUGIYAMA)),
     (DiagramKind.SITE, LayoutPolicy.Projected(ProjectionKind.PARCEL_GRID, 1.0)),
@@ -230,8 +229,7 @@ class DiagramLayout(Struct, frozen=True):
     policy: LayoutPolicy | None = None
 
     async def assign(self) -> RuntimeRail[tuple[DiagramGlyph, ...]]:
-        # coordinate SUBSTRATE for draw — layout mints NO receipt (draw is the sole diagram producer);
-        # the positioned glyph sequence is data the terminal's own node consumes.
+        # coordinate substrate for draw; layout mints no receipt.
         return await async_boundary(f"diagram.layout.{self.kind}", self._compute)
 
     async def _compute(self) -> tuple[DiagramGlyph, ...]:
@@ -294,8 +292,6 @@ class DiagramLayout(Struct, frozen=True):
                 )
                 return (*boxes, *flows)
             case DiagramKind.STACKING:
-                # the V15 area law: floor bands sized by their program total, segmented into per-program
-                # Node segments whose widths are proportional to the typed `area` columns.
                 _roots, kids = _nest(graph)
                 floors = tuple(i for i in graph.node_indices() if isinstance(graph.get_node_data(i).get("level"), int | float))
                 bands = tuple(
@@ -324,8 +320,6 @@ class DiagramLayout(Struct, frozen=True):
                 )
                 return (*boxes, *adj)
             case DiagramKind.SITE:
-                # the V15 area law: parcels and footprints are TRUE polygons from typed `ring`/`footprint`
-                # vertex columns; the shoelace magnitude rides the mark, so drawn area is measured area.
                 scale = _proj_scale(policy)
                 polygons = tuple(
                     mark
@@ -457,18 +451,17 @@ def _label(data: dict[str, object], key: str, /) -> str | None:
 
 
 def _attr(data: dict[str, object], key: str, /) -> float:
-    # optional node-attribute read for the domain projections; a missing or non-numeric column
-    # folds to 0.0 rather than a fragile KeyError, so a partial adjacency frame never faults the layout.
+    # optional node-attribute read; a missing or non-numeric column folds to 0.0, never a KeyError, so a partial frame never faults the layout.
     return float(value) if isinstance(value := data.get(key), int | float) else 0.0
 
 
 def _shape_of(data: dict[str, object], /) -> NodeShape:
-    # flowchart/ER node silhouette read from the optional `shape` attribute; absent -> RECTANGLE.
+    # node silhouette from the optional `shape` attribute; absent -> RECTANGLE.
     return _NODE_SHAPES.try_find(value).default_value(NodeShape.RECTANGLE) if isinstance(value := data.get("shape"), str) else NodeShape.RECTANGLE
 
 
 def _sublayout_of(data: dict[str, object], /) -> SubLayout:
-    # per-container inner-engine override read from the optional `sublayout` attribute; absent -> INHERIT.
+    # inner-engine override from the optional `sublayout` attribute; absent -> INHERIT.
     return _sub_member(value) if isinstance(value := data.get("sublayout"), str) else SubLayout.INHERIT
 
 
@@ -477,14 +470,12 @@ def _sub_member(value: str, /) -> SubLayout:
 
 
 def _cap_of(data: dict[str, object], key: str, /) -> EndCap:
-    # typed ER cardinality read from the optional edge column; absent or foreign -> NONE.
+    # ER cardinality from the optional edge column; absent or foreign -> NONE.
     return _CARDINALITY.try_find(value).default_value(EndCap.NONE) if isinstance(value := data.get(key), str) else EndCap.NONE
 
 
 def _ports_of(data: dict[str, object], /) -> tuple[Port, ...]:
-    # typed connection ports read from the optional `ports` attribute (an id, (id, side), or
-    # (id, side, (x, y)) sequence); side-local index is the list position, so an ER field-row /
-    # flowchart record-slot seats on a boundary, and an explicit coordinate seats FIXED_POS.
+    # typed connection ports from the optional `ports` attribute; side-local index is the list position, an explicit coordinate seats FIXED_POS.
     return tuple(_port_of(entry, index) for index, entry in enumerate(raw)) if isinstance(raw := data.get("ports"), list | tuple) else ()
 
 
@@ -505,12 +496,12 @@ def _side_member(value: str, /) -> PortSide:
 
 
 def _weight(graph: rx.PyDiGraph, source: int, target: int, /) -> float:
-    # Sankey ribbon magnitude read from the edge `weight` attribute through the robust accessor.
+    # Sankey ribbon magnitude from the edge `weight`.
     return _attr(graph.get_edge_data(source, target), "weight")
 
 
 def _parent_of(data: dict[str, object], /) -> object:
-    # the compound-nesting parent read from the optional `parent` node-domain-id attribute; absent -> None (a root).
+    # compound-nesting parent from the optional `parent` id; absent -> None (a root).
     return None if isinstance(value := data.get("parent"), bool) else value
 
 
@@ -548,7 +539,7 @@ def _algorithm(policy: LayoutPolicy, /) -> str:
 
 # --- [AREA_LAW] ---------------------------------------------------------------------------
 def _floor_total(graph: rx.PyDiGraph, children: tuple[int, ...], /) -> float:
-    # a floor band's plan-area total over its program children — the band length derives from real area.
+    # floor band's plan-area total over its program children; band length derives from real area.
     return sum(_attr(graph.get_node_data(child), "area") for child in children)
 
 
@@ -562,14 +553,13 @@ def _segments(graph: rx.PyDiGraph, floor: int, children: tuple[int, ...], y: flo
 
 
 def _program_side(data: dict[str, object], /) -> float:
-    # area-true program box: drawn side tracks sqrt(area) so drawn footprint is proportional to program area.
+    # area-true: drawn side tracks sqrt(area), so drawn footprint is proportional to program area.
     area = _attr(data, "area")
     return sqrt(area) * _AREA_SIDE if area > 0.0 else _NODE_W
 
 
 def _polygon(data: dict[str, object], key: str, scale: float, index: int, label: str | None, layer: str, /) -> DiagramGlyph | None:
-    # typed plan-polygon ingress: the vertex column carries (east, north) pairs computed upstream; the
-    # same plan transform as PARCEL_GRID, the shoelace magnitude measured on the raw plan ring.
+    # typed plan-polygon ingress: (east, north) vertices computed upstream, same transform as PARCEL_GRID; shoelace magnitude on the raw ring.
     raw = data.get(key)
     if not isinstance(raw, list | tuple) or len(raw) < 3:
         return None
@@ -583,8 +573,7 @@ def _shoelace(raw: "list | tuple", /) -> float:
 
 
 def _sun_furniture(graph: rx.PyDiGraph, radius: float, /) -> tuple[DiagramGlyph, ...]:
-    # composes the solar owner's furniture when the frame carries site columns; an angles-only frame
-    # draws bare marks — the backdrop is real astronomy or absent, never fabricated.
+    # composes the solar furniture when the frame carries site columns; an angles-only frame draws bare marks, never fabricated furniture.
     head = next(
         (data for i in graph.node_indices() if isinstance(data := graph.get_node_data(i), dict) and "latitude" in data and "year" in data), None
     )
@@ -600,8 +589,7 @@ def _sun_furniture(graph: rx.PyDiGraph, radius: float, /) -> tuple[DiagramGlyph,
 
 # --- [PROJECTIONS] ----------------------------------------------------------------------
 def _solar_arc(data: dict[str, object], scale: float, /) -> Point:
-    # composes the solar owner's projection law — the SAME fold that positions the chart furniture,
-    # so a positioned mark and its date-arc/hour-line backdrop cannot disagree.
+    # the SAME projection fold that positions the furniture, so a mark and its backdrop cannot disagree.
     return project(_attr(data, "azimuth"), _attr(data, "altitude"), SolarProjection.STEREOGRAPHIC, scale)
 
 
@@ -614,8 +602,7 @@ def _parcel_grid(data: dict[str, object], scale: float, /) -> Point:
 
 
 def _shells(graph: rx.PyDiGraph, /) -> list[list[int]] | None:
-    # concentric shells partitioned by the node `ring` attribute; groupby needs the ring-sorted stream,
-    # so band by (ring, index) then group on the ring head. no partition -> None -> shell_layout single ring.
+    # concentric shells by the node `ring` attribute; groupby needs the ring-sorted stream. No partition -> None -> single ring.
     banded = sorted((_attr(graph.get_node_data(i), "ring"), i) for i in graph.node_indices())
     return [[node for _band, node in run] for _ring, run in groupby(banded, key=itemgetter(0))] or None
 
@@ -677,8 +664,7 @@ def _grandalf_router(route: EdgeRoute, /) -> Router:
     match route:
         case EdgeRoute.LINES:
             return route_with_lines
-        # grandalf ships no orthogonal router; ORTHOGONAL is rewired to the ELK engine at LayoutPolicy.Layered,
-        # so this arm only ever binds a curve — the deleted route_with_lines alias for ORTHOGONAL was the straight-line lie.
+        # grandalf ships no orthogonal router; ORTHOGONAL is rewired to ELK upstream, so this arm only ever binds a curve.
         case EdgeRoute.SPLINES | EdgeRoute.ORTHOGONAL:
             return route_with_splines
         case _ as unreachable:
@@ -725,7 +711,7 @@ def _elk_layout(graph: rx.PyDiGraph, policy: LayeredPolicy, /) -> LayoutResult:
     validate_graph(document)  # InvalidGraphException (an ElkError) on a malformed doc, trapped at async_boundary
     result = ELK().layout(document, layout_options=document["layoutOptions"])  # hierarchyHandling rides the doc root when nested
     coords: LayoutMap = {}
-    _absolutize(result.get("children") or [], (0.0, 0.0), coords)  # parent-relative ELK x/y -> absolute over the compound-children tree
+    _absolutize(result.get("children") or [], (0.0, 0.0), coords)
     routes: RouteMap = {
         (int(edge["sources"][0]), int(edge["targets"][0])): _elk_route(section)
         for edge in collect_edges(result)
@@ -735,10 +721,8 @@ def _elk_layout(graph: rx.PyDiGraph, policy: LayeredPolicy, /) -> LayoutResult:
 
 
 def _elk_document(graph: rx.PyDiGraph, policy: LayeredPolicy, /) -> dict:
-    # the foreign ELK-JSON contract, built structurally (never an f-string splice into markup); node id is the
-    # stringified stable index, edge endpoints its source/target, so positions read back on the same key. A `parent`-
-    # bearing node nests under its container (the compound-children hierarchy ELK sizes to enclose); INCLUDE_CHILDREN
-    # then lets a cross-container edge route, every edge kept at the root so its section geometry stays root-absolute.
+    # foreign ELK-JSON contract, built structurally never an f-string splice; node id is the stringified stable index.
+    # Every edge stays at the root so its section geometry reads back root-absolute; INCLUDE_CHILDREN lets a cross-container edge route.
     roots, kids = _nest(graph)
     options = dict(_ELK_OPTIONS.items()) | {"elk.algorithm": "layered", "elk.direction": _ELK_DIRECTION[policy.direction]}
     return {
@@ -752,11 +736,9 @@ def _elk_document(graph: rx.PyDiGraph, policy: LayeredPolicy, /) -> dict:
 
 
 def _elk_node(index: int, graph: rx.PyDiGraph, kids: frozendict[int, tuple[int, ...]], /) -> dict:
-    # a leaf or compound node: `ports` bind under FIXED_ORDER so the layered algorithm seats each port on its
-    # resolved side/index (the ER field-port / flowchart record-slot boundary the draw owner marks) — a port
-    # carrying a fixed `at` seat escalates the node to FIXED_POS with the coordinate on the port shape — and a
-    # node owning `children` (the `parent`-axis compound-nesting) recurses into an enclosed sub-graph ELK sizes
-    # to contain, its `sublayout` column selecting the container's own `elk.algorithm` when it departs INHERIT.
+    # ports bind under FIXED_ORDER so the layered algorithm seats each on its side/index; a fixed `at` seat escalates the node
+    # to FIXED_POS. A `children`-owning node recurses into an enclosed sub-graph, its `sublayout` selecting the container's
+    # own `elk.algorithm` when it departs INHERIT.
     data = graph.get_node_data(index)
     base: dict[str, object] = {"id": str(index), "width": _NODE_W, "height": _NODE_H}
     options: dict[str, str] = {}
@@ -785,9 +767,8 @@ def _elk_port(port: Port, /) -> dict[str, object]:
 
 
 def _nest(graph: rx.PyDiGraph, /) -> tuple[tuple[int, ...], frozendict[int, tuple[int, ...]]]:
-    # partition the node set into roots and a parent-index -> child-index map from the optional `parent` node-domain-id
-    # attribute resolved through the id->index lookup; a node whose `parent` names a sibling nests under it (compound
-    # children), every other node is a root. No `parent` attribute anywhere -> all roots, empty map, the flat document.
+    # roots and a parent-index -> child-index map from the optional `parent` node-domain-id, resolved through the id->index lookup;
+    # no `parent` anywhere -> all roots, empty map, the flat document.
     lookup = {data["id"]: index for index in graph.node_indices() if isinstance(data := graph.get_node_data(index), dict) and "id" in data}
     kids: dict[int, list[int]] = {}
     roots: list[int] = []
@@ -801,9 +782,8 @@ def _nest(graph: rx.PyDiGraph, /) -> tuple[tuple[int, ...], frozendict[int, tupl
 
 
 def _absolutize(nodes: list[dict], origin: Point, coords: LayoutMap, /) -> None:
-    # fold each ELK-positioned node's parent-relative `x`/`y` into an ABSOLUTE coordinate by accumulating the container
-    # origin down the compound-children tree — a flat document recurses once at (0, 0), identical to the pre-nesting
-    # `collect_nodes` read; a nested document offsets each child by its container's absolute corner.
+    # accumulate the container origin down the compound-children tree so each parent-relative ELK `x`/`y` becomes absolute;
+    # a flat document recurses once at (0, 0).
     ox, oy = origin
     for node in nodes:
         absolute = (ox + float(node.get("x", 0.0)), oy + float(node.get("y", 0.0)))
@@ -822,8 +802,7 @@ def _elk_point(point: dict, /) -> Point:
 
 
 def _constrained_layout(graph: rx.PyDiGraph, rules: tuple[LayoutRule, ...], /) -> LayoutResult:
-    # PLAN-ANCHORED seeding: a node carrying typed `east`/`north` plan columns seats at its real plan
-    # position under a `strong` stay; every other node takes the circular spread under a `weak` stay.
+    # PLAN-ANCHORED seeding: typed `east`/`north` seats under a `strong` stay, every other node the circular spread under `weak`.
     solver, variables = Solver(), {index: (Variable(), Variable()) for index in graph.node_indices()}
     spread = rx.circular_layout(graph)  # robust any-graph base for nodes without plan coordinates
     for index, (var_x, var_y) in variables.items():  # Exemption: kiwisolver Solver is a mutable sink (addConstraint mutates in place, returns None)
@@ -865,4 +844,10 @@ _ENGINE: Final[Map[HierarchyEngine, Callable[[rx.PyDiGraph, LayeredPolicy], Layo
 ])
 ```
 
-`DiagramLayout.assign` builds the presentation `PyDiGraph` from the `data/tabular#GRAPH` adjacency frame, assigns coordinates through the `LayoutPolicy` the `DiagramKind` selects, and constructs each positioned `DiagramGlyph` keyed on the stable `rustworkx` node index. The `_position` fold is the one layout dispatch over the five `LayoutPolicy` cases, its layered arm reading the `_ENGINE` table so `RUSTWORKX` `topological_generations`, `GRANDALF` `SugiyamaLayout`, `FAST_SUGIYAMA` `from_edges`, and `ELK` `ELK().layout` each own one arm body while the total `match` stays the closed dispatch. `FAST_SUGIYAMA` is the default layered placement (native-Rust, superseding the `GRANDALF` core); its `_sugiyama_layout` filters the synthetic dummy ids out of the `LayoutMap`, strands the isolated nodes `from_edges` drops onto a trailing rank, and traces each long edge's dummy chain into a `RouteMap` polyline. `ELK` is the sole owner of `EdgeRoute.ORTHOGONAL`: its layered algorithm emits native `sections[].bendPoints`, read off one `ELK().layout` result (never a second render) as `[startPoint, *bendPoints, endPoint]`, and `LayoutPolicy.Layered` rewires an `ORTHOGONAL` request onto the `ELK` engine so a Sugiyama engine never aliases it to a straight line. `ELK` is likewise the sole owner of the `parent`-axis compound-children nesting the `glyphset#GLYPHSET` `Node`/`Swimlane` declare: `_nest` reads the `parent` node-domain-id attribute, `_elk_document` nests each child under its container and sets `elk.hierarchyHandling=INCLUDE_CHILDREN`, ELK sizes each container to enclose its sub-graph, a container's `sublayout` column selects its own inner `elk.algorithm` through `_SUB_ALGORITHM`, a port's fixed `at` seat escalates its node to `FIXED_POS`, and `_absolutize` lifts the parent-relative positions to absolute so the enclosed marks and the framing container both key on the one stable node index. `Projected` folds the closed `ProjectionKind` AEC transforms — `SOLAR_ARC` reading azimuth/altitude through the solar owner's own `project` law, `FLOOR_BAND` reading level, `PARCEL_GRID` reading east/north through the robust `_attr` accessor — so the sun-path, stacking, and site kinds derive coordinates from their real domain geometry rather than graph topology; the `SUN_PATH` arm additionally lowers the composed `furniture` rows to `Fragment` marks so the horizon, altitude rings, date arcs, and hour lines ride the glyph stream under the same projection as the positioned marks. The V15 area law is the `_emit` fold for the three area kinds: `STACKING` reads the `_nest` parent map and the `area` columns to size each floor band and its cumulative program segments, `PROGRAM` sizes each box by `sqrt(area)` so drawn footprint is proportional to real program area, and `SITE` lowers `ring`/`footprint` vertex columns to true `Area` polygons carrying their shoelace magnitude. `Constrained` solves an alignment/separation/distribution/anchor/mirror `LayoutRule` set on a `kiwisolver` `Solver` keyed on the same stable node index with plan-anchored seeding — the `CIRCULATION` and `SECTION_CALLOUT` kinds select it in `_KIND_POLICY` so building geometry, not graph topology, places their marks — `required` bands the hard rules and `weak`/`medium` the aesthetic ones, reading `var.value()` back into the `LayoutMap`. The whole synchronous build is one `_render` kernel `_compute` offloads onto the runtime thread lane, so every native placement runs off the loop. The content key is the `rustworkx` `node_link_json` wire — node and edge payloads serialized through `_wire_attrs` so two graphs that differ only in a node label or an edge weight key distinctly, since the bare `node_link_json` emits a null `data` field that collapses them — joined to the resolved coordinate and route maps and the resolved algorithm scalar, so two layouts of one graph under distinct engines or policies key distinctly and a diagram is content-addressable on its full laid-out form.
+## [03]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+-->
+
+(none)

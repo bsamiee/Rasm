@@ -1,6 +1,8 @@
 # [RASM_GRASSHOPPER]
 
-`Rasm.Grasshopper` owns the single Grasshopper 2, Eto, Rhino UI, and macOS host boundary above the `Rasm` kernel: `GhSession`, `EtoDispatch`, and `MacGate` bound live host access, and `Lease<T>` carries every retained resource and its inverse lifecycle. It references no sibling package, admitting the kernel only as a boundary contract.
+`Rasm.Grasshopper` is the single Grasshopper 2 host boundary — the GH2, Eto, Rhino UI, and macOS native surface captured as typed, leased capability. Canvas painting, wires, layout, and motion; component declaration, data trees, and ports; document, graph, history, and solution control; Eto controls, windows, and dispatch; and shell chrome, events, and icons each fold through one owner, with `GhSession`, `EtoDispatch`, and `MacGate` bounding live host access and `Lease<T>` carrying every retained resource and its inverse lifecycle. Its bar is native-fidelity product capability: components, canvas interaction, and motion land at the grade of GH2's own built-in surfaces — vsync-paced, undo-sealed, wide-color-aware — composed as typed rails rather than raw host calls.
+
+It references no sibling package, admitting the kernel only as a boundary contract, and enters only at the app roots, never as an interior dependency of a host-neutral package.
 
 ## [01]-[ROUTER]
 
@@ -48,15 +50,15 @@
 Host assemblies projected from the installed Rhino host application; this folder's `.api/` catalogues own the admitted member surfaces.
 
 [MANAGED_HOST]:
-- `Grasshopper2` — the component, canvas, document, and solution host surface
+- `Grasshopper2` — hosts the component, canvas, document, and solution surface
 - `GrasshopperIO` — `IReader`/`IWriter` host-document persistence
 - `RhinoCommon` — Rhino document and geometry carriers plus the getter and dialog handoff
 - `Rhino.UI` — Rhino styling and the native UI bridge
 - `System.Drawing.Common` — compile-time GDI carrier interop at the GH1 icon boundary
 
 [UI_TOOLKIT]:
-- `Eto` — the cross-platform UI toolkit: forms, drawing, binding, dispatch, controls, windows, and input
-- `Eto.macOS` — the AppKit backend and `IMacControlHandler` view roles
+- `Eto` — carries the cross-platform UI toolkit: forms, drawing, binding, dispatch, controls, windows, and input
+- `Eto.macOS` — backs Eto with AppKit and the `IMacControlHandler` view roles
 
 [PLATFORM_NATIVE]:
 - `Microsoft.macOS` — AppKit, CoreAnimation, CoreGraphics, CoreImage, and Foundation bindings behind the gated native owners

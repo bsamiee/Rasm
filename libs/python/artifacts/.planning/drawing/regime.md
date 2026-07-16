@@ -1,21 +1,21 @@
 # [PY_ARTIFACTS_DRAWING_REGIME]
 
-The closed AEC drafting VOCABULARY and BIND substrate — the s1 floor the drawing, composition, specification, and delivery planes key. Every drafting code set stands here at its exact published cardinality as a closed family: the ISO 128-2 `LineType` fifteen, the ISO 128-20 `LineWeight` R10 cascade with its two-width group law, the ISO 128-50 `HatchMaterial` section family, the ISO 5455 `ScaleRatio` enlargement/full/reduction set with its derived paper-over-model factor, the AIA/ISO 13567/NCS `Discipline`/`Status`/`SheetType` code sets, the ISO 3098 `TextHeight` cascade and `LetteringStyle` type-A/B ratio geometry, and the ISO 129-1 `Terminator` line-termination family. The codecs compose the code sets into identifiers: `LayerName` carries the full ISO 13567 field structure (agent, element, presentation, status, sector, phase) beside the bounded AIA major/minor form and the NCS level-2 form, one owner projecting all three schemas; `SheetId` composes the NCS discipline+sheet-type+sequence identifier. The derivations compute what a frozen table cannot keep true: `paper()` derives every ISO 216 A/B trim size by aspect-preserving halving from the series seed, and `ScaleRatio.factor` derives each factor from its ratio arithmetic. The BIND rows resolve vocabulary onto values through the owning substrates — `HATCH_BIND` maps each `HatchMaterial` onto a `graphic/vector/pattern#PATTERN` `HatchFill` (preset geometry, density law, poché and grade stops as resolved values), `PENS` maps each `Discipline` onto its LCh pen coordinates plus ISO 128 linetype/weight (a consumer needing sRGB/CMYK routes the coordinates through `graphic/color/derive#DERIVE` by value), and `lettering()` folds the ISO 3098 ratio row with the `typography/font#FONT` `FaceMetrics` cap-height into the drawn `LetteringMetric` — never a raw font-binary read here.
+The closed AEC drafting vocabulary and BIND substrate — the s1 floor the drawing, composition, specification, and delivery planes key. Each drafting code set stands at its published cardinality as a closed `StrEnum` family: the ISO 128-2 `LineType`, the ISO 128-20 `LineWeight` R10 cascade with its two-width group law, the ISO 128-50 `HatchMaterial` section family, the ISO 5455 `ScaleRatio` enlargement/full/reduction set, the AIA/ISO 13567/NCS `Discipline`/`Status`/`SheetType` codes, the ISO 3098 `TextHeight` cascade and `LetteringStyle` type-A/B ratios, and the ISO 129-1 `Terminator` line-ends. The codecs compose codes into identifiers — `LayerName` projects the ISO 13567, AIA, and NCS grammars from one field superset, `SheetId` composes the NCS number — and the derivations compute what a frozen table cannot keep true: `paper()` halves the ISO 216 seed and `ScaleRatio.factor` divides the ratio string.
 
-NO `ezdxf` crosses this page: the symbol-table lowering (seed, graphics, dimstyle, hatch entity application, ACI pens, paper factor over insertion units) is `drawing/standard#STANDARD`'s, composing these rows downward from s3. `graphic/style#STYLE` SELECTS pen/lettering rows by key per office theme; `graphic/layer#LAYER` reads the ISO 13567 field vocabulary for its AEC layer names; `composition/sheet#SHEET` reads `ScaleRatio`/`SheetId` and the ISO 216 derivation; `specification/classify#CLASSIFY` and `delivery/register#REGISTER` compose `Discipline`; the drawing producers read every family. This page mints no receipt, contributes no plan node, and runs no async — the vocabularies are total, the binds are data, and the derivations are pure arithmetic.
+No `ezdxf` and no lowering crosses this page — `drawing/standard#STANDARD` composes these rows down into the symbol tables (seed, graphics, dimstyle, hatch entity, ACI pens, paper factor) from s3. `graphic/style#STYLE` selects pen/lettering rows per office theme; `graphic/layer#LAYER` reads the ISO 13567 field vocabulary; `composition/sheet#SHEET` reads `ScaleRatio`/`SheetId` and the ISO 216 derivation; `specification/classify#CLASSIFY` and `delivery/register#REGISTER` compose `Discipline`; the drawing producers read every family. The page imports only `graphic/color/derive#DERIVE`, `graphic/vector/pattern#PATTERN`, and the `typography/font#FONT` `FaceMetrics` value, and mints no receipt, plan node, or async — the vocabularies are total, the binds are data, the derivations pure arithmetic.
 
 ## [01]-[INDEX]
 
-- [01]-[REGIME]: the closed drafting vocabulary (`LineType`/`LineWeight`/`HatchMaterial`/`ScaleRatio`/`Discipline`/`Status`/`SheetType`/`TextHeight`/`LetteringStyle`/`Terminator`), the three-schema `LayerName` codec and the `SheetId` codec, the ISO 216 halving and ISO 5455 ratio derivations, and the BIND rows (`HATCH_BIND` material→fill over the pattern plane, `PENS` discipline→LCh pen, `lettering()` over the font-metrics value) — imported downward by style, layer, sheet, classify, register, every drawing producer, and standard's lowering; importing only derive, pattern, and the font-metrics value object; minting nothing.
+- [01]-[REGIME]: the closed drafting vocabulary, the three-schema `LayerName` and `SheetId` codecs, the ISO 216/5455 derivations, and the `HATCH_BIND`/`PENS`/`lettering()` BIND rows every drawing consumer keys.
 
 ## [02]-[REGIME]
 
-- Owner: one vocabulary-and-bind floor, zero lowering. Every `StrEnum` family is closed at its published cardinality and every correspondence is one `Map` row set with a single edit site: `_LINETYPE` the ISO 128-2 dash arrays (positive dash, negative gap, `0.0` dot, mm at 1:1), `_TEXT_HEIGHT` the nominal mm cascade, `_LETTERING` the full `LetteringRow(stroke, width, spacing, baseline, word)` type-A/B ratio geometry, `PENS` the `DisciplineStyle(lch, linetype, lineweight)` pen rows, `HATCH_BIND` the `HatchFill` rows composing pattern presets. A vocabulary member is a code; a bind row is the code's resolved value set; the lowering that mutates a host resource lives with the host owner.
-- Codecs: `LayerName` is ONE owner over three published schemas — `compose(LayerSchema.AIA)` emits the bounded `Discipline-MAJOR[-MINOR]-Status` long format, `compose(LayerSchema.ISO13567)` emits the full mandatory+optional field string (two-char agent, six-char element, two-char presentation, one-char status, plus the sector/phase optional fields when present), `compose(LayerSchema.NCS)` emits the NCS level-2 form — the field superset lives on the one struct and each schema projects its slice, so a projector never re-derives a name grammar. `SheetId.of(discipline, sheet_type, sequence)` composes the NCS `"A-201"` identifier `composition/sheet#SHEET` assembles and `delivery/register#REGISTER` keys.
-- Derivations: `paper(series, rank)` derives any ISO 216 trim size by floor-halving the series seed (`A0` 841×1189, `B0` 1000×1414) with the long-edge swap per rank — the sheet plane's frozen `_SIZES` table has no successor; `ScaleRatio.factor` derives paper-over-model from the printed ratio string; `LineWeight.group` derives the ISO 128-20 two-width pen pair (wide plus its partner two R10 steps down); `TextHeight.mm` reads the nominal cascade.
-- Bind: `HATCH_BIND` rows are the material axis over the pattern plane's fill regime — `STEEL` a solid poché whose color VALUE arrives derive-resolved, `EARTH` a graded fill with resolved stop rows, every patterned material a `PatternSpec` preset selection at its density law — so `drawing/standard#STANDARD` lowers one row onto its `Hatch` entity, `drawing/schedule#SCHEDULE` draws one row as a legend swatch, and `export/layered#LAYERED` fills one row per layer, all from one bind. `PENS` rows carry the discipline pen as LCh coordinates plus ISO 128 linetype and weight; `lettering(style, height, metrics)` folds `_LETTERING` ratios with the optional `FaceMetrics` into one `LetteringMetric` (nominal cap height, pen thickness `stroke·h`, char advance, baseline pitch, char/word spacing, and the cap-corrected outline point size falling to the nominal when no metric binds) — the value the dimension/annotate/symbol/sheet text producers read.
-- Growth: a new line type, weight, material, scale, discipline, status, sheet type, height, lettering type, or terminator is one member plus one row in its owning table; a new layer-name field is one `LayerName` field threaded through the schema projections; a new name schema is one `LayerSchema` member plus one `compose` arm; a new material fill is one `HATCH_BIND` row; a new pen axis is one `DisciplineStyle` field; a new paper series is one `_PAPER_SEED` row; zero new surface for a new consumer — it keys the existing families.
-- Boundary: no `ezdxf` and no host resource authoring (`drawing/standard#STANDARD`); no pattern geometry generation (`graphic/vector/pattern#PATTERN` owns `StrokeFamily`/`PatternSpec`/`to_dxf`/`to_svg`/`to_geometry`); no color conversion (`graphic/color/derive#DERIVE` owns the model algebra — pen rows carry coordinates, never a conversion arm); no font-binary read (`typography/font#FONT` owns `FaceMetrics`; the fold here consumes the value); no theme selection (`graphic/style#STYLE` selects rows per office style); no sheet placement, no receipt, no plan node, no rail — the substrate is total.
+- Owner: one vocabulary-and-bind floor, zero lowering. Every family is closed at its published cardinality; every correspondence is one `Map` row set with a single edit site. A vocabulary member is a code, a bind row is the code's resolved value set, and the lowering that mutates a host resource lives with the host owner — never here.
+- Codecs: `LayerName` is ONE owner over three published schemas — the field superset lives on one struct and each `LayerSchema` arm projects its slice (`AIA` the `Discipline-MAJOR[-MINOR]-Status` long form, `ISO13567` the mandatory-plus-optional field string, `NCS` the level-2 form) — so a projector never re-derives a name grammar. `SheetId.of` composes the NCS `"A-201"` number `composition/sheet#SHEET` assembles and `delivery/register#REGISTER` keys.
+- Derivations: arithmetic, never a parallel frozen table that can drift. `paper()` floor-halves the series seed per rank with the long-edge swap, so the sheet plane keeps no successor size table; `ScaleRatio.factor` divides the printed ratio; `LineWeight.group` derives the two-width pen pair two R10 steps down; `TextHeight.mm` reads the cascade.
+- Bind: `HATCH_BIND` maps each `HatchMaterial` onto a `graphic/vector/pattern#PATTERN` `HatchFill` at its density law with poché/grade resolved, so standard's `Hatch` entity, a schedule legend swatch, and a layered-PSD fill all draw one row. `PENS` carries each discipline pen as LCh coordinates plus ISO 128 linetype/weight — a consumer needing sRGB/CMYK routes the value through `graphic/color/derive#DERIVE`, never a second colour truth here. `lettering()` folds the ISO 3098 ratio row with the optional `typography/font#FONT` `FaceMetrics` cap-height into the `LetteringMetric` the dimension/annotate/symbol/sheet text producers read; with no metric bound the point size falls to the nominal height.
+- Growth: a new line type, weight, material, scale, discipline, status, sheet type, height, lettering type, or terminator is one member plus one owning-table row; a new layer-name field is one `LayerName` field threaded through the schema projections; a new name schema is one `LayerSchema` member plus one `compose` arm; a new material fill is one `HATCH_BIND` row; a new pen axis is one `DisciplineStyle` field; a new paper series is one `_PAPER_SEED` row. A new consumer keys the existing families — zero new surface.
+- Boundary: no `ezdxf` or host-resource authoring (`drawing/standard#STANDARD`); no pattern geometry (`graphic/vector/pattern#PATTERN`); no colour conversion (`graphic/color/derive#DERIVE` — pen rows carry coordinates, never a conversion arm); no font-binary read (`typography/font#FONT` — the fold consumes the `FaceMetrics` value); no theme selection (`graphic/style#STYLE`); no sheet placement, receipt, plan node, or rail — the substrate is total.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -32,11 +32,11 @@ from rasm.artifacts.graphic.vector.pattern import HatchFill, PRESETS, SectionPat
 from rasm.artifacts.typography.font import FaceMetrics
 
 # --- [TYPES] ----------------------------------------------------------------------------
-type Lch = tuple[float, float, float]  # CIE LCh(ab) pen coordinates — derive resolves sRGB/CMYK from the VALUE
+type Lch = tuple[float, float, float]  # CIE LCh(ab) pen coordinates — derive resolves the target model from the value
 type Pattern = tuple[float, ...]  # ISO 128-2 dash array: +dash / -gap / 0.0 dot, mm at 1:1
 
 
-class LineType(StrEnum):  # ISO 128-2:2020 Table 1 — the full fifteen basic line types
+class LineType(StrEnum):  # ISO 128-2:2020 Table 1 basic line types
     CONTINUOUS = "CONTINUOUS"
     DASHED = "ISO_DASHED"
     DASHED_SPACED = "ISO_DASHED_SPACED"
@@ -115,7 +115,7 @@ class ScaleRatio(StrEnum):  # ISO 5455 recommended drawing scales
     R10000 = "1:10000"
 
     @property
-    def ratio(self) -> str:  # the printed "1:100" string the title block and dimension suffix draw
+    def ratio(self) -> str:  # the printed "1:100" string title block and dimension suffix draw
         return self.value
 
     @property
@@ -188,7 +188,7 @@ class LetteringStyle(StrEnum):  # ISO 3098 lettering type — stroke and proport
     TYPE_B = "B"
 
 
-class Terminator(StrEnum):  # ISO 129-1 dimension-line terminations — geometry is drawing/symbol's proportion rows
+class Terminator(StrEnum):  # ISO 129-1 line-end family — proportion geometry is drawing/symbol's
     FILLED_ARROW = "filled_arrow"
     OPEN_ARROW = "open_arrow"
     OBLIQUE_STROKE = "oblique_stroke"
@@ -229,7 +229,7 @@ class LetteringMetric(Struct, frozen=True):
 
 
 class DisciplineStyle(Struct, frozen=True):
-    # the discipline pen: LCh coordinates (derive resolves any target model from the VALUE) + ISO 128 line row.
+    # the discipline pen — LCh coordinates + ISO 128 line row.
     lch: Lch
     linetype: LineType
     lineweight: LineWeight
@@ -237,7 +237,7 @@ class DisciplineStyle(Struct, frozen=True):
 
 
 class LayerName(Struct, frozen=True):
-    # the field superset of the three published grammars; each schema projects its slice via compose().
+    # the field superset; each schema projects its slice via compose().
     discipline: Discipline
     major: str  # AIA 4-char functional group / ISO 13567 element head
     minor: str = ""  # AIA 4-char sub-group / ISO 13567 element tail
@@ -270,7 +270,7 @@ class LayerName(Struct, frozen=True):
 
 
 class SheetId(Struct, frozen=True):
-    # NCS sheet identifier — discipline letter + sheet-type digit + sequence ("A-201").
+    # NCS sheet id — discipline + sheet-type + sequence ("A-201").
     discipline: Discipline
     sheet_type: SheetType
     sequence: int = 1
@@ -334,8 +334,7 @@ _LETTERING: Final[Map[LetteringStyle, LetteringRow]] = Map.of_seq([
     (LetteringStyle.TYPE_A, LetteringRow(stroke=1 / 14, width=12 / 14, spacing=2 / 14, baseline=20 / 14, word=6 / 14)),
     (LetteringStyle.TYPE_B, LetteringRow(stroke=1 / 10, width=7 / 10, spacing=2 / 10, baseline=14 / 10, word=6 / 10)),
 ])
-# Discipline pen rows: LCh VALUE + ISO 128 line row. sRGB/CMYK resolve through derive from the value;
-# the DXF ACI pen is drawing/standard's lowering correspondence, never a second color truth here.
+# discipline pen rows — LCh value + ISO 128 line row; the DXF ACI pen is standard's lowering, not a second truth here.
 PENS: Final[Map[Discipline, DisciplineStyle]] = Map.of_seq([
     (Discipline.ARCHITECTURAL, DisciplineStyle((20.0, 0.0, 0.0), LineType.CONTINUOUS, LineWeight.W025)),
     (Discipline.CIVIL, DisciplineStyle((55.0, 60.0, 135.0), LineType.CONTINUOUS, LineWeight.W035)),
@@ -367,7 +366,7 @@ STATUS_SCREEN: Final[Map[Status, float | None]] = Map.of_seq([
     (Status.RELOCATED, 0.5),
     (Status.NOT_IN_CONTRACT, 0.6),
 ])
-# ISO 128-50 material -> pattern-plane fill: preset geometry at its density law; poché/grade values resolved.
+# ISO 128-50 material -> pattern-plane fill; poché/grade resolved.
 HATCH_BIND: Final[Map[HatchMaterial, HatchFill]] = Map.of_seq([
     (HatchMaterial.STEEL, HatchFill(solid="lch(20% 0 0)")),
     (HatchMaterial.CONCRETE, HatchFill(pattern=PRESETS[SectionPattern.GENERAL])),
@@ -409,4 +408,10 @@ __all__ = [
 ]
 ```
 
-The vocabulary is the drafting contract and the bind rows are its resolved values, so every consumer reads one truth per code: a schedule legend, a DXF hatch, and a layered-PSD fill all trace `HatchMaterial.CONCRETE` to the same `PatternSpec` preset at the same density law; a dimension pen, an SVG stroke, and a theme swatch all trace `Discipline.STRUCTURAL` to the same LCh row (derive converts the value to whatever model the target needs); a general-note, a dimension text, and a title-block label all trace `TextHeight.H3_5` through the same `lettering()` fold whose cap correction is the `typography/font#FONT` `FaceMetrics` value. The codecs make identifier grammar data — one `LayerName` field superset projecting the AIA, ISO 13567, and NCS spellings, one `SheetId` composing the NCS sheet number — and the derivations make paper and scale arithmetic instead of tables, so ISO 216 sizes and ISO 5455 factors cannot drift from their law. `drawing/standard#STANDARD` composes every row downward into the `ezdxf` symbol tables; `graphic/style#STYLE` selects rows per office theme; nothing above s1 is imported and nothing here mints a receipt.
+## [03]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+-->
+
+(none)

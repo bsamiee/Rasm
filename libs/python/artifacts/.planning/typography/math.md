@@ -1,22 +1,23 @@
-# [PY_ARTIFACTS_TYPOGRAPHY_MATH]
+# [PY_ARTIFACTS_MATH]
 
-THE mathematical-typesetting owner of the corpus — every formula, tolerance stack, engineering annotation, and document equation renders through this one page, so no consumer hand-builds math from glyph primitives. `ziamath` owns the layout kernel: `Math` renders presentation MathML, `Latex` (IS-A `Math`) renders a LaTeX expression through `latex2mathml`, and `Text` renders a mixed text-plus-`$math$` paragraph — all against an OpenType MATH-table face (the bundled STIX Two Math or a caller face), emitting a standalone SVG string or drawing in place onto a caller `ET.Element` via `drawon` with the `axis`/`base` vertical anchors an AEC label needs to seat against a dimension line. `ziafont` is the glyph substrate ziamath extends; the plain-text outline lane stays `typography/shape#SHAPE`'s `to_svg_path` — this owner adds only what is mathematical. The uharfbuzz MATH tier backs the layout-quality surface: `Face.has_math_data` gates the tier, `Font.get_math_constant(OTMathConstant)` reads axis height, fraction gaps, and script scale-downs, and `get_math_glyph_variants`/`get_math_glyph_assembly` expose the stretchy-delimiter machinery — the `MathConstants` value consumers read to seat and scale equations, never a re-derived spacing guess.
+`Formula` is the mathematical-typesetting owner of the corpus — every formula, tolerance stack, engineering annotation, and document equation renders through this one page, so no consumer hand-builds math from glyph primitives. `ziamath` owns the layout kernel: `Math` renders presentation MathML, `Latex` renders a LaTeX expression, `Text` renders a mixed text-plus-`$math$` paragraph, all against an OpenType MATH face (the bundled STIX Two Math or a caller face) emitting a standalone SVG string. `ziafont` is the glyph substrate ziamath extends; plain-text outlining stays `typography/shape#SHAPE`, so this owner adds only what is mathematical.
 
-`FormulaSpec` is the closed source union (`mathml`/`latex`/`mixed`) with its style band (size, display/inline, math-variant, resolved color value); `render` is the substrate fold `drawing/dimension#DIMENSION`, `drawing/annotate#ANNOTATE`, and `visualization/diagram/draw#DRAW` compose inline into their own renders; `emit()` is the producer entry for a standalone formula artifact (the `document/model#MODEL` `FormulaNode` terminal), landing the one node contract with its pre-run input key. The GIL-bound XML-parse-and-font-walk kernel crosses the runtime offload seam; SVG rasterization routes to the corpus rasterizers over the emitted string, never here.
+`render` is the substrate fold `drawing/dimension#DIMENSION`, `drawing/annotate#ANNOTATE`, and `visualization/diagram/draw#DRAW` compose inline into their own renders; `emit()` is the producer entry for a standalone formula artifact — the `document/model#MODEL` `FormulaNode` terminal — keyed pre-run over the canonical spec bytes. `MathConstants` projects the uharfbuzz MATH tier once per face (the `has_math_data` gate, the `get_math_constant` axis/gap/scale reads, the stretchy-variant surfaces) as the typed value consumers seat and scale equations with, never a re-derived spacing guess. A GIL-bound XML-parse-and-font-walk kernel crosses the runtime offload seam; SVG rasterization routes to the corpus rasterizers over the emitted string, never here.
 
 ## [01]-[INDEX]
 
-- [01]-[MATH]: the `FormulaSpec` source union and `MathStyle` band, the `Formula` owner whose `render` substrate fold every drawing/diagram consumer composes and whose `emit()`/`_emit` pair lands the standalone `Document` producer node, the `MathConstants` uharfbuzz MATH-tier projection (`has_math_data` gate, `get_math_constant` reads, variant/assembly surfaces), the `seat()` baseline-seating fold over `getyofst`/`axis`, and the closed `MathFault` rail — imported by dimension, annotate, draw, and the document model; importing shape and font downward.
+- [01]-[MATH]: the ziamath layout owner over the closed `FormulaSpec` source union — `mathml`/`latex`/`mixed` folded by one `render` substrate fold and lowered to the standalone `Document` node by `emit()`, with the uharfbuzz `MathConstants` MATH-tier value consumers seat equations against.
 
 ## [02]-[MATH]
 
-- Owner: `Formula` is the one math owner — `(spec, style)` in, laid-out SVG out, one kernel for every consumer. The source union closes the input grammar: `mathml` feeds `Math` directly, `latex` feeds `Latex`, `mixed` feeds `Text` (multi-line, `halign`/`valign`, rotation). One egress family serves all three: the standalone SVG string (the durable artifact and the consumer fragment), `getsize()` the laid-out extent, `getyofst()` the baseline seat — a consumer positions the fragment with `seat()` and never re-measures.
-- Constants: `MathConstants.of(face)` projects the uharfbuzz MATH tier once per face — `Face.has_math_data` gates (a MATH-less face falls to the ziamath bundled default), `Font.get_math_constant(OTMathConstant)` reads `AXIS_HEIGHT`, `FRACTION_RULE_THICKNESS`, `SCRIPT_PERCENT_SCALE_DOWN`, `MIN_CONNECTOR_OVERLAP` and kin, `get_math_glyph_variants`/`get_math_glyph_assembly` expose vertical/horizontal variant selection — the typed value a dimension tolerance stack reads to place stacked limits at the correct axis height at drawing scale.
-- Cases: `MathStyle` carries `size` (pt), `display` (block vs inline layout), `variant` (the unicode math-variant styling — bold/italic/script/fraktur/double-struck/sans/mono), and `color` (a RESOLVED value string — derive resolves upstream, never a literal here); `mixed` adds `linespacing`/`halign`/`valign`/`rotation` through the `Text` constructor's own band.
-- Entry: `emit()` returns the ONE `ArtifactWork` node — `key` minted PRE-RUN over the canonical spec bytes (`ContentIdentity.of` under `CANONICAL_POLICY`), `work=self._emit`, `admission=Admission(keyed=None)`; `_emit` renders once off-loop and mints `ArtifactReceipt.Document(key, len(svg))` threading the SAME key so `receipt.slot == node.key`. Consumers composing `render` inline mint no node — their own producer receipt carries the composed figure.
-- Auto: `render` offloads the ziamath kernel through `LanePolicy.offload(..., modality=Modality.INTERPRETER)` — the `xml.etree` parse, the MATH-table walk, and the layout fold are GIL-bound shared-address work; provider raises map into `MathFault` at the arm (`parse` a MathML/LaTeX grammar failure, `font` a face without usable tables, `render` a layout failure) — recovery keys on the case.
+- Owner: `Formula` is the one math owner — `(spec, style)` in, laid-out SVG out, one kernel for every consumer. `MathConstants.of(face)` projects the uharfbuzz MATH tier once per face (`has_math_data` falls a MATH-less face to the ziamath bundled default), the typed value a dimension tolerance stack reads to place stacked limits at the correct axis height at drawing scale.
+- Cases: `FormulaSpec` closes the input grammar — `mathml` feeds `Math`, `latex` feeds `Latex`, `mixed` feeds `Text` (multi-line, `halign`/`valign`, rotation); `MathStyle` carries `size`, `display`, `variant`, and `color`.
+- Entry: `emit()` returns the one `ArtifactWork` node — key minted pre-run over the canonical spec bytes under `CANONICAL_POLICY`, `work=self._emit`, `admission=Admission(keyed=None)`; `_emit` renders once off-loop and mints `ArtifactReceipt.Document(key, len(svg))` threading the same key. Consumers composing `render` inline mint no node, their own producer receipt carrying the composed figure.
+- Auto: `render` offloads the GIL-bound ziamath kernel off-loop; provider raises map into `MathFault` at the arm — `parse` a grammar failure, `font` a face without usable tables, `render` a layout failure — recovery keying on the case.
+- Output: `Fragment` carries the SVG string plus the seat geometry — `getsize()` the laid-out extent, `getyofst()` the baseline seat — a consumer positions with `seat()` and never re-measures; `MathConstants` carries axis height, fraction-rule thickness, and script scale-downs read off `OTMathConstant`.
+- Packages: `ziamath` (`Math`/`Latex`/`Text`, `svg`/`getsize`/`getyofst`), `ziafont` (the glyph substrate), `uharfbuzz` (`has_math_data`, `get_math_constant`, the variant/assembly surfaces), `core/receipt#RECEIPT` (`ArtifactReceipt.Document`, composed never re-declared).
 - Growth: a new source grammar is one `FormulaSpec` case plus one dispatch arm; a new style knob is one `MathStyle` field; a new MATH constant read is one `MathConstants` field; a new consumer composes `render` — zero new surface.
-- Boundary: no plain-text shaping or outlining (`typography/shape#SHAPE`); no font engineering (`typography/font#FONT` — instancing/subsetting/freezing arrive as engineered faces); no rasterization (resvg/vl-convert over the SVG string at the consuming plane); no equation SEMANTICS (formulas arrive authored; CAS work is the compute track); no bidi (math layout is its own directional law). A consumer importing `ziamath` directly, a per-consumer math renderer, and a hand-measured baseline offset are the deleted forms.
+- Boundary: no plain-text shaping or outlining (`typography/shape#SHAPE`), no font engineering (`typography/font#FONT` — faces arrive engineered), no rasterization (resvg/vl-convert over the SVG at the consuming plane), no equation semantics (formulas arrive authored; CAS is the compute track), no bidi (math layout is its own directional law). A consumer importing `ziamath` directly, a per-consumer math renderer, and a hand-measured baseline offset are rejected against the one kernel and `seat()`.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -36,7 +37,7 @@ lazy import uharfbuzz as hb
 lazy import ziamath
 
 # --- [TYPES] ----------------------------------------------------------------------------
-class MathVariant(StrEnum):  # unicode math-variant styling ziamath applies per token run
+class MathVariant(StrEnum):  # unicode math-variant styling, applied per token run
     NORMAL = "normal"
     BOLD = "bold"
     ITALIC = "italic"
@@ -60,15 +61,15 @@ class MathStyle(Struct, frozen=True):
     size: float = 12.0
     display: bool = True  # block layout; False = inline math axis
     variant: MathVariant = MathVariant.NORMAL
-    color: str | None = None  # RESOLVED color value — derive resolves upstream
-    linespacing: float = 1.2  # mixed-paragraph band
+    color: str | None = None  # resolved color value — derive resolves upstream
+    linespacing: float = 1.2
     halign: Literal["left", "center", "right"] = "left"
     valign: Literal["top", "center", "base", "axis", "bottom"] = "base"
     rotation: float = 0.0
 
 
 class MathConstants(Struct, frozen=True):
-    # the uharfbuzz MATH-tier projection consumers seat equations with — read once per face.
+    # read once per face.
     axis_height: float
     fraction_rule: float
     script_scale: float  # SCRIPT_PERCENT_SCALE_DOWN / 100
@@ -93,7 +94,6 @@ class MathConstants(Struct, frozen=True):
 
 
 class Fragment(Struct, frozen=True):
-    # one laid-out formula: the SVG string plus the seat geometry a consumer positions with.
     svg: str
     width: float
     height: float
@@ -116,8 +116,7 @@ class Formula(Struct, frozen=True):
     font: str | None = None  # engineered MATH face path; None = the ziamath bundled STIX Two Math
 
     async def render(self) -> RuntimeRail[Result[Fragment, MathFault]]:
-        # the substrate fold dimension/annotate/draw compose inline — one offloaded ziamath layout,
-        # provider raises mapped to MathFault at the arm.
+        # offloaded ziamath layout; provider raises mapped to MathFault at the arm.
         return await LanePolicy.offload(self._laid, modality=Modality.INTERPRETER)
 
     def _laid(self) -> Result[Fragment, MathFault]:
@@ -145,7 +144,7 @@ class Formula(Struct, frozen=True):
 
     @property
     def _key(self) -> ContentKey:
-        # key-over-input: the canonical spec+style bytes, computable BEFORE layout runs.
+        # key over the spec+style input, computable before layout runs.
         return ContentIdentity.of("formula", (self.spec, self.style, self.font), policy=CANONICAL_POLICY)
 
     async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
@@ -171,4 +170,10 @@ __all__ = [
 ]
 ```
 
-One kernel replaces seven hand-builds: a dimension tolerance stack renders `FormulaSpec(latex=...)` at its ISO 3098-derived size and seats the fragment with `seat()` against the dimension line's axis; an annotation note interleaves prose and math through the `mixed` case; a diagram label routes its formula here and its plain text through the shape engine; the document model's `FormulaNode` lowers to the standalone `emit()` node whose receipt is content-addressed over the INPUT spec, so a re-issued document re-renders only changed formulas. `MathConstants` makes the OpenType MATH table a typed read — axis height and script scaling are facts of the face, not magic numbers in a consumer — and every face arrives engineered through the font owner, keeping this page a pure layout seam between typography's substrates and the planes that draw.
+## [03]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+-->
+
+(none)

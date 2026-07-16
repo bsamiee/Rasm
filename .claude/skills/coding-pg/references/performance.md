@@ -88,7 +88,7 @@ Vacuum contracts:
 
 ## [05]-[COST_MODEL_TUNING]
 
-The planner's cost model determines whether it chooses index scans or sequential scans. Incorrect cost parameters directly undermine index strategy.
+Planner cost model decides index scan versus sequential scan. Incorrect cost parameters directly undermine index strategy.
 
 ```ini conceptual
 random_page_cost = 1.1                    # SSD (default 4.0 assumes spinning disk)

@@ -6,7 +6,7 @@ The Automation-API driver: inline typed programs over `LocalWorkspace.createOrSe
 
 | [INDEX] | [CLUSTER]           | [OWNS]                                                                  | [PUBLIC]      |
 | :-----: | :------------------ | :---------------------------------------------------------------------- | :------------ |
-|  [01]   | `ENGINE_VOCABULARY` | the ledger tuple, the 15-member `OpType` union, the receipt owner       | `RunReceipt`  |
+|  [01]   | `ENGINE_VOCABULARY` | the ledger tuple, the `OpType` union, the receipt owner                 | `RunReceipt`  |
 |  [02]   | `DEPLOY_FAULT`      | the reason-discriminated fault family, its policy table, the triage     | `DeployFault` |
 |  [03]   | `AUTOMATION_RUN`    | host facts, the stream bridge, internalized resilience, the fleet verbs | `Automation`  |
 
@@ -14,7 +14,7 @@ The Automation-API driver: inline typed programs over `LocalWorkspace.createOrSe
 
 [ENGINE_VOCABULARY]:
 - Owner: `RunReceipt`, one `Schema.Class` — `op` (the ledger-or-reconcile literal), `stack` (the fully qualified name), `summary` (the per-`OpType` count record the terminal `SummaryEvent.resourceChanges` carries), `steps` (one inline row per `resourcePreEvent`: op, urn, type token, provider, changed property paths), and `diagnostics` (severity-tagged provider messages) — step and diagnostic shapes are inline `Schema.Struct` blocks embedded in the one owner, reachable as `RunReceipt["steps"][number]`, never sibling classes.
-- Law: the interior anchors are tuples — `_ops` (the four-member mutating ledger plus the `reconcile` read leg) and `_opTypes` (the engine's 15-member operation union) — spread into `Schema.Literal` so the schema arm holds the non-empty overload; `RunReceipt.ops`/`RunReceipt.opTypes` ride the class, and `operate/policy.md` buckets over the same anchor, so the operation vocabulary has one spelling folder-wide.
+- Law: the interior anchors are tuples — `_ops` (the mutating ledger plus the `reconcile` read leg) and `_opTypes` (the engine's operation union) — spread into `Schema.Literal` so the schema arm holds the non-empty overload; `RunReceipt.ops`/`RunReceipt.opTypes` ride the class, and `operate/policy.md` buckets over the same anchor, so the operation vocabulary has one spelling folder-wide.
 - Law: the summary decodes as `Schema.Record` keyed by the `OpType` literal under `Schema.partialWith({ exact: true })` — the engine's `OpMap` is partial, so only present buckets decode with no `undefined` cell, an unknown operation fails the decode loudly, and `mutated` projects whether any non-`same` bucket is inhabited so callers gate on evidence, never on stdout text.
 - Law: diagnostics keep the engine's own severity union (`info | info#err | warning | error`) verbatim — bridged providers report failures only through this stream, so severity is the one match key and message text is never parsed.
 - Growth: a new receipt dimension is one field decoded from the event arm that carries it; a new engine event arm is one `_folded` row in `[4]`.

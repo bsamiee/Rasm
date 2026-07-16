@@ -1,6 +1,6 @@
 # [OSA_RUNTIME]
 
-The OSA runtime owns script execution, compilation, language selection, descriptor boundaries, script-library composition, applet packaging, and signed distribution across `osascript`, `osacompile`, `osadecompile`, `osalang`, `OSAKit`, `NSAppleScript`, `ScriptingBridge`, and `Automator`. AppleScript and JXA sit as language rows on this one rail; production automation keeps process invocation, output serialization, and packaging policy outside script bodies and treats the descriptor boundary as the real API surface.
+OSA runtime owns script execution, compilation, language selection, descriptor boundaries, script-library composition, applet packaging, and signed distribution across `osascript`, `osacompile`, `osadecompile`, `osalang`, `OSAKit`, `NSAppleScript`, `ScriptingBridge`, and `Automator`. AppleScript and JXA sit as language rows on this one rail; production automation keeps process invocation, output serialization, and packaging policy outside script bodies and treats the descriptor boundary as the real API surface.
 
 | [INDEX] | [SURFACE]         | [CONTRACT]                                                                                                  |
 | :-----: | :---------------- | :---------------------------------------------------------------------------------------------------------- |
@@ -32,7 +32,7 @@ end run
 
 ## [02]-[OUTPUT_AND_ENVELOPE]
 
-Output mode is an API boundary, not a formatting preference. `-s h` prints display strings that collapse distinct list and record shapes into identical text; `-s s` prints recompilable source-like values, so pipelines, tests, and wrappers bind to `-s s`. `-s e` keeps script errors on stderr; `-s o` routes them to stdout so a golden test asserts the OSA error text as the primary value. Shell quoting stays inside the wrapper and never enters the script body — untrusted data crosses through argv and returns as one JSON envelope on stdout. The JXA `run` handler's return value is the sole stdout payload; every diagnostic routes to stderr through `console.log`, so a caller parses one `JSON.stringify` envelope without logging interleaved into the parse target.
+Output mode is an API boundary, not a formatting preference. `-s h` prints display strings that collapse distinct list and record shapes into identical text; `-s s` prints recompilable source-like values, so pipelines, tests, and wrappers bind to `-s s`. `-s e` keeps script errors on stderr; `-s o` routes them to stdout so a golden test asserts the OSA error text as the primary value. Shell quoting stays inside the wrapper and never enters the script body — untrusted data crosses through argv and returns as one JSON envelope on stdout. A JXA `run` handler's return value is the sole stdout payload; every diagnostic routes to stderr through `console.log`, so a caller parses one `JSON.stringify` envelope without logging interleaved into the parse target.
 
 ```bash copy-safe
 osascript -s s -e 'return {{"foo", "bar"}, {"foo", {"bar"}}}'
@@ -62,7 +62,7 @@ osacompile -l JavaScript \
 
 ## [04]-[LANGUAGE_CENSUS]
 
-`osalang -L` returns each installed component's identity and a feature-flag string; on macOS 26 AppleScript reports `cgxervdh` and JavaScript reports `cgxe-v-h`. The shared positions decode as compile, get-source, coerce, event-send, convenience-execution, and event-handling — the baseline capability set every OSA host exercises — and the two positions JXA leaves blank are the recording (`r`) and dialect (`d`) bits that AppleScript alone declares. The generic `scpt` component opens any installed OSA scripting system transparently, but a text source carries no embedded language metadata, so a launcher still passes `-l AppleScript` or `-l JavaScript` explicitly.
+`osalang -L` returns each installed component's identity and a feature-flag string; on macOS 26 AppleScript reports `cgxervdh` and JavaScript reports `cgxe-v-h`. Shared positions decode as compile, get-source, coerce, event-send, convenience-execution, and event-handling — the baseline capability set every OSA host exercises — and the two positions JXA leaves blank are the recording (`r`) and dialect (`d`) bits that AppleScript alone declares. A generic `scpt` component opens any installed OSA scripting system transparently, but a text source carries no embedded language metadata, so a launcher still passes `-l AppleScript` or `-l JavaScript` explicitly.
 
 ```bash copy-safe
 osalang -L
@@ -276,7 +276,7 @@ func osaReceipt(_ error: NSError) -> [String: Any] {
 
 ## [17]-[THREAD_CONFINEMENT]
 
-`OSALanguage.isThreadSafe` reports the component's declared thread-safety bit; the AppleScript component reports version 2.8 and returns `true`, as does JavaScript. The bit grants access to `sharedLanguageInstance()`, not concurrent execution of one script object — compilation state and property mutation stay non-reentrant, so a serial lane still owns one `OSALanguageInstance` per language. `NSAppleScript` sits one layer below that bit entirely: it is main-thread-only regardless of the component's thread-safety, because `executeAndReturnError:` spins the run loop while blocked and a nested script send can re-enter the caller.
+`OSALanguage.isThreadSafe` reports the component's declared thread-safety bit; the AppleScript component reports version 2.8 and returns `true`, as does JavaScript. That bit grants access to `sharedLanguageInstance()`, not concurrent execution of one script object — compilation state and property mutation stay non-reentrant, so a serial lane still owns one `OSALanguageInstance` per language. `NSAppleScript` sits one layer below that bit entirely: it is main-thread-only regardless of the component's thread-safety, because `executeAndReturnError:` spins the run loop while blocked and a nested script send can re-enter the caller.
 
 ```swift copy-safe
 func makeExecutor(for language: OSALanguage) -> (queue: DispatchQueue, instance: OSALanguageInstance) {

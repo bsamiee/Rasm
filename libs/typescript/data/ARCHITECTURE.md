@@ -1,6 +1,6 @@
 # [TS_DATA_ARCHITECTURE]
 
-`data` owns the branch's durable-persistence surface: four sub-domains — `lane`, `journal`, `object`, `read` — meet through the one journal write owner, the one capability rail, the one content identity, and the one tenancy contract. A backend is a semantic-guarantee row on its owning lane, never a sibling shape; sub-domains align with the core, security, runtime, and iac peers by contract, never by reference.
+`data` owns the branch's durable-persistence surface: the `lane`, `journal`, `object`, and `read` sub-domains meet through the one journal write owner, the one capability rail, the one content identity, and the one tenancy contract. A backend is a semantic-guarantee row on its owning lane, never a sibling shape; sub-domains align with the core, security, runtime, and iac peers by contract, never by reference.
 
 ## [01]-[DOMAIN_MAP]
 
@@ -29,7 +29,7 @@ data/
         ├── batch.ts      # Request-batching engine: structural dedup and windowed resolvers
         ├── fold.ts       # Durable projection plane binding one Fold.Plan across staleness budgets
         ├── live.ts       # Reactivity-keyed reads: invalidation keys stamped at publish, read at query
-        └── search.ts     # Five-lane retrieval fused by reciprocal rank inside the database
+        └── search.ts     # Retrieval lanes fused by reciprocal rank inside the database
 ```
 
 ## [02]-[SEAMS]
@@ -110,7 +110,8 @@ flowchart LR
 
 ## [04]-[BOUNDARIES]
 
-- DDL is declarative additive ensure: iac applies at provision, this folder verifies at startup through the capability rail, and runtime never mutates schema. Sole carve-out is the operator rebuild verb — `read/fold`'s session-locked shadow swap — never scheduled, never reachable from a request path.
-- Key custody stays out: this folder makes no authorization decision, enforces the security-declared tenancy contract, and stores only wrapped key material.
+- DDL is declarative additive ensure: iac applies at provision, this folder verifies fail-closed at startup, and runtime never mutates schema.
+- One sole carve-out exists: the operator rebuild verb — the session-locked shadow swap — never scheduled, never reachable from a request path.
+- Key custody stays out: no authorization decision here, the security-declared tenancy contract enforced, only wrapped key material stored.
 - Engine names never leak upward: consumers bind guarantee lanes, and a new engine is a row on its owning lane page.
-- Object-plane conformance refuses any engine that cannot honor `If-None-Match: *` conditional put, and refused rows are recorded so the argument is never re-had.
+- Object-plane conformance refuses any engine that cannot honor `If-None-Match: *` conditional put; refused rows are recorded once.

@@ -2,7 +2,7 @@
 
 Rasm is a RhinoWIP and Grasshopper2 monorepo for product-neutral AEC libraries, host-boundary packages, agent-operated tooling, and downstream Rhino/GH2 products. Apps and plugins are consumers; shared capability lands first in libraries that absorb geometry, host, runtime, UI, compute, persistence, packaging, and evidence concerns behind canonical owners.
 
-Rasm is a polyglot AEC platform organized into strict strata: the C# branch is the Rhino9(WIP)/GH2-aware producer (the geometry kernel, the host-neutral AEC-domain, the app-platform, and the host boundaries); Python is the host-free science/compute/data/geometry/IFC companion; TypeScript is the host-free web/edge platform. The three branches couple only at the wire. The canonical hierarchy — the strata, the dependency direction, the universal-vs-Rhino-capture rule, and the geometry/mesh/IFC flow — is owned by `libs/.planning/architecture.md`.
+Rasm is a polyglot AEC platform organized into strict strata: the C# branch is the Rhino9(WIP)/GH2-aware producer (the geometry kernel, the host-neutral AEC-domain, the app-platform, and the host boundaries); Python is the host-free science/compute/data/geometry/IFC companion; TypeScript is the host-free web/edge platform. All three branches couple only at the wire. `libs/.planning/architecture.md` owns the canonical hierarchy — the strata, the dependency direction, the universal-vs-Rhino-capture rule, and the geometry/mesh/IFC flow.
 
 All `libs/` content powers future apps of every kind — in-host on Rhino 9/WIP and GH2, standalone, remote, and web. Libraries own the core logic and expose it agent-first: host, GH2, and external-package APIs are fully captured and internalized behind higher-order abstractions, so an agent composes parameterized, polymorphic capability instead of learning hundreds of provider calls, and builds feature-rich apps with minimal code, boilerplate, or ceremony. Every folder is designed around its entry points and envisioned downstream usage — no knob or ceremony spam; intelligence is internalized, multi-modal, and automatic so consumers have minimal room to hand-roll or misuse `libs/` capability.
 
@@ -39,13 +39,13 @@ All `libs/` content powers future apps of every kind — in-host on Rhino 9/WIP 
 
 ## [04]-[LIBRARY_OWNERS]
 
-The package roster, each package's charter, the dependency direction, and the universal-vs-host-capture rule are owned by `libs/.planning/architecture.md`; the branch roles and the planning corpus are introduced in `libs/.planning/README.md`.
+`libs/.planning/architecture.md` owns the package roster, each package's charter, the dependency direction, and the universal-vs-host-capture rule; `libs/.planning/README.md` introduces the branch roles and the planning corpus.
 
 ## [05]-[HOST_RUNTIME]
 
 RhinoWIP and GH2 assemblies resolve through shared build properties, not per-project references. Host assemblies stay outside package output: `RhinoCommon`, `Rhino.UI`, `Rhino.Runtime.Code`, `Grasshopper2`, `GrasshopperIO`, `Eto`, `Microsoft.macOS`, and RhinoWIP-hosted drawing assemblies.
 
-Live host evidence flows through the bridge plugin. Scenarios are source-only diagnostics under the relevant test or library mirror path; they do not carry `#r`, `#load`, or absolute build-output references. The bridge rail owns host-filtered reference projection, fresh artifact refs, scenario name injection, capture path injection, stdout, stderr, exception, Rhino, document, tolerance, and bridge identity evidence.
+Live host evidence flows through the bridge plugin. Scenarios are source-only diagnostics under the relevant test or library mirror path; they do not carry `#r`, `#load`, or absolute build-output references. Its rail owns host-filtered reference projection, fresh artifact refs, scenario name injection, capture path injection, stdout, stderr, exception, Rhino, document, tolerance, and bridge identity evidence.
 
 Plugin projects classify themselves in their project files; build behavior does not depend on product names. Package membership is evaluated from MSBuild properties and package metadata.
 
@@ -58,13 +58,13 @@ Every root, tool, and library routes generated output through an owned store: `.
 - Rasm agents invoke Assay as `uv run python -m tools.assay provision <verb>`; the registry and per-claim `--help` own the verb census. Assay accepts Forge schema-v3 JSON only and projects sanitized `ProvisionRun` evidence. Direct `forge-provision`, `psql`, `paths`, `prune`, `self-test`, Docker/Compose, cleanup, and diagnostic JSON remain Forge-level debugging surfaces.
 - `tools/rhino-bridge` owns live RhinoWIP execution. Contract owns protocol and fault shapes; Supervisor owns host lifecycle and folds; Stub stays dependency-zero; Shell owns in-host RPC/admission; Cargo owns scenarios and capture evidence. Libraries and prompts do not recreate launch, endpoint, quit, cargo, or spool choreography.
 - `tools/cs-analyzer` captures repeated C# shape laws after source diffs prove the rule reduces surface while preserving behavior. Analyzer diagnostics are architecture pressure, not suppression targets.
-- `tools/biome` carries the promoted GritQL rule roster — the TypeScript doctrine's mechanical shape laws. The root `biome.json` registers every rule at error, and the `tests/typescript/_architecture` gauge proves the roster, its firing spans, and its severity against disk.
+- `tools/biome` carries the promoted GritQL rule roster — the TypeScript doctrine's mechanical shape laws. One root `biome.json` registers every rule at error, and the `tests/typescript/_architecture` gauge proves the roster, its firing spans, and its severity against disk.
 - `tools/yak` stores package metadata only. Package staging, deployment, publish, artifact roots, and host refresh are Assay/package responsibilities.
 - GitHub repository settings — merge hygiene, rulesets, review automation — are settings-as-code `@pulumi/github` rows in Parametric_Forge `services/topology.ts`; the services driver preview is the verification surface, never the GitHub UI. Agent secrets arrive through the canonical `.claude/hooks/setup-env.sh` Doppler rail; custody law is the `secrets` skill.
 
 ## [07]-[PLANNING_AND_EVIDENCE]
 
-New foundational libraries use planning campaigns before production source when scope is broad or future-consumer-facing. The planning law lives in `libs/.planning/` — `architecture.md` (the topology), `campaign-method.md` (the loop, the bar, the agent-role law), `README.md` (the authoring standard), `planning-targets.md` (every planning surface). A campaign makes infra truth honest, captures manifests and lockfiles, extracts API catalogs through repo evidence rails, runs research and adversarial passes before authoring, enumerates isolated and in-concert capability across modalities, then collapses surviving capability into owner ledgers, row/case/policy axes, and decision-complete pages.
+New foundational libraries use planning campaigns before production source when scope is broad or future-consumer-facing. Planning law lives in `libs/.planning/` — `architecture.md` (the topology), `campaign-method.md` (the loop, the bar, the agent-role law), `README.md` (the authoring standard), `planning-targets.md` (every planning surface). A campaign makes infra truth honest, captures manifests and lockfiles, extracts API catalogs through repo evidence rails, runs research and adversarial passes before authoring, enumerates isolated and in-concert capability across modalities, then collapses surviving capability into owner ledgers, row/case/policy axes, and decision-complete pages.
 
 ## [08]-[DEVELOPMENT_MODEL]
 

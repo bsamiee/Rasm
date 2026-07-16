@@ -11,7 +11,7 @@ A diagram is the answer to one written question; its node set, edge set, type, a
 
 ## [02]-[INVESTIGATION]
 
-The pre-drawing procedure runs in order before the first shape.
+Pre-drawing procedure runs in order before the first shape.
 
 1. Inventory candidate entities, relations, and attributes on separate lists, keeping attributes off the node roster.
 2. Classify every relation into one semantic family — ownership, dependency, dataflow, invocation, sequence, containment, state-transition.
@@ -47,7 +47,7 @@ A committed diagram is grown in rounds, never drawn at final size in one pass; n
 4. Layering round: meaning that earns presence but not a node lands on the secondary vocabulary — edge labels, notes, annotation-classed side nodes on the Comment rail, subgraph membership, dashed traces — so density rises without new primary marks.
 5. Split check: growth stops the moment a round's question is a second question — that round becomes a new diagram sharing the same name vocabulary, not a larger canvas.
 
-The node-annotation-omission ladder rules every candidate mark:
+Node-annotation-omission ladder rules every candidate mark:
 
 - NODE — it owns, receives, transforms, stores, decides, or transitions under the payload relation and carries at least one committed edge.
 - EDGE LABEL — it qualifies one relation with its verb, kind, or guard; it has no independent existence off that edge.
@@ -61,7 +61,7 @@ A massive subject stays one diagram only while every mark still serves the singl
 - Every primary node holds the same abstraction level; a product beside a function makes edge semantics unknowable.
 - A concept reaches node status only when it owns, receives, transforms, stores, decides, or transitions under the payload relation.
 - Technologies, protocols, versions, and statuses demote to labels unless the question asks how those items relate to each other.
-- The smallest node set answers the question; when a graph becomes a search task instead of a read, hierarchy, filtering, or a split lands first.
+- Smallest node set answers the question; when a graph becomes a search task instead of a read, hierarchy, filtering, or a split lands first.
 - Names are canonical domain nouns found in source, glossary, or architecture record — never `manager`, `processor`, `handler`, `service`.
 - Omission test: a node whose removal leaves the answer intact is deleted.
 
@@ -91,7 +91,7 @@ Every visual channel is spent deliberately; a channel spent twice on one meaning
 
 ## [07]-[TYPE_SELECTION]
 
-The question shape selects the declaration; the full grammar, floor, and trap roster per row is the syntax reference's property.
+Question shape selects the declaration; the full grammar, floor, and trap roster per row is the syntax reference's property.
 
 | [INDEX] | [QUESTION]                            | [TYPE]               |
 | :-----: | :------------------------------------ | :------------------- |
@@ -126,7 +126,7 @@ The question shape selects the declaration; the full grammar, floor, and trap ro
 |  [29]   | plausible causes of one effect        | `ishikawa-beta`      |
 |  [30]   | wire-format bit contract              | `packet`             |
 
-The quantitative rows — pie, xychart, sankey, radar — hold only for a one-off structural illustration inside a doc that must stay a mermaid fence; a reused, interactive, or precision-critical chart routes to the dataviz lane.
+Quantitative rows — pie, xychart, sankey, radar — hold only for a one-off structural illustration inside a doc that must stay a mermaid fence; a reused, interactive, or precision-critical chart routes to the dataviz lane.
 
 [CONTRAST]: classic mismatches, each repaired by payload alignment:
 - lifecycle drawn as flowchart -> `stateDiagram-v2`

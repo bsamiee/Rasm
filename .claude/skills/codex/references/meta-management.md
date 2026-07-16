@@ -14,12 +14,12 @@ Doctrine and procedure land as a skill; a delegated worker persona (model, effor
 
 ## [02]-[SKILLS]
 
-A Codex skill is a directory holding a `SKILL.md` whose frontmatter carries `name` and `description`, with `scripts/`, `references/`, and `assets/` alongside optionally. The format follows the agent-skills open standard, so a Claude-side bundle ports with only frontmatter and routing deltas.
+A Codex skill is a directory holding a `SKILL.md` whose frontmatter carries `name` and `description`, with `scripts/`, `references/`, and `assets/` alongside optionally. Skill format follows the agent-skills open standard, so a Claude-side bundle ports with only frontmatter and routing deltas.
 
 - [NAME]: 64 characters maximum; the qualified plugin-namespaced form caps at 128.
 - [DESCRIPTION]: 1024 characters maximum — the hard truncation point, not a style budget.
 - [SCAN]: Discovery walks 6 directory levels deep, 2000 skill directories per root; repo skills ride `.agents/skills` in cwd, parents, and repo root; `/etc/codex/skills` is machine-shared; bundled system skills cache at `$CODEX_HOME/skills/.system` and are never edited.
-- [TRIGGERS]: Invocation is explicit (`$skill-name`, or `/skills` in the CLI/IDE) or implicit by description match. The skills list rides at most 2% of the model's context window; descriptions shorten first and whole skills drop under pressure — the owned deliverable and primary trigger nouns ride the first clause. The selected skill's full `SKILL.md` always loads regardless of listing truncation.
+- [TRIGGERS]: Invocation is explicit (`$skill-name`, or `/skills` in the CLI/IDE) or implicit by description match. Skills listing rides at most 2% of the model's context window; descriptions shorten first and whole skills drop under pressure — the owned deliverable and primary trigger nouns ride the first clause. Every selected skill loads its full `SKILL.md` regardless of listing truncation.
 - [COLLISIONS]: Two skills sharing a `name` do not merge and do not shadow — both list, unlike Claude Code where personal beats project. Symlinked folders resolve to targets. Codex detects skill edits automatically; a missing update means restart.
 - [CLAUDE_DELTAS]: `disable-model-invocation`, `user-invocable`, `context: fork`, `allowed-tools`, and dynamic context injection are Claude Code extensions Codex ignores; invocation policy moves to `policy.allow_implicit_invocation` in `agents/openai.yaml`. Upstream-tracking frontmatter and `use_cases.yaml` fixtures drop on port; an estate skill carries `name` and `description` only.
 - [ESTATE]: Estate codex skills are ports of the estate Claude skills — same body, Claude-only frontmatter stripped, `agents/openai.yaml` added where app-surface metadata or invocation policy earns it. `~/.codex/skills` is the estate mirror root and takes every port; `~/.agents/skills` is the upstream user root and also loads, so a port never lands in both.
@@ -39,7 +39,7 @@ dependencies:
           url: 'https://example.com/mcp'
 ```
 
-`[[skills.config]]` rows in `~/.codex/config.toml` disable a skill without deleting it (`path = ".../SKILL.md"`, `enabled = false`); restart applies. The skills-budget warning rides an `item.type=="error"` JSONL event on every run under a large library — disabling unused skills is the relief valve.
+`[[skills.config]]` rows in `~/.codex/config.toml` disable a skill without deleting it (`path = ".../SKILL.md"`, `enabled = false`); restart applies. Every run under a large library carries a skills-budget warning on an `item.type=="error"` JSONL event — disabling unused skills is the relief valve.
 
 ## [03]-[AGENTS]
 
@@ -55,14 +55,14 @@ Review code like an owner; lead with concrete findings and reproduction steps.
 """
 ```
 
-- The parent prompt spawns a persona by name; spawn-trigger and effort law are the skill root's [05].
+- A parent prompt spawns a persona by name; spawn-trigger and effort law are the skill root's [05].
 - Globals split across two config tables: `[features.multi_agent_v2]` owns concurrency (`max_concurrent_threads_per_session`) and the wait timeouts (`min_wait_timeout_ms`, `default_wait_timeout_ms`); `[agents]` owns `max_depth` (generations below the root — each level multiplies fan-out cost, so the config value is a deliberate operator ruling) and `job_max_runtime_seconds`, the per-worker CSV timeout default.
-- The best agents are narrow and opinionated: one job, a tool surface matching it, instructions that refuse adjacent work. Subagents inherit the parent sandbox unless their file overrides it.
+- Best agents are narrow and opinionated: one job, a tool surface matching it, instructions that refuse adjacent work. Subagents inherit the parent sandbox unless their file overrides it.
 - Edits to an agent file apply on the next spawn — running threads keep the definition they started with. A persona no other prompt spawns is deleted, not kept.
 
 ## [04]-[MCP_LIFECYCLE]
 
-The fleet manifest is the single source for MCP membership: one manifest row projects the launcher wrapper, both client registrations, and the health probe, and `forge-mcp drift` proves the user-owned registrations (`~/.claude.json`, `~/.codex/config.toml`) mirror the rows. Which servers a LANE spawns and which tools it may CALL headless is the skill root's MCP-selection law — this section owns membership and health only.
+One fleet manifest owns MCP membership: one manifest row projects the launcher wrapper, both client registrations, and the health probe, and `forge-mcp drift` proves the user-owned registrations (`~/.claude.json`, `~/.codex/config.toml`) mirror the rows. Which servers a LANE spawns and which tools it may CALL headless is the skill root's MCP-selection law — this section owns membership and health only.
 
 - [ADD]: a new server is a new manifest row (plus `codex.toolsApprovalMode = "approve"` only for a pure information-retrieval server), then redeploy, then hand-merge the registration rows drift reports missing — registrations stay user-owned, the manifest is the contract.
 - [REMOVE]: delete the manifest row, redeploy, delete the registration rows drift now flags as EXTRA.

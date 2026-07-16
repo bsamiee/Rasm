@@ -84,10 +84,10 @@ flowchart LR
 
 Two named boundary compositions cross between consumers. `compute` composes the `data` DOE-frame admission arm (`FrameAdmission`/`FrameInterop`) as a study input — labelled arrays are `xarray` carriers `compute`'s array owner admits from any producer, owing no data seam. `compute` accepts `geometry` evidence through the graduation `HandoffAxis` case, crossing only on that rail. Each composes a published shape at the boundary; every other cross-folder fact rides a folder task.
 
-The cross-language surface couples Python to C# only at the wire. The seam registry records the package-level aggregate; file-level detail lives on the owning folder's design page and the cross-`libs/` ledger.
+Python couples to C# only at the wire. Seam registries record the package-level aggregate; file-level detail lives on the owning folder's design page and the cross-`libs/` ledger.
 
 ## [04]-[ADMISSION_POLICY]
 
-The root manifest owns interpreter admission, dependency groups, version bounds, and `python_version` markers. The branch targets a normal-GIL CPython core; worker-lane exceptions stay in the root manifest until resolver evidence permits removal. Installation rationale stays in the manifest; package-local docs name capability, entrypoints, boundaries, and exclusions.
+One root manifest owns interpreter admission, dependency groups, version bounds, and `python_version` markers. This branch targets a normal-GIL CPython core; worker-lane exceptions stay in the root manifest until resolver evidence permits removal. Installation rationale stays in the manifest; package-local docs name capability, entrypoints, boundaries, and exclusions.
 
 `protobuf` and `grpcio` are core runtime dependencies. `grpcio-tools` is codegen-only. Native rendering and OCCT/STEP concerns stay on their owning geometry/artifacts tasks and root-manifest admissions. `specklepy` is not a branch dependency.

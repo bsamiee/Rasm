@@ -1,23 +1,14 @@
 # [TS_SECURITY]
 
-`libs/typescript/security` owns the branch identity-and-custody authority — authentication ceremonies, authorization decisions, and the crypto authority — as Effect Layers over stateless primitives. State lives behind ports the data wave satisfies at app composition; this folder holds keys and verdicts, never rows.
+`security` is the branch's identity-and-custody authority — one body: the crypto authority and key plane, authentication as data-carried ceremony, and the authorization and tenancy fold. Its bar is unspellable bypass, not policed convention: every crypto operation originates from one canonical owner with a single key-admission path, every secret is `Redacted` from first decode and unwraps only into the primitive call, and protocol order is enforced by data — single-use ceremony snapshots type-witness leg order, so replay, cross-ceremony completion, and out-of-order finish cannot be written. Every credential-verify surface is throttled and telemetered structurally with zero call-site change; a rejected OTP or a rotated-out token is a verdict arm, never a fault; a new provider, dialect, credential surface, or role is a table row, never a branch.
+
+This folder is stateless over ports by construction — every durable obligation is a port Tag satisfied downstream at app composition, identity and claim stores by the data wave and flag evaluation by the runtime wave — so a zero-durable-state browser app composes it whole. It holds keys and verdicts, never rows; content-identity digesting stays core's; tenancy is declared here and enforced as row-level security in the data wave.
 
 ## [01]-[ROUTER]
 
-[CRYPT]:
-- [01]-[SIGN](.planning/crypt/sign.md): Crypto authority minting every digest, signature, token, and envelope.
-- [02]-[VERIFY](.planning/crypt/verify.md): Inbound-signature dialect table folding one constant-time verify over held request octets.
-- [03]-[SECRET](.planning/crypt/secret.md): Leased-secret custody scoping `DopplerSDK` to the surfaces the folder admits.
-
-[AUTHN]:
-- [04]-[SESSION](.planning/authn/session.md): Identity spine owning `Session` rotation, ports, and CSRF egress the ceremonies feed.
-- [05]-[CREDENTIAL](.planning/authn/credential.md): One mint-and-resolve idiom over OTP, recovery codes, and machine API keys.
-- [06]-[OAUTH](.planning/authn/oauth.md): Issuer-row authorization-code ceremony over `arctic` — url, exchange, refresh, revoke per row.
-- [07]-[WEBAUTHN](.planning/authn/webauthn.md): Passkey ceremony split by runtime subpath so the browser bundle drops the RP verifier.
-
-[ACCESS]:
-- [08]-[CLAIM](.planning/access/claim.md): Entitlement fold evaluating the RBAC-union-ReBAC decision once per request.
-- [09]-[TENANT](.planning/access/tenant.md): Tenancy contract projecting the `app.current_tenant` RLS shape the data wave enforces.
+- [01]-[CRYPT](.planning/crypt/): One crypto authority — signing, minting, shredding, held-octet verify, and secret custody; one key-admission path.
+- [02]-[AUTHN](.planning/authn/): Authentication as data-carried ceremony over the session spine; every second factor and provider a row.
+- [03]-[ACCESS](.planning/access/): Entitlement fold resolved once per request into a tagged verdict, and the tenancy contract enforced as RLS.
 
 ## [02]-[DOMAIN_PACKAGES]
 

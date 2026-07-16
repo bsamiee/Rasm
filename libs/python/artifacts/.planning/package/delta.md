@@ -1,22 +1,22 @@
 # [PY_ARTIFACTS_DELTA]
 
-The binary diff/patch PRODUCER — incremental artifact deltas keyed by a parent content key, composing the `package/bundle#BUNDLE` vocabulary downward and importing no sibling. Where `package/codec#CODEC` compresses one payload against nothing and `package/archive#ARCHIVE` folds many payloads into one container, `Delta` diffs ONE to-image payload against a parent from-image and stores only the compressed patch, so an artifact revising a near-identical predecessor ships the delta, not the whole blob. The entry is `emit() -> ArtifactWork` per the one producer contract, and the parent-keyed row is structural: the node's `parents` name the base bundle key (`DeltaKnobs.parent_key`), so the plan graph carries the base→patch dependency and a re-issued identical revision elides pre-run (`Admission(keyed=None)`, `receipt.slot == node.key`). `DeltaKnobs` owns the FULL `detools.create_patch` surface as named axes — the `(algorithm, patch_type)` create-kernel matrix, `suffix_array` construction, the `match_score`/`match_block_size`/`heatshrink_*` tuning scalars, the `InPlaceSegments` flash band, and the `FirmwareLayout` ELF data-format band (all bundle-page vocabulary) — and reconstruction keys on the patch HEADER kind through `_delta_apply` (`apply_patch` for the self-describing `sequential`/`hdiffpatch` header, `apply_patch_in_place` for the memory image, `apply_patch_bsdiff` for the raw `BSDIFF40`), with the same kernel re-applying the just-minted patch at pack time so `verified` witnesses a real round-trip plus header self-consistency, never a stored patch trusted blind. `detools` owns the superset diff engine — a hand-rolled bsdiff or suffix-array diff is the deleted form; the create/apply bodies release the GIL, so the offload rides `Modality.THREAD` under `retry=RetryClass.OCCT`.
+`Delta` is the binary diff/patch producer — incremental artifact deltas keyed by a parent content key. Where `package/codec#CODEC` compresses one payload against nothing and `package/archive#ARCHIVE` folds many into one container, `Delta` diffs ONE to-image payload against a parent from-image and stores only the compressed patch, so an artifact revising a near-identical predecessor ships the delta, not the whole blob. It composes the `package/bundle#BUNDLE` vocabulary downward and imports no sibling.
+
+`emit() -> ArtifactWork` carries the producer contract, and the parent-keyed row is structural: the node's `parents` name the base bundle key (`DeltaKnobs.parent_key`), so the plan graph holds the base→patch dependency and a re-issued identical revision elides pre-run (`Admission(keyed=None)`, `receipt.slot == node.key`). `DeltaKnobs` maps the full `detools.create_patch` surface to named axes (all bundle-page vocabulary), reconstruction keying on the patch header kind through `_delta_apply` — the same kernel re-applying the just-minted patch at pack time so `verified` witnesses a real round-trip, never a stored patch trusted blind. `detools` owns the superset diff engine — a hand-rolled bsdiff or suffix-array diff is the deleted form — and its create/apply bodies release the GIL, so the offload rides `Modality.THREAD` under `RetryClass.OCCT`.
 
 ## [01]-[INDEX]
 
-- [02]-[DELTA]: the `Delta` producer over the `CompressionAlgo.DELTA` row — `of` the parent-binding construction, `emit()`/`_emit` the node contract with the parent-keyed `parents` row, `unpack` the reconstruction inverse, `Delta.pack`/`Delta.recover` the `PackWorker` port kernels, the `_delta_apply` patch-header-keyed reconstruction kernel shared by round-trip verify and recovery, the `_header`/`_TO_SIZE_AT` `detools.patch_info` header peek folding header-read `to_size`/compression/firmware-`dfpatch` proof into the two-part `verified` verdict; `detools` `create_patch`(`patch_type`/`algorithm`/`compression`/`suffix_array_algorithm`/`match_score`/`match_block_size`/`heatshrink_*`/data-format bands)/`apply_patch`/`apply_patch_in_place`/`apply_patch_bsdiff`/`patch_info` and the `xxhash.xxh3_128_digest` recovered-image digest settled against the both-tier `.api`, contributing the one `core/receipt#RECEIPT` `ArtifactReceipt.Bundle` case and a `core/plan#PLAN` `ArtifactWork` node.
+- [02]-[DELTA]: the `Delta` producer over the `CompressionAlgo.DELTA` row — the parent-binding `of`, the `emit`/`unpack` node contract, the `PackWorker` port kernels, and the `_delta_apply` header-keyed reconstruction shared by round-trip verify and recovery.
 
 ## [02]-[DELTA]
 
-- Owner: `Delta` the one diff/patch producer wrapping the `package/bundle#BUNDLE` `Bundle` carrier with a `delta`-case profile; `DeltaKnobs`/`InPlaceSegments`/`FirmwareLayout` and the five `Literal` axes are bundle-page vocabulary — this page owns only the create/apply arms, so a delta bundle is one profile row on the one union, never a parallel delta owner. `Delta.pack`/`Delta.recover` are the page's `PackWorker` port kernels, total over the one row.
-- Entry: `Delta.of(from_image, parent_key, payload, ...)` binds the parent at construction — the profile carries `from_image` (the only side-input either leg needs) and the built node reads `parents=(parent_key,)` off the carrier, so a content-addressed delta keyed by its parent is the storage AND the graph shape (the runtime `[CONTENT_KEY]` DELTA seam). `emit()` returns ONE `ArtifactWork(key=self.bundle.key, work=self._emit, parents=(parent_key,), admission=Admission(keyed=None), cost=byte-volume)`; `_emit` offloads `Delta.pack` and maps the rail onto `evidence.receipt(self.bundle.key)`; `unpack(blob)` reconstructs the to-image row through `Delta.recover` and `BundleManifest.of`, the recovered member named `f"from-{parent_key.hex}"` so it traces its parent.
-- Cases: the `(algorithm, patch_type)` pair selects the create kernel through the `detools` matrix — `bsdiff`×`sequential` (default), `bsdiff`×`in-place` (flash-segmented, reading the `in_place` band), `bsdiff`×`bsdiff` (raw `BSDIFF40`), `hdiffpatch`×`hdiffpatch` (tuned by `match_score`), `match-blocks`×`sequential`/`hdiffpatch` (low-memory, tuned by `match_block_size`) — an out-of-matrix pair is the `detools` "Bad algorithm and patch type combination" raise the offload boundary rails. `detools` reads only the axes the selected combination exercises, so every axis carries its default and a tuning value is one named field. `use_mmap` is pinned `False` at the call, a boundary fact not a knob: the `BytesIO` ingress has no `fileno()` and the `hdiffpatch`/`match-blocks` kernels mmap with no heap fallback.
-- Apply: `_delta_apply` is the ONE header-keyed reconstruction kernel both legs share — `apply_patch` peeks the self-describing header and routes sequential vs hdiffpatch internally (reading any firmware dfpatch back, so recovery re-supplies no offsets); `apply_patch_in_place` mutates the `memory_size`-padded parent image and returns the `to_size` prefix; `apply_patch_bsdiff` handles the headerless raw patch — never one `apply_patch` standing in for three header kinds. The firmware band rides only the `bsdiff`×`sequential` path (`create_patch_sequential_data` encodes the dfpatch); a `FirmwareLayout` on an `in-place` patch is the rejected combination (`detools` raises `NotImplementedError`), surfaced loudly by the pack-time round-trip rather than a corrupt stored patch.
-- Compression: the `DeltaCompression` axis selects the patch-payload codec `detools` frames (`bz2`/`crle`/`lzma`/`zstd`/`lz4`/`heatshrink`/`none`) — the backends are the admitted siblings `lz4`/`zstandard`/`heatshrink2` plus stdlib, never a re-implemented codec; `apply_patch` resolves the codec from the header, so `_delta_apply` re-supplies neither compression nor algorithm; the default `zstd` rides the same `zstandard` core the codec `ZSTD` arm owns.
-- Receipt: `frame_size` carries the reconstructed to-image size READ OFF THE PATCH HEADER through `detools.patch_info` (the `to_size` the create kernel wrote — slot per kind via `_TO_SIZE_AT`; the headerless raw `bsdiff` patch has no header, so `_header` returns `None` and the round-trip length is the fallback), never re-inferred from the input; `level`/`dict_id` stay zero (the patch compression is header-encoded, not an integer level); `verified` is the TWO-PART proof — byte-identical round-trip AND a header that agrees with itself (header `to_size` equals the recovered length, header compression equals the requested axis, a firmware pack's `dfpatch_size > 0`) — the delta-side counterpart of the archive `test()` re-read, because the parent-relative patch is the one codec whose output cannot be trusted without applying it. A delta that fails either part stores `verified = 0`, read off the receipt rather than discovered on a future reconstruction; the header-read facts richer than the flat eight-scalar case fold INTO the verdict, never a case widening.
-- Growth: a new patch type is one bundle-page `DeltaPatchType` token plus one `_delta_apply` arm; a new diff algorithm/codec/architecture/suffix-array constructor is one token on its bundle-page axis; a new tuning knob is one named `DeltaKnobs` field; the in-place and firmware bands are the anticipatory collapse already absorbed — zero new verb beside the `emit`/`unpack` pair.
-- Packages: `detools` (lazy — `create_patch`/`apply_patch*`/`patch_info`; runtime deps `bitstruct`/`heatshrink2`/`lz4`/`pyelftools`/`zstandard` ride it), `xxhash` (the recovered-image digest on the runtime identity family), `expression` (`Map.of_seq` the header-slot row), `msgspec` (`Struct`), runtime `identity`/`faults`/`lanes`/`resilience`, `artifacts.core.plan`/`core.receipt`/`package.bundle`.
-- Boundary: no sibling import, no vocabulary re-own, no folder-minted limiter/retry caller, no CLI argparse plumbing (`data_format_args` is never a library resolver), no corpus modality (a corpus diff is N parent-bound nodes, never one), no receipt-case widening.
+- Owner: `Delta` the one diff/patch producer wrapping the `Bundle` carrier with a `delta`-case profile; `DeltaKnobs`/`InPlaceSegments`/`FirmwareLayout` and the delta `Literal` axes are bundle-page vocabulary, so a delta bundle is one profile row on the one union, never a parallel owner. `Delta.pack`/`Delta.recover` are the `PackWorker` port kernels, total over the one row.
+- Cases: the `(algorithm, patch_type)` pair selects the `detools` create kernel, each combination reading only the axes it exercises and an out-of-matrix pair raising at the offload boundary; `_delta_apply` is the ONE header-keyed reconstruction kernel both legs share — never one `apply_patch` for the self-describing, in-place, and headerless-`BSDIFF40` kinds — reading any firmware dfpatch back so recovery re-supplies no offsets. A `DeltaCompression` token frames the patch payload through admitted `lz4`/`zstandard`/`heatshrink2` plus stdlib, resolved from the header so `_delta_apply` re-supplies neither codec nor algorithm; the firmware band rides only `bsdiff`×`sequential`, a `FirmwareLayout` on an `in-place` patch being the rejected combination surfaced loudly by the pack-time round-trip.
+- Entry: `Delta.of` binds the parent at construction — the profile carries `from_image` (the only side-input either leg needs) and the node reads `parents=(parent_key,)`, so a content-addressed delta keyed by its parent is the storage AND the graph shape; `unpack` names the recovered member `f"from-{parent_key.hex}"` so it traces its parent.
+- Output: `frame_size` reads the to-image size off the patch header via `detools.patch_info` (slot per kind through `_TO_SIZE_AT`, the headerless `bsdiff` patch falling back to the round-trip length), never re-inferred, and `level`/`dict_id` stay zero since compression is header-encoded; `verified` is the TWO-PART proof — byte-identical round-trip AND a self-consistent header — because a parent-relative patch is the one codec whose output cannot be trusted without applying it, a failing delta storing `verified = 0` and the header facts folding INTO the verdict, never a case widening.
+- Packages: `detools` (lazy — `create_patch`/`apply_patch*`/`patch_info`; runtime deps `bitstruct`/`heatshrink2`/`lz4`/`pyelftools`/`zstandard` ride it), `xxhash` (the recovered-image digest), `expression` (`Map.of_seq` the header-slot row), `msgspec` (`Struct`), runtime `identity`/`faults`/`lanes`/`resilience`, `artifacts.core.plan`/`core.receipt`/`package.bundle`.
+- Growth: a new patch type is one bundle-page `DeltaPatchType` token plus one `_delta_apply` arm; a new diff algorithm/codec/architecture/suffix-array constructor is one token on its bundle-page axis; a new tuning knob is one named `DeltaKnobs` field — the in-place and firmware bands are the anticipatory collapse already absorbed, zero new verb beside `emit`/`unpack`.
+- Boundary: no sibling import, no vocabulary re-own, no folder-minted limiter or retry caller, no CLI argparse plumbing (`data_format_args` is never a library resolver), no corpus modality (a corpus diff is N parent-bound nodes, never one), no receipt-case widening.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -55,13 +55,12 @@ lazy import detools
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# the detools create/apply bodies release the GIL: THREAD modality, the runtime THREAD_BAND owning the limiter.
+# detools create/apply bodies release the GIL: THREAD modality.
 _PACK_LANE: Final[LanePolicy] = LanePolicy(capacity=os.process_cpu_count() or 1)
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# the `detools.patch_info` per-kind info-tuple slot carrying the reconstructed to-image size — the self-describing
-# header field the receipt reads instead of inferring; the raw headerless `bsdiff` patch is absent by design.
+# the `patch_info` per-kind slot carrying the reconstructed to-image size; the raw headerless `bsdiff` patch is absent by design.
 _TO_SIZE_AT: Final[Map[str, int]] = Map.of_seq([("sequential", 6), ("in-place", 7), ("hdiffpatch", 3)])
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -87,8 +86,7 @@ class Delta(Struct, frozen=True):
         in_place: InPlaceSegments | None = None,
         firmware: FirmwareLayout | None = None,
     ) -> "Delta":
-        # the parent binds at construction: the profile carries the from-image side-input and the node graph
-        # carries the base bundle key as the one parent edge — the parent-keyed delta row.
+        # parent binds at construction: from-image side-input + parent_key as the one parent edge.
         knobs = DeltaKnobs(
             from_image=from_image,
             parent_key=parent_key,
@@ -159,7 +157,6 @@ class Delta(Struct, frozen=True):
         match profile:
             case CodecProfile(tag="delta", delta=DeltaKnobs() as k):
                 payload = _delta_apply(k, blob)
-                # the uniform 16-byte xxh3_128 triple; the member name traces the parent through ContentKey.hex
                 return ((f"from-{k.parent_key.hex}", len(payload), xxhash.xxh3_128_digest(payload)),)
             case _:
                 raise ValueError(f"<non-delta-profile:{profile.tag}>")
@@ -169,7 +166,7 @@ class Delta(Struct, frozen=True):
 
 
 def _delta_apply(k: DeltaKnobs, patch: bytes) -> bytes:
-    match k.patch_type:  # the patch HEADER kind selects the reconstruction surface, never one apply_patch for all
+    match k.patch_type:
         case "in-place":
             memory = k.in_place.memory_size if k.in_place is not None else len(k.from_image)
             mem = BytesIO(k.from_image.ljust(memory, b"\x00"))
@@ -189,12 +186,19 @@ def _delta_apply(k: DeltaKnobs, patch: bytes) -> bytes:
 
 
 def _header(k: DeltaKnobs, blob: bytes) -> tuple[int, bool] | None:
-    # peek the self-describing header: `patch_info` reads (patch_size, compression, ..., to_size) off the bytes the
-    # create kernel wrote; the raw bsdiff patch has no header ("Bad patch type"), so the round-trip is its sole
-    # evidence; firmware proof is `dfpatch_size > 0` on the sequential header.
+    # `patch_info` reads (patch_size, compression, ..., to_size) off the bytes; the raw bsdiff patch has no header,
+    # so the round-trip is its sole evidence; firmware proof is `dfpatch_size > 0` on the sequential header.
     if k.patch_type == "bsdiff":
         return None
     kind, info = detools.patch_info(BytesIO(blob))
     firmware_proven = k.firmware is None or (kind == "sequential" and info[3] > 0)
     return info[_TO_SIZE_AT[kind]], info[1] == k.compression and firmware_proven
 ```
+
+## [03]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+-->
+
+(none)

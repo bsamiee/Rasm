@@ -1,6 +1,8 @@
 # [MATERIALS]
 
-`Rasm.Materials` owns architectural substance, appearance, and buildable component type, projecting material property catalogues, the component-family axis, section profiles, and capacity receipts onto the `Rasm.Element` seam through the one `ComponentProjector`. It composes the kernel, `Rasm.Element`, and the admitted color, unit, and section packages without reminting vector, color, unit, or seam types.
+`Rasm.Materials` owns architectural substance, appearance, and buildable component type — what a building is made of, how it performs, and how it renders. One polymorphic `Component` carries every standardized family, masonry through fastener, as policy rows over one section-profile algebra and one capacity rail, so a new family, section shape, or unit is a data row, never a sibling class, and every standards value traces to its published source or the vendor factory that mints it. Its appearance plane is physically based end to end — BSDF lobes, OpenPBR lowering, spectral and perceptual color science, Kubelka-Munk finishes — held at render grade rather than viewport-preview grade. Component rows feed generated assemblies and fabrication physics, capacity receipts feed structural assessment, and appearance feeds path-traced product viewports and MaterialX interchange.
+
+It projects material property catalogues, the component-family axis, section profiles, and capacity receipts onto the `Rasm.Element` seam through the one `ComponentProjector`, composing the kernel, `Rasm.Element`, and the admitted color, unit, and section packages without reminting vector, color, unit, or seam types. It references no AEC peer — alignment travels through seam contracts and the content-keyed wire.
 
 ## [01]-[ROUTER]
 
@@ -11,7 +13,7 @@
 - [04]-[CMU](.planning/Component/cmu.md): Concrete-masonry-unit family.
 - [05]-[TIMBER](.planning/Component/timber.md): Timber family over sawn, glulam, and CLT lamellae.
 - [06]-[GLAZING](.planning/Component/glazing.md): Glazing family over insulated-glass pane, spacer, and cavity records.
-- [07]-[REINFORCEMENT](.planning/Component/reinforcement.md): Reinforcement family over the concrete-section rebar arrangement.
+- [07]-[REINFORCEMENT](.planning/Component/reinforcement.md): Reinforcement family over the rebar arrangement and prestressing-strand line.
 - [08]-[FASTENER](.planning/Component/fastener.md): Fastener family over the threaded bolt, nut, and washer assembly.
 - [09]-[CONNECTOR](.planning/Component/connector.md): Connector component family.
 - [10]-[JOINT](.planning/Component/joint.md): Joint family over the weld, adhesive, and stud connection record.

@@ -165,7 +165,7 @@ Namespace mirrors folder path — `.editorconfig` `dotnet_style_namespace_match_
 Boundary compiles as ONE assembly — the single `Rasm.Grasshopper.csproj` — so members cross the sub-domain namespaces with no build edge. `Eto.Forms`, `Eto.Drawing`, `Rasm.Domain`, and the `Grasshopper2.*` roots arrive as project-level global usings, so fences name host members bare.
 
 Host-name resolution is one law:
-- Inside `Rasm.Grasshopper.*` the first identifier of a partial qualification re-resolves against the boundary's own namespaces — `Eto.Forms.X` binds `Rasm.Grasshopper.Eto`, and a sub-domain simple name binds its sibling sub-namespace — so fences name host members bare through the global usings.
+- Inside `Rasm.Grasshopper.*` a partial qualification re-resolves against the boundary's own namespaces, so fences name host members bare.
 - A host type no global using reaches spells `global::` in full.
-- A simple-name collision between two host namespaces resolves through one project-level `<Using Include="..." Alias="..." />` row in `Rasm.Grasshopper.csproj` — never a per-fence `using` alias, never a partial qualification.
+- A simple-name collision between host namespaces resolves through one project-level alias row in the csproj, never a per-fence alias.
 - Fully-qualified `Grasshopper2.*` spellings stay valid because no boundary namespace shadows that root.

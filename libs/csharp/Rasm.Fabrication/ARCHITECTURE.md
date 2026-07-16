@@ -1,6 +1,6 @@
 # [FABRICATION_ARCHITECTURE]
 
-`Rasm.Fabrication` maps host-neutral production fabrication over `{Rasm, Rasm.Element}`: each sub-domain folder owns exactly one namespace, and one polymorphic owner closes the whole concern over the `FabricationPolicy`/`FabricationResult` pair. Every flagship terminates in a content-keyed machine-consumable artifact: egress collapses onto the entry vocabulary through the `EgressKind` discriminant, whose one content-key fold seeds the kernel `ContentHash.Of`. The package depends up on the element seam through the `FabricationProjector : IElementProjection` registration and references no AEC peer — alignment travels through seam contracts and the content-keyed wire.
+`Rasm.Fabrication` maps host-neutral production fabrication over `{Rasm, Rasm.Element}`: each sub-domain folder owns exactly one namespace, and one polymorphic owner closes the whole concern over the `FabricationPolicy`/`FabricationResult` pair. Every flagship terminates in a content-keyed machine-consumable artifact: egress collapses onto the entry vocabulary through the `EgressKind` discriminant, whose one content-key fold seeds the kernel `ContentHash.Of`. This package depends up on the element seam through the `FabricationProjector : IElementProjection` registration and references no AEC peer — alignment travels through seam contracts and the content-keyed wire.
 
 ## [01]-[DOMAIN_MAP]
 
@@ -82,7 +82,7 @@ Rasm.Fabrication/
     └── Procedure.cs         # WPS/PQR essential-variable rows and the heat-input compliance gate
 ```
 
-The sub-domain dependency graph is acyclic. `Process` is the one ratified exception, read as two ledger nodes — an upstream atoms vocabulary every plane reads and a terminal dispatch nothing composes — without splitting the physical page. Cycles break by construction rather than back-edges: a discriminant shared across planes mints on the atoms vocabulary, and residual or verdict state carries forward as policy-case input, never a return edge. The per-flagship wired pipeline — the guards, conditioning, and stage rails each `Run` case composes — lives on the owning implementation pages.
+Sub-domain dependencies form an acyclic graph. `Process` is the one ratified exception, read as two ledger nodes — an upstream atoms vocabulary every plane reads and a terminal dispatch nothing composes — without splitting the physical page. Cycles break by construction rather than back-edges: a discriminant shared across planes mints on the atoms vocabulary, and residual or verdict state carries forward as policy-case input, never a return edge. Per-flagship wired pipelines — the guards, conditioning, and stage rails each `Run` case composes — lives on the owning implementation pages.
 
 ## [02]-[SEAMS]
 
@@ -229,8 +229,9 @@ flowchart LR
 
 ## [04]-[CROSS_PACKAGE]
 
-The seam graph carries which package exchanges which shape; the load-bearing cross-package invariants are:
-- Every machine-consumable egress mints its content key through the kernel `ContentHash.Of` seed-zero entry; the local `EgressKind` discriminant federates to the Persistence `ArtifactKind` rows at the content-key boundary, with no strata-crossing type reference and no second mint.
-- `Fabrication` realizes the one `FabricationProjector : IElementProjection` registration app composition wires, and every quantity a fabrication result lowers back to the element seam rides that projector.
-- A seam consuming a peer's not-yet-landed capability binds it as an injected delegate column that closes only once the counterpart lands its side, so the contract is designed in full ahead of either realization.
-- Machine telemetry enters through the AppHost decode lane, never a direct transport reference — magazine tool-life, wear condition, and probing measured-feature reads all consume the one decoded model slice.
+Seam edges carry which package exchanges which shape; the load-bearing cross-package invariants are:
+- Every machine-consumable egress mints its content key through the kernel `ContentHash.Of` seed-zero entry, with no second mint.
+- `EgressKind`, the local discriminant, federates to the Persistence `ArtifactKind` rows at the content-key boundary, never a type reference.
+- `Fabrication` realizes the one `FabricationProjector` registration; every quantity lowered back to the seam rides that projector.
+- A not-yet-landed peer capability binds as an injected delegate column that closes when the counterpart lands, so the contract is designed whole.
+- Machine telemetry enters through the AppHost decode lane, never a direct transport reference; every telemetry read consumes the one decoded slice.

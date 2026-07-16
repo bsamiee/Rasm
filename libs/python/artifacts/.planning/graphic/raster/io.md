@@ -1,22 +1,22 @@
 # [PY_ARTIFACTS_GRAPHIC_RASTER_IO]
 
-The raster IO/convert/working-surface owner. `Raster` is ONE owner over the host-free pixel pipeline discriminating operation over the closed-payload `RasterOp` family and modality over `RasterOp | tuple[RasterOp, ...]`: pillow (in-process working surface — decode, EXIF `exif_transpose`, `FitMode`-uniform resize/`ImageOps.contain`/`fit`, alpha flatten, native AVIF/WebP codec save, grid montage) and pyvips (the libvips-backed fused decode/downscale/ICC/smartcrop streaming pipeline) selected per arm by the `RasterEngine` policy bundle, the `exchange/detect#DETECT` `Detect` owner delegated at the raster ingress gate (its `MediaClass`/`Container`/`Trust` `DetectIdentity` projected onto the preview band), and scikit-image (the twelve-family scientific transform engine, nine produced-raster plus three measured-score) as the `Transform` arm whose acceptor bodies and `TRANSFORMS` rows are owned by the sibling `graphic/raster/process#PROCESS` and `graphic/raster/measure#MEASURE` pages. One raster surface, not a per-media-type class family, not a per-operation function family, not a per-engine sibling owner, and not an erased `params` bag. Every operation folds into one typed `RasterFact`, the outcome is the closed `RasterFault` vocabulary folded onto the member rail, and the farm lowers to one `ArtifactWork` per member — a corrupt input faults its own node without aborting the farm.
+The raster IO/convert/working-surface owner — the host-free pixel pipeline over the closed-payload `RasterOp` family. `Raster` is ONE surface discriminating operation over `RasterOp` and modality over `RasterOp | tuple[RasterOp, ...]`, holding the pillow in-process working surface (decode, EXIF transpose, `FitMode`-uniform resize, alpha flatten, native AVIF/WebP save, montage, geometry), the pyvips libvips-backed fused decode/downscale/ICC/smartcrop/pyramid pipeline, the delegated `exchange/detect#DETECT` MIME gate, and the scikit-image `Transform` arm whose acceptor bodies `graphic/raster/process#PROCESS` and `graphic/raster/measure#MEASURE` own. Every operation folds into one typed `RasterFact`, faults fold onto the closed `RasterFault` vocabulary, and the farm lowers to one `ArtifactWork` per member so a corrupt input faults its own node without aborting the farm — not a per-media-type class family, not a per-operation function family, not a per-engine sibling owner, not an erased `params` bag.
 
-pillow, scikit-image, and pyvips are host-native worker packages — pillow and scikit-image ride the worker band, pyvips binds a Forge-provisioned `libvips`, none on the runtime loader path — so EVERY worker arm crosses ONE runtime-owned `LanePolicy.offload(_worker_raster, op, modality=Modality.PROCESS, retry=RetryClass.OCCT)` subprocess seam onto the worker — the shared `execution/lanes#LANE` process band the `exchange/detect`/`exchange/metadata`/`graphic/raster/measure`/`process`/`graphic/color/managed` worker crossings share — never a per-owner `CapacityLimiter(slots)` knob that oversubscribes the host against libvips's own internal thread pool, and never the unbounded per-loop default. The `Detect` MIME gate is the ONE arm that does NOT cross that seam: `puremagic` is pure-Python on the runtime loader path with a bundled `magic_data.json` and no native dependency, so `_compute` DELEGATES it to the `exchange/detect#DETECT` owner IN-PROCESS (the `PUREMAGIC` engine's own `to_thread` band) with no `to_process` crossing, no worker retry, and no payload pickle. Each worker crossing rides `LanePolicy.offload(..., modality=Modality.PROCESS, retry=RetryClass.OCCT)` so a transient OOM/signal worker death recovers under the runtime-owned retry schedule before the member rail faults. A subinterpreter `to_interpreter.run_sync` offload shares the host interpreter version and cannot host the native stack, so the separate-process crossing is genuine, not interchangeable with the runtime `execution/lanes#LANE` lane. The worker captures each provider raise (`PIL.UnidentifiedImageError`/`Image.DecompressionBombError`, `pyvips.Error`, the scikit-image transform raises) into a `RasterFault` case at boundary scope, and the delegated `exchange/detect#DETECT` sniff's `BoundaryFault` lifts into `RasterFault.detect`; a `@beartype` contract violation lifts to `RasterFault.contract`, an unbuilt AVIF/WebP encoder the capability gate rejects to `RasterFault.codec`, an exhausted worker death to `RasterFault.worker`, and an absent worker package or unprovisioned native binding (`ImportError` from `PIL`/`skimage`, the `cffi` dlopen `OSError` from an unprovisioned `libvips`) to `RasterFault.provision` — the host-readiness fault distinct from a content fault — so no foreign exception escapes the seam unconverted.
-
-`RasterFact` is canonical on `graphic/raster/process#PROCESS` — the plane's vocabulary owner — and this page, `graphic/marks/encode#MARK`, and `graphic/raster/measure#MEASURE` all import that one declaration; the transform acceptors fold the same imported `RasterFact`. Its `score: frozendict[str, float | str]` is the exact value type the `core/receipt#RECEIPT` `ArtifactReceipt.Preview.scores` band carries, so the metrics float band, the detect/probe string facts, and the marks facts all project losslessly through one `_previewed` pass with no `str()` coerce.
+pillow, scikit-image, and pyvips are host-native worker packages off the runtime loader path, so every worker arm crosses one runtime-owned `LanePolicy.offload(_worker_raster, op, modality=Modality.PROCESS, retry=RetryClass.OCCT)` seam onto the shared `execution/lanes#LANE` process band — the band `exchange/detect`/`exchange/metadata`/`graphic/raster/measure`/`process`/`graphic/color/managed` share — never a folder-minted `CapacityLimiter` that oversubscribes the host against libvips's own thread pool, never the unbounded default. `Detect` is the one arm off that seam: `puremagic` is pure-Python with a bundled `magic_data.json`, so `_emit` delegates it to `exchange/detect#DETECT` in-process (the `PUREMAGIC` engine's `to_thread` band) with no process crossing, no retry, no payload pickle. `RasterFact` is canonical on `graphic/raster/process#PROCESS`; this page, `graphic/marks/encode#MARK`, and `graphic/raster/measure#MEASURE` import the one declaration, and its `score: frozendict[str, float | str]` is the exact type `core/receipt#RECEIPT` `ArtifactReceipt.Preview.scores` carries, so the metrics floats, the detect/probe strings, and the marks facts project through one `_previewed` pass with no coerce.
 
 ## [01]-[INDEX]
 
-- [01]-[IO]: the host-free raster owner over the closed-payload `RasterOp` family (`thumbnail`/`convert`/`crop`/`probe`/`montage`/`composite`/`transform`/`detect`/`smartcrop`/`pyramid`/`geometry`/`deframe`/`sequence`/`quantize`/`children`) and `RasterOp | tuple[RasterOp, ...]` modality — the pillow in-process working surface (thumbnail/convert/crop/probe/montage/geometry), the pyvips libvips fused decode/ICC/smartcrop/dzsave-pyramid/arrayjoin streaming pipeline, and the delegated `exchange/detect#DETECT` in-process `Detect` MIME gate selected by the `RasterEngine`/`FitMode`/`BlendMode`/`CropFocus`/`PyramidLayout`/`GeometryOp`/`ConvertFormat` policy vocabularies; the scikit-image `Transform` sub-axis dispatched through the composed `TRANSFORMS | MEASURE_TRANSFORMS` union the sibling `graphic/raster/process#PROCESS` + `graphic/raster/measure#MEASURE` own; every worker arm crossing the runtime lane via `LanePolicy.offload(..., modality=Modality.PROCESS, retry=RetryClass.OCCT)` while the pure-Python `Detect` runs in-process off it, folding into one typed `RasterFact` projected to `core/receipt#RECEIPT` `ArtifactReceipt.Preview(key, width, height, scores)`, and the closed `RasterFault` cause vocabulary (the `codec` capability-detection case included) on a per-op `Result` rail so one corrupt input faults its own slot.
+- [01]-[IO]: the host-free raster owner — pillow working surface, fused libvips pipeline, delegated `exchange/detect#DETECT` MIME gate, and the scikit-image `Transform` arm the process/measure siblings own — every worker arm crossing the runtime process lane, `Detect` in-process off it, folding into one `RasterFact` projected to `ArtifactReceipt.Preview`.
 
 ## [02]-[IO]
 
-- Cases: `RasterOp` cases — `Thumbnail(payload, size, fmt, engine, fit)` (the `FitMode`-uniform resize: pillow `ImageOps.contain`/`fit`/`resize` keyed by `CONTAIN`/`COVER`/`STRETCH`, or the pyvips `new_from_buffer(..., access=Access.SEQUENTIAL).thumbnail_image(width, height=, size=Size, crop=Interesting)` fused shrink-on-load keyed by the same `FitMode`) · `Convert(payload, codec, quality, effort, engine)` (pillow `Image.save` keyed by the typed `ConvertFormat`, native AVIF through the built-in `AvifImagePlugin`, alpha `Image.convert("RGB")` flatten when the codec carries no alpha, or the pyvips `autorot().icc_transform(...).flatten().write_to_buffer(...)` streamed managed encode) · `Crop(payload, box, fmt, engine)` (region extract — pillow `Image.crop` over the display-oriented raster, or the pyvips `extract_area(*box)` one-pass extract) · `Probe(payload, engine)` (header-only metadata read with NO transcode — pillow lazy `Image.open` reading `format`/`mode`/`n_frames`/`info["icc_profile"]`, or the pyvips header reading `interpretation`/`bands`/`get_typeof("icc-profile-data")`/`get("n-pages")`, returning the source payload with the dimensions and a rich score map) · `Montage(tiles, columns, cell, fmt, engine)` (the pillow `Image.new`/`thumbnail`/`paste` grid composite, or the fused libvips `arrayjoin([cell, ...], across=columns)` grid for engine parity on large-tile sheets) · `Composite(base, overlay, position, mode, fmt)` (the libvips two-layer overlay/watermark over `composite2(layer, BlendMode, x=, y=)`, the full `BlendMode` Porter-Duff/separable vocabulary on the one engine that owns it) · `Transform(payload, kind, reference, mask, opts)` (the scikit-image arm carrying the typed `Transform` sub-axis whose rows and acceptor bodies are owned by `graphic/raster/process#PROCESS` + `graphic/raster/measure#MEASURE`) · `Detect(payload)` (the raster ingress gate DELEGATING to the `exchange/detect#DETECT` `Detect` owner in-process — `Detect(engine=DetectEngine.PUREMAGIC).of(Source.Buffer(payload))` — projecting the returned `DetectIdentity` `media_class`/`container`/`confidence`/`trust` facts, the puremagic sniff fold owned once upstream) · `SmartCrop(payload, size, focus, fmt)` (the content-aware libvips `smartcrop(width, height, interesting=CropFocus)` auto-focus window) · `Pyramid(payload, layout, tile, fmt)` (the libvips `dzsave_buffer(layout=PyramidLayout, tile_size=, container="zip")` DeepZoom/Zoomify/IIIF tiled export to one zip blob) · `Geometry(payload, op, params, fmt)` (the pillow-only `GeometryOp` working-surface family — `Transpose` flip/quarter-turn/diagonal, arbitrary `rotate`, `transform` affine/perspective, integer `reduce`) · `Deframe(payload, index, fmt, engine)` (multi-frame page/frame extract — pillow `Image.open(...).seek(index)` over the `ImageSequence` cursor, or the libvips `new_from_buffer(..., page=index)` one-page stream of a huge multi-page TIFF/PDF scan, an index past the count railing `RasterFault.bounds`) · `Sequence(frames, delays, loop, fmt)` (the pillow multi-frame COMPOSE — `save(save_all=True, append_images=...)` assembling one multi-page TIFF or animated APNG/WebP/AVIF, `delays`/`loop` honored only on the `_ANIMATED` formats) · `Quantize(payload, colors, method, dither, fmt)` (the pillow `Image.quantize` indexed-color export over the `QuantizeMethod`/`DitherMode` vocab — median-cut/max-coverage/octree/libimagequant + Floyd-Steinberg, subsuming `convert(palette=ADAPTIVE)`) · `Children(payload, index, fmt)` (the pillow `get_child_images` embedded-thumbnail / multi-resolution sub-image extract) — matched by one total `match`/`case` with `assert_never`; the engine choice is the `RasterEngine` field and the sizing the `FitMode` field on the decode-heavy payloads, never a sibling op per engine, per fit mode, or per scikit-image call.
-- Modality: `Raster.emit` is the one modal-arity entrypoint discriminating on `self.ops` being one `RasterOp` or a `tuple[RasterOp, ...]` — `_normalized` folds either into one `Block[RasterOp]` at the head through a structural `match`, so arity is a property of the value, never a `batch`/`mode` knob; a thumbnail farm is the same call as a single thumbnail. Each member lowers to its OWN `ArtifactWork` whose `_emit` rail carries that member's `RasterFault` as its boundary fault, so one corrupt input faults its own node while sibling nodes complete under the plan's front drain (the survivor/casualty partition raster consumers need), never a fail-fast batch that discards every sibling on the first bad payload.
-- Auto: `_emit` routes the pure-Python `Detect` in-process (the delegated `exchange/detect#DETECT` gate needs no worker) and crosses every other op through the worker; the worker `_worker_raster(op) -> Result[RasterFact, RasterFault]` is `@beartype`-woven and re-dispatches the case by one total `match` at boundary scope under one outer `try` whose `except ImportError`/`except OSError` arms convert an absent worker package or `cffi` dlopen of an unprovisioned native binding to `RasterFault.provision` — the host-readiness fault every worker arm shares — importing `PIL`/`pyvips`/`skimage` only inside the arm that needs them so no worker import lands on the core page: the detect arm DELEGATES to the `exchange/detect#DETECT` `Detect` owner in-process (`Detect(engine=DetectEngine.PUREMAGIC).of(Source.Buffer(payload))`), projecting the returned `DetectIdentity` through `_detected` and lifting its `BoundaryFault` onto `RasterFault.detect` (the worker `match` keeps a defensive detect arm as the totality witness, never reached because `_emit` routes detect in-process); `Probe`/`Thumbnail`/`Convert`/`Crop` fold through `_ENGINE[engine]` so the `PILLOW` member runs the in-process pillow path and the `LIBVIPS` member runs the fused `new_from_buffer(access=Access.SEQUENTIAL)` pipeline, the pillow arms sharing one `_pillow_guarded` capture (`UnidentifiedImageError` -> `decode`, `DecompressionBombError` -> `bomb`, `OSError`/`ValueError`/`KeyError` -> `encode`) and the libvips arms one `_vips_guarded` capture (`concurrency_set(1)` two-pool guard + `pyvips.Error` -> `engine`), the `Convert` arms first gating the codec through `features.check`/`get_suffixes` onto `RasterFault.codec`; `Montage` folds the pillow paste grid or the libvips `arrayjoin` grid by `engine`; `Composite` folds the libvips `composite2` two-layer overlay; `SmartCrop`/`Pyramid` fold the libvips `smartcrop`/`dzsave_buffer` under `_vips_guarded`; `Geometry` folds the pillow `transpose`/`rotate`/`transform`/`reduce` family under `_pillow_guarded`; `Deframe` folds the pillow `seek` frame extract or the libvips `page=` page stream by `engine`, and `Sequence` folds the pillow `save_all`/`append_images` multi-frame compose (gating an animated `WEBP`/`AVIF` encoder through `_CODEC_FEATURE` onto `RasterFault.codec`); `Quantize` and `Children` fold the pillow `Image.quantize` palette export and `get_child_images` sub-image extract under `_pillow_guarded`, a frame/child index past the count railing `RasterFault.bounds`; `Transform` folds through `_transformed`, which gates the reference/mask precondition (`RasterFault.reference` when a reference- or mask-requiring `kind` arrives empty) before seeding a `TransformInput` from `skio.imread` and reading the composed `TRANSFORMS | MEASURE_TRANSFORMS` union so all one hundred thirty-nine members resolve. The content capture is co-located with the provider call and the provisioning capture wraps the whole worker dispatch — the two correct boundaries; the dispatch splits only on the op case, the per-engine `EngineOps`/`match` read, and the `FitMode`/`GeometryOp` sizing branch, never a re-discriminating `match` beyond them.
-- Receipt: each operation folds into `RasterFact` and projects to `core/receipt#RECEIPT` `ArtifactReceipt.Preview(key, width, height, scores)` at the rail boundary, threading `fact.score` straight onto `Preview.scores`; the `Detect` arm reports the default zero dimensions and stamps the resolved `mime`/`media_class`/`container` plus the native-`float` `confidence` and match-`candidates` count and the `extension` on the score map, `Probe` reports the header dimensions and a rich `format`/`mode`/`frames`/`bands`/`interpretation`/`icc` score map without transcoding the payload, and the `Transform` arm threads the measure-family `structural_similarity`/`peak_signal_noise_ratio`/`mean_squared_error`/`normalized_root_mse`/`normalized_mutual_information`/`hausdorff_distance` perceptual-quality scores plus the `_measure`/`_register` region/blob/corner/shift facts on the immutable `RasterFact.score` `frozendict` the rail consumer reads inline. The receipt-side widening is settled — `Preview.scores: frozendict[str, float | str]` already exists and its `_facts` arm flattens the band into `{"width", "height", **scores}` — so this owner's contribution is the one projection that threads `fact.score` through, never a `_previewed` that drops the band; the measure-family score facts originate on `graphic/raster/measure#MEASURE` and ride the shared `RasterFact.score` map to this projection.
-- Growth: a new raster operation is one `RasterOp` case plus one `_worker_raster` arm (the in-process `Detect` its own `_emit` arm); a new decode-heavy engine-polymorphic operation is one `EngineOps` field plus one pillow and one libvips arm; a new sizing mode is one `FitMode` case plus one pillow and one libvips branch; a new compositing blend mode is one `BlendMode` member the libvips `composite2` already resolves by nickname; a new content-crop focus is one `CropFocus` member the libvips `smartcrop` resolves by nickname; a new pyramid form is one `PyramidLayout` member the libvips `dzsave_buffer` resolves; a new geometric op is one `GeometryOp` member plus one pillow `match` arm (the `Transpose`/`transform`/`reduce` surface already mined); a new scikit-image transform is one `Transform` member plus one `TRANSFORMS`/`MEASURE_TRANSFORMS` row on the owning process/measure page; a new codec format is one `ConvertFormat` row plus one `_VIPS_SUFFIX`/`_CODEC_KWARGS`/`_VIPS_KWARGS` builder entry, and a build-dependent one is one `_CODEC_FEATURE` gate row; a new raster engine is one `RasterEngine` member plus one `_ENGINE` `EngineOps` bundle (or one `match` arm on the engine-polymorphic `Montage`); a new fault cause is one `RasterFault` case breaking every capture at type-check until handled (the `bounds` frame/child-range case is exactly that growth); the `Detect` gate covers a new media-type branch by the `exchange/detect#DETECT` `MediaClass`/`Container` rows with no new surface here; a new palette-quantize control is one `QuantizeMethod`/`DitherMode` member, and a new multi-frame direction is one `Deframe`/`Sequence` arm (the multi-frame `Deframe`/`Sequence`, the `Quantize` indexed export, and the `Children` embedded-thumbnail extract landed as `RasterOp` cases); the typed pyvips `Foreign*` encoder enums (`ForeignWebpPreset`/`ForeignTiffCompression`/`ForeignHeifEncoder`) over the raw `_VIPS_KWARGS` option strings and the `Source`/`Target`/`SourceCustom` streaming intake for large-payload egress remain documented growth axes each landing as one typed value or ingest arm; zero new surface.
+- Owner: `Raster` over the closed `RasterOp` family with the `RasterEngine`/`FitMode`/`BlendMode`/`CropFocus`/`PyramidLayout`/`GeometryOp`/`ConvertFormat`/`QuantizeMethod`/`DitherMode` policy vocabularies; the engine choice is the `RasterEngine` field and the sizing the `FitMode` field, never a sibling op per engine or fit mode. `_ENGINE` is one `Map[RasterEngine, EngineOps]`, so `_worker_raster` reads `probe`/`thumbnail`/`convert`/`crop` by one lookup and pillow and libvips share one op shape.
+- Cases: the `RasterOp` cases split by engine reach — `Probe`/`Thumbnail`/`Convert`/`Crop` engine-polymorphic through `_ENGINE[engine]`; `Montage`/`Deframe` engine-split by a `match` arm; `Composite`/`SmartCrop`/`Pyramid` libvips-only (the blend algebra, saliency crop, and tiled pyramid one engine owns); `Geometry`/`Quantize`/`Children`/`Sequence` pillow-only working surface; `Detect` delegated to `exchange/detect#DETECT` in-process; `Transform` carrying the scikit-image sub-axis whose rows and bodies `graphic/raster/process#PROCESS` + `graphic/raster/measure#MEASURE` own. `Composite` stays single-engine because libvips `composite2` is alpha-correct over the whole `BlendMode` vocabulary where pillow honors only source-over — a pillow blend arm reintroduces the engine split `FitMode` deletes.
+- Entry: `Raster.emit` discriminates on `self.ops` being one `RasterOp` or a tuple — `_normalized` folds either into one `Block[RasterOp]` at the head, so arity is a value property, never a `batch` knob. Each member lowers to its own `ArtifactWork` carrying that member's `RasterFault` as its boundary fault, so one corrupt input faults its node while siblings complete under the plan's front drain — never a fail-fast batch that discards every sibling on the first bad payload.
+- Auto: `_emit` routes `Detect` in-process and crosses every other op through the worker; `_worker_raster` is `@beartype`-woven and re-dispatches by one total `match` under one outer `try` whose `except ImportError`/`except OSError` arms fold an absent package or libvips dlopen onto `RasterFault.provision`, importing each provider only inside its arm. The pillow arms share one `_pillow_guarded` capture (unidentified -> `decode`, bomb -> `bomb`, seek/child overrun -> `bounds`, else -> `encode`), the libvips arms one `_vips_guarded` (`concurrency_set(1)` two-pool guard + `pyvips.Error` -> `engine`); `Convert`/`Sequence` gate a build-dependent AVIF/WebP encoder through `_CODEC_FEATURE`/`get_suffixes` onto `RasterFault.codec` before the opaque provider raise. `Transform` gates the reference/mask precondition (`RasterFault.reference`) before seeding a `TransformInput` and reading the composed `TRANSFORMS | MEASURE_TRANSFORMS` union. The dispatch splits only on the op case, the per-engine `EngineOps` read, and the `FitMode`/`GeometryOp` sizing branch, never a re-discriminating `match` beyond them.
+- Receipt: each op folds into `RasterFact` and projects to `core/receipt#RECEIPT` `ArtifactReceipt.Preview(key, width, height, scores)` at the rail boundary, threading `fact.score` straight onto `Preview.scores` with no coerce; `Detect` reports zero dimensions plus the resolved mime/class/container and native-`float` confidence, `Probe` the header dimensions plus a format/mode/frames/bands/icc map without transcoding, `Transform` the measure-family perceptual scores plus the region/blob/corner/shift facts. The widening is settled — `Preview.scores: frozendict[str, float | str]` already flattens the band into `{"width", "height", **scores}` — so this owner's contribution is the one `fact.score` projection; the measure scores originate on `graphic/raster/measure#MEASURE`.
+- Growth: a new raster op is one `RasterOp` case plus one `_worker_raster` arm; a new engine-polymorphic op one `EngineOps` field plus a pillow and a libvips arm; a new sizing mode one `FitMode` case plus its two branches; a new blend/crop/pyramid form one `BlendMode`/`CropFocus`/`PyramidLayout` member the libvips call resolves by nickname; a new geometric op one `GeometryOp` member plus one pillow `match` arm; a new scikit-image transform one `Transform` member plus a `TRANSFORMS`/`MEASURE_TRANSFORMS` row on the owning page; a new codec one `ConvertFormat` row plus its `_VIPS_SUFFIX`/`_CODEC_KWARGS`/`_VIPS_KWARGS` entry (a build-dependent one adds a `_CODEC_FEATURE` gate); a new engine one `RasterEngine` member plus one `_ENGINE` bundle; a new fault cause one `RasterFault` case breaking every capture at type-check. The typed pyvips `Foreign*` encoder enums over the raw `_VIPS_KWARGS` strings and the `Source`/`Target` streaming intake for large-payload egress remain documented growth axes.
+- Boundary: the descriptive EXIF/IPTC/XMP tag set stays `exchange/metadata#METADATA`'s; the `puremagic` sniff fold and `MediaClass`/`Container` classification stay `exchange/detect#DETECT`'s, libmagic retained only as that owner's broader `LAYERED` fallback and never io's default; the transform acceptor bodies stay the process/measure pages'.
 
 ```python signature
 from collections.abc import Callable, Iterable
@@ -83,11 +83,11 @@ class FitMode(StrEnum):
     PAD = "pad"  # fit inside, then letterbox to the exact box with background (pillow ImageOps.pad / libvips embed+Extend)
 
 
-class CropFocus(StrEnum):  # the libvips Interesting salient-region model the content-aware SmartCrop resolves by .value nickname
-    ATTENTION = "attention"  # saliency-map peak (the default auto-focus)
+class CropFocus(StrEnum):  # the libvips Interesting model SmartCrop resolves by .value nickname
+    ATTENTION = "attention"  # saliency-map peak (default)
     ENTROPY = "entropy"  # maximum-entropy window
     CENTRE = "centre"
-    LOW = "low"  # lowest-column/row edge
+    LOW = "low"
     HIGH = "high"
 
 
@@ -101,7 +101,7 @@ class PyramidLayout(StrEnum):  # the libvips ForeignDzLayout deep-zoom pyramid f
 
 class GeometryOp(
     StrEnum
-):  # the pillow geometric working-surface family: Transpose members + arbitrary rotate + affine/perspective transform + integer reduce
+):  # pillow geometry: Transpose members + arbitrary rotate + affine/perspective + integer reduce
     FLIP_H = "flip-h"  # Transpose.FLIP_LEFT_RIGHT
     FLIP_V = "flip-v"  # Transpose.FLIP_TOP_BOTTOM
     ROTATE_90 = "rotate-90"  # Transpose.ROTATE_90 (lossless quarter-turn)
@@ -117,7 +117,7 @@ class GeometryOp(
 
 class BlendMode(
     StrEnum
-):  # the full 25-case libvips composite2 nickname vocabulary passed by .value (VipsBlendMode order); OVER is the source-over watermark/stamp default
+):  # the libvips composite2 nickname vocabulary passed by .value (VipsBlendMode order); OVER is the source-over default
     CLEAR = "clear"
     SOURCE = "source"
     OVER = "over"
@@ -147,11 +147,11 @@ class BlendMode(
 
 class QuantizeMethod(
     StrEnum
-):  # member NAMES congruent with Image.Quantize so Image.Quantize[method.name] resolves the provider enum at the pillow arm — canonical StrEnum crosses the seam, the PIL enum stays at the edge
+):  # NAMES congruent with Image.Quantize so Image.Quantize[method.name] resolves the provider enum; PIL enum stays at the edge
     MEDIANCUT = "median-cut"
     MAXCOVERAGE = "max-coverage"
-    FASTOCTREE = "fast-octree"  # the only method admitting an RGBA source without a flatten
-    LIBIMAGEQUANT = "libimagequant"  # build-dependent (the libimagequant feature); the highest-quality quantizer
+    FASTOCTREE = "fast-octree"  # the only method admitting RGBA without a flatten
+    LIBIMAGEQUANT = "libimagequant"  # build-dependent; the highest-quality quantizer
 
 
 class DitherMode(StrEnum):  # member NAMES congruent with Image.Dither so Image.Dither[dither.name] resolves the provider enum
@@ -171,11 +171,11 @@ class RasterFault:
     worker: str = case()
     provision: str = case()
     detect: str = case()
-    codec: ConvertFormat = case()  # a build-dependent encoder (AVIF/HEIF/WebP) the linked pillow/libvips build does not expose — the capability-detection gate, distinct from a content encode fault
+    codec: ConvertFormat = case()  # a build-dependent AVIF/HEIF/WebP encoder the linked build lacks — the capability gate, distinct from an encode fault
     reference: Transform = case()
     bounds: str = (
         case()
-    )  # a frame/page/child index past the available count (seek/get_child_images) — the range fault distinct from a decode or encode content fault
+    )  # a frame/page/child index past the available count — the range fault distinct from a content fault
     contract: str = case()
 
 
@@ -295,12 +295,12 @@ class Raster(Struct, frozen=True):
 
     @staticmethod
     async def _emit(op: RasterOp, /) -> RuntimeRail[ArtifactReceipt]:
-        # the member rail: a RasterFault folds into ITS OWN node's boundary fault (the Block[Result] farm rail is dead) —
-        # one corrupt input faults its node while sibling nodes complete under the plan's front drain.
+        # the member rail: a RasterFault folds into its own node's boundary fault — one corrupt input
+        # faults its node while siblings complete under the plan's front drain.
         match op:
             case RasterOp(
                 tag="detect", detect=(payload,)
-            ):  # DELEGATE the sniff to exchange/detect#DETECT (PUREMAGIC -> in-process to_thread, NO worker crossing); the puremagic fold is authored ONCE there
+            ):  # delegate the sniff to exchange/detect#DETECT (PUREMAGIC in-process to_thread, no worker crossing); the fold is authored once there
                 identity = await Detect(engine=DetectEngine.PUREMAGIC).of(Source.Buffer(payload))
                 return identity.map(lambda di: _detected(op, payload, di))
             case _:
@@ -324,8 +324,6 @@ def _previewed(op: RasterOp, fact: RasterFact, /) -> ArtifactReceipt:
     return ArtifactReceipt.Preview(ContentIdentity.of(f"raster-{op.tag}", fact.data), fact.width, fact.height, fact.score)
 ```
 
-`RasterFact` is the one fact every arm yields — bytes plus dimensions plus the immutable `frozendict[str, float | str]` score map — so `_previewed` projects one shape into `ArtifactReceipt.Preview(key, width, height, scores)` regardless of op, threading `fact.score` straight onto the receipt's `scores` band so the metrics float facts, the `Detect` `mime`/`media_class`/`container`, and the `Probe` header facts all reach the `_facts` fold un-coerced; the `RasterOp` payload is typed per case, never an erased `params` dict the arm re-validates. `RasterFault` is the closed cause vocabulary the whole rail threads — `decode` an undecodable payload, `bomb` a `DecompressionBombError` against the pixel ceiling, `encode` a save/codec failure, `engine` a libvips operation fault, `worker` an exhausted `BrokenWorkerProcess` subprocess death, `provision` an absent worker package or unprovisioned native binding caught as the worker's `ImportError`/dlopen `OSError`, `detect` a delegated `exchange/detect#DETECT` sniff fault (its `BoundaryFault` lifted at the arm), `codec` a build-dependent encoder (AVIF/WebP) the linked pillow/libvips build never compiled (the capability-detection gate, a `ConvertFormat` payload distinct from an `encode` content fault), `reference` a transform missing its required reference/mask, `contract` a `BeartypeCallHintViolation` lifted at the worker seam — each structurally addressable so a downstream `match` routes a host-readiness fault apart from a worker death apart from an unbuilt encoder apart from a bad codec apart from a contract miss, never a message-collapsed string. `RasterFact` is the worker owner's value object that `graphic/marks/encode#MARK` re-declares as the identical `(data, width, height, score: frozendict[str, float | str])` shape (the encode arms stamp `str` facts and the sibling `graphic/marks/decode#DECODE` arm stamps native-`float` `COUNT`/`VALID`/`BUILD` facts, both riding the one `float | str` value band this owner declares) so the in-process mark codec yields the same fact into the shared `ArtifactReceipt.Preview` without importing the worker owner, and that the `graphic/raster/process#PROCESS`/`graphic/raster/measure#MEASURE` transform acceptors import from this page so the produced-raster and measured-score arms fold one shape.
-
 ```python signature
 @beartype
 def _worker_raster(op: RasterOp) -> Result[RasterFact, RasterFault]:
@@ -334,7 +332,7 @@ def _worker_raster(op: RasterOp) -> Result[RasterFact, RasterFault]:
             case RasterOp(tag="detect", detect=(_payload,)):
                 return Error(
                     RasterFault(detect="<detect-routed-in-process>")
-                )  # totality witness only; `_emit` delegates detect to exchange/detect#DETECT in-process, so this arm is never reached
+                )  # totality witness only; `_emit` routes detect in-process, never reached here
             case RasterOp(tag="probe", probe=(payload, engine)):
                 return _ENGINE[engine].probe(payload)
             case RasterOp(tag="thumbnail", thumbnail=(payload, size, fmt, engine, fit)):
@@ -381,7 +379,7 @@ def _pillow_guarded(work: Callable[[], RasterFact], /) -> Result[RasterFact, Ras
     except (
         EOFError,
         IndexError,
-    ) as fault:  # a seek/get_child_images index past the available frame/child count — IndexError is a LookupError sibling of KeyError, so this arm never shadows the encode arm's KeyError
+    ) as fault:  # a seek/get_child_images overrun; IndexError is a LookupError sibling of KeyError, so it never shadows the encode arm's KeyError
         return Error(RasterFault(bounds=str(fault)))
     except (OSError, ValueError, KeyError) as fault:
         return Error(RasterFault(encode=type(fault).__name__))
@@ -390,7 +388,7 @@ def _pillow_guarded(work: Callable[[], RasterFact], /) -> Result[RasterFact, Ras
 def _vips_guarded(work: Callable[[], RasterFact], /) -> Result[RasterFact, RasterFault]:
     pyvips.concurrency_set(
         1
-    )  # two-pool guard: bound libvips's OWN internal intra-op thread pool DOWN so the inner pool never oversubscribes the host against the outer runtime process-lane fan (idempotent boundary-init)
+    )  # two-pool guard: bound libvips's own intra-op pool down so it never oversubscribes against the runtime process-lane fan (idempotent)
     try:
         return Ok(work())
     except pyvips.Error as fault:
@@ -398,8 +396,7 @@ def _vips_guarded(work: Callable[[], RasterFact], /) -> Result[RasterFact, Raste
 
 
 def _detected(op: RasterOp, payload: bytes, identity: "DetectIdentity", /) -> ArtifactReceipt:
-    # project the delegated exchange/detect#DETECT DetectIdentity onto the shared Preview score band — the routing
-    # discriminant + native confidence the raster gate surfaces, the puremagic sniff fold owned once upstream.
+    # project the delegated DetectIdentity onto the shared Preview score band; the puremagic sniff fold owned once upstream.
     return ArtifactReceipt.Preview(
         ContentIdentity.of(f"raster-{op.tag}", payload),
         0,
@@ -409,7 +406,7 @@ def _detected(op: RasterOp, payload: bytes, identity: "DetectIdentity", /) -> Ar
             "media_class": identity.media_class.value,
             "container": identity.container.value,
             "extension": identity.extensions[0] if identity.extensions else "",
-            "confidence": identity.confidence,  # the page-native float ambiguity signal libmagic's single unranked string cannot supply — the exchange/detect Trust gate input
+            "confidence": identity.confidence,  # the native float ambiguity signal libmagic cannot supply — the exchange/detect Trust gate input
             "candidates": float(len(identity.matches)),
             "trust": identity.trust.value,
         }),
@@ -469,7 +466,7 @@ def _thumbnail_libvips(payload: bytes, size: Pixels, fmt: ConvertFormat, fit: Fi
 def _convert_pillow(payload: bytes, codec: ConvertFormat, quality: int, effort: int) -> Result[RasterFact, RasterFault]:
     if (
         codec in _CODEC_FEATURE and not features.check(_CODEC_FEATURE[codec])
-    ):  # capability-detection gate: a build-dependent AVIF/WebP encoder the linked pillow build never compiled faults `codec`, distinct from an encode fault, before the save raises an opaque KeyError
+    ):  # capability gate: an unbuilt AVIF/WebP encoder faults `codec` before save raises an opaque KeyError, distinct from an encode fault
         return Error(RasterFault(codec=codec))
 
     def work() -> RasterFact:
@@ -485,7 +482,7 @@ def _convert_pillow(payload: bytes, codec: ConvertFormat, quality: int, effort: 
 def _convert_libvips(payload: bytes, codec: ConvertFormat, quality: int, effort: int) -> Result[RasterFact, RasterFault]:
     if (
         _VIPS_SUFFIX[codec] not in pyvips.base.get_suffixes()
-    ):  # the libvips-side capability probe: an unbuilt saver suffix faults `codec` before write_to_buffer raises an opaque pyvips.Error
+    ):  # libvips capability probe: an unbuilt saver suffix faults `codec` before write_to_buffer raises pyvips.Error
         return Error(RasterFault(codec=codec))
 
     def work() -> RasterFact:
@@ -494,7 +491,7 @@ def _convert_libvips(payload: bytes, codec: ConvertFormat, quality: int, effort:
         flat = managed.flatten() if codec in _NO_ALPHA and managed.hasalpha() else managed
         keep = (
             pyvips.ForeignKeep.ICC | pyvips.ForeignKeep.EXIF | pyvips.ForeignKeep.XMP
-        )  # write_to_buffer STRIPS metadata by default, so the icc_transform-managed sRGB profile is LOST on re-encode without ForeignKeep — retain ICC/EXIF/XMP so the managed profile survives egress
+        )  # write_to_buffer strips metadata by default; retain ICC/EXIF/XMP so the icc_transform-managed sRGB profile survives egress
         return RasterFact(flat.write_to_buffer(_VIPS_SUFFIX[codec], keep=keep, **_VIPS_KWARGS[codec](quality, effort)), flat.width, flat.height)
 
     return _vips_guarded(work)
@@ -570,7 +567,7 @@ def _montage(tiles: tuple[bytes, ...], columns: int, cell: Pixels, fmt: ConvertF
 
             def work() -> (
                 RasterFact
-            ):  # the fused libvips arrayjoin grid — each cell shrinks-on-load and the grid computes in one streamed pass, engine parity for large-tile sheets pillow's per-tile paste loop cannot match
+            ):  # fused arrayjoin grid: each cell shrinks-on-load, the grid computes in one streamed pass — large-tile parity pillow's paste loop cannot match
                 cells = [
                     pyvips.Image.new_from_buffer(blob, "", access=pyvips.Access.SEQUENTIAL).thumbnail_image(
                         cell[0], height=cell[1], size=pyvips.Size.DOWN
@@ -598,7 +595,7 @@ def _composite(base: bytes, overlay: bytes, position: Pixels, mode: BlendMode, f
 def _smartcrop(payload: bytes, size: Pixels, focus: CropFocus, fmt: ConvertFormat) -> Result[RasterFact, RasterFault]:
     def work() -> (
         RasterFact
-    ):  # content-aware auto-focus crop: the libvips saliency/entropy model extracts the interesting size[0]xsize[1] window, the salient-crop decision a fixed-box Crop cannot make
+    ):  # content-aware crop: libvips saliency/entropy extracts the interesting window a fixed-box Crop cannot
         image = (
             pyvips.Image.new_from_buffer(payload, "", access=pyvips.Access.SEQUENTIAL).autorot().smartcrop(size[0], size[1], interesting=focus.value)
         )
@@ -610,7 +607,7 @@ def _smartcrop(payload: bytes, size: Pixels, focus: CropFocus, fmt: ConvertForma
 def _pyramid(payload: bytes, layout: PyramidLayout, tile: int, fmt: ConvertFormat) -> Result[RasterFact, RasterFault]:
     def work() -> (
         RasterFact
-    ):  # DeepZoom/Zoomify/IIIF pyramid tiling to ONE zip blob — the large-drawing/large-scan tiled-viewer export both the publication and AEC-doc planes need
+    ):  # DeepZoom/Zoomify/IIIF pyramid tiling to one zip blob — the large-scan tiled-viewer export
         image = pyvips.Image.new_from_buffer(payload, "", access=pyvips.Access.SEQUENTIAL).autorot()
         blob = image.dzsave_buffer(layout=layout.value, tile_size=tile, suffix=f".{fmt.value.lower()}", container="zip")
         return RasterFact(blob, image.width, image.height)
@@ -621,7 +618,7 @@ def _pyramid(payload: bytes, layout: PyramidLayout, tile: int, fmt: ConvertForma
 def _geometry(payload: bytes, op: GeometryOp, params: tuple[float, ...], fmt: ConvertFormat) -> Result[RasterFact, RasterFault]:
     def work() -> (
         RasterFact
-    ):  # pillow-only working-surface geometry (single-engine like Composite/Detect); libvips lacks the diagonal transpose + affine/perspective transform cleanly, so no engine-divergence FitMode deletes
+    ):  # pillow-only geometry (single-engine); libvips lacks the diagonal transpose + affine/perspective cleanly
         image = ImageOps.exif_transpose(Image.open(BytesIO(payload)))
         match op:
             case GeometryOp.ROTATE:
@@ -661,7 +658,7 @@ def _deframe(payload: bytes, index: int, fmt: ConvertFormat, engine: RasterEngin
 
             def work() -> (
                 RasterFact
-            ):  # multi-frame page/frame extract: seek to the display-index frame and re-encode it single-frame; an index past n_frames raises IndexError -> RasterFault.bounds
+            ):  # seek to the display-index frame, re-encode single-frame; an index past n_frames raises IndexError -> bounds
                 image = Image.open(BytesIO(payload))
                 frames = int(getattr(image, "n_frames", 1))
                 if not 0 <= index < frames:
@@ -676,7 +673,7 @@ def _deframe(payload: bytes, index: int, fmt: ConvertFormat, engine: RasterEngin
 
             def work() -> (
                 RasterFact
-            ):  # the libvips page= load streams ONE page of a huge multi-page TIFF/PDF scan off disk without materializing the whole document (the AEC scanned-drawing-set path)
+            ):  # libvips page= streams one page of a huge multi-page TIFF/PDF scan without materializing the whole document
                 image = pyvips.Image.new_from_buffer(payload, "", page=index, access=pyvips.Access.SEQUENTIAL)
                 return RasterFact(image.write_to_buffer(_VIPS_SUFFIX[fmt]), image.width, image.height, frozendict({"frame": float(index)}))
 
@@ -688,12 +685,12 @@ def _deframe(payload: bytes, index: int, fmt: ConvertFormat, engine: RasterEngin
 def _sequence(frames: tuple[bytes, ...], delays: tuple[int, ...], loop: int, fmt: ConvertFormat) -> Result[RasterFact, RasterFault]:
     if fmt in _CODEC_FEATURE and not features.check(
         _CODEC_FEATURE[fmt]
-    ):  # animated WebP/AVIF gate: an unbuilt encoder faults `codec` before save_all raises, reusing the Convert-arm gate
+    ):  # animated WebP/AVIF gate: an unbuilt encoder faults `codec` before save_all raises
         return Error(RasterFault(codec=fmt))
 
     def work() -> (
         RasterFact
-    ):  # multi-frame COMPOSE — save_all/append_images assembles the frame tuple into ONE multi-page TIFF (AEC drawing set) or animated APNG/WebP/AVIF (publication preview); delays/loop ride only the animated formats, TIFF pages carry no timing
+    ):  # save_all/append_images composes the frame tuple into one multi-page TIFF or animated APNG/WebP/AVIF; delays/loop ride only the animated formats
         images = [Image.open(BytesIO(blob)) for blob in frames]
         timing = {"duration": list(delays), "loop": loop} if fmt in _ANIMATED and delays else {"loop": loop} if fmt in _ANIMATED else {}
         sink = BytesIO()
@@ -706,7 +703,7 @@ def _sequence(frames: tuple[bytes, ...], delays: tuple[int, ...], loop: int, fmt
 def _quantized(payload: bytes, colors: int, method: QuantizeMethod, dither: DitherMode, fmt: ConvertFormat) -> Result[RasterFact, RasterFault]:
     def work() -> (
         RasterFact
-    ):  # indexed-color small-file export for line drawings/logos — Image.quantize (median-cut/max-coverage/octree/libimagequant) over the canonical QuantizeMethod/DitherMode vocab resolved to the PIL enum by name congruence; subsumes convert(palette=ADAPTIVE)
+    ):  # indexed-color small-file export — Image.quantize over the QuantizeMethod/DitherMode vocab resolved to the PIL enum by name; subsumes convert(palette=ADAPTIVE)
         source = ImageOps.exif_transpose(Image.open(BytesIO(payload)))
         rgb = (
             source if source.mode in {"RGB", "RGBA", "L"} else source.convert("RGB")
@@ -722,7 +719,7 @@ def _quantized(payload: bytes, colors: int, method: QuantizeMethod, dither: Dith
 def _children(payload: bytes, index: int, fmt: ConvertFormat) -> Result[RasterFact, RasterFault]:
     def work() -> (
         RasterFact
-    ):  # embedded-thumbnail / multi-resolution sub-image extract (JPEG/HEIF/TIFF) via get_child_images — the preview a fresh full decode would miss; an index past the child count raises IndexError -> RasterFault.bounds
+    ):  # embedded-thumbnail / multi-resolution sub-image extract via get_child_images — the preview a fresh decode would miss; an index past the count raises IndexError -> bounds
         with Image.open(BytesIO(payload)) as image:
             children = image.get_child_images()
             if not 0 <= index < len(children):
@@ -752,9 +749,9 @@ _ANIMATED: frozenset[ConvertFormat] = frozenset({
     ConvertFormat.PNG,
     ConvertFormat.WEBP,
     ConvertFormat.AVIF,
-})  # the save_all containers that honor per-frame duration + loop (APNG/WebP/AVIF); TIFF composes multi-page without timing
+})  # the save_all containers that honor per-frame duration + loop; TIFF composes multi-page without timing
 _CODEC_FEATURE: Final[Map[ConvertFormat, str]] = Map.of_seq([
-    # the build-dependent pillow feature name the capability gate probes; PNG/JPEG/TIFF/BMP are always compiled, so only the optional AVIF/WebP encoders gate
+    # the pillow feature name the capability gate probes; only the optional AVIF/WebP encoders gate
     (ConvertFormat.AVIF, "avif"),
     (ConvertFormat.WEBP, "webp"),
 ])
@@ -801,8 +798,6 @@ _VIPS_KWARGS: Final[Map[ConvertFormat, Callable[[int, int], frozendict[str, obje
     (ConvertFormat.BMP, lambda quality, effort: frozendict()),
 ])
 ```
-
-The `RasterEngine` policy bundle is the throughput collapse: `_ENGINE` is one `Map[RasterEngine, EngineOps]` table whose `EngineOps` carries the four decode-heavy callables per engine, so `_worker_raster` reads `_ENGINE[engine].thumbnail`/`convert`/`crop`/`probe` by one lookup and the pillow and libvips engines share one op shape with zero re-discrimination, never a thumbnail-`dict`-plus-convert-`if` split. The `FitMode` policy is the geometry collapse that keeps one `Thumbnail` op from resolving two different geometries by engine: `CONTAIN`/`COVER`/`STRETCH`/`PAD` drives both engines identically — `CONTAIN` is pillow `ImageOps.contain` / libvips `crop=Interesting.NONE`, `COVER` is pillow `ImageOps.fit` / libvips `crop=Interesting.ATTENTION`, `STRETCH` is pillow `Image.resize` / libvips `size=Size.FORCE`, `PAD` letterboxes to the exact box through pillow `ImageOps.pad` / libvips `embed(extend=Extend.BACKGROUND)` over the contained shrink, the same sizing on both engines and the `match` closed under `assert_never`. The pillow arms route every decode/encode raise through one `_pillow_guarded` capture (a shared boundary adapter, not a single-call helper — four callers) and the libvips arms through one `_vips_guarded`, each naming the exact provider exception set and mapping it onto the closed `RasterFault` rather than a bare `except Exception`. The native AVIF row is a pure `Convert` deepen on the already-admitted pillow: `Image.save(format="AVIF")` emits AVIF through the built-in `AvifImagePlugin` Pillow 12.2.0 ships, and `_CODEC_KWARGS` keys each codec's encode controls by a `frozendict`-builder row taking `(quality, effort)` so a codec reaches its native parameters by one row, never a per-format encoder and never a per-call dict literal. The pyvips provider arm is the fused alternative: `new_from_buffer(payload, access=Access.SEQUENTIAL)` opens a one-pass streaming pipeline, `autorot()` bakes EXIF orientation, `icc_transform("srgb", intent=Intent.RELATIVE)` runs liblcms2-backed ICC conversion only when `get_typeof("icc-profile-data")` proves an embedded profile, `flatten()` composites alpha against the background for a `_NO_ALPHA` codec, and `write_to_buffer(suffix, **_VIPS_KWARGS[codec](quality, effort))` computes the pipeline exactly once at egress. `Probe` is the metadata-without-transcode arm: pillow's lazy `Image.open` reads `format`/`mode`/`n_frames`/`info["icc_profile"]` and libvips reads `interpretation`/`bands`/`get("n-pages")`/`get_typeof("icc-profile-data")` off the header, both returning the source `payload` unchanged with the dimensions and a rich structural score map, so a gallery learns dimensions and codec without a decode+re-encode round trip — the descriptive EXIF/IPTC/XMP tag set staying `exchange/metadata#METADATA`'s. `Crop` extracts a region (`box = (left, top, width, height)`) — pillow `Image.crop` after `exif_transpose` so the box is in display orientation, libvips `extract_area(*box)` in one streamed pass. `Composite` is the two-layer overlay/watermark working-surface op on the one engine that owns the full blend algebra: `_composite` opens the base and overlay as two `Access.SEQUENTIAL` pipelines and folds them through `canvas.composite2(layer, mode.value, x=, y=)`, the `BlendMode` member passed by its libvips nickname so the full Porter-Duff/separable family resolves through one generated op without a per-mode arm — single-engine like `Montage`/`Detect`/`Transform`, because libvips `composite2` is alpha-correct over the whole vocabulary where pillow honors only source-over, so a `BlendMode`-divergent pillow arm would reintroduce the engine split `FitMode` deletes. The detect arm DELEGATES the whole sniff to the `exchange/detect#DETECT` `Detect` owner rather than re-implementing it: `Detect(engine=DetectEngine.PUREMAGIC).of(Source.Buffer(payload))` returns a `DetectIdentity` `_detected` projects onto the shared `Preview` score band (`mime`/`media_class`/`container`/`confidence`/`trust`/`candidates`), so the `puremagic.magic_string` confidence-roster fold and the `MediaClass.of`/`Container.of` classification are authored ONCE upstream, never a second sniff spelling here. Forcing the `PUREMAGIC` engine keeps `Detect` the ONE arm that runs IN-PROCESS — the `exchange/detect` `to_thread` band, off the event loop, NEVER the process-lane crossing (no native dependency to reify in a subprocess, no `BrokenWorkerProcess` death, no payload pickle) — so the whole worker seam drops for the default sniff; the delegated sniff's `BoundaryFault` lifts onto `RasterFault.detect`, and libmagic (`python-magic`) is retained only as the strictly-broader `LAYERED` fallback the `exchange/detect` owner escalates to, never io's default. `_transformed` gates the reference/mask precondition onto `RasterFault.reference` before seeding the `TransformInput` and reads the composed `TRANSFORMS | MEASURE_TRANSFORMS` union so all one hundred thirty-nine `Transform` members resolve, the `TransformInput` carrier and the acceptor bodies owned by `graphic/raster/process#PROCESS` + `graphic/raster/measure#MEASURE` and never re-declared here. The working surface grows without a per-op class: `SmartCrop` is the content-aware libvips `smartcrop(width, height, interesting=CropFocus)` auto-focus window the fixed-box `Crop` cannot resolve; `Pyramid` is the libvips `dzsave_buffer(layout=PyramidLayout, tile_size=, container="zip")` DeepZoom/Zoomify/IIIF tiled export for a large drawing or scan; `Geometry` is the pillow-only working-surface family (`Transpose` flip/quarter-turn/diagonal, arbitrary `Image.rotate(expand=True)`, `Image.transform` affine/perspective, integer `Image.reduce`) over the `GeometryOp` vocabulary under one total `match`; `Montage` gains a libvips `arrayjoin` arm for engine parity on large-tile grids beside the pillow paste loop; the multi-frame plane lands two engine-split ops — `Deframe` extracts ONE page/frame (pillow `Image.open(...).seek(index)` over the `ImageSequence` cursor, or the libvips `new_from_buffer(payload, "", page=index)` streaming one page of a huge multi-page TIFF/PDF scan off disk), a frame index past `n_frames` raising `IndexError` the guard maps onto `RasterFault.bounds`, so a consumer `Probe`s the page count then issues one `Deframe` per page rather than eagerly materializing every frame into RAM (the `LAZY_COMBINATORS` stream-over-materialize contract); and `Sequence` composes a frame tuple into ONE multi-page TIFF (the AEC scanned-drawing-set container) or animated APNG/WebP/AVIF (the publication preview) through pillow `save(save_all=True, append_images=..., duration=, loop=)`, `duration`/`loop` threaded only for the `_ANIMATED` formats and an unbuilt animated encoder gated onto `RasterFault.codec`; `Quantize` is the pillow `Image.quantize(colors, method=Image.Quantize[method.name], dither=Image.Dither[dither.name])` indexed-color export — the canonical `QuantizeMethod` (median-cut/max-coverage/octree/libimagequant) and `DitherMode` (none/ordered/rasterize/Floyd-Steinberg) vocabularies resolving the PIL enum by member-name congruence at the arm (the canonical StrEnum crosses the seam, the provider enum stays at the edge), the small-file line-drawing/logo path `convert(palette=ADAPTIVE)` folds into; `Children` extracts one embedded thumbnail / multi-resolution sub-image through pillow `get_child_images` (the JPEG/HEIF/TIFF preview a fresh full decode would miss), a child index past the count railing `RasterFault.bounds` through the same `(EOFError, IndexError)` guard arm; and every codec-emitting arm is guarded by the capability-detection gate — pillow `features.check(_CODEC_FEATURE[codec])` and libvips `pyvips.base.get_suffixes()` fault `RasterFault.codec` before an unbuilt AVIF/WebP encoder raises an opaque provider error (the same capability-detection shape the media filtergraph filter-registry probe uses). The libvips egress retains the managed profile through `keep=ForeignKeep.ICC | EXIF | XMP` (a bare `write_to_buffer` strips metadata, losing the `icc_transform`-managed sRGB profile on re-encode), and `_vips_guarded` spells the two-pool guard `pyvips.concurrency_set(1)` the prose promised — bounding libvips's own internal thread pool DOWN so the inner pool never oversubscribes the host against the outer runtime process-lane fan.
 
 ```mermaid
 flowchart LR
@@ -851,3 +846,11 @@ flowchart LR
     Contract --> Rail
     Prov --> Rail
 ```
+
+## [03]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+-->
+
+(none)

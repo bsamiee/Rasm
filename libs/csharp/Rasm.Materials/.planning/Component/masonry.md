@@ -4,7 +4,7 @@ THE MASONRY SEED PAGE and THE GENERATIVE BOND ALGEBRA. Masonry is one `Component
 
 ## [01]-[INDEX]
 
-- [02]-[MASONRY_FAMILY]: the retained bond/orientation/cut/closure/special-shape/mortar/tolerance vocabularies with the delegate-bearing `BondGeometry` packing descriptor and the `BondName` template/generated catalogue, the `[ComplexValueObject]` `MortarJoint` ASTM C270 joint specification, the `MortarSystem` cementitious-system rows and the TMS 402 Table `9.1.9.2` `RuptureModulus` modulus-of-rupture table (the `capacity#SECTION_CAPACITY` URM flexural-tension feed), the `FrogGeometry`/`Perforation` void geometry with the ONE `MasonryVoids` owner (the bed-plane `VoidCell` grid generator + the ASTM C652/C216 `Coring` bucket), the EN 771-1 `SizeTolerance`/`SizeRange` work-vs-actual envelope, the `AUTHORED` `MasonryRow` regional table, the seed-built `MasonryDetail` realization bag, and the `MasonrySeed.Rows` fail-loud `Traverse` fold.
+- [02]-[MASONRY_FAMILY]: the retained bond/orientation/cut/closure/special-shape/mortar/tolerance vocabularies with the delegate-bearing `BondGeometry` packing descriptor and the `BondName` template/generated catalogue, the `[ComplexValueObject]` `MortarJoint` ASTM C270 joint specification, the `MortarSystem` cementitious-system rows and the TMS 402 Table `9.1.9.2` `RuptureModulus` modulus-of-rupture table (the `capacity#SECTION_CAPACITY` URM flexural-tension feed), the `FrogGeometry`/`Perforation` void geometry with the ONE `MasonryVoids` owner (the bed-plane `VoidCell` grid generator + the ASTM C652/C216 `Coring` bucket), the EN 771-1 `SizeTolerance`/`SizeRange` work-vs-actual envelope, the `MasonryBody` substance axis with the `MasonryPhysics` receipt and the `WallAcoustics` single-leaf mass-law fold, the `AUTHORED` `MasonryRow` regional table, the seed-built `MasonryDetail` realization bag, and the `MasonrySeed.Rows` fail-loud `Traverse` fold.
 
 ## [02]-[MASONRY_FAMILY]
 
@@ -253,6 +253,24 @@ public sealed partial class SizeRange {
     public double PermittedRangeMm(double workMm) => SqrtCoefficient * Math.Sqrt(Math.Max(0.0, workMm));
 }
 
+// The unit-body substance axis — the physics columns the MasonryRow keys by body, never per-row literals: EN 1745 tabulated
+// gross dry density and design conductivity for the two seeded bodies (fired clay 1900 kg/m³ / 0.77 W·m⁻¹·K⁻¹, calcium
+// silicate 1900 / 0.90 — PUBLISHED tabulated design values at the seeded density band), the IBC equivalent thickness for a
+// 1-hour rating (fired clay the Table 722.4.1(1) solid-brick 68.6 mm; calcium silicate rated under the siliceous-aggregate
+// column 71.1 mm — the same (te/cn)^1.7 power law the cmu sibling runs), and the MaterialId both component slots bind (a
+// glazed unit splits them at its own row). A new body — AAC, adobe, concrete brick — is one row.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class MasonryBody {
+    public static readonly MasonryBody FiredClay       = new("ceramic.fired-clay",       densityKgM3: 1900.0, conductivityWmK: 0.77, eqThick1HrMm: 68.6);
+    public static readonly MasonryBody CalciumSilicate = new("ceramic.calcium-silicate", densityKgM3: 1900.0, conductivityWmK: 0.90, eqThick1HrMm: 71.1);
+    public double DensityKgM3 { get; }
+    public double ConductivityWmK { get; }
+    public double EqThick1HrMm { get; }
+    public MaterialId Material => MaterialId.Of(Key);
+}
+
 // The generative bond descriptor: unit-cell columns (repeat width, per-unit rotation, woven block size, the
 // aspect band the cell tiles) PLUS the row's OWN course-deriving delegate — the per-pattern derivation is DATA
 // on the row, not an arm in a central switch. Course emits the FULL per-unit CourseTemplate (orientation +
@@ -425,14 +443,14 @@ public readonly partial struct MortarJoint {
 
 // The AUTHORED regional raw row (SEED_ROW_LAW: no admitted producer owns EN 771/ASTM C216 masonry tables; every
 // column PUBLISHED verbatim from the named standard, the void geometry the standard's printed core/frog pattern).
-// Material is the Appearance/graph#MATERIAL_LIBRARY MaterialId bound to BOTH slots (base clay render and
-// intrinsic mechanical material coincide; a glazed unit splits them). Region is explicit because din/au/is rows
-// carry a region the bounded ComponentAuthority does not name.
+// Body is the typed substance axis carrying density/conductivity/fire and the MaterialId both slots bind (base
+// render and intrinsic mechanical material coincide; a glazed unit splits them). Region is explicit because
+// din/au/is rows carry a region the bounded ComponentAuthority does not name.
 public readonly record struct MasonryRow(
     string Designation, double WMm, double HMm, double LMm, double CourseMm, double JointMm,
     string Region, ComponentAuthority Authority,
     FrogGeometry Frog, Perforation Perforation, SpecialShape Shape,
-    SizeTolerance Tolerance, SizeRange Range, string Material);
+    SizeTolerance Tolerance, SizeRange Range, MasonryBody Body);
 
 // --- [OPERATIONS] --------------------------------------------------------------------------
 // The ONE void owner over the frog/perforation geometry pair — the cell derivation AND the coring bucket read the
@@ -476,6 +494,66 @@ public static class MasonryVoids {
     }
 }
 
+// The clay/calcium-silicate physics receipt — the CmuPhysics parity surface over (bed-plane profile, MasonryBody): ACI/IBC
+// equivalent thickness on the same solid-fraction basis (a clay unit has no grout path, so every cell voids), the IBC 722.4
+// power-law fire rating over the body's cn, oven-dry self-weight per wall-face m², the material-only thermal resistance
+// (homogeneous slab for a solid unit; two face shells in series with the web/cell parallel core for a cored/perforated
+// lattice — the cell path the trapped-air resistance), and the areal mass the WallAcoustics mass law reads. Bag-free: seed
+// time and any consumer holding the M7-resolved profile plus the row Body compute the identical receipt.
+public readonly record struct MasonryPhysics(
+    double EquivalentThicknessMm,
+    double FireRatingHours,
+    double SelfWeightKnPerM2,
+    double ThermalResistanceM2KPerW,
+    double SolidFraction) {
+
+    const double GravityMPerS2 = 9.80665;
+
+    public double ArealMassKgPerM2 => SelfWeightKnPerM2 * 1000.0 / GravityMPerS2;
+
+    public static MasonryPhysics Of(SectionProfile profile, MasonryBody body) {
+        double w = profile.GrossRectangleMm.WidthMm.Value, len = profile.GrossRectangleMm.DepthMm.Value, gross = w * len;
+        Seq<VoidCell> cells = profile is SectionProfile.CellularRectangle c ? c.Cells : Seq<VoidCell>();
+        double voids = cells.Sum(static v => v.WidthMm * v.HeightMm);
+        double net = gross - voids, te = net / len;
+        return new(
+            EquivalentThicknessMm: te,
+            FireRatingHours: Math.Clamp(Math.Pow(te / body.EqThick1HrMm, 1.7), 0.0, 4.0),
+            SelfWeightKnPerM2: net * body.DensityKgM3 * GravityMPerS2 / (len * 1e6),
+            ThermalResistanceM2KPerW: Resistance(cells, body, w, len),
+            SolidFraction: gross > 0.0 ? Math.Clamp(net / gross, 0.0, 1.0) : 1.0);
+    }
+
+    // The isothermal-planes core for the clay lattice: the cell path is always trapped air (no grout arm), the face shells
+    // and core width derive from the widest cell, a cell-free solid is one homogeneous slab.
+    static double Resistance(Seq<VoidCell> cells, MasonryBody body, double wMm, double lenMm) {
+        double k = body.ConductivityWmK, widthM = wMm / 1000.0;
+        if (cells.IsEmpty) { return widthM / k; }
+        double coreWidthM = cells.Max(static c => c.WidthMm) / 1000.0;
+        double webConductance = (lenMm - cells.Sum(static c => c.HeightMm)) / lenMm * (k / coreWidthM);
+        double cellConductance = cells.Sum(c => c.HeightMm / lenMm * (1.0 / CmuPhysics.CellAirResistanceM2KPerW));
+        return (widthM - coreWidthM) / k + 1.0 / (webConductance + cellConductance);
+    }
+}
+
+// The single-leaf field-incidence mass law over the seam acoustic bands — the heavy-wall spectrum ONE fold serves for the
+// clay AND concrete coursing families (MasonryPhysics/CmuPhysics supply the areal mass; the IGU spectrum stays glazing's,
+// whose cavity resonances a single leaf does not carry): R(f) = 20·log₁₀(m'·f) − 47 dB, absorption the hard-masonry 0.02
+// flat, Rw the seam RatingContour fit read off the receipt.
+public static class WallAcoustics {
+    const double MassLawOffsetDb = 47.0;
+
+    public static Fin<Acoustic> Of(double arealMassKgPerM2, Op key) {
+        double[] sri = new double[AcousticBand.Count];
+        double[] absorption = new double[AcousticBand.Count];
+        foreach (AcousticBand band in AcousticBand.Items) {
+            sri[band.Key] = Math.Max(0.0, 20.0 * Math.Log10(Math.Max(arealMassKgPerM2, 1e-9) * band.CenterHz) - MassLawOffsetDb);
+            absorption[band.Key] = 0.02;
+        }
+        return Acoustic.Of(absorption, sri, key);
+    }
+}
+
 // The seed-built realization bag (Masonry WIDENS to DetailLane.Realization — the dissolved payload's realization
 // columns have no other landing): the EN 771-1 work-vs-actual envelope inputs (SizeTolerance/SizeRange tokens the
 // coursing tolerance and GLB tessellation read), the special-shape token, and the unit HEIGHT + coursing module
@@ -502,13 +580,13 @@ public static class MasonryDetail {
 // special (the SpecialShape vocabulary instantiated, not dead data). All dimensional columns PUBLISHED.
 public static class MasonrySeed {
     static readonly Seq<MasonryRow> Regional = Seq(
-        new MasonryRow("masonry.us-modular",      92.0,  57.0, 194.0,  67.0,  9.5, "us",  ComponentAuthority.Astm, FrogGeometry.None,                              new Perforation(3, 1, 38.0, 25.0), SpecialShape.None,     SizeTolerance.T1, SizeRange.R1, "ceramic.fired-clay"),
-        new MasonryRow("masonry.us-norman",       92.0,  57.0, 295.0,  67.0,  9.5, "us",  ComponentAuthority.Astm, FrogGeometry.None,                              new Perforation(3, 1, 38.0, 25.0), SpecialShape.None,     SizeTolerance.T1, SizeRange.R1, "ceramic.fired-clay"),
-        new MasonryRow("masonry.uk-standard",    102.5,  65.0, 215.0,  75.0, 10.0, "uk",  ComponentAuthority.Bs,   FrogGeometry.None,                              new Perforation(5, 2, 29.0, 15.0), SpecialShape.None,     SizeTolerance.T2, SizeRange.R1, "ceramic.calcium-silicate"),
-        new MasonryRow("masonry.uk-bullnose",    102.5,  65.0, 215.0,  75.0, 10.0, "uk",  ComponentAuthority.Bs,   FrogGeometry.None,                              Perforation.None,                  SpecialShape.Bullnose, SizeTolerance.T2, SizeRange.R1, "ceramic.fired-clay"),
-        new MasonryRow("masonry.din-nf",         115.0,  71.0, 240.0,  83.5, 12.5, "din", ComponentAuthority.Din,  new FrogGeometry(12.0, 0.55, 0.40, 8.0, false), Perforation.None,                  SpecialShape.None,     SizeTolerance.T2, SizeRange.R2, "ceramic.fired-clay"),
-        new MasonryRow("masonry.au-standard",    110.0,  76.0, 230.0,  86.0, 10.0, "au",  ComponentAuthority.As,   FrogGeometry.None,                              new Perforation(3, 1, 40.0, 25.0), SpecialShape.None,     SizeTolerance.T2, SizeRange.R1, "ceramic.fired-clay"),
-        new MasonryRow("masonry.is-modular",      90.0,  90.0, 190.0, 100.0, 10.0, "is",  ComponentAuthority.Is,   new FrogGeometry(10.0, 0.50, 0.40, 6.0, false), Perforation.None,                  SpecialShape.None,     SizeTolerance.T1, SizeRange.R1, "ceramic.fired-clay"),
+        new MasonryRow("masonry.us-modular",      92.0,  57.0, 194.0,  67.0,  9.5, "us",  ComponentAuthority.Astm, FrogGeometry.None,                              new Perforation(3, 1, 38.0, 25.0), SpecialShape.None,     SizeTolerance.T1, SizeRange.R1, MasonryBody.FiredClay),
+        new MasonryRow("masonry.us-norman",       92.0,  57.0, 295.0,  67.0,  9.5, "us",  ComponentAuthority.Astm, FrogGeometry.None,                              new Perforation(3, 1, 38.0, 25.0), SpecialShape.None,     SizeTolerance.T1, SizeRange.R1, MasonryBody.FiredClay),
+        new MasonryRow("masonry.uk-standard",    102.5,  65.0, 215.0,  75.0, 10.0, "uk",  ComponentAuthority.Bs,   FrogGeometry.None,                              new Perforation(5, 2, 29.0, 15.0), SpecialShape.None,     SizeTolerance.T2, SizeRange.R1, MasonryBody.CalciumSilicate),
+        new MasonryRow("masonry.uk-bullnose",    102.5,  65.0, 215.0,  75.0, 10.0, "uk",  ComponentAuthority.Bs,   FrogGeometry.None,                              Perforation.None,                  SpecialShape.Bullnose, SizeTolerance.T2, SizeRange.R1, MasonryBody.FiredClay),
+        new MasonryRow("masonry.din-nf",         115.0,  71.0, 240.0,  83.5, 12.5, "din", ComponentAuthority.Din,  new FrogGeometry(12.0, 0.55, 0.40, 8.0, false), Perforation.None,                  SpecialShape.None,     SizeTolerance.T2, SizeRange.R2, MasonryBody.FiredClay),
+        new MasonryRow("masonry.au-standard",    110.0,  76.0, 230.0,  86.0, 10.0, "au",  ComponentAuthority.As,   FrogGeometry.None,                              new Perforation(3, 1, 40.0, 25.0), SpecialShape.None,     SizeTolerance.T2, SizeRange.R1, MasonryBody.FiredClay),
+        new MasonryRow("masonry.is-modular",      90.0,  90.0, 190.0, 100.0, 10.0, "is",  ComponentAuthority.Is,   new FrogGeometry(10.0, 0.50, 0.40, 6.0, false), Perforation.None,                  SpecialShape.None,     SizeTolerance.T1, SizeRange.R1, MasonryBody.FiredClay),
         new MasonryRow("masonry.is-conventional", 110.0, 70.0, 230.0,  80.0, 10.0, "is",  ComponentAuthority.Is,   FrogGeometry.None,                              Perforation.None,                  SpecialShape.None,     SizeTolerance.T1, SizeRange.R1, "ceramic.fired-clay"));
 
     // Coordinating-module closure: Course = H + bed joint within the published-rounding band (the US modular print
@@ -536,7 +614,7 @@ public static class MasonrySeed {
                 IfcBinding.Supertype(ComponentFamily.Masonry.Class),
                 MasonryVoids.Bucket(r.Frog, r.Perforation, r.WMm, r.HMm, r.LMm),
                 new ComponentStandard(r.Region, r.JointMm, r.Authority),
-                substanceId: MaterialId.Of(r.Material), appearanceId: MaterialId.Of(r.Material),
+                substanceId: r.Body.Material, appearanceId: r.Body.Material,
                 detail: Some(detail),
                 context.Key)
             select new ComponentRow(item, Sectioned: false)).As();
@@ -553,4 +631,5 @@ public static class MasonrySeed {
 - [ORDERED_KEY_COMPARERS]: REALIZED — every retained policy SmartEnum stacks `[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]` beside `[KeyMemberEqualityComparer<...>]`, matching the campaign `ComponentFamily` row convention for ordered key lookup.
 - [COVERAGE_ROWS]: EXTENDED — `masonry.us-norman` (ASTM C216 norman 92x57x295, the modular-series long format) and `masonry.uk-bullnose` (BS 4729 special over the UK work size) instantiate the previously dead `SpecialShape` vocabulary and the ASTM long-format series as data rows; the `BondName` catalogue gains the header-family classics as template DATA rows — `Header` (all-header alternating quarter offset), `EnglishGarden` (the 3-stretcher + 1-header English garden wall), `Monk` (the 2S+1H mixed course cell — the FIRST row exercising the multi-unit `CourseTemplate.Units` capability the template form always carried). A new region, shape, or template bond stays one row.
 - [DETAIL_SCHEMA_ROWS]: REALIZED — `MasonryDetail` composes `DetailSchema.SizeTolerance`/`SizeRange`/`SpecialShape`/`UnitHeight`/`CourseHeight` `PropertyName` rows declared on the seam `DetailSchema.Realization` vocabulary (Element `property#DETAIL_SCHEMA` — `UnitHeight` the bed-plane counterpart row, the unit length now riding the profile); `Projection/component.md` `ProjectType` reads `c.Detail`, reconciled with the `component.md` `[COMPONENT_DETAIL]` relocation.
+- [UNIT_PHYSICS_PARITY]: REALIZED — the coursing families reach receipt parity: `MasonryBody` is the typed substance axis (EN 1745 tabulated density/design-conductivity, the IBC 722.4 clay `te` for 1 hour, the `MaterialId` both component slots bind — the prior free `Material` string column retyped), `MasonryPhysics.Of(profile, body)` is the `CmuPhysics` analogue over the bed-plane lattice (equivalent thickness, `(te/cn)^1.7` fire hours, self-weight per wall-face m², isothermal-planes R with the always-air cell path — clay has no grout arm, so the grout columns stay the cmu sibling's), and `WallAcoustics.Of(arealMass, key)` is the ONE single-leaf field-incidence mass-law fold both `MasonryPhysics.ArealMassKgPerM2` and `CmuPhysics.ArealMassKgPerM2` feed onto the seam `Acoustic` receipt — the banded-spectrum capability extends from glazing to the heaviest wall materials, the IGU cavity-resonance spectrum staying glazing's own.
 - [FLEXURAL_TENSION_TABLE]: REALIZED — `MortarSystem` (4 ASTM C270 cementitious-system rows, `ReducedBond` the two-column-group discriminant) and `RuptureModulus` (8 rows × 4 MPa columns — the FULL TMS 402 Table `9.1.9.2`: normal-to-bed solid/hollow-ungrouted/hollow-grouted, parallel-to-bed running-bond solid/ungrouted/grouted, stack-bond continuous-grout 2.310 flat and other 0.0 flat; exact psi→MPa conversions of the printed 133/100/80/51 · 84/64/51/31 · 163/158/153/145 · 267/200/160/100 · 167/127/100/64 · 267/200/160/100 · 335 · 0, two-source verified against the TMS 402-16 print) close the URM flexural-tension feed the prior prose CLAIMED through `MortarType.FlexuralBondMpa` — a PHANTOM seam: the `MasonryCompression` record carried no mortar input, and ASTM C1072 unit-mortar bond (0.05-0.40 MPa) is NOT the Table `9.1.9.2` `fr` (~0.2-2.3 MPa), so the alias invitation is firewalled on both owners. `FrMpa(system, mortar)` dispatches the generated exhaustive `mortar.Switch` (M/S → the M-or-S column, N → the N column, O/K → 0.0 — outside the structural tables, any net tension governs outright); `PartialGrout(groutedCellFraction, system, mortar)` is the TMS footnote's linear interpolation between the two normal-hollow rows, the fraction `cmu#CMU_FAMILY` `CmuPhysics.GroutedCellFraction`. The `capacity#SECTION_CAPACITY` `SectionCapacity.Lift(CapacityReceipt)` `CapacityReceipt.Masonry(CmuStrength, ComputedSection, MasonryReduction, RuptureModulus, MortarSystem, MortarType)` case resolves `fr` on this table INSIDE the lift, and the `MasonryCompression` §`9.2.2` screen folds `σt = |My|/Sx + |Mz|/Sy + N/A` against `φ·fr`. Ripple counterparts: `capacity#SECTION_CAPACITY` (the `MasonryCompression` `fr` screen + the `CapacityReceipt.Masonry` lift case) and `cmu#CMU_FAMILY` (the grout-fraction handoff).

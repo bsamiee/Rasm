@@ -1,6 +1,6 @@
 # [H1][APPS]
 
-Top-level layout for shippable plugins. The host platform (Rhino-only vs Grasshopper) determines the parent folder; each plugin gets its own subdirectory containing a single `.csproj` that emits a `.rhp` artifact via the Yak packaging pipeline (`uv run python -m tools.assay package stage`).
+Top-level layout for shippable plugins. Host platform (Rhino-only vs Grasshopper) determines the parent folder; each plugin gets its own subdirectory containing a single `.csproj` that emits a `.rhp` artifact via the Yak packaging pipeline (`uv run python -m tools.assay package stage`).
 
 ```
 apps/
@@ -35,7 +35,7 @@ To add a new plugin:
 
 ## [02]-[REFERENCE_PLUGIN]
 
-The Grasshopper-host plugin shape; match the host folder convention when adding new plugins:
+Grasshopper-host plugin shape; match the host folder convention when adding new plugins:
 
 ```
 apps/grasshopper/<Plugin>/

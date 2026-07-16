@@ -30,15 +30,15 @@ Level choice requires knowing what is already on disk: inspect the filesystem fi
 
 ## [01]-[ROUTING]
 
-- [01]-[CLI_OPERATIONS](references/cli-operations.md): L1 command shape, property input files, `pulumi package info` discovery, output contracts, cross-resource value passing, and `pulumi import` graduation.
-- [02]-[BEST_PRACTICES](references/best-practices.md): `Output<T>` and `apply()` law, passing outputs as inputs, secrets hygiene, refactor aliases, preview discipline, and CI wiring before any non-trivial program.
+- [01]-[CLI_OPERATIONS](references/cli-operations.md): driving one-off resource work from the CLI, and graduating it into a program.
+- [02]-[BEST_PRACTICES](references/best-practices.md): laws every non-trivial program obeys before it runs.
 - [03]-[COMPONENTS](references/components.md): `ComponentResource` anatomy, args interface design, multi-language packaging, and distribution.
 - [04]-[AUTOMATION_API](references/automation-api.md): embedding Pulumi in a program, multi-stack orchestration, and inline versus local programs.
 - [05]-[DEBUGGING](references/debugging.md): reading a failed `up` or `preview` from Pulumi Cloud's record, tracing the cause, and placing the fix.
 
 ## [02]-[ONE_SHOT_OPERATIONS]
 
-`pulumi do` runs one-shot, stateless resource operations against any provider — no project files, no `${...}` wiring, no Pulumi state. The canonical invocation is `npx pulumi <command>`; `npx pulumi version` confirms availability without touching Pulumi Cloud, and the resource verbs require CLI `v3.243.0` or newer.
+`pulumi do` runs one-shot, stateless resource operations against any provider — no project files, no `${...}` wiring, no Pulumi state. `npx pulumi <command>` is the canonical invocation; `npx pulumi version` confirms availability without touching Pulumi Cloud, and the resource verbs require CLI `v3.243.0` or newer.
 
 ```text
 pulumi do <pkg:mod:type> create [flags]

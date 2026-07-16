@@ -1,6 +1,6 @@
 # Lane Templates
 
-The canonical prompt architecture for a codex work lane, battery-validated: lane law rides `developer-instructions` (or the `developer_instructions` config key on CLI lanes), the user `prompt` carries only the task instance, and the output contract sits LAST in the developer message. The prompt-contract law in SKILL.md [06] governs both templates; this reference carries the reusable text.
+Every codex work lane rides one canonical prompt architecture, battery-validated: lane law rides `developer-instructions` (or the `developer_instructions` config key on CLI lanes), the user `prompt` carries only the task instance, and the output contract sits LAST in the developer message. Both templates answer to the prompt-contract law in SKILL.md [06]; this reference carries the reusable text.
 
 ## [01]-[RECON]
 
@@ -26,15 +26,15 @@ Your final message is a single JSON object with exactly this shape:
 </output_contract>
 ```
 
-`prompt`: the concrete task only — territory paths, per-entry field semantics, product kinds.
+`prompt`: carries the concrete task only — territory paths, per-entry field semantics, product kinds.
 
-The load-bearing choices: the territory clause names skill and instruction files explicitly (lanes without it probe them); the budget caps TOTAL tool calls with the anti-aggregation sentence (a per-file read cap makes the lane concatenate the territory into one truncating command, collapsing completeness by an order of magnitude — the budget's speed and discipline gains survive only with this phrasing); the escape hatch converts residual uncertainty into `coverage.unverified` rows instead of re-reads; the contract's null clause is what separates honest nulls from filler.
+Load-bearing choices: the territory clause names skill and instruction files explicitly (lanes without it probe them); the budget caps TOTAL tool calls with the anti-aggregation sentence (a per-file read cap makes the lane concatenate the territory into one truncating command, collapsing completeness by an order of magnitude — the budget's speed and discipline gains survive only with this phrasing); the escape hatch converts residual uncertainty into `coverage.unverified` rows instead of re-reads; the contract's null clause is what separates honest nulls from filler.
 
-The exclusion targets aimless probing, not the skill system: a lane whose task matches one of codex's own skills (an estate port such as docgen before authoring durable markdown) legitimately reads that skill and runs its bundled gate — production-observed to raise product quality at a 2-3 call cost. The territory clause therefore bans instruction files (`.claude/`, `CLAUDE.md`, `AGENTS.md`) absolutely, while a matched-skill read on a lane that AUTHORS a durable artifact is in-contract; a recon lane that opens skills it never uses remains the drift the clause exists to stop.
+Exclusion targets aimless probing, not the skill system: a lane whose task matches one of codex's own skills (an estate port such as docgen before authoring durable markdown) legitimately reads that skill and runs its bundled gate — production-observed to raise product quality at a 2-3 call cost. That territory clause therefore bans instruction files (`.claude/`, `CLAUDE.md`, `AGENTS.md`) absolutely, while a matched-skill read on a lane that AUTHORS a durable artifact is in-contract; a recon lane that opens skills it never uses remains the drift the clause exists to stop.
 
 ## [02]-[WRITE]
 
-Workspace-write fix lane. The role split and output contract carry the recon lane's evidence base; the completion-bar, work-cadence, and post-edit verification blocks are the standing law for every lane that edits durable artifacts in place — the bar carries the anti-premature force a bare persistence push used to (and pushed past it into scope creep at the high tiers), and the cadence block is what keeps a long lane's findings alive across compaction: a lane whose read ladder exceeds the context window WILL compact mid-run, and whatever lives only in context at that moment degrades, so disk carries the state.
+Workspace-write fix lane. Role split and output contract carry the recon lane's evidence base; the completion-bar, work-cadence, and post-edit verification blocks are the standing law for every lane that edits durable artifacts in place — the bar carries the anti-premature force a bare persistence push used to (and pushed past it into scope creep at the high tiers), and the cadence block is what keeps a long lane's findings alive across compaction: a lane whose read ladder exceeds the context window WILL compact mid-run, and whatever lives only in context at that moment degrades, so disk carries the state.
 
 `developer-instructions`:
 
@@ -60,7 +60,7 @@ Your final message is a single JSON object with exactly this shape:
 </output_contract>
 ```
 
-`prompt`: the concrete task — the writable directory stated as the whole world, the moves, and "edit only files inside <dir>; touch no other path".
+`prompt`: carries the concrete task — the writable directory stated as the whole world, the moves, and "edit only files inside <dir>; touch no other path".
 
 ## [03]-[EXCLUSIONS]
 

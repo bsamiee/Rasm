@@ -1,6 +1,6 @@
 # [CONCEPT_MAPPING]
 
-A concept arrives as code, prose, a plan, or an argument — never as a diagram type. The structural shape inside the material selects the archetype, and each shape betrays itself through signals readable before any node exists. Recognition classifies that shape; question wording, staged growth, and per-type mark law bind downstream.
+A concept arrives as code, prose, a plan, or an argument — never as a diagram type. Structural shape inside the material selects the archetype, and each shape betrays itself through signals readable before any node exists. Recognition classifies that shape; question wording, staged growth, and per-type mark law bind downstream.
 
 ## [01]-[SHAPE_CATALOG]
 
@@ -45,7 +45,7 @@ Named archetype routes resolve through the catalog table in the root; bare decla
 
 ## [02]-[READING_SIGNALS]
 
-The shape lives in the material's structure, not its subject line — a document titled "architecture" routinely carries a mode machine, and a function named `process` routinely carries a dispatch. The reading discipline classifies before it draws:
+Shape lives in the material's structure, not its subject line — a document titled "architecture" routinely carries a mode machine, and a function named `process` routinely carries a dispatch. Reading discipline classifies before it draws:
 
 - In code: a field with a bounded vocabulary written from several sites is a mode machine regardless of its name; a table of rows consulted by one caller is a dispatch; manifest references are a dependency lattice; paired send and receive calls are a conversation.
 - In prose: temporal connectives across owners signal a walk; conditional connectives fanning from one subject signal a dispatch; possessive claims with multiplicity signal an identity web; "leads to" chains signal command causality, never a chronology.
@@ -61,7 +61,7 @@ The steps carry three owners and four handoffs between them; ownership is the pa
 | [22] | phase sentiment | one actor path scored by satisfaction per phase | `journey` |
 ```
 
-The naive reading maps surface order onto arrows; the shape reading asks which relation carries the reader's decision — order, ownership, dependency, causality, or identity — and routes on that relation.
+Naive reading maps surface order onto arrows; the shape reading asks which relation carries the reader's decision — order, ownership, dependency, causality, or identity — and routes on that relation.
 
 ## [03]-[MISFIT_SHAPES]
 
@@ -74,4 +74,4 @@ Some concepts carry no inspectable relation, and a fence forced onto them decora
 
 ## [04]-[COMPOSITE_SUBJECTS]
 
-A real subject usually carries several shapes at once: a job queue is a mode machine (one job's lifecycle), a conversation (the worker protocol), and a queue snapshot (the backlog now). The partition rule: one diagram per shape, the dominant shape drawn first — dominance belongs to the shape whose relation the reader's decision traverses — and every diagram in the set sharing the exact element names so views resolve against each other. The multi-view composition law, the shared-vocabulary rule, and the scenario cross-check are the methodology reference's property; recognition only decides how many shapes exist and which comes first.
+A real subject usually carries several shapes at once: a job queue is a mode machine (one job's lifecycle), a conversation (the worker protocol), and a queue snapshot (the backlog now). Partition rule: one diagram per shape, the dominant shape drawn first — dominance belongs to the shape whose relation the reader's decision traverses — and every diagram in the set sharing the exact element names so views resolve against each other. Multi-view composition law, the shared-vocabulary rule, and the scenario cross-check are the methodology reference's property; recognition only decides how many shapes exist and which comes first.

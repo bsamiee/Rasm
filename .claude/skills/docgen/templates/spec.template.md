@@ -1,6 +1,8 @@
 # [<pkg-token>_<page-token>]
 
-<page-charter-lead-1-3-sentences>
+<page-telos-lead-one-paragraph: the owner's charter in owning voice — the capability it owns, the piece it plays in the unit's system, and the boundary it holds; never the doc-set, realization status, or a sibling recap.>
+
+<page-composition-lead-one-paragraph: the settled facts a rebuild composes without re-derivation — reused axes and their owning pages, seam obligations and frozen wire names, admission and receipt rails, modality and policy rows the page binds; present only when the page carries them, never process narration or restated higher law.>
 
 ## [01]-[INDEX]
 
@@ -83,5 +85,9 @@ flowchart LR
 
 ## [04]-[RESEARCH]
 
-- [<research-token>]-[OPEN|BLOCKED]: <exact-question-plus-verification-route>
-- [SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

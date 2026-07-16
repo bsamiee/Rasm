@@ -2,7 +2,7 @@
 
 Rasm.Persistence ingests and emits geospatial features through ONE `GeoSource` owner over the NTS-IO codec family — the `[A.4]` Ingest growth row ("the next foreign-file codec into the record rail lands as a page HERE") made real: a `GeoFormat` `[SmartEnum<string>]` crosses the four wire projections (`GeoPackage` the GPB-header-plus-WKB blob over the already-admitted `Microsoft.Data.Sqlite` container, `GeoJson` the RFC-7946 feature text, `Wkb`/`Wkt` the core-NTS binary/text pair) and every format decodes into ONE interior currency — the NTS `Geometry` under ONE shared `GeometryFactory` — so a per-codec ad-hoc factory, a coordinate DTO fork, or a second geometry model is the deleted form. A `GeoSpec` fixes a read once — format, `Origin` source, the `CrsPolicy` admissible-SRID set, the ordinate cap, the H3 cell resolution, and an `Option<string>` layer selector — and the owner discriminates ingest, egress, and probe on the closed `GeoOp` `[Union]`, never a `ReadGpkg`/`ReadGeoJson`/`WriteWkb` name family.
 
-Every ingested feature lands as ONE `GeoFeatureRow`: the decoded `Geometry`, its canonical WKB interchange bytes (`WKBWriter` with EWKB SRID embedding — the storage-codec-independent byte form), the content key `ContentAddress.Of(wkb.Span)` minted through the ONE kernel seed-zero entry (`Element/codec#CONTENT_ADDRESS` — a GeoPackage blob, a PostGIS column, and a GeoJSON text of the same geometry share one content key), the `H3Cell` bucket set derived at ingest (`H3Index.FromPoint` for points, `Geometry.Fill` polyfill for regions and lines at the spec resolution — bit-identical to the `h3-pg` `h3_latlng_to_cell` server-side mint, the `Element/identity#SPATIAL_CELL` cell-parity law), and the deferred `GeoProperties` carrier the app reifies TYPED through ONE `Bind<T>` — a GeoJSON feature's `properties` through `IPartiallyDeserializedAttributesTable.TryDeserializeJsonObject<T>` under the SAME `ElementJson.Options` graph that carries `GeoJsonProjection.Default.Factory` (`Element/codec#CODEC_AXIS` dual service — geometry and typed properties NEVER deserialize under two disjoint converter sets), a GeoPackage attribute-column bag through the same STJ wire round-trip `Ingest/tabular#TABULAR_SOURCE` binds cells with. The codec NEVER knows the element graph: rows project to `Rasm.Element` nodes at the app composition root (ARCH:61 mirrored), `← Rasm.Bim/Semantics/geospatial` consumes the feature ingress (BIM:81 sibling row). The three typed faults are REACHED, never decorative — `CrsUnsupported` from the GPB header `SrsId`, the EWKB SRID, and the container spine `srs_id` probed against `CrsPolicy`; `GeometryInvalid` from the strict-mode parse (`WKBReader.IsStrict`/`WKTReader.IsStrict`, `RepairRings` off — byte-identity and repair are mutually exclusive) plus the NTS `Geometry.IsValid` gate; `CodecReject` from every remaining codec throw — with `Code => FaultBand.GeoIngest + n` (band 8440) and facts riding `store.geo.*`. `Origin` arrives from `Ingest/tabular#TABULAR_SOURCE`; `ProjectionContext` from `Element/graph#STORE_RAIL` ([A.1] frame); `ContentAddress` from `Element/codec`; `H3Cell` from `Element/identity`; `FaultBand` from `Element/graph#FAULT_TABLES`.
+Every ingested feature lands as ONE `GeoFeatureRow`: the decoded `Geometry`, its canonical WKB interchange bytes (`WKBWriter` with EWKB SRID embedding — the storage-codec-independent byte form), the content key `ContentAddress.Of(wkb.Span)` minted through the ONE kernel seed-zero entry (`Element/codec#CONTENT_ADDRESS` — a GeoPackage blob, a PostGIS column, and a GeoJSON text of the same geometry share one content key), the `H3Cell` bucket set derived at ingest (`H3Index.FromPoint` for points, `Geometry.Fill` polyfill for regions and lines at the spec resolution — bit-identical to the `h3-pg` `h3_latlng_to_cell` server-side mint, the `Element/identity#SPATIAL_CELL` cell-parity law), and the deferred `GeoProperties` carrier the app reifies TYPED through ONE `Bind<T>` — a GeoJSON feature's `properties` through `IPartiallyDeserializedAttributesTable.TryDeserializeJsonObject<T>` under the SAME `ElementJson.Options` graph that carries `GeoJsonProjection.Default.Factory` (`Element/codec#CODEC_AXIS` dual service — geometry and typed properties NEVER deserialize under two disjoint converter sets), a GeoPackage attribute-column bag through the same STJ wire round-trip `Ingest/tabular#TABULAR_SOURCE` binds cells with. This codec NEVER knows the element graph: rows project to `Rasm.Element` nodes at the app composition root (ARCH:61 mirrored), `← Rasm.Bim/Semantics/geospatial` consumes the feature ingress (BIM:81 sibling row). Three typed faults are REACHED, never decorative — `CrsUnsupported` from the GPB header `SrsId`, the EWKB SRID, and the container spine `srs_id` probed against `CrsPolicy`; `GeometryInvalid` from the strict-mode parse (`WKBReader.IsStrict`/`WKTReader.IsStrict`, `RepairRings` off — byte-identity and repair are mutually exclusive) plus the NTS `Geometry.IsValid` gate; `CodecReject` from every remaining codec throw — with `Code => FaultBand.GeoIngest + n` (band 8440) and facts riding `store.geo.*`. `Origin` arrives from `Ingest/tabular#TABULAR_SOURCE`; `ProjectionContext` from `Element/graph#STORE_RAIL` ([A.1] frame); `ContentAddress` from `Element/codec`; `H3Cell` from `Element/identity`; `FaultBand` from `Element/graph#FAULT_TABLES`.
 
 ## [01]-[INDEX]
 
@@ -18,7 +18,7 @@ Every ingested feature lands as ONE `GeoFeatureRow`: the decoded `Geometry`, its
 - Receipt: every op rides a `GeoFact` under `store.geo.*` — an `ingest` fact carrying the format key, feature count, and derived-cell total; an `egress` fact carrying the format and feature count; a `probe` fact carrying the layer count — one kind-discriminated stream stamped `frame.Now()`.
 - Packages: NetTopologySuite.IO.GeoPackage (`GeoPackageGeoReader`/`GeoPackageGeoWriter`/`GeoPackageBinaryHeader`), NetTopologySuite.IO.GeoJSON4STJ (`GeoJsonConverterFactory` via `GeoJsonProjection.Default.Factory`, `IPartiallyDeserializedAttributesTable.TryDeserializeJsonObject<T>`, `NetTopologySuite.Features.Feature`/`FeatureCollection`/`AttributesTable`), NetTopologySuite (`WKBReader`/`WKBWriter`/`WKTReader`/`WKTWriter`/`Geometry.IsValid`/`Geometry.Intersection`/`PrecisionModel`/`Ordinates`), pocketken.H3 (`H3Index.FromPoint`, `Geometry.Fill`, `LineString.Fill`, `Geometry.IsTransMeridian`, `H3Index.Invalid`, the `ulong` durable form), Microsoft.Data.Sqlite (the GeoPackage container spine read — already admitted), Rasm.Persistence (`Element/codec` `ContentAddress`/`ElementJson.Options`/`GeoJsonProjection`, `Element/identity` `H3Cell`, `Element/graph` `FaultBand`/`ProjectionContext`, `Ingest/tabular` `Origin`), LanguageExt.Core, Thinktecture.Runtime.Extensions, NodaTime, BCL inbox.
 - Growth: a new wire projection is one `GeoFormat` row plus its codec arms in the format `Switch` (broken loudly at compile time); a new CRS stance is one `CrsPolicy` value (DATA, zero code); a new ordinate posture is the `GeoAdmission` cap; a new fault class is one case inside the registry decade; zero new surface — a per-codec `GeometryFactory`, a raw-WKB read of a GPB blob (the header is unparseable to a raw reader), a `RepairRings`-on row beside content addressing, a WKT `string.Split` parse, a hand-spelled GeoJSON shaper, a second H3 coordinate model, or a geo→element map inside this codec is the deleted form.
-- Boundary: NTS `Geometry` is the SINGLE interior vocabulary and a store-to-feed flow is decode-blob → interior → encode-text, never a direct transcode; WKB is the canonical interchange binary — the content key hashes the WKB bytes, so identity is storage-codec-independent; the GeoJSON id convention rides the ONE `GeoJsonProjection` row (two partner id conventions would be two projection rows on two options instances, never post-read patching); precision is admission-side (the reader's `PrecisionModel` applies as coordinates parse; writers emit stored doubles raw), so emitted-text hash stability comes from constructing under the fixed factory BEFORE serialization; XYM/XYZM degrade silently on the GeoJSON text wire, so measure-bearing data routes through the blob projection — a format-capability fact on the `GeoFormat` row, not a runtime surprise; `→ Element/identity#SPATIAL_CELL` (cell derivation, leg-3→leg-1 downward), `← Element/codec#GeoJsonProjection` (converter graph), `→ Rasm.Element` (row shape only), `← Rasm.Bim/Semantics/geospatial` (feature ingress, BIM:81); the GDAL/OGR GeoParquet COLUMNAR lane is `Query/columnar`'s (BIM:81 first half) — this page owns feature-file codecs, never a columnar reader.
+- Boundary: NTS `Geometry` is the SINGLE interior vocabulary and a store-to-feed flow is decode-blob → interior → encode-text, never a direct transcode; WKB is the canonical interchange binary — the content key hashes the WKB bytes, so identity is storage-codec-independent; the GeoJSON id convention rides the ONE `GeoJsonProjection` row (two partner id conventions are two projection rows on two options instances, never post-read patching); precision is admission-side (the reader's `PrecisionModel` applies as coordinates parse; writers emit stored doubles raw), so emitted-text hash stability comes from constructing under the fixed factory BEFORE serialization; XYM/XYZM degrade silently on the GeoJSON text wire, so measure-bearing data routes through the blob projection — a format-capability fact on the `GeoFormat` row, not a runtime surprise; `→ Element/identity#SPATIAL_CELL` (cell derivation, leg-3→leg-1 downward), `← Element/codec#GeoJsonProjection` (converter graph), `→ Rasm.Element` (row shape only), `← Rasm.Bim/Semantics/geospatial` (feature ingress, BIM:81); the GDAL/OGR GeoParquet COLUMNAR lane is `Query/columnar`'s (BIM:81 first half) — this page owns feature-file codecs, never a columnar reader.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
@@ -39,7 +39,7 @@ public sealed partial class GeoFormat {
     private GeoFormat(string key, bool carriesProperties) : this(key) => CarriesProperties = carriesProperties;
 }
 
-// The admissible-SRID vocabulary: the CRS gate is a set-membership probe against DATA, so a projected
+// the admissible-SRID vocabulary: the CRS gate is a set-membership probe against DATA, so a projected
 // deployment widens the set with zero gate edits; 4326 is the canonical interior frame.
 public readonly record struct CrsPolicy(int Canonical, FrozenSet<int> Admissible) {
     public static readonly CrsPolicy Wgs84 = new(4326, FrozenSet.ToFrozenSet([4326]));
@@ -77,7 +77,7 @@ public sealed partial class GeoSpec {
             : Validation<ValidationError, GeoSpec>.Fail(ValidationError.Create("<geo-spec-resolution>"));
 }
 
-// The deferred-properties carrier: a GeoJSON feature keeps its element-backed attribute table (reified
+// the deferred-properties carrier: a GeoJSON feature keeps its element-backed attribute table (reified
 // typed ONLY through the one options graph), a GeoPackage feature keeps its column bag, a bare geometry
 // carries nothing — one closed family, one `Bind<T>` dispatch, never a loose `IAttributesTable` walk.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -186,7 +186,7 @@ public static class GeoSource {
         return new GeoFeatureRow(shape, wkb, ContentAddress.Of(wkb.AsSpan()), Cells(shape, spec.CellResolution), properties);
     }
 
-    // The SPATIAL_CELL derivation: a point mints one cell, a region/line polyfills — bit-identical to the
+    // the SPATIAL_CELL derivation: a point mints one cell, a region/line polyfills — bit-identical to the
     // `h3-pg` server-side mint (the cell-parity law), `H3Index.Invalid` contributing NOTHING (never a stored
     // zero cell), and a transmeridian region filling per hemisphere-split half because a raw fill walks the
     // wrong lobe across the antimeridian.
@@ -241,7 +241,7 @@ public static class GeoSource {
                 : Validation<GeoIngestFault, TValue>.Fail(GeoIngestFault.Lift(format, ex)));
 }
 
-// The typed in-codec refusal carrier: a spine/header gate deep inside a codec fold surfaces its ALREADY-typed
+// the typed in-codec refusal carrier: a spine/header gate deep inside a codec fold surfaces its ALREADY-typed
 // fault through the one Capture funnel instead of flattening to a CodecReject message.
 public sealed class GeoRefusal(GeoIngestFault fault) : Exception(fault.Message) { public GeoIngestFault Fault { get; } = fault; }
 ```
@@ -286,7 +286,7 @@ public static class GeoRows {
     }
 }
 
-// The GeoJSON text seam: ONE options graph (`ElementJson.Options` carrying `GeoJsonProjection.Default.Factory`)
+// the GeoJSON text seam: ONE options graph (`ElementJson.Options` carrying `GeoJsonProjection.Default.Factory`)
 // for the whole conversion family — geometry, features, collections, attribute tables. JSON null is null
 // geometry (the rail's one null) projected to absence at the seam; ring orientation enforces on WRITE only.
 public static class GeoWire {
@@ -313,7 +313,7 @@ public static class GeoWire {
         Seq(new GeoLayer("features", 4326, nameof(FeatureCollection), Features(spec).Count));
 }
 
-// The GeoPackage container seam over the admitted Microsoft.Data.Sqlite: spine-first (the three-table
+// the GeoPackage container seam over the admitted Microsoft.Data.Sqlite: spine-first (the three-table
 // metadata spine binds each feature table to ONE geometry column + SRID), per-layer CRS gate through the
 // typed GeoRefusal, per-row GPB decode + column bag. Read-only mount — the container's own store mechanics
 // are the embedded-floor owner's, never re-derived here.
@@ -349,7 +349,7 @@ public static class GeoContainer {
             return Layers(container, spec.Layer);
         }, stream: _ => throw new GeoRefusal(new GeoIngestFault.CodecReject("gpkg", "<container-needs-a-path>")));
 
-    // The metadata spine: `gpkg_geometry_columns` names the ONE geometry column per feature table,
+    // the metadata spine: `gpkg_geometry_columns` names the ONE geometry column per feature table,
     // `gpkg_contents` the layer roster — `Kind` carries the geometry COLUMN name the row decode reads.
     static Seq<GeoLayer> Layers(SqliteConnection container, Option<string> selected) {
         using SqliteCommand spine = container.CreateCommand();
@@ -424,3 +424,11 @@ public static class GeoContainer {
 |  [04]   | deep-gate faults    | `GeoRefusal` typed carrier                | a spine CRS refusal surfaces typed, never a flattened message      |
 |  [05]   | container mechanics | read-only `Microsoft.Data.Sqlite` mount   | embedded-floor law composed, never a second engine                 |
 |  [06]   | layer write         | one transaction: rows + rtree + extent    | a stale extent misleads discovery; maintained in the same commit   |
+
+## [04]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+-->
+
+(none)

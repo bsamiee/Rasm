@@ -1,23 +1,22 @@
 # [PY_ARTIFACTS_REPORT]
 
-The reproducible-report composition layer binding data and visual outputs into the one `document/model#NODE` `DocumentNode` tree, the composition peer of the `document/emit#DOCUMENT` lowering owner it is structurally identical to. `ReportPlan` is ONE frozen `msgspec.Struct` owner discriminating report kind over the `COMPOSE_ARMS` `frozendict[ReportKind, ComposeArm]` coroutine-row policy table — the `BACKENDS`/`_CORE_ARMS` band-table idiom `document/emit#DOCUMENT` and `document/lens#LENS` prove — so `_emit` is one uniform `await COMPOSE_ARMS[self.kind](self)` with zero branch. The canonical interior every kind PRODUCES is the `DocumentNode` tree, never a string: section composition (a `Section` value-object algebra folding heading level, an optional CSI/OmniClass `classification` onto the `SectionNode` `NodeMeta`, a rich `SectionBlock` body — prose blocks of any `BlockKind`, `ListNode` lists, inline `FigureRef` figures, AND `TableData` data tables/schedules INTERLEAVED in one ordered flow — and nested subsections into a `SectionNode`/`BlockNode`/`ListNode`/`FigureNode`/`TableNode` subtree keyed by structural path, with a leading table-of-contents `SectionNode` whose entries ride a real `document/model#NODE` `ListNode`/`ListKind.ORDERED` grouping, never a phantom block kind and never a `figures` trail forced after every block), `jinja2` template composition (a loader-row engine over the trusted/sandboxed/native `Environment` policy built at boundary scope under the serializable `extensions` dotted-path band plus the report-scoped `_REPORT_FILTERS`/`template_globals`/deterministic-JSON-policy registries and an optional `FileSystemBytecodeCache` for repeated reproducible runs, a strict-undefined async render over the bound `context` data band emitting a free-form HTML `BlockNode` leaf — or, under `nativetypes.NativeEnvironment`, a computed Python value lowered through the total `_NATIVE` encoder to a deterministic structured-data leaf), parameterized-notebook execution (a `ReportSource`-row `jupytext` text-source pairing into a `NotebookNode` — `AUTO` deferring to `jupytext.reads(fmt=None)` content detection — the supplied parameters admitted once against the `ReportParams` value-space band through the plan's own `ReportPayload` gate, a `papermill.parameterize.parameterize_notebook` injection threading the `NotebookEngine.kernel_name` so a non-`python3` kernel routes its own `PapermillTranslators` row, a host-free `nbclient.NotebookClient.async_execute` run under the frozen `NotebookEngine` traits projected through `NotebookEngine.client_kwargs` and the `resources` cwd seed so a relative-asset notebook resolves, an executed-notebook archive, and an `nbconvert.get_exporter(...)` lowering shaped by the `ExportPolicy` `TagRemovePreprocessor` tag bands, the `ExtractOutputPreprocessor` figure capture, and the `exclude_input`/`exclude_output` content controls, dispatched through `from_notebook_node` whose `(output, resources)` pair feeds a `BlockNode` leaf — a `str` output a `BlockKind.CODE` HTML leaf and the binary `PDF`/`WEBPDF` `bytes` output a `BlockKind.QUOTE` hex leaf partitioned on the output's own type, never an HTML wrapper over PDF bytes, the `resources['outputs']` display figures the prior arm discarded now content-keyed and spliced as `FigureNode`s beside the leaf so a notebook chart survives), reflowable re-layout (the `pymupdf.Story.write`/`write_stabilized`/`DocumentWriter` HTML-into-PDF reflow the `REFLOW` kind AUTHORS on the runtime subprocess lane as a fresh `PageNode` plus the reflowed PDF bytes, `Story.add_pdf_links` folding placed-element positions into live links and `write_stabilized` converging the TOC/cross-reference layout), and commercial-safe authoring (the MIT/Apache `pdf_oxide.Pdf.from_markdown`/`from_html`/`from_markdown_with_template`/`OfficeConverter` arm the `AUTHOR` kind runs on the `to_thread` lane as the license-clean peer of the AGPL `REFLOW` arm, the running-header/footer `PageTemplate` authoring the AEC titled sheet).
+The reproducible-report composition layer binding data and visual outputs into the one `document/model#NODE` `DocumentNode` tree — the composition peer of the `document/emit#DOCUMENT` lowering owner. `ReportPlan` discriminates report kind over the `COMPOSE_ARMS` coroutine-row table, so `_emit` is one uniform `await COMPOSE_ARMS[self.kind](self)` with zero branch, and every kind PRODUCES the tree, never a string. It owns neither the visual nor the codec: figures bind by content key as `FigureNode`s — produced by `visualization/chart#CHART`, `visualization/table#TABLE`, and `scene#SCENE`, never re-rendered — and the produced tree hands to `document/emit#DOCUMENT` for lowering.
 
-Every per-kind input is one frozen `ReportSpec` `msgspec.Struct` admitted exactly once at `ReportPlan.of` through the closed `ReportPayload` `TypedDict` and its module-level `TypeAdapter` — never a `dict[str, object]` bag, never re-validated in the interior — the per-kind `_REQUIRED` precondition making admission total over well-formed requests. Every kind threads ONE `ReportFact` typed-evidence carrier onto the frozen owner through `copy.replace` (a thin pure `_emit` core returning the stepped `Self`), and the `@receipted(OPEN)` harvest weave drains `ReportPlan.contribute` off the stepped owner so the receipt reads `ReportFact` without an in-process re-run; `ReportFault` is the closed `@tagged_union` over the `payload`/`unsatisfied` ADMISSION causes `of` produces, while every arm-level provider raise (`jinja2.UndefinedError`/`TemplateSyntaxError`/`TemplateNotFound`/`sandbox.SecurityError`, `pydantic.ValidationError`, `papermill.PapermillMissingParameterException`/`PapermillExecutionError`, `nbclient.exceptions.CellExecutionError`/`CellTimeoutError`/`DeadKernelError`, `nbconvert.ExporterNameError`) converts to the runtime `BoundaryFault` at the `async_boundary` capsule, exactly as `document/emit#DOCUMENT` routes its provider raises. It owns neither the visual nor the codec — it binds the figures keyed by content key into the tree (a `FigureNode` per `asset_key`, never re-rendering the chart/table/scene), executes a notebook under a bounded-safety engine, reflows HTML through the native MuPDF `Story.write`/`write_stabilized` sweep, authors a commercial-safe PDF through the pdf_oxide markdown/HTML/office arm, threads each emitted artifact onto its `ReportFact`, and hands the tree to the document axis.
+`ReportSpec` admits exactly once at `ReportPlan.of` through the closed `ReportPayload` `TypedDict` under the per-kind `_REQUIRED` precondition; every kind threads one `ReportFact` evidence carrier onto the frozen owner, the `@receipted(OPEN)` weave drains `contribute` off the stepped owner, and arm-level provider raises convert to the runtime `BoundaryFault` at the `async_boundary` capsule. The `REFLOW` kind is this owner's HTML-into-PDF authoring half — the directional inverse of the `document/lens#LENS` `STORY` recover-out-of-PDF arm, two arms of one `pymupdf.Story` capability split by direction, not a duplicate; the `AUTHOR` kind is its MIT/Apache `pdf_oxide` license-clean peer. PAdES finishing routes to `../exchange/conformance#CONFORM` and the security-navigation close to `document/egress#FINISH`.
 
 ## [01]-[INDEX]
 
-- [01]-[REPORT]: report-composition axis over the section/template/notebook/reflow/author kinds producing one `DocumentNode` interior through the one `COMPOSE_ARMS` coroutine-row `frozendict`, the `Section`/`SectionBlock`/`FigureRef`/`TableData` heading-rich-body value objects the `COMPOSE` kind folds into a path-keyed tree (prose blocks of any `BlockKind`, `ListNode` lists, inline `figure` units, and `table` data-tables/schedules interleaved in one ordered body, an optional CSI/OmniClass `Section.classification` onto the `SectionNode` `NodeMeta`, nested subsections, the TOC over a real `ListNode`), the closed `ReportPayload` `TypedDict` ingress plus its `ReportSpec` carrier, the `ReportParams` `extra_items` notebook-parameter value-space band, the `ReportFact` typed-evidence carrier threaded onto the owner, the `NotebookEngine` bounded-safety engine-config value with its `client_kwargs` nbclient projection and the `resources` cwd seed, the boundary-scoped `jinja2` loader-sandbox-native sub-axis over the serializable `extensions` dotted-path band with the report-scoped `_REPORT_FILTERS`/`template_globals`/policy registries, the `FileSystemBytecodeCache`, and the `context` render-data band, the `TemplateRender` string-vs-native render policy, the `ReportSource` `jupytext` text-source sub-axis (the `AUTO` auto-detect row included), the `ReportExport` closed `nbconvert` export-name vocabulary discriminated by the rendered output's own `str`-vs-`bytes` type, the `ExportPolicy` nbconvert export-shaping value with its `TagRemovePreprocessor` tag bands, `ExtractOutputPreprocessor` figure-capture flag, and `exclude_input`/`exclude_output` content controls projected through `exporter_kwargs` (the `_notebook_figures` splice folding each captured `resources['outputs']` display figure into a content-keyed `FigureNode`), the `ReflowPaper` named-paper-size and `ReflowLayout` direct-vs-stabilized sub-axes, the `AuthorSource` commercial-safe pdf_oxide authoring vocabulary over the `_AUTHOR_BUILD` derived dispatch (the running-header/footer `PageTemplate` sheet + `OfficeConverter` office source), the `@receipted` harvest weave over a thin pure `_emit` returning `Self`, and the one one `emit()`/`_emit` node contract per plan; grouped construction is `core/issue`'s.
+- [01]-[REPORT]: the one composition axis over the section/template/notebook/reflow/author kinds, dispatched by the `COMPOSE_ARMS` coroutine-row table into one `DocumentNode` interior.
 
 ## [02]-[REPORT]
 
-- Owner: `ReportPlan` the one frozen `msgspec.Struct` composition axis discriminating report kind over the `COMPOSE_ARMS` `frozendict[ReportKind, ComposeArm]` (every row a `Callable[[ReportPlan], Awaitable[ReportFact]]`, the `document/emit#DOCUMENT BACKENDS`/`document/lens#LENS _CORE_ARMS` band-table idiom) and producing one `DocumentNode` interior; `ReportKind` the closed `StrEnum` over `COMPOSE`/`TEMPLATE`/`NOTEBOOK`/`REFLOW`/`AUTHOR` (the AGPL `pymupdf.Story` reflow and the MIT/Apache `pdf_oxide` commercial-safe author its two PDF-producing arms); `ReportSpec` the one frozen `msgspec.Struct(omit_defaults=True)` carrier holding the admitted report source, sections, figure refs, loader/source/export rows, engine, trust flag, paper, and TOC knobs — admitted once at `ReportPlan.of` from the closed `ReportPayload` `TypedDict(closed=True)` + module-level `TypeAdapter` and never re-validated; `_REQUIRED` the `frozendict[ReportKind, tuple[str, ...]]` precondition table whose row names the spec fields a kind demands so `of` rejects an empty `sections`/`source` before the interior; `ReportFact` the threaded `msgspec.Struct` evidence carrier (the rendered `DocumentNode`, the content-keyed `body` bytes, the optional notebook-archive bytes, the reflow page count, the resolved export/loader/source rows, and the per-cell-timing and widget-state flags) read by `contribute` to mint the receipt rows; `Section` the frozen value object carrying a heading level, an optional CSI/OmniClass `classification`, a `SectionBlock` body sequence (prose/list/figure/table units), and nested subsections the `COMPOSE` fold lowers into a `SectionNode`/`BlockNode`/`ListNode`/`FigureNode`/`TableNode` subtree; `SectionBlock` the closed body-unit `@tagged_union` (`prose`/`listing`/`figure`/`table`) interleaving a figure OR a data table/schedule IN flow between its sibling blocks rather than a parallel `Section.figures` trail; `FigureRef` the one figure-reference value object (`asset_key` content key, `alt` equivalent, `caption`, plus the `media_type`/`intrinsic` the lowered `FigureNode` carries) the `COMPOSE` `SectionBlock.figure` case and the `TEMPLATE` `spec.figures` kwarg both bind; `TableData` the one data-table value object (a row-major cell-text grid + the `header_rows`/`footer_rows`/`spans`/`caption` `TableNode` metadata) the `COMPOSE` `SectionBlock.table` case lowers to a `document/model#NODE` `TableNode` — a journal data table AND an AEC schedule with REAL cell text the audit's `THead`/`TR` nesting check reads, never a `FigureRef` pre-render flattening the cells to an image; `ReportParams` the `TypedDict(extra_items=ParamScalar)` notebook-parameter value-space band admitted through the one `ReportPayload` gate; `ReportLoader` the closed `StrEnum` selecting the `jinja2` loader composition (`DictLoader`/`FileSystemLoader`/`PackageLoader`/`PrefixLoader`/`ModuleLoader` folded through `ChoiceLoader`) the boundary-scoped `match` resolves; `ReportSource` the closed `StrEnum` selecting the `jupytext` text representation, with `AUTO` deferring to `reads(fmt=None)` content detection; `ReportExport` the closed `StrEnum` over the `nbconvert.exporters` registry name rows `get_exporter` resolves; `NotebookEngine` the frozen engine-config value object carrying the full `nbclient.NotebookClient` bounded-safety trait set projected to constructor kwargs through `NotebookEngine.client_kwargs`; `ExportPolicy` the frozen nbconvert export-shaping value object carrying the `TagRemovePreprocessor` `remove_cell_tags`/`remove_input_tags`/`remove_all_outputs_tags` bands projected to the exporter's `config=` parameter through `ExportPolicy.exporter_kwargs` — the export-side peer of the execution-side `NotebookEngine`, stripping the report's scaffolding cells before the `from_notebook_node` lowering; `ReflowPaper` the closed `StrEnum` over the `pymupdf.paper_rect` named-size vocabulary every kind's `media_box` derives from through `_box`; the bind layer between visual outputs and document inputs.
-- Cases: `_compose_arm` (the `COMPOSE` row) folds the `Section` value-object sequence into a `SectionNode` outline (each `SectionBlock` through `_block_node` — a `prose` unit to a `BlockNode`, a `listing` to a `ListNode`, a `figure` to an `asset_key`-keyed `FigureNode` in its own flow slot, a `table` to a `TableNode` cell grid (each cell one `TD`-role paragraph `BlockNode`) carrying the `header_rows`/`footer_rows`/`spans`/`caption` — and the section's `classification` onto the `SectionNode` `NodeMeta`), synthesizes a leading table-of-contents `SectionNode` carrying a `ListNode(list_kind=ListKind.ORDERED)` of per-heading entries through `_toc`, and returns a `ReportFact` over the assembled `PageNode` whose `body` is `encode(page)`; `_template_arm` (the `TEMPLATE` row) builds the trusted `jinja2.Environment` or untrusted `jinja2.sandbox.ImmutableSandboxedEnvironment` at boundary scope under the strict-undefined async policy and the serializable `extensions` dotted-path band, resolves the `ReportLoader` row through one boundary-scoped `match`, renders `Environment.from_string(spec.source).render_async(sections=, figures=)` into an HTML string `_output_page` wraps as one `BlockNode(block=BlockKind.CODE)` HTML leaf the `document/emit#DOCUMENT PDF_HTML` weasyprint arm consumes; `_notebook_arm` (the `NOTEBOOK` row) admits the source through the `ReportSource` `jupytext` row (`AUTO` passing `fmt=None` so `reads` content-detects) into one `nbformat.NotebookNode`, injects the `ReportPayload`-admitted parameters through `papermill.parameterize.parameterize_notebook` over `papermill.parameterize.add_builtin_parameters` threading `kernel_name=spec.engine.kernel_name`, executes the node headlessly through `nbclient.NotebookClient(node, **spec.engine.client_kwargs()).async_execute()`, reads the `(output, resources)` pair from `nbconvert.get_exporter(spec.export.value)(**spec.export_policy.exporter_kwargs()).from_notebook_node(executed)` (the `ExportPolicy` tag bands stripping scaffolding cells through one `TagRemovePreprocessor` `config`, `ExtractOutputPreprocessor` pulling display figures into `resources['outputs']`, the `exclude_input`/`exclude_output` traits dropping input/output classes), splices each captured `resources['outputs']` figure into a content-keyed `FigureNode` through `_notebook_figures` so a notebook chart survives into the tree rather than vanishing with the discarded sidecar, and threads a `ReportFact` carrying the lowered `BlockNode`-plus-`FigureNode` page, the `jupytext.writes(executed, "ipynb")` archive bytes, the spliced-figure count, the resolved export row, and the engine's timing/widget flags; `_reflow_arm` (the `REFLOW` row) flows the source HTML through one `pymupdf.Story(html, user_css, em)`/`DocumentWriter(BytesIO)` `place`/`draw` loop over the `ReflowPaper`-resolved `paper_rect` on the runtime subprocess lane (the runtime process lane), recovers the reflowed PDF bytes plus the page count as the keyed `body`, and threads a `ReportFact` carrying the `PageNode` and the page count the receipt's `ArtifactReceipt.Pdf` case lands on. `ReportLoader` rows `DICT` (`DictLoader` in-memory sections) · `FILESYSTEM` (`FileSystemLoader` template roots) · `PACKAGE` (`PackageLoader` package-resource tree) · `PREFIX` (`PrefixLoader` namespaced child loaders) · `MODULE` (`ModuleLoader` pre-compiled template tree) — the `FunctionLoader` callable provider deleted because a callable is no serializable spec value. `ReportSource` rows `IPYNB` · `MYST` · `PERCENT` (`py:percent`) · `LIGHT` (`py:light`) · `MARKDOWN` · `RMD` (`Rmd`) · `QMD` (`qmd`) · `AUTO` (content-detected through `reads(fmt=None)`). `ReportExport` rows `HTML` · `PDF` · `WEBPDF` · `LATEX` · `MARKDOWN` · `RST` · `ASCIIDOC` · `SLIDES` · `PYTHON` · `SCRIPT` — each an `nbconvert.exporters` name `get_exporter` resolves, raising `ExporterNameError` on an unknown name; the `NOTEBOOK` round-trip target is deleted because it returns a `NotebookNode` the `jupytext.writes` archive already owns. `ReflowPaper` rows `A4` · `A3` · `A5` · `LETTER` · `LEGAL` — each a `pymupdf.paper_rect` named-size string.
-- Entry: `emit()` is the one producer entrypoint — one `ArtifactWork` per plan whose key mints PRE-RUN over the canonical `(kind, spec)` input, `_emit` the renamed private thunk resolving `RuntimeRail[ArtifactReceipt]` with `receipt.slot == node.key`; grouped composition is `core/issue`'s construction, never a module batch driver here; it wraps `_composed(block)` in one `async_boundary("report.compose", ...)` and returns `RuntimeRail[Block[ContentKey]]`, the exact `document/emit#DOCUMENT produced` shape. `_emit` is the thin pure core under the `@receipted(OPEN)` weave: it threads `replace(self, fact=await COMPOSE_ARMS[self.kind](self))` and returns `Self` so the harvest drains `contribute`, and `_composed` reads each stepped `plan.fact.body` to mint the `ContentKey` block; the `async_boundary` capsule converts every provider-exception family into `BoundaryFault` through the runtime `CLASSIFY` rows, never a per-kind `try`/`except` inside `_emit`.
-- Auto: the `COMPOSE` fold reduces the `Section` sequence into a `SectionNode` outline through `_section_node` — each `SectionBlock` folds through `_block_node` in document order (a `prose` unit to a `BlockNode` of its `BlockKind`, a `listing` to a `ListNode`, a `figure` to an `asset_key`-keyed `FigureNode` carrying the ref's `alt`/`media_type`/`intrinsic`, a `table` to a `TableNode` cell grid carrying the `TableData` `header_rows`/`footer_rows`/`spans`/`caption` between its sibling blocks), the section's `classification` rides the `SectionNode` `NodeMeta`, and `_toc` synthesizes a leading table-of-contents `SectionNode` whose `ListNode(list_kind=ListKind.ORDERED)` rows one `BlockNode` entry per heading — so the interleaved figures and the outline land IN the tree rather than as a jinja kwarg; template binding folds the sections and the one `FigureRef` sequence into `Environment.from_string(...).render_async` (strict-undefined: a missing section key is a `jinja2.UndefinedError` fault, never a silent blank) and wraps the rendered HTML as one `BlockNode` HTML leaf; notebook execution admits the `ReportSource` text through `jupytext.reads(text, fmt)` (`AUTO` passing `fmt=None`), injects the `ReportPayload`-admitted parameters through `parameterize_notebook(node, add_builtin_parameters(dict(spec.notebook_parameters)), report_mode=False, kernel_name=spec.engine.kernel_name)` (the one injection point `papermill` owns, the `kernel_name` selecting the `PapermillTranslators` row so an `R`/`julia`/`.net-csharp` kernel serializes its parameter cell in its own language), runs the node through `nbclient.NotebookClient(node, **spec.engine.client_kwargs()).async_execute()` on the async kernel lane (a runaway cell raising `CellTimeoutError`/`CellExecutionError`, a kernel death `DeadKernelError`), serializes the executed node — whose per-cell timing `record_timing=True` already stamped into its metadata and whose widget state `store_widget_state=True` captured — to the reproducibility-archive bytes through `jupytext.writes(executed, "ipynb")`, and lowers the executed node through `nbconvert.get_exporter(export.value)(**spec.export_policy.exporter_kwargs()).from_notebook_node(executed)` — the `ExportPolicy` tag bands entering through the one `TagRemovePreprocessor` `config` so the report strips its scaffolding cells/inputs/outputs before the lowering — reading the `(output, resources)` pair: a text exporter's `str` output wraps as a `BlockKind.CODE` HTML leaf while a `PDF`/`WEBPDF` export's `bytes` output wraps as a `BlockKind.QUOTE` hex leaf, the `isinstance(output, str)` partition `_output_page` owns so a binary export never mis-renders as HTML text, and the `resources['outputs']` display figures the `ExtractOutputPreprocessor` extracted are folded through `_notebook_figures` into content-keyed `FigureNode`s spliced beside the output leaf (a matplotlib/altair/lets-plot chart now surviving into the tree) rather than a discarded sidecar; the `REFLOW` loop opens one `pymupdf.DocumentWriter(io.BytesIO())` over a held buffer, lays the HTML through `pymupdf.Story(html, user_css, em).place(rect)` until `more == 0`, draws each filled slice onto the `begin_page(paper_rect)` device, closes the writer, and returns the buffer's reflowed-PDF bytes, the page count, and the rect; every kind's non-reflow `media_box` derives from `_box(spec.paper)` over `pymupdf.paper_rect(...)`, never a hand-built `(0, 0, 595, 842)` literal.
-- Receipt: the `@receipted(OPEN)` harvest weave stacks over the pure `_composed` fold under `_emit`, draining `ReportPlan.contribute` and emitting through `Signals.emit_async`; `contribute` reads the threaded `ReportFact` off `self.fact` (never an in-process re-run of an arm), re-mints the content key over `fact.body`, and folds the case off the `ReportKind` discriminant in one total `match self.kind` closed by `assert_never` — the `COMPOSE`/`TEMPLATE` kinds key once through `ContentIdentity.of(f"report-{kind}", fact.body)` as a `core/receipt#RECEIPT`-owned `ArtifactReceipt.Report(key, byte_count)` row, the `NOTEBOOK` kind keys the rendered tree as one `Report` row plus the `fact.archive` archive through a second `ContentIdentity.of` as a second `Report` row, and the `REFLOW` kind keys `fact.body` (the reflowed PDF bytes) as the page-count-bearing `ArtifactReceipt.Pdf(key, byte_count, page_count)` row (the receipt owner's three-field PDF case — a `Report` row would silently drop the page count the reflow loop already counts), each minted through the no-phase `ArtifactReceipt.<Case>(...).contribute()` port `core/receipt#RECEIPT` declares, never a widened tuple and never a `phase` knob. The rich per-render evidence (the resolved loader/source/export row, the gated `ReportParams` field set, the per-cell timing and widget-state flags) rides the `ReportFact` carrier the consumer reads off `self.fact`; a richer report-evidence receipt case is a `core/receipt#RECEIPT` growth concern, never minted here against a case that does not exist.
-- Packages: `jinja2` (`Environment(extensions=)`/`sandbox.ImmutableSandboxedEnvironment`/`sandbox.SecurityError`/`StrictUndefined`/`select_autoescape`/`FileSystemLoader`/`DictLoader`/`PackageLoader`/`PrefixLoader`/`ModuleLoader`/`ChoiceLoader`/`Environment.from_string`/`Template.render_async`/`ext.Extension`/`UndefinedError`/`TemplateSyntaxError`/`TemplateNotFound`, catalogue loader rows `[01]`-`[03]`/`[06]`-`[08]`, engine rows `[01]`/`[05]`, the extension/identifier rows, undefined/fault families — all deferred to first use through the module-scope `lazy` import per the catalogue import policy), `papermill` (`papermill.parameterize.parameterize_notebook(nb, parameters, report_mode, kernel_name)`/`papermill.parameterize.add_builtin_parameters`/`PapermillTranslators`/`PapermillMissingParameterException`/`PapermillExecutionError`, catalogue rows `[03]`/`[04]` resolved from `papermill.parameterize`, the translator-family rows, the exception family), `nbclient` (`NotebookClient`/`async_execute`, `CellExecutionError`/`CellTimeoutError`/`DeadKernelError`, the `timeout`/`startup_timeout`/`kernel_name`/`allow_errors`/`allow_error_names`/`force_raise_errors`/`record_timing`/`interrupt_on_timeout`/`error_on_timeout`/`iopub_timeout`/`raise_on_iopub_timeout`/`coalesce_streams`/`store_widget_state`/`skip_cells_with_tag`/`display_data_priority`/`extra_arguments`/`shutdown_kernel` traits, catalogue config rows `[01]`-`[18]`), `jupytext` (`reads`/`writes`, `fmt` rows `[02]`/`[04]`, the `fmt=None` auto-detect path), `nbconvert` (`get_exporter`/`Exporter.from_notebook_node`/`get_export_names`/`ExporterNameError`/`preprocessors.TagRemovePreprocessor` `remove_cell_tags`/`remove_input_tags`/`remove_all_outputs_tags`/`preprocessors.ExtractOutputPreprocessor` the display-figure capture into `resources['outputs']`/the `TemplateExporter` `exclude_input`/`exclude_output`/`exclude_input_prompt`/`exclude_output_prompt` content-exclusion traits, catalogue rows `[01]`/`[02]`, the preprocessor + exporter-config rows), `traitlets` (`config.Config` the `ExportPolicy` exporter `config=` projection), `nbformat` (`NotebookNode`), `pymupdf` (`Story(html, user_css, em)`/`Story.place`/`Story.draw`/`DocumentWriter`/`DocumentWriter.begin_page`/`end_page`/`close`/`paper_rect`, catalogue story-layout rows `[01]`/`[04]`/`[06]`-`[10]`), `msgspec` (`Struct`/`field`/`structs.asdict`), `pydantic` (`TypeAdapter`/`ValidationError` the `ReportPayload` admission), runtime (`identity.ContentIdentity`/`ContentKey`, `faults.RuntimeRail`/`async_boundary`, `receipts.Receipt`/`receipted`/`OPEN` the keep-all redaction policy, the runtime process lane the gated subprocess lane for `REFLOW`), `document/model#NODE` (`DocumentNode`/`PageNode`/`SectionNode`/`BlockNode`/`RunNode`/`FigureNode`/`ListNode`/`NodeMeta`/`BlockKind`/`ListKind`/`encode`), `artifacts.core.receipt` (`ArtifactReceipt.Report`/`ArtifactReceipt.Pdf`).
-- Growth: a new report kind is one `ReportKind` row plus one `COMPOSE_ARMS` coroutine-row returning a `ReportFact` plus one `_REQUIRED` row if it demands an input; a new section-body unit is one `SectionBlock` case plus one `_block_node` arm (the inline `figure` and the `table` data-table/schedule cases are exactly that, the `table` lowering to the `document/model#NODE` `TableNode` the model already owns); a new section attribute is one `Section` field plus one `_section_node` thread (the CSI `classification` onto `NodeMeta` is exactly that); a new loader root is one `ReportLoader` row plus one `match` arm; a new text source is one `ReportSource` row plus one `jupytext` `fmt` value; a new export target is one `ReportExport` row on the `nbconvert.exporters` registry; a new paper size is one `ReflowPaper` row; a new bounded-safety trait is one field on `NotebookEngine`, carried into the client by `client_kwargs` with zero call-site edit; a new export-shaping trait is one field on `ExportPolicy`, carried into the exporter by `exporter_kwargs` with zero call-site edit; a new jinja capability is one `extensions` dotted-path row; a new evidence scalar is one `ReportFact` field; a new admission cause is one `ReportFault` case; zero new surface.
-- Boundary: a string-returning report that never produces a node, a figure passed only as a jinja kwarg where the `COMPOSE` fold splices a `FigureNode` into the tree, a `Section.figures` trail parallel to the block flow where the `SectionBlock.figure` case interleaves a figure IN document order, a hand-rolled section-composition loop, a phantom `BlockKind.LIST_ITEM` where the real `ListNode`/`ListKind` owner rows the outline, an inline `match self.kind` ladder where the `COMPOSE_ARMS` table dispatches, a `MappingProxyType` table where `frozendict` owns the dispatch rows, a sibling `render` method beside the one modal `rendered` entry, a lenient default `Environment` that blanks missing keys, a jinja `Environment` with no `extensions` band where a `{% do %}`/`{% break %}` template needs the `jinja2.ext.do`/`loopcontrols` dotted-path row, a sync straggler render, an untrusted-template `Environment` with the sandbox disabled, a module-level EAGER `jinja2`/`jupytext`/`nbconvert`/`nbclient`/`papermill`/`pymupdf` import where the manifest policy demands the module-scope `lazy` deferral, a top-level `papermill.parameterize_notebook` access where the symbol lives in `papermill.parameterize`, a `papermill.inspect_notebook` parameter gate on a path where the in-memory node demands the `ReportPayload`-admitted `ReportParams` band, a second in-arm `TypeAdapter` re-validation of the already-admitted parameters, a bare `dict[str, object]` parameter bag where the closed `ReportParams` band value-types each scalar, a hand-rolled parameter injection outside `parameterize_notebook`, a Python-defaulted `parameterize_notebook` where the `kernel_name` routes the matching `PapermillTranslators` row, a `FunctionLoader` callable on a frozen serializable spec, a bare `str` export knob where the closed `ReportExport` vocabulary resolves through `get_exporter`, an `HTML_EXPORTS` membership table where the output's own `str`-vs-`bytes` type discriminates the leaf, a `NOTEBOOK` export round-trip where the `jupytext.writes` archive already owns the `.ipynb`, a bare `nbconvert` exporter ignoring the `ExportPolicy` tag bands where the one `TagRemovePreprocessor` `config` strips the report's scaffolding cells, a hand-rolled cell-stripping pass outside `TagRemovePreprocessor` or the `exclude_input`/`exclude_output` traits, a discarded `resources['outputs']` sidecar where the `ExtractOutputPreprocessor` display figures splice as content-keyed `FigureNode`s (a notebook chart silently lost), a `SectionBlock` with no `table` case where the both-plane telos demands a journal data table AND an AEC schedule in flow, a `FigureRef` pre-render of a data table flattening its cells to an opaque image where the `SectionBlock.table` case lowers REAL cell text to a `TableNode`, a path-based `papermill.execute_notebook` blocking the async boundary, a `subprocess` shell-out to `jupyter-nbconvert`, a parallel `tuple[ContentKey, ...]` figure channel beside the `FigureRef` value object, a discarded reflowed-PDF buffer where the bytes are the artifact, a hand-built media-box literal where `_box` derives the rect through `paper_rect`, an `ArtifactReceipt.Report` row on the reflowed PDF that drops the page count, an `ArtifactReceipt` channel threaded through the rail payload where the `@receipted` harvest owns it, a `phase` knob on `contribute` where the runtime port takes none, a `frozendict` projected raw into a `traitlets.Dict` trait where `client_kwargs` derives the nbclient boundary dict, a `schema: type[Struct]` carried as a plan value, and a `from __future__ import annotations` header on a py3.15 fence are the deleted forms — the report binds `FigureRef` content keys produced by `visualization/chart#CHART`, `visualization/table#TABLE`, and `scene#SCENE` (never re-rendering them) into the tree, parses the text source through `jupytext`, runs the node on the async `nbclient` kernel lane, exports the executed node in-process through `nbconvert`, reflows HTML through the native `pymupdf.Story` loop into a keyed PDF artifact, and threads each artifact onto one `ReportFact`. The produced `DocumentNode` tree hands to `document/emit#DOCUMENT` for lowering (`PDF_HTML` for the HTML leaves, `PDF_TYPST`/`PDF_AUTHOR` for the structured tree); PAdES/PDF-A finishing routes to `exchange/conformance#CONFORM`; the security-and-navigation finishing close routes to `document/egress#FINISH`; the `REFLOW` kind is this owner's HTML-INTO-PDF authoring half, the directional inverse of the `document/lens#LENS STORY` recover-OUT-of-PDF extraction arm — authoring and extraction are two arms of the one `pymupdf.Story` capability split across the two owners by direction, not a duplicate; no live kernel server, no UI; the content key is consumed from runtime, never re-minted.
+- Owner: `ReportPlan` — `SectionBlock` is the closed body-unit union interleaving prose, lists, figures, AND data tables IN one ordered flow, never a `Section.figures` trail parallel to the block flow; `TableData` lowers REAL cell text to a `TableNode` the audit's `THead`/`TR` nesting check reads, never a `FigureRef` pre-render flattening cells to an image; `NotebookEngine.client_kwargs` and `ExportPolicy.exporter_kwargs` project their full trait sets to constructor kwargs, so a new bounded-safety or export-shaping trait is one field with zero call-site edit.
+- Cases: the `TEMPLATE` arm renders strict-undefined — a missing section key is a `jinja2.UndefinedError` fault, never a silent blank — under the trusted/sandboxed/native `Environment` policy built at boundary scope; the `FunctionLoader` callable provider is deleted because a callable is no serializable spec value; the `NOTEBOOK` export round-trip target is deleted because it returns a `NotebookNode` the `jupytext.writes` archive already owns; `ReportSource.AUTO` defers to `jupytext.reads(fmt=None)` content detection.
+- Entry: the key mints PRE-RUN over the canonical `(kind, spec)` input with `receipt.slot == node.key`; grouped composition is `core/issue`'s construction, never a module batch driver here.
+- Auto: `parameterize_notebook` threads `kernel_name` so a non-`python3` kernel serializes its parameter cell through its own `PapermillTranslators` row — and the symbol lives at `papermill.parameterize`, not the package top level; the exporter's `(output, resources)` pair partitions on the output's OWN type — a `str` wraps as a `BlockKind.CODE` HTML leaf, `PDF`/`WEBPDF` `bytes` as a `BlockKind.QUOTE` hex leaf — so a binary export never mis-renders as HTML text; the `resources['outputs']` display figures splice through `_notebook_figures` into content-keyed `FigureNode`s beside the leaf, so a notebook chart survives into the tree rather than vanishing with a discarded sidecar; every non-reflow `media_box` derives from `_box(spec.paper)` over `pymupdf.paper_rect`, never a hand-built rect literal.
+- Receipt: `contribute` reads the threaded `ReportFact` off `self.fact`, never an in-process re-run of an arm; the `REFLOW` kind mints the page-count-bearing `ArtifactReceipt.Pdf` case — a `Report` row silently drops the page count the reflow loop already counts; the `NOTEBOOK` kind keys the rendered tree and the `jupytext` archive as two `Report` rows. Rich per-render evidence rides the `ReportFact` carrier; a richer receipt case is a `core/receipt#RECEIPT` growth concern, never minted here against a case that does not exist.
+- Packages: every provider defers to first use through the module-scope `lazy` import; `traitlets.config.Config` carries the `ExportPolicy` exporter projection; the runtime process lane gates the `REFLOW` subprocess work.
+- Growth: a new report kind is one `ReportKind` row plus one `COMPOSE_ARMS` coroutine-row plus one `_REQUIRED` row when it demands an input; a new section-body unit is one `SectionBlock` case plus one `_block_node` arm; a new loader root, text source, export target, or paper size is one vocabulary row; a new evidence scalar is one `ReportFact` field.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -97,8 +96,7 @@ class TemplateRender(StrEnum):
 
 
 class AuthorSource(StrEnum):
-    # the commercial-safe pdf_oxide authoring-source vocabulary; each row binds one `Pdf`/`OfficeConverter`
-    # entry in `_AUTHOR_BUILD`, so a new source is one member plus one row, never an `if source == ...` ladder.
+    # the pdf_oxide authoring-source vocabulary; each source's `Pdf`/`OfficeConverter` build entry lives in `_AUTHOR_BUILD`.
     MARKDOWN = "markdown"
     HTML = "html"
     SHEET = "sheet"  # markdown + a running-header/footer `PageTemplate` — the AEC titled-sheet report
@@ -186,10 +184,8 @@ class ReportParams(TypedDict, extra_items=ParamScalar):
 
 
 class NotebookEngine(Struct, frozen=True):
-    # the full nbclient bounded-safety trait set; a new trait is one field carried by `client_kwargs`
-    # with zero call-site edit. The lifecycle-hook traits (`on_cell_executed`/...) stay off: a
-    # `Callable` is a per-run observation channel the runtime observability owner holds, never a
-    # serializable reproducibility fact the keyed plan carries.
+    # the lifecycle-hook traits (`on_cell_executed`/...) stay off: a `Callable` is a per-run observation channel the
+    # runtime observability owner holds, never a serializable reproducibility fact the keyed plan carries.
     timeout: int | None = 600
     startup_timeout: int = 60
     allow_errors: bool = False
@@ -216,11 +212,8 @@ class NotebookEngine(Struct, frozen=True):
 
 
 class ExportPolicy(Struct, frozen=True):
-    # the nbconvert exporter-shaping trait set, the export-side peer of the execution-side `NotebookEngine`:
-    # the `TagRemovePreprocessor` tag bands strip the report's scaffolding cells/inputs/outputs before the
-    # `from_notebook_node` lowering, projected through `exporter_kwargs` so a new shaping trait is one field
-    # with zero call-site edit. The preprocessor enables only when a band is non-empty, so a bare export
-    # pays no preprocessor pass and a tag set never rides as a serializable `Callable` the keyed plan rejects.
+    # the preprocessor enables only when a band is non-empty, so a bare export pays no preprocessor pass; the tag bands
+    # strip the report's scaffolding cells/inputs/outputs before the `from_notebook_node` lowering.
     remove_cell_tags: tuple[str, ...] = ()
     remove_input_tags: tuple[str, ...] = ()
     remove_all_outputs_tags: tuple[str, ...] = ()
@@ -231,11 +224,9 @@ class ExportPolicy(Struct, frozen=True):
     exclude_output_prompt: bool = False  # drop the `Out[ ]:` prompt gutters
 
     def exporter_kwargs(self) -> dict[str, object]:
-        # the nbconvert exporter boundary view: the preprocessor stages ride the one `traitlets.config.Config` the
-        # exporter's `config=` reads (each `TagRemovePreprocessor` band a `set`, the traitlets `Set` trait rejecting a
-        # tuple; `ExtractOutputPreprocessor` an `enabled` flag), while the `exclude_*` content controls ride top-level
-        # `**kw` because they are `TemplateExporter` traits, not preprocessor config — so an inactive policy yields an
-        # empty kwargs and a bare export constructs with its defaults, every new shaping trait one field with zero call-site edit.
+        # each `TagRemovePreprocessor` band rides `traitlets.config.Config` as a `set` (the traitlets `Set` trait rejects a
+        # tuple), while the `exclude_*` controls ride top-level `**kw` because they are `TemplateExporter` traits, not
+        # preprocessor config — an inactive policy yields empty kwargs and a bare export constructs with its defaults.
         bands = frozendict({
             "remove_cell_tags": set(self.remove_cell_tags),
             "remove_input_tags": set(self.remove_input_tags),
@@ -251,9 +242,7 @@ class ExportPolicy(Struct, frozen=True):
 
 
 class FigureRef(Struct, frozen=True):
-    # the figure-reference the COMPOSE/TEMPLATE kinds bind by content key, never re-rendering the asset;
-    # `media_type`/`intrinsic` ride through so the lowered `FigureNode` carries the producer's MIME and
-    # dimensions rather than the model defaults.
+    # `media_type`/`intrinsic` ride through so the lowered `FigureNode` carries the producer's MIME and dimensions.
     asset_key: ContentKey
     alt: str = ""
     caption: str = ""
@@ -262,10 +251,7 @@ class FigureRef(Struct, frozen=True):
 
 
 class TableData(Struct, frozen=True):
-    # the COMPOSE data-table / AEC-schedule body: a row-major grid of cell texts plus the `document/model#NODE`
-    # `TableNode` band/span/caption metadata, so a journal data table AND a drawing schedule interleave IN section
-    # flow with REAL cell text lowering to the `TableNode` the emit/tagged path renders and the audit's `THead`/`TR`
-    # nesting check reads — never a `FigureRef` pre-render that flattens the schedule's cells to an opaque image.
+    # a row-major grid of cell texts plus the `TableNode` band/span/caption metadata.
     rows: tuple[tuple[str, ...], ...] = ()
     header_rows: int = 0  # leading `THead` rows -> `TableNode.header_rows`
     footer_rows: int = 0  # trailing `TFoot` rows -> `TableNode.footer_rows`
@@ -277,10 +263,7 @@ class TableData(Struct, frozen=True):
 
 @tagged_union(frozen=True)
 class SectionBlock:
-    # one section-body content unit — a prose block (any `BlockKind`), a list, an inline figure, or a data table —
-    # so a COMPOSE section INTERLEAVES lists/quotes/code/figures/schedules in document order rather than only
-    # paragraphs with a figure trail forced after every block; `_block_node` folds each case onto the
-    # `document/model#NODE` owner it names, and a new body concern is one case, never a parallel field beside `blocks`.
+    # a new body concern is one case, never a parallel field beside `blocks`.
     tag: Literal["prose", "listing", "figure", "table"] = tag()
     prose: tuple[BlockKind, tuple[str, ...]] = case()  # (PARAGRAPH/HEADING/QUOTE/CODE/CAPTION, body lines)
     listing: tuple[ListKind, tuple[str, ...]] = case()  # (ORDERED/UNORDERED/DESCRIPTION, item texts)
@@ -289,11 +272,7 @@ class SectionBlock:
 
 
 class Section(Struct, frozen=True):
-    # the journal-grade + AEC-documentation section: a heading, a rich `SectionBlock` body (prose/list/figure units
-    # interleaved in document order), an optional CSI/OmniClass `classification` code landing on the `SectionNode`
-    # `NodeMeta.classification`, and nested subsections (`children`) so a report tree carries the full section
-    # hierarchy the `_section_node` fold lowers over a structural path, never the flat paragraph-only
-    # `body: tuple[str, ...]` slice and never a `figures` trail parallel to the block flow.
+    # the section's `classification` lands on the `SectionNode` `NodeMeta`; nested subsections carry the full hierarchy.
     level: int
     heading: str
     blocks: tuple[SectionBlock, ...] = ()
@@ -302,10 +281,8 @@ class Section(Struct, frozen=True):
 
 
 class ReportFact(Struct, frozen=True):
-    # the threaded evidence the @receipted harvest reads off `self.fact`: `body` the content-keyed
-    # bytes (the encoded tree for COMPOSE/TEMPLATE/NOTEBOOK, the reflowed PDF for REFLOW), `archive`
-    # the executed-notebook reproducibility bytes, `pages` the reflow page count, plus the resolved
-    # rows and the engine's timing/widget flags the flat-scalar receipt stream never carries.
+    # `body` is the encoded tree for COMPOSE/TEMPLATE/NOTEBOOK and the reflowed PDF for REFLOW; the resolved rows and
+    # timing/widget flags ride here because the flat-scalar receipt stream never carries them.
     node: DocumentNode
     body: bytes
     archive: bytes = b""
@@ -319,9 +296,7 @@ class ReportFact(Struct, frozen=True):
 
 
 class ReportSpec(Struct, frozen=True, omit_defaults=True):
-    # the one admitted-once carrier materialized at `ReportPlan.of` from the closed `ReportPayload`,
-    # never re-validated interior-side; `source` is the per-kind material (template/notebook/HTML),
-    # `sections`/`figures` the COMPOSE content.
+    # `source` is the per-kind material (template/notebook/HTML); `sections`/`figures` the COMPOSE content.
     source: str = ""
     sections: tuple[Section, ...] = ()
     figures: tuple[FigureRef, ...] = ()
@@ -365,9 +340,8 @@ class ReportSpec(Struct, frozen=True, omit_defaults=True):
 
 @tagged_union(frozen=True)
 class ReportFault:
-    # the closed ADMISSION vocabulary `of` produces; every arm-level provider raise
-    # (`UndefinedError`/`SecurityError`/`ValidationError`/`PapermillExecutionError`/`CellExecutionError`/
-    # `ExporterNameError`) converts to the runtime `BoundaryFault` at the `async_boundary` capsule.
+    # the closed ADMISSION vocabulary `of` produces; arm-level provider raises convert to the runtime `BoundaryFault`
+    # at the `async_boundary` capsule, never into this vocabulary.
     tag: Literal["payload", "unsatisfied"] = tag()
     payload: tuple[str, ...] = case()  # the rejected ReportPayload key paths
     unsatisfied: tuple[ReportKind, str] = case()  # a kind whose `_REQUIRED` input field is empty
@@ -429,10 +403,8 @@ def _box(paper: ReflowPaper) -> Rect:
 
 
 def _meta(role: str, label: str, path: tuple[int, ...], classification: str = "", /) -> NodeMeta:
-    # key by the structural PATH (the node's uid per `document/model#NODE` composition law) joined to the label,
-    # so two identical-heading siblings under distinct parents never collapse onto one content slot; a section's
-    # CSI/OmniClass code rides `NodeMeta.classification` as `UNSET` when empty so an unclassified node's digest
-    # stays omit-defaults-stable exactly as `document/model#NODE` mandates.
+    # key by structural PATH joined to the label, so identical-heading siblings under distinct parents never collapse;
+    # an empty classification rides `UNSET` so an unclassified node's digest stays omit-defaults-stable.
     trail = "-".join(map(str, path)) or "root"
     return NodeMeta(
         key=ContentIdentity.of(f"report-{role}-{trail}", label.encode()),
@@ -447,9 +419,7 @@ def _runs(role: str, path: tuple[int, ...], *lines: str) -> tuple[RunNode, ...]:
 
 
 def _block_node(path: tuple[int, ...], block: SectionBlock, /) -> DocumentNode:
-    # one section-body unit folds onto its `document/model#NODE` owner: a prose block to a `BlockNode` of any
-    # `BlockKind`, a list to a `ListNode`/`ListKind` whose items are `LI`-role `BlockNode`s — never a phantom
-    # `BlockKind.LIST_ITEM` the model retired, and never the paragraph-only slice the flat `body` field was.
+    # list items are `LI`-role `BlockNode`s under a real `ListNode`, never a phantom list block kind.
     match block:
         case SectionBlock(tag="prose", prose=(kind, lines)):
             return BlockNode(meta=_meta("block", kind.value, path), block=kind, runs=_runs("body", path, *lines))
@@ -497,9 +467,7 @@ def _block_node(path: tuple[int, ...], block: SectionBlock, /) -> DocumentNode:
 
 
 def _section_node(path: tuple[int, ...], section: Section, /) -> SectionNode:
-    # the recursive lowering: the rich `SectionBlock` body (prose/list/figure INTERLEAVED in flow), then the nested
-    # subsections, every child keyed by its own path extension so the whole hierarchy carries distinct content slots;
-    # the section's CSI/OmniClass code rides the `SectionNode` `NodeMeta.classification` the model tree already carries.
+    # every child keys by its own path extension so the whole hierarchy carries distinct content slots.
     blocks = tuple(_block_node((*path, index), block) for index, block in enumerate(section.blocks))
     kids = tuple(_section_node((*path, len(blocks) + index), child) for index, child in enumerate(section.children))
     return SectionNode(
@@ -533,9 +501,7 @@ def _toc(title: str, sections: tuple[Section, ...], /) -> SectionNode:
 
 
 def _output_page(spec: ReportSpec, role: str, output: str | bytes, figures: tuple[FigureNode, ...] = (), /) -> PageNode:
-    # the rendered output's own type is the discriminant: a text render's `str` wraps as a `CODE` HTML/markup or
-    # native-value leaf, a binary `PDF`/`WEBPDF` export's `bytes` as a hex `QUOTE` leaf, so an assembled-PDF byte
-    # payload never mis-renders as an HTML code block; the notebook's extracted display `figures` splice after it.
+    # the rendered output's own type is the discriminant; the extracted display `figures` splice after the leaf.
     text, block = (output, BlockKind.CODE) if isinstance(output, str) else (output.hex(), BlockKind.QUOTE)
     return PageNode(
         meta=_meta("page", role, (0,)),
@@ -545,9 +511,7 @@ def _output_page(spec: ReportSpec, role: str, output: str | bytes, figures: tupl
 
 
 def _notebook_figures(resources: object, /) -> tuple[FigureNode, ...]:
-    # the `ExtractOutputPreprocessor` display outputs the prior arm DISCARDED: `resources['outputs']` is the
-    # filename->bytes figure map (matplotlib/altair/lets-plot chart bytes), so each is keyed by content and spliced
-    # as a `FigureNode` — a notebook chart now survives into the tree rather than vanishing with the dropped sidecar.
+    # `resources['outputs']` is the filename->bytes display-figure map; each keys by content and splices as a `FigureNode`.
     outputs: dict[str, bytes] = resources.get("outputs", {}) if isinstance(resources, dict) else {}
     return tuple(
         FigureNode(
@@ -572,8 +536,7 @@ async def _compose_arm(plan: "ReportPlan") -> "ReportFact":
 
 
 def _loader(spec: ReportSpec, /) -> BaseLoader:
-    # one closed `match spec.loader` over five serializable loader rows; `FunctionLoader`'s callable provider is
-    # deleted because a `Callable` is no frozen-spec value, and the `ChoiceLoader` fallback is applied at the env.
+    # the `ChoiceLoader` fallback applies at the environment, so every loader row composes the same fallback chain.
     match spec.loader:
         case ReportLoader.DICT:
             return DictLoader({"<root>": spec.source, **spec.section_templates})
@@ -590,11 +553,8 @@ def _loader(spec: ReportSpec, /) -> BaseLoader:
 
 
 def _environment(spec: ReportSpec, /) -> Environment:
-    # the boundary-scoped engine: `NativeEnvironment` for a computed-value render, else the trusted `Environment`
-    # or the untrusted `ImmutableSandboxedEnvironment`, always strict-undefined + async. The report-scoped
-    # scientific/AEC `_REPORT_FILTERS`, the spec's serializable `template_globals`, and a deterministic in-template
-    # JSON policy install onto the ONE engine (never a second), and a `FileSystemBytecodeCache` directory compiles
-    # once for repeated reproducible renders where the prior fence rebuilt bytecode per run.
+    # `_REPORT_FILTERS`, the spec's serializable `template_globals`, and the deterministic JSON policy install onto the
+    # ONE engine, never a second; a `FileSystemBytecodeCache` directory compiles once for repeated reproducible renders.
     factory = NativeEnvironment if spec.render is TemplateRender.NATIVE else Environment if spec.trusted else ImmutableSandboxedEnvironment
     env = factory(
         loader=ChoiceLoader([_loader(spec), DictLoader({})]),
@@ -673,11 +633,9 @@ async def _reflow_arm(plan: "ReportPlan") -> "ReportFact":
 
 
 def _reflow(html: str, user_css: str, em: float, paper: str, layout: ReflowLayout) -> tuple[bytes, int, Rect]:
-    # the gated subprocess lane (the runtime process lane, the GIL-hostile native call): the MuPDF Story lays the
-    # whole HTML in ONE `Story.write`/`write_stabilized` entry (the manual `place`/`draw` slice loop retired), a
-    # `pagefn` counts pages off the writer, a `positionfn` collects placed-element positions, and `add_pdf_links`
-    # injects live PDF links from those positions (a no-op when the HTML has no `<a>`), so the returned bytes are the
-    # link-enriched reflowed PDF the receipt keys, never a discarded `getvalue` sink.
+    # one `Story.write`/`write_stabilized` entry lays the whole HTML; `positionfn` collects placed positions and
+    # `add_pdf_links` injects live links from them (a no-op when the HTML has no `<a>`), so the returned bytes are the
+    # link-enriched reflowed PDF the receipt keys.
     rect = pymupdf.paper_rect(paper)
     buffer = io.BytesIO()
     writer = pymupdf.DocumentWriter(buffer)
@@ -711,9 +669,7 @@ def _reflow(html: str, user_css: str, em: float, paper: str, layout: ReflowLayou
 
 
 async def _author_arm(plan: "ReportPlan") -> "ReportFact":
-    # the commercial-safe (MIT/Apache) authoring peer of the AGPL `REFLOW` arm: pdf_oxide's Rust core releases the
-    # GIL, so it crosses the `to_thread` lane (never `to_process`), returning the pdf bytes and the `len(pdf)` page
-    # count the `ArtifactReceipt.Pdf` case lands on exactly as REFLOW does.
+    # pdf_oxide's Rust core releases the GIL, so the AUTHOR arm crosses the `to_thread` lane, never `to_process`.
     spec = plan.spec
     pdf, count = await to_thread.run_sync(_authored, spec, limiter=_OFFLOAD)
     key = ContentIdentity.of(f"report-{plan.kind.value}", pdf)
@@ -774,10 +730,8 @@ class ReportPlan(Struct, frozen=True):
 
     @receipted(
         OPEN
-    )  # the runtime keep-all redaction the receipts owner exports (report facts carry no classified field), never a re-minted per-file `Redaction`, exactly as `document/emit#DOCUMENT`/`document/egress#FINISH` ride `OPEN`
+    )  # report facts carry no classified field, so the runtime keep-all `OPEN` policy rides directly, never a re-minted per-file `Redaction`
     async def _composed(self) -> Self:
-        # the thin pure core: thread the arm's `ReportFact` onto the frozen owner and return the
-        # stepped `Self` the harvest weave drains.
         return replace(self, fact=await COMPOSE_ARMS[self.kind](self))
 
     def emit(self, /) -> ArtifactWork:
@@ -785,13 +739,10 @@ class ReportPlan(Struct, frozen=True):
 
     @property
     def _key(self) -> ContentKey:
-        # key-over-INPUT: canonical (kind ⊕ spec) minted PRE-RUN so keyed admission probes the warm
-        # seed BEFORE any compose/execute/export runs — never a key over the produced body.
         return ContentIdentity.of(f"report-{self.kind.value}", (self.kind, self.spec), policy=CANONICAL_POLICY)
 
     async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
-        # the renamed private thunk — the terminal receipt threads the PRE-RUN input key (receipt.slot == node.key);
-        # pipeline CONSTRUCTION over many plans is core/issue's, never a module batch driver here.
+        # the terminal receipt threads the PRE-RUN input key so receipt.slot == node.key.
         return (await async_boundary(f"report.{self.kind.value}", self._composed)).map(lambda done: done._receipt(self._key))
 
     def _receipt(self, key: ContentKey, /) -> ArtifactReceipt:
@@ -824,3 +775,11 @@ def _report_raise(fault: object) -> tuple[str, dict[str, object]]:
     # terminal collapse at the export boundary: an offload fault reconstructs the raise the node's rail folds.
     raise ValueError(str(fault))
 ```
+
+## [03]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+-->
+
+(none)

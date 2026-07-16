@@ -1,17 +1,20 @@
 # [PY_ARTIFACTS_DIAGRAM_DRAW]
 
-The named-layer diagram emission owner. `DiagramDraw` is ONE owner folding the positioned `visualization/diagram/glyphset#GLYPHSET` `DiagramGlyph` sequence the `visualization/diagram/layout#LAYOUT` coordinate assignment emits into a rendered artifact through the egress arm the `DrawTarget` selects: the `drawsvg` named-layer SVG arm (the default, feeding `export/layered#LAYERED`) or the `drawpyo` editable-`.drawio` arm (a standalone diagrams.net file), both lowering the SAME closed `DiagramGlyph` grammar through one total `match`, never two parallel owners. The glyph fold is one total dispatch over the closed `DiagramGlyph` case — `Node` to its `NodeShape` geometry through the total `_shape` fold whose nineteen arms each build the real ISO 5807 silhouette (a decision `Lines` diamond, a wavy-base document `Path`, a home-plate off-page pentagon, a D-shaped delay), plus its `Port` connection marks seated on the boundary or at a fixed `at` coordinate, plus an outlined label under its `TextRun` typography; `Edge` to a `Lines`/`Path` polyline (its stroke width scaled by the Sankey `weight`) whose `caps` reference the shared per-`EndCap` `<defs>` `Marker` table — arrowheads, UML diamonds, and ER crow's-feet as typed end markers; `Swimlane` to a translucent band; `Annotation` to an outlined text or `ziamath` formula callout; `Marker` to the `MarkerKind`-keyed glyph; `Area` to a closed true-polygon `Lines` ring labeled at its centroid with its measured magnitude; `Fragment` to a `draw.Path(d=...)` owned-geometry backdrop (the solar furniture) with its anchored label. Every label mark is outlined to font-independent `<path>` geometry through `ziafont` — a `$math$` annotation through `ziamath` — deleting the font-dependent `drawsvg.Text`/`<text>` element that renders wrong in any consumer lacking the font, so the emitted diagram is self-contained; the `TextRun` axis resolves the face by family, the size, the ink index, synthetic bold as an outline stroke, and synthetic oblique as a skew. Color arrives from `graphic/color/derive#DERIVE` as the `Derivation.coords` palette array, the `GlyphStyle.fill`/`stroke` integer indices projected to hex through the shared `hex_ramp`. The draw owner contributes one `core/receipt#RECEIPT` `ArtifactReceipt.Diagram` case (the SVG arm `"diagram-svg"`/`"drawsvg"`, the `.drawio` arm `"diagram-drawio"`/`"drawpyo"`); the `export/layered#LAYERED` owner contributes the named-layer `Preview`/`Egress` evidence off the SVG arm's bound `Layer` rows. The draw owner composites nothing and re-renders nothing.
+`DiagramDraw` is the named-layer diagram emission owner: one owner folding the positioned `visualization/diagram/glyphset#GLYPHSET` `DiagramGlyph` sequence into a rendered artifact through the arm the `DrawTarget` selects — the `drawsvg` named-layer SVG arm (default, feeding `export/layered#LAYERED`) or the `drawpyo` editable-`.drawio` arm — both lowering the SAME closed grammar through one total `match`, never two parallel owners. Every label mark outlines to font-independent `<path>` geometry through `ziafont` (a `$math$` annotation through `ziamath`), deleting the font-dependent `drawsvg.Text` that renders wrong wherever the font is absent, so the emitted diagram is self-contained; color arrives from `graphic/color/derive#DERIVE` as the `Derivation.coords` palette the `GlyphStyle.fill`/`stroke` indices project to hex through `hex_ramp`.
+
+Glyph fold is one total dispatch over the closed `DiagramGlyph` case: `Node` to its `NodeShape` silhouette through the total `_shape` fold (each arm the real ISO 5807 geometry) plus its `Port` marks and outlined label; `Edge` to a polyline whose stroke scales with the Sankey `weight` and whose `caps` reference the shared per-`EndCap` `<defs>` `Marker` table; `Swimlane` to a translucent band; `Annotation` to an outlined text or formula; `Marker` to the `MarkerKind` glyph; `Area` to a closed true-polygon ring labeled at its centroid; `Fragment` to an owned-geometry backdrop path. `DiagramDraw.emit` lands ONE producer node per rendered kind (per-member PRE-RUN key, per-kind elision); `_compute` offloads the one synchronous render kernel onto the runtime thread lane — keyed to a kernel touching the isolate-unsafe `ziafont`/`ziamath`/`numpy` C-extensions the subinterpreter cannot load. Draw contributes one `core/receipt#RECEIPT` `ArtifactReceipt.Diagram` case (the SVG arm `"diagram-svg"`/`"drawsvg"`, the `.drawio` arm `"diagram-drawio"`/`"drawpyo"`); `export/layered#LAYERED` contributes the named-layer evidence off the SVG arm's `Layer` rows.
 
 ## [01]-[INDEX]
 
-- [01]-[DRAW]: the `DiagramDraw` named-layer emitter folding the positioned `visualization/diagram/glyphset#GLYPHSET` `DiagramGlyph` sequence through the `DrawTarget`-selected egress arm — the `drawsvg` SVG arm bucketing each mark into its `GlyphStyle.layer` named `Group`, lowering all nineteen `NodeShape` silhouettes through the total `_shape` fold, referencing the per-`EndCap` shared `Marker` def table on edge terminals, closing `Area` rings and stroking `Fragment` backdrops, and outlining every label through `ziafont`/`ziamath` under its `TextRun`; or the `drawpyo` `.drawio` arm lowering the SAME grammar to editable mxGraph objects with the `_DRAWIO_STYLE` shape tokens and `_DRAWIO_CAP` `line_end_*` glyphs — both lowering the closed `DiagramGlyph` case through one total `match`, threading the `graphic/color/derive#DERIVE` palette index to hex through `hex_ramp`, returning one closed `DrawArtifact` (`Layered` named-layer rows the `export/layered#LAYERED` owner binds, or the `.drawio` `Drawio` bytes) and contributing the typed `core/receipt#RECEIPT` `ArtifactReceipt.Diagram` facts.
+- [01]-[DRAW]: `DiagramDraw`'s glyph-to-artifact fold over the `DrawTarget`-selected arm — the `drawsvg` SVG arm bucketing each mark into its `GlyphStyle.layer` `Group` and outlining labels through `ziafont`/`ziamath`, or the `drawpyo` `.drawio` arm lowering the same grammar to editable mxGraph, both threading the palette hex and contributing the `ArtifactReceipt.Diagram` facts.
 
 ## [02]-[DRAW]
 
-- Owner: `DiagramDraw` the one diagram emitter discriminating the egress on the `DrawTarget` (`SVG`/`DRAWIO`) policy value and the mark on the `visualization/diagram/glyphset#GLYPHSET` `DiagramGlyph` case, both over one total `match`. The SVG arm folds each mark to a `drawsvg` element and buckets it into one named `drawsvg` `Group` per `GlyphStyle.layer` so the diagram emits as named SVG layers; the `Drawing` is the one document canvas the `append`/`draw(..., z=)` polymorphic insertion surface orders, never a per-shape `add_rect`/`add_circle` family. The `.drawio` arm folds each mark to one `drawpyo` `Object`/`Edge` on a `File`/`Page` spine, its `NodeShape` lowered through `apply_style_string` over the `_DRAWIO_STYLE` token table, its `caps` through the `_DRAWIO_CAP` `line_end_source`/`line_end_target` glyph vocabulary, and its `GlyphStyle` projected through the TOML-validated `waypoints`/`pattern` style axes plus the `rounded`/`fontStyle`/`fontSize` attributes, serialized through one `File.xml`. Both arms resolve color from the `graphic/color/derive#DERIVE` `Derivation.coords` array the `GlyphStyle.fill`/`stroke` indices key through the shared `hex_ramp` RGB-to-hex projection (imported from `graphic/color/derive#DERIVE` where it is declared once), never a per-mark hex literal. In the SVG arm the `_CAPS` fold builds one shared `<defs>`-tier `drawsvg.Marker` per referenced `EndCap` — the filled/open/block arrowheads, the UML diamond, the association circle, the negation cross, and the five ER crow's-feet — which the `Edge` arm references through `marker_start=`/`marker_end=`; `drawsvg` auto-collects each referenced def into each per-layer `<svg>` and dedupes it by id, so every cap is declared once and never duplicated inline per edge, while the `MarkerKind` dot/tick/north/cross glyphs draw inline as their own `Circle`/`Path` elements (the cross a two-subpath `Path` so it renders as a true `+`, never a one-polyline zigzag).
-- Cases: the glyph fold is one `match` over the closed `DiagramGlyph` case, never a knob. In the SVG arm — `Node` lowers to its `NodeShape` silhouette through the total nineteen-arm `_shape` fold (`RECTANGLE` a `drawsvg.Rectangle` carrying the `GlyphStyle.corner` radius as `rx`/`ry`, `ENTITY` a titled record — an outer `Rectangle` plus a `Line` header divider one `_ENTITY_BAND` down under which the title rides, `OVAL` an `Ellipse`, `DIAMOND`/`PARALLELOGRAM`/`HEXAGON`/`MANUAL_INPUT`/`MANUAL_OPERATION`/`OFF_PAGE`/`CARD` closed `Lines` polygons, `CYLINDER`/`DOCUMENT`/`TAPE`/`STORED_DATA`/`DISPLAY`/`DELAY` arc- and wave-bearing `Path` bodies, `MULTI_DOCUMENT` a stacked group recursing the `DOCUMENT` arm, `PREDEFINED_PROCESS` a rectangle with double side-bars, `CONNECTOR` a `Circle`) plus a `_port_marks` `Circle` per `Port` seated by `_port_xy` (a fixed `at` coordinate wins over the side/index lane) plus an outlined label placed in the header band for an `ENTITY` and centered otherwise · `Edge` lowers to a `drawsvg.Lines(*flatten(points), close=False, stroke=ramp[style.stroke])` polyline whose `stroke_width` is the Sankey `weight` (or `style.width` when unweighted), whose `stroke_dasharray` is `GlyphStyle.dash`, and whose `marker_start`/`marker_end` reference the `_CAPS` def for each non-`NONE` member of `caps`, plus an outlined mid-point label · `Swimlane` lowers to a `drawsvg.Rectangle` band with reduced `opacity` plus an outlined title · `Annotation` lowers to an outlined text (or a `ziamath` formula when the text carries `$`) callout · `Marker` lowers to the `MarkerKind`-keyed glyph (the `DOT` `Circle`, the `ARROW`/`TICK` `Path` rotated by `angle`, the `NORTH` filled triangle, the `CROSS` two-subpath `Path`) · `Area` lowers to a closed `drawsvg.Lines(..., close=True)` true-polygon ring, its label (or its formatted magnitude when unlabeled) outlined at the ring centroid · `Fragment` lowers to a `draw.Path(d=...)` stroked backdrop path plus its anchored label — each element appended to its `GlyphStyle.layer` `Group`. In the `.drawio` arm the SAME total `match` lowers `Node` to an `Object` (its `NodeShape` set through `apply_style_string` over `_DRAWIO_STYLE`, its color, corner rounding, and label typography through `apply_attribute_dict`), `Edge` to an `Edge` (its interior `points` pushed through `add_point`, its `weight` the `strokeWidth`, its `dash` the `pattern`, its `caps` the `_DRAWIO_CAP` `line_end_*` glyphs), `Swimlane` to a parent container `Object`, `Area` to its bounding-box container `Object` carrying label and fill (the drawpyo object vocabulary carries no arbitrary-polygon geometry; the true ring is the SVG arm's), `Fragment` to its anchored label `Object` (backdrop path geometry is the SVG arm's), `Annotation`/`Marker` to a styled `Object`. Every label is outlined through `ziafont` `Font(...).text(label, size, halign, color).svgxml()` composited into the layer group as a positioned `drawsvg.Raw` `<path>` fragment (`ziafont.config.svg2`/`precision` fixed once so the `d`-float rounding is deterministic for the content key), the `TextRun` axis selecting the named face through the memoized `_named_face`, the ink index, synthetic bold as a group-level outline stroke, and synthetic oblique as a `skewX` transform — never a font-dependent `drawsvg.Text`.
-- Entry: `DiagramDraw.emit()` returns ONE `ArtifactWork` per rendered kind (per-member PRE-RUN keys, per-kind elision); `_emit` resolves `RuntimeRail[ArtifactReceipt]` and `layered()` projects the `graphic/layer#LAYERED` `LayerPlan`, and contributes the settled `core/receipt#RECEIPT` `ArtifactReceipt.Diagram` fact — the node/edge counts the `Node`/`Edge` glyph tallies, the `kind`/`algorithm` the arm descriptors (`"diagram-svg"`/`"drawsvg"` for the SVG arm, `"diagram-drawio"`/`"drawpyo"` for the `.drawio` arm); `_compute` discriminates the `DrawTarget` and offloads the one synchronous render kernel onto the runtime thread lane so the `drawsvg`/`ziafont`/`ziamath` XML work and the pure-Python `drawpyo` serialization run off the event loop in the shared address space with zero serialization — the thread arm the offload law keys to a kernel touching the isolate-unsafe `ziafont`/`ziamath`/`numpy` C-extensions (the subinterpreter the `to_interpreter` arm targets cannot load them), the same thread arm the GIL-releasing-native `rustworkx` layout sibling takes. The SVG kernel builds the shared `_CAPS` def table, buckets each `DiagramGlyph` into its `GlyphStyle.layer` `Group` through the `_lower` fold threading the `hex_ramp`-projected palette and the `ziafont`-outlined labels, serializes EACH named `Group` to its OWN `<svg>` through a per-layer `Drawing.as_svg()`, derives the content key through `ContentIdentity.of` over the joined per-layer SVG bytes (the rendered facts, never a second render), and returns `DrawArtifact.Layered(tuple[Layer, ...])` the `export/layered#LAYERED` owner binds. The `.drawio` kernel builds the `File`/`Page`, folds each `DiagramGlyph` to its `Object`/`Edge`, content-keys the `File.xml` bytes, and returns `DrawArtifact.Drawio(bytes)` — a standalone diagrams.net-editable file (the `load_diagram` inverse ingests a template, mutates its `get_by_id` rows, and re-emits through the same arm).
-- Growth: a new mark element is one `DiagramGlyph` case (in `visualization/diagram/glyphset#GLYPHSET`) plus one `_lower` arm (the `Area` and `Fragment` arms entered by exactly this law); a new node silhouette is one `NodeShape` row plus one `_shape` arm plus one `_DRAWIO_STYLE` row; a new marker shape is one `MarkerKind` row plus one `_marker` arm; a new end terminal is one `EndCap` row plus one `_cap_glyph` arm plus one `_DRAWIO_CAP` row; a new shared `<defs>` owner (a gradient band, a hatch pattern) is one referenced def `drawsvg` auto-collects; a new style axis is one `GlyphStyle` field threaded into the consuming `_lower`/`_shape` arm (the `dash`, `corner`, and `text` axes are exactly this growth); a new named layer is a new `GlyphStyle.layer` value the `_groups` partition already buckets; a new egress arm (a print-native outlined-stroke plane, an IDML hand-off) is one `DrawTarget` row plus one `DrawArtifact` case plus one `_render_*` arm; zero new surface for a new layer or a new node shape. A print/PDF-X plane requiring non-scaling outlined strokes composes `graphic/vector/region#REGION` `RegionOp.outline` (`skia-pathops` stroke-to-outline of the `Edge` polylines) and `RegionOp.boolean` (`Swimlane`/`Node` overlap union) one hop through the vector owner — a pending growth axis, never a draw-owned `pathops` import.
+- Owner: `DiagramDraw` discriminating egress on the `DrawTarget` (`SVG`/`DRAWIO`) and the mark on the `visualization/diagram/glyphset#GLYPHSET` `DiagramGlyph` case, both over one total `match`; the SVG arm buckets each mark into one named `drawsvg` `Group` per `GlyphStyle.layer` on the one `Drawing` canvas whose `append`/`draw(..., z=)` polymorphic insertion orders it, never a per-shape `add_rect`/`add_circle` family; the `.drawio` arm folds each mark to one `drawpyo` `Object`/`Edge` on a `File`/`Page` spine serialized through `File.xml`. Both resolve color through the shared `hex_ramp` (imported from `graphic/color/derive#DERIVE` where it is declared once), never a per-mark hex; the `_CAPS` fold builds one shared `<defs>` `drawsvg.Marker` per referenced `EndCap` with `context-stroke` so one def serves every palette index, `drawsvg` auto-collecting and deduping it by id, while the `MarkerKind` glyphs draw inline (the cross a two-subpath `Path` so it renders a true `+`).
+- Cases: one `match` over the closed `DiagramGlyph` case, never a knob. SVG arm — `Node` through the total `_shape` fold (`RECTANGLE` a `Rectangle` carrying `corner` as `rx`/`ry`, `ENTITY` a titled record with a header divider one `_ENTITY_BAND` down, the polygon shapes closed `Lines`, the arc/wave shapes `Path` bodies, `MULTI_DOCUMENT` recursing the `DOCUMENT` arm) plus a `_port_marks` `Circle` per `Port` (a fixed `at` winning over the side/index lane) plus a label in the header band for `ENTITY` else centered; `Edge` a `Lines` polyline whose `stroke_width` is the Sankey `weight` (else `style.width`), whose `caps` reference the `_CAPS` defs; `Swimlane` a reduced-opacity band; `Annotation` an outlined text or `ziamath` formula when the text carries `$`; `Marker` the `MarkerKind` glyph; `Area` a closed true-polygon ring captioned at its centroid; `Fragment` a stroked backdrop `Path`; the `.drawio` arm lowers the SAME `match` to `Object`/`Edge`, its `Area`/`Fragment` bounded by the drawpyo object vocabulary (bounding-box container, anchored label — the true ring is the SVG arm's). Every label outlines through `ziafont`/`ziamath` (`svg2`/`precision` fixed once so the `d`-float rounding is deterministic for the content key), the `TextRun` axis selecting the memoized named face, ink index, synthetic bold (outline stroke), and oblique (skew) — never a font-dependent `drawsvg.Text`.
+- Entry: `DiagramDraw.emit` returns ONE `ArtifactWork` per rendered kind, its PRE-RUN key over the canonical glyphs⊕palette⊕frame⊕target⊕font input never over layer bytes (`font_family` is a bytes-producing input); `_emit` resolves the receipt and `layered()` projects the `graphic/layer#LAYERED` `LayerPlan`; the SVG kernel serializes EACH named `Group` to its OWN `<svg>` and keys over the joined per-layer bytes; the `.drawio` kernel keys over the `File.xml` bytes and returns a standalone diagrams.net-editable file (the `load_diagram` inverse ingests a template, mutates `get_by_id` rows, and re-emits).
+- Growth: a new mark element is one `DiagramGlyph` case plus one `_lower` arm; a new node silhouette one `NodeShape` row plus one `_shape` arm plus one `_DRAWIO_STYLE` row; a new marker one `MarkerKind`/`_marker` pair; a new terminal one `EndCap` row plus one `_cap_glyph` arm plus one `_DRAWIO_CAP` row; a new shared `<defs>` owner one referenced def `drawsvg` auto-collects; a new style axis one `GlyphStyle` field; a new named layer a new `GlyphStyle.layer` value the `_groups` partition already buckets; a new egress arm one `DrawTarget` row plus one `DrawArtifact` case plus one `_render_*` arm. A print/PDF-X plane requiring non-scaling outlined strokes composes `graphic/vector/region#REGION` `RegionOp.outline`/`RegionOp.boolean` one hop through the vector owner, never a draw-owned `pathops` import.
+- Boundary: composites nothing and re-renders nothing — the content key fingerprints the rendered bytes once, never a second render; no coordinate or route computation (`visualization/diagram/layout#LAYOUT`'s — draw folds already-positioned marks); no ad-hoc color (the `hex_ramp` palette); no font-dependent text (every label outlines to `<path>`).
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -74,8 +77,7 @@ _HALIGN: Final[Map[TextAnchor, str]] = Map.of_seq([  # closed TextAnchor -> ziaf
     (TextAnchor.END, "right"),
 ])
 _DRAWIO_STYLE: Final[Map[NodeShape, str]] = Map.of_seq([
-    # draw.io style tokens verbatim: bare base-shape names plus the mxgraph.flowchart stencil keys the
-    # remaining ISO 5807 silhouettes lower through; RECTANGLE/ENTITY ride the default rect body.
+    # draw.io style tokens verbatim; RECTANGLE/ENTITY ride the default rect body, the rest lower through mxgraph.flowchart stencil keys.
     (NodeShape.DIAMOND, "rhombus"),
     (NodeShape.OVAL, "ellipse"),
     (NodeShape.PARALLELOGRAM, "parallelogram"),
@@ -135,14 +137,12 @@ class DiagramDraw(Struct, frozen=True):
     font_family: str | None = None  # None -> the bundled DejaVuSans outline fallback
 
     def emit(self, /) -> "Iterable[ArtifactWork]":
-        # the diagram-suite TERMINAL: ONE node per DiagramKind render — per-member PRE-RUN keys keep
-        # per-kind elision; suite construction is core/issue's (`IssueRequest(diagram_suite=...)`).
+        # ONE node per DiagramKind render; suite construction is core/issue's (`IssueRequest(diagram_suite=...)`).
         return (ArtifactWork(key=self._key, work=self._emit, parents=(), admission=Admission(keyed=None), cost=float(len(self.glyphs) or 1)),)
 
     @property
     def _key(self) -> ContentKey:
-        # key-over-INPUT: canonical (glyphs ⊕ palette ⊕ frame ⊕ target ⊕ font) minted PRE-RUN — never a key
-        # over layer bytes; font_family is a bytes-producing input (`ziafont.Font` outline selection).
+        # key-over-input, minted PRE-RUN never over layer bytes; font_family is a bytes-producing input (`ziafont.Font` outline selection).
         return ContentIdentity.of(
             f"diagram-{self.target}",
             (self.glyphs, self.palette, self.width, self.height, self.target, self.font_family),
@@ -154,12 +154,12 @@ class DiagramDraw(Struct, frozen=True):
         return railed.map(lambda pair: pair[1])
 
     async def layered(self) -> RuntimeRail[LayerPlan]:
-        # the V14 projection: named diagram layers as one semantic LayerPlan tree — DATA the exporters compose.
+        # named diagram layers as one LayerPlan tree the exporters compose.
         railed = await async_boundary(f"diagram.draw.{self.target}", self._crossed)
         return railed.map(lambda pair: LayerPlan(schema=NamingSchema.EDITORIAL, roots=pair[0].layered if pair[0].tag == "layered" else ()))
 
     async def _crossed(self) -> tuple[DrawArtifact, ArtifactReceipt]:
-        # the ziafont/drawsvg/drawpyo fold is synchronous CPU work — it crosses the runtime thread lane.
+        # synchronous CPU work; crosses the runtime thread lane.
         match self.target:
             case DrawTarget.SVG:
                 arm = self._render_svg
@@ -216,9 +216,7 @@ def _draw_raise(fault: object) -> "tuple[DrawArtifact, ArtifactReceipt]":
 
 
 def _cap_defs() -> CapDefs:
-    # one shared <defs> Marker per EndCap; drawsvg auto-collects each referenced def into the per-layer
-    # <svg> and dedupes by id. `context-stroke` inherits the referencing edge's stroke, so one def serves
-    # every palette index.
+    # one shared <defs> Marker per EndCap; drawsvg auto-collects and dedupes by id. `context-stroke` inherits the edge stroke, so one def serves every index.
     defs: CapDefs = {}
     for cap in EndCap:  # Exemption: the def table assembles once per render; Marker is a mutable defs container
         if cap is EndCap.NONE:
@@ -243,21 +241,21 @@ def _cap_glyph(cap: EndCap) -> "draw.DrawingElement":
             return draw.Circle(0, 0, 1.2, fill="none", stroke="context-stroke", stroke_width=0.4)
         case EndCap.CROSS:
             return draw.Path(stroke="context-stroke", stroke_width=0.4, fill="none").M(-1, -1.4).L(1, 1.4).M(-1, 1.4).L(1, -1.4)
-        case EndCap.ER_ONE:  # single bar
+        case EndCap.ER_ONE:
             return draw.Line(0, -1.4, 0, 1.4, stroke="context-stroke", stroke_width=0.4)
-        case EndCap.ER_MANY:  # fork toward the node edge
+        case EndCap.ER_MANY:
             return draw.Path(stroke="context-stroke", stroke_width=0.4, fill="none").M(-1.6, 0).L(2, -1.4).M(-1.6, 0).L(2, 0).M(-1.6, 0).L(2, 1.4)
-        case EndCap.ER_ZERO_ONE:  # circle + bar
+        case EndCap.ER_ZERO_ONE:
             duo = draw.Group()
             duo.append(draw.Circle(-1.4, 0, 0.7, fill="none", stroke="context-stroke", stroke_width=0.4))
             duo.append(draw.Line(0.4, -1.4, 0.4, 1.4, stroke="context-stroke", stroke_width=0.4))
             return duo
-        case EndCap.ER_ONE_MANY:  # bar + fork
+        case EndCap.ER_ONE_MANY:
             duo = draw.Group()
             duo.append(draw.Line(-1.2, -1.4, -1.2, 1.4, stroke="context-stroke", stroke_width=0.4))
             duo.append(draw.Path(stroke="context-stroke", stroke_width=0.4, fill="none").M(-0.4, 0).L(2, -1.4).M(-0.4, 0).L(2, 0).M(-0.4, 0).L(2, 1.4))
             return duo
-        case EndCap.ER_ZERO_MANY:  # circle + fork
+        case EndCap.ER_ZERO_MANY:
             duo = draw.Group()
             duo.append(draw.Circle(-1.6, 0, 0.7, fill="none", stroke="context-stroke", stroke_width=0.4))
             duo.append(draw.Path(stroke="context-stroke", stroke_width=0.4, fill="none").M(-0.6, 0).L(2, -1.4).M(-0.6, 0).L(2, 0).M(-0.6, 0).L(2, 1.4))
@@ -339,7 +337,7 @@ def _shape(shape: NodeShape, x: float, y: float, w: float, h: float, paint: Pain
         case NodeShape.RECTANGLE:
             rounding: Paint = {"rx": corner, "ry": corner} if corner > 0.0 else {}
             return draw.Rectangle(x, y, w, h, **rounding, **paint)
-        case NodeShape.ENTITY:  # a titled record: outer box + a header divider under the title band the label rides
+        case NodeShape.ENTITY:  # titled record: outer box + header divider the title rides under
             record = draw.Group()
             record.append(draw.Rectangle(x, y, w, h, **paint))
             record.append(draw.Line(x, y + _ENTITY_BAND, x + w, y + _ENTITY_BAND, stroke=paint["stroke"], stroke_width=paint["stroke_width"]))
@@ -365,7 +363,7 @@ def _shape(shape: NodeShape, x: float, y: float, w: float, h: float, paint: Pain
                 .A(w / 2, cap, 0, 0, 1, x, y + h - cap)
                 .Z()
             )
-        case NodeShape.DOCUMENT:  # wavy base: one cubic S-wave from the right edge back to the left
+        case NodeShape.DOCUMENT:  # wavy base
             dip = h * 0.15
             return (
                 draw
@@ -376,28 +374,28 @@ def _shape(shape: NodeShape, x: float, y: float, w: float, h: float, paint: Pain
                 .C(x + w * 0.66, y + h + dip, x + w * 0.33, y + h - 3 * dip, x, y + h - dip)
                 .Z()
             )
-        case NodeShape.MULTI_DOCUMENT:  # two offset back sheets + a front DOCUMENT body (arm recursion, one wave law)
+        case NodeShape.MULTI_DOCUMENT:  # offset back sheets + a front DOCUMENT body (arm recursion)
             off = min(w, h) * 0.1
             stack = draw.Group()
             stack.append(draw.Rectangle(x + 2 * off, y, w - 2 * off, h - 2 * off, **paint))
             stack.append(draw.Rectangle(x + off, y + off, w - 2 * off, h - 2 * off, **paint))
             stack.append(_shape(NodeShape.DOCUMENT, x, y + 2 * off, w - 2 * off, h - 2 * off, paint))
             return stack
-        case NodeShape.PREDEFINED_PROCESS:  # subroutine: rectangle + double side-bars
+        case NodeShape.PREDEFINED_PROCESS:
             bar = w * 0.12
             sub = draw.Group()
             sub.append(draw.Rectangle(x, y, w, h, **paint))
             sub.append(draw.Line(x + bar, y, x + bar, y + h, stroke=paint["stroke"], stroke_width=paint["stroke_width"]))
             sub.append(draw.Line(x + w - bar, y, x + w - bar, y + h, stroke=paint["stroke"], stroke_width=paint["stroke_width"]))
             return sub
-        case NodeShape.MANUAL_INPUT:  # sloped top rising left-to-right
+        case NodeShape.MANUAL_INPUT:
             return draw.Lines(x, y + h * 0.25, x + w, y, x + w, y + h, x, y + h, close=True, **paint)
-        case NodeShape.MANUAL_OPERATION:  # inverted trapezoid
+        case NodeShape.MANUAL_OPERATION:
             inset = w * 0.15
             return draw.Lines(x, y, x + w, y, x + w - inset, y + h, x + inset, y + h, close=True, **paint)
-        case NodeShape.OFF_PAGE:  # home-plate pentagon, point down
+        case NodeShape.OFF_PAGE:
             return draw.Lines(x, y, x + w, y, x + w, y + h * 0.6, x + w / 2, y + h, x, y + h * 0.6, close=True, **paint)
-        case NodeShape.STORED_DATA:  # both edges bow left: concave right wall, convex left cap
+        case NodeShape.STORED_DATA:  # both edges bow left
             bow = w * 0.15
             return (
                 draw
@@ -409,7 +407,7 @@ def _shape(shape: NodeShape, x: float, y: float, w: float, h: float, paint: Pain
                 .A(bow, h / 2, 0, 0, 1, x + bow, y)
                 .Z()
             )
-        case NodeShape.DISPLAY:  # pointed left nose, rounded right cap
+        case NodeShape.DISPLAY:
             nose = w * 0.2
             return (
                 draw
@@ -421,14 +419,14 @@ def _shape(shape: NodeShape, x: float, y: float, w: float, h: float, paint: Pain
                 .L(x, y + h / 2)
                 .Z()
             )
-        case NodeShape.DELAY:  # D-shape: flat left, semicircular right
+        case NodeShape.DELAY:
             return draw.Path(**paint).M(x, y).L(x + w - h / 2, y).A(h / 2, h / 2, 0, 0, 1, x + w - h / 2, y + h).L(x, y + h).Z()
-        case NodeShape.CONNECTOR:  # on-page connector: the small circle
+        case NodeShape.CONNECTOR:
             return draw.Circle(x + w / 2, y + h / 2, min(w, h) / 2, **paint)
-        case NodeShape.CARD:  # punched card: clipped top-left corner
+        case NodeShape.CARD:  # clipped top-left corner
             cut = min(w, h) * 0.25
             return draw.Lines(x + cut, y, x + w, y, x + w, y + h, x, y + h, x, y + cut, close=True, **paint)
-        case NodeShape.TAPE:  # punched tape: mirrored S-waves top and base
+        case NodeShape.TAPE:  # mirrored S-waves top and base
             dip = h * 0.12
             return (
                 draw
@@ -473,7 +471,7 @@ def _lower(glyph: DiagramGlyph, ramp: list[str], face: "ziafont.Font", caps: Cap
             if label:
                 title_y = (
                     y + _ENTITY_BAND / 2 if shape is NodeShape.ENTITY else y + h / 2
-                )  # ENTITY titles ride the header band; every other shape centers
+                )  # ENTITY titles ride the header band; others center
                 yield _caption(face, style, ramp, label, 10.0, x + w / 2, title_y, TextAnchor.MIDDLE)
         case DiagramGlyph(tag="edge", edge=(_s, _t, points, label, style, weight, ends)):
             terminal: Paint = {slot: caps[cap] for slot, cap in (("marker_start", ends[0]), ("marker_end", ends[1])) if cap is not EndCap.NONE}
@@ -497,12 +495,12 @@ def _lower(glyph: DiagramGlyph, ramp: list[str], face: "ziafont.Font", caps: Cap
         case DiagramGlyph(tag="marker", marker=(x, y, kind, angle, style)):
             yield _marker(x, y, kind, angle, style, ramp)
         case DiagramGlyph(tag="area", area=(_i, ring, label, style, magnitude, _parent)):
-            # the V15 true-polygon mark: closed ring + centroid caption (the label, or the measured magnitude)
+            # closed ring + centroid caption (label, or measured magnitude)
             yield draw.Lines(*chain.from_iterable(ring), close=True, **_paint(style, ramp))
             if (text := label or (f"{magnitude:g}" if magnitude else None)) is not None:
                 yield _caption(face, style, ramp, text, 9.0, *_centroid(ring), TextAnchor.MIDDLE)
         case DiagramGlyph(tag="fragment", fragment=(d, label, anchor, style)):
-            # owned backdrop geometry (solar furniture): the d-string strokes verbatim, the label seats at anchor
+            # solar-furniture backdrop: the d-string strokes verbatim, label at anchor
             yield draw.Path(d=d, fill="none", stroke=ramp[style.stroke % len(ramp)], stroke_width=style.width, **_dash(style))
             if label:
                 yield _caption(face, style, ramp, label, 8.0, *anchor, TextAnchor.MIDDLE, ramp[style.stroke % len(ramp)])
@@ -546,7 +544,7 @@ def _lower_drawio(glyph: DiagramGlyph, page: object, ramp: list[str], placed: di
         case DiagramGlyph(tag="node", node=(index, x, y, w, h, label, style, shape, _ports, _parent)):
             obj = DrawioObject(value=label or "", position=(x, y), page=page, width=w, height=h)
             if (token := _DRAWIO_STYLE.try_find(shape).default_value(None)) is not None:
-                obj.apply_style_string(token)  # draw.io style token verbatim (base shape or mxgraph.flowchart stencil key)
+                obj.apply_style_string(token)  # draw.io style token verbatim
             obj.apply_attribute_dict({
                 "fillColor": ramp[style.fill % len(ramp)],
                 "strokeColor": ramp[style.stroke % len(ramp)],
@@ -568,7 +566,7 @@ def _lower_drawio(glyph: DiagramGlyph, page: object, ramp: list[str], placed: di
                 **terminal,
             )
             for px, py in points[1:-1]:
-                edge.add_point(px, py)  # push the laid-out interior waypoints for route fidelity
+                edge.add_point(px, py)  # interior waypoints for route fidelity
         case DiagramGlyph(tag="swimlane", swimlane=(index, x, y, w, h, title, style, _parent)):
             band = DrawioObject(value=title or "", position=(x, y), page=page, width=w, height=h)
             band.apply_attribute_dict({"container": "1", "fillColor": ramp[style.fill % len(ramp)], "opacity": "40", **_text_format(style)})
@@ -581,8 +579,7 @@ def _lower_drawio(glyph: DiagramGlyph, page: object, ramp: list[str], placed: di
             dot.apply_style_string("ellipse")
             dot.apply_attribute_dict({"fillColor": ramp[style.fill % len(ramp)]})
         case DiagramGlyph(tag="area", area=(index, ring, label, style, magnitude, _parent)):
-            # the drawpyo object vocabulary carries no arbitrary-polygon geometry: the editable arm lowers the
-            # ring to its bounding-box container with the label/magnitude caption; the true ring is the SVG arm's.
+            # drawpyo carries no arbitrary-polygon geometry: the editable arm lowers the ring to a bounding-box container; the true ring is the SVG arm's.
             xs, ys = tuple(px for px, _py in ring), tuple(py for _px, py in ring)
             box = DrawioObject(
                 value=label or (f"{magnitude:g}" if magnitude else ""),
@@ -602,4 +599,10 @@ def _lower_drawio(glyph: DiagramGlyph, page: object, ramp: list[str], placed: di
             assert_never(unreachable)
 ```
 
-`DiagramDraw.emit` lowers the positioned `DiagramGlyph` sequence through the `DrawTarget`-selected arm. The SVG arm buckets every mark into its `GlyphStyle.layer` named `Group`, each `Group` projected to one `export/layered#LAYERED` `LayerNode` row bound directly as an editable layer; the `_lower` fold is the one closed-case glyph-to-element dispatch — `Node` to its `NodeShape` silhouette through the total nineteen-arm `_shape` fold plus its `Port` marks (a fixed `at` seat winning over the side lane) plus a `TextRun`-resolved outlined label, `Edge` to a `Lines` polyline whose width scales with the Sankey `weight`, whose dash is `GlyphStyle.dash`, and whose typed `caps` reference the shared per-`EndCap` `Marker` defs — arrowheads, UML diamonds, association circles, and the five ER crow's-feet declared once and auto-collected — `Swimlane` to a translucent band, `Annotation` to an outlined text or `ziamath` formula, `Marker` to the `MarkerKind`-keyed glyph, `Area` to a closed true-polygon ring captioned at its centroid with its label or measured magnitude, `Fragment` to the stroked solar-furniture backdrop path with its anchored label — and every label mark is outlined through `ziafont` `Font(...).text(...).svgxml()` composited as a positioned `drawsvg.Raw` `<path>` fragment (with `ziafont.config.svg2`/`precision` fixed once so the outline bytes are deterministic for the content key), the `TextRun` axis resolving the memoized named face, the ink index, synthetic bold as an outline stroke, and synthetic oblique as a skew — deleting the font-dependent `drawsvg.Text` that renders wrong when the font is absent — so the diagram SVG is self-contained. The `.drawio` arm lowers the SAME grammar to `drawpyo` `Object`/`Edge` on a `File`/`Page` spine — `NodeShape` through `apply_style_string` over the `_DRAWIO_STYLE` token table, `caps` through the `_DRAWIO_CAP` `line_end_source`/`line_end_target` vocabulary, color and corner rounding and label typography through `apply_attribute_dict`, the laid-out waypoints through `add_point`, the dash through the TOML-validated `pattern` axis — serialized through `File.xml` to a standalone diagrams.net-editable file, its `Area`/`Fragment` lowerings bounded by the drawpyo object vocabulary (bounding-box container, anchored label) while the SVG arm carries the true geometry. Both arms return one closed `DrawArtifact` and contribute the shared `ArtifactReceipt.Diagram` case (distinct `kind`/`algorithm` descriptors), the joined per-layer SVG bytes or the `.drawio` XML bytes the content key fingerprints once, the whole synchronous render offloaded onto the runtime thread lane off the event loop in the shared address space.
+## [03]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+-->
+
+(none)

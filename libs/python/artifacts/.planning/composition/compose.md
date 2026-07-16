@@ -1,24 +1,20 @@
 # [PY_ARTIFACTS_COMPOSE]
 
-The post-render figure/section placement owner turning emitted graphics into placed, annotated, color-correct figures. `Figure` is ONE owner over the post-render composition pipeline carrying a closed-payload `FigureOp` `expression.tagged_union` — each operation a case carrying its own typed payload, never a `StrEnum` keyed against an erased `dict[str, object]` bag — dispatched by one total `match`. It reads the SVG that the regrouped `visualization/chart#CHART`, `graphic/marks#MARK`, and `visualization/table#TABLE` sibling owners already emit and lays it out — scale-to-fit a target viewport, tile an n-up sheet, crop to a bounds box, rotate-place at an `Angle`, overlay registration marks and crop guides — by IMPORTING the `graphic/vector/path#PATH` query/affine surface (`bounds`/`elements`/`fragment`/`px` plus the `Bounds`/`Span` value objects and the `PathFault` rail) and the `graphic/vector/region#REGION` set-op/serialization surface (`clip`/`boolean`/`outline`, the `document` assembly, the `RenderPolicy` rasterize-policy owner, and the `RegionFault` rail) and composing it one hop, never re-declaring the `svgelements` `Matrix`/`Path`/`Color`/`Length`/`Angle`/`Style` algebra or the `document`/`fragment` egress pair this owner does not own; the rotate-place angle resolves through the local `_angle` over `svgelements.Angle.parse`, the same placement-math use of the geometry algebra the `Matrix` factories ride, never an imported vector function. It holds ONLY the placement-specific arm bodies the geometry primitive deliberately does not own — the scale-fit factor, the n-up cell placement, the crop delegation to the imported `clip`, the rotate pivot, the registration-overlay fold, and the gated `pillow` finish — folding the imported `elements(source)` shapes through the imported `fragment(shape, matrix)` d-string egress onto the imported `document(fragments, viewbox)` assembly. The imported `bounds(source)` is `PathFault`-railed; figure composition threads that rail and lifts it to the boundary raise at the single `_extent` seam, so the foreign `PathFault`/`RegionFault` domains cross into the `BoundaryFault` domain this owner rails in exactly once, uniform with the pillow/`vl_convert` engine raises.
+`Figure` owns post-render figure placement — turning already-emitted SVG graphics into placed, annotated, color-correct figures. It scales-to-fit a viewport, tiles an n-up sheet, crops, rotates, mattes, merges, overlays registration marks, rasterizes-then-annotates, and projects to a one-page vector PDF, discriminating a closed-payload `FigureOp` `tagged_union` by one total `match` — one typed payload per case, never a `StrEnum` over an erased `dict`. It places and finishes graphics already emitted by the chart/mark/table siblings; it re-renders no chart and holds no vector-geometry primitive, only the placement-specific arm bodies the geometry surface does not own.
 
-It rasterizes its own placed SVG through the `graphic/vector/region#REGION` `RenderPolicy`-driven `resvg_py.svg_to_bytes` raster floor ON THE WORKER, then draws captions/legends/borders, fits or EXIF-orients the raster, applies a tone/sharpen/grade/blend finish chain, and binds EXIF/XMP metadata over `pillow` on that same worker band, so no native render touches the event loop. One figure surface discriminating the operation, not a per-graphic-type composer family. The vector geometry arms are synchronous pure-Python `svgelements` work — `svgelements` imports on the core, so the arm bodies compose in-process, but the CONCERN offloads through a the runtime thread lane band per the concurrency `OFFLOAD_LANE` law so no placement fold runs on the event loop; the raster annotate/metadata arms offload the WHOLE pass — the `resvg_py` rasterize AND the `pillow` draw/filter/metadata fold — to a `to_process` worker as a GIL-hostile native call (concurrency chooser `[11]`), the module-scope `lazy import resvg_py`/`lazy from PIL` proxies reifying inside the worker so the runtime module stays import-clean while the native arms run only on the worker band the package ships for. The `to_process` annotate/metadata band rides the runtime `RetryClass.OCCT` retry class so a transient OOM/signal worker death recovers before the `_FAULTS` boundary rails an exhausted death as a defect — the same worker-seam retry the `graphic/raster/io#IO` arm that shares the lane carries.
-
-Figure composition rasterizes only its own placed SVG for the annotate pass through the `graphic/vector/region#REGION` `resvg_py.svg_to_bytes` floor — chart/mark/nanoplot rasterization-to-export stays in `visualization/chart#EXPORT` `vl-convert` — and re-renders no chart; it places, rasterizes, and finishes already-emitted graphics. The placed multi-source layout the placement arms emit is one flat single-`<svg>` document — that flat-SVG egress is this owner's concern; the editable named-layer egress for an Illustrator/InDesign hand-off is `export/layered#LAYERED`'s concern, receiving the same placed layout through `Figure.layers -> tuple[Layer, ...]` and binding each placed source as a named editable layer rather than one flattened path soup, so figure composition emits the flat artifact and routes the named-layer authoring outward. The one-page vector-PDF egress the `composition/sheet#SHEET` and `composition/imposition#IMPOSE` consumers draw through `pymupdf.show_pdf_page` is the `Pdf` case's `vl_convert.svg_to_pdf` wrap of that placed flat document — the documented post-edit-SVG-then-PDF path, never a chart re-render and never a second SVG-to-PDF sink.
-
-Every operation lowers through `emit()`/`_emit` — the node rail `RuntimeRail[ArtifactReceipt]` over the runtime `async_boundary` narrowed to the real engine raise tuple `_FAULTS` (so a non-engine raise and cancellation propagate as defects rather than being railed, the `BoundaryFault` classification of each caught raise the runtime `faults#FAULTS` owner's `CLASSIFY` concern) and contributes through the existing `core/receipt#RECEIPT` named per-kind mints the producer calls positionally — `ArtifactReceipt.Preview(key, width, height)` placement evidence (empty perceptual band) or `ArtifactReceipt.Pdf(key, bytes, pages)` projection evidence — by threading the bytes `_emit` already computed, never a second re-composition or re-render and never the phantom `ArtifactReceipt.of(key, PreviewFacts(...))`/`PdfFacts` evidence-struct indirection the receipt owner deleted.
+`svgelements`'s `Matrix`/`Path`/`Color`/`Angle` algebra lives once in `graphic/vector/path#PATH` (with `bounds`/`elements`/`fragment`/`px`, the `Bounds`/`Span` value objects, and the `PathFault` rail) and the set-op/serialization surface in `graphic/vector/region#REGION` (`clip`/`boolean`/`outline`/`document`, the `RenderPolicy` rasterize-policy owner, the `RegionFault` rail); this owner imports both, composes them one hop, and re-declares none. Vector arms offload the pure-Python `svgelements` fold to a THREAD lane; the `Annotate`/`Metadata` arms offload the whole `resvg_py.svg_to_bytes` rasterize plus `pillow` draw/finish/metadata pass to a PROCESS worker under `RetryClass.OCCT`, the `lazy import resvg_py`/`lazy from PIL` proxies reifying inside the worker; foreign `PathFault`/`RegionFault` cross into `BoundaryFault` at the single `_extent` seam. This owner owns the placed flat single-`<svg>` egress; the editable named-layer egress projects through `Figure.layers -> tuple[Layer, ...]` to `export/layered#LAYERED`, the one-page vector PDF the `composition/sheet#SHEET`/`imposition#IMPOSE` consumers draw is the `Pdf` case's `vl_convert.svg_to_pdf` wrap of that flat document, the full source->dest ICC transform / soft-proof / CMYK separations compose outward to `graphic/color/managed#MANAGED`, and the authoritative cross-format descriptive-metadata seal to `exchange/metadata#METADATA`. Receipts thread `core/receipt#RECEIPT`'s named `ArtifactReceipt.Preview(key, width, height)` / `Pdf(key, bytes, pages)` mints positionally; every figure routes through the `core/plan#PLAN` `ArtifactPipeline` as a producer node.
 
 ## [01]-[INDEX]
 
-- [01]-[COMPOSE]: the post-render placement owner over the closed-payload `FigureOp` `tagged_union` (`ScaleFit`/`Tile`/`Crop`/`Merge`/`Matte`/`Rotate`/`Overlay` the in-process vector-placement arms, `Pdf` the SVG-to-PDF projection, `Annotate`/`Metadata` the gated raster arms), rail-typed `RuntimeRail[ArtifactReceipt]` over `async_boundary(catch=_FAULTS)`, composing the imported `graphic/vector/path#PATH` `bounds`/`elements`/`fragment`/`px` and `graphic/vector/region#REGION` `document`/`clip`/`boolean`/`outline` surfaces one hop; the `DrawOp` closed pillow-annotation family (`Text`/`Caption`/`Box`/`RoundBox`/`Line`/`Ellipse`/`Arc`/`Polygon`/`Regular`/`Stamp`/`Blend`/`Grade`/`Frame`) with the reusable `TextStyle` measured-text owner, the `MarkKind` registration-overlay vocabulary, the `RasterSource` markup/file source case, and the `FilterKind`/`ArcKind`/`BlendKind` finish/primitive vocabularies; the `Placed` in-process evidence carrier the `of`/`contribute` split reads once; the ICC-tagged PNG egress (`Annotate` `icc` embed) beside the outward `graphic/color/managed#MANAGED` full-transform seam and the `exchange/metadata#METADATA` authoritative descriptive-metadata seam; projects `Figure.layers` to `export/layered#LAYERED` `Layer`; threads `core/receipt#RECEIPT` through the receipt owner's named `ArtifactReceipt.Preview`/`Pdf` mints; every figure routes through the single `core/plan#PLAN` `ArtifactPipeline` production entry as a producer node.
+- [01]-[COMPOSE]: the post-render placement owner discriminating a closed `FigureOp` `tagged_union` — vector placement (`ScaleFit`/`Tile`/`Crop`/`Merge`/`Matte`/`Rotate`/`Overlay`), the `Pdf` SVG-to-PDF projection, and the gated raster `Annotate`/`Metadata` arms — over the imported `graphic/vector/path#PATH` and `graphic/vector/region#REGION` surfaces, railed `RuntimeRail[ArtifactReceipt]` over `async_boundary(catch=_FAULTS)`.
 
 ## [02]-[COMPOSE]
 
-- Owner: `Figure` the one figure-composition owner discriminating operation over the closed `FigureOp` `expression.tagged_union` whose every case carries its own typed payload, never a `StrEnum` keyed against a shared erased `dict[str, object]`; `RenderPolicy` is NOT this owner's — it is `graphic/vector/region#REGION`'s rasterize-policy owner (the resvg sizing/parsing/font/policy/diagnostic axis projected to `svg_to_bytes` through one `asdict`-driven spread), IMPORTED here and carried into the `Annotate` case so the rasterize policy has one edit site across the chart/diagram/figure consumers; `TextStyle` the reusable measured-text styling owner (font/size/fill/anchor/align/spacing/stroke/direction/language/features/variation) both the `Text` and `Caption` arms compose so a stroked complex-script variable-font caption and a bare label share one styling shape, never a per-arm text-param wall; `DrawOp` the closed-payload `tagged_union` collapsing the rejected `CaptionSpec`/`BoxSpec`/`PostSpec` draw triple into one pillow draw family — a `Text` case (`ImageDraw.multiline_text` measured/multi-line/stroked/`Layout.RAQM`-shaped/variable-axis), a `Caption` case (`multiline_textbbox`-measured `rounded_rectangle` backing sized to its own text), a `Box` case (`ImageDraw.rectangle`), a `RoundBox` case (`rounded_rectangle`), a `Line` case (`ImageDraw.line` leader/connector polyline), an `Ellipse` case (`ImageDraw.ellipse` highlight ring), an `Arc` case (`arc`/`chord`/`pieslice` keyed by `ArcKind`), a `Polygon` case (`ImageDraw.polygon` filled legend swatch / leader arrowhead), a `Regular` case (`regular_polygon` n-gon marker), a `Stamp` case (`Image.alpha_composite` premultiplied over-composite of an opacity-scaled watermark/logo/seal), a `Blend` case (`ImageChops` full-frame Porter-Duff blend composite keyed by `BlendKind`), a `Grade` case (`ImageFilter.Color3DLUT` trilinear 3D-LUT grade), and a `Frame` case carrying the border/fit/exif/`FilterKind` finish axis — folded by one total `match` over the worker so a new annotation primitive is one case, never a parallel spec struct; `RasterSource` the closed-payload `tagged_union` collapsing `svg_string` markup and an `svg_path` `.svg`/`.svgz` file into one source case whose `keywords()` projects the live `svg_to_bytes` source keyword so a file source never grows a second render call; `MarkKind` the closed `Enum` of registration-overlay primitives (`CORNER` crop guide, `TICK` cut mark, `TARGET` color-bar dot, `REGISTRATION` concentric press target, `GUTTER` fold diamond, `MITER` corner chevron, `BLEED` trim box, `CROSS` four-spoke registration cross-hair, `STAR` eight-spoke slur/density target) whose every member carries its own verified-catalogued-primitive name plus float-only arg row and resolves one `svgelements` shape through its bound `MarkKind.shape` builder so the overlay fold dispatches total over the member, never a `dict[MarkKind, Callable]` rebuilt per call against an erased shape bag; `FilterKind`/`ArcKind`/`BlendKind` the closed raster-finish vocabularies carried on the `Frame`/`Arc`/`Blend` cases. The `graphic/vector/path#PATH` owner — not this one — owns the `svgelements` `SVG` document working surface, the `Matrix`/`Path`/`Color`/`Length`/`Angle`/`Point`/`bbox` algebra, the `bounds`/`elements`/`fragment`/`px` composition functions, the `Element` `Protocol`, and the `PathFault` rail, while `graphic/vector/region#REGION` owns the `document` assembly, the `RenderPolicy` row, the `RegionFault` rail, and the `resvg_py.svg_to_bytes` raster floor; figure composition IMPORTS that public surface and composes it one hop for every vector operation, re-declaring none of it, while the `pillow` `Image` is the raster annotate/metadata surface this owner holds on the gated floor.
-- Cases: `FigureOp` cases — `ScaleFit(source, width, height)` (resolve the source viewport through the imported `bounds`, derive the `Matrix.scale` that fits a target `Span` box preserving aspect, re-emit each imported `elements(source)` shape through `fragment(shape, matrix)` framed to the target viewbox) · `Tile(sources, columns, cell, gutter)` (n-up sheet — aspect-fit each source SVG centered into a gutter-spaced row-major grid cell, each placement a `Matrix.translate`-after-`Matrix.scale` of the source bounds into the cell, the gutter the inter-cell margin a press sheet needs and the centering the offset a top-left cram omits) · `Crop(source, x, y, width, height)` (the factory folds the four floats into one `Bounds` payload; the imported `graphic/vector/region#REGION` `clip(source, rect)` intersects each drawable shape against the crop rect through `skia-pathops` `PathOp.INTERSECTION`, keeping only the non-empty survivors as separately-framed `<path>` fragments cut to the crop rect — a real geometry sever, not a CSS `<clipPath>` mask a downstream must honor) · `Merge(sources, op)` (the N-source planar set-op — the imported `graphic/vector/region#REGION` `boolean(sources, op)` folds each source outline through the `skia-pathops` `OpBuilder` UNION/DIFFERENCE/INTERSECTION/XOR, merging tile silhouettes on UNION, knocking out on DIFFERENCE, masking an overlap on INTERSECTION, one composed set-op the placement plane needs for a bleed-and-trim silhouette, mirroring the `Crop` arm's one-hop `clip` compose) · `Matte(source, width, stroke)` (the fixed-width offset keyline/matte — the imported `graphic/vector/region#REGION` `outline(source, width)` strokes the artwork silhouette into a closed filled boundary through `skia-pathops` `Path.stroke`, the offset algebra `svgelements` cannot express, the matte `stroke` row lowering at the `document` paint axis and framed under the source for a margin-frame matte or a trim/bleed keyline) · `Rotate(source, angle, corner)` (rotate-place the source by an `Angle`-resolved `Matrix.rotate` about a `bounds` corner pivot) · `Overlay(source, marks)` (registration marks, gutters, and crop guides — fold a `MarkSpec` row list, each `MarkSpec.kind` member building one `svgelements` shape through its own bound `MarkKind.shape` builder positioned by document-corner offsets, every fragment serialized through the imported `fragment` d-string egress (each spec's `(stroke, width)` row lowering at the `document` paint axis), appended to the imported `elements(source)` base fragments) · `Pdf(source, scale)` (lift the placed flat `<svg>` into a one-page vector PDF through `vl_convert.svg_to_pdf(source, scale=)` — the post-edit-SVG-then-PDF path the `composition/sheet#SHEET`/`imposition#IMPOSE` consumers draw through `pymupdf.show_pdf_page`; a pure SVG-to-PDF projection, never a re-composition) · `Annotate(source, render, draws)` (rasterize-then-draw — the worker lane runs the `graphic/vector/region#REGION` `resvg_py.svg_to_bytes` floor over the `RasterSource` case under the one `RenderPolicy` to rasterize, then folds the `DrawOp` sequence by one total `match` — the `Text` arm runs `multiline_text` over the `_face`-resolved `TextStyle`, the `Caption` arm measures via `multiline_textbbox` and draws a `rounded_rectangle` backing then the text, the `Box`/`RoundBox`/`Line`/`Ellipse`/`Arc`/`Polygon`/`Regular` arms the matching `ImageDraw` primitive, the `Stamp` arm `Image.alpha_composite`, the `Blend` arm the `ImageChops`-mode full-frame composite, the `Grade` arm `ImageFilter.Color3DLUT`, the `Frame` arm the `ImageOps.exif_transpose`/`expand`/`fit` frame pass and the `FilterKind` `ImageFilter`/`ImageEnhance`/`ImageOps` finish, re-binding the draw surface after each image-replacing op — the trailing `icc` embedding the working-space ICC profile on the PNG egress through `Image.save(icc_profile=)` so the placed figure egresses color-tagged for the pub/print AND ISO drawing-sheet plane, the FULL source->dest ICC transform / lcms2 soft-proof / CxF3 CMYK separations riding `graphic/color/managed#MANAGED` outward, never re-owned here) · `Metadata(source, exif, xmp)` (the figure-egress-LOCAL descriptive-metadata convenience — an in-worker `Image.getexif`/`Image.Exif` tag map plus the `info["XML:com.adobe.xmp"]` XMP packet re-encoded on save, a bare figure carrying its title/creator/rights without a second async hop; NOT the authoritative cross-format seal — `exchange/metadata#METADATA` is the categorical-best owner over EXIF+IPTC+XMP+ICC+GPS+maker-notes in one `pyexiftool` cross-format pass, composed outward when a full descriptive-metadata write is the deliverable, this the deliberate in-worker PNG-tag boundary) — matched by one total `match`/`case`; never a sibling op per source media type, never a parallel mark emitter per primitive, and never a parallel figure class.
-- Auto: `_emit` folds the op — the vector arms (`ScaleFit`/`Tile`/`Crop`/`Rotate`/`Overlay`) cross one `to_thread.run_sync(_compose_vector, self.op, limiter=_GATE)` band OFF the loop (concurrency `OFFLOAD_LANE`; the pure-Python `svgelements` fold never runs on the event loop even though `svgelements` imports on the core), `_compose_vector` parsing each source through the imported `elements` (the placement extent through the imported `bounds` at the `_extent` seam, the `Crop` arm delegating the geometry cut to the imported `clip`), composing the placement `Matrix` from `Matrix.translate`/`scale`/`rotate` or folding the `MarkSpec` rows whose `kind` member builds its own bound `MarkKind.shape` `svgelements` shape, and routing every fragment through the imported `fragment` d-string egress onto the imported `document(fragments, viewbox)` assembly (the `Crop` arm instead delegating to the imported `clip` geometric crop); the `Annotate` arm hands the cheap `render.kwargs(source.keywords())` dict — the IMPORTED `RenderPolicy.kwargs` merge of the `RasterSource.keywords()` source key with the `asdict`-projected sizing/parsing/font/policy/diagnostic axis — to the `_TRANSIENT.on(BrokenWorkerProcess)`-retried `to_process` worker, where `resvg_py.svg_to_bytes(**render_kwargs)` rasterizes OFF the loop and then `Image.open`, `ImageDraw.Draw`, and the `DrawOp` fold's `multiline_text`/`multiline_textbbox`/`rounded_rectangle`/`rectangle`/`line`/`ellipse`/`arc`/`chord`/`pieslice`/`polygon`/`regular_polygon`, the `Stamp` arm's `Image.alpha_composite`/`getchannel`/`point`/`putalpha`, the `Blend` arm's `ImageChops` mode, the `Grade` arm's `ImageFilter.Color3DLUT`, `ImageFont.truetype(layout_engine=Layout.RAQM)`/`load_default`/`set_variation_by_axes`, `ImageOps.exif_transpose`/`expand`/`fit`/`autocontrast`/`equalize`/`posterize`/`solarize`, `ImageFilter.UnsharpMask`/`GaussianBlur`/`MedianFilter`, and `ImageEnhance.Sharpness`/`Contrast`/`Brightness`/`Color` resolve at boundary scope; the `Pdf` arm lifts the already-placed flat `<svg>` to a one-page vector PDF OFF the loop through `to_thread.run_sync(vl_convert.svg_to_pdf, source.decode(), scale, limiter=_GATE)` — the GIL-releasing native render bounded by the same offload slot, a pure projection that re-composes nothing; the `Metadata` arm runs the `Image.open`/`Image.getexif`/`Image.Exif`/XMP map on the retried worker, folding the EXIF tag pairs through one `exif.update(...)`. The placement helpers this owner holds — `_compose_vector` (the scale-fit/tile/crop/rotate/overlay arm bodies), `_fit`/`_rows` (the `_GUARD`-contracted aspect-fit and grid-count division seams refining the divisor scalar), `_place` (n-up cell math), `_marks` (the registration-overlay mark fold both the flat and per-layer egresses compose), `_anchor` (corner placement), `_extent`/`_source_fault` (the ONE `bounds`/`clip`-rail-to-`ValueError` boundary seam), and `_face` (the `TextStyle`-to-`FreeTypeFont` resolver gating `Layout.RAQM` on `features.check("raqm")`) — compose the imported geometry surface rather than re-implementing it; the geometry primitives themselves live once in `graphic/vector/path#PATH` and `graphic/vector/region#REGION`. The in-process arms derive the content key (`_emit`) and the `ArtifactReceipt.Preview`/`Pdf` evidence (`_placed`) from the SAME deterministic `_compose_vector`/`svg_to_pdf` render of the one source within each projection, so the key and the facts cannot diverge within a call — never a SECOND re-emit reading width/height/byte-count beside the key's. `_emit` and `_placed` re-render per projection (the frozen owner carries no `@cache` memo, the recompute matching the sibling `composition/sheet#SHEET`/`imposition#IMPOSE` `Composed` re-entry); the gated annotate/metadata arms' receipt rides the `of` emission outward because their PNG mints only inside the subprocess `_emit`, so `_placed` returns `Nothing` for them and `contribute` yields no row — never a placeholder `Placed` over empty bytes.
-- Receipt: each in-process placement operation contributes through the `core/receipt#RECEIPT` owner's named `ArtifactReceipt.Preview(key, width, height)` `@classmethod` mint carrying the placed figure's pixel/viewport width and height under the `preview` kind (the optional `scores` perceptual band defaulting empty — placement carries no perceptual measurement, that band is `graphic/raster/measure#MEASURE`'s), while the `Pdf` projection mints `ArtifactReceipt.Pdf(key, bytes, 1)` under the `pdf` kind — figure composition reuses the existing `preview`/`pdf` kinds through the owner's flat-scalar named mints and adds NO new kind and NO new evidence `Struct`; the phantom `ArtifactReceipt.of(key, PreviewFacts(...))`/`PdfFacts` evidence-struct indirection is the rejected form the receipt owner explicitly deleted (its named per-kind `@classmethod` mints take the scalars positionally, never an `of(key, facts)` re-wrap, the same form the `sheet`/`imposition` siblings already mint through). `_placed(op)` folds the bytes and the placed viewport (read off the imported `bounds` at the `_extent` seam, or the PDF byte count) into ONE `Placed` carrier per call, so the content key and the receipt read the SAME bytes within that fold. `Figure.contribute()` is the `ReceiptContributor` projection over `_placed` threading the receipt's own `ArtifactReceipt.contribute()` generator — no `phase` parameter, because an `ArtifactReceipt` is by construction emitted-artifact evidence so the phase is the constant `"emitted"` the receipt owner fixes and the KNOB_TEST deletes; the `admitted`/`planned` lifecycle facts are NOT figure cases — the `core/plan#PLAN` planner mints them through its own direct `Receipt.of("artifacts", ("planned", ...))`, so this projection carries only the in-process `ScaleFit`/`Tile`/`Crop`/`Rotate`/`Overlay`/`Pdf` emitted evidence; the gated `Annotate`/`Metadata` raster facts are unreproducible synchronously (the subprocess `to_process` pass mints the PNG only inside the async `_emit`), so `_placed` returns `Nothing` for them and `contribute` yields no row — their receipt rides the async `Figure.of` emission outward, the one outward async-receipt seam this owner does not close in-process, never a placeholder key over empty bytes.
-- Growth: the bleed-and-trim sheet and margin-frame matte the growth axis named are now REALIZED — `Merge` composes the imported `graphic/vector/region#REGION` `boolean(sources, op)` planar set-op and `Matte` the imported `outline(source, width)` stroke-to-outline offset, one `FigureOp` case plus one thin `_compose_vector` arm each over the imported surface (never a re-implemented `skia-pathops` call, mirroring the `Crop` arm's `clip` compose), so a new planar op is one `BooleanOp` member the `Merge` arm already reads and a new offset cap/join one `graphic/vector/region#REGION` `CapStyle`/`JoinStyle` reaching the `outline` compose with zero edit here; a further vector layout operation is one more `FigureOp` case plus one `_compose_vector` arm over the imported `bounds`/`elements`/`fragment`/`document`/`clip`/`boolean`/`outline` surface, while an n-up refinement (inter-cell gutter, cell alignment) is one field on the existing `Tile` case the `_place` math already reads; a new registration-overlay primitive (a collation lozenge, a page-information ladder mark) is one `MarkKind` member carrying its own catalogued-primitive name and float-only arg row resolved through the shared `MarkKind.shape` builder, dispatched by the same total overlay fold and serialized through the imported `fragment` d-string egress — never a parallel mark emitter, never a `dict` arm grafted onto an erased shape bag; a new annotation source mode (a placed working document, a `.svgz` archive) is one `RasterSource` case projecting one entry into the `svg_to_bytes` source keyword on the one render call — never a second render entrypoint; a new raster annotation primitive is one `DrawOp` case plus one `match` arm on the worker, a new finish filter (an `ImageOps.colorize` recolor, an `ImageMorph` pass) is one `FilterKind` token plus one `match` arm on the `Frame` finish fold, a new blend mode one `BlendKind` token, a new text axis one `TextStyle` field the `_face`/`multiline_text` call already reads — never a parallel spec struct, never a per-primitive draw loop; a true geometric crop is the imported `graphic/vector/region#REGION` `clip(source, rect)` (a `skia-pathops` `PathOp.INTERSECTION` per-shape cut) composed one hop into the `Crop` arm with zero new engine here; a new resvg sizing/font/policy/diagnostic knob grows the IMPORTED `graphic/vector/region#REGION` `RenderPolicy` row at its owner, reaching this owner with zero edit — never a second rasterizer here; a new PDF-projection knob (a fit-to-page scale, a target page box) is one field on the existing `Pdf` case carried into the one `vl_convert.svg_to_pdf` call — never a second SVG-to-PDF sink; a color-tagged egress is the `Annotate` `icc` field embedded through `Image.save(icc_profile=)`, and a full source->dest ICC transform / soft-proof / CMYK separations is one outward compose of `graphic/color/managed#MANAGED` on the emitted raster — never a second color engine here; the authoritative cross-format descriptive-metadata write (a full IPTC/XMP/provenance seal) is one outward compose of `exchange/metadata#METADATA` on the emitted figure, the in-worker `Metadata` arm carrying only the figure-egress-local PNG EXIF/XMP tag convenience. Zero new surface.
+- Owner: `Figure` discriminates over the closed `FigureOp` `expression.tagged_union`, one typed payload per case, never a `StrEnum` over a shared erased `dict`. `svgelements`'s algebra and the `bounds`/`elements`/`fragment`/`px`/`clip`/`boolean`/`outline`/`document` functions live once in `graphic/vector/path#PATH` and `graphic/vector/region#REGION`; this owner imports and composes them one hop, holding only the placement arm bodies plus the `pillow` `Image` raster surface on the gated floor. `RenderPolicy` is REGION's rasterize-policy owner carried into `Annotate` so the resvg policy has one edit site across the chart/diagram/figure consumers. `TextStyle` is the one measured-text owner both `Text` and `Caption` compose, so a stroked complex-script variable-font caption and a bare label share one shape. `DrawOp` collapses the rejected `CaptionSpec`/`BoxSpec`/`PostSpec` triple into one pillow draw family folded by one total `match`, so a new annotation primitive is one case, never a parallel spec struct. `RasterSource` collapses `svg_string` markup and an `.svg`/`.svgz` file path into one case whose `keywords()` projects the live `svg_to_bytes` source keyword, so a file source never grows a second render call. Each `MarkKind` member carries its own verified primitive name and float-only arg row resolved through the bound `MarkKind.shape` builder, so the overlay fold dispatches total over the member, never a per-call `dict[MarkKind, Callable]` over an erased shape bag.
+- Cases: dispatch is one total `match` over the closed `FigureOp` — never a sibling op per source media type, a parallel mark emitter per primitive, or a parallel figure class. `Crop` is a real `skia-pathops` `PathOp.INTERSECTION` geometry sever (REGION `clip`), not a CSS `<clipPath>` mask a downstream must honor; `Merge` and `Matte` compose REGION's `boolean`/`outline` for the planar set-op and the fixed-width offset keyline — the offset algebra `svgelements` cannot express, `skia-pathops` exposing no `Path.offset` (the stroke IS the offset), the matte framed UNDER the source. `Pdf` is a pure `vl_convert.svg_to_pdf` projection of the placed flat `<svg>`, the post-edit-SVG-then-PDF path the `sheet`/`imposition` consumers draw, never a re-composition. `Annotate`'s trailing `icc` embeds the working-space profile on the PNG egress through `Image.save(icc_profile=)`; the full source->dest transform / soft-proof / CMYK separations ride `graphic/color/managed#MANAGED` outward, never re-owned here. `Metadata` is the figure-egress-local in-worker PNG EXIF/XMP tag convenience — NOT the authoritative cross-format seal `exchange/metadata#METADATA` owns, composed outward when a full descriptive-metadata write is the deliverable.
+- Auto: the vector arms offload `_compose_vector` to a THREAD lane so the pure-Python `svgelements` fold never runs on the loop; the `Annotate`/`Metadata` arms offload the whole `resvg_py.svg_to_bytes` rasterize plus `pillow` `DrawOp` fold to a `RetryClass.OCCT`-retried PROCESS worker where every native call resolves at worker scope; the `Pdf` arm offloads the GIL-releasing `vl_convert.svg_to_pdf` to a THREAD lane, a pure projection re-composing nothing. In-process arms derive the content key and the `ArtifactReceipt.Preview`/`Pdf` evidence from the SAME deterministic render within each projection, so key and facts cannot diverge; the frozen owner carries no memo, so `_emit` and `_placed` recompute per projection, matching the sibling `sheet`/`imposition` `Composed` re-entry. Gated annotate/metadata PNG mints only inside the subprocess, so `_placed` returns `Nothing` and `contribute` yields no row — their receipt rides the async `Figure.of` emission outward, never a placeholder `Placed` over empty bytes.
+- Receipt: in-process placement contributes `core/receipt#RECEIPT`'s named `ArtifactReceipt.Preview(key, width, height)` mint (empty perceptual `scores` — placement carries no perceptual measurement, that band is `graphic/raster/measure#MEASURE`'s); `Pdf` mints `ArtifactReceipt.Pdf(key, bytes, 1)`. No new kind and no new evidence `Struct` — the phantom `ArtifactReceipt.of(key, PreviewFacts(...))` indirection is the form the receipt owner deleted, its named per-kind mints taking the scalars positionally. `_placed(op)` folds bytes and placed viewport into ONE `Placed` per call so the content key and the receipt read the SAME bytes, and the phase is the constant `"emitted"`; the `admitted`/`planned` lifecycle facts are the `core/plan#PLAN` planner's own `Receipt.of` mints, not figure cases.
+- Growth: a further vector layout op is one `FigureOp` case plus one `_compose_vector` arm over the imported surface; a new planar set-op is one `BooleanOp` member the `Merge` arm reads and a new offset cap/join one REGION `CapStyle`/`JoinStyle` at `outline`; an n-up refinement is one field on `Tile`; a registration primitive is one `MarkKind` member through the shared builder; an annotation source mode one `RasterSource` case projecting one `svg_to_bytes` keyword; a raster primitive one `DrawOp` case, a finish filter one `FilterKind`, a blend one `BlendKind`, a text axis one `TextStyle` field. A resvg knob grows the imported `RenderPolicy` at its owner with zero edit here; a PDF-projection knob is one field on `Pdf`; a color-tagged egress is the `Annotate` `icc` field, the full ICC transform an outward `graphic/color/managed#MANAGED` compose; the authoritative cross-format metadata write an outward `exchange/metadata#METADATA` compose. Zero new surface.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -39,18 +35,9 @@ from rasm.runtime.lanes import LanePolicy, Modality
 from rasm.runtime.resilience import RetryClass
 from rasm.runtime.faults import RuntimeRail, async_boundary
 
-# graphic/vector/path#PATH owns the SVG parse/query/affine substrate and graphic/vector/region#REGION the
-# set-op/serialization surface; figure composition IMPORTS both and re-declares none — `bounds`/`elements`/
-# `fragment`/`px` resolve geometry in one hop, `elements(source)` is the parse-and-drawable-shape sweep the
-# placement folds read (the page re-parses no document), `clip(source, rect)` the `skia-pathops`
-# `PathOp.INTERSECTION` per-shape geometric crop the `Crop` arm composes, `boolean(sources, op)` the N-ary
-# UNION/DIFFERENCE/INTERSECTION/XOR set-op (the `OpBuilder` planar algebra `svgelements` cannot express) the
-# `Merge` arm composes for merged tile silhouettes / knockouts, `outline(source, width)` the `skia-pathops`
-# stroke-to-outline / fixed-width offset (`Path.stroke`; no `Path.offset`, the stroke IS the offset) the `Matte`
-# arm composes for a margin-frame / bleed-trim keyline, `PathFault` the rail the `_extent` bounds seam lifts,
-# `RegionFault` the clip/boolean/outline rail, `document(fragments, viewbox)` the ONE drawsvg assembly, and
-# `RenderPolicy` the resvg policy owner carried into `Annotate`. The heavy CMYK/ICC transform, soft-proof, and
-# CxF3 separations are `graphic/color/managed#MANAGED`'s, composed outward, never re-owned here.
+# PATH and REGION own the imported vector surface: `clip` the per-shape `PathOp.INTERSECTION` crop, `boolean`
+# the N-ary set-op `svgelements` cannot express, `outline` the fixed-width offset (`Path.stroke`; no
+# `Path.offset` exists, the stroke IS the offset), `PathFault`/`RegionFault` the rails the `_extent` seam lifts.
 from artifacts.graphic.vector.path import Bounds, PathFault, Span, bounds, elements, fragment, px
 from artifacts.graphic.vector.region import BooleanOp, RegionFault, RenderPolicy, Stroked, boolean, clip, document, outline
 from artifacts.core.plan import Admission, ArtifactWork
@@ -105,32 +92,14 @@ class MarkKind(Enum):
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
-# resvg/svgelements/vl-convert raise `ValueError` on invalid SVG, an empty document, or render
-# failure; the gated `to_process` worker death raises `BrokenWorkerProcess` (rides `_TRANSIENT` first,
-# reaching this tuple only when the retry is exhausted); `OSError` rides the `.svgz` file arm; the
-# `_GUARD`-contracted `_fit`/`_rows` division seams and the `_extent` `bounds`-rail lift raise
-# `BeartypeCallHintViolation`/`ValueError` on a degenerate source bbox or a non-positive column count.
-# The boundary narrows `catch` to this real raise tuple so a non-engine raise propagates as a defect
-# rather than railing through the `Exception` catch-all; the runtime `faults#FAULTS` `CLASSIFY` table
-# maps each caught raise onto its `BoundaryFault` case.
+# the engine raise tuple: `ValueError` on invalid/empty SVG or render failure, `OSError` on the `.svgz`
+# file arm, `BrokenWorkerProcess` on an exhausted worker-death retry, `BeartypeCallHintViolation` on a
+# degenerate source bbox or non-positive column count at the `_fit`/`_rows`/`_extent` seams.
 _FAULTS: tuple[type[Exception], ...] = (ValueError, OSError, BrokenWorkerProcess, BeartypeCallHintViolation)
 
-# the native-offload bounded slot every figure render threads: the GIL-hostile `to_process`
-# `pillow`/resvg annotate band, the GIL-releasing `to_thread` `vl_convert` PDF band, AND the
-# pure-Python `to_thread` vector-placement band share this one `CapacityLimiter` so N concurrent
-# figures bound a fixed offload pool instead of fanning out at the per-loop `current_default_*_limiter()`
-# defaults the concurrency owner rejects.
-
-# the worker-seam resilience the pillow/vector arms that share the lane carry: a transient OOM/signal
-# `to_process` worker death recovers through one bounded retry before the `_FAULTS` boundary rails an
-# exhausted death as a `BoundaryFault` resource case; the structural worker death alone rides `.on`, never
-# the domain `ValueError` a bad SVG raises (that is content, not transport, and surfaces immediately).
-
-# the surfaces-and-dispatch contract aspect: the `_fit`/`_rows` division seams refine their divisor
-# scalars (`Extent`/`Columns`), so a degenerate source extent or a non-positive grid count rails as
-# `BeartypeCallHintViolation` the `_FAULTS` boundary converts rather than a `ZeroDivisionError` deep in
-# the placement fold (a `Bounds`/case field is not deep-checked by beartype — only a direct scalar
-# parameter is), matching the sibling `composition/sheet#SHEET`/`imposition#IMPOSE` `_GUARD` seam.
+# the `_fit`/`_rows` division seams refine their `Extent`/`Columns` divisor scalars, so a degenerate extent
+# or non-positive grid count rails as `BeartypeCallHintViolation` rather than a `ZeroDivisionError` deep in
+# the fold — only a direct scalar parameter is deep-checked, never a `Bounds`/case field.
 _GUARD = beartype(conf=BeartypeConf(violation_type=BeartypeCallHintViolation))
 
 
@@ -144,11 +113,9 @@ class MarkSpec(Struct, frozen=True):
     width: float = 0.5
 
 
-# the reusable measured-text styling owner the `Text` and `Caption` arms both compose, so a journal
-# figure caption AND an AEC drawing keynote source one shape — the `_face` resolver reads `font`/`size`/
-# `variation` and gates `Layout.RAQM` on `features.check("raqm")`, the draw reads the rest; a stroked
-# halo (`stroke_width`/`stroke_fill`) keeps text legible over a busy figure, `direction`/`language`/
-# `features` drive complex-script shaping, `variation` drives a variable-font axis vector.
+# the measured-text owner `Text` and `Caption` both compose: `_face` reads `font`/`size`/`variation` and
+# gates `Layout.RAQM` on `features.check("raqm")`; `direction`/`language`/`features` drive complex-script
+# shaping, `variation` a variable-font axis vector, `stroke_width`/`stroke_fill` a legibility halo.
 class TextStyle(Struct, frozen=True):
     font: str | None = None
     size: float = 16.0
@@ -283,19 +250,14 @@ class FigureOp:
     scale_fit: tuple[bytes, Span, Span] = case()
     tile: tuple[tuple[bytes, ...], int, Span, Span, float] = case()
     crop: tuple[bytes, Bounds] = case()
-    merge: tuple[tuple[bytes, ...], BooleanOp] = (
-        case()
-    )  # N-source planar set-op (merged tile silhouettes / knockout) — imported graphic/vector `boolean`
-    matte: tuple[bytes, float, str] = (
-        case()
-    )  # fixed-width offset keyline/matte around the artwork silhouette — imported graphic/vector `outline` stroke-to-outline
+    merge: tuple[tuple[bytes, ...], BooleanOp] = case()  # N-source planar set-op — imported REGION `boolean`
+    matte: tuple[bytes, float, str] = case()  # fixed-width offset keyline — imported REGION `outline`
     rotate: tuple[bytes, str, Corner] = case()
     overlay: tuple[bytes, tuple[MarkSpec, ...]] = case()
     pdf: tuple[bytes, float] = case()
     annotate: tuple[RasterSource, RenderPolicy, tuple[DrawOp, ...], bytes | None] = (
         case()
-    )  # trailing `icc` embeds the working-space ICC profile on the PNG egress (color-tagged figure);
-    # the full source->dest transform is graphic/color/managed#MANAGED's
+    )  # trailing `icc` embeds the working-space profile on the PNG; the full transform is graphic/color/managed#MANAGED's
     metadata: tuple[bytes, tuple[tuple[int, str], ...], str | None] = case()
 
     @staticmethod
@@ -339,10 +301,8 @@ class FigureOp:
         return FigureOp(metadata=(source, exif, xmp))
 
 
-# the sync placement bound once per call: one `_compose_vector`/`svg_to_pdf` result feeds the content
-# key AND the receipt evidence off the same local `data`, so the key and the facts can never diverge
-# within a projection. `_placed` is a pure deterministic fold each projection re-enters (frozen owner,
-# no mutable memo), matching the sibling `composition/sheet#SHEET`/`imposition#IMPOSE` `Composed` form.
+# one `_compose_vector`/`svg_to_pdf` result feeds the content key AND the receipt evidence off the same
+# local `data`, so they cannot diverge within a projection; a pure fold each projection re-enters (no memo).
 class Placed(Struct, frozen=True):
     key: ContentKey
     data: bytes
@@ -362,7 +322,6 @@ class Figure(Struct, frozen=True):
         return ContentIdentity.of(f"figure-{self.op.tag}", self.op, policy=CANONICAL_POLICY)
 
     async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
-        # the renamed private render thunk — Preview minted over the placed fold, slot = pre-run key.
         railed = await async_boundary(f"figure.{self.op.tag}", self._placed_key, catch=_FAULTS)
         return railed.map(
             lambda _out: _placed(self.op)
@@ -373,27 +332,19 @@ class Figure(Struct, frozen=True):
     async def _placed_key(self) -> ContentKey:
         match self.op:
             case FigureOp(tag="annotate", annotate=(source, render, draws, icc)):
-                # both the resvg rasterize AND the pillow fold ride the worker BESIDE each other — the
-                # heavy native render never evaluates as a loop-thread arg; only the cheap `render.kwargs`
-                # dict + the optional ICC profile bytes cross, and `_TRANSIENT` retries a transient
-                # `BrokenWorkerProcess` before `_FAULTS`. The `icc` embeds the working-space profile on the
-                # PNG egress (a color-tagged figure for the pub/print + drawing-sheet plane), the FULL
-                # source->dest ICC transform / soft-proof / CMYK separations riding graphic/color/managed#MANAGED.
+                # the resvg rasterize AND the pillow fold ride the worker beside each other; only the cheap
+                # `render.kwargs` dict + optional ICC bytes cross the seam, never the heavy native render as an arg.
                 data = _out_of(await LanePolicy.offload(_gated_annotate, render.kwargs(source.keywords()), draws, icc, modality=Modality.PROCESS, retry=RetryClass.OCCT))
             case FigureOp(tag="metadata", metadata=(source, exif, xmp)):
                 data = _out_of(await LanePolicy.offload(_gated_metadata, source, exif, xmp, modality=Modality.PROCESS, retry=RetryClass.OCCT))
             case FigureOp(tag="pdf", pdf=(source, scale)):
-                # `vl_convert` is a GIL-releasing native (Deno/V8 + resvg) render, so the SVG-to-PDF wrap
-                # offloads to the bounded `to_thread` band; only the cheap `source.decode()` crosses as an arg.
+                # `vl_convert` is a GIL-releasing native render, so only the cheap `source.decode()` crosses.
                 data = _out_of(await LanePolicy.offload(vl_convert.svg_to_pdf, source.decode(), scale, modality=Modality.THREAD))
             case _:
-                # the pure-Python `svgelements` placement fold crosses `to_thread` OFF the loop
-                # (OFFLOAD_LANE), the `_extent` `bounds`-rail lift raising into the `_FAULTS` boundary.
                 data = _out_of(await LanePolicy.offload(_compose_vector, self.op, modality=Modality.THREAD))
         return ContentIdentity.key(
             f"figure-{self.op.tag}", data
-        )  # bare synchronous accessor: the whole-byte figure source is infallible (no canonical encode),
-        # so `_emit` returns a bare `ContentKey` the boundary wraps, never the railed `of`
+        )  # the whole-byte figure source is infallible (no canonical encode), so a bare `ContentKey` the boundary wraps
 
     def contribute(self) -> "Iterable[Receipt]":
         # `Some` for the in-process arms (bytes/key/receipt off the ONE sync render), `Nothing` for the
@@ -406,7 +357,7 @@ class Figure(Struct, frozen=True):
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 def _out_of[T](rail: "RuntimeRail[T]", /) -> T:
-    # terminal collapse at the placement boundary: an offload fault reconstructs the raise _FAULTS folds.
+    # terminal collapse: an offload fault reconstructs the raise the `_FAULTS` boundary folds.
     return rail.default_with(_figure_raise)
 
 
@@ -414,10 +365,8 @@ def _figure_raise(fault: object) -> object:
     raise ValueError(str(fault))
 
 
-# the in-process placement carrier the receipt path reads: `Some` for the pdf and vector arms whose
-# bytes/key/receipt all derive from the ONE sync render, `Nothing` for the gated annotate/metadata arms
-# that mint only inside the async `_emit` — a non-failing absence, never an empty-byte placeholder key
-# that would collide across calls and diverge from the real emitted key.
+# `Some` for the pdf/vector arms whose bytes/key/receipt derive from the ONE sync render, `Nothing` for the
+# gated annotate/metadata arms that mint only inside async `_emit` — never an empty-byte placeholder key.
 def _placed(op: FigureOp) -> Option[Placed]:
     match op:
         case FigureOp(tag="pdf", pdf=(source, scale)):
@@ -457,15 +406,13 @@ def _placed_layers(op: FigureOp, names: tuple[str, ...]) -> tuple[Layer, ...]:
             base = Layer(_name(names, 0, "base"), document([fragment(shape) for shape in elements(source)], extent), extent)
             return (base, Layer(_name(names, 1, "overlay"), document(_marks(extent, marks), extent), extent))
         case FigureOp(tag="scale_fit") | FigureOp(tag="crop") | FigureOp(tag="rotate") | FigureOp(tag="merge") | FigureOp(tag="matte"):
-            # the single-output placed layer reads its OWN placed extent off the emitted bytes —
-            # `scale_fit`/`crop` re-origin the viewport and `merge`/`matte` re-shape it, so the source-document
-            # bounds is the wrong frame; one placed layer over the composed result.
+            # the single placed layer reads its OWN extent off the emitted bytes — these arms re-origin or
+            # re-shape the viewport, so the source-document bounds is the wrong frame.
             placed = _compose_vector(op)
             return (Layer(_name(names, 0), placed, _extent(placed)),)
         case _:
-            # `pdf`/`annotate`/`metadata` carry no named-layer projection (the flat artifact is one
-            # implicit layer), so the egress is empty — a VALID arm reached by real cases, never an
-            # `assert_never` (which would mis-fire at type-check because those tags are reachable here).
+            # `pdf`/`annotate`/`metadata` carry no named-layer projection — a VALID empty arm, not an
+            # `assert_never` (those tags are reachable here, so it would mis-fire at type-check).
             return ()
 
 
@@ -473,10 +420,7 @@ def _name(names: tuple[str, ...], index: int, fallback: str = "") -> str:
     return names[index] if index < len(names) else fallback or f"layer-{index}"
 
 
-# the `_GUARD`-contracted division seams: an aspect-fit divides by the source extent and the n-up grid
-# by the column count, so a degenerate zero-extent bbox or a non-positive `columns` rails as a
-# `BeartypeCallHintViolation` at the refined `Extent`/`Columns` scalar rather than a `ZeroDivisionError`
-# deep in the placement fold — the one place the placement math admits an external scalar.
+# the `_GUARD`-contracted division seams — the one place the placement math admits an external scalar.
 @_GUARD
 def _fit(width: float, height: float, extent_w: Extent, extent_h: Extent, /) -> float:
     return min(width / extent_w, height / extent_h)
@@ -487,12 +431,9 @@ def _rows(count: int, columns: Columns, /) -> int:
     return -(-count // columns)
 
 
-# the placement-math arm bodies this owner holds over the imported vector surfaces; `bounds`/`elements`/
-# `fragment`/`px` live once on graphic/vector/path#PATH, `document`/`clip`/`boolean`/`outline` on
-# graphic/vector/region#REGION. Every arm folds the imported `elements(source)` shapes through
-# `fragment(shape, matrix)` onto `document(fragments, viewbox)` —
-# never the imported `transform` (a whole-document re-frame this owner does not want) and never a
-# re-parsed `<svg>` shell. Raises inside cross the `to_thread` seam into the `_FAULTS` boundary.
+# the placement-math arm bodies over the imported vector surface: every arm folds `elements(source)` through
+# `fragment(shape, matrix)` onto `document(fragments, viewbox)` — never the imported `transform` (a whole-
+# document re-frame this owner does not want) and never a re-parsed `<svg>` shell.
 def _compose_vector(op: FigureOp) -> bytes:
     match op:
         case FigureOp(tag="scale_fit", scale_fit=(source, width, height)):
@@ -506,22 +447,14 @@ def _compose_vector(op: FigureOp) -> bytes:
             placed = [frag for index, raw in enumerate(sources) for frag in _place(raw, index, columns, cw, ch, gutter)]
             return document(placed, (0.0, 0.0, cw * columns + gutter * (columns - 1), ch * rows + gutter * (rows - 1)))
         case FigureOp(tag="crop", crop=(source, box)):
-            # the true geometric crop: `graphic/vector/region#REGION` `clip(source, rect)` intersects each drawable
-            # shape against the crop rect through `skia-pathops` `PathOp.INTERSECTION` and frames to the rect —
-            # a real severed outline in place of the prior CSS `<clipPath>`; the rail lifts at the shared fault seam.
+            # REGION `clip` — a real `PathOp.INTERSECTION` per-shape sever framed to the rect, not a CSS `<clipPath>`.
             return clip(source, box).default_with(_source_fault)
         case FigureOp(tag="merge", merge=(sources, op)):
-            # the N-source planar set-op: `graphic/vector/region#REGION` `boolean(sources, op)` folds each source outline
-            # through the `skia-pathops` `OpBuilder` UNION/DIFFERENCE/INTERSECTION/XOR — merged tile silhouettes on
-            # UNION, a knockout on DIFFERENCE, an overlap mask on INTERSECTION — one composed set-op, never a per-op
-            # method, mirroring the `Crop` arm's one-hop `clip` compose; the rail lifts at the shared fault seam.
+            # REGION `boolean` — the N-ary `OpBuilder` planar set-op, one composed op, never a per-op method.
             return boolean(sources, op).default_with(_source_fault)
         case FigureOp(tag="matte", matte=(source, width, stroke)):
-            # the fixed-width offset keyline/matte: `graphic/vector/region#REGION` `outline(source, width)` strokes the
-            # artwork silhouette into a closed filled boundary through `skia-pathops` `Path.stroke` (the offset
-            # algebra `svgelements` cannot express; `skia-pathops` exposes no `Path.offset`, the stroke IS the offset),
-            # the matte `stroke` row lowering at the `document` paint axis and framed UNDER the source so
-            # the artwork sits on its own trim/bleed keyline — a bleed-and-trim sheet or margin-frame matte in one hop.
+            # REGION `outline` strokes the silhouette into a closed boundary and frames it UNDER the source so
+            # the artwork sits on its own trim/bleed keyline — the offset `svgelements` cannot express.
             matte = outline(source, width).default_with(_source_fault)
             return document([*(fragment(shape) for shape in elements(matte)), *(fragment(shape) for shape in elements(source))], _extent(matte))
         case FigureOp(tag="rotate", rotate=(source, angle, corner)):
@@ -538,30 +471,24 @@ def _compose_vector(op: FigureOp) -> bytes:
             extent = _extent(source)
             return document([*(fragment(shape) for shape in elements(source)), *_marks(extent, marks)], extent)
         case _:
-            # the in-process vector composer owns only the five SVG-geometry arms; `pdf` rides
-            # `vl_convert.svg_to_pdf` and the gated `annotate`/`metadata` arms render on the worker, so a
-            # non-vector op cannot reach here through any caller — the boundary `_FAULTS` tuple converts
-            # this invariant guard (a partial fold over the closed family forbids `assert_never`).
+            # only the five geometry arms reach here; `pdf`/`annotate`/`metadata` render elsewhere, so a
+            # non-vector op is unreachable — an invariant guard the closed partial fold forbids `assert_never` for.
             raise ValueError(f"figure {op.tag} has no in-process vector composition")
 
 
-# the ONE rail-to-raise boundary seam: the imported `bounds(source)` `PathFault` rail lifts to the
-# `ValueError` the `_FAULTS`-narrowed `async_boundary` classifies into `BoundaryFault`, uniform with the
-# pillow/`vl_convert` engine raises — figure composition rails in `BoundaryFault`, so vector's foreign
-# `PathFault`/`RegionFault` domains cross into it here rather than a scattered `.default_value` that swallows the cause.
+# the ONE rail-to-raise seam shared by `_extent` and the `Crop`/`Merge`/`Matte` clip/boolean/outline arms:
+# a foreign `PathFault`/`RegionFault` becomes the `ValueError` the `_FAULTS` boundary classifies, uniform
+# with the pillow/`vl_convert` engine raises — never a scattered `.default_value` that swallows the cause.
 def _extent(source: bytes) -> Bounds:
     return bounds(source).default_with(_source_fault)
 
 
 def _source_fault(fault: PathFault | RegionFault) -> "NoReturn":
-    # the ONE rail-to-raise lift shared by the `_extent` bounds seam and the `Crop` arm's `clip` seam: a
-    # `PathFault`/`RegionFault` (empty/parse/degenerate/open_path) becomes the `ValueError` the `_FAULTS` boundary classifies.
     raise ValueError(f"figure source: {fault.tag}")
 
 
-# the registration-overlay mark fold — each `MarkSpec` builds its own `svgelements` shape through the
-# bound `MarkKind.shape` row, positioned by document-corner offset and serialized through the imported
-# `fragment` d-string egress on a `Stroked` (d, stroke, width) fragment `document` strokes per mark; the flat and per-layer egresses both compose this one fold.
+# the registration-overlay mark fold: each `MarkSpec` builds its `svgelements` shape through `MarkKind.shape`,
+# serialized to a `Stroked` (d, stroke, width) fragment; both the flat and per-layer egresses compose this fold.
 def _marks(extent: Bounds, marks: tuple[MarkSpec, ...]) -> list[Stroked]:
     return [(fragment(spec.kind.shape(_anchor(spec.corner, extent, spec.inset), spec.size)), spec.stroke, spec.width) for spec in marks]
 
@@ -608,10 +535,8 @@ def _angle(value: str) -> "Angle":
 
 
 def _face(style: TextStyle) -> "ImageFont.FreeTypeFont | ImageFont.ImageFont":
-    # the `TextStyle`-to-`FreeTypeFont` resolver: `Layout.RAQM` (HarfBuzz/FriBidi complex-script shaping)
-    # is gated on `features.check("raqm")` because a wheel built without libraqm silently falls back, so
-    # a build-dependent arm routes on the capability probe rather than assuming the feature; a variable
-    # font drives its axes through `set_variation_by_axes`.
+    # `Layout.RAQM` is gated on `features.check("raqm")` — a wheel built without libraqm silently falls back,
+    # so the arm routes on the capability probe rather than assuming the feature.
     complex_ = bool(style.features or style.direction)
     engine = ImageFont.Layout.RAQM if complex_ and features.check("raqm") else ImageFont.Layout.BASIC
     face = ImageFont.truetype(style.font, style.size, layout_engine=engine) if style.font is not None else ImageFont.load_default(style.size)
@@ -621,8 +546,7 @@ def _face(style: TextStyle) -> "ImageFont.FreeTypeFont | ImageFont.ImageFont":
 
 
 def _gated_annotate(render_kwargs: dict[str, object], draws: Sequence[DrawOp], icc: bytes | None) -> bytes:
-    # both the resvg rasterize AND the pillow draw fold run on the worker, so no native render touches
-    # the event loop; the `lazy import resvg_py` / `lazy from PIL` proxies reify inside the subprocess.
+    # the resvg rasterize AND the pillow draw fold both run on the worker; the lazy proxies reify in the subprocess.
     image = Image.open(BytesIO(resvg_py.svg_to_bytes(**render_kwargs))).convert("RGBA")
     surface = ImageDraw.Draw(image)
     for op in draws:
@@ -729,20 +653,15 @@ def _gated_annotate(render_kwargs: dict[str, object], draws: Sequence[DrawOp], i
             case _:
                 assert_never(op)
     sink = BytesIO()
-    # ICC-aware egress: `icc_profile=` tags the placed figure PNG with its working-space profile so a downstream
-    # consumer reads the figure in a managed space (the pub/print AND ISO drawing-sheet figure plane); `None` is a
-    # no-op. The FULL source->dest ICC transform, lcms2 soft-proof, and CxF3 CMYK separations are
-    # graphic/color/managed#MANAGED's owned lcms2/pyvips surface, composed outward on the emitted raster, never here.
+    # `icc_profile=` tags the PNG with its working-space profile (`None` is a no-op); the full source->dest
+    # transform / soft-proof / CMYK separations are `graphic/color/managed#MANAGED`'s, composed outward.
     image.save(sink, format="PNG", icc_profile=icc)
     return sink.getvalue()
 
 
 def _gated_metadata(payload: bytes, exif_tags: Sequence[tuple[int, str]], xmp: str | None) -> bytes:
-    # figure-egress-local descriptive-metadata convenience: an in-worker pillow EXIF/XMP tag write on the placed PNG
-    # so a bare figure carries its title/creator/rights without a second async hop. This is NOT the authoritative
-    # cross-format descriptive-metadata seal — exchange/metadata#METADATA is the categorical-best owner (pyexiftool
-    # over EXIF+IPTC+XMP+ICC+GPS+maker-notes in one cross-format pass), composed outward on the emitted figure when a
-    # full IPTC/XMP/provenance write is the deliverable; the deliberate boundary is the in-worker PNG-tag convenience here.
+    # the figure-egress-local in-worker PNG EXIF/XMP tag write — NOT the authoritative cross-format seal
+    # `exchange/metadata#METADATA` owns, composed outward when a full IPTC/XMP/provenance write is the deliverable.
     image = Image.open(BytesIO(payload))
     exif = image.getexif()
     exif.update(exif_tags)
@@ -751,3 +670,11 @@ def _gated_metadata(payload: bytes, exif_tags: Sequence[tuple[int, str]], xmp: s
     image.save(sink, format=image.format or "PNG", exif=exif, xmp=packet.encode() if isinstance(packet, str) else packet)
     return sink.getvalue()
 ```
+
+## [03]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+-->
+
+(none)

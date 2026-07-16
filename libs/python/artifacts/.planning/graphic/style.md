@@ -1,21 +1,21 @@
 # [PY_ARTIFACTS_GRAPHIC_STYLE]
 
-The theme-as-DATA owner — the s1 SELECT tier where an office's visual identity lives as one row set, so switching styles is switching one `Theme` and library-default output is a defect by construction. A theme selects and composes what the substrates own: its color system is derive `Palette` seeds in LCh (values resolve through `graphic/color/derive#DERIVE`, never a literal hex), its stroke hierarchy SELECTS `drawing/regime#REGIME` pen and weight rows by key, its TYPE SYSTEM rows carry the scale ratio, per-role leading/tracking, per-role variable-axis coordinates (pinned through `typography/font#FONT` `INSTANCE` and frozen through `FREEZE`/`RemapByOTL` for non-OpenType consumers), and per-role OpenType feature presets over `typography/shape#SHAPE` `FeatureSpec` (tabular figures for schedules, small caps for running heads), its SHEET FAMILY rows carry title-block grid variants and page masters (margins, columns, baseline grid), its figure-ground rows fix transparency and blend conventions, and its ENTOURAGE rows carry the art-directed silhouette assets (scale figures, trees, vehicles) as vector-path data placed by the diagram and sheet planes.
+The theme-as-data owner — the s1 SELECT tier where an office's visual identity lives as one `Theme` row set, so switching styles is switching one value and a library-default emit is a defect by construction. A theme selects and composes what the substrates own, holding keys and value specs but never the substrate vocabulary itself: color seeds resolve through `graphic/color/derive#DERIVE`, stroke rows through `drawing/regime#REGIME`, type roles through `typography/font#FONT` and `typography/shape#SHAPE`, sheet grids through `composition/sheet#SHEET`.
 
-Every visual plane composes the binding seam downward: `composition/sheet#SHEET` reads the sheet-family variant, `document/emit#EMIT` the page masters and running-head type roles, `visualization/table#TABLE` the table rows, `visualization/chart/spec#SPEC` the chart rows (lowered onto typed `ThemeConfig` via `@theme.register`, never a hand-merged dict), `visualization/diagram/draw#DRAW` and `schematic` the diagram aesthetics and entourage rows. This page mints no receipt and runs no async — a theme is a frozen value, selection is a `Map` read.
+Every visual plane composes this seam downward: `composition/sheet#SHEET` reads the sheet-family variant, `document/emit#EMIT` the page masters and running-head roles, `visualization/table#TABLE`/`visualization/chart/spec#SPEC` the table and chart rows (lowered onto a typed `ThemeConfig` via `@theme.register`, never a hand-merged dict), `visualization/diagram/draw#DRAW` the diagram aesthetics and entourage. No receipt, no async — a theme is a frozen value, selection a `Map` read.
 
 ## [01]-[INDEX]
 
-- [01]-[STYLE]: the `Theme` row set and its axes — `TypeSystem`/`TypeRow` the modular type scale with per-role axes/features/leading, `StrokeHierarchy` the regime-keyed emphasis rows, `PaletteSpec` the derive-seeded color system, `GroundRow` the figure-ground and transparency conventions, `Entourage`/`EntourageKind` the silhouette asset rows, `PageMaster`/`SheetFamily` the grid/margin/zone/title-block rows, the per-plane `ChartRows`/`DiagramRows`/`TableRows` bindings, and `Theme.role()`/`Theme.pen()`/`Theme.size()` the SELECT projections every consumer keys.
+- [01]-[STYLE]: the `Theme` row set — the `TypeSystem` modular scale, regime-keyed `StrokeHierarchy`, derive-seeded `PaletteSpec`, figure-ground `GroundRow`, `Entourage` silhouettes, `PageMaster`/`SheetFamily` grid rows, per-plane chart/diagram/table bindings, and the `role`/`pen`/`size` SELECT projections every consumer keys.
 
 ## [02]-[STYLE]
 
-- Owner: `Theme` is the one office-identity carrier — a frozen struct of row groups, each row referencing an owning substrate by key or by value spec, never re-declaring substrate vocabulary. A consumer holds one `Theme` and keys it (`theme.role(ThemeRole.SCHEDULE)`, `theme.pen(Emphasis.PRIMARY)`, `theme.sheet.master`); the theme never renders, converts, or shapes — it selects.
-- Type: `TypeSystem` fixes `base_pt` and the modular `ratio`; `TypeRow(step, leading, tracking, axes, features)` places each `ThemeRole` on the scale — `size(role) = base_pt · ratio^step` derives every size from two numbers (no per-role size literals); `axes` are the variable-font coordinates the font owner pins via `INSTANCE` (an `AxisLimit` pin per axis) and freezes via `FREEZE` for a consumer that cannot carry OpenType Layout; `features` is the per-role `FeatureSpec` preset the shape engine applies (`tnum`/`lnum` on `SCHEDULE`, `smcp` on `RUNNING_HEAD`, `onum`/`liga` on `BODY`); `leading`/`tracking` feed `typography/layout#LAYOUT`'s `LayoutParams` so break correctness composes the theme instead of overriding it.
-- Rows: `StrokeHierarchy` maps the closed `Emphasis` axis onto regime `LineWeight` keys (primary/secondary/tertiary/hairline — the drafting two-width group law stays regime's; the theme picks WHICH rows express emphasis); `PaletteSpec` seeds derive's `Palette` factory (seed LCh strings, count, spacing, ramp) so a chart's categorical set, a diagram's ink, and a swatch board all derive from one seed row; `GroundRow` fixes figure-ground opacity, screen values, and the sanctioned `BlendMode` conventions per intent (blended transparency as theme DATA over `graphic/layer#LAYER`'s vocabulary); `Entourage` rows carry `(kind, path_d, height_m)` silhouettes — real-world-height-normalized vector paths placed at drawing scale by the consuming plane, per office art direction.
-- Sheet: `PageMaster(margins_mm, columns, gutter_mm, baseline_mm)` is the one page-grid row `document/emit#EMIT`'s `@page` lowering and `composition/sheet#SHEET`'s zone system read; `SheetFamily(variant, master, title_block)` names the office title-block grid variant per sheet size class — the ISO 7200 cell grid geometry itself is sheet's; the theme selects the variant.
-- Growth: a new type role is one `ThemeRole` member plus one `TypeRow`; a new emphasis level is one `Emphasis` member plus one hierarchy row; a new entourage asset is one row; a new per-plane binding is one row group; a new office style is one `Theme` value — zero new surface anywhere else.
-- Boundary: no color math (`graphic/color/derive#DERIVE` resolves seeds); no pen truth (`drawing/regime#REGIME` owns the rows; the theme holds keys); no shaping/layout/font transforms (typography owns them; the theme holds presets and coordinates); no chart/table/diagram rendering (each plane lowers its rows through its own typed config); no sheet geometry (`composition/sheet#SHEET`); no receipt, no identity, no rail.
+- Owner: `Theme` is a frozen struct of row groups, each referencing its owning substrate by key or value spec. A consumer holds one `Theme` and keys it; the theme never renders, converts, or shapes — it selects.
+- Type: `size(role)` derives every size from `base_pt` and `ratio`, no per-role literals; `axes` pin via `INSTANCE` and freeze via `FREEZE` for a non-OTL consumer; `leading`/`tracking` feed `typography/layout#LAYOUT` so break correctness composes the theme instead of overriding it.
+- Rows: `StrokeHierarchy` maps the closed `Emphasis` axis onto regime `LineWeight` keys — the drafting two-width group law stays regime's, the theme picks which rows express emphasis; `PaletteSpec` seeds derive's `Palette` factory so chart, diagram, and swatch all derive from one seed row; `GroundRow` makes blended transparency theme data over `graphic/layer#LAYER`'s vocabulary; `Entourage` silhouettes are real-world-height-normalized paths placed at drawing scale by the consuming plane.
+- Sheet: `PageMaster` is the one page-grid row `document/emit#EMIT`'s `@page` lowering and `composition/sheet#SHEET`'s zones read; `SheetFamily` names the office title-block variant per size class — the ISO 7200 cell grid is sheet's, the theme selects the variant.
+- Growth: a new type role is one `ThemeRole` member plus one `TypeRow`; a new emphasis level one `Emphasis` member plus one hierarchy row; a new entourage asset one row; a new per-plane binding one row group; a new office style one `Theme` value — zero new surface anywhere else.
+- Boundary: no color math (`graphic/color/derive#DERIVE` resolves seeds); no pen truth (`drawing/regime#REGIME` owns the rows, the theme holds keys); no shaping/layout/font transforms (typography's, the theme holds presets and coordinates); no chart/table/diagram rendering (each plane lowers its own typed config); no sheet geometry (`composition/sheet#SHEET`); no receipt, identity, or rail.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -33,7 +33,7 @@ if TYPE_CHECKING:
     from rasm.artifacts.typography.shape import FeatureSpec
 
 # --- [TYPES] ----------------------------------------------------------------------------
-class ThemeRole(StrEnum):  # the closed typographic role axis every document/plane consumer keys
+class ThemeRole(StrEnum):  # closed typographic role axis every consumer keys
     DISPLAY = "display"
     HEADING = "heading"
     SUBHEADING = "subheading"
@@ -45,7 +45,7 @@ class ThemeRole(StrEnum):  # the closed typographic role axis every document/pla
     FOLIO = "folio"
 
 
-class Emphasis(StrEnum):  # stroke-hierarchy axis — the theme maps it onto regime LineWeight rows
+class Emphasis(StrEnum):  # stroke-hierarchy axis mapped onto regime LineWeight rows
     PRIMARY = "primary"
     SECONDARY = "secondary"
     TERTIARY = "tertiary"
@@ -93,7 +93,7 @@ class TypeSystem(Struct, frozen=True):
 
 
 class PaletteSpec(Struct, frozen=True):
-    # derive Palette factory arguments — seeds as LCh strings; derive resolves every target model by value.
+    # derive Palette factory args — seeds as LCh strings; derive resolves every target by value.
     seeds: tuple[str, ...]
     count: int
     spacing: str = "perceptual"
@@ -101,7 +101,7 @@ class PaletteSpec(Struct, frozen=True):
 
 
 class GroundRow(Struct, frozen=True):
-    # figure-ground convention per layer intent: screen opacity + sanctioned blend — theme DATA over layer vocabulary.
+    # figure-ground per layer intent: screen opacity + sanctioned blend.
     intent: LayerIntent
     opacity: float
     blend: BlendMode = BlendMode.NORMAL
@@ -127,7 +127,7 @@ class SheetFamily(Struct, frozen=True):
 
 
 class Theme(Struct, frozen=True):
-    key: str  # the office-style identity — switching styles is switching this one value
+    key: str  # office-style identity
     type_system: TypeSystem
     strokes: Map[Emphasis, LineWeight]
     palette: PaletteSpec
@@ -151,7 +151,7 @@ class Theme(Struct, frozen=True):
 
 
 # --- [TABLES] ---------------------------------------------------------------------------
-# The house default row set — one Theme VALUE, replaced whole per office style; never a scattered override.
+# house default row set — one Theme value, replaced whole per office style.
 HOUSE: Final[Theme] = Theme(
     key="house",
     type_system=TypeSystem(
@@ -208,4 +208,10 @@ __all__ = [
 ]
 ```
 
-A theme row references its owning substrate and the consumer lowers it through that substrate's typed surface: `PaletteSpec` feeds derive's `Palette` factory and the resolved swatches thread into altair scales, lets-plot `scale_color_manual`, table styles, and diagram ink; `TypeRow.axes` pins land as font `INSTANCE` jobs and freeze through `RemapByOTL` where a target cannot carry OpenType Layout; `TypeRow.features` presets ride the shape engine's `FeatureSpec` unchanged; `strokes` keys resolve regime weight rows so a chart rule, a diagram edge, and a drawing pen share one emphasis law; `GroundRow` and `Entourage` make blended transparency and art-directed scale furniture theme DATA over the layer vocabulary and V15 geometry. `HOUSE` is the standing default row set — a second office style is a second `Theme` value selected at issue time, and any consumer emitting a library default where a theme row exists is defective.
+## [03]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+-->
+
+(none)

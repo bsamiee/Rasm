@@ -7,7 +7,7 @@ The connectivity layer is the network GRAPH, orthogonal to the `Model/zones#ZONE
 ## [01]-[INDEX]
 
 - [01]-[CONNECTIVITY]: the `DistributionSystem` derived view (member `NodeId` set, nested sub-circuit set, typed `DistributionPort` set, port `FlowEdge` set, served-structure set, `(MembershipKey, TopologyKey)` identity), the `DistributionSystemKind` `[SmartEnum<string>]` over `IfcDistributionSystemEnum` with its `IfcDomain` discipline and `FlowMedium` carrier columns, the `FlowDirection` `[SmartEnum<string>]` over `IfcFlowDirectionEnum`, and the `DistributionNetwork` fold reading the seam `Assign{Group}`/`Connect{Port}`/`Compose{Nest}`/`Generic` edges into the typed views.
-- [02]-[SYSTEM_TRACE]: the `SystemTrace` reachability fold over the seam's port-and-element flow graph — one transient `QuikGraph` `AdjacencyGraph<NodeId, SEdge<NodeId>>` built from the `Connect{Port}` edges, the `TraceMode` orientation policy (reach/downstream/upstream) reading the port `FlowDirection`, the `BreadthFirstSearchAlgorithm` event fold computing the reachable-element closure (the shared `[GRAPH_ALGORITHM]` owner replacing the hand-rolled visited-set walk), and the `Demand` downstream accumulation reducing reached-terminal design values through the query `SumOf` composition.
+- [02]-[SYSTEM_TRACE]: the `SystemTrace` reachability fold over the seam's port-and-element flow graph — one transient `QuikGraph` `AdjacencyGraph<NodeId, SEdge<NodeId>>` built from the `Connect{Port}` edges, the `TraceMode` orientation policy (reach/downstream/upstream) reading the port `FlowDirection`, the `BreadthFirstSearchAlgorithm` event fold computing the reachable-element closure (the shared `[GRAPH_ALGORITHM]` owner replacing the hand-rolled visited-set walk), the `Demand` downstream accumulation reducing reached-terminal design values through the query `SumOf` composition, and the `Runs` index-run ranking ordering every reached terminal by its best-route resistance from the seed over the same oriented adjacency.
 - [03]-[INTERFERENCE]: the `Interference` evidence, `GeometryProximity` kernel seam, stateful `BroadPhase` policy, and `InterferenceCheck.Interferences`/`Refit` folds over refittable `SwiftBVH<NodeId>` or `SwiftSpatialHash<NodeId>` indexes.
 
 ## [02]-[CONNECTIVITY]
@@ -271,9 +271,9 @@ public static class DistributionNetwork {
 ## [03]-[SYSTEM_TRACE]
 
 - Owner: `SystemTrace` the reachability fold over one `DistributionSystem` view's port-and-element flow graph — the set of every distribution element reachable from a seed port or element through the connection network, folded by the shared `QuikGraph` `[GRAPH_ALGORITHM]` owner the `Planning/schedule#CRITICAL_PATH` topological order and the `Review/versioning#VERSION_GRAPH` common-ancestor walk also compose, never a hand-rolled visited-set walk; `TraceMode` the orientation policy (`Reach` the undirected both-directions closure, `Downstream`/`Upstream` the `FlowDirection`-oriented directed closure). The flow network is a graph over BOTH ports AND elements so the closure crosses each fitting (a tee's inlet port → the tee element → the tee's outlet ports → the next segment), the bipartite-style traversal the port-only adjacency the retired walk built never crossed.
-- Entry: `SystemTrace.From(DistributionSystem system, NodeId seed, TraceMode mode)` folds one explicit orientation over a transient `AdjacencyGraph<NodeId, SEdge<NodeId>>`, accumulates the closure through `BreadthFirstSearchAlgorithm.DiscoverVertex`, and partitions reached elements from reached ports. `SystemTrace.Demand(ElementGraph graph, ValueSource source, Op key)` reduces reached effective values through `ElementSet.SumOf`. An isolated system member yields itself; a seed outside the system yields an empty trace, so construction remains total without fabricating membership.
+- Entry: `SystemTrace.From(DistributionSystem system, NodeId seed, TraceMode mode)` folds one explicit orientation over a transient `AdjacencyGraph<NodeId, SEdge<NodeId>>`, accumulates the closure through `BreadthFirstSearchAlgorithm.DiscoverVertex`, and partitions reached elements from reached ports. `SystemTrace.Demand(ElementGraph graph, ValueSource source, Op key)` reduces reached effective values through `ElementSet.SumOf`. `SystemTrace.Runs(ElementGraph graph, Option<ValueSource> resistance, Op key)` ranks every reached TERMINAL (a reached vertex with no outgoing oriented leg) by its best-route cost from the seed over the SAME retained oriented adjacency — the `ShortestPathsDijkstra` route fold, each element weighing its effective resistance value (segment length, fitting loss — a present non-measure faults the same `aggregate-non-measure` law `SumOf` rails) with the hop-count identity when no source is named — descending, so the head IS the index run the duct-sizing, riser-diagram, and feeder-schedule reads start from; in a tree-shaped run the best route is the only route, so the ranking is exact, and a ring main ranks each terminal by its least-resistance route. An isolated system member yields itself; a seed outside the system yields an empty trace, so construction remains total without fabricating membership.
 - Auto: `From` folds the system's `Ports` into the graph as ownership edges (each port ↔ its owner element, both directions — a port belongs to its element regardless of flow) and the system's `Flow` edges oriented by `TraceMode` over BOTH endpoint `FlowDirection`s (`Reach` adds both directions; a `Downstream` leg exists only where the emitting side `Emits` AND the receiving side `Receives`, so a `Source`→`Sink` edge carries one leg, a `NotDefined` pair conducts both ways, a `NotDefined`-against-`Source` edge still flows OUT of the source only, and two facing pure sources honestly sever the directed closure; `Upstream` is the mirror), the optional realizing fitting linked as an intermediate on each ORIENTED leg (emitting port → realizer → receiving port, so `Reach` keeps its bidirectional participation while a directed trace never crosses a connection backwards through its fitting); the reached closure accumulates through the `BreadthFirstSearchAlgorithm` `DiscoverVertex` event fold — O(reachable), the seed discovered first, the same accumulation form the `Model/spatial#SPATIAL_STRUCTURE` `Reachable` and the emitter `DomainAtlas` claim hold, never an all-vertex `TryFunc` path-probe sweep re-recovering a path per vertex — and the fold partitions the reached vertices into the non-port reached elements and the reached ports by the port-set membership — the directed `Downstream` trace from an air-handling unit reaching every air terminal it feeds, the `Reach` trace from a shutoff valve reaching every fixture on its branch, both one fold over the QuikGraph adjacency; the trace reads the `DistributionSystem` view (one hop — the view already carries the ports with their `FlowDirection` and the deduped flow edges), never re-reading the seam graph or re-resolving the port flow per query, and a consumer memoizes the trace against the owning system's `(MembershipKey, TopologyKey)` `Identity` so a re-trace re-folds only on a changed membership or adjacency.
-- Receipt: the `SystemTrace` reached-element `Seq<NodeId>` is the downstream-network evidence the `Model/zones#ZONE_GRAPH` MEP grouping reads to resolve a system's effective member closure and the `Model/query#ELEMENT_SET` consumers intersect against a domain set — a "every air terminal fed from this air-handling unit" / "every fixture downstream of this shutoff valve" query is one `From` fold over the flow graph, the connectivity the single-membership zone overlay cannot express; `Demand` turns the same closure into the quantified network evidence the discipline actually sizes from — the accumulated terminal airflow behind a duct main, the fixture units on a riser branch, the connected load behind a feeder, each one railed `SumOf` reduction partitioned by the owning `Kind.Medium` — declared-property aggregation the `Rasm.AppUi` schedules and a `Rasm.Compute` sizing check consume without re-deriving connectivity; the reached set is consumed by the `zoning`/`query`/`analysis` peers by reference, never re-derived per consumer.
+- Receipt: the `SystemTrace` reached-element `Seq<NodeId>` is the downstream-network evidence the `Model/zones#ZONE_GRAPH` MEP grouping reads to resolve a system's effective member closure and the `Model/query#ELEMENT_SET` consumers intersect against a domain set — a "every air terminal fed from this air-handling unit" / "every fixture downstream of this shutoff valve" query is one `From` fold over the flow graph, the connectivity the single-membership zone overlay cannot express; `Demand` turns the same closure into the quantified network evidence the discipline actually sizes from — the accumulated terminal airflow behind a duct main, the fixture units on a riser branch, the connected load behind a feeder, each one railed `SumOf` reduction partitioned by the owning `Kind.Medium` — declared-property aggregation the `Rasm.AppUi` schedules and a `Rasm.Compute` sizing check consume without re-deriving connectivity; the ranked `Seq<SystemRun>` is the index-run evidence the same consumers read — each row the terminal, its route `NodeId` chain, and its accumulated resistance, the head row the hydraulically-critical run — declared-property ranking, never a pressure solve (the solve stays `Rasm.Compute`'s); the reached set is consumed by the `zoning`/`query`/`analysis` peers by reference, never re-derived per consumer.
 - Packages: QuikGraph, Rasm.Element, Rasm (the kernel `Op` the `Demand` reduction threads), LanguageExt.Core
 - Growth: a new trace orientation is one `TraceMode` row carrying its `Symmetric`/`Reverse` data the `Orient` fold reads off the same `FlowDirection`; a new reachability guard (stop at a controller, stop at a discipline boundary) is one filter on the edge fold; a new graph query (shortest flow path, connected components) rides the SAME `QuikGraph` `AlgorithmExtensions` facade over the same adjacency; never a per-direction trace record, never a second adjacency store, and never a per-discipline traversal.
 - Boundary: the `SystemTrace` is ONE reachability fold over the shared `QuikGraph` `AdjacencyGraph` — the retired hand-rolled `SystemNetwork`/`Closure` visited-set tail-recursion is the deleted form, the `[GRAPH_ALGORITHM]` owner the whole stack folds a transient graph into rather than re-implementing a walk (the api-quikgraph `BreadthFirstSearchAlgorithm` event-fold law), and a `Map<>`/`HashSet<>` adjacency with a mutated visited set is the named drift; a `TraceHvac`/`TraceElectrical`/`TracePlumbing` operation family is the deleted form per the no-operation-family law, the discipline already carried by the system's `Kind` the trace folds within; the trace carries no `Fin<T>` rail because the closed graph is total (the dangling-endpoint rejection lowered at `Project`); the trace reads the `DistributionSystem` view ONE HOP and a re-read of the seam graph or a re-resolution of the port `FlowDirection` per query is the named cross-page drift; the directed orientation reads the port `FlowDirection` the view carries and an `AdjacencyGraph` with no orientation policy is the no-modality reject; a consumer memoizes against the system `Identity` and a second identity scheme is the named drift defect.
@@ -282,9 +282,11 @@ public static class DistributionNetwork {
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
 using LanguageExt;
 using QuikGraph;
+using QuikGraph.Algorithms;
 using QuikGraph.Algorithms.Search;
 using Rasm.Element.Classification;
 using Rasm.Element.Graph;
+using Rasm.Element.Projection;
 using Rasm.Element.Properties;
 using Rasm.Element.Relations;
 using Thinktecture;
@@ -311,7 +313,15 @@ public sealed partial class TraceMode {
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
+// The terminal-run row the index-run ranking yields: the reached terminal, its best route from the seed, and the
+// accumulated resistance — the head of the descending ranking IS the index run.
+public sealed record SystemRun(NodeId Terminal, Seq<NodeId> Route, double Cost);
+
 public sealed record SystemTrace(NodeId Seed, TraceMode Mode, Seq<NodeId> ReachedElements, Seq<NodeId> ReachedPorts) {
+    // The oriented adjacency retained from From — the Runs route fold reads the SAME network the closure walked,
+    // never a re-derived orientation; reference-identity state, excluded from the record's value semantics.
+    internal AdjacencyGraph<NodeId, SEdge<NodeId>> Network { get; init; } = new(allowParallelEdges: true);
+
     public static SystemTrace From(DistributionSystem system, NodeId seed, TraceMode mode) {
         LanguageExt.HashSet<NodeId> ports = toHashSet(system.Ports.Map(static p => p.Id));
         Map<NodeId, FlowDirection> flowByPort = system.Ports.Fold(Map<NodeId, FlowDirection>(), static (map, port) => map.AddOrUpdate(port.Id, port.Flow));
@@ -330,7 +340,7 @@ public sealed record SystemTrace(NodeId Seed, TraceMode Mode, Seq<NodeId> Reache
                 edge.Realizing.Iter(realizing => { Link(graph, from, realizing); Link(graph, realizing, to); });
             }
         }
-        if (!graph.ContainsVertex(seed)) { return new SystemTrace(seed, mode, Seq<NodeId>(), Seq<NodeId>()); }
+        if (!graph.ContainsVertex(seed)) { return new SystemTrace(seed, mode, Seq<NodeId>(), Seq<NodeId>()) { Network = graph }; }
         // The reached closure through the BreadthFirstSearchAlgorithm DiscoverVertex event fold — O(reachable),
         // the seed discovered first; the all-vertex TryFunc path-probe sweep re-recovering a path per vertex is
         // the deleted form the spatial view names.
@@ -338,8 +348,41 @@ public sealed record SystemTrace(NodeId Seed, TraceMode Mode, Seq<NodeId> Reache
         Seq<NodeId> reached = Seq<NodeId>();
         search.DiscoverVertex += v => reached = reached.Add(v);
         search.Compute(seed);
-        return new SystemTrace(seed, mode, reached.Filter(v => !ports.Contains(v)), reached.Filter(ports.Contains));
+        return new SystemTrace(seed, mode, reached.Filter(v => !ports.Contains(v)), reached.Filter(ports.Contains)) { Network = graph };
     }
+
+    // The INDEX-RUN ranking: every reached terminal — a reached vertex with no outgoing oriented leg — ranked by its
+    // best-route cost from the seed over the SAME retained adjacency through the QuikGraph ShortestPathsDijkstra
+    // fold, descending, so the head IS the index run. The per-vertex weight is the element's effective resistance
+    // value for the caller-chosen source (segment length, fitting loss) with the hop-count identity when None is
+    // named or the element carries no value; a PRESENT non-measure faults the same aggregate-non-measure law SumOf
+    // rails, never a silently-skipped weight. Declared-property ranking, never a pressure solve — the solve stays
+    // Rasm.Compute's; in a tree the best route is the only route, a ring main ranks by least-resistance route.
+    public Fin<Seq<SystemRun>> Runs(ElementGraph graph, Option<ValueSource> resistance, Op key) =>
+        ReachedElements
+            .TraverseM(id => resistance
+                .Bind(source => graph.Find<Node.Object>(id).Map(o => (Object: o, Source: source)))
+                .Match(
+                    None: () => FinSucc((Id: id, Weight: 1.0)),
+                    Some: row => ElementSet.ValuesOf(graph, row.Object, row.Source)
+                        .TraverseM(value => value is PropertyValue.Measure measure
+                            ? FinSucc(measure.Value.Si)
+                            : FinFail<double>(ElementFault.ValueRejected(key, $"<aggregate-non-measure:{value.GetType().Name}>")))
+                        .As()
+                        .Map(weights => (Id: id, Weight: weights.IsEmpty ? 1.0 : weights.Sum()))))
+            .As()
+            .Map(rows => {
+                Map<NodeId, double> weights = rows.Fold(Map<NodeId, double>(), static (map, row) => map.AddOrUpdate(row.Id, row.Weight));
+                TryFunc<NodeId, IEnumerable<SEdge<NodeId>>> routes =
+                    Network.ShortestPathsDijkstra(edge => weights.Find(edge.Target).IfNone(0.0), Seed);
+                return ReachedElements
+                    .Filter(Network.IsOutEdgesEmpty)
+                    .Choose(terminal => routes(terminal, out var path) && toSeq(path) is var legs
+                        ? Some(new SystemRun(terminal, legs.Map(static e => e.Target), legs.Map(e => weights.Find(e.Target).IfNone(0.0)).Sum()))
+                        : Option<SystemRun>.None)
+                    .OrderByDescending(static run => run.Cost)
+                    .ToSeq();
+            });
 
     // The downstream-DEMAND accumulation: the reached elements' effective design values for one source — terminal
     // airflow, fixture units, connected load — reduced through the ONE Model/query#ELEMENT_SET SumOf composition

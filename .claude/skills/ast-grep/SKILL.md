@@ -10,7 +10,7 @@ description: >-
 
 # [AST_GREP]
 
-Structural search is authored for the `assay code` rail, which vendors ast-grep and tree-sitter in-process — never the raw `ast-grep`/`sg` CLI. Every pattern runs through `uv run python -m tools.assay code search|query` and returns the same one-`Envelope`, artifact-backed contract as every other rail. The vendored ast-grep version is pinned in the pnpm catalog (`pnpm-workspace.yaml` `@ast-grep/cli`) and resolved through the lockfile; there is no globally installed CLI to match.
+Structural search is authored for the `assay code` rail, which vendors ast-grep and tree-sitter in-process — never the raw `ast-grep`/`sg` CLI. Every pattern runs through `uv run python -m tools.assay code search|query` and returns the same one-`Envelope`, artifact-backed contract as every other rail. Vendoring pins the ast-grep version in the pnpm catalog (`pnpm-workspace.yaml` `@ast-grep/cli`) and resolves it through the lockfile; there is no globally installed CLI to match.
 
 ## [01]-[ROUTING]
 
@@ -29,7 +29,8 @@ A literal `--pattern` routes to content search; the moment the pattern contains 
 - `$NAME` — captures exactly one AST node. Names are UPPERCASE (`$A`, `$RECV`, `$COND`); a lowercase token is matched literally.
 - `$$$NAME` — captures zero or more sibling nodes (argument lists, statement sequences, type parameters).
 - Reusing a name enforces structural equality: `$A == $A` matches only when both nodes are identical, so `$A.foo($A)` finds self-passing calls.
-- The pattern must itself parse as valid code in the target grammar; put a metavariable wherever structure varies. Whitespace and comments are irrelevant — node kind is what matches.
+- Every pattern must parse as valid code in the target grammar; put a metavariable wherever structure varies.
+- Node kind matches, never whitespace or comments.
 - Grammar is selected by flag: `--csharp | --python | --typescript`.
 
 ## [03]-[TREE_SITTER_QUERIES_CODE_QUERY]
@@ -38,13 +39,16 @@ For node-kind precision and field constraints, author a tree-sitter S-expression
 
 - Fields anchor structure: `(call_expression function: (identifier) @fn arguments: (arguments) @args)`.
 - Predicates filter captures: `(#eq? @fn "run_check")`, `(#match? @name "^_")`.
-- Content prefilter: a single-pattern query whose predicates are _only_ `#eq?` and/or `#any-of?` auto-prefilters routed files by literal byte presence (zero false negatives) before any parse, so a literal-anchored sweep skips files that cannot match. Adding a `#match?`/`#not-eq?` predicate, or authoring multiple patterns, disables the prefilter and parses every routed file — prefer literal `#eq?`/`#any-of?` over regex `#match?` for repo-wide scans where a literal anchor exists.
+- Content prefilter: one pattern with `#eq?`/`#any-of?` predicates alone skips files without the literal bytes pre-parse, at zero false negatives.
+- A `#match?`/`#not-eq?` predicate, or multiple patterns, disables the prefilter and parses every routed file.
+- Prefer literal `#eq?`/`#any-of?` over regex `#match?` for repo-wide scans where a literal anchor exists.
 
 ## [04]-[DISCIPLINE]
 
-- Author against one known file first, confirm the shape, then widen the path set. AST matching is exact about node kind — a pattern that silently matches nothing is usually a node-kind mismatch, not an absent target.
+- Author against one known file first, confirm the shape, then widen the path set.
+- AST matching is exact about node kind — a pattern matching nothing is usually a node-kind mismatch, not an absent target.
 - Prefer the narrowest metavariable set that still generalizes; over-broad `$$$` swallows unintended siblings.
-- Authoring here is read/match only. Structural rewrite and formatter mutation are owned by assay's mutation rail (`static fix`); the native LSP tool is read-only.
+- Authoring is read/match only: assay's mutation rail (`static fix`) owns structural rewrite and formatter mutation; the native LSP tool is read-only.
 
 ## [05]-[EXAMPLES]
 

@@ -16,7 +16,7 @@
 
 ### [01.2]-[TJ_ACTIONS_INCIDENT]
 
-CVE-2025-30066 retargeted every `tj-actions/changed-files` version tag to a malicious commit that exfiltrated Runner Worker secrets, so a mutable tag is trivially retargeted and only a 40-char SHA is immutable. The cascade entered through a prior `reviewdog/action-setup` compromise (CVE-2025-30154), and `step-security/harden-runner` surfaced it by flagging the anomalous egress.
+CVE-2025-30066 retargeted every `tj-actions/changed-files` version tag to a malicious commit that exfiltrated Runner Worker secrets, so a mutable tag is trivially retargeted and only a 40-char SHA is immutable. That cascade entered through a prior `reviewdog/action-setup` compromise (CVE-2025-30154), and `step-security/harden-runner` surfaced it by flagging the anomalous egress.
 
 [VALIDATOR_CHECKS_INFORMED_BY_INCIDENT]:
 - [ALWAYS]: Flag any `uses:` line without full 40-char SHA.
@@ -25,7 +25,7 @@ CVE-2025-30066 retargeted every `tj-actions/changed-files` version tag to a mali
 
 ### [01.3]-[IMMUTABLE_ACTIONS]
 
-Org-level SHA-pin enforcement is the supply-chain control; OCI immutable action refs are informational. The org/repo setting "Require actions to be pinned to a full-length commit SHA" enforces `@<40-char-SHA>` and rejects `@v1`/`@main` refs, available in GitHub Enterprise Cloud and Server `3.12+`.
+Org-level SHA-pin enforcement is the supply-chain control; OCI immutable action refs are informational. GitHub Enterprise Cloud and Server `3.12+` carry the org/repo setting "Require actions to be pinned to a full-length commit SHA", which enforces `@<40-char-SHA>` and rejects `@v1`/`@main` refs.
 
 | [INDEX] | [CHECK]                      | [WHAT_TO_FLAG]                                               |
 | :-----: | :--------------------------- | :----------------------------------------------------------- |

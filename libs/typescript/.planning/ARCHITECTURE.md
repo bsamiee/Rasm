@@ -6,12 +6,12 @@
 
 ```text codemap
 libs/typescript/
-├── core/       # branch law: value floor, state algebra, the keyed-decode interchange plane, observe vocabulary
-├── security/   # identity and custody: authn, authz, crypto authority, leased secrets, stateless over ports
-├── data/       # durable persistence: journal, guarantee lanes, object plane, typed read side
-├── runtime/    # execution: proc substrate, net, OTLP wire, front door, durable work, ai, browser condition
-├── ui/         # interface: component system and view plane, viewer the spatial second Nx project
-└── iac/        # deploy: Pulumi typed programs, StackSpec arm dispatch, k8s tiers, secrets, observe, policy
+├── core/       # The acyclic branch law every folder composes — one authority per cross-language concept
+├── security/   # Identity and custody, stateless behind port Tags satisfied downstream
+├── data/       # The durable-persistence plane and record of truth; a backend is a guarantee row
+├── runtime/    # The execution substrate across both process planes and the browser condition
+├── ui/         # The browser product surface; viewer the spatial second Nx project, render-only
+└── iac/        # The deploy plane outside the runtime graph; nothing imports it at runtime
 ```
 
 ## [02]-[SEAMS]
@@ -104,4 +104,4 @@ Dependency flows strictly downward through the waves — W0 `core`, W1 `security
 |  [05]   | `ui`       | `core`, `runtime`          | `viewer` is a second Nx project inside the folder with the same edge set              |
 |  [06]   | `iac`      | `core`, `data`             | Type/value reads only (`DashboardModel`, `Alert`, `Slo.Objective`, `Pg`)              |
 
-Port satisfaction happens at app composition, never as an upward import: every port Tag a folder declares binds to a downstream folder's Layer at the composition root, so a stateless upper folder never reaches up for its dependency. The one value crossing back is typed `StackOutputs.sharding` read by `runtime` `ShardingConfig.layerFromEnv` — an env fact, never an import.
+Port satisfaction happens at app composition, never as an upward import: every port Tag a folder declares binds to a downstream folder's Layer at the composition root, so a stateless upper folder never reaches up for its dependency. One value crosses back: typed `StackOutputs.sharding` read by `runtime` `ShardingConfig.layerFromEnv` — an env fact, never an import.

@@ -1,10 +1,10 @@
 # [STYLING]
 
-The engine's full styling grammar — every link form, node shape, container, and style statement under one ruled precedence. Color assignment rides the palette layer; this reference owns the mechanical surface.
+Full engine styling grammar spans every link form, node shape, container, and style statement under one ruled precedence. Color assignment rides the palette layer; this reference owns the mechanical surface.
 
 ## [01]-[EDGES]
 
-The flowchart endpoint matrix is the stroke family crossed with the endpoint marker. Every cell is a working link; an open form omits the arrowhead, a marker on the left mirrors the right.
+Flowchart endpoint matrix crosses the stroke family with the endpoint marker. Every cell is a working link; an open form omits the arrowhead, a marker on the left mirrors the right.
 
 | [INDEX] | [STROKE]  | [OPEN]    | [POINT]    | [CIRCLE]   | [CROSS]    | [POINT_BOTH] | [CIRCLE_BOTH] | [CROSS_BOTH] |
 | :-----: | :-------- | :-------- | :--------- | :--------- | :--------- | :----------- | :------------ | :----------- |
@@ -49,7 +49,7 @@ An edge id names one edge for behavior metadata: `A e1@--> B` then a metadata bl
 |  [02]   | `e1@{ animation: fast }` | Fast preset; `slow` is the slow preset.                                      |
 |  [03]   | `e1@{ curve: <value> }`  | Per-edge spline from the documented curve set, overriding the diagram curve. |
 
-The metadata block owns only animate, animation, and curve; stroke width, dash, and label color ride `linkStyle` or an edge-id class — `class e1 edgeError` styles the id's stroke, width, dash, and label through the class system, the engine deriving the arrowhead from the resolved stroke. When an edge is modified more than once the last modification wins.
+Metadata blocks own only animate, animation, and curve; stroke width, dash, and label color ride `linkStyle` or an edge-id class — `class e1 edgeError` styles the id's stroke, width, dash, and label through the class system, the engine deriving the arrowhead from the resolved stroke. When an edge is modified more than once the last modification wins.
 
 | [INDEX] | [FORM]                  | [EFFECT]                                  |
 | :-----: | :---------------------- | :---------------------------------------- |
@@ -57,7 +57,7 @@ The metadata block owns only animate, animation, and curve; stroke width, dash, 
 |  [02]   | `linkStyle 1,2,7 ...`   | One style across the listed indices.      |
 |  [03]   | `linkStyle default ...` | Styles every edge.                        |
 
-The `linkStyle` property set is `stroke`, `stroke-width`, `stroke-dasharray`, `color`, and `fill`; a non-default edge that declares no `fill` gets `fill:none` injected. The built-in `animate`/`animation` metadata survives alongside an edge class, and a class-borne animation payload adds no second animation over it. A dash animation rides a class rather than the id — `classDef animate stroke-dasharray:9\,5,animation:dash 25s linear infinite` bound by `class e1 animate`, the dasharray comma escaped as `\,`.
+`linkStyle` property set is `stroke`, `stroke-width`, `stroke-dasharray`, `color`, and `fill`; a non-default edge that declares no `fill` gets `fill:none` injected. Built-in `animate`/`animation` metadata survives alongside an edge class, and a class-borne animation payload adds no second animation over it. A dash animation rides a class rather than the id — `classDef animate stroke-dasharray:9\,5,animation:dash 25s linear infinite` bound by `class e1 animate`, the dasharray comma escaped as `\,`.
 
 Sequence lines carry no `linkStyle`; the stroke shape is the arrow token itself, and grouped backgrounds live in containers.
 
@@ -145,7 +145,7 @@ A reverse form places the marker on the opposite end (`Duck --\|> Animal`); the 
 |  [47]   | `odd`        | none                                                             | odd                   |
 |  [48]   | `lin-doc`    | `lined-document`                                                 | lined document        |
 
-The classic bracket forms are shorthands over that registry.
+Classic bracket forms are shorthands over that registry.
 
 | [INDEX] | [SHORTHAND]   | [SHAPE]    |
 | :-----: | :------------ | :--------- |
@@ -207,7 +207,7 @@ Node styling resolves in application order, later and more specific winning.
 
 - Theme variables and theme CSS set the diagram defaults.
 - `classDef default` sets the fallback class where the type honors it — verified for flowchart, ER, and requirement.
-- A named `classDef` layers through `class` or `:::` assignments; among conflicting classes on one node the later `classDef` definition wins, never the assignment order. The `classDef` declares at diagram root after the nodes it styles — declared above them it renders unstyled.
+- A named `classDef` layers through `class` or `:::` assignments; among conflicting classes on one node the later `classDef` definition wins, never the assignment order. A `classDef` declares at diagram root after the nodes it styles — declared above them it renders unstyled.
 - Inline `style id ...` is the direct override and wins last — the engine emits it as an inline `!important` declaration; its property set is `fill`, `stroke`, `stroke-width`, `color`, and `stroke-dasharray`.
 - `classDef` rules emit with `!important`, so a `themeCSS` rule without `!important` loses to any class on the same node.
 
@@ -312,7 +312,7 @@ Each diagram type accepts a bounded set of styling statements; `yes` is verified
 |  [12]   | Journey      | `fillType0`–`fillType7` vars      |
 |  [13]   | C4           | `Update*Style` calls              |
 
-The silent traps live where syntax parses but styling does not apply or applies destructively: mindmap `:::` classes must be supplied by the host, so in-diagram `classDef` never defines them; block `:::` has no verified route; state styling reaches plain states while a composite class parses and lands in the DOM with its fill and stroke non-portable and `[*]` markers unstyleable; treemap `classDef` emits inline `!important` fills that lock out every stylesheet correction, so a themed treemap carries no classes and rides its ordinal range plus section stamps; and the nested packet theme-variable block half-applies, so packet styling rides its `themeCSS` classes.
+Silent traps live where syntax parses but styling does not apply or applies destructively: mindmap `:::` classes must be supplied by the host, so in-diagram `classDef` never defines them; block `:::` has no verified route; state styling reaches plain states while a composite class parses and lands in the DOM with its fill and stroke non-portable and `[*]` markers unstyleable; treemap `classDef` emits inline `!important` fills that lock out every stylesheet correction, so a themed treemap carries no classes and rides its ordinal range plus section stamps; and the nested packet theme-variable block half-applies, so packet styling rides its `themeCSS` classes.
 
 ## [06]-[FLOORS]
 

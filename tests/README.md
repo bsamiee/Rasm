@@ -53,7 +53,7 @@ Test lanes are orthogonal to language; every suite declares its lane through the
 |  [05]   | benchmark   | measurement in a separate session, never inside unit runs  | `_benchmarks` switcher, `-m benchmark`, bench include glob  |
 |  [06]   | mutation    | assay-gated survivor discovery                             | assay routes over root Stryker configs + staged Python gate |
 
-The word `integration` is reserved for the real process/IO boundary. A test that runs in-process with doubles is a unit test regardless of how many owners it spans; calling it integration inflates the lane and hides the missing boundary proof.
+Lane vocabulary reserves `integration` for the real process/IO boundary. A test that runs in-process with doubles is a unit test regardless of how many owners it spans; calling it integration inflates the lane and hides the missing boundary proof.
 
 ## [03]-[PROOF_LAW]
 
@@ -124,16 +124,16 @@ Scenario proof flows through one route, content to verdict:
 3. Evidence: the live RhinoWIP host executes the staged scenarios; `ScenarioContext` fact streams, manifests, and captures fold into the assay-owned artifact scopes.
 4. Verdict: `uv run python -m tools.assay bridge verify` folds the run into one bridge Envelope; `bridge status` reports host health, and `bridge quit` terminates the host cleanly.
 
-Reference lifecycle: `--evidence author` runs write candidate references under `tests/csharp/scenarios/_references/<theme>/`, human review promotes a candidate by renaming it to `<method>.reference.json`, and a verify run over an unpromoted corpus degrades rather than fails. The full lifecycle, tolerance, and admission law is [tools/rhino-bridge/README.md](../tools/rhino-bridge/README.md).
+Reference lifecycle: `--evidence author` runs write candidate references under `tests/csharp/scenarios/_references/<theme>/`, human review promotes a candidate by renaming it to `<method>.reference.json`, and a verify run over an unpromoted corpus degrades rather than fails. [tools/rhino-bridge/README.md](../tools/rhino-bridge/README.md) carries the full lifecycle, tolerance, and admission law.
 
-The `Contract` and `Supervisor` suites under `tests/csharp/tools/rhino-bridge` prove the wire contract and the supervisor fold that this pipeline rides; a bridge protocol change lands with its suite change or it does not land.
+`Contract` and `Supervisor` suites under `tests/csharp/tools/rhino-bridge` prove the wire contract and the supervisor fold that this pipeline rides; a bridge protocol change lands with its suite change or it does not land.
 
 ## [07]-[GATE_OWNERSHIP]
 
-The assay operator is the single mutation and coverage gate authority in all three languages; thresholds and kill-floors live in the owning configs, never in docs or specs:
+Assay is the single mutation and coverage gate authority in all three languages; thresholds and kill-floors live in the owning configs, never in docs or specs:
 - Stryker.NET policy — solution mode, concurrency cap, output routing, baseline, thresholds — lives in the root `stryker-config.json`; the assay mutation rail owns the staged invocation with absolute anchors, and root residency keeps a bare `dotnet stryker` inside auto-discovery, capped and routed instead of solution-wide at default parallelism.
 - StrykerJS policy lives in the root `stryker.config.json`; the TS invocation law is [tests/typescript/README.md](typescript/README.md).
-- The Python mutation lane is a staged gate under assay scored against its kill-floor; the lane law is [tests/python/README.md](python/README.md).
+- Python's mutation lane is a staged gate under assay scored against its kill-floor; the lane law is [tests/python/README.md](python/README.md).
 - Zero mutant discovery is a failed rail in every language, never a green pass.
 - Both Stryker rails emit `mutation-testing-report-schema` JSON natively into `.artifacts/`; assay's kill-floor verdict is the single cross-language authority over the results.
 - Coverage aggregates as cobertura (C#) plus lcov (Python, TS) under `.artifacts/` — no invented merged format; each language-native reporter owns its output shape.
@@ -142,7 +142,7 @@ Heavy-lane invocation law: the bounded lanes — unit, property, and benchmark s
 
 ## [08]-[CONTRACTS_CORPUS]
 
-`tests/contracts/` is the cross-language frozen corpus: wire bytes plus canonical JSON per seam and message, C#-produced, consumed read-only by Python and TypeScript. The full producer/consumer, layout, and regeneration law is [tests/contracts/README.md](contracts/README.md).
+`tests/contracts/` is the cross-language frozen corpus: wire bytes plus canonical JSON per seam and message, C#-produced, consumed read-only by Python and TypeScript. [tests/contracts/README.md](contracts/README.md) carries the full producer/consumer, layout, and regeneration law.
 
 ## [09]-[TOOLING_AWARENESS]
 
@@ -158,4 +158,4 @@ Before touching any testing surface, an agent checks the owners that carry the f
 |  [06]   | `vitest.config.ts` + `stryker*.json` + `nx.json`     | TS runner defaults, artifact outputs, root Stryker configs, project-graph targets |
 |  [07]   | `tools/assay`                                        | gate rails: `static`/`test`/`bridge`/`docs`/`code`/`package`/`api`/`provision`    |
 
-The operator is itself a tested surface: every `tools/` operator owns a suite under `tests/<language>/tools/<tool>`, and operator and suite move in the same change — `tools/assay` with `tests/python/tools/assay`, `tools/cs-analyzer` with `tests/csharp/tools/cs-analyzer`. A rail change without its spec change is an incomplete change.
+Operators are themselves tested surfaces: every `tools/` operator owns a suite under `tests/<language>/tools/<tool>`, and operator and suite move in the same change — `tools/assay` with `tests/python/tools/assay`, `tools/cs-analyzer` with `tests/csharp/tools/cs-analyzer`. A rail change without its spec change is an incomplete change.

@@ -1,6 +1,8 @@
 # [PY_ARTIFACTS]
 
-`artifacts` is the host-free durable-artifact engine: it folds data, compute, and geometry outputs — and any structured payload — into layer-clean files keyed by the runtime content key and carrying one kind-discriminated `ArtifactReceipt`. It owns no UI, no durable store, no IFC/GLB geometry, and no columnar or mesh interchange — those cross at the content-keyed wire, never by reference.
+`artifacts` is a publication and print-production engine that is simultaneously the foundation of a high-end AEC documentation engine — one body. Its pub/print plane — color-managed, separations-aware, PDF/X-correct, typographically complete, layered-export-clean, provenance-sealed — is necessary but not sufficient; the AEC documentation plane — sheet sets, drawing standards, dimensions, annotation, schedules, specifications, ISO 19650 delivery — sits on top and composes it, and every owner grades against both planes at once. Its output bar is art-directed generation: editorial documents and forms at the InDesign-native grade, AEC sheet sets that read sharp and contemporary rather than CAD-vendor default, and architectural diagrams — massing, sun-path, circulation, stacking, program, site — at the grade top offices and schools publish. Artistic style is a graded axis of every visual owner, carried as theme data and never left to library defaults, and hand-off files are organized the way a professional builds them — named, meaningfully grouped layers, never thousands of loose elements.
+
+It folds data, compute, and geometry outputs — and any structured payload — into layer-clean files keyed by the runtime content key and carrying one kind-discriminated `ArtifactReceipt`. It owns no UI, no durable store, no IFC/GLB geometry, and no columnar or mesh interchange — those cross at the content-keyed wire, never by reference.
 
 ## [01]-[ROUTER]
 
@@ -16,10 +18,10 @@
 - [07]-[CHART_SPEC](.planning/visualization/chart/spec.md): `ChartSpec` chart-authoring union over the host-free 2D engines, palette-threaded.
 - [08]-[CHART_EXPORT](.planning/visualization/chart/export.md): `ChartExport` host-free render/format dispatch with the vegafusion pre-pass.
 - [09]-[TABLE](.planning/visualization/table.md): `TablePlan` great-tables publication-table owner exporting HTML/LaTeX/PDF.
-- [10]-[DIAGRAM_LAYOUT](.planning/visualization/diagram/layout.md): `DiagramLayout` coordinate assignment emitting the ten diagram kinds.
+- [10]-[DIAGRAM_LAYOUT](.planning/visualization/diagram/layout.md): `DiagramLayout` coordinate assignment emitting the diagram-kind vocabulary.
 - [11]-[DIAGRAM_DRAW](.planning/visualization/diagram/draw.md): `DiagramDraw` named-layer SVG and editable .drawio emission over one draw target.
 - [12]-[DIAGRAM_GLYPHSET](.planning/visualization/diagram/glyphset.md): `DiagramGlyph` bounded diagram-primitive vocabulary both owners compose.
-- [13]-[DIAGRAM_SCHEMATIC](.planning/visualization/diagram/schematic.md): `Schematic` named-symbol producer the seven marks cannot express.
+- [13]-[DIAGRAM_SCHEMATIC](.planning/visualization/diagram/schematic.md): `Schematic` named-symbol producer the mark vocabulary cannot express.
 - [14]-[DIAGRAM_SOLAR](.planning/visualization/diagram/solar.md): pvlib SPA solar-ephemeris and generated sun-path furniture owner.
 
 [DRAWING]:
@@ -45,7 +47,7 @@
 - [28]-[RASTER_MEASURE](.planning/graphic/raster/measure.md): scikit-image measured-score half producing perceptual and feature scalars.
 - [29]-[VECTOR_PATH](.planning/graphic/vector/path.md): `Path` svgelements metric substrate — point-at-distance, decimation, one tolerance policy.
 - [30]-[VECTOR_REGION](.planning/graphic/vector/region.md): `Region` skia-pathops boolean/offset/stroke-to-outline owner with metric text-on-path.
-- [31]-[VECTOR_PATTERN](.planning/graphic/vector/pattern.md): `PatternSpec` repeating-fill and hatch generator over three lowerings.
+- [31]-[VECTOR_PATTERN](.planning/graphic/vector/pattern.md): `PatternSpec` repeating-fill and hatch generator over its lowerings.
 - [32]-[MARKS_MARK](.planning/graphic/marks/mark.md): `Symbology` shared machine-readable-mark vocabulary both codec halves import.
 - [33]-[MARKS_ENCODE](.planning/graphic/marks/encode.md): `Mark` machine-readable-mark generation over segno, python-barcode, and zxing-cpp.
 - [34]-[MARKS_DECODE](.planning/graphic/marks/decode.md): zxing-cpp decode inverse the generation arms cannot express, folding the raster fact.
@@ -107,120 +109,120 @@ Domain libraries admitted by this folder; versions centralize in the one Python 
 
 [DOCUMENTS]:
 - `reportlab`
-- `weasyprint` - HTML-to-PDF with outline tree
-- `typst` - PDF/A compile with data binding
+- `weasyprint` — HTML-to-PDF with outline tree
+- `typst` — PDF/A compile with data binding
 - `pymupdf`
 - `pypdfium2`
-- `pdf-oxide` - Rust PDF extract/render/create/forms
-- `pypdf` - assembly and outline/transform egress
-- `pikepdf` - repair, encrypt, overlay, and structure-tree authoring
+- `pdf-oxide` — Rust PDF extract/render/create/forms
+- `pypdf` — assembly and outline/transform egress
+- `pikepdf` — repair, encrypt, overlay, and structure-tree authoring
 - `python-docx`
 - `python-pptx`
 - `openpyxl`
-- `xlsxwriter` - write-only XLSX with charts and formats
-- `python-calamine` - fast read-only XLSX/XLS/ODS ingest
-- `odfpy` - OpenDocument read/write
-- `docxtpl` - jinja2 DOCX template render
-- `msoffcrypto-tool` - encrypted Office decrypt at ingest
-- `pdfplumber` - page text/table/word geometry extraction
-- `ocrmypdf` - OCR text layer over scanned PDF
+- `xlsxwriter` — write-only XLSX with charts and formats
+- `python-calamine` — fast read-only XLSX/XLS/ODS ingest
+- `odfpy` — OpenDocument read/write
+- `docxtpl` — jinja2 DOCX template render
+- `msoffcrypto-tool` — encrypted Office decrypt at ingest
+- `pdfplumber` — page text/table/word geometry extraction
+- `ocrmypdf` — OCR text layer over scanned PDF
 - `lxml`
 - `ruamel-yaml`
 - `tomlkit`
 - `jinja2`
 - `papermill`
 - `nbclient`
-- `nbconvert` - notebook export to HTML/PDF/script
-- `jupytext` - notebook/text round-trip
+- `nbconvert` — notebook export to HTML/PDF/script
+- `jupytext` — notebook/text round-trip
 
 [VISUALIZATION]:
 - `altair`
 - `matplotlib`
-- `lets-plot` - second host-free chart engine
-- `vl-convert-python` - primary host-free chart export
-- `vegafusion` - chart export transform pre-pass
-- `great-tables` - publication-table producer
-- `polars` - first-class table and frame substrate
+- `lets-plot` — second host-free chart engine
+- `vl-convert-python` — primary host-free chart export
+- `vegafusion` — chart export transform pre-pass
+- `great-tables` — publication-table producer
+- `polars` — first-class table and frame substrate
 
 [DIAGRAMS]:
-- `rustworkx` - graph layout, detail DAG, and plan producer graph
-- `grandalf` - Sugiyama layout fallback until fast-sugiyama parity
-- `pyelk` - ELK layered/orthogonal/ports/nesting layout
-- `fast-sugiyama` - Rust Sugiyama layered placement
-- `kiwisolver` - Cassowary constraint-layout solver
-- `ziafont` - glyph text-to-SVG-path outlining
-- `ziamath` - math-to-SVG rendering
-- `schemdraw` - native-SVG schematic diagrams
-- `drawpyo` - draw.io editable export
-- `pvlib` - NREL solar-position ephemeris
+- `rustworkx` — graph layout, detail DAG, and plan producer graph
+- `grandalf` — Sugiyama layout fallback until fast-sugiyama parity
+- `pyelk` — ELK layered/orthogonal/ports/nesting layout
+- `fast-sugiyama` — Rust Sugiyama layered placement
+- `kiwisolver` — Cassowary constraint-layout solver
+- `ziafont` — glyph text-to-SVG-path outlining
+- `ziamath` — math-to-SVG rendering
+- `schemdraw` — native-SVG schematic diagrams
+- `drawpyo` — draw.io editable export
+- `pvlib` — NREL solar-position ephemeris
 
 [IMAGING]:
-- `pillow` - raster IO/transform/ICC, annotation, metadata
-- `scikit-image` - measured-score and transform arms
-- `pyvips` - fused libvips decode/downscale/ICC/smartcrop
-- `resvg-py` - SVG-to-raster render
-- `tifffile` - TIFF container IO and layered-TIFF writer
-- `psdtags` - Photoshop TIFF image resources
-- `imagecodecs` - PackBits/ZIP channel codecs
+- `pillow` — raster IO/transform/ICC, annotation, metadata
+- `scikit-image` — measured-score and transform arms
+- `pyvips` — fused libvips decode/downscale/ICC/smartcrop
+- `resvg-py` — SVG-to-raster render
+- `tifffile` — TIFF container IO and layered-TIFF writer
+- `psdtags` — Photoshop TIFF image resources
+- `imagecodecs` — PackBits/ZIP channel codecs
 
 [VECTOR_CAD]:
-- `svgelements` - pure-Python SVG geometry and parse
-- `skia-pathops` - boolean/offset/stroke-to-outline
-- `drawsvg` - hierarchical named-layer SVG authoring
-- `ezdxf` - DXF model, render backend, block store, symbol-table lowering
+- `svgelements` — pure-Python SVG geometry and parse
+- `skia-pathops` — boolean/offset/stroke-to-outline
+- `drawsvg` — hierarchical named-layer SVG authoring
+- `ezdxf` — DXF model, render backend, block store, symbol-table lowering
 
 [MARKS]:
-- `segno` - QR/Micro-QR
-- `python-barcode` - linear 1D symbologies
-- `zxing-cpp` - 2D-matrix symbology encode/decode
+- `segno` — QR/Micro-QR
+- `python-barcode` — linear 1D symbologies
+- `zxing-cpp` — 2D-matrix symbology encode/decode
 
 [COLOR]:
 - `colour-science`
-- `coloraide` - CSS-space parse/interpolate/gamut-map
-- `colour-cxf` - CxF3 spot/spectral color exchange
+- `coloraide` — CSS-space parse/interpolate/gamut-map
+- `colour-cxf` — CxF3 spot/spectral color exchange
 
 [TYPOGRAPHY]:
 - `fonttools`
-- `uharfbuzz` - OpenType shaping and outline bridge
-- `blackrenderer` - COLRv1 color-glyph render
-- `python-bidi` - UAX#9 bidirectional reorder
-- `uniseg` - Unicode line/grapheme/word segmentation
-- `pyphen` - language-aware soft-hyphenation
-- `opentype-feature-freezer` - freeze OpenType features into the default set
-- `vharfbuzz` - HarfBuzz shaping QA and buffer-diff
-- `PyICU` - ICU line-break/bidi/collation (gated `<3.15`, sdist-only)
+- `uharfbuzz` — OpenType shaping and outline bridge
+- `blackrenderer` — COLRv1 color-glyph render
+- `python-bidi` — UAX#9 bidirectional reorder
+- `uniseg` — Unicode line/grapheme/word segmentation
+- `pyphen` — language-aware soft-hyphenation
+- `opentype-feature-freezer` — freeze OpenType features into the default set
+- `vharfbuzz` — HarfBuzz shaping QA and buffer-diff
+- `PyICU` — ICU line-break, bidi, and collation power path
 
 [EXCHANGE]:
-- `pyhanko` - PAdES PDF signing and conformance
-- `c2pa-python` - C2PA content-credential sign/verify
-- `puremagic` - pure-Python format sniffer, default detect path
-- `python-magic` - libmagic format-ID power path
-- `pyexiftool` - cross-format descriptive-metadata read/write
+- `pyhanko` — PAdES PDF signing and conformance
+- `c2pa-python` — C2PA content-credential sign/verify
+- `puremagic` — pure-Python format sniffer, default detect path
+- `python-magic` — libmagic format-ID power path
+- `pyexiftool` — cross-format descriptive-metadata read/write
 
 [EDITABLE_EXPORT]:
-- `simpleidml` - IDML package and template mutation
-- `PhotoshopAPI` - native PSD/PSB layered writer (gated `<3.15`)
-- `psd-tools` - PSD read/inspect and pixel author
-- `pdfimpose` - saddle/wire/card/cut/fold/signature page-order
+- `simpleidml` — IDML package and template mutation
+- `PhotoshopAPI` — native PSD/PSB layered writer
+- `psd-tools` — PSD read/inspect and pixel author
+- `pdfimpose` — saddle/wire/card/cut/fold/signature page-order
 
 [MEDIA]:
-- `av` - PyAV container/codec/filtergraph
-- `pysubs2` - subtitle parse/convert/retime/restyle
+- `av` — PyAV container/codec/filtergraph
+- `pysubs2` — subtitle parse/convert/retime/restyle
 
 [SCENE]:
 - `pyvista`
 - `vtk`
-- `usd-core` - USD/USDA/USDC scene authoring
+- `usd-core` — USD/USDA/USDC scene authoring
 
 [COMPRESSION]:
 - `zstandard`
 - `lz4`
 - `brotli`
-- `zlib-ng` - accelerated gzip/zlib behind the GZIP codec
+- `zlib-ng` — accelerated gzip/zlib behind the GZIP codec
 - `py7zr`
-- `stream-zip` - streaming ZIP emit
-- `stream-unzip` - streaming ZIP ingest
-- `detools` - binary diff/patch for delta bundles
+- `stream-zip` — streaming ZIP emit
+- `stream-unzip` — streaming ZIP ingest
+- `detools` — binary diff/patch for delta bundles
 
 ## [03]-[SUBSTRATE_PACKAGES]
 

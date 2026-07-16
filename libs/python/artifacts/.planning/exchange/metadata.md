@@ -1,20 +1,22 @@
 # [PY_ARTIFACTS_METADATA]
 
-The descriptive-metadata read/write owner at the exchange boundary. `Metadata` is ONE owner binding and recovering the EXIF / IPTC / XMP / ICC descriptive-metadata standards — title, creator, copyright, keyword, comment, rating, camera, exposure, GPS, rights, the full ICC profile header (manufacturer / model / copyright / rendering intent), the xmpMM asset identity/lineage, the raster container structure (dimensions / MIME / embedded thumbnail), and the media container structure (chapters / tracks / duration / bit rate) — on an already-emitted raster, PDF, or media artifact, discriminating the `Metadata` `read`/`write` verb over its `(MetaCarrier, payload)` shape — never a per-standard reader family, never a per-tag `get_author`/`set_title` accessor, never a per-format reader type, and never a carrier×direction case explosion: the carrier rides as the verb payload's first field, not a tag multiplier, so the op is two cases over three carriers, not six. The EXIF/IPTC/XMP/ICC standards are field-namespace facets every carrier read folds into the ONE `MetaFacts` in a single pass through one `MetaFacts.from_logical` materialization keyed by the one `_FIELD_KEYS` logical→standard correspondence — never a dispatch axis that fragments one raster into four separate provider reads and never four parallel per-standard key tables. Each carrier rides its admitted owner at the runtime placement its package dictates: `pikepdf` (`worker-native`, ungated) and `av` (`cp311-native`, core) resolve in-process folded onto the `_THREAD_GATE` `CapacityLimiter`-bounded the runtime thread lane (the explicit thread band, never the per-loop 40-token default) so the native qpdf/FFmpeg call never blocks the loop, while the raster cluster crosses the `execution/lanes#LANE`-owned `WORKER_BAND` `CapacityLimiter`-bounded `anyio.to_process.run_sync, limiter=WORKER_BAND)` value the `CarrierPolicy` row carries, never the unbounded per-loop default process limiter. Every operation returns one `(ContentKey, MetaFacts, bytes)` evidence triple — the recovered (read) or bound (write) `MetaFacts`, the source or re-encoded payload, and the runtime `ContentIdentity.of` content key — that the consumer projects onto the `core/receipt#RECEIPT` `ArtifactReceipt.Metadata(key, carrier, fields, byte_len)` flat-scalar fact exactly as `exchange/credential#PROVENANCE` and `exchange/conformance#CONFORMANCE` return their `(ContentKey, evidence)` pair: a metadata READ recovers the full descriptive field set and a WRITE the re-encoded artifact, both richer than the four-scalar receipt, so the owner returns the evidence and the consumer mints the flat case — never a write-only `@receipted` weave that discards the read's recovered fields and the write's bytes, never a re-minted identity, and never a producer value object crossing into the receipt owner.
+`Metadata` is the descriptive-metadata read/write owner at the exchange boundary — ONE `tagged_union` binding and recovering the EXIF/IPTC/XMP/ICC standards (title, creator, copyright, keyword, camera, exposure, GPS, rights, the full ICC profile header, the xmpMM asset identity/lineage, the raster container structure, and the media container structure) on an already-emitted raster, PDF, or media artifact, discriminating the `read`/`write` verb over its `(MetaCarrier, payload)` shape — the carrier riding as the verb payload's leading field, not a tag multiplier, so the op is two cases over three carriers, not six. EXIF/IPTC/XMP/ICC standards are field-namespace facets every carrier read folds into ONE `MetaFacts` through one `MetaFacts.from_logical` materialization keyed by the one `_FIELD_KEYS` logical→standard correspondence, never four parallel per-standard key tables.
+
+Each carrier rides its admitted owner at the runtime placement its package dictates: `pikepdf` and `av` resolve in-process on the `_THREAD_GATE`-bounded thread lane, while the raster cluster crosses the `execution/lanes#LANE`-owned `WORKER_BAND` process band the `CarrierPolicy` row carries. Every operation returns one `(ContentKey, MetaFacts, bytes)` evidence triple — the recovered/bound `MetaFacts`, the source/re-encoded payload, and the `ContentIdentity.of` content key — the consumer projects onto `core/receipt#RECEIPT` `ArtifactReceipt.Metadata(key, carrier, fields, byte_len)` exactly as `exchange/credential#PROVENANCE` and `exchange/conformance#CONFORMANCE` return their `(ContentKey, evidence)` pair: a READ recovers the full field set and a WRITE the re-encoded artifact, both richer than the four-scalar receipt, so the owner returns the evidence and the consumer mints the flat case.
 
 ## [01]-[INDEX]
 
-- [01]-[METADATA]: the one descriptive-metadata owner — a two-case `read`/`write` `expression.from_logical` materialization; the `MetaBind` (`MERGE`/`REPLACE`/`STRIP`) write disposition; the `@runtime retry retry` weave over the `exiftool -stay_open` spawn transient; and the `@beartype(conf=FAULT_CONF)` ingress contract sibling exchange owners carry.
-- [02]-[METADATA_EVIDENCE]: the `(ContentKey, MetaFacts, bytes)` evidence triple projects onto the `core/receipt#RECEIPT` `ArtifactReceipt.Metadata` case the ARCHITECTURE `[02]-[SEAMS]` `exchange/metadata → core/receipt` edge names.
-- [03]-[METADATA_PROVENANCE]: `Iptc4xmpExt:DigitalSourceType` is the UNSIGNED descriptive AI-provenance label, distinct from the SIGNED `exchange/credential#CREDENTIAL` C2PA `DigitalSource` assertion. The abandoned `exif` package is replaced by `pyexiftool`.
+- [01]-[METADATA]: the one descriptive-metadata owner — a two-case `read`/`write` `tagged_union` folding EXIF/IPTC/XMP/ICC plus raster/media container structure into one `MetaFacts` per the `_FIELD_KEYS` correspondence, returned as the `(ContentKey, MetaFacts, bytes)` triple the consumer projects onto `ArtifactReceipt.Metadata`.
 
 ## [02]-[METADATA]
 
-- Owner: `Metadata` IS the one descriptive-metadata owner — an `expression.tagged_union` of exactly TWO cases discriminating the read/write verb directly (mirroring `exchange/credential#PROVENANCE`, never a one-field wrapper over a separate op union): `read: tuple[MetaCarrier, bytes]` and `write: tuple[MetaCarrier, bytes, WriteSpec]` (the write instruction `facts`+`bind` bundled in one named `WriteSpec` owner per the `exchange/credential#PROVENANCE`/`exchange/conformance#CONFORMANCE` `(bytes, Spec)` payload convention, never a naked positional `tuple[..., MetaFacts, MetaBind]` decoded by index) — the carrier riding as each payload's leading field and the direction the tag, so a new carrier adds zero cases (the carrier×direction product collapses to verb×payload); `MetaCarrier` the closed `StrEnum` axis (`RASTER`/`PDF`/`MEDIA`) whose `_CARRIER` row selects the acceptor-and-lane; `MetaBind` the closed write disposition (`MERGE`/`REPLACE`/`STRIP`); `MetaFacts` the ONE composite value owner every read materializes and every write consumes — eight nested frozen facets (`Descriptive` editorial + media collection tags + the JPEG COM `comment`, `Rights` creator/usage, `Capture` camera/exposure + the IPTC `Iptc4xmpExt:DigitalSourceType` content-origin/AI-provenance label, `Place` location, `History` xmpMM asset identity/lineage, `Color` the full ICC profile header, `RasterInfo` the raster container dimensions/MIME + embedded thumbnail, `MediaInfo` container chapters/tracks/duration/bit-rate) plus the `conformance` PDF/A·PDF/X status, recovering the full descriptive field set across all four standards plus the container-structure read in one shape and projected to the `core/receipt#RECEIPT` facts. The writable XMP/EXIF/IPTC facets fold through `_flat`; the read-only `Color` ICC header, `RasterInfo` raster container structure, and `MediaInfo` media container structure are evidence-only siblings of `conformance` the writers never re-emit. `CarrierPolicy` is the carrier collapse: one frozen row carries the `(reader, writer, lane)` triple a `MetaCarrier` keys, so the operation routes by one `_CARRIER` lookup over `self.carrier`, never a per-standard reader/writer class family, never a re-discriminating `match` inside an arm, and never a `gated: bool` knob the body re-pairs to a lane the value already selects.get_tags`/`set_tags` `-stay_open` subprocess pass over a temp file covering EXIF+IPTC+XMP+ICC+GPS+maker-notes cross-format) — ONE `CarrierPolicy` either way, both crossing the `WORKER_BAND` process band, never two parallel `RASTER` carriers.
-- Cases: `Metadata` cases — `read(carrier, payload)` and `write(carrier, payload, WriteSpec(facts, bind))` — matched by one total `match`/`case` over `self` in `_run`, the read arm collapsing to one acceptor-lookup arm and the write arm to one (the `WriteSpec` unpacked once to `spec.facts`/`spec.bind`), never a parallel reader/writer per carrier or per standard. Each carrier's reader folds its native namespace into the one `MetaFacts`: RASTER reads EXIF + IPTC + XMP + ICC + GPS + maker-notes in ONE cross-format pass — the `pyexiftool` arm through `ExifToolHelper.get_tags(path, _EXIFTOOL_TAGS)` returning `-G`-grouped `"<group>:<tag>"` JSON (`EXIF:`, `IPTC:`, `XMP-*:`, `ICC_Profile:`, `Composite:GPS*`) folded through `_FIELD_KEYS[logical].exiv2` plus `read_icc()` bytes through `pillow` `ImageCms`; PDF reads the FULL Dublin-Core/XMP-Basic/XMP-MM/Adobe-PDF/Photoshop/xmpRights namespace (the `pdf:Producer` converting-application fact and the `xmpMM:DocumentID`/`InstanceID` identity included) through the `pikepdf` `PdfMetadata` mapping plus `pdfa_status`/`pdfx_status`; MEDIA reads the FFmpeg container tag set through `av` `Container.metadata` plus the container structure — `chapters()` navigation, per-stream `streams` labelling, and `duration` — folded into the `MediaInfo` facet. Every reader emits one `dict[str, object]` keyed by logical field name and folds it through the one `MetaFacts.from_logical`, so a carrier read is one logical projection plus one materialization, never a hand-built per-facet constructor per carrier.
-- Auto: `_run` folds `self` through one total `match` whose two arms (read, write) lift the carrier's `CarrierPolicy` row once, so the per-carrier body is data, never a six-arm enumeration. The `pyexiftool` raster reader (`@the runtime `RetryClass.OCCT` retry)` over the `-stay_open` spawn transient) spills `payload` to a `NamedTemporaryFile(delete_on_close=False)`, opens one `ExifToolHelper(executable=_EXIFTOOL, common_args=["-G", "-n"])` context, reads the `_EXIFTOOL_TAGS` set once, projects every logical through `_FIELD_KEYS[logical].exiftool`, reads the signed `Composite:GPSLatitude`/`Composite:GPSLongitude` decimals directly (the `-n` numeric output — no DMS fold), splits the `IPTC:Keywords`/`XMP-dc:Subject` list through `_as_tuple`, and resolves the ICC header off the `ICC_Profile:` group tags directly (no `pillow` parse — exiftool decodes the header).exiv2`, evaluates EXIF `num/den` rationals through `_num` for the `_RATIONAL` float logicals, folds the `Exif.GPSInfo.GPSLatitude` DMS rational triple with its `GPSLatitudeRef` through `_dms` into the signed `Place.gps` pair, and resolves the full ICC header through `_icc` (one `ImageCms.ImageCmsProfile` parse over the `read_icc()` bytes railed through `expression.extra.result.catch`, each `getProfile*` accessor and the `getDefaultIntent` ordinal each railed through `catch` so one missing tag never sinks the rest). Both raster readers fold all four standards into the one `MetaFacts.from_logical`. The raster writer clears the DESCRIPTIVE namespace on `REPLACE`/`STRIP` (`-all=` group-wildcard scrub via `ExifToolHelper.exiftool`/`.exiv2` (the keyword tuple bound as a `list` for the repeated `-IPTC:Keywords`/`Iptc.Application2.Keywords` directives), and returns the metadata-only re-encoded bytes (`Path(tmp).read_bytes()` after `set_tags`, or `ImageData.get_bytes()`) — a container-metadata mutation WITHOUT a pixel re-encode, higher-fidelity than a raster re-encode, so no `_rational` re-encode is needed (the provider owns the IFD-type round-trip). The PDF arms open one `PdfMetadata` context, the read folding every `_FIELD_KEYS` xmp qname present in the mapping plus `pdfa_status`/`pdfx_status`, the write deleting-then-assigning under the bind policy; the MEDIA arms open the `av` container, the read folding every `_FIELD_KEYS` media tag present in `Container.metadata` AND the `_media_info` container-structure read (the `Container.duration` seconds over `_AV_TIME_BASE`, the `chapters()` markers projected to `Chapter(start, title)` rows, and the per-`streams` `Track(kind, language, title)` labelling) folded into the `MediaInfo` facet while the container is still open, the write a `demux` → `add_stream_from_template` → `mux` bitstream-copy remux that rebinds `OutputContainer.metadata` without re-encoding. `_flat` is the one facts→logical projection every writer derives its bindings from (`structs.asdict` over the writable facets, dropping empties and tuples), and `from_logical` is its inverse (one `msgspec.convert(strict=False)` per facet over the logical dict, coercing the standard string values to each facet field's type), so a field reaches every provider from one declared `_FIELD_KEYS` correspondence rather than a per-standard getter/setter pair.
-- Receipt: each operation folds into `MetaFacts` and returns the `(ContentKey, MetaFacts, bytes)` triple, and the consumer projects the settled `core/receipt#RECEIPT` `ArtifactReceipt.Metadata(key, carrier, fields, byte_len)` case the ARCHITECTURE `[02]-[SEAMS]` `exchange/metadata → python:artifacts/core/receipt` edge names — the carrier the `MetaCarrier` value off the op the consumer admitted, the field count the `MetaFacts.populated` tally (the recovered/bound flat scalars plus the keyword set, GPS pair, ICC-header colour evidence, the raster dimensions/MIME/thumbnail evidence, and the media chapter/track/bit-rate counts), the byte length the returned payload — exactly as the coordinator mints `ArtifactReceipt.Credential` from the `exchange/credential#PROVENANCE` pair and `ArtifactReceipt.Verdict` from the `exchange/conformance#CONFORMANCE` pair. The write arms key the re-encoded bytes through `ContentIdentity.of` so a metadata-bound artifact carries a fresh content key the `csharp:Rasm.Persistence` store re-derives, and the read arms key the source bytes unchanged. The `core/receipt#RECEIPT` union carries the flat-scalar `Metadata` case (`metadata: tuple[ContentKey, str, int, int]`, its second slot the `carrier` discriminant) mirroring the flat-scalar `Credential`/`Media` cases, so the consumer spreads the carrier/field-count/byte-length slice onto it and the receipt owner imports no `MetaFacts` value object — the rich `MetaFacts` rides the returned triple to the reading caller, the flat case lives on the receipt page, neither minted here.
-- Growth: a new metadata carrier is one `MetaCarrier` member plus one `_CARRIER` `CarrierPolicy(reader, writer, lane)` row plus its two carrier functions — zero new op cases, because the carrier is the payload field, not a tag; a new descriptive field is one field on the owning `MetaFacts` facet plus one `_FIELD_KEYS` row, the `_flat`/`from_logical` derivation reaching every provider with no per-provider table edit; a new provider spelling a carrier supports is one more column on the `FieldKeys` row plus one fold inside that carrier's reader/writer; a new write disposition is one `MetaBind` member plus one arm in the writers; a new writable descriptive facet (the `History` xmpMM identity row is exactly this) is one nested frozen `Struct` on `MetaFacts` plus one `from_logical` convert leg plus its rows in `_flat`'s facet tuple; a new read-only structured facet (the `MediaInfo` chapters/tracks and the `RasterInfo` dimensions/MIME/thumbnail reads are exactly this) is one nested frozen `Struct` plus its reader population plus one `from_logical` keyword and one `populated` term, never a `_flat` write leg; a new ICC-header fact is one `Color` field plus one `getProfile*`/`ICC_Profile:` tag read; a new binary-path or worker knob is one `MetaSettings` field; zero new surface.
+- Owner: `Metadata` IS the one owner — a `tagged_union` of exactly TWO cases discriminating the read/write verb directly (mirroring `exchange/credential#PROVENANCE`): `read: tuple[MetaCarrier, bytes]` and `write: tuple[MetaCarrier, bytes, WriteSpec]` (the write instruction `facts`+`bind` bundled in one named `WriteSpec`, never a naked positional tuple decoded by index) — the carrier riding as each payload's leading field and the direction the tag, so a new carrier adds zero cases. `MetaCarrier` (`RASTER`/`PDF`/`MEDIA`) keys the `_CARRIER` `CarrierPolicy(reader, writer, lane)` triple, so the operation routes by one lookup over `self.carrier`, never a per-standard reader/writer class family nor a `gated: bool` knob the body re-pairs to a lane the value already selects. `MetaBind` (`MERGE`/`REPLACE`/`STRIP`) is the write disposition. `MetaFacts` is the ONE composite value every read materializes and every write consumes — eight nested frozen facets plus the `conformance` PDF/A·PDF/X status, recovering the full field set across all four standards plus the container-structure read in one shape. Writable XMP/EXIF/IPTC facets fold through `_flat`; the read-only `Color` ICC header, `RasterInfo`, and `MediaInfo` are evidence-only siblings of `conformance` the writers never re-emit.
+- Cases: `read(carrier, payload)` and `write(carrier, payload, WriteSpec(facts, bind))` — one total `match` over `self` in `_run`, the read arm collapsing to one acceptor-lookup and the write arm to one (the `WriteSpec` unpacked once to `spec.facts`/`spec.bind`), never a parallel reader/writer per carrier or standard. Each carrier's reader folds its native namespace into the one `MetaFacts`: RASTER reads EXIF + IPTC + XMP + ICC + GPS + maker-notes in ONE `pyexiftool` cross-format pass, PDF the full Dublin-Core/XMP/xmpMM/xmpRights namespace (the `pdf:Producer` converting-application fact and the `xmpMM:DocumentID`/`InstanceID` identity included) plus `pdfa_status`/`pdfx_status` through `pikepdf`, MEDIA the FFmpeg container tag set plus the container structure (chapters/tracks/duration) through `av`. Every reader emits one `dict[str, object]` keyed by logical field name and folds it through the one `MetaFacts.from_logical`, so a carrier read is one logical projection plus one materialization.
+- Auto: `_run` folds `self` through one total `match` whose two arms lift the carrier's `CarrierPolicy` row once, so the per-carrier body is data, never a six-arm enumeration. `pyexiftool`'s raster reader (retried over the `-stay_open` spawn transient) spills `payload` to a `NamedTemporaryFile`, opens one `ExifToolHelper(common_args=["-G", "-n"])` context, reads the `_EXIFTOOL_TAGS` set once, projects every logical through `_FIELD_KEYS[logical].exiftool`, reads the signed `Composite:GPSLatitude`/`Longitude` decimals directly (the `-n` numeric output — no DMS fold), splits the keyword list through `_as_tuple`, and resolves the ICC header off the `ICC_Profile:` group tags directly (no `pillow` parse — exiftool decodes the header). A raster write clears the DESCRIPTIVE namespace on `REPLACE`/`STRIP` (`-all=` group-wildcard scrub, the keyword tuple bound as a `list` for the repeated `-IPTC:Keywords` directives) and returns the metadata-only re-encoded bytes — a container mutation WITHOUT a pixel re-encode, higher-fidelity than a raster re-encode, the provider owning the IFD-type round-trip. PDF arms open one `PdfMetadata` context, the read folding every present `_FIELD_KEYS` xmp qname plus `pdfa_status`/`pdfx_status`, the write deleting-then-assigning under the bind policy. MEDIA arms open the `av` container, the read folding the `_media_info` container-structure read (duration/chapters/tracks) while the container is still open, the write a `demux` → `add_stream_from_template` → `mux` bitstream-copy remux that rebinds `OutputContainer.metadata` without re-encoding. `_flat` is the one facts→logical projection every writer derives its bindings from (`structs.asdict` over the writable facets, dropping empties and tuples), and `from_logical` its inverse (one `msgspec.convert(strict=False)` per facet), so a field reaches every provider from one declared `_FIELD_KEYS` correspondence.
+- Receipt: each operation returns the `(ContentKey, MetaFacts, bytes)` triple, and the consumer projects the `core/receipt#RECEIPT` `ArtifactReceipt.Metadata(key, carrier, fields, byte_len)` case the ARCHITECTURE `exchange/metadata → core/receipt` edge names — the carrier the `MetaCarrier` value, the field count the `MetaFacts.populated` tally, the byte length the returned payload — exactly as the coordinator mints `ArtifactReceipt.Credential`/`Verdict` from their pairs. Write arms key the re-encoded bytes through `ContentIdentity.of` so a metadata-bound artifact carries a fresh key the `csharp:Rasm.Persistence` store re-derives, the read arms keying the source bytes unchanged. `core/receipt#RECEIPT` carries the flat-scalar `Metadata` case (`tuple[ContentKey, str, int, int]`) mirroring `Credential`/`Media`, so the receipt owner imports no `MetaFacts` value object — the rich `MetaFacts` rides the triple to the reading caller, the flat case lives on the receipt page.
+- Packages: `pyexiftool` (`ExifToolHelper.get_tags`/`set_tags`/`execute` the `-stay_open` cross-format driver over EXIF+IPTC+XMP+ICC+GPS+maker-notes, `set_json_loads` swapping the msgspec parser onto the `get_tags` decode path); `pikepdf` (`open`/`open_metadata`/`PdfMetadata` the XMP/docinfo namespace + `pdfa_status`/`pdfx_status`, `save(deterministic_id=True)` the stable /ID); `av` (`open`/`Container.metadata`/`chapters()`/`streams`/`duration`/`bit_rate` the read, `add_stream_from_template`/`demux`/`mux` the no-re-encode remux); `PIL.ImageCms` (`ImageCmsProfile` + `getProfile*`/`getDefaultIntent` the ICC header, `PyCMSError` per-accessor railed); `msgspec` (`Struct(frozen=True[, gc=False])`, `convert(strict=False)` the per-facet materialization, `structs.asdict` the `_flat`/`populated` derivation, `json` the exiftool decode); `expression` (`tagged_union`, `Map`, `extra.result.catch`); `beartype`; `pydantic-settings` (the `MetaSettings` `RASM_META_` exiftool-path owner); runtime (`identity`, `faults`, `LanePolicy.offload`, `WORKER_BAND`, `RetryClass.OCCT`).
+- Growth: a new metadata carrier is one `MetaCarrier` member plus one `_CARRIER` `CarrierPolicy` row plus its two carrier functions — zero new op cases; a new descriptive field one field on the owning `MetaFacts` facet plus one `_FIELD_KEYS` row, the `_flat`/`from_logical` derivation reaching every provider; a new provider spelling for a carrier is one more column on the `FieldKeys` row plus one fold in that carrier's reader/writer; a new write disposition one `MetaBind` member plus one writer arm; a new writable facet (the `History` xmpMM row) one nested `Struct` plus one `from_logical` convert leg plus its `_flat` rows; a new read-only structured facet (the `MediaInfo`/`RasterInfo` reads) one nested `Struct` plus its reader population plus one `from_logical` keyword and one `populated` term, never a `_flat` write leg; a new ICC-header fact one `Color` field plus one `ICC_Profile:` read; a new binary-path or worker knob one `MetaSettings` field; zero new surface.
+- Boundary: `Metadata` binds and recovers descriptive metadata over already-emitted bytes and owns no artifact production — it re-encodes no pixels (the raster writer mutates container metadata in place, higher-fidelity than a raster re-encode) and mints no content key beyond the write-side `ContentIdentity.of` re-key. A PDF signature/conformance close routes to `exchange/conformance#CONFORMANCE`, a signed C2PA content credential to `exchange/credential#CREDENTIAL`: the `Iptc4xmpExt:DigitalSourceType` this owner reads/writes is the UNSIGNED descriptive AI-provenance label, distinct from the SIGNED C2PA `DigitalSource` assertion. Rich `MetaFacts` rides the returned triple to the reading caller; the flat `ArtifactReceipt.Metadata` case lives on the receipt page, neither minted here.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -68,20 +70,19 @@ class MetaBind(StrEnum):
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
-# float logicals whose Exiv2 EXIF value is a `num/den` rational `_num` normalizes before materialization;
-# the pyexiftool `-n` numeric output already emits these as plain decimals, so `_RATIONAL` applies only to the
-# every other numeric field is a plain numeral `msgspec.convert(strict=False)` coerces directly.
+# the pyexiftool `-n` numeric output emits these as plain decimals, so `_RATIONAL` names the float logicals a
+# raw `num/den` rational would need `_num` to normalize; every other numeric field `convert(strict=False)` coerces.
 _RATIONAL: Final[frozenset[str]] = frozenset({"f_number", "focal_length", "aperture", "exposure_bias", "altitude", "gps_direction"})
 
-# ICC default-rendering-intent ordinal -> token (the liblcms2/`ImageCms.
+# ICC default-rendering-intent ordinal -> token (the liblcms2/ImageCms getDefaultIntent ordinal)
 _INTENT_NAME: Final[Map[int, str]] = Map.of_seq([(0, "perceptual"), (1, "relative"), (2, "saturation"), (3, "absolute")])
 _AV_TIME_BASE: Final[int] = 1_000_000  # `Container.duration` is AV_TIME_BASE microseconds; divide for seconds
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
 class FieldKeys(Struct, frozen=True, gc=False):  # the per-logical provider correspondence row
-    xmp: str = ""  # XMP qname for the pikepdf PDF carrier (`dc:title`, `xmpMM:DocumentID`, `pdf:Producer`)
-    exiftool: str = ""  # exiftool `-G` grouped tag for the RASTER pyexiftool arm (`EXIF:Make`, `IPTC:Keywords`, `ICC_Profile:ProfileDescription`)
+    xmp: str = ""  # XMP qname for the pikepdf PDF carrier (`dc:title`, `pdf:Producer`)
+    exiftool: str = ""  # exiftool `-G` grouped tag for the RASTER arm (`EXIF:Make`, `IPTC:Keywords`)
     media: str = ""  # FFmpeg container tag for the av MEDIA carrier
 
 
@@ -98,7 +99,7 @@ class Descriptive(Struct, frozen=True):  # editorial: dc:* / xmp:* / photoshop:*
     instructions: str = ""
     description_writer: str = ""
     comment: str = ""  # JPEG COM segment — exiftool `File:Comment`; raster-only (no XMP/media twin)
-    album: str = ""  # FFmpeg `album` container tag — the descriptive collection an audio/video asset belongs to
+    album: str = ""  # FFmpeg `album` container tag
     album_artist: str = ""  # FFmpeg `album_artist` container tag
     composer: str = ""  # FFmpeg `composer` container tag
 
@@ -121,7 +122,7 @@ class Capture(Struct, frozen=True):  # camera/exposure: EXIF IFD0/Photo + xmp:Cr
     lens_make: str = ""
     software: str = ""  # xmp:CreatorTool — the application that authored the content
     producer: str = ""  # pdf:Producer — the application that converted/emitted the PDF (distinct from CreatorTool)
-    digital_source_type: str = ""  # Iptc4xmpExt:DigitalSourceType — the IPTC content-origin IRI (digitalCapture/algorithmicMedia/trainedAlgorithmicMedia/composite); the plain-XMP AI-provenance label, distinct from the signed exchange/credential C2PA assertion
+    digital_source_type: str = ""  # Iptc4xmpExt:DigitalSourceType — the IPTC content-origin IRI (digitalCapture/algorithmicMedia/composite)
     orientation: int = 0
     exposure_time: str = ""
     f_number: float = 0.0
@@ -153,7 +154,7 @@ class Place(Struct, frozen=True):  # location: EXIF GPS + photoshop/Iptc4xmpCore
     sublocation: str = ""
 
 
-class History(Struct, frozen=True):  # XMP Media Management (xmpMM) asset identity + lineage — the provenance co-identity the credential rail reads
+class History(Struct, frozen=True):  # XMP Media Management (xmpMM) asset identity + lineage
     document_id: str = ""  # xmpMM:DocumentID — the stable cross-rendition asset id
     instance_id: str = ""  # xmpMM:InstanceID — this specific rendition's id
     original_id: str = ""  # xmpMM:OriginalDocumentID — the ancestor this asset derives from
@@ -171,14 +172,14 @@ class Color(Struct, frozen=True):  # colour evidence: colour space + the ICC pro
 
 class RasterInfo(
     Struct, frozen=True
-):  # raster container structure read-only (exiftool `File:*` structure rows) — the raster-carrier sibling of `Color`/`MediaInfo`
+):  # raster container structure, read-only (exiftool `File:*` structure rows)
     width: int = 0  # exiftool `File:ImageWidth`
     height: int = 0  # exiftool `File:ImageHeight`
     mime: str = ""  # exiftool `File:MIMEType` — the container's sniffed MIME
-    thumbnail: bytes = b""  # exiftool `-b -ThumbnailImage` — the embedded EXIF preview, a DAM/forensic band mirroring credential's `resources`
+    thumbnail: bytes = b""  # exiftool `-b -ThumbnailImage` — the embedded EXIF preview, a DAM/forensic band
 
 
-class Chapter(Struct, frozen=True, gc=False):  # one media navigation chapter — the descriptive timeline marker `av` `Container.chapters()` yields
+class Chapter(Struct, frozen=True, gc=False):  # one media navigation chapter (`av` `Container.chapters()`)
     start: float = 0.0  # chapter start in seconds (the `start * time_base` fold over the `Chapter` TypedDict)
     title: str = ""
 
@@ -193,9 +194,9 @@ class Track(
 
 class MediaInfo(
     Struct, frozen=True
-):  # media container structure read-only (av `streams`/`chapters()`/`duration`/`bit_rate`) — the media-carrier sibling of `Color`/`conformance`
+):  # media container structure, read-only (av `streams`/`chapters()`/`duration`/`bit_rate`)
     duration: float = 0.0
-    bit_rate: int = 0  # `InputContainer.bit_rate` — overall container bit rate (bits/sec), a descriptive container-structure fact folded while the container is open
+    bit_rate: int = 0  # `InputContainer.bit_rate` — overall container bit rate (bits/sec)
     chapters: tuple[Chapter, ...] = ()
     tracks: tuple[Track, ...] = ()
 
@@ -213,10 +214,8 @@ class MetaFacts(Struct, frozen=True):
 
     @classmethod
     def from_logical(cls, flat: Mapping[str, object], /, *, media: MediaInfo = MediaInfo(), raster: RasterInfo = RasterInfo()) -> Self:
-        # one logical dict -> the flat facets via per-facet `convert(strict=False)`; unknown keys fall
-        # away per facet, the standard string values coerce to each field's type, `marked` lifts to bool.
-        # `media`/`raster` ride in as already-materialized structured facets (their fields carry binary/derived
-        # values — thumbnail bytes, chapter rows — that are not logical string keys the per-facet convert reaches).
+        # one logical dict -> the flat facets via per-facet `convert(strict=False)`; unknown keys fall away,
+        # `marked` lifts to bool. `media`/`raster` ride in already-materialized (binary/derived, not logical keys).
         data = dict(flat)
         if isinstance(mark := data.get("marked"), str):
             data["marked"] = mark.strip().lower() in ("true", "1", "yes")
@@ -258,10 +257,8 @@ class CarrierPolicy:  # the `(reader, writer, lane)` triple one `MetaCarrier` ke
     lane: Offload
 
 
-# the typed write instruction the `write` case carries beside its carrier+artifact, mirroring the
-# `exchange/credential#PROVENANCE`/`exchange/conformance#CONFORMANCE` `(bytes, Spec)` payload convention:
-# `facts`+`bind` ride one named owner (the growth site a new write knob lands on) rather than a naked
-# positional `tuple[..., MetaFacts, MetaBind]` decoded by index.
+# the typed write instruction the `write` case carries: `facts`+`bind` ride one named owner (the growth site a
+# new write knob lands on) rather than a naked positional `tuple[..., MetaFacts, MetaBind]` decoded by index.
 class WriteSpec(Struct, frozen=True):
     facts: MetaFacts
     bind: MetaBind = MetaBind.MERGE
@@ -269,15 +266,14 @@ class WriteSpec(Struct, frozen=True):
 
 # --- [SERVICES] -------------------------------------------------------------------------
 class MetaSettings(BaseSettings):
-    # the brief [03] system-tool subprocess boundary: discovery-env (`RASM_META_EXIFTOOL`) -> configured path ->
-    # `shutil.which` fallback, resolved ONCE at module scope, never a hardcoded literal and never a per-call re-read.
+    # the exiftool discovery: env (`RASM_META_EXIFTOOL`) -> configured path -> `shutil.which`, resolved ONCE at
+    # module scope, never a hardcoded literal and never a per-call re-read.
     model_config = SettingsConfigDict(env_prefix="RASM_META_", frozen=True, extra="forbid")
     exiftool: str | None = None
 
 
-# `Metadata` IS the closed union: the two read/write cases, the carrier-polymorphic mints, the carrier
-# property, the async entry, and the dispatch all fold onto one `tagged_union` (mirroring
-# `exchange/credential#PROVENANCE`), never a one-field `Metadata` wrapper over a separate `MetaOp`.
+# `Metadata` IS the closed union: the read/write cases, the carrier mints, the async entry, and the dispatch
+# all fold onto one `tagged_union` (mirroring `exchange/credential#PROVENANCE`), never a wrapper over a `MetaOp`.
 @tagged_union(frozen=True)
 class Metadata:
     tag: Literal["read", "write"] = tag()
@@ -399,13 +395,11 @@ def _dms(value: str, ref: str, /) -> float | None:
 
 
 def _icc(blob: bytes) -> dict[str, object]:
-    # the ICC header read over recovered ICC bytes: description + manufacturer/model/copyright
-    # provenance + default rendering intent, railed through `catch` so a malformed profile or missing tag skips
-    # by omission rather than faulting the read. The pyexiftool arm reads these off the `ICC_Profile:` group instead.
+    # the ICC header read over recovered ICC bytes, railed through `catch` so a malformed profile or missing tag
+    # skips by omission; the pyexiftool arm reads these off the `ICC_Profile:` group instead.
     if not blob:
         return {}
-    # best-effort ICC parse: a malformed profile skips by omission (the `boundaries.md` plugin-load `catch(exception=Exception)`
-    # disposition), never sinking the rest of the metadata read; the precise `PyCMSError` narrows each header accessor below.
+    # best-effort ICC parse: a malformed profile skips by omission, never sinking the rest; `PyCMSError` narrows each accessor.
     return catch(exception=Exception)(ImageCms.ImageCmsProfile)(BytesIO(blob)).map(_icc_header).default_value({})
 
 
@@ -422,9 +416,8 @@ def _icc_header(profile: "ImageCms.ImageCmsProfile", /) -> dict[str, object]:
 
 
 # --- [RASTER_CARRIER] -------------------------------------------------------------------
-# The RASTER cluster crosses the `WORKER_BAND` `to_process` band. The categorical-best cross-format provider
-# folds EXIF + IPTC + XMP + ICC + GPS + maker-notes in ONE pass, replacing the abandoned `exif` JPEG-EXIF-only arm
-# and superseding the former per-standard provider split.
+# The RASTER cluster crosses the `WORKER_BAND` `to_process` band; the cross-format `pyexiftool` provider folds
+# EXIF + IPTC + XMP + ICC + GPS + maker-notes in ONE pass.
 def _exiftool_read(payload: bytes) -> MetaFacts:
     with NamedTemporaryFile(suffix=".img", delete_on_close=False) as tmp:  # Exemption: exiftool reads a real path, not a stream
         tmp.write(payload)
@@ -536,11 +529,9 @@ def _write_media(payload: bytes, facts: MetaFacts, bind: MetaBind) -> bytes:
 
 
 # --- [TABLES] ---------------------------------------------------------------------------
-# the one logical -> (xmp, exiftool, exiv2, media) correspondence; `from_logical`/`_flat` derive every read and
-# write from it, so a new field is one row and a new provider a carrier supports is one column. GPS: pyexiftool
-# reads `Composite:GPS*` decimal degrees directly and folds a returned `Exif.GPSInfo.*` DMS array via `_dms`.
-# The ICC-header logicals carry an `exiftool` column (the `ICC_Profile:` group); the `exiv2` family-key
-# column is retained mapping data for the recovered carrier keys, never a provider selector.
+# the one logical -> provider correspondence; `from_logical`/`_flat` derive every read and write from it, so a
+# new field is one row and a new provider one column. GPS: pyexiftool reads `Composite:GPS*` decimals directly.
+# The `exiv2` column is retained mapping data for the recovered carrier keys, never a provider selector.
 _FIELD_KEYS: Final[Map[str, FieldKeys]] = Map.of_seq([
     ("title", FieldKeys(xmp="dc:title", exiftool="XMP-dc:Title", exiv2="Xmp.dc.title", media="title")),
     ("headline", FieldKeys(xmp="photoshop:Headline", exiftool="XMP-photoshop:Headline", exiv2="Xmp.photoshop.Headline")),
@@ -638,3 +629,11 @@ _CARRIER: Final[Map[MetaCarrier, CarrierPolicy]] = Map.of_seq([
     (MetaCarrier.MEDIA, CarrierPolicy(reader=_read_media, writer=_write_media, lane=partial(LanePolicy.offload, modality=Modality.THREAD, retry=RetryClass.OCCT))),
 ])
 ```
+
+## [03]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+-->
+
+(none)

@@ -158,8 +158,8 @@ public readonly record struct IfcBinding(string Entity, string Predefined) {
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ComponentFamily {
     public static readonly ComponentFamily Masonry       = new("masonry",       ComponentClass.Minor,   DetailLane.Realization, admits: static p => p is SectionProfile.Rectangle or SectionProfile.CellularRectangle,                                    crossNominal: static p => p.GrossRectangleMm.WidthMm, rows: MasonrySeed.Rows);
-    public static readonly ComponentFamily Cmu           = new("cmu",           ComponentClass.Minor,   DetailLane.None,        admits: static p => p is SectionProfile.CellularRectangle,                                                                crossNominal: static p => p.GrossRectangleMm.WidthMm, rows: CmuSeed.Rows);
-    public static readonly ComponentFamily Steel         = new("steel",         ComponentClass.Primary, DetailLane.None,        admits: static p => p is SectionProfile.Catalogued or SectionProfile.RectangleHollow or SectionProfile.CircleHollow or SectionProfile.ColdFormedC, crossNominal: static p => p.GrossRectangleMm.DepthMm, rows: SteelSeed.Rows);
+    public static readonly ComponentFamily Cmu           = new("cmu",           ComponentClass.Minor,   DetailLane.Realization, admits: static p => p is SectionProfile.CellularRectangle,                                                                crossNominal: static p => p.GrossRectangleMm.WidthMm, rows: CmuSeed.Rows);
+    public static readonly ComponentFamily Steel         = new("steel",         ComponentClass.Primary, DetailLane.None,        admits: static p => p is SectionProfile.Catalogued or SectionProfile.RectangleHollow or SectionProfile.CircleHollow or SectionProfile.ColdFormedC or SectionProfile.BuiltUp, crossNominal: static p => p.GrossRectangleMm.DepthMm, rows: SteelSeed.Rows);
     public static readonly ComponentFamily Timber        = new("timber",        ComponentClass.Primary, DetailLane.None,        admits: static p => p is SectionProfile.Rectangle || p is SectionProfile.Layered l && l.Plies.ForAll(static ply => ply.Role == PlyRole.Longitudinal || ply.Role == PlyRole.Transverse), crossNominal: static p => p.GrossRectangleMm.DepthMm, rows: TimberSeed.Rows);
     public static readonly ComponentFamily Glazing       = new("glazing",       ComponentClass.Minor,   DetailLane.Product,     admits: static p => p is SectionProfile.Layered l && l.Plies.ForAll(static ply => ply.Role == PlyRole.Pane || ply.Role == PlyRole.Interlayer || ply.Role == PlyRole.Cavity),               crossNominal: static p => p.GrossRectangleMm.DepthMm, rows: GlazingSeed.Rows);
     public static readonly ComponentFamily Reinforcement = new("reinforcement", ComponentClass.Minor,   DetailLane.Realization, admits: static p => p is SectionProfile.Circle,                                                                            crossNominal: static p => p.GrossRectangleMm.WidthMm, rows: ReinforcementSeed.Rows);
@@ -269,8 +269,8 @@ public sealed record Component(
 
 ## [03]-[SECTION_PROFILE]
 
-- Owner: `SectionProfile` the closed cross-section `[Union]` — the `IfcParameterizedProfileDef` set carried natively with NAMED `PositiveMagnitude` dimensions, widened by the domain arms the ten families need (`CellularRectangle` per-cell voids, `Layered` plies, `Corrugated` deck fold, `Nominal` bond-line, `Catalogued` published identity, `Outline` typed free tail); `VoidCell` the fill-state cell row; `PlyRole` the BOUNDED layer-semantics vocabulary; `Ply` the laminate row.
-- Cases: twenty-one arms; gross bounding `(WidthMm, DepthMm)` facts are BASE-CONSTRUCTOR STATE declared once per arm — no interior switch exists on this axis; the ONE dispatch site is `SectionSolver.Solve`. Growth cadence is the profile schema (buildingSMART parameterized-profile set), never thing cadence.
+- Owner: `SectionProfile` the closed cross-section `[Union]` — the `IfcParameterizedProfileDef` set carried natively with NAMED `PositiveMagnitude` dimensions, widened by the domain arms the ten families need (`CellularRectangle` per-cell voids, `Layered` plies, `Corrugated` deck fold, `Nominal` bond-line, `Catalogued` published identity, `Outline` typed free tail, `BuiltUp` positioned composition); `VoidCell` the fill-state cell row; `PlyRole` the BOUNDED layer-semantics vocabulary; `Ply` the laminate row.
+- Cases: twenty-two arms; gross bounding `(WidthMm, DepthMm)` facts are BASE-CONSTRUCTOR STATE declared once per arm — no interior switch exists on this axis; the ONE dispatch site is `SectionSolver.Solve`. Growth cadence is the profile schema (buildingSMART parameterized-profile set), never thing cadence.
 - Entry: construction is RAILED — each arm carries an `Of` factory returning `Fin<SectionProfile>` that lifts magnitudes through `key.AcceptValidated<PositiveMagnitude>` AND validates the non-magnitude slots (non-negative finite fillets/edges, finite slopes/offsets, cell containment PLUS pairwise cell disjointness — an overlapping lattice double-subtracts the net section and voids silently, so it faults at admission — wall-vs-envelope closure) on `ComponentFault.Dimension`; seed folds construct through `Of` INSIDE their `Traverse`, never a throwing lift. `Catalogued` constructs direct — its payload is already-admitted `SteelShape` state.
 - Boundary: `VoidCell` is MIN-CORNER anchored in the profile's `[0,WidthMm]×[0,DepthMm]` corner frame (the convention `MasonryVoids.Cells` and the cmu lattice emit); `Grouted` drives the as-built net (only ungrouted cells void), the grouted fraction, self-weight, and the parallel-path thermal split; `Reinforced` marks bar-bearing cells; geometry-only cells collapse as-built physics to the ungrouted case. `Ply.Role` is the BOUNDED `PlyRole` row, never a free string: `Longitudinal`/`Transverse` are the timber structural discriminants, `Pane`/`Interlayer`/`Cavity` the glazing stack semantics, and the panel face/core rows carry appearance-facing policy. `ComponentFamily.Admits` proves the lane subset, so a known panel role cannot enter timber and a known timber role cannot enter glazing. The human-readable `IfcMaterialLayer.Name` is a BOUNDARY projection over `(Material, Role, ordinal)` — an unknown role is unrepresentable, and no consumer parses a role string. `NonNegativeMagnitude` does not exist in `Rasm.Numerics` (verified) — the non-negative/finite edge check is the inline `Edge` guard inside `Of` (R8 resolved).
 
@@ -485,6 +485,29 @@ public abstract partial record SectionProfile {
             from w in key.Pm(widthMm) from d in key.Pm(depthMm) select (SectionProfile)new Outline(boundary, w, d);
     }
 
+    // The positioned built-up composition — the IfcCompositeProfileDef modality: already-admitted member arms placed by signed centroid
+    // offsets in the composite frame (DyMm across the width axis, DzMm across the depth axis). The OPEN welded-assembly space — plate
+    // girders, battened/laced columns, toe-to-toe double channels, cranked built-up chords — solved by parallel-axis composition of the
+    // members' own Solve arms; a closed built-up cell is RectangleHollow's Bredt law, and nesting is rejected so composition stays one
+    // level deep. The unsectioned Layered/Nominal arms cannot member a composition.
+    public sealed record BuiltUp(Seq<(SectionProfile Part, double DyMm, double DzMm)> Parts) : SectionProfile(BuiltWidth(Parts), BuiltDepth(Parts)) {
+        public static Fin<SectionProfile> Of(Seq<(SectionProfile Part, double DyMm, double DzMm)> parts, Op key) =>
+            from stacked in guard(parts.Count >= 2, ComponentFault.Dimension(key, $"<built-up-needs-two-members:{parts.Count}>"))
+            from placed in guard(parts.ForAll(static p => double.IsFinite(p.DyMm) && double.IsFinite(p.DzMm)),
+                ComponentFault.Dimension(key, "<built-up-offset-nonfinite>"))
+            from membered in guard(parts.ForAll(static p => p.Part is not (SectionProfile.Layered or SectionProfile.Nominal or SectionProfile.BuiltUp)),
+                ComponentFault.Dimension(key, "<built-up-member-unsectionable-or-nested>"))
+            select (SectionProfile)new BuiltUp(parts);
+    }
+
+    static PositiveMagnitude BuiltWidth(Seq<(SectionProfile Part, double DyMm, double DzMm)> parts) =>
+        PositiveMagnitude.Create(parts.Max(static p => p.DyMm + p.Part.GrossRectangleMm.WidthMm.Value / 2.0)
+            - parts.Min(static p => p.DyMm - p.Part.GrossRectangleMm.WidthMm.Value / 2.0));
+
+    static PositiveMagnitude BuiltDepth(Seq<(SectionProfile Part, double DyMm, double DzMm)> parts) =>
+        PositiveMagnitude.Create(parts.Max(static p => p.DzMm + p.Part.GrossRectangleMm.DepthMm.Value / 2.0)
+            - parts.Min(static p => p.DzMm - p.Part.GrossRectangleMm.DepthMm.Value / 2.0));
+
     static PositiveMagnitude Wider(PositiveMagnitude a, PositiveMagnitude b) => a.Value >= b.Value ? a : b;
     static PositiveMagnitude TrapezoidSpan(PositiveMagnitude bottom, PositiveMagnitude top, double offset) {
         double topMin = (bottom.Value - top.Value) / 2.0 + offset;
@@ -551,7 +574,8 @@ public static class SectionSolver {
             layered:           static (k, _) => ComponentFault.Section(k, "<unsectioned-profile:layered>"),
             nominal:           static (k, _) => ComponentFault.Section(k, "<unsectioned-profile:nominal>"),
             catalogued:        static (k, c) => Admit(c.Shape.Profile, c, Forms.FromCatalogue(c.Shape), k),
-            outline:           static (k, o) => Admit(o.Boundary, o, Forms.Integrated(o), k));
+            outline:           static (k, o) => Admit(o.Boundary, o, Forms.Integrated(o), k),
+            builtUp:           static (k, b) => Composed(b, k));
 
     // The RC concrete-outline entry the reinforcement RC path and capacity.md feed, PROFILE-FAITHFUL: one generated
     // total Switch reuses the SAME Curves table Solve routes, so a circular column or drilled shaft feeds
@@ -585,10 +609,75 @@ public static class SectionSolver {
             layered:           static (k, _) => ComponentFault.Section(k, "<unsectioned-profile:layered>"),
             nominal:           static (k, _) => ComponentFault.Section(k, "<unsectioned-profile:nominal>"),
             catalogued:        static (_, c) => Fin.Succ(c.Shape.Profile),
-            outline:           static (_, o) => Fin.Succ((IProfile)o.Boundary));
+            outline:           static (_, o) => Fin.Succ((IProfile)o.Boundary),
+            builtUp:           static (k, _) => ComponentFault.Section(k, "<built-up-profile-no-single-outline>"));
+
+    // The BuiltUp composition: each member solves through its OWN Solve arm (fillets, voids, catalogued identities intact), then the
+    // composite folds — ΣA, the area-weighted centroid, Steiner Ix/Iy, extreme-fibre elastic moduli, the equal-area-axis plastic fold
+    // (a one-side member transfers A·|d|, a straddling member its own Z plus the uniform-band A/Ext·d² correction — exact for the plate
+    // members that dominate fabricated sections), ΣJ (open thin-walled composition — a closed built-up cell is RectangleHollow's), the
+    // Σ shear-area pair, and Σ perimeter (member contact lines not deducted — the conservative heated bound). Iw and the shear-centre/
+    // monosymmetry columns stay engineering-zero, so the F2 LTB rts read falls back to ry — the conservative open-composition floor.
+    // EXPRESSION_SPINE measured-kernel exemption: the composite scalars bind once, one Section-lift chain exits.
+    static Fin<ComputedSection> Composed(SectionProfile.BuiltUp b, Op key) =>
+        b.Parts.Traverse(p => Solve(p.Part, key).Map(cs => (S: cs, p.DyMm, p.DzMm))).As().Bind(members => {
+            double a = members.Sum(static m => m.S.AreaMm2.Value);
+            double cy = members.Sum(static m => m.S.AreaMm2.Value * m.DyMm) / a;
+            double cz = members.Sum(static m => m.S.AreaMm2.Value * m.DzMm) / a;
+            double ix = members.Sum(m => m.S.IxMm4.Value + m.S.AreaMm2.Value * Math.Pow(m.DzMm - cz, 2.0));
+            double iy = members.Sum(m => m.S.IyMm4.Value + m.S.AreaMm2.Value * Math.Pow(m.DyMm - cy, 2.0));
+            double fibreZ = members.Max(m => Math.Abs(m.DzMm - cz) + m.S.DepthMm.Value / 2.0);
+            double fibreY = members.Max(m => Math.Abs(m.DyMm - cy) + m.S.WidthMm.Value / 2.0);
+            double zx = PlasticFold(members.Map(static m => (m.S.AreaMm2.Value, m.DzMm, m.S.DepthMm.Value, m.S.ZxMm3.Value)));
+            double zy = PlasticFold(members.Map(static m => (m.S.AreaMm2.Value, m.DyMm, m.S.WidthMm.Value, m.S.ZyMm3.Value)));
+            return
+                from area in Section(a, key)
+                from ixV in Section(ix, key)
+                from iyV in Section(iy, key)
+                from sx in Section(ix / fibreZ, key)
+                from sy in Section(iy / fibreY, key)
+                from rx in Section(Math.Sqrt(ix / a), key)
+                from ry in Section(Math.Sqrt(iy / a), key)
+                from zxV in Section(zx, key)
+                from zyV in Section(zy, key)
+                from j in Section(members.Sum(static m => m.S.JMm4.Value), key)
+                from avy in Section(members.Sum(static m => m.S.AvyMm2.Value), key)
+                from avz in Section(members.Sum(static m => m.S.AvzMm2.Value), key)
+                from perim in Section(members.Sum(static m => m.S.HeatedPerimeterMm.Value), key)
+                select new ComputedSection(area, ixV, iyV, sx, sy, rx, ry, zxV, zyV, j, IwMm6: 0.0, avy, avz,
+                    DepthMm: b.GrossRectangleMm.DepthMm, WidthMm: b.GrossRectangleMm.WidthMm, HeatedPerimeterMm: perim,
+                    AxisDistanceMm: 0.0, ShearCentreYMm: 0.0, ShearCentreZMm: 0.0, MonosymmetryFactor: 0.0);
+        });
+
+    // The composite plastic modulus over member bands (A, Off, Ext, OwnZ): the equal-area axis locates on the uniform-band cumulative,
+    // a fully-one-side member contributes its exact A·|Off − pna| transfer, a straddling member its own modulus plus the A/Ext·d²
+    // uniform-band correction (exact for a rectangle at every d, exact for every shape at d = 0).
+    static double PlasticFold(Seq<(double A, double Off, double Ext, double OwnZ)> bands) {
+        double pna = EqualAreaAxis(bands);
+        return bands.Sum(band => Math.Abs(band.Off - pna) >= band.Ext / 2.0
+            ? band.A * Math.Abs(band.Off - pna)
+            : band.OwnZ + band.A / band.Ext * Math.Pow(band.Off - pna, 2.0));
+    }
+
+    // The equal-area axis: the piecewise-linear cumulative over the uniform member bands scanned edge to edge, the half-area station
+    // interpolated inside its segment at the segment's summed density.
+    static double EqualAreaAxis(Seq<(double A, double Off, double Ext, double OwnZ)> bands) {
+        double half = bands.Sum(static band => band.A) / 2.0;
+        Seq<double> edges = bands.Bind(static band => Seq(band.Off - band.Ext / 2.0, band.Off + band.Ext / 2.0)).Distinct().OrderBy(static e => e).ToSeq();
+        double At(double t) => bands.Sum(band => Math.Clamp(t, band.Off - band.Ext / 2.0, band.Off + band.Ext / 2.0) is var c && c > band.Off - band.Ext / 2.0
+            ? (c - (band.Off - band.Ext / 2.0)) * band.A / band.Ext : 0.0);
+        return toSeq(Enumerable.Range(0, edges.Count - 1))
+            .Map(i => (Lo: edges[i], Hi: edges[i + 1]))
+            .Filter(seg => At(seg.Hi) >= half)
+            .HeadOrNone()
+            .Map(seg => At(seg.Hi) - At(seg.Lo) is var rate && rate > 0.0
+                ? seg.Lo + (half - At(seg.Lo)) / rate * (seg.Hi - seg.Lo)
+                : seg.Lo)
+            .IfNone(() => edges[edges.Count - 1]);
+    }
 
     // The retired ParametricSection.Admit twenty-column PositiveMagnitude lift, widened to read the SectionSupplement's
-    // Iw/ShearCentreY/ShearCentreZ/Monosymmetry instead of hardcoded zeros — one lift for all twenty-one solvable arms.
+    // Iw/ShearCentreY/ShearCentreZ/Monosymmetry instead of hardcoded zeros — one lift for every solvable arm.
     // The lazy Green's-theorem reads trap in ONE Try lift: a degenerate caller-supplied Outline perimeter faults
     // ComponentFault.Section whether the integral THROWS or nets NaN — no exception escapes the owning boundary.
     // Depth/Width are the arm's proven base-constructor gross pair (never re-proven); every solver/supplement column
@@ -1052,4 +1141,5 @@ public static class ComponentResolution {
 - [STEEL_ALGEBRA_RELOCATION]: REALIZED — the `steel#STEEL_FAMILY` `SteelStiffness` open-thin-walled algebra lands in `Forms` (`OpenI`/`OpenChannel`/`MonoTee`/`OpenAngle` cores verbatim; `MonoI`/`OpenCee`/`PointSymmetricZ` the widened singly-symmetric/point-symmetric arms; `FromCatalogue` keys the same cores by `SteelClass` over the admitted `SectionDims`), and the singly-symmetric factors ride policy values over the carrier-free `.Utility` kernel moduli (`SectionModuli.CalculateSectionModulusYy/Zz`). The catalogued profile floor does not fill cold-formed C/Z shear-centre and warping columns, so `OpenCee` and `PointSymmetricZ` own them.
 - [CATALOGUE_ONE_PASS]: REALIZED — `ComponentCatalogue.Of` folds `ComponentFamily.Items` through `Traverse` (fail-loud: a malformed seed row, an unsolvable `Sectioned` row, or a cross-seed designation collision aborts the build typed — the frozen-map duplicate-key throw never escapes the rail); the ten-way/four-way `.Concat` folds and the per-family `ComponentCatalogue` static classes are DELETED. `ComponentResolution` byte-identical; `Sectioned` pins today's `graph.SectionOf` membership.
 - [QUANTITY_AND_DETAIL_OWNERS]: REALIZED — `QuantityRow` is the one typed-mint table (`SeamSection` locals and Properties triples deleted at their pages), and its `OfSi` preserves the seam's finite-gated `Fin<MeasureValue>`; `ComponentDetail` is the relocated public bag-constructor owner every `Realization`/`Product` seed composes at seed time, with `Measured` preserving the same rail through the `(PropertyName, PropertyValue)` row. Both live HERE because Projection and Properties compose them and this owner is their shared parent.
+- [BUILT_UP_COMPOSITION]: REALIZED — `SectionProfile.BuiltUp` carries the `IfcCompositeProfileDef` modality as a positioned member set (admitted arms + signed centroid offsets, one composition level, unsectioned members rejected at `Of`), and `SectionSolver.Composed` is its compiler-forced `Solve` arm: members solve through their own arms, the composite folds by parallel axis (ΣA, weighted centroid, Steiner inertias, extreme-fibre elastic moduli), the plastic pair folds about the equal-area axis (`PlasticFold`/`EqualAreaAxis` — exact area transfer one side, own-modulus plus uniform-band `A/Ext·d²` correction straddling), `J`/shear areas/perimeter sum on the open-composition law, and `Iw`/shear-centre/βy stay engineering-zero so the F2 `rts` read degrades to `ry`. `ProfileOf` faults the arm (`<built-up-profile-no-single-outline>` — a composition is not an RC outline), and `ComponentFamily.Steel.Admits` admits it so a fabricated girder seeds as one steel row.
 - [SEED_NAMESPACE]: every seed page declares the flat `Rasm.Materials.Component` namespace — the `Component/` folder is ONE namespace under `dotnet_style_namespace_match_folder = true:error`, the `<Family>Seed` naming keeps owners collision-free, and the policy rows bind `<Family>Seed.Rows` by bare name; the child-leaf split and its prelude aliases are the deleted form.

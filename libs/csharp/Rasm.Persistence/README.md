@@ -1,6 +1,8 @@
 # [PERSISTENCE]
 
-`Rasm.Persistence` is the APP-PLATFORM durable-state spine that persists the `Rasm.Element` `ElementGraph` as its system of record over a Marten append substrate. It depends up on the `Rasm.Element` seam and the `Rasm` kernel content-hash, consumes the AppHost port vocabulary as settled contract, and references no sibling AEC-domain peer — alignment travels through seam contracts and the content-keyed wire.
+`Rasm.Persistence` is the federation's durable truth — one body: the content-addressed system of record for the `ElementGraph`; the version-control engine over it — commit-DAG, convergent CRDT merge, AS-OF time travel, three-way structural merge that survives re-ingest and re-key, PROV provenance under a tamper-evident attested ledger, classification-driven retention with full-history GC, provably restorable recovery; the consistency-split read lanes from authoritative through analytical, retrieval, and federation; the content-keyed geometry object store; and the coordination substrate of fenced leases, budgets, and membership every AppHost workflow leans on. Its bar is version-control-grade truth at model scale: a Type re-key reads as a rename through the merge engine, never churn; a million-event model scrubs at the cost of its delta, never its history; and every cross-runtime reuse key resolves bit-identically against the one kernel content-hash entry.
+
+It persists the graph over a Marten append substrate, depends up on the `Rasm.Element` seam and the `Rasm` kernel content-hash, consumes the AppHost port vocabulary as settled contract, and references no sibling AEC-domain peer — alignment travels through seam contracts and the content-keyed wire.
 
 ## [01]-[ROUTER]
 
@@ -69,10 +71,10 @@ PostgreSQL 18 SQL-provisioned extensions carrying no managed assembly; the `Stor
 - `timescaledb` — hypertable, continuous-aggregate, retention, and columnstore
 - `timescaledb_toolkit` — hyperfunction and time-weighted-aggregate layer over `timescaledb`
 - `pg_duckdb` — in-PG DuckDB analytical bridge, distinct from the in-process `DuckDB.NET` lane
-- `postgis` — the geospatial base the raster, 3D, and routing rows extend
+- `postgis` — carries the geospatial base the raster, 3D, and routing rows extend
 - `postgis_raster` — PostGIS raster over `postgis`
 - `postgis_sfcgal` — PostGIS exact 3D geometry over `postgis`
-- `pgvector` — the `hnsw` ANN access method, the `vector` base `pgvectorscale` gates on
+- `pgvector` — ships the `hnsw` ANN access method and the `vector` base `pgvectorscale` gates on
 - `pgvectorscale` — diskann access method over a pgvector column
 - `pg_search` — ParadeDB bm25 access method
 - `pg_cron` — database-local cron for SQL maintenance jobs
@@ -97,7 +99,7 @@ Dedicated scale-out store clients and embedded KV engines beyond the relational 
 
 [COLUMNAR_AND_CODECS]:
 In-process columnar analytics stack and the serialization, interchange, and compression codec belt.
-- `DuckDB.NET.Data.Full` — the in-process DuckDB columnar lane, distinct from the `pg_duckdb` server bridge
+- `DuckDB.NET.Data.Full` — drives the in-process DuckDB columnar lane, distinct from the `pg_duckdb` server bridge
 - `Apache.Arrow`
 - `Apache.Arrow.Flight`
 - `Apache.Arrow.Adbc`
@@ -111,7 +113,7 @@ In-process columnar analytics stack and the serialization, interchange, and comp
 - `Ara3D.BimOpenSchema.IO`
 - `Chr.Avro` — Avro schema model, resolution, evolution, and POCO mapping
 - `Chr.Avro.Binary`
-- `Chr.Avro.Confluent` — the Confluent Schema Registry serdes leg
+- `Chr.Avro.Confluent` — binds the Confluent Schema Registry serdes leg
 - `System.Formats.Cbor` — BCL CBOR / RFC 8949 self-describing snapshot codec
 - `MiniExcel` — streaming `.xlsx`/`.csv` codec; the spreadsheet lane `Sep` cannot reach
 - `ZstdSharp.Port` — standalone Zstandard snapshot and blob compression
@@ -148,7 +150,7 @@ Cloud object stores, the Redis cache backplane, and KMS custody.
 - `Azure.Storage.Blobs`
 - `Google.Cloud.Storage.V1`
 - `Minio` — endpoint-agnostic S3-compatible client for the self-hosted lane
-- `StackExchange.Redis` — the `Query/cache` L2 backplane and `Version/egress` `EgressSink.RedisStream` sink
+- `StackExchange.Redis` — backs the `Query/cache` L2 backplane and the `Version/egress` `EgressSink.RedisStream` sink
 - `Microsoft.Extensions.Caching.StackExchangeRedis`
 - `Microsoft.Extensions.Caching.Hybrid`
 - `AWSSDK.KeyManagementService`
@@ -161,8 +163,8 @@ Cross-cutting C# substrate Persistence consumes; package charters live in `libs/
 
 [SEAM_REFERENCES]:
 Upward ProjectReferences — alignment by contract, never a sibling AEC peer reference.
-- `Rasm.Element` — the AEC-DOMAIN seam contracts persisted as the system of record
-- `Rasm` — the KERNEL seed-zero `XxHash128` content-hash the codec composes
+- `Rasm.Element` — carries the AEC-DOMAIN seam contracts persisted as the system of record
+- `Rasm` — mints the KERNEL seed-zero `XxHash128` content-hash the codec composes
 
 [FUNCTIONAL_CORE]:
 - `LanguageExt.Core`
@@ -174,7 +176,7 @@ Upward ProjectReferences — alignment by contract, never a sibling AEC peer ref
 [CODE_GENERATION]:
 - `Riok.Mapperly` — generated seam-to-wire and columnar marshal
 - `Generator.Equals` — generated structural equality and content-key preimage
-- `QuikGraph` — the in-process topology the synchronous `Query/topology` lane composes
+- `QuikGraph` — models the in-process topology the synchronous `Query/topology` lane composes
 
 [TIME_IDENTITY]:
 - `NodaTime`

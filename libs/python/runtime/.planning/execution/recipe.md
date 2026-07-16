@@ -1,22 +1,20 @@
 # [PY_RUNTIME_RECIPE]
 
-Local recipe execution — the one owner that turns a queenbee-schema simulation workflow into a typed deliverable. `RecipeExecution.execute` is the single modality-polymorphic entry: it absorbs one `RecipeSpec` or a `Block[RecipeSpec]` over one `match` head, acquires any remote recipe-folder/weather assets through the `transport/roots#RESOURCE` `Transfer` rail, gates the external Radiance/OpenStudio/EnergyPlus engines through the `reliability/resilience#RESILIENCE` `guarded_sync` envelope on the `RetryClass.ENGINE` row BEFORE the subprocess spawns, coerces every input through `lbt_recipes` `Recipe.write_inputs_json` (the one `pollination_handlers`-chained coercion seam), executes `queenbee local run` off the event loop through the `execution/lanes#LANE` offload under the lane's one deadline and slot allocator, then reads the typed deliverable back through `output_value_by_name` — the product is the handled output value set, never the raw project folder, and the subprocess exit path is never the sole success signal: the parsed `luigi_execution_summary`/`error_summary`/`failure_message` evidence decides the rail. Each run is content-keyed by `evidence/identity#IDENTITY` `ContentIdentity.key` over the recipe identity plus the handled `inputs.json` bytes, so a parametric batch drains as `keyed` `Admit` units and an identical simulation replays its `Ok` from the threaded lane cache rather than re-running the engine.
+Local recipe execution — the one owner turning a queenbee-schema simulation workflow into a typed deliverable. `RecipeExecution.execute` is the single modality-polymorphic entry: it absorbs one `RecipeSpec` or a `Block[RecipeSpec]`, acquires remote assets through the `transport/roots#RESOURCE` rail, gates the external Radiance/OpenStudio/EnergyPlus engines through `reliability/resilience#RESILIENCE` `guarded_sync` BEFORE the subprocess spends minutes, executes `queenbee local run` off the event loop through the `execution/lanes#LANE` offload, and reads the typed deliverable back through `output_value_by_name` — the product is the handled output value set, never the raw project folder, and the parsed luigi evidence decides the rail, never the exit path alone. Each run is content-keyed over the recipe identity plus the handled `inputs.json` bytes, so a parametric batch drains as `keyed` units and an identical simulation replays from the lane cache rather than re-running the engine.
 
-The recipe VOCABULARY stays queenbee's and the execution machinery stays `lbt-recipes`': this owner re-implements no luigi DAG scheduler, no handler resolution, no `IOAliasHandler` chain order, and no engine-version probe — it composes `Recipe(recipe_name)`/`RecipeSettings`/`Recipe.run` and projects the recipe contract through `RecipeInterface.from_recipe` for a sibling that constructs a submission schema (`geometry` energy/simulate binds `Job`/`RecipeInterface` construction to this owner's execution — the named `python:` consumer). The catalog of executable recipes is one `RECIPES` seed table — output names, engine set, and worker sizing as row data — so a new simulation workflow is one row, never a per-recipe method or a sibling runner class. The `lbt-recipes`/`pollination-handlers` distributions (and the `queenbee-local` luigi runner the subprocess reaches) are AGPL-3.0 network copyleft: admissible only under the companion's process-boundary, non-distributed execution charter — the engines run as external subprocesses, the AGPL tree imports function-local at the execution boundary, and nothing links into a distributed host binary.
+The recipe VOCABULARY stays queenbee's and the execution machinery stays `lbt-recipes`': this owner re-implements no luigi scheduler, no handler resolution, and no engine-version probe — it composes `Recipe`/`RecipeSettings`/`Recipe.run` and projects the contract through `RecipeInterface.from_recipe` for the submission-constructing consumer (geometry energy/simulate binds `Job`/`RecipeInterface` construction to this owner, the named `python:` consumer). The executable catalog is the one `RECIPES` seed table — outputs, engine set, worker sizing as row data — so a new workflow is one row, never a per-recipe method or a sibling runner. The `lbt-recipes`/`pollination-handlers` distributions and the `queenbee-local` luigi runner are AGPL-3.0 network copyleft: admissible only under the companion's process-boundary, non-distributed execution charter — engines run as external subprocesses, the AGPL tree imports function-local at the execution boundary, and nothing links into a distributed host binary.
 
 ## [01]-[INDEX]
 
-- [01]-[RECIPE]: the one `RecipeExecution` owner — the `RecipeSpec` request shape, the `RECIPES` catalog table with its contract-derived readback fallback, the content-keyed lane execution with engine prechecks and THREAD-offloaded asset landing, the handled `output_value_by_name` deliverable, and the luigi-evidence `RecipeReceipt` carrying the parsed `error_summary`.
+- [01]-[RECIPE]: the one `RecipeExecution` owner — `RecipeSpec` request shape, `RECIPES` catalog, content-keyed lane execution with engine prechecks, and the luigi-evidence `RecipeReceipt`.
 
 ## [02]-[RECIPE]
 
-- Owner: `RecipeExecution` — the frozen execution owner holding the one `LanePolicy` its runs drain and offload under (capacity and deadline arrive as the caller's `execution/admission#CONTEXT` budget projection at construction, never a per-call knob) and the `Option[ResourceRoot]` asset root remote specs resolve against; `RecipeSpec` the one request shape carrying the `RecipeName | str` recipe selector (a catalog row member or an external recipe-folder path — the discriminant is the value, never a `packaged: bool`), the `Map[str, object]` input assignments keyed by recipe input name, the `Option[RecipeSettings]` run settings, the `Block[AssetFetch]` remote acquisitions staged before coercion, the caller-named `outputs` tuple and `engines` gate an external folder supplies where a catalog row carries its own, and the `debug` capture Option threading `RecipeSettings.debug_folder`; `RecipeRow` the catalog row — the `outputs` tuple `output_value_by_name` reads back, the `engines` frozenset the precheck gate folds, the `workers` sizing hint, and the `reload` run-reuse column pairing `RecipeSettings.reload_old` with the content-key elision — so the recipe catalog is seed DATA over one generative execute shape, and an empty readback roster derives from the baked `package.json` contract itself through `_declared` rather than a hand-mirrored list; `RecipeProduct` the deliverable pairing the handled `outputs: Map[str, object]` readback with the typed `RecipeReceipt`; `RecipeReceipt` the `ReceiptContributor` evidence — simulation id, recipe name/tag, per-engine verdict presence, the parsed luigi summary, the `Option[str]` failure message, the `Option[str]` parsed `error_summary` the failure arm alone reads, output count, and the run `ContentKey`.
-- Cases: `RecipeName` rows the fourteen packaged Ladybug Tools recipes — `ANNUAL_DAYLIGHT` · `ANNUAL_DAYLIGHT_ENHANCED` · `ANNUAL_IRRADIANCE` · `CUMULATIVE_RADIATION` · `DIRECT_SUN_HOURS` · `DAYLIGHT_FACTOR` · `POINT_IN_TIME_GRID` · `POINT_IN_TIME_VIEW` · `SKY_VIEW` · `IMAGELESS_ANNUAL_GLARE` · `ANNUAL_ENERGY_USE` · `ADAPTIVE_COMFORT_MAP` · `PMV_COMFORT_MAP` · `UTCI_COMFORT_MAP` — each keying one `RECIPES` row (`Recipe.__init__` normalizes the hyphenated value onto the underscore install folder); `Engine` rows `RADIANCE` · `OPENSTUDIO` · `ENERGYPLUS`, each keying its `lbt_recipes.version` check name in `ENGINE_CHECK` so the precheck gate is a table fold, never three hand-called functions; `AssetFetch` pairs a root-relative source with its project-relative destination so a remote EPW/recipe-folder/asset lands through the roots rail before any handler reads it.
-- Entry: `RecipeExecution.execute` absorbs `RecipeSpec | Block[RecipeSpec]` beside the one caller-threaded `Map[ContentKey, RecipeProduct]` session cache — a prior `DrainReceipt.cache` re-enters as the next call's carrier, so elision is a threaded value, never hidden owner state. A lone spec runs one content-keyed offloaded execution and resolves `RuntimeRail[RecipeProduct]`, the cache probe replaying an already-keyed run through `_elided` with no span opened; a `Block` folds each spec into a `keyed` `Admit` unit (the run's `ContentKey` the cache probe) and drains the batch through `self.lane.drain` under the same carrier, so a parametric sweep rides the lane's one `CapacityLimiter`/`move_on_after` scope, an identical spec replays its `Ok` from the threaded session cache, and the batch resolves one `DrainReceipt[RecipeProduct]` carrying values, faults, cache, and the five-column tally. The per-spec pipeline is one staged fold: `_acquired` stages every `AssetFetch` through `ResourceRoot.read` (whole-modality; the roots plan carries its own retry class) and lands each payload at its project-relative destination through the lane's THREAD offload — the `mkdir`/`write_bytes` landing is blocking filesystem work that never sits on the event loop — `_staged` — itself offloaded on the lane's THREAD modality, because the handler chains copy artifact trees and write the handled JSON, blocking work that never sits on the event loop — constructs `Recipe(...)`, folds the row's `engines` through `guarded_sync(RetryClass.ENGINE, check, subject=...)` so a transiently-failing probe retries under one stamina row and a genuinely missing engine resolves a typed `BoundaryFault` BEFORE the subprocess spends minutes, assigns each input through `input_value_by_name`, calls `write_inputs_json` — the ONE coercion seam where every `pollination_handlers` input chain runs and the handled JSON materializes — keys the run with `ContentIdentity.key("recipe", ...)` over the recipe name, tag, and handled-inputs bytes, folds the run policy into the `RecipeSettings` default (`workers` and `reload_old` off the row, `debug_folder` off the spec), and resolves the readback roster (row/caller names, else the baked contract's own `_declared` output set), `_execute` (the offloaded kernel) runs the blocking `Recipe.run(settings, silent=True)` child-process wait on the lane's THREAD modality (never an event-loop stall; the lane's deadline and limiter bound it exactly as every drain unit), and the same kernel reads `luigi_execution_summary` for the run evidence, treats a non-empty `failure_message` as the fault regardless of the exit path — the fault detail carrying the parsed `error_summary` where the log walk yields one — and folds the staged roster through `output_value_by_name` into the handled `Map[str, object]` deliverable. `interface` is the schema projection for submission-constructing consumers: it loads the recipe's `package.json` contract as a queenbee `BakedRecipe` and returns `RecipeInterface.from_recipe(...)` on the lane's THREAD offload — the baked-folder parse is blocking I/O exactly as the staged and executed kernels are — and geometry's energy plane constructs `Job`/`JobArgument` shapes against this projection and hands execution back to `execute`, never a second runner.
-- Auto: one `recipe.execute` span minted from the `reliability/faults#FAULT` instrumentation-scope row wraps the executed leg — the offloaded run and readback — while the engine gate and coercion ride the `resilience.guarded` derivation span at staging and a cache-elided replay opens no `recipe.execute` span, so span presence IS execution evidence (never four sibling spans, never a phantom execute span on an elided run), and the `@receipted(OPEN)` aspect harvests the `RecipeReceipt.contribute` stream on the cleared `Ok` so telemetry and receipt egress ride composition, never call-site threading; every foreign raise converts exactly once — the AGPL import, the handler `ValueError` a failing input precondition raises, the subprocess spawn `OSError`, and the log-parse fault all cross the offload fence into `BoundaryFault`, and the interior past the fence is total over the rail; the subprocess environment discipline stays `lbt_recipes`' own (`--env` PATH/RAYPATH, cleared `PYTHONHOME`) — this owner never re-derives the shell line, and `RecipeSettings.workers` defaults from the row's `workers` hint rather than a hardcoded count; the deliverable readback is row-driven — a recipe whose `results` output is a folder of per-grid metrics returns the handler-parsed lists/`DataCollection` objects the `pollination_handlers.outputs` readers produce, so the product crosses to the caller typed, never as a path the caller must re-parse.
-- Packages: `queenbee` (`BakedRecipe.from_folder`/`RecipeInterface.from_recipe` the schema projection, `Job` + `queenbee.io.inputs.job` `JobArgument`/`JobPathArgument` the submission shapes a consumer constructs against `interface` — schema only; queenbee's click CLI and urllib transfer stay rejected, `cyclopts` and the roots rail own those concerns), `lbt-recipes` (`Recipe(recipe_name)`/`input_value_by_name`/`write_inputs_json(project_folder, indent, cpu_count)`/`run(settings, radiance_check, openstudio_check, energyplus_check, queenbee_path, silent, debug_folder)`/`output_value_by_name(output_name, project_folder)`/`luigi_execution_summary`/`error_summary`/`failure_message`, `RecipeSettings(folder, workers, reload_old, report_out, debug_folder)`, `version.check_radiance_date`/`check_openstudio_version`/`check_energyplus_version` — all bound function-local inside the boundary kernels; AGPL-3.0, process-boundary companion execution only), `pollination-handlers` (the `inputs.*`/`outputs.*` coercion functions `lbt_recipes` resolves by `importlib` from each recipe's `IOAliasHandler` spec — never imported statically here; AGPL-3.0, same posture), `expression` (`Block`/`Map`/`Option`/`Ok`/`Error`), `msgspec` (`Struct` the frozen carriers), `opentelemetry-api` (the one scope-row-minted tracer), stdlib `pathlib` (the handled `inputs.json` bytes the run key digests), runtime (`ContentIdentity`/`ContentKey` the run key, `RuntimeRail`/`BoundaryFault` the rail — the lane offload fence converts the staged, executed, and projection kernels' raises, `RetryClass`/`guarded_sync` the engine gate, `LanePolicy`/`Admit`/`DrainReceipt` the execution lane, `ResourceRoot`/`ReadModality` the asset rail, `Receipt`/`OPEN`/`receipted` the evidence egress).
-- Growth: a new simulation workflow is one `RecipeName` member plus one `RECIPES` row (outputs, engines, workers, reload) — never a runner subclass; an external recipe folder is a `str` selector whose `outputs`/`engines` ride the spec or derive from the baked contract, no new entry; a new engine is one `Engine` member plus one `ENGINE_CHECK` row; a new remote asset kind is one `AssetFetch` on the spec; a new run-policy dimension is one `RecipeRow` column or one `RecipeSpec` Option folded into the `RecipeSettings` default, never a per-call knob; a submission-schema consumer composes `interface` — zero new surface; the deferred cloud-submission modality (a Pollination platform `Job` POST composing the queenbee `Job`/`JobArgument`/`JobPathArgument` shapes against `interface`) enters as one more execute arm over the same `RecipeSpec` when a consumer names it, never a parallel owner.
-- Boundary: no luigi scheduling, no handler resolution or chain ordering (`lbt_recipes._RecipeParameter` owns `importlib` binding), no engine-version probing beside `version.check_*`, no recipe-schema re-mint (queenbee owns the vocabulary; a `msgspec`/protobuf mirror of a queenbee model is the deleted single-mint violation), no durable run ledger (the session cache is lane-local; durable reuse stays the C# `Rasm.Persistence` ledger consumed at the wire), and no in-process simulation — the engines are external binaries. The deleted forms: a bare `recipe.run()` on the event loop where the lane offload owns the blocking wait; trusting the exit code where `failure_message`/`luigi_execution_summary` decide the rail; returning the project folder where the row's handled outputs are the product; a `radiance_check=True` flag threaded per call where the row's `engines` fold the gate once; a per-recipe `run_annual_daylight`/`run_energy_use` function family where one `execute` discriminates on the spec; a module-top `import lbt_recipes` that loads the AGPL honeybee tree into every companion start where the function-local boundary import defers it to first execution; a hand-opened `stamina` block where `guarded_sync(RetryClass.ENGINE, ...)` rides the one policy row; an un-keyed batch where the `ContentKey` elides identical simulations; an event-loop `mkdir`/`write_bytes` in the acquisition fold where the THREAD offload owns the blocking landing; a success-path `error_summary` log walk where only the failure arm pays the parse; a hand-mirrored readback roster for an external folder where `_declared` reads the baked contract's own `outputs`; `report_out` threading where `silent=True` owns the report surface and the receipt the evidence; and a second submission runner beside `interface` where the schema projection already serves the constructing consumer.
+- Owner: `RecipeExecution` holds the one `LanePolicy` its runs drain and offload under — capacity and deadline arrive as the caller's `execution/admission#CONTEXT` budget projection at construction, never a per-call knob — and the `Option[ResourceRoot]` remote specs resolve against. The `RecipeSpec.recipe` selector discriminates by VALUE — a catalog member or an external folder path — never a `packaged: bool` beside it, and an external folder's empty readback roster derives from the baked `package.json` contract through `_declared`, never a hand-mirrored list.
+- Entry: `execute` threads the caller's session cache as a value — a prior `DrainReceipt.cache` re-enters as the next call's carrier, so elision is threaded state, never hidden owner state. `interface` is the schema projection for submission-constructing consumers; execution always returns through `execute`, never a second runner.
+- Auto: span presence IS execution evidence — one `recipe.execute` span wraps the executed leg, the engine gate and coercion ride the `guarded` derivation span at staging, and a cache-elided replay opens no execute span. The subprocess environment discipline stays `lbt_recipes`' own (`--env` PATH/RAYPATH, cleared `PYTHONHOME`) — this owner never re-derives the shell line. The deliverable is row-driven and typed: handler-parsed lists and `DataCollection` objects, never a path the caller must re-parse.
+- Growth: a new simulation workflow is one `RecipeName` member plus one `RECIPES` row; a new engine one `Engine` member plus one `ENGINE_CHECK` row; a new remote asset kind one `AssetFetch` on the spec; a new run-policy dimension one `RecipeRow` column or one `RecipeSpec` Option folded into the `RecipeSettings` default; the cloud-submission modality (a Pollination platform `Job` POST composing the queenbee shapes against `interface`) enters as one more execute arm over the same `RecipeSpec` when a consumer names it, never a parallel owner.
+- Boundary: no luigi scheduling, no handler resolution or chain ordering, no engine probing beside `version.check_*`, and no recipe-schema re-mint — queenbee owns the vocabulary, and a `msgspec`/protobuf mirror of a queenbee model is a single-mint violation. queenbee's click CLI and urllib transfer stay rejected: `cyclopts` and the roots rail own those concerns. No durable run ledger — the session cache is lane-local, and durable reuse stays the C# `Rasm.Persistence` ledger consumed at the wire. The engines are external binaries; no simulation runs in-process.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -47,6 +45,7 @@ if TYPE_CHECKING:  # the AGPL lbt tree loads function-local at the execution bou
 
 
 class RecipeName(StrEnum):
+    # `Recipe.__init__` normalizes the hyphenated value onto the underscore install folder, so the wire spelling stays hyphenated.
     ANNUAL_DAYLIGHT = "annual-daylight"
     ANNUAL_DAYLIGHT_ENHANCED = "annual-daylight-enhanced"
     ANNUAL_IRRADIANCE = "annual-irradiance"
@@ -127,8 +126,7 @@ class RecipeReceipt(Struct, frozen=True):
     content_key: ContentKey
 
     def contribute(self) -> Iterable[Receipt]:
-        # the receipts owner's Evidence triple routes the `fact` case; the full luigi summary stays
-        # on this struct — the emitted fact carries the scalar evidence alone.
+        # the full luigi summary stays on this struct; the emitted fact carries the scalar evidence alone.
         yield Receipt.of(
             SCOPES[Scope.RECIPE],
             (
@@ -150,8 +148,7 @@ class RecipeProduct(Struct, frozen=True):
     receipt: RecipeReceipt
 
     def contribute(self) -> Iterable[Receipt]:
-        # structural ReceiptContributor conformance — the product delegates to its receipt so the
-        # @receipted(OPEN) _emit harvest reads one stream, never a second contributor shape.
+        # the product delegates to its receipt so the `@receipted(OPEN)` harvest reads one stream, never a second contributor shape.
         yield from self.receipt.contribute()
 
 
@@ -186,10 +183,7 @@ class RecipeExecution(Struct, frozen=True):
                 ).default_with(_refused)
 
     async def interface(self, spec: RecipeSpec) -> "RuntimeRail[RecipeInterface]":
-        # schema projection for submission-constructing consumers (geometry energy/simulate builds
-        # queenbee Job/JobArgument against this; execution always returns through `execute`); the
-        # baked-contract folder parse is blocking I/O, so the kernel rides the lane's THREAD
-        # offload and its raises cross the one offload fence.
+        # the baked-contract folder parse is blocking I/O, so the kernel rides the THREAD offload and its raises cross the one fence.
         return await self.lane.offload(_interface, spec, modality=Modality.THREAD)
 
     async def _admitted(self, spec: RecipeSpec) -> Admit[RecipeProduct]:
@@ -199,8 +193,7 @@ class RecipeExecution(Struct, frozen=True):
         )
 
     async def _prepared(self, spec: RecipeSpec) -> "RuntimeRail[_Staged]":
-        # staging is blocking work (engine probes, Recipe construction, handler coercion copying
-        # artifact trees into the project folder), so it rides the lane's THREAD modality — the
+        # staging is blocking work (engine probes, handler coercion copying artifact trees), so it rides the THREAD modality — the
         # offload fence converts the handler/spawn raises; the acquisition fault short-circuits.
         acquired = await self._acquired(spec.assets)
         if acquired.is_error():
@@ -228,9 +221,8 @@ class RecipeExecution(Struct, frozen=True):
         return landed
 
     async def _observed(self, staged: _Staged) -> "RuntimeRail[RecipeProduct]":
-        # the blocking `queenbee local run` child-process wait crosses the lane on the THREAD
-        # modality under the lane's one deadline and limiter; the kernel below owns the AGPL calls,
-        # the flatten joins the offload rail onto the kernel rail, and _emit harvests the receipt.
+        # the blocking child-process wait crosses on the THREAD modality under the lane's deadline and limiter; the flatten joins the
+        # offload rail onto the kernel rail, and `_emit` harvests the receipt.
         with trace.get_tracer(SCOPES[Scope.RECIPE]).start_as_current_span("recipe.execute"):
             return (await self.lane.offload(_execute, staged, modality=Modality.THREAD)).bind(lambda rail: rail).map(_emit)
 
@@ -252,9 +244,7 @@ def _emit(product: RecipeProduct) -> RecipeProduct:
 
 
 def _landed(relative: str, got: Buffer) -> int:
-    # the acquired payload lands at the project-relative destination the handler chains read; the
-    # mkdir/write is blocking filesystem work, so the kernel crosses the lane on the THREAD
-    # modality — never an event-loop stall inside the async acquisition fold.
+    # the payload lands at the project-relative destination the handler chains read; the blocking mkdir/write crosses on THREAD.
     destination = Path(relative)
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_bytes(bytes(got))
@@ -262,20 +252,16 @@ def _landed(relative: str, got: Buffer) -> int:
 
 
 def _declared(recipe: "Recipe") -> tuple[str, ...]:
-    # the readback roster the baked `package.json` contract itself declares: an external folder
-    # with no caller-named outputs still reads back its full declared set, and the queenbee
-    # contract — never a hand-mirrored list — is the roster's source of truth. Cold schema tree;
-    # loads only at this derivation seam.
+    # the baked `package.json` contract — never a hand-mirrored list — is the roster's source of truth; the cold schema tree loads
+    # only at this derivation seam.
     from queenbee.recipe.recipe import BakedRecipe, RecipeInterface  # noqa: PLC0415 — boundary import beside the AGPL tree
 
     return tuple(out.name for out in RecipeInterface.from_recipe(BakedRecipe.from_folder(recipe.path)).outputs)
 
 
 def _staged(spec: RecipeSpec) -> "RuntimeRail[_Staged]":
-    # ONE coercion seam: engine gate, Recipe construction, per-input assignment, and the handled
-    # inputs.json; the run key derives from the recipe identity + handled bytes so an identical
-    # simulation elides through the lane cache and the persistence ledger dedupes at the wire.
-    # Runs on the lane's THREAD modality; a handler ValueError crosses the offload fence.
+    # ONE coercion seam — engine gate, Recipe construction, input assignment, handled inputs.json; the run key derives from the recipe
+    # identity + handled bytes, so an identical simulation elides through the lane cache and the persistence ledger dedupes at the wire.
     from lbt_recipes import version  # noqa: PLC0415 — AGPL boundary import
     from lbt_recipes.recipe import Recipe  # noqa: PLC0415
     from lbt_recipes.settings import RecipeSettings  # noqa: PLC0415
@@ -292,9 +278,7 @@ def _staged(spec: RecipeSpec) -> "RuntimeRail[_Staged]":
             recipe.input_value_by_name(name, value)
         handled = Path(recipe.write_inputs_json(indent=0))
         key = ContentIdentity.key("recipe", f"{recipe.name}:{recipe.tag}:".encode() + handled.read_bytes())
-        # run policy is data, never a per-call knob: `reload_old` is the row's reuse column and
-        # `debug_folder` the spec's capture Option; `report_out` stays rejected — silent=True owns
-        # the report surface, the receipt the evidence.
+        # run policy is data, never a per-call knob; `report_out` stays rejected — `silent=True` owns the report surface, the receipt the evidence.
         settings = spec.settings.default_with(
             lambda: RecipeSettings(workers=row.workers, reload_old=row.reload, debug_folder=spec.debug.to_optional())
         )
@@ -304,9 +288,8 @@ def _staged(spec: RecipeSpec) -> "RuntimeRail[_Staged]":
 
 
 def _execute(staged: _Staged) -> "RuntimeRail[RecipeProduct]":
-    # subprocess leg + evidence readback; the exit path never decides alone — failure_message and
-    # the luigi summary are the verdict, `error_summary` the structured detail the fault carries,
-    # and the deliverable is the handled output value set over the staged readback roster.
+    # the exit path never decides alone: `failure_message` and the luigi summary are the verdict, `error_summary` the structured
+    # detail the fault carries.
     folder = staged.recipe.run(settings=staged.settings, silent=True)
     failure = Option.of_optional(staged.recipe.failure_message(folder) or None)
     errors = failure.bind(lambda _: Option.of_optional(staged.recipe.error_summary(folder) or None))
@@ -359,3 +342,11 @@ RECIPES: Final[Map[RecipeName, RecipeRow]] = Map.of_seq([
     (RecipeName.UTCI_COMFORT_MAP, RecipeRow(outputs=("tcp", "csp", "hsp", "condition", "utci", "category"), engines=_COMFORT_ENGINES, workers=2)),
 ])
 ```
+
+## [03]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+-->
+
+(none)

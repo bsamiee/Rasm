@@ -1,20 +1,19 @@
 # [PY_COMPUTE_INTERVAL]
 
-The one validated-numerics owner producing certified enclosures over a layered floor ladder. `IntervalNumerics` evaluates an interval extension over an input box, certifies that an enclosure contains a target, and refines an enclosure by bisection toward a width tolerance, all on one `IntervalOp` `@tagged_union` whose tag selects the operation and whose case payload parameterizes the input shape (a single box or a polynomial); the certified-output shape is the `Yield = Enclosure | tuple[Enclosure, ...]` union the dispatch fold returns and `IntervalReceipt.of` collapses total, so `run` is one uniform `RuntimeRail[IntervalReceipt]` egress over every op. `Interval` is the inclusion-monotone `Meta`-bounded value object owning the full relational algebra (`contains`/`overlaps`/`hull`/`meet`/`bisect`/`mid`/`rad`) `flint.arb` and `mpmath.iv` expose, so containment and hull are value-object methods rather than re-derived per call. `Certificate` replaces the prior lone `bool certified` flag with the bounded `Floor` ladder member that produced the enclosure plus its `rel_accuracy_bits` evidence, so a receipt names *which* floor certified an enclosure and *how tight* the ball is, not merely that it did. `Floor` is the closed Arb→mpmath→numpy ladder vocabulary the `_FLOOR_LADDER` data table folds — the resolution is a `Block.choose`/`try_head` first-available fold over the table, never the three stacked `try/except ImportError: pass` blocks that smuggled import-failure into domain control flow.
+The one validated-numerics owner producing certified enclosures over a layered floor ladder: `IntervalNumerics` evaluates an interval extension over a box, certifies that an enclosure contains a target, refines an enclosure by bisection toward a width tolerance, and isolates certified polynomial roots, every operation one tag on one `IntervalOp` dispatch. The receipt names which `Floor` certified an enclosure and how tight the ball is — Arb and mpmath certify, the numpy grid is a sound-but-uncertified band — so rigor is first-class evidence, never a bare boolean.
+
+`run` rides the hub `evidence_run` weave under the `compute.interval` scope row, and `graduates` feeds the solver-axis projection on `solvers/receipt.md#RECEIPT` with the `(ledger, ceiling, key)` triple projected from its own `Certificate`. Identity is op-owned: `identity_buffer` folds the extension key, bounds, target, and every yield-changing knob through runtime `ContentIdentity`, and a box admitting from a `numerics/array.md#PAYLOAD` payload keys through the same seed.
 
 ## [01]-[INDEX]
 
-- [01]-[ENCLOSURE]: certified interval evaluation, containment certification, and width-driven bisection refinement on one `IntervalNumerics` owner driven by the `_FLOOR_LADDER` data table (each row a `(Floor, evaluator)` pair), the `flint.arb`/`mpmath.iv`/`numpy` floor ladder resolved by a first-available `Block.choose` fold, the `flint.good` adaptive-precision driver and `arb_poly.real_roots` certified root isolation stacked into the evaluate and refine rails, content identity keyed through the runtime `ContentIdentity` over the op-owned `IntervalOp.identity_buffer` fold (extension key, bounds, target, and yield-changing knobs — never the box alone), and the `@receipted` egress aspect.
+- [01]-[ENCLOSURE]: certified evaluate/certify/refine/roots on one `IntervalNumerics` owner over the Arb-to-mpmath-to-numpy floor ladder.
 
 ## [02]-[ENCLOSURE]
 
-- Owner: `IntervalNumerics` — the ONE validated-arithmetic owner; `Interval` the inclusion-monotone `[lo, hi]` value object with its relational algebra, `Enclosure` the interval plus a `Certificate`, `Floor` the closed `Arb`/`Mpmath`/`Numpy` ladder vocabulary, `Certificate` the floor-and-`rel_accuracy_bits` evidence the receipt reads, and `IntervalOp` the `@tagged_union` discriminating `Evaluate(expr, box)` (interval extension over a box through the tightest available floor), `Certify(enclosure, target)` (does the enclosure provably contain a target `Interval` or scalar), `Refine(expr, enclosure, target, target_width, budget)` (`tailrec` bisection re-evaluating `expr` over each half toward a width tolerance, retaining the half whose certified extension brackets the target), and `Roots(poly, box)` (certified `arb_poly.real_roots` isolation as a tuple of enclosures). Every certified operation is one tag on this owner over one `_dispatch` fold, never a parallel rigorous-arithmetic surface and never a per-tag `_*_evaluate` body.
-- Operation fold: `_dispatch` is the one total `match` over `IntervalOp` closed by `assert_never` — `Evaluate` resolves the ladder and runs the floor evaluator, `Certify` reseats the enclosure's `Certificate` to `Refuted` when `Interval.contains` fails (the certification narrows, never widens), `Refine` runs the `tailrec` `_bisect` loop, and `Roots` isolates certified real roots. `_dispatch(op) -> Yield` returns the honest `Yield = Enclosure | tuple[Enclosure, ...]` union its arms produce — `Evaluate`/`Certify`/`Refine` fold to one `Enclosure`, `Roots` to a `tuple[Enclosure, ...]` — and `IntervalReceipt.of` folds that union total over both shapes, so the output shape is the union the body proves rather than a phantom output type parameter on the carrier the arms cannot statically satisfy.
-- Refine: `_bisect` is the `expression` `tailrec` trampoline — it bisects the interval through `Interval.bisect`, re-evaluates the carried `Expr` over each half through the resolved floor, retains the half whose certified extension brackets the target (or the tighter half when neither does), and returns `TailCall` until the width falls under `target_width` or the integer `budget` is exhausted, so refinement is a stack-safe fold toward a tolerance rather than the prior single parity-keyed `Interval(lo, mid) if budget % 2` step that discarded the budget, the target, and root bracketing. `Refine` carries the real extension rather than an identity placeholder, so the refined half stays certified by the floor that produced it instead of being re-rounded; a `Roots`-isolated enclosure feeds straight back as the refine target.
-- Entry: `IntervalNumerics.run(op, *, precision)` is the one static-method entry on the `IntervalNumerics` owner, riding the hub `evidence_run` weave under the `compute.interval` scope row — the former page-local `compute.rigor` tracer literal disagreed with the owning module leaf and is the deleted form — so span, fault fence, and the fenced `@receipted(REDACTION)` receipt harvest are composed, never page-owned. `IntervalNumerics.graduates(receipt)` FEEDS the solver-axis graduation projection on `solvers/receipt` with the `(ledger, ceiling, key)` triple projected from its own `Certificate` evidence (refutation and width against the `_CEILING` family policy row), the one producer pattern the hub rules.
-- Receipt: `IntervalReceipt.of(op_tag, yielded, key)` folds the dispatched `Yield` total over both output shapes — a single `Enclosure` reads its own width/floor/`accuracy_bits`, a `Roots` tuple folds to its widest (loosest-certified) member plus the `roots` count, an empty tuple a vacuous certified row — so one receipt carries every op without a per-tag carrier. `span_facts` projects the bounded native scalars the `is_recording()`-gated span batches through `set_attributes`; `contribute` returns the one-element `tuple[Receipt, ...]` the runtime `ReceiptContributor` port streams — `Receipt.of("compute.interval", ("emitted", op_tag, facts))` against the runtime two-argument `of(owner, evidence)` contract over the `(Phase, subject, facts)` triple, never the four-positional `Receipt.of("emitted", owner, subject, facts)` form the runtime owner deletes and never a single-`Receipt` return against the `Iterable[Receipt]` port — spreading `span_facts` plus the content-key hex so the OTLP attribute set and the receipt facts share one projection. The facts ride the width, the `Floor` tag, the `rel_accuracy_bits`, the `roots` count, and the content-key hex as native scalars the `Encoder(enc_hook=repr, order="deterministic")` renderer serializes without an `f""`/`str()` coerce. A `Floor.Arb` or `Floor.Mpmath` enclosure graduates as a proof `graduation/handoff.md#GRADUATION` admits on the `solver` axis; a `Floor.Numpy` band graduates only as advisory evidence, the floor distinction first-class on the `Certificate` rather than a bare boolean.
-- Packages: `flint` (`arb`/`arb(mid, rad)`, `arb.mid`/`arb.rad`/`arb.rel_accuracy_bits` the ball endpoints and accuracy evidence, `arb.contains`/`arb.overlaps`/`arb.union`/`arb.intersection`/`arb.is_finite` the relational algebra the `Interval` value-object methods mirror, `arb_poly`/`arb_poly.real_roots` certified root isolation, `flint.good(func, prec=, maxprec=)` the seeded adaptive-precision driver and `flint.ctx.workprec` the block-local precision scope for the `Roots` isolation — python-flint Arb ball arithmetic), `mpmath` (`iv.mpf` the interval lift, `workprec` the block-local restore-safe precision scope for the `iv`-context floor — the arbitrary-precision interval-context floor), `numpy` (`linspace`/`array`/`min`/`max` the `Numpy`-floor grid hull, `finfo(float64).eps`/`tiny` the `_ULP`/`_TINY` outward directed-rounding pad over the hull endpoints, `ascontiguousarray`/`float64` the canonical content-identity buffer), `expression` (`tagged_union`/`tag`/`case` the `IntervalOp` ADT, `Block.of_seq`/`Block.choose`/`Block.try_head` the floor-ladder first-available fold, `tailrec`/`TailCall` the bisection trampoline, `Ok`/`Error` the `run`-arm and in-body `_keyed` re-raise `match`, `Option`/`Some`/`Nothing` the floor-resolution and root-bracket folds), `msgspec` (`Struct`, `Meta` the `Interval`/`Certificate` bounds), `expression.collections` (`Map` the `_FLOOR_LADDER` table rail), `beartype` (`@beartype(conf=FAULT_CONF)` the `_report` contract fence whose violation the `CLASSIFY` `api` row folds onto the rail), `numerics/array.md#PAYLOAD` (a box admitting from an `ArrayPayload` keys through the same `ContentIdentity.of` seed), hub (`EvidenceScope`/`evidence_run`/`GraduationReceipt` — the weave and the graduation carrier), `solvers/receipt.md#RECEIPT` (`graduate` the solver-axis projection this owner feeds), runtime (`RuntimeRail`/`boundary`/`FAULT_CONF`, `ContentIdentity`/`ContentKey`/`CANONICAL_POLICY`, `Receipt` the contributor row)` egress aspect owning the `Signals.emit` fold rather than imported here).
-- Growth: a new certified operation is one `IntervalOp` case plus one `_dispatch` arm; a new floor is one `Floor` member plus one `_FLOOR_LADDER` row plus one `Certificate` arm; a new relational op is one `Interval` method; a new evidence slot is one column on `IntervalReceipt`; zero new surface, never a parallel rigorous-arithmetic struct, never a per-floor `_*_evaluate` body, never a `try/except` ladder parallel to the `_FLOOR_LADDER` fold.
+- Owner: `IntervalNumerics` — every certified operation is one `IntervalOp` tag over one `_dispatch` fold, never a parallel rigorous-arithmetic surface or a per-tag evaluator family; `_dispatch` returns the honest `Yield` union its arms produce, and `IntervalReceipt.of` folds that union total, so no phantom output type parameter rides the carrier.
+- Cases: `Refine` carries the real extension so the refined half stays certified by the floor that produced it, never re-rounded through an identity placeholder, and a `Roots`-isolated enclosure feeds straight back as a refine target; `Certify` only narrows — a failed containment refutes the certificate and a refuted Arb enclosure stays first-class evidence of the failed claim.
+- Receipt: a `Roots` tuple reports its widest (loosest-certified) member beside the root count, and an empty isolation is a vacuous certified row rather than a missing receipt; `span_facts` and the receipt facts share one projection so the OTLP attribute set never forks from the receipt.
+- Growth: a new certified operation is one `IntervalOp` case plus one `_dispatch` arm plus its `identity_buffer` arm; a new floor is one `Floor` member plus one `_FLOOR_LADDER` row plus one `Certificate` arm; a new relational op is one `Interval` method.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
@@ -45,9 +44,7 @@ type Yield = Enclosure | tuple[Enclosure, ...]  # Evaluate/Certify/Refine -> one
 
 
 class Floor(StrEnum):
-    # the closed certified-arithmetic ladder, tightest first; the enum value names the rung the
-    # `Certificate` carries and the receipt reads. `Arb`/`Mpmath` certify, `Numpy` is the sound
-    # but uncertified outward-rounding band — the floor distinction is first-class, never a bool.
+    # the closed certified-arithmetic ladder, tightest first; the enum value names the rung the `Certificate` carries.
     ARB = "arb"
     MPMATH = "mpmath"
     NUMPY = "numpy"
@@ -59,24 +56,18 @@ class Floor(StrEnum):
 
 @runtime_checkable
 class Expr(Protocol):
-    # the interval extension: one callable that is inclusion-monotone over whatever ball/interval type
-    # the resolving floor lifts (a `flint.arb`, an `mpmath.iv.mpf`, or the value-object `Interval` the
-    # `Numpy` floor passes), so the same closure evaluates on every rung. Replaces the phantom
-    # `expr: object` the prior page carried — a symbolic derivation lowers a
-    # `sympy.lambdify(..., modules='mpmath')`/Arb closure to this shape.
+    # inclusion-monotone over whatever ball/interval type the resolving floor lifts, so one closure evaluates on every rung; a
+    # symbolic derivation lowers a `sympy.lambdify(..., modules='mpmath')`/Arb closure to this shape.
     def over(self, ball: object, /) -> object: ...
 
-    # the extension's STABLE content identity — a lowered-spec digest for a symbolic/jit-minted
-    # derivation, canonical float64 coefficient bytes for a polynomial — so the op identity fold
-    # names the expression; an anonymous closure with no key cannot enter the identity rail.
+    # the extension's STABLE identity (lowered-spec digest or canonical coefficient bytes) — an anonymous
+    # closure with no key cannot enter the identity rail.
     def key(self) -> bytes: ...
 
 
 @runtime_checkable
 class Poly(Expr, Protocol):
-    # a polynomial extension additionally exposing its `arb`-domain coefficient vector so the `Roots`
-    # op feeds `arb_poly.real_roots` certified isolation rather than a hand-rolled Taylor scan; its
-    # `key()` is the canonical contiguous float64 render of exactly these coefficients.
+    # exposes the `arb`-domain coefficient vector so `Roots` feeds `arb_poly.real_roots`; `key()` is the canonical float64 render of these.
     def coeffs(self) -> Sequence[float]: ...
 
 
@@ -91,8 +82,7 @@ _TINY: Final[float] = float(np.finfo(np.float64).tiny)  # the absolute outward f
 
 
 class Interval(Struct, frozen=True, gc=False):
-    # the inclusion-monotone value object owning the relational algebra `flint.arb`/`mpmath.iv`
-    # expose, so containment/hull/bisect are methods rather than re-derived per call site.
+    # owns the relational algebra `flint.arb`/`mpmath.iv` expose, so containment/hull/bisect are methods, never re-derived per call site.
     lo: float
     hi: float
 
@@ -117,8 +107,7 @@ class Interval(Struct, frozen=True, gc=False):
         return Interval(value, value)
 
     def contains(self, target: Target, /) -> bool:
-        # one polymorphic containment over a scalar point OR a sub-interval — the `arb.contains`
-        # semantic, discriminated by the target shape rather than a `contains`/`contains_interval` pair.
+        # one polymorphic containment discriminated by target shape — never a `contains`/`contains_interval` pair.
         match target:
             case Interval(lo=lo, hi=hi):
                 return self.lo <= lo and hi <= self.hi
@@ -132,8 +121,7 @@ class Interval(Struct, frozen=True, gc=False):
         return Interval(min(self.lo, other.lo), max(self.hi, other.hi))
 
     def meet(self, other: "Interval", /) -> Option["Interval"]:
-        # the certified `arb.intersection`: `Nothing` when the intervals are disjoint, so a meet
-        # that would invert (`lo > hi`) is the structural absence rather than a malformed interval.
+        # `Nothing` on disjoint intervals — an inverted `lo > hi` meet is structural absence, never a malformed interval.
         return Some(Interval(lo, hi)) if (lo := max(self.lo, other.lo)) <= (hi := min(self.hi, other.hi)) else Nothing
 
     def bisect(self) -> tuple["Interval", "Interval"]:
@@ -141,8 +129,6 @@ class Interval(Struct, frozen=True, gc=False):
 
 
 class Certificate(Struct, frozen=True, gc=False):
-    # replaces the lone `bool certified`: the producing `Floor` plus its accuracy evidence. A
-    # `refuted` flag flips only through `Certify` when containment fails — the certification narrows.
     floor: Floor
     accuracy_bits: AccuracyBits = 0
     refuted: bool = False
@@ -164,16 +150,10 @@ class Enclosure(Struct, frozen=True, gc=False):
         return self.interval.width
 
     def recertify(self, target: Target, /) -> "Enclosure":
-        # `Certify`: keep the certificate when the interval brackets the target, refute it otherwise —
-        # a refuted Arb/mpmath enclosure stays first-class evidence of a failed containment claim.
         return self if self.interval.contains(target) else Enclosure(self.interval, self.certificate.refute())
 
 
 class IntervalReceipt(Struct, frozen=True):
-    # the `ReceiptContributor` `run` returns on its rail — the receipt IS the contributor and the
-    # rail IS the boundary, the `analysis/transform.md#TRANSFORM`/`numerics/statistics.md#STATISTICS`
-    # egress form. `of` folds the yield total over both output shapes: a single `Enclosure` reads its
-    # own width/floor, a `Roots` `tuple` folds to its widest (loosest-certified) member plus `roots`.
     op: Tag
     floor: Floor
     width: Width
@@ -184,9 +164,7 @@ class IntervalReceipt(Struct, frozen=True):
 
     @staticmethod
     def of(op: Tag, yielded: Yield, key: ContentKey, /) -> "IntervalReceipt":
-        # an `Enclosure` `Struct` is not a `Sequence`, so the single-enclosure ops fall to the capture
-        # arm while the `Roots` tuple folds to its widest (loosest-certified) member; an empty isolation
-        # is a vacuous certified row carrying `roots=0` rather than a missing receipt.
+        # an `Enclosure` `Struct` is not a `Sequence`, so the single-enclosure ops fall to the capture arm, never matched as `[*roots]`.
         match yielded:
             case [] | ():
                 return IntervalReceipt(op, Floor.ARB, 0.0, 0, certified=True, roots=0, content_key=key)
@@ -200,14 +178,10 @@ class IntervalReceipt(Struct, frozen=True):
 
     @property
     def span_facts(self) -> dict[str, object]:
-        # the bounded native scalars the `is_recording()`-gated span batches through `set_attributes`;
         # the `content_key` hex rides the receipt facts only, not the OTLP attribute set.
         return {"floor": self.floor.value, "width": self.width, "accuracy_bits": self.accuracy_bits, "certified": self.certified, "roots": self.roots}
 
     def contribute(self) -> Iterable[Receipt]:
-        # the runtime two-argument `Receipt.of(owner, evidence)` contract over the `(Phase, subject,
-        # facts)` triple; native scalars ride the `dict[str, object]` `EventDict` the `enc_hook=repr`
-        # renderer serializes without a coerce — never the four-positional form or a pre-`f""` map.
         facts: dict[str, object] = {**self.span_facts, "content_key": self.content_key.project("hex")}
         return (Receipt.of("compute.interval", ("emitted", self.op, facts)),)
 
@@ -217,11 +191,6 @@ class IntervalReceipt(Struct, frozen=True):
 
 @tagged_union(frozen=True)
 class IntervalOp:
-    # the certified-operation request; the tag selects the op and the case payload parameterizes the
-    # input shape. The certified-output shape is the `Yield` union the dispatch fold returns and
-    # `IntervalReceipt.of` collapses total — `run` returns `RuntimeRail[IntervalReceipt]` for every op,
-    # so no phantom output type rides the carrier (a free `R` the `_dispatch` arms cannot prove they
-    # satisfy is the unsound form; the `assert_never`-closed `match` is the dense and sound owner).
     tag: Tag = tag()
     evaluate: tuple[Expr, Interval] = case()
     certify: tuple[Enclosure, Target] = case()
@@ -238,8 +207,6 @@ class IntervalOp:
 
     @staticmethod
     def Refine(expr: Expr, enclosure: Enclosure, target: Target, target_width: Width, budget: int = 64, /) -> "IntervalOp":
-        # carries the real extension so `_bisect` re-evaluates `expr` over each half — the refined
-        # enclosure stays certified by the same floor, never re-rounded by an identity expression.
         return IntervalOp(refine=(expr, enclosure, target, target_width, budget))
 
     @staticmethod
@@ -247,12 +214,8 @@ class IntervalOp:
         return IntervalOp(roots=(poly, box))
 
     def identity_buffer(self, precision: int) -> bytes:
-        # the FULL op identity, owned by the op: tag, the extension's stable `Expr.key()` (a lowered-spec
-        # digest or canonical coefficient bytes — never an opaque closure id), every interval/enclosure
-        # bound, the target, and every knob that changes the yield (`target_width`, `budget`, and
-        # `precision` on the floor-evaluating arms; the input `Certificate` on `Certify`, whose output
-        # carries it through) — so two different computations over one box never share a `ContentKey`.
-        # Length-prefixed parts keep the buffer unambiguous; a new op case is one arm here.
+        # tag, stable `Expr.key()`, every bound, the target, and every yield-changing knob fold into the buffer, so two different
+        # computations over one box never share a `ContentKey`; length-prefixed parts keep the buffer unambiguous.
         def _bounds(interval: Interval) -> bytes:
             return np.ascontiguousarray([interval.lo, interval.hi], dtype=np.float64).tobytes()
 
@@ -285,10 +248,8 @@ class IntervalOp:
 # --- [TABLES] ------------------------------------------------------------------------------
 
 
-# the ladder is data, not control flow: each row binds a `Floor` to its evaluator built behind the
-# floor's gated import, and `_resolve_floor` keeps the tightest row whose import resolves through one
-# `Block.choose`/`try_head` first-available fold — never three stacked `try/except ImportError: pass`
-# so the fold needs no catch-all; the order Arb -> Mpmath -> Numpy is the tightness order.
+# the ladder is data, not control flow: each row binds a `Floor` to its evaluator behind the gated import, and `_resolve_floor`
+# keeps the tightest importable row through one first-available fold — never stacked `try/except ImportError: pass` blocks.
 class FloorRow(Struct, frozen=True):
     floor: Floor
     evaluate: Callable[[Expr, Interval, int], Enclosure]
@@ -298,11 +259,8 @@ def _arb_evaluate(expr: Expr, box: Interval, precision: int) -> Enclosure:
     import flint
 
     ball = flint.arb(box.mid, box.rad)
-    # `flint.good(func, prec=, maxprec=)` seeds the starting precision and drives it up adaptively
-    # until the ball is accurate to `ctx.dps`, capped at `maxprec` so a non-convergent extension halts
-    # rather than looping — the bounded form of the hand-written `ctx.prec` retry the prior page lacked.
-    # Seeding through `prec=` keeps the working precision local to the call rather than leaking a session
-    # `ctx.prec` mutation across evaluators. `rel_accuracy_bits`/`mid`/`rad` are the certified evidence.
+    # `flint.good` drives precision up adaptively, capped at `maxprec` so a non-convergent extension halts rather than looping;
+    # seeding through `prec=` keeps working precision call-local instead of leaking a session `ctx.prec` mutation across evaluators.
     result = flint.good(lambda: expr.over(ball), prec=precision, maxprec=8 * precision)
     interval = Interval.around(float(result.mid()), float(result.rad()))
     return Enclosure(interval, Certificate(Floor.ARB, int(result.rel_accuracy_bits())))
@@ -311,23 +269,17 @@ def _arb_evaluate(expr: Expr, box: Interval, precision: int) -> Enclosure:
 def _mpmath_evaluate(expr: Expr, box: Interval, precision: int) -> Enclosure:
     import mpmath
 
-    # the block-local `mpmath.workprec(precision)` manager scopes the working bit-precision and restores
-    # it on exit, so the `iv`-context evaluation never leaks a session `prec` mutation across evaluators —
-    # the precision-scoping discipline the `Arb`/`Roots` rungs hold. `iv.mpf([lo, hi])` lifts the box to
-    # the inclusion-monotone interval whose `.a`/`.b` endpoints read back as the certified band.
+    # `workprec` restores on exit so the `iv`-context evaluation never leaks a session `prec` mutation; `iv.mpf([lo, hi])` lifts the
+    # box to the inclusion-monotone interval whose `.a`/`.b` endpoints read back as the certified band.
     with mpmath.workprec(precision):
         result = expr.over(mpmath.iv.mpf([box.lo, box.hi]))
     return Enclosure(Interval(float(result.a), float(result.b)), Certificate(Floor.MPMATH, precision))
 
 
 def _numpy_evaluate(expr: Expr, box: Interval, _precision: int) -> Enclosure:
-    # numpy carries no interval type, so the uncertified floor evaluates the scalar `expr.over` on a
-    # `linspace` grid spanning the box, hulls the samples, then pads the hull outward by one relative
-    # `np.finfo(float64).eps` ulp (floored at `tiny` so a degenerate hull still widens) — a directed-
-    # rounding emulation through the catalogued `finfo` metadata, since the branch numpy surface
-    # carries no `nextafter` directed-step. Sound for a monotone extension, a heuristic band otherwise
-    # (never the prior midpoint-collapse + `box.rad` that assumed a 1-Lipschitz `expr` and under-
-    # enclosed a nonlinear one). The grid width and the outward `_ULP` pad are the float floor's rigor.
+    # numpy carries no interval type: sample the box on a grid, hull, pad outward by one relative `finfo` ulp floored at `tiny` so a
+    # degenerate hull still widens — a directed-rounding emulation, since the branch numpy surface carries no `nextafter` step.
+    # Sound for a monotone extension, a heuristic band otherwise.
     samples = np.array([float(expr.over(float(x))) for x in np.linspace(box.lo, box.hi, _NUMPY_GRID)], dtype=np.float64)
     lo, hi = float(samples.min()), float(samples.max())
     interval = Interval(lo - max(_ULP * abs(lo), _TINY), hi + max(_ULP * abs(hi), _TINY))
@@ -358,10 +310,7 @@ def _resolve_floor() -> FloorRow:
 
 @tailrec
 def _bisect(enclosure: Enclosure, expr: Expr, target: Target, target_width: Width, budget: int, floor: FloorRow, precision: int) -> Enclosure:
-    # the `tailrec` bisection toward a width tolerance: bisect the interval, evaluate the certified
-    # extension over each half, keep the half whose extension brackets the target (else the tighter
-    # half), and recurse until width < tolerance or the budget is exhausted — a stack-safe fold, never
-    # the prior single `Interval(lo, mid) if budget % 2` step that discarded budget, target, and bracket.
+    # keep the half whose certified extension brackets the target (else the tighter half); stack-safe under the `tailrec` trampoline.
     if enclosure.width <= target_width or budget <= 0:
         return enclosure
     left, right = enclosure.interval.bisect()
@@ -373,12 +322,8 @@ def _bisect(enclosure: Enclosure, expr: Expr, target: Target, target_width: Widt
 def _roots(poly: Poly, box: Interval, precision: int) -> tuple[Enclosure, ...]:
     import flint
 
-    # `arb_poly.real_roots` returns certified root-isolating balls — each `(mid, rad)` lifts to one
-    # `Floor.Arb` enclosure, never a hand-rolled Taylor sign-change scan. The membership test is
-    # `box.overlaps` over the certified ball interval, not a midpoint-only `contains`, so a root whose
-    # enclosure straddles the box boundary is retained rather than dropped when its midpoint falls just
-    # outside. `ctx.workprec` is the block-scoped precision the isolation needs (`real_roots` is not
-    # `flint.good`-driven), restored on exit so no session `ctx.prec` mutation leaks across evaluators.
+    # membership is `box.overlaps` over the certified ball interval, not a midpoint-only `contains`, so a root straddling the box
+    # boundary is retained; `ctx.workprec` block-scopes the precision (`real_roots` is not `flint.good`-driven) and restores on exit.
     with flint.ctx.workprec(precision):
         isolated = flint.arb_poly([flint.arb(c) for c in poly.coeffs()]).real_roots()
     enclosures = (Enclosure(Interval.around(float(r.mid()), float(r.rad())), Certificate(Floor.ARB, int(r.rel_accuracy_bits()))) for r in isolated)
@@ -386,9 +331,6 @@ def _roots(poly: Poly, box: Interval, precision: int) -> tuple[Enclosure, ...]:
 
 
 def _dispatch(op: IntervalOp, precision: int) -> Yield:
-    # the one total `match` over the op tag closed by `assert_never`, returning the honest `Yield`
-    # union the arms produce — `Roots` the only `tuple[Enclosure, ...]` arm, the rest one `Enclosure`.
-    # `IntervalReceipt.of` folds that union total, so no phantom output type rides the dispatch.
     match op:
         case IntervalOp(tag="evaluate", evaluate=(expr, box)):
             return _resolve_floor().evaluate(expr, box, precision)
@@ -403,21 +345,14 @@ def _dispatch(op: IntervalOp, precision: int) -> Yield:
 
 
 def _keyed(op: IntervalOp, precision: int) -> RuntimeRail[ContentKey]:
-    # the op OWNS its identity: `identity_buffer` folds the extension key, every bound, the target,
-    # and the yield-changing knobs, so the key names the computation, never merely the box.
-    # `ContentIdentity.of` defaults `CANONICAL_POLICY` and the `view="value"` projection that returns
-    # `RuntimeRail[ContentKey]`, so a repeated op at identical precision keys by reference.
+    # the key names the computation, never merely the box — a repeated op at identical precision keys by reference.
     return ContentIdentity.of(f"interval.{op.tag}", op.identity_buffer(precision))
 
 
 @beartype(conf=FAULT_CONF)
 def _report(op: IntervalOp, precision: int) -> IntervalReceipt:
-    # the one `@beartype(conf=FAULT_CONF)`-fenced body returning a PLAIN `IntervalReceipt`: a `flint`/`mpmath`
-    # raise, the gated `ImportError`, or a contract violation folds onto the rail through the enclosing
-    # `boundary` fence rather than escaping. The railed `_keyed` digest is matched HERE inside the already-
-    # fenced body — an `Error` re-raises onto the `boundary` whose `_convert` re-folds it (a `BoundaryFault`
-    # is no exception) — so the impure floor solve and the pure content-key fold ride the one fence and the
-    # entry mints exactly one `RuntimeRail[IntervalReceipt]`, never a double rail flattened through `.bind`.
+    # the railed `_keyed` digest is matched HERE inside the already-fenced body — an `Error` re-raises onto the enclosing boundary,
+    # which re-folds it — so the impure floor solve and the pure key fold ride ONE fence and the entry mints exactly one rail.
     yielded = _dispatch(op, precision)
     match _keyed(op, precision):
         case Ok(key):
@@ -428,26 +363,26 @@ def _report(op: IntervalOp, precision: int) -> IntervalReceipt:
 
 # --- [ENTRY] -------------------------------------------------------------------------------
 
-# the interval family's DEFAULT graduation ceiling — a certified enclosure admits zero refutation
-# and a finite width bound; the governed policy row per the hub ceiling law, caller-overridable.
+# the interval family's default graduation ceiling; a certified enclosure admits zero refutation and a finite width bound.
 _CEILING: Final[Map[str, float]] = Map.of_seq([("refuted", 0.0), ("width", 1e-6)])
 
 
 class IntervalNumerics:
-    # the one validated-arithmetic owner; `run` is the single entry every certified op enters through,
-    # riding the hub `evidence_run` weave — the span opens from the `compute.interval` scope row (the
-    # former `compute.rigor` literal disagreed with the owning module leaf, the deleted form), the
-    # fence converts a flint/mpmath raise, and the fenced `@receipted(REDACTION)` harvest streams
-    # `IntervalReceipt.contribute` — never a page-local tracer, never an inline `Signals.emit`.
     @staticmethod
     def run(op: IntervalOp, *, precision: int = 128) -> RuntimeRail[IntervalReceipt]:
         return evidence_run(EvidenceScope.INTERVAL, f"interval.{op.tag}", lambda: _report(op, precision))
 
     @staticmethod
     def graduates(receipt: IntervalReceipt, subject: str = "interval-certificate") -> "RuntimeRail[GraduationReceipt]":
-        # interval proof evidence FEEDS the solver-axis projection on `solvers/receipt` with the
-        # `(ledger, ceiling, key)` triple projected from its own Certificate — the one producer
-        # pattern; the family ceiling row governs and a caller's tighter row overrides at the hub.
+        # the family ceiling row governs; a caller's tighter row overrides at the hub.
         ledger = {"refuted": 0.0 if receipt.certified else 1.0, "width": float(receipt.width)}
         return graduate("compute.interval", subject, receipt.content_key, ledger, dict(_CEILING.items()))
 ```
+
+## [03]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+-->
+
+(none)

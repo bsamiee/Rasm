@@ -25,10 +25,10 @@ Every Claude Code fact — settings keys, limits, defaults, command and flag sur
 ## [01]-[ROUTING]
 
 - [01]-[MEMORY](references/memory.md): memory hierarchy, @path imports, path-scoped rules, auto memory, the memory content law and scored audit
-- [02]-[SETTINGS](references/settings.md): settings scopes and precedence, permission evaluation, model and effort routing, skill listing budget, interface rows
+- [02]-[SETTINGS](references/settings.md): scope precedence, permission evaluation, model and effort routing, skill listing budget, interface rows
 - [03]-[GUARDRAILS](references/guardrails.md): sandbox schema, auto-mode classifier tuning, managed lockdown rows
-- [04]-[HEADLESS](references/headless.md): print mode, structured output, session continuation, background sessions and worktree isolation, SDK boundary
-- [05]-[PLUGINS](references/plugins.md): marketplace registration and scope law, enablement rows, plugin cache and staleness, `.lsp.json` anatomy, LSP lifecycle and traps
+- [04]-[HEADLESS](references/headless.md): print mode, structured output, session continuation, background sessions, worktree isolation, SDK boundary
+- [05]-[PLUGINS](references/plugins.md): marketplace registration, scope, enablement rows, cache staleness, `.lsp.json` anatomy, LSP lifecycle, traps
 
 ## [02]-[STEERING]
 
@@ -44,7 +44,7 @@ Every Claude Code fact — settings keys, limits, defaults, command and flag sur
 
 ## [03]-[MEMORY]
 
-The hierarchy loads broad to specific — managed policy, user, project, local — and every level is context, never enforcement. Load algorithm, `@path` imports with the four-hop recursion cap, `.claude/rules/` with `paths` scoping, `CLAUDE.local.md`, auto memory limits, exclusion globs, the content law deciding what a memory file may carry, the recall mechanics that decide which one fires, and the scored audit are `memory.md`.
+Memory loads broad to specific — managed policy, user, project, local — and every level is context, never enforcement. Load algorithm, `@path` imports with the four-hop recursion cap, `.claude/rules/` with `paths` scoping, `CLAUDE.local.md`, auto memory limits, exclusion globs, the content law deciding what a memory file may carry, the recall mechanics that decide which one fires, and the scored audit are `memory.md`.
 
 ## [04]-[SETTINGS]
 
@@ -60,15 +60,16 @@ Guardrails bind beneath permissions: `sandbox.*` isolates Bash at the OS level, 
 
 ## [07]-[PLUGINS]
 
-Marketplace registration state is global per user and marketplace names are unique — registration and enablement are decoupled surfaces, and a cross-repo plugin set lives once at user scope while projects add rows only for repo-specific plugins. The plugin cache keys on resolved version, making unbumped master edits invisible until an explicit update. Registration mechanics, cache law, `.lsp.json` anatomy, and the LSP trap census are `plugins.md`.
+Marketplace registration state is global per user and marketplace names are unique — registration and enablement are decoupled surfaces, and a cross-repo plugin set lives once at user scope while projects add rows only for repo-specific plugins. Plugin cache keys on resolved version, making unbumped master edits invisible until an explicit update. Registration mechanics, cache law, `.lsp.json` anatomy, and the LSP trap census are `plugins.md`.
 
 ## [08]-[DIAGNOSTICS]
 
 - `/context` shows token allocation across system prompt, tools, memory, skills, and history — the first stop when context is mysteriously full.
 - `/memory` lists every loaded memory file and the auto memory directory — the first stop when an instruction is mysteriously absent.
-- The `InstructionsLoaded` hook logs which instruction files loaded, when, and why — the deterministic answer for lazy-loaded rules and subdirectory memory; `ConfigChange` fires on every settings reload.
-- `/doctor` validates installation, settings parse, and hook health; `claude --safe-mode` starts with all customization disabled to bisect a broken config.
-- `/config` surfaces the interactive toggles and sets any key directly as `/config key=value`; a behavior that survives `--safe-mode` is upstream, not local.
+- `InstructionsLoaded` logs which instruction files loaded, when, and why — the deterministic answer for lazy-loaded rules and subdirectory memory.
+- `ConfigChange` fires on every settings reload.
+- `/doctor` validates installation, settings parse, hook health; `claude --safe-mode` starts with customization disabled to bisect a broken config.
+- `/config` surfaces the interactive toggles and sets any key as `/config key=value`; a behavior that survives `--safe-mode` is upstream, not local.
 
 ## [09]-[COMPOSITION]
 

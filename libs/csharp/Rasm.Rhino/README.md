@@ -1,6 +1,8 @@
 # [RASM_RHINO]
 
-`Rasm.Rhino` owns the single host boundary over RhinoCommon, Rhino UI, Eto, and the macOS native surface above the `Rasm` kernel, folding every host access through thread-affinity and capability gates that retain each native resource only across its leased extent. It references no sibling package — every alignment travels down the one kernel seam.
+`Rasm.Rhino` is the single host boundary over RhinoCommon, Rhino UI, Eto, and the macOS native surface — the full Rhino host captured as typed, leased capability. Document sessions, geometry custody, table transactions, commands and acquisition, blocks, viewports and capture, display conduits, file exchange and publishing, Eto realization, and host chrome each fold through one owner behind thread-affinity and capability gates, every native resource retained only across its leased extent and every outcome a typed receipt. Its bar is total capture: an app root or an agent composes parameterized host capability without learning RhinoCommon's raw surface, and the rich Rhino-native features — drafting, sheets, native file IO — stay rich rather than thinned toward a host-neutral floor.
+
+It references no sibling package — every alignment travels down the one kernel seam, and it enters only at the app roots, never as an interior dependency of a host-neutral package.
 
 ## [01]-[ROUTER]
 

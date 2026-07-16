@@ -1,6 +1,6 @@
 # [REVIEWER_REGISTRY]
 
-Keyed by GitHub identity. The registry describes each reviewer's completion signal, false-positive surface, re-trigger, and severity grammar; `scripts/watch-reviewers.sh` decides completion executably — a predicate change lands in the script and this prose in one pass. Bot logins are case-sensitive; match on `user.login` (`author.login` in GraphQL), never on GitHub search qualifiers (`reviewed-by:`/`commenter:` silently drop `[bot]` scopes). No completion predicate reads any issue-comment `updated_at` — bots edit summaries in place and that churn is the canonical false positive.
+Keyed by GitHub identity. Each row registers a reviewer's completion signal, false-positive surface, re-trigger, and severity grammar; `scripts/watch-reviewers.sh` decides completion executably — a predicate change lands in the script and this prose in one pass. Bot logins are case-sensitive; match on `user.login` (`author.login` in GraphQL), never on GitHub search qualifiers (`reviewed-by:`/`commenter:` silently drop `[bot]` scopes). No completion predicate reads any issue-comment `updated_at` — bots edit summaries in place and that churn is the canonical false positive.
 
 ## [01]-[CODERABBIT]
 
@@ -16,7 +16,7 @@ Keyed by GitHub identity. The registry describes each reviewer's completion sign
 - Logins: `greptile-apps[bot]` (staging `greptile-apps-staging[bot]`). `@greptileai`/`@greptile` are trigger keywords, never author matches.
 - Completes when: the `Greptile Review` check-run (app `greptile-apps`) reaches `COMPLETED`, OR the summary issue comment's footer `Last reviewed commit: .../commit/<sha>` matches the current head. Greptile posts the summary as an issue comment plus the check-run — no PR review object; the review-object surface stays empty by design.
 - Ignore: summary `updated_at` churn; `<!-- greptile-status -->` skip/excluded-author comments; Greptile's internal "addressed" flag (never a GitHub thread resolve).
-- Re-trigger: push (auto; `triggerOnUpdates: true`, drafts included via `triggerOnDrafts: true`) or comment `@greptileai`. The footer's Re-trigger link is web-only — unusable from `gh`.
+- Re-trigger: push (auto; `triggerOnUpdates: true`, drafts included via `triggerOnDrafts: true`) or comment `@greptileai`. Footer's Re-trigger link is web-only — unusable from `gh`.
 - Severity: inline bold category prefix — `**logic:**`=3, `**syntax:**`=2, `**style:**`=1; legacy P1/P2/P3 badges map 3/2/1. `Confidence Score: N/5` lives in the summary body; convergence demands `5/5` at the current head — a completion signal never gates on it.
 
 ## [03]-[MACROSCOPE]
@@ -46,7 +46,7 @@ Keyed by GitHub identity. The registry describes each reviewer's completion sign
 
 ## [07]-[SEVERITY_NORMALIZATION]
 
-The merge program (`scripts/merge-comments.py`) folds every native grammar onto one scale: `CRITICAL=4 MAJOR=3 MINOR=2 NIT=1 INFO=0`. Unrecognized linter bots (rule-tag bodies) land at INFO. Two reviewers flagging one `path:line:issue_class` collapse to the higher rank with the shadowed reviewer in `dups[]` — corroboration without duplicate work.
+`scripts/merge-comments.py` folds every native grammar onto one scale: `CRITICAL=4 MAJOR=3 MINOR=2 NIT=1 INFO=0`. Unrecognized linter bots (rule-tag bodies) land at INFO. Two reviewers flagging one `path:line:issue_class` collapse to the higher rank with the shadowed reviewer in `dups[]` — corroboration without duplicate work.
 
 ## [08]-[AUTHOR_SCAN_FALLBACK]
 

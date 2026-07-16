@@ -2,8 +2,6 @@
 
 `ui` maps the browser interface plane and its sibling `viewer` Nx project: `system`, `view`, and `viewer` sub-domains meet through one atom binding, one styled recipe, one motion vocabulary, and one selection plane. Viewer renders decoded wire vocabularies and owns zero geometry or IFC semantics.
 
-Each codemap node names the source file its `.planning/` page becomes in camelCase `.ts`; the scaffold is authoring substrate, never part of the map.
-
 ## [01]-[DOMAIN_MAP]
 
 ```text codemap
@@ -97,11 +95,11 @@ flowchart LR
 
 ## [03]-[ORGANIZATION]
 
-`system` is the capability floor the views instantiate; `view` composes those owners into four dense surfaces — form, grid, overlay, chart — each a single owner where variation is rows (columns, commands, field kinds, chart regimes), never sibling components; `viewer` is the spatial tier as a separate Nx project consuming decoded wire and owning render alone. Selection stays one atom: the grid `RowSelectionState` and the `scrollToIndex` echo project it, never a second plane. Per-owner wiring lives on the owning implementation pages.
+`system` is the capability floor the views instantiate; `view` composes those owners into dense surfaces — form, grid, overlay, chart — each a single owner where variation is rows (columns, commands, field kinds, chart regimes), never sibling components; `viewer` is the spatial tier as a separate Nx project consuming decoded wire and owning render alone. Selection stays one atom: the grid `RowSelectionState` and the `scrollToIndex` echo project it, never a second plane. Per-owner wiring lives on the owning implementation pages.
 
 ## [04]-[BOUNDARIES]
 
-- IFC semantics and geometry stay unowned here; GLB, BCF, and selection vocabularies arrive decoded through the core interchange plane, rendered and never re-authored.
-- Browser composition root — `GlbViewport` satisfied from Depot arrivals, host Subscribable planes bound into atoms — is app composition, out of scope here.
+- IFC semantics and geometry stay unowned; GLB, BCF, and selection arrive decoded through the core interchange plane, rendered, never re-authored.
+- A browser composition root — `GlbViewport` from Depot arrivals, host planes bound into atoms — is app composition, out of scope here.
 - `EXT_meshopt_compression` assets refuse with the `codec-absent` reason until the iac plane admits the wasm decoder identity and its serving row.
 - History consumers compose from the landed system pages; a second history owner never appears beside the selection atom.

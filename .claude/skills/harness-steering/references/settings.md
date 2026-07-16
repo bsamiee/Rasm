@@ -4,7 +4,7 @@ Settings are the enforcement and defaults layer: they bind regardless of what th
 
 ## [01]-[PERMISSIONS]
 
-Rules are `Tool` or `Tool(specifier)` strings evaluated deny, then ask, then allow — a deny row beats every allow at any scope. The working surface:
+Rules are `Tool` or `Tool(specifier)` strings evaluated deny, then ask, then allow — a deny row beats every allow at any scope. Working surface:
 
 - [MODES]: `permissions.defaultMode` sets the session baseline — `default` (CLI alias `manual`), `acceptEdits`, `auto` (a background classifier reviews commands; honored only from user or managed scope), `dontAsk`, `bypassPermissions`, `plan`. `disableBypassPermissionsMode: "disable"` removes the bypass escape hatch at managed scope.
 - [TERRITORY]: `permissions.additionalDirectories` extends the writable surface beyond the working directory — file access only, never configuration discovery. `Cd` rules bound `/cd`: a bare `Cd` deny disables it, `Cd(<path-pattern>)` blocks matching targets through every symlink spelling. Sandbox rows under `sandbox.*` bind filesystem, network, and credential reach beneath whatever permissions allow — schema in `guardrails.md`.
@@ -24,7 +24,7 @@ Rules are `Tool` or `Tool(specifier)` strings evaluated deny, then ask, then all
 
 ## [03]-[EFFORT]
 
-Effort binds adaptive reasoning per session: `low`, `medium`, `high`, `xhigh`, `max`, with availability model-dependent and an unsupported level falling to the highest supported one at or below it. The scale is calibrated per model, so a level name is not comparable across models. Set through `/effort`, `--effort`, the persisted `effortLevel` setting, or `CLAUDE_CODE_EFFORT_LEVEL`. `ultracode` is a harness mode, not a model level: it sends `xhigh` and plans a dynamic workflow for every substantive task, reachable through `/effort ultracode` or `--effort ultracode` but never through the persisted setting or environment variable.
+Effort binds adaptive reasoning per session: `low`, `medium`, `high`, `xhigh`, `max`, with availability model-dependent and an unsupported level falling to the highest supported one at or below it. Each model calibrates the scale, so a level name is not comparable across models. Set through `/effort`, `--effort`, the persisted `effortLevel` setting, or `CLAUDE_CODE_EFFORT_LEVEL`. `ultracode` is a harness mode, not a model level: it sends `xhigh` and plans a dynamic workflow for every substantive task, reachable through `/effort ultracode` or `--effort ultracode` but never through the persisted setting or environment variable.
 
 ## [04]-[POWER_ROWS]
 

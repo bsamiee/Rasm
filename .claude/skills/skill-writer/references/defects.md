@@ -1,6 +1,6 @@
 # [DEFECTS]
 
-The classes here are the failures only an instruction bundle can commit; a finding cites the class and line, and each class owns the copyable before-and-after that repairs it, so detection and fix have one owner. The trigger is repaired before the body — a body no task selects is dead law. Prose-register defects inside bundle files — hedges, meta-frames, ledgers, litanies — belong to the docgen catalog and are cited from there.
+Classes here are the failures only an instruction bundle can commit; a finding cites the class and line, and each class owns the copyable before-and-after that repairs it, so detection and fix have one owner. Repair the trigger before the body — a body no task selects is dead law. Prose-register defects inside bundle files — hedges, meta-frames, ledgers, litanies — belong to the docgen catalog and are cited from there.
 
 ## [01]-[TRIGGER_CLASSES]
 
@@ -77,7 +77,7 @@ Two precise sibling descriptions both match one prompt, so selection is a coin f
 
 ### [02.1]-[MONOLITH_ROOT]
 
-The root inlines reference banks and example floods, so every activation pays for branches the task never takes.
+Root inlines reference banks and example floods, so every activation pays for branches the task never takes.
 
 - Detection: A root past the platform line ceiling, or root sections named after an API reference, a troubleshooting ledger, or an example inventory every activation loads.
 - Rejected:
@@ -116,7 +116,7 @@ The root inlines reference banks and example floods, so every activation pays fo
 
 ## [03]-[BODY_CLASSES]
 
-A body line earns its place by changing trigger selection, routing, execution, or validation; intensity, ceremony, and restated harness obligations change nothing and are deleted. The form each line takes follows the failure it guards, and that mapping is [03.17]-[FORM_MISMATCH].
+A body line earns its place by changing trigger selection, routing, execution, or validation; intensity, ceremony, and restated harness obligations change nothing and are deleted. Form each line takes follows the failure it guards, and that mapping is [03.17]-[FORM_MISMATCH].
 
 ### [03.1]-[NO_OP_INTENSIFIER]
 
@@ -160,7 +160,7 @@ A body line earns its place by changing trigger selection, routing, execution, o
 
 ### [03.6]-[LIFECYCLE_SCRIPT]
 
-The body narrates a generic work loop instead of the one domain decision a generic agent gets wrong.
+Body narrates a generic work loop instead of the one domain decision a generic agent gets wrong.
 
 - Detection: Numbered lifecycle steps every coding task already performs — think, plan, inspect, implement, validate — or a mandated reasoning shape with fixed depth.
 - Rejected:
@@ -244,7 +244,7 @@ Instruction rigidity contradicts task variance: fragile mechanics float free whi
 
 ### [03.12]-[SEDIMENT]
 
-The body accretes one guard per past incident until dead threats outweigh live law.
+Body accretes one guard per past incident until dead threats outweigh live law.
 
 - Detection: A rule explainable only by a past incident, not by the deliverable — a guard against a failure the current bundle, tooling, or model no longer exhibits.
 - Rejected:
@@ -310,7 +310,7 @@ A fence restates the table beside it, so every activation pays render validation
 
 ### [03.17]-[FORM_MISMATCH]
 
-The instruction is well-founded but wears the wrong form for its failure, so it misfires the way the wrong tool does.
+A well-founded instruction wears the wrong form for its failure, so it misfires the way the wrong tool does.
 
 - Detection: A prohibition guarding a wrongly-shaped output, a positive recipe guarding a rule violated under pressure, prose guarding an element the model omits, or an unconditional rule guarding behavior that is correct only under a predicate.
 - Rejected: Never write shallow analysis. (the failure is shallow output, not a violation under pressure)

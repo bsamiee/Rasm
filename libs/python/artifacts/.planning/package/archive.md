@@ -1,22 +1,22 @@
 # [PY_ARTIFACTS_ARCHIVE]
 
-The multi-file container PRODUCER over the two container rows — the `py7zr` `SevenZipFile` 7z container and the `stream-zip`/`stream-unzip` bounded-memory ZIP container — composing the `package/bundle#BUNDLE` vocabulary downward and importing no sibling. `Archive` folds a `*payloads` spread into ONE container whose directory recovers the full member row set, never N single-frame bundles; the entry is `emit() -> ArtifactWork` per the one producer contract (`Admission(keyed=None)`, key = `Bundle.key`'s pre-run spec ⊕ parent mint, `receipt.slot == node.key`), and THE reproducible-ZIP law lives here: a scene bundle, a transmittal container, or any multi-file deliverable is THIS page's emit whose `parents` are the member artifacts' content keys — a work-graph DATA edge, never an import (`scene/export` emits files and reaches no compression plane). The ZIP member metadata rides the fixed bundle `_EPOCH` stamp with `extended_timestamps=False` and the shared `zlib_ng` raw-DEFLATE at the profile `level`, so an unencrypted container is byte-reproducible and its content key dedups across runs; an encrypted one is intentionally non-reproducible (fresh AES salt/IV per pack), and the 7z container is honestly non-reproducible (`py7zr` stamps an uncontrollable wall-clock `creationtime` per entry). Both arms fill `entries` (member count) and `verified` (a REAL per-member integrity proof — `SevenZipFile.test()` for 7z, a pack-time `stream_unzip` round-trip drain for ZIP, never the illusory raw payload count) on the shared `ArtifactReceipt.Bundle` case; both arms are in-wheel GIL-releasing, so the offload rides `Modality.THREAD` under `retry=RetryClass.OCCT` with the runtime band owning the limiter.
+`Archive` is the multi-file container producer over the two container rows — the `py7zr` `SevenZipFile` 7z container and the `stream-zip`/`stream-unzip` bounded-memory ZIP container. It folds a `*payloads` spread into ONE container whose directory recovers the full member row set, never N single-frame bundles, composing the `package/bundle#BUNDLE` vocabulary downward and importing no sibling.
+
+`emit() -> ArtifactWork` carries the producer contract — `key = Bundle.key`, `Admission(keyed=None)`, `receipt.slot == node.key` — and `parents` is the scene-bundling seam: a caller bundling upstream artifacts (scene files, sheet PDFs, transmittal members) passes their content keys, so the plan graph holds a DATA edge (`scene/export` emits files and reaches no compression plane) and an identical member set elides before the container writes. An unencrypted ZIP is byte-reproducible — the fixed bundle `_EPOCH` stamp with `extended_timestamps=False` and the shared `zlib_ng` raw-DEFLATE at the profile `level` — so its content key dedups across runs; the encrypted ZIP is intentionally non-reproducible (fresh AES salt/IV per pack) and the 7z container honestly non-reproducible (`py7zr` stamps an uncontrollable wall-clock `creationtime` per entry).
 
 ## [01]-[INDEX]
 
-- [02]-[ARCHIVE]: the `Archive` producer over the `SEVEN_Z`/`ZIP_STREAM` rows — `of` construction, `emit()`/`_emit` the node contract, `unpack` the multi-entry manifest inverse, `Archive.pack`/`Archive.recover` the `PackWorker` port kernels, the `_Xxh3Factory`/`_Xxh3Sink` streamed `xxh3_128` `WriterFactory` sink (replacing the built-in sha256 `HashIOFactory` so the 7z member digest sits on the runtime identity family), the `_zip_members` bounded-memory `MemberFile` fold, the `_zip_trust`/`_zip_drain` shared classified streamed reader (pack-time integrity round-trip AND unpack recovery), the `_ZIP_MECHANISM` decrypt allow-list row, the `_PRESETABLE` LZMA-family preset gate, and the `_ARCHIVE_CEILING` `max_extract_size` bomb bound; `py7zr` `SevenZipFile`(`writef`/`list`/`extractall(factory=)`/`test`/`archiveinfo`/`max_extract_size`)/`ArchiveInfo.uncompressed`/`FILTER_*`/`PRESET_*`/`FILTER_CRYPTO_AES256_SHA256`/`DecompressionBombError`/`AbsolutePathError`, `stream-zip` `stream_zip`/`ZIP_AUTO`/`ZIP_64`/`ZIP_32`/`NO_COMPRESSION_32`/`NO_COMPRESSION_64`/`get_compressobj`, and `stream-unzip` `stream_unzip`/`allowed_encryption_mechanisms`/the typed fault subtree settled against the both-tier `.api`, contributing the one `core/receipt#RECEIPT` `ArtifactReceipt.Bundle` case and a `core/plan#PLAN` `ArtifactWork` node.
+- [02]-[ARCHIVE]: the `Archive` producer over the `SEVEN_Z`/`ZIP_STREAM` rows — the `emit`/`unpack` node contract, the `PackWorker` port kernels, the streamed `xxh3_128` sinks, and the classified `_zip_drain` reader shared by pack-verify and unpack.
 
 ## [02]-[ARCHIVE]
 
-- Owner: `Archive` the one container producer wrapping the `package/bundle#BUNDLE` `Bundle` carrier; `SevenZKnobs`/`ZipStreamKnobs` are bundle-page vocabulary — this page owns no type the siblings share, only the two arms and their streamed machinery, so a 7z or ZIP container is one profile row on the one union, never a parallel archive owner. `Archive.pack`/`Archive.recover` are the page's `PackWorker` port kernels: public staticmethods, total over the two rows, GIL-releasing in-wheel so both directions offload `Modality.THREAD`.
-- Entry: `emit()` returns ONE `ArtifactWork(key=self.bundle.key, work=self._emit, parents=self.bundle.parents, admission=Admission(keyed=None), cost=byte-volume)`. The `parents` law is the scene-bundling seam: a caller bundling upstream artifacts (scene files, sheet PDFs, transmittal members) passes their content keys as `parents`, so the node graph carries the data edge and a re-issued identical member set elides BEFORE the container writes — the reproducible-ZIP content key is the store-side dedup, the pre-run spec key the elision spine. `_emit` offloads `Archive.pack` and maps the rail onto `evidence.receipt(self.bundle.key)`; `unpack(blob)` offloads `Archive.recover` and maps onto `BundleManifest.of` — the multi-entry inverse recovering every member row with a real streamed digest.
-- Cases: `SEVEN_Z` writes each payload as a `names[i]`-or-`payload-{i}` entry through `SevenZipFile.writef`, re-reads for `test()` (the CRC-verified count) and `archiveinfo().uncompressed` (the declared reconstructed total feeding `frame_size` — never the redundant compressed blob length already on `out_bytes`); the codec chain is the `SevenZFilter` vocabulary resolved at arm scope to `py7zr.FILTER_*` ids folded into the `[{"id": ...}, ...]` chain, `SevenZPreset` applied only to the `_PRESETABLE` `lzma`/`lzma2` entries, and `FILTER_CRYPTO_AES256_SHA256` appended when `password` is set — a raw filter bag, a bare ordinal, or a string-built `getattr` lookup is the deleted form. `ZIP_STREAM` folds the spread into one `stream_zip` member sequence via `_zip_members` — `(name, modified_at, mode, method, one-chunk-iter)` rows whose `method` a total `match` on `ZipMethod` selects (`ZIP_AUTO(size, level)` / `ZIP_64` / `ZIP_32` / `NO_COMPRESSION_*(size, zlib_ng.crc32(payload))`), the `get_compressobj` row binding the shared `zlib_ng` SIMD raw-DEFLATE at the profile `level` so EVERY member format honours it and one substrate serves both the deflate and integrity legs.
-- Crypto: encryption is a functional profile row, never a lone bool — 7z threads `password` plus the AES-256 chain entry beside `header_encryption`; ZIP threads `password` into `stream_zip` (WinZip AE-2/AES-256) and the `unpack` inverse passes `password.encode()` bytes plus the `mechanisms`-derived allow-list through `_ZIP_MECHANISM`, gating the WinZip-AES variant (`ae1`/`ae2`) AND key length (`aes128`/`aes192`/`aes256`) as orthogonal axes BEFORE decryption — the default `("none", "ae2", "aes256")` admits plaintext plus the page's own encrypted output while refusing legacy `ZIP_CRYPTO`, `ae1`, and weak key lengths; the trust policy is one `_zip_trust`-derived value shared by pack-verify and unpack, never re-inlined.
-- Stream: neither arm buffers a payload on recovery — 7z streams every entry through the `_Xxh3Factory` duck-typed `WriterFactory` sink under `max_extract_size=_ARCHIVE_CEILING` (a crafted high-ratio container raises `DecompressionBombError`, a traversal name `AbsolutePathError`, both railed at the offload boundary), ZIP drains member chunks through `_zip_drain`'s rolling `xxh3_128` fold — so each recovery yields the uniform `MemberTriple` on the runtime identity family, never the weak stored 32-bit CRC. `_zip_drain` classifies the typed `stream_unzip` fault subtree at the seam into a closed discriminant, ordered most-specific-first — ordering (`InvalidOperationError`, outside `ValueError`), trust (`PasswordError`/`MissingPasswordError`), unsupported (`UnsupportedFeatureError`, before its `DataError` base), corruption (`DataError`/`UncompressError`) — so a hostile or damaged container faults with a structurally-addressable `<zip-unpack:*>` cause, never one flattened provider token.
-- Verified: the `verified` slot is a GENUINE per-member proof — `stream_zip` inline-CRC-verifies only stored `NO_COMPRESSION_*` members, so a deflate member carries no pack-side proof; the pack arm round-trips the sealed blob through `_zip_drain` (the drain triggers the streamed CRC32/size/HMAC verification) and counts survivors, the same round-trip pattern as the 7z `test()` re-read and the delta apply — uniform across all three sibling arms, and a member that fails integrity faults loudly rather than overcounting.
-- Growth: a new container algorithm is one bundle-page row set plus one arm in each of `pack`/`recover` here; a new ZIP method is one `ZipMethod` token plus one `_zip_members` match arm; a new 7z filter is one `SevenZFilter` token plus one arm-scope ident entry; a new decrypt mechanism is one `ZipMechanism` token plus one `_ZIP_MECHANISM` row; container evidence rides the existing `entries`/`verified` slots — zero new verb beside the `emit`/`unpack` pair.
-- Packages: `py7zr` (lazy — reifies at arm scope), `stream-zip`/`stream-unzip` (eager — the sentinel families are module vocabulary), `zlib-ng` (lazy — the shared SIMD raw-DEFLATE + `crc32` substrate, composed never re-admitted), `xxhash` (the streamed member digests), `expression` (`Map.of_seq` the mechanism row), `msgspec` (`Struct`), runtime `identity`/`faults`/`lanes`/`resilience`, `artifacts.core.plan`/`core.receipt`/`package.bundle`.
-- Boundary: no sibling import, no knob-struct or vocabulary re-own (bundle carries them), no folder-minted limiter/retry caller, no receipt-case widening (the `ArchiveInfo` `method_names`/`solid`/`blocks` structural facts exceed the flat case and fold only through `uncompressed`), no by-hand CRC combine or partition pool, no wall-clock member stamp on the ZIP arm.
+- Owner: `Archive` the one container producer wrapping the `Bundle` carrier — `SevenZKnobs`/`ZipStreamKnobs` are bundle-page vocabulary, so a 7z or ZIP container is one profile row on the one union, never a parallel owner. `Archive.pack`/`Archive.recover` are the `PackWorker` port kernels: public staticmethods, total over the two rows, GIL-releasing in-wheel so both directions offload `Modality.THREAD`.
+- Cases: the `SevenZFilter` vocabulary resolves at arm scope to `py7zr.FILTER_*` ids (never a bare ordinal or string-built `getattr`), `SevenZPreset` reaching only the `_PRESETABLE` `lzma`/`lzma2` entries and the AES-256 chain entry appended when `password` is set; the `ZIP_STREAM` arm binds the shared `zlib_ng` SIMD raw-DEFLATE at the profile `level` so one substrate serves the deflate and integrity legs. Encryption is a functional profile row, never a lone bool: the `unpack` inverse gates the WinZip-AES variant (`ae1`/`ae2`) AND key length (`aes128`/`aes192`/`aes256`) as orthogonal axes through `_ZIP_MECHANISM` before decryption, the default `("none", "ae2", "aes256")` refusing legacy `ZIP_CRYPTO`, one `_zip_trust` value serving pack-verify and unpack alike.
+- Entry: `_emit` maps `Archive.pack` onto `evidence.receipt(self.bundle.key)` and `unpack` maps `Archive.recover` onto `BundleManifest.of`; recovery buffers no payload — 7z streams each entry through the `_Xxh3Factory` sink under `max_extract_size=_ARCHIVE_CEILING` (a high-ratio container raises `DecompressionBombError`, a traversal name `AbsolutePathError`) and ZIP drains chunks through `_zip_drain`'s rolling `xxh3_128`, `_zip_drain` classifying the typed `stream_unzip` fault subtree most-specific-first into a closed `<zip-unpack:*>` discriminant so a hostile container faults structurally, never on one flattened token.
+- Output: `verified` is a GENUINE per-member proof — `stream_zip` inline-CRC-verifies only stored members, so the pack arm round-trips the sealed blob through `_zip_drain` (the drain fires the streamed CRC32/size/HMAC) and counts survivors, the same pattern as the 7z `test()` re-read and the delta apply; `frame_size` reads the container's declared `uncompressed` total (the true reconstructed size, not the redundant `out_bytes` blob length), and a member that fails integrity faults loudly rather than overcounting.
+- Packages: `py7zr` (lazy, reifies at arm scope), `stream-zip`/`stream-unzip` (eager — the sentinel families are module vocabulary), `zlib-ng` (lazy — the shared SIMD raw-DEFLATE + `crc32` substrate, composed never re-admitted), `xxhash` (streamed member digests), `expression` (`Map.of_seq` the mechanism row), `msgspec` (`Struct`), runtime `identity`/`faults`/`lanes`/`resilience`, `artifacts.core.plan`/`core.receipt`/`package.bundle`.
+- Growth: a new container algorithm is one bundle-page row set plus one arm in each of `pack`/`recover`; a new ZIP method is one `ZipMethod` token plus one `_zip_members` match arm; a new 7z filter is one `SevenZFilter` token plus one arm-scope ident entry; a new decrypt mechanism is one `ZipMechanism` token plus one `_ZIP_MECHANISM` row — container evidence rides the existing `entries`/`verified` slots, zero new verb beside `emit`/`unpack`.
+- Boundary: no sibling import, no vocabulary re-own (bundle carries the knobs), no folder-minted limiter or retry caller, no receipt-case widening (the `ArchiveInfo` `method_names`/`solid`/`blocks` facts fold only through `uncompressed`), no wall-clock member stamp on the ZIP arm.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -68,21 +68,19 @@ from artifacts.package.bundle import (
 )
 
 lazy import py7zr
-lazy from zlib_ng import zlib_ng  # the shared SIMD substrate on the ZIP arm: raw-DEFLATE compressobj + stored-member crc32, one codec both legs
+lazy from zlib_ng import zlib_ng  # shared SIMD substrate on the ZIP arm: raw-DEFLATE compressobj + stored-member crc32
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# the 7z extract bomb bound: `max_extract_size` caps the streamed decode so a crafted high-ratio container raises
-# `DecompressionBombError` before memory exhausts; the ZIP arm is bounded by stream_unzip's rolling chunk drain.
+# 7z extract bomb bound: `max_extract_size` caps the streamed decode; the ZIP arm is bounded by stream_unzip's rolling chunk drain.
 _ARCHIVE_CEILING: Final[int] = 1 << 31
 _CONTAINERS: Final[frozenset[CompressionAlgo]] = frozenset({CompressionAlgo.SEVEN_Z, CompressionAlgo.ZIP_STREAM})
-_PRESETABLE: Final[frozenset[SevenZFilter]] = frozenset({"lzma", "lzma2"})  # the LZMA-family entries that take a preset
-# both container arms are in-wheel GIL-releasing: THREAD modality, the runtime THREAD_BAND owning the limiter.
-_PACK_LANE: Final[LanePolicy] = LanePolicy(capacity=os.process_cpu_count() or 1)
+_PRESETABLE: Final[frozenset[SevenZFilter]] = frozenset({"lzma", "lzma2"})  # LZMA-family entries that take a preset
+_PACK_LANE: Final[LanePolicy] = LanePolicy(capacity=os.process_cpu_count() or 1)  # both arms in-wheel GIL-releasing: THREAD modality
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# the decrypt allow-list correspondence: each `ZipMechanism` token -> its opaque stream_unzip sentinel.
+# decrypt allow-list: each `ZipMechanism` token -> its opaque stream_unzip sentinel.
 _ZIP_MECHANISM: Final[Map[ZipMechanism, object]] = Map.of_seq([
     ("none", NO_ENCRYPTION),
     ("zipcrypto", ZIP_CRYPTO),
@@ -108,8 +106,6 @@ class Archive(Struct, frozen=True):
         return Archive(bundle=Bundle.of(algo, *payloads, profile=profile, parents=parents))
 
     def emit(self, /) -> ArtifactWork:
-        # `parents` carry the bundled members' content keys (scene files, sheet PDFs, transmittal members) —
-        # the work-graph DATA edge that makes a scene bundle THIS page's emit, never a scene-plane import.
         return ArtifactWork(key=self.bundle.key, work=self._emit, parents=self.bundle.parents, admission=Admission(keyed=None), cost=self._cost)
 
     async def _emit(self, /) -> RuntimeRail[ArtifactReceipt]:
@@ -160,8 +156,7 @@ class Archive(Struct, frozen=True):
                 blob = sink.getvalue()
                 with py7zr.SevenZipFile(BytesIO(blob), mode="r", password=k.password) as reader:
                     verified = len(payloads) if reader.test() is not False else 0
-                    # the container's declared uncompressed total — the true reconstructed size for `frame_size`,
-                    # not the redundant compressed len(blob) already riding `out_bytes`.
+                    # declared uncompressed total: the reconstructed size for `frame_size`, not the redundant len(blob) on `out_bytes`.
                     uncompressed = reader.archiveinfo().uncompressed
                 return blob, BundleEvidence.measure(algo, 0, 0, uncompressed, verified, payloads, (blob,))
             case CodecProfile(tag="zip_stream", zip_stream=ZipStreamKnobs() as k):
@@ -173,8 +168,7 @@ class Archive(Struct, frozen=True):
                         get_compressobj=lambda: zlib_ng.compressobj(wbits=-zlib_ng.MAX_WBITS, level=k.level),
                     )
                 )
-                # genuine per-member proof: stream_zip inline-verifies only stored members, so the pack round-trips the
-                # sealed blob through `_zip_drain` (streamed CRC32/size/HMAC fire on the drain) and counts survivors.
+                # stream_zip inline-verifies only stored members; the pack round-trips through `_zip_drain` and counts survivors.
                 verified = sum(1 for _ in _zip_drain(blob, *_zip_trust(k)))
                 return blob, BundleEvidence.measure(algo, k.level, 0, sum(map(len, payloads)), verified, payloads, (blob,))
             case _:
@@ -190,17 +184,15 @@ class Archive(Struct, frozen=True):
                     reader.extractall(factory=sinks)
                 return tuple((info.filename, info.uncompressed, sinks.get(info.filename).read()) for info in infos)
             case CodecProfile(tag="zip_stream", zip_stream=ZipStreamKnobs() as k):
-                return tuple(_zip_drain(blob, *_zip_trust(k)))  # the classified streamed drain — trust/corruption/unsupported/ordering at the seam
+                return tuple(_zip_drain(blob, *_zip_trust(k)))
             case _:
                 raise ValueError(f"<non-archive-profile:{profile.tag}>")
 
 
 # --- [BOUNDARIES] -----------------------------------------------------------------------
 
-# the py7zr streamed-sink protocol (Py7zIO `write`/`read`/`seek`/`size`/`flush`/`close`, WriterFactory `create`) folded
-# onto the runtime XXH3_128 identity family, replacing the built-in sha256 `HashIOFactory`: each entry decodes straight
-# into one xxh3_128 digest under `max_extract_size` with no payload buffer. Duck-typed (not subclassed) so the base
-# classes stay behind the lazy py7zr proxy and force no eager load.
+# the py7zr streamed-sink protocol (Py7zIO + WriterFactory) folded onto the runtime xxh3_128 family, replacing the
+# built-in sha256 `HashIOFactory`. Duck-typed, not subclassed, so the base classes stay behind the lazy py7zr proxy.
 
 
 class _Xxh3Sink:
@@ -265,16 +257,14 @@ def _zip_members(payloads: tuple[bytes, ...], knobs: ZipStreamKnobs) -> Iterable
 
 
 def _zip_trust(knobs: ZipStreamKnobs, /) -> tuple[bytes | None, frozenset[object]]:
-    # the trust policy resolved once from the profile — password as stream_unzip's bytes (it rejects str) and the
-    # mechanisms allow-list mapped to the opaque sentinels — shared by pack-verify and unpack, never re-inlined.
+    # password as stream_unzip's bytes (it rejects str) + the mechanisms allow-list; shared by pack-verify and unpack.
     return (knobs.password.encode() if knobs.password is not None else None, frozenset(_ZIP_MECHANISM[m] for m in knobs.mechanisms))
 
 
 def _zip_drain(blob: bytes, password: bytes | None, mechanisms: frozenset[object], /) -> Iterator[MemberTriple]:
-    # the ONE streamed ZIP reader both legs consume: draining each member's chunks triggers stream_unzip's streamed
-    # CRC32/size/HMAC verification (a member that drains without raising is integrity-proven) while one xxh3_128
-    # rolls per member with no payload buffer. The typed fault subtree classifies most-specific-first into a closed
-    # trust/corruption/unsupported/ordering discriminant the offload boundary rails.
+    # the ONE streamed ZIP reader both legs consume: draining a member triggers stream_unzip's CRC32/size/HMAC
+    # verification (drains without raising = integrity-proven) while one xxh3_128 rolls per member. The typed fault
+    # subtree classifies most-specific-first at the seam into a closed trust/corruption/unsupported/ordering discriminant.
     try:
         for name, _declared, chunks in stream_unzip((blob,), password=password, allowed_encryption_mechanisms=mechanisms):
             total, hasher = 0, xxhash.xxh3_128()
@@ -295,3 +285,11 @@ def _zip_drain(blob: bytes, password: bytes | None, mechanisms: frozenset[object
         corruption.add_note("<at:zip-unpack truncation/integrity/backend>")
         raise ValueError("<zip-unpack:corruption>") from corruption
 ```
+
+## [03]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+-->
+
+(none)

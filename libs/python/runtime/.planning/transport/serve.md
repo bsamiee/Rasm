@@ -1,55 +1,37 @@
 # [PY_RUNTIME_SERVE]
 
-The companion server-host and daemon composition root. It composes the `transport/wire#PROTO_TRANSCODE` codec, the `transport/shapes#REGISTRY_AND_DRIFT` vocabulary rows, the `clock#CLOCK` causal time, and the `execution/admission#CONTEXT` context — and re-mints none.
+The companion server-host and daemon composition root: `ServerHost` owns the inbound `grpc.aio` lifecycle and the one `dispatch` servicer-body aspect every registered method folds through, `CapabilityInvoke` the descriptor-driven outbound invoke over the C#-generated capability SDK, and `Entrypoint` the daemon boot/serve/drain choreography. It hosts the geometry companion daemon over the existing C# gRPC contract on the UDS leg and re-mints nothing it composes.
 
-- `ServerHost` owns the `grpc.aio` server lifecycle (bind, interceptor injection, `grpc.Compression` selection, the registered health servicer, graceful drain) plus the one `register` roster fold and the one `dispatch` servicer-body aspect every registered method folds through: inbound admit with the `ServicerContext.time_remaining()` budget lift, the `WireProtoCodec` decode → railed `handler` → encode `bind`-chain, and the one terminal `settle` fold packing the typed `FaultDetail` trailer before abort. A servicer method is a `Route` row (service, method, descriptor id, two wire-registry row names, railed handler), never a hand-written admit/transcode/abort prologue. It hosts the geometry companion daemon over the existing C# `ComputeService`/`DocumentService`/`ControlService`/`ArtifactSync` gRPC contract on the UDS leg.
-- `CredentialPolicy` is the Python half of the `Rasm.Compute/Runtime/transport`-minted axis of the same name, decoded against the five producer rows and resolved to the one credential the UDS serve leg admits: `insecure_loopback`, peer identity read by the kernel at accept, never a PEM bundle.
-- `CapabilityInvoke` consumes the C#-generated capability-descriptor SDK, deriving the companion command surface from the descriptor catalog, resolving its codec per descriptor off the one shapes seed table, and lifting the `grpc-status-details-bin` trailer into the typed fault on the ingress leg.
-- `Entrypoint` is the daemon COMPOSITION ROOT: the `cyclopts` serve command folds install → admit → serve → ordered receipted drain, telemetry flushing LAST, into one accumulated shutdown rail the exit code folds; a sibling recipe command binds the `execution/recipe#RECIPE` owner for one-shot local execution, the terminal-tier `serve -> lanes | recipe` imports its only sibling edges.
-
-The wire vocabulary the inbound servicers and the outbound dispatch carry is `transport/shapes#VOCABULARY`'s; the transcode machinery is `transport/wire#PROTO_TRANSCODE`'s. The seam ledger files the `CredentialPolicy` axis decode and the W3C inbound extraction on this page — the interceptor at this ingress is the one trace-context authority.
+The wire vocabulary is `transport/shapes#VOCABULARY`'s, the transcode machinery `transport/wire#PROTO_TRANSCODE`'s, causal time `clock#CLOCK`'s, and the admitted context `execution/admission#CONTEXT`'s. The seam ledger files the `CredentialPolicy` axis decode and the W3C inbound extraction on this page — the interceptor at this ingress is the one trace-context authority.
 
 ## [01]-[INDEX]
 
-- [02]-[SERVE]: the inbound `grpc.aio` server-host lifecycle with the registered health servicer, the decoded `CredentialPolicy` axis, the `Route` registration roster, the interceptor-owned trace-context authority, the `time_remaining()` deadline lift, the one polymorphic servicer-body dispatch aspect, the `Map[FaultTag, grpc.StatusCode]` projection, and the `FaultDetail` trailer egress.
-- [03]-[CAPABILITY_INVOKE]: the descriptor-driven polymorphic invoke decoding the C# capability SDK, per-descriptor codec resolution off the shapes seed table, the catalogue client interceptors, and the `fault_detail` trailer ingress.
-- [04]-[ENTRY]: the daemon composition root — railed boot, supervised serve, the ordered receipted drain fold over the drainable owners, and the one-shot recipe command binding the `execution/recipe#RECIPE` owner through the one shared `_exit` fold.
+- [01]-[SERVE]: the inbound server-host lifecycle, the `Route` roster, the dispatch aspect, and the `FaultDetail` trailer egress.
+- [02]-[CAPABILITY_INVOKE]: the descriptor-driven outbound invoke and the `fault_detail` trailer ingress.
+- [03]-[ENTRY]: the daemon composition root — railed boot, supervised serve, the ordered receipted drain, and the one-shot recipe command.
 
 ## [02]-[SERVE]
 
-- Owner: `ServerHost` — the boundary capsule over one `grpc.aio` server plus one registered `grpc_health` `aio.HealthServicer`. It owns the bind, the construction-time interceptor and compression injection, the `register` roster fold mounting `Route` rows as raw-bytes registered method handlers, the inbound carrier decode with the one real inbound budget lift, the one `dispatch` servicer-body aspect (admit → decode/handler/encode `bind`-chain → one `settle` enrich/trailer/abort fold), the SERVER-span enrichment, the `Map[FaultTag, grpc.StatusCode]` fault projection, and the graceful drain whose health flip races ahead of the stop. `CredentialPolicy` is the tagged union decoding the C#-minted five-row axis — one spelling on both sides of the wire — to the one credential the UDS serve leg admits. `Route` is the servicer-method-as-data row: service, method, descriptor id, the two `transport/shapes#REGISTRY_AND_DRIFT` registry row names its codec pair resolves through, and the railed handler. `ServerHost` composes four owners and re-mints none: the `transport/wire#PROTO_TRANSCODE` `WireProtoCodec` transcodes the servicer wire shapes and `codec(name)` resolves each `Route`'s pair; the `clock#CLOCK` `CausalFrame.decode(carrier)` railed reader owns the `SLOTS`-keyed parse and the one wire fence over the inbound `(Hlc, Tenant)` frame; the `execution/admission#CONTEXT` `RuntimeContext` carries the admitted deadline/causal context and its `attribute()` span projection; the `transport/shapes#VOCABULARY` `FaultDetail` is the typed conflict the `settle` trailer packs.
-- Cases: the Compute `Rasm.Compute/Runtime/transport` `CredentialPolicy` mints five rows (`insecure_loopback`, `tls`, `mtls`, `bearer`, `composed`); the decode admits one constructible serve-side case. The companion serves the local control plane over `RemoteTransport.UnixDomainSocket`, whose `Credentials` column is `Seq(CredentialPolicy.InsecureLoopback)` exactly, so `CredentialPolicy(insecure_loopback=True)` is the only server credential and peer identity is the kernel-reported `(pid, uid)` the C# `Rasm.AppHost/Wire/companion#PEER_ADMISSION` reads at accept through `SO_PEERCRED`/`LOCAL_PEERCRED`, never a wire-carried PEM. The other four rows are the outbound client legs the C# `Rasm.AppHost` dials, so `server_credentials` is total over the five producer rows by `match`/`assert_never`: the four outbound rows return `Error(BoundaryFault(config=...))` on the `RuntimeRail`, a row the UDS serve leg cannot admit being a typed construction failure, never a bare `ValueError` and never a phantom PEM bundle. The health vocabulary is the closed `health_pb2.HealthCheckResponse.ServingStatus` enum — `SERVING`/`NOT_SERVING` the two live states the lifecycle flips, `health.OVERALL_HEALTH` (`""`) the whole-server key set beside every registered service name.
-- Entry: the method roster —
+- Owner: `ServerHost` is the boundary capsule over one `grpc.aio` server plus the registered health servicer; a servicer method is a `Route` row — service, method, descriptor id, two registry row names, railed handler — never a hand-written admit/transcode/abort prologue. It composes the wire codec, the `clock#CLOCK` `CausalFrame.decode` sole carrier fence, the admitted `RuntimeContext`, and the `FaultDetail` shape, re-minting none.
+- Cases: `CredentialPolicy` decodes the C#-minted five-row axis under one spelling on both sides of the wire, and the UDS serve leg admits exactly one constructible case — peer identity is the kernel-reported `(pid, uid)` the C# `Rasm.AppHost/Wire/companion#PEER_ADMISSION` reads at accept through `SO_PEERCRED`/`LOCAL_PEERCRED`, never a wire-carried PEM; the four outbound rows are the client legs the C# host dials, each a typed construction failure serve-side.
 
-  | [INDEX] | [METHOD]                                                                  | [CONTRACT]                                              |
-  | :-----: | :------------------------------------------------------------------------ | :------------------------------------------------------ |
-  |  [01]   | `register(routes) -> RuntimeRail[int]`                                    | roster fold; codec pair resolved, mounted per service   |
-  |  [02]   | `inbound(ctx) -> RuntimeRail[RuntimeContext]`                             | admission read; causal decode + `time_remaining()`      |
-  |  [03]   | `_invoke(codec_pair, request, context, handler) -> RuntimeRail[bytes]`    | decode → railed `handler` → encode `bind`-chain         |
-  |  [04]   | `settle(servicer_context, context, descriptor, wired) -> bytes`           | rail-terminating fold; `FaultDetail` trailer then abort |
-  |  [05]   | `serve() -> RuntimeRail[None]`                                            | bind UDS, start, flip `SERVING`, await termination      |
-  |  [06]   | `drain() -> None`                                                         | `NOT_SERVING` first, then `stop(grace)`                 |
-  |  [07]   | `CredentialPolicy.server_credentials() -> RuntimeRail[ServerCredentials]` | loopback → `local_server_credentials(UDS)`              |
+Entry: the method roster:
 
-  - [01]-[REGISTER]: every `Route` resolves its codec pair through the wire `codec(name)` rail (`traversed(..., ACCUMULATE)` names every unresolvable row in ONE accumulated fault) and mounts grouped per service via `grpc.unary_unary_rpc_method_handler` + `add_registered_method_handlers` with raw-bytes (de)serializers, each behavior delegating to the one `dispatch` aspect; `serve()` refuses an empty roster, so an unregistered server is a typed fault, never a silent empty bind.
-  - [02]-[INBOUND]: the `aio_server_interceptor` opened the remote-parented SERVER span, so `inbound` re-extracts nothing — it decodes the causal frame through the `clock#CLOCK` `CausalFrame.decode(carrier)` sole fence (a malformed frame lands `Error(BoundaryFault(boundary=("wire", "ValidationError")))`) and lifts `ServicerContext.time_remaining()` into the admitted `RuntimeContext` `Deadline`, feeding the C#-dialed budget to the deadline rail (`LanePolicy.deadline`), never an unbounded handler.
-  - [03]-[INVOKE]: the `WireProtoCodec` decode → railed `handler` → encode stage — synchronous `decode.decode(request)` short-circuits `Error` directly, the `Ok(shape)` arm `await`s `handler(shape, context)` then `.bind(encode.encode)` so the handler and encode faults both ride the one rail — the await being the single coroutine point a pure `Result.bind` chain cannot thread.
-  - [04]-[SETTLE]: `Ok(payload)` enriches and returns the wire bytes; `Error(fault)` enriches, projects the status through `_FAULT_STATUS`, packs the `_sealed` `FaultDetail` through the wire `fault_detail` row onto the `grpc-status-details-bin` trailer via `set_trailing_metadata` BEFORE the abort — the C# `WireFault.Decode(FaultDetail)` consumer reads the typed conflict, the `"; ".join` facts string demoting to the human-readable `details` — and `abort` is `NoReturn`, so no dead return follows it.
-  - [05]-[SERVE]: refuses an empty roster with a typed `config` fault, binds the UDS socket through the railed `server_credentials` fold, starts the server, flips `OVERALL_HEALTH` plus every registered service to `SERVING`, and `await`s termination directly — the single-await needs no task group; supervision is the `[04]-[ENTRY]` composition root's.
-  - [06]-[DRAIN]: `enter_graceful_shutdown()` permanently flips every registered service to `NOT_SERVING` FIRST — probes stop routing while the grace window drains in-flight calls, and a late success cannot re-advertise — then `server.stop(grace)`.
-  - [07]-[CREDENTIALS]: folds the loopback case to `grpc.local_server_credentials(grpc.LocalConnectionType.UDS)` on the `Ok` rail so the UDS peer authenticates by socket locality, never a key-chain pair; `CredentialPolicy.loopback()` is the zero-argument constructor the serve default and the entrypoint mint.
+| [INDEX] | [METHOD]                                                                  | [CONTRACT]                                              |
+| :-----: | :------------------------------------------------------------------------ | :------------------------------------------------------ |
+|  [01]   | `register(routes) -> RuntimeRail[int]`                                    | roster fold; codec pair resolved, mounted per service   |
+|  [02]   | `inbound(ctx) -> RuntimeRail[RuntimeContext]`                             | admission read; causal decode + `time_remaining()`      |
+|  [03]   | `_invoke(codec_pair, request, context, handler) -> RuntimeRail[bytes]`    | decode → railed `handler` → encode `bind`-chain         |
+|  [04]   | `settle(servicer_context, context, descriptor, wired) -> bytes`           | rail-terminating fold; `FaultDetail` trailer then abort |
+|  [05]   | `serve() -> RuntimeRail[None]`                                            | bind UDS, start, flip `SERVING`, await termination      |
+|  [06]   | `drain() -> None`                                                         | `NOT_SERVING` first, then `stop(grace)`                 |
+|  [07]   | `CredentialPolicy.server_credentials() -> RuntimeRail[ServerCredentials]` | loopback → `local_server_credentials(UDS)`              |
 
-- Auto: the interceptor is the ONE trace-context authority. `aio_server_interceptor(filter_=filters.negate(filters.health_check()))` extracts the C#-minted W3C parent and opens the SERVER span around the handler body natively, so the handler's ambient context is already remote-parented — `inbound` re-extracts nothing, `dispatch` opens no second scope, and a `Signals.attach(remote-parent)` around the body (which re-rooted handler spans as SERVER's siblings) is the deleted form; the receipts pair keeps its real consumer at the lanes offload stitch. The health filter suppresses liveness noise from a protocol that is actually served: the registered `health.aio.HealthServicer` answers `Check`/`Watch`, so the filter claim is real, never a phantom.
-- Auto: every `BoundaryFault` tag projects to a `grpc.StatusCode` through the `_FAULT_STATUS` `Map[FaultTag, grpc.StatusCode]` keyed on the closed `reliability/faults#FAULT` `FaultTag` literal — the fault tag IS the status key, never a per-arm `if` ladder, never a `(code, label)` tuple duplicating the key. `_sealed` is the one total `FaultDetail` egress fold: `facts()` supplies the case slots and evidence map, the inbound frame echoes `hlc_physical`/`hlc_logical`/`tenant` (Timestamp precision on the echo; the carrier headers stay the authoritative full-fidelity stamp), the correlation is the admitted trace id, and the numeric status is the wire code. A failed trailer encode skips the trailer, never the abort.
-- Auto: the SERVER-span enrichment is `set_attributes` composed inside the interceptor's active scope — `ServerHost.enrich` folds `RuntimeContext.attribute()` (`rasm.tenant`/`rasm.hlc` are the `clock#CLOCK` projection, never re-spelled) with the `rasm.descriptor` and `rasm.fault_case` dimensions in one call, so a flame graph shows descriptor, tenant, HLC, and resolved fault case per RPC. This is `set_attributes`, not a hook param on `aio_server_interceptor` (which takes none) and not a hand-rolled tracing interceptor. Compression rides the `grpc.Compression` member passed at construction; the `TracerProvider` arrives installed at `observability/telemetry#TELEMETRY`.
-- Growth: a new servicer method is one `Route` row through the existing `register` — never a new prologue; a new wire message is one `transport/shapes#REGISTRY_AND_DRIFT` row the codec resolution already spans; a new fault-to-status mapping is one `_FAULT_STATUS` row keyed by the new `FaultTag`; a new health surface is automatic — every registered service flips with the lifecycle; a new enriched span dimension is one key in the `enrich` union; a new compression algorithm is one `grpc.Compression` member at construction; zero new surface, no second RPC server.
-- Boundary: the wire contract is the existing C# proto; the runtime mints no transport, no channel, and no second wire vocabulary. The C# host lifecycle and product telemetry export stay AppHost-owned; the `Hlc`/`ElementId`/`Tenant`/`CausalFrame` stamp lives in `clock#CLOCK`, the codec in `transport/wire`, the shapes in `transport/shapes`, all consumed here and re-minted nowhere. The deleted forms:
-  - a hand-rolled message loop, a hand-wired servicer beside the `register` fold, a divergent message shape, a second RPC server, or a per-servicer admit/transcode/abort prologue where the one `dispatch` aspect folds every method;
-  - a `Signals.attach(remote-parent)` scope around the handler body re-rooting spans the interceptor already parented, a second W3C extract beside the interceptor, or a fresh-root span where the C# parent is on the inbound carrier;
-  - an unbounded handler ignoring `ServicerContext.time_remaining()` where the one real inbound budget feeds the admitted `Deadline`; an empty-roster `serve()` that binds and serves nothing where the typed `config` refusal names it;
-  - a `":".join` facts string as the ONLY fault egress where the typed `FaultDetail` trailer crosses via `set_trailing_metadata` before `abort`; a `return b""` after the `NoReturn` abort — dead code and a fictional Error-arm return; a hand-indexed `facts()["detail"]` that panics on the slot-divergent arms where `_sealed` folds the whole map;
-  - a `Credential` spelling diverging from the `Rasm.Compute/Runtime/transport`-minted `CredentialPolicy` axis name; a key-chain server credential on the UDS leg; a health filter over a protocol never served; a `set(...)`-based drain flip a late success can re-advertise where `enter_graceful_shutdown()` is permanent;
-  - a four-level nested `match` ladder over the decode/handler/encode rail where one `Result.bind` chain plus the one `settle` fold owns the flow; a `(grpc.StatusCode, str)` tuple table value, a stringly `dict[str, ...]` status table, or an inline `int(...)` carrier parse with re-spelled `rasm-hlc-*` literals where `CausalFrame.decode` owns the `SLOTS`-keyed parse and the sole fence.
+ `serve()` refuses an empty roster with a typed `config` fault — never a silent empty bind — and awaits termination directly; supervision is the `[04]-[ENTRY]` composition root's. `inbound` lifts `ServicerContext.time_remaining()` into the admitted `Deadline`, feeding the C#-dialed budget to the deadline rail — never an unbounded handler.
+
+- Auto: the interceptor is the ONE trace-context authority — it extracts the C#-minted W3C parent and opens the SERVER span natively, so `inbound` re-extracts nothing, `dispatch` opens no second scope, and a `Signals.attach` around the handler body re-roots spans the interceptor already parented. The health filter suppresses liveness noise from a protocol that is actually served — the registered servicer answers `Check`/`Watch`, so the filter claim is real. `enrich` is `set_attributes` inside the interceptor's active scope, not a hook param on `aio_server_interceptor` (which takes none) and not a hand-rolled tracing interceptor.
+- Growth: a new servicer method is one `Route` row; a new wire message is one shapes registry row; a new fault-to-status mapping is one `_FAULT_STATUS` row; a new health surface is automatic with the lifecycle; a new span dimension is one `enrich` key; a new compression algorithm is one `grpc.Compression` member at construction.
+- Boundary: the wire contract is the existing C# proto — the runtime mints no transport, no channel, and no second wire vocabulary; the C# host lifecycle and product telemetry export stay AppHost-owned.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -79,7 +61,7 @@ type CodecPair = tuple[WireProtoCodec[Struct, Message], WireProtoCodec[Struct, M
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# the V14 round-trip's two symbolic anchors: settle packs them, the invoke ingress reads them.
+# the round-trip's two symbolic anchors: settle packs them, the invoke ingress reads them.
 _DETAIL_KEY: Final[str] = "grpc-status-details-bin"
 _FAULT_DETAIL: Final[str] = "fault_detail"
 # the C# Instant.ToUnixTimeTicks 100 ns unit; the trailer echo truncates to Timestamp
@@ -113,8 +95,7 @@ class CredentialPolicy:
 
 
 class Route(Struct, frozen=True):
-    # one servicer method as data: the registration fold resolves `request`/`response` through
-    # the wire registry and binds `handler` into the one dispatch aspect.
+    # one servicer method as data: `request`/`response` resolve through the wire registry, `handler` binds into the dispatch aspect.
     service: str
     method: str
     descriptor: str
@@ -173,9 +154,7 @@ class ServerHost:
 
     @staticmethod
     def inbound(servicer_context: grpc.aio.ServicerContext) -> RuntimeRail[RuntimeContext]:
-        # the interceptor already extracted W3C context and opened the SERVER span, so the ambient
-        # scope IS remote-parented; this reads only the causal frame (the clock owner's sole fence)
-        # and the one real inbound budget — time_remaining() lifting the C#-dialed deadline.
+        # the ambient scope IS remote-parented by the interceptor; this reads only the causal frame and the inbound budget.
         carrier = dict(servicer_context.invocation_metadata())
         budget = Option.of_optional(servicer_context.time_remaining()).map(lambda remaining: Deadline(timedelta(seconds=remaining)))
         return CausalFrame.decode(carrier).map(
@@ -281,22 +260,12 @@ def _sealed(fault: BoundaryFault, context: RuntimeContext, status: grpc.StatusCo
 
 ## [03]-[CAPABILITY_INVOKE]
 
-- Owner: `CapabilityInvoke` — the descriptor-driven polymorphic invoke decoding the C# `Rasm.AppHost/Agent/capability#SDK_CODEGEN` Python target. `DiscoveryResult` is the catalog row ingested from the C# `DiscoveryResultWire[]` projection, carrying the per-descriptor `input_schema` as a deferred-decode `msgspec.Raw` slot; `CommandReceipt` is the per-command evidence read back through the C# `ReceiptEnvelopeWire<CapabilityCommandReceiptWire>`. One `run` keyed by descriptor id discriminates every capability through the frozen `Map[str, DiscoveryResult]` catalog and resolves its codec PER DESCRIPTOR off the `_ROW_BY_STRUCT` table derived from the one `transport/shapes#REGISTRY_AND_DRIFT` seed table — the request's own `Struct` type and the caller's `into` type are the discriminants, so one invoke genuinely spans the whole catalog and no injected per-shape codec pair narrows it to a single request/response shape.
-- Owner: the outbound dispatch wraps its channel with `aio_client_interceptors(tracer_provider, filter_, request_hook, response_hook)` so the call propagates the active span through the `observability/telemetry#TELEMETRY`-installed composite; the CLIENT-span hooks enrich the channel-stable `clock#CLOCK` `Tenant` and the fault case, while the per-call descriptor dimension rides the interceptor-set `rpc.service`/`rpc.method` attributes natively — the invoke path IS `/rasm.capability/{descriptor_id}`, so `rpc.method` carries the descriptor with zero hand machinery and the prior ambient `set_attribute` (which landed on whatever span was current BEFORE the CLIENT span opened) is the deleted form. The dispatch retries under the bare cached `guard(RetryClass.WIRE)` caller — the transient status trio discriminated by the resilience `_wire_transient` row — and converts the terminal raise at the channel's two-fence ingress: the `grpc.aio.AioRpcError` fence lifts `trailing_metadata()` and decodes the `fault_detail` row into the typed producer conflict, and the generic `async_boundary` fence converts every other raise, so no bare gRPC exception escapes and no trailer is erased to `boundary=("wire", "AioRpcError")`.
-- Cases: the C# SDK Python target emits one method per descriptor — each delegating to `run("{surface}.{op}", request, into=...)` — so the companion decodes the catalog into one dispatch, `descriptor_id` the `{surface}.{op}` join the C# `CapabilityDescriptor.Of` mints. The per-descriptor `input_schema` is the `JsonSchemaExporter` JSON Schema the C# `SuiteContracts.Schema` derives, carried as a deferred `msgspec.Raw` slot so the routing decode never pays the schema-document parse; the argument payload is the already-typed canonical `Struct` the resolved codec transcodes, not a hand-mirrored mapping re-validated against a schema document. The command-txn disposition decodes onto `CommandTxn` whose `kind: CommandTxnKind` is the literal-discriminated disposition the C# `CommandTxn` mints (`committed`, `rolled_back`, `compensated`, `refused`), never an erased `dict`.
-- Entry: `CapabilityInvoke.run(descriptor_id, request, into)` is one `Result`-railed `lookup → resolve → encode → dispatch → resolve → decode` chain: the catalog `try_find(...).to_result(BoundaryFault(wire=(descriptor_id, 0)))` lifts the absent id, `_transcoder(type(request))` resolves the encode codec off the request value's OWN type (the discriminant recoverable from the value, never a name suffix or a knob), the awaited dispatch is the single coroutine point, and `_transcoder(into)` resolves the decode back to the caller's typed `R` — the registry row pins struct identity, so the `into`-resolved decode returns the caller's shape.
-- Entry: `CapabilityInvoke.discover` reads the catalog the C# `CapabilityRegistry.Discover(DiscoveryQuery.All)` emits through `msgspec.json.Decoder(list[DiscoveryResult])` on the one `boundary("wire", ...)` fence, then `.map`s the rows into the descriptor-keyed `Map[str, DiscoveryResult]` — the keying fold lives at the one decode site, so the command surface is generated from the descriptor rows, never hand-listed.
-- Entry: `CapabilityInvoke.connect` is the single channel composer: it mints the one outbound `grpc.aio.insecure_channel` (loopback UDS) wrapped with the `interceptors(tenant)` factory and closes the railed `dispatch` over it. The channel is the runtime-lived multicallable pool shared across every `run` — the invoke owns its deterministic `grpc.aio.Channel.close` drain through `aclose`, the same runtime-lived-client-with-one-drain shape `transport/roots#RESOURCE` gives the pooled `httpx.AsyncClient`; a directly-injected `WireDispatch` (the test/sidecar-composition path) carries no channel, so `aclose` is a typed no-op.
-- Auto: the descriptor catalog crosses as the `DiscoveryResultWire[]` array (`descriptor`, `surface`, `effect`, `idempotency`, `estimated`, `scope_hash`); the `effect`/`idempotency`/cost-unit keys decode as the C# smart-enum string keys, the cost vector as the unit-keyed mapping `CostVectorWire` emits. The channel-stable client hooks set `rasm.tenant`/`rasm.fault_case` on the CLIENT span through `Span.set_attribute` inside the active scope, never blocking; `response_hook` receives the awaited unary status-details string (`""` on OK). The factory's `tracer_provider` defaults to the global provider the telemetry install registers, so no second tracer mints.
-- Packages: `msgspec` (`json.Decoder` the catalog decode / `Struct` the shapes / `Raw` the deferred `input_schema` slot), `grpcio` (`grpc.aio.insecure_channel`/`grpc.aio.Channel`/`grpc.aio.AioRpcError` with `.code()`/`.details()`/`.trailing_metadata()` — the client-fault law lifted at the channel boundary), `opentelemetry-instrumentation-grpc` (`aio_client_interceptors` + `filters`; the interceptor-set `rpc.service`/`rpc.method` semantic attributes the descriptor rides), `opentelemetry-api` (`trace.Span.set_attribute` the hook enrichment), `expression` (`Result.bind`/`Map.try_find`/`Option.to_result` the chain; `Block.filter`/`try_head` the trailer lookup), `transport/shapes#REGISTRY_AND_DRIFT` (`PROTO_VOCABULARY` the `_ROW_BY_STRUCT` derivation source), `transport/wire#PROTO_TRANSCODE` (`codec(name)` the per-row resolution), `reliability/resilience#RESILIENCE` (`guard(RetryClass.WIRE)` the bare cached retry caller — exported for exactly this composed per-seam aspect), `reliability/faults#FAULT` (`boundary`/`async_boundary`/`BoundaryFault`/`RuntimeRail`).
-- Growth: a new capability is one descriptor row the C# registry already folds — the companion reads it through the existing `discover`/`run` pair, never a new method; a new wire shape reaches the invoke through one shapes registry row (`_ROW_BY_STRUCT` derives, `run` resolves — zero edits here); a new effect/idempotency/cost key is one literal the decode union already discriminates; a new enriched span dimension is one `set_attribute` key in the existing hook; zero new surface, no per-service hand client.
-- Boundary: the descriptor is the suite's only op-metadata owner and the C# registry its sole mint; the companion re-authors no capability shape and mints no fourth wire shape. The cross-language shape-identity is the C# `SuiteContracts.Schema` JSON Schema all three SDKs bind, evolution riding the one `ContractGuard.AdditiveOnly` classifier. The deleted forms:
-  - a per-capability hand client, a re-authored descriptor shape, or a hand-mirrored argument schema validated against a JSON Schema document `msgspec` cannot check;
-  - a single injected codec pair freezing the invoke to one request/response shape where `_transcoder` resolves per descriptor off the one seed table; a parallel descriptor→codec-name table minted beside the shapes registry where the struct TYPE is the derivable discriminant;
-  - an `AioRpcError` erased to `boundary=("wire", "AioRpcError")` with its trailer dropped where the trailer fence decodes the `fault_detail` row into the typed producer conflict; a `guarded(...)` wrap on this leg whose terminal lift consumes the exception before the trailer can be read — the bare `guard` caller plus the two-fence ingress is the ruled composition here;
-  - an ambient per-call `set_attribute("rasm.descriptor", ...)` landing on the pre-CLIENT span where the interceptor-set `rpc.method` carries the descriptor natively; an empty-descriptor channel-lifetime interceptor; a hand-rolled tracing interceptor; a second tracer;
-  - a per-`run` `async with grpc.aio.insecure_channel(...)` reopen or a leaked channel with no drain where the `connect`-minted runtime-lived channel drains through `aclose`;
-  - a dual-purpose `_catalog` name binding both the class-level decoder and the instance lookup where `_DISCOVERY` is the distinct class constant; an `if descriptor_id not in self._catalog` guard where `Map.try_find(...).to_result(...)` lifts the absent id; a `dict[str, DiscoveryResult]` catalog where the persistent `Map` carries the lookup rail.
+- Owner: `CapabilityInvoke` decodes the C# `Rasm.AppHost/Agent/capability#SDK_CODEGEN` Python target into one dispatch — the request's own `Struct` type and the caller's `into` type are the codec discriminants off the `_ROW_BY_STRUCT` table, so one `run` genuinely spans the whole catalog and no injected per-shape codec pair narrows it. The outbound leg retries under the bare cached `guard(RetryClass.WIRE)` caller with a two-fence ingress — a `guarded(...)` wrap is the ruled-out composition because its terminal lift consumes the exception before the trailer read — so no bare gRPC exception escapes and no trailer erases to a bare `boundary` tag.
+- Cases: the per-descriptor `input_schema` is the C# `SuiteContracts.Schema` JSON Schema carried as a deferred `msgspec.Raw` slot, so the routing decode never pays the schema-document parse; the argument payload is the already-typed canonical `Struct` the resolved codec transcodes, never a hand-mirrored mapping re-validated against a schema document. The `effect`/`idempotency`/cost-unit keys decode as the C# smart-enum string keys.
+- Entry: the per-call descriptor dimension rides the interceptor-set `rpc.service`/`rpc.method` attributes natively — the invoke path IS `/rasm.capability/{descriptor_id}` — while the channel-stable hooks enrich tenant and fault case on the CLIENT span; an ambient per-call `set_attribute` lands on whatever span was current BEFORE the CLIENT span opened.
+- Packages: `msgspec`, `grpcio`, `opentelemetry-instrumentation-grpc`, and the shapes/wire/resilience/faults rails per the fence imports; `guard` is exported for exactly this composed per-seam aspect.
+- Growth: a new capability is one descriptor row the C# registry already folds — the companion reads it through the existing `discover`/`run` pair; a new wire shape reaches the invoke through one shapes registry row with zero edits here; a new span dimension is one hook key.
+- Boundary: the descriptor is the suite's only op-metadata owner and the C# registry its sole mint; the companion re-authors no capability shape. Cross-language shape identity is the C# `SuiteContracts.Schema` JSON Schema all three SDKs bind, evolution riding the one `ContractGuard.AdditiveOnly` classifier.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -318,8 +287,7 @@ from rasm.runtime.resilience import RetryClass, guard
 from rasm.runtime.shapes import PROTO_VOCABULARY
 from rasm.runtime.wire import WireProtoCodec, codec
 
-# `_DETAIL_KEY`/`_FAULT_DETAIL` are the [02]-[SERVE] constants of this same `rasm.runtime.serve`
-# module — one trailer spelling for the egress pack and the ingress lift.
+# `_DETAIL_KEY`/`_FAULT_DETAIL` are this module's [02]-[SERVE] constants — one trailer spelling for egress pack and ingress lift.
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -376,8 +344,7 @@ class CapabilityInvoke:
 
     @classmethod
     def discover(cls, payload: bytes) -> RuntimeRail[Map[str, DiscoveryResult]]:
-        # the descriptor-keyed fold lives at the one decode site, never a `list`-to-`Map` re-key
-        # the composition root hand-spells.
+        # the descriptor-keyed fold lives at the one decode site, never a list-to-Map re-key the composition root hand-spells.
         return boundary("wire", lambda: cls._DISCOVERY.decode(payload)).map(lambda rows: Map.of_seq((row.descriptor, row) for row in rows))
 
     @staticmethod
@@ -400,9 +367,8 @@ class CapabilityInvoke:
             method = channel.unary_unary(f"/{_CAPABILITY_SERVICE}/{descriptor_id}")
 
             async def called() -> RuntimeRail[bytes]:
-                # Exemption: the trailer fence — grpc-status-details-bin lives only on the live
-                # AioRpcError, so this one platform-forced except reclassifies the terminal raise
-                # AFTER the WIRE-row retry exhausts; every other raise rides the generic fence below.
+                # Exemption: the trailer fence — grpc-status-details-bin lives only on the live AioRpcError, so this one
+                # platform-forced except reclassifies the terminal raise AFTER the WIRE-row retry exhausts.
                 try:
                     return Ok(await guard(RetryClass.WIRE)(method, request))
                 except grpc.aio.AioRpcError as terminal:
@@ -423,15 +389,13 @@ class CapabilityInvoke:
             case Error(_) as refused:
                 return refused
             case Ok(payload):
-                # the registry row pins struct identity, so the `into`-resolved decode returns the
-                # caller's typed R; the CLIENT span carries the descriptor as `rpc.method`.
+                # the registry row pins struct identity, so the `into`-resolved decode returns the caller's typed R.
                 return (await self._dispatch(descriptor_id, payload)).bind(lambda wire: _transcoder(into).bind(lambda transcode: transcode.decode(wire)))
             case _ as unreachable:
                 assert_never(unreachable)
 
     async def aclose(self) -> None:
-        # the invoke owns the runtime-lived channel's deterministic drain, mirroring ServerHost.drain;
-        # a directly-injected dispatch (tests) carries no channel and the drain is a typed no-op.
+        # the runtime-lived channel's deterministic drain; a directly-injected dispatch carries no channel, a typed no-op.
         if self._channel is not None:
             await self._channel.close()
 
@@ -444,8 +408,8 @@ def _transcoder(shape: type[Struct]) -> RuntimeRail[WireProtoCodec[Struct, Messa
 
 
 def _unsealed(terminal: grpc.aio.AioRpcError) -> BoundaryFault:
-    # V14 client ingress: the trailer's fault_detail row decodes to the typed producer conflict;
-    # an absent or undecodable trailer falls back to the status-coded lift, never a bare erasure.
+    # the trailer's fault_detail row decodes to the typed producer conflict; an absent or undecodable
+    # trailer falls back to the status-coded lift, never a bare erasure.
     status = terminal.code().value[0]
     detail = (
         Block.of_seq(tuple(terminal.trailing_metadata() or ()))
@@ -460,13 +424,11 @@ def _unsealed(terminal: grpc.aio.AioRpcError) -> BoundaryFault:
 
 ## [04]-[ENTRY]
 
-- Owner: `Entrypoint` — the type-hint-driven `cyclopts` command axis AND the daemon composition root, co-located with `ServerHost` because the serve command composes the host it launches. `companion_app(routes, drains)` is parameterized over BOTH the servicer roster and the extra drainable owners, so a downstream folder's composition root (geometry `mesh/serve` the named consumer) registers its rows and drain stages by data and composes install → admit → serve → drain strictly downward; runtime never imports a sibling.
-- Entry: `_booted` is the railed boot chain — the `reliability/faults#FAULT` `railed` computation expression over the heterogeneous binds a `traversed` fold cannot express: settings admission (`boundary("config", SettingsAdmission)`), the gated telemetry install (`Option`-folded off `otel_endpoint` — an absent endpoint installs nothing, no literal fallback), `Signals.configure`, the resilience `install(RetryMode.EMIT)` hook registration, the `transport/shapes#REGISTRY_AND_DRIFT` `aligned()` drift gate BEFORE the bind (the gate's chartered composition-root call site), and the host mint plus `register(routes)` roster fold; the first `Error` short-circuits and the composed host is the `Ok` payload.
-- Entry: `_supervised` runs the daemon under one task group — the hosting child resolves `ServerHost.serve` under its named `async_boundary` fence (a platform raise from the bind/start/health-flip calls lands on the rail, never an unconverted `ExceptionGroup` killing the group) and the trip child waits on `SIGTERM`/`SIGINT`, runs the railed `host.drain` (health `NOT_SERVING` flip, then `server.stop(grace)`) which unblocks `wait_for_termination`, and a failed bind cancels the trip scope so the daemon never hangs on a signal that will not come. After the group joins, `_drained` folds the remaining stages IN ORDER — the caller's `drains` rows (`CapabilityInvoke.aclose`, lanes/recipe drains, roots teardown, whichever owners the composing root minted) with `Telemetry.shutdown` appended LAST — every stage runs even after an earlier fault, each settles through one polymorphic `_settled` (a rail-returning sync owner passes through, an async owner converts under its named fence), and `traversed(..., ACCUMULATE)` combines every stage fault into one aggregate. One shutdown receipt emits through `Signals.emit_async` and the exit code folds the accumulated rail: `Ok`→`0`, `Error`→`1`, the traceback never escaping the CLI boundary.
-- Entry: the recipe command is the one-shot local bind of the `execution/recipe#RECIPE` owner — the `selector` admits a `RecipeName` member through the fenced `RecipeName(selector)` probe and falls back to the external recipe-folder path string, the optional `assignments` JSON document decodes once at the `boundary("config", ...)` fence into the spec's `Map[str, object]` inputs, the `Signals.configure`/`install(RetryMode.EMIT)` boot pair mirrors the serve leg so the engine-gate retries ride the one `RETRY_HOOKS` stack, and the outcome folds through the same `_exit` fold the serve command exits by — a rail folds `Ok`→`0`/`Error`→`1`, a batch `DrainReceipt` folds on its fault tally; the terminal-tier `serve -> lanes | recipe` imports are the module's only sibling edges.
-- Packages: `cyclopts` (`App` with `result_action="return_int_as_exit_code_else_zero"` / `Parameter(env_var=)` / `types.NonNegativeFloat` the constrained grace), `anyio` (`create_task_group`/`CancelScope`/`open_signal_receiver`/`create_memory_object_stream` the supervision seam), `msgspec` (`json.decode(type=dict[str, object])` the one assignments-document fence), `reliability/faults#FAULT` (`railed` the boot builder, `traversed(ACCUMULATE)` the drain combine, `async_boundary`/`boundary` the stage fences), `observability/telemetry#TELEMETRY` (`Telemetry.install`/`Telemetry.shutdown` — the LAST drain stage so every earlier stage's spans and receipts still export), `observability/receipts#RECEIPT` (`Signals.configure` the structlog chain, `Receipt.of` + `Signals.emit_async` the shutdown receipt, `DrainReceipt` the batch exit arm), `reliability/resilience#RESILIENCE` (`install(RetryMode.EMIT)` the retry-hook registration), `execution/admission#CONTEXT` (`SettingsAdmission` the one settings read), `execution/lanes#LANE` (`LanePolicy` the recipe command's lane), `execution/recipe#RECIPE` (`RecipeExecution`/`RecipeSpec`/`RecipeName` the one-shot bind).
-- Growth: a new private command is one `@app.command` method whose railed outcome folds through the shared `_exit` and the app's `result_action`; a new drainable owner is one `(subject, stage)` row on the `drains` Block — the ordered fold, the accumulate, and the receipt absorb it with zero new surface; a sibling daemon is one `companion_app(routes, drains)` call with its own rows.
-- Boundary: never a new public command surface — public commands are reserved to the suite Assay command surface. The deleted forms: a fire-and-forget stage sequence or an unowned drain ORDER across the drainable owners where the one `_drained` fold owns it; a first-fault abort leaving later stages undrained where every stage settles and the faults accumulate; a telemetry flush before the stages it must export; a hand-parsed `argv` or a hand-rolled validator the type library owns; an unrailed exception escaping the CLI boundary; a serve command that binds without the `aligned()` drift gate.
+- Owner: `Entrypoint` is the `cyclopts` command axis AND the daemon composition root, co-located with `ServerHost` because the serve command composes the host it launches. `companion_app(routes, drains)` is parameterized over both the servicer roster and the drainable owners, so a downstream folder's composition root — geometry `mesh/serve` the named consumer — registers its rows and drain stages by data; runtime never imports a sibling, the terminal-tier `serve -> lanes | recipe` imports the module's only sibling edges.
+- Entry: the drain fold owns ORDER — the caller's `drains` rows with `Telemetry.shutdown` appended LAST so every earlier stage's spans and receipts still export — and every stage settles even after an earlier fault, the faults accumulating into one aggregate; a first-fault abort leaving later stages undrained never lands. The boot chain rides the faults `railed` builder over heterogeneous binds a `traversed` fold cannot express.
+- Packages: `cyclopts`, `anyio`, `msgspec`, and the faults/telemetry/receipts/resilience/admission/lanes/recipe owners per the fence imports.
+- Growth: a new private command is one `@app.command` method folding through the shared `_exit`; a new drainable owner is one `(subject, stage)` row the ordered fold, the accumulate, and the receipt absorb; a sibling daemon is one `companion_app(routes, drains)` call with its own rows.
+- Boundary: never a new public command surface — public commands are reserved to the suite Assay command surface.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -492,8 +454,7 @@ from rasm.runtime.resilience import RetryMode, install
 from rasm.runtime.shapes import aligned
 from rasm.runtime.telemetry import Telemetry
 
-# `ServerHost`/`CredentialPolicy`/`Route` are the [02]-[SERVE] owners of this same
-# `rasm.runtime.serve` module — no cross-module import, one module's declaration regions.
+# `ServerHost`/`CredentialPolicy`/`Route` are this module's [02]-[SERVE] owners — no cross-module import.
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -503,8 +464,7 @@ type DrainStage = Callable[[], Awaitable[object] | RuntimeRail[object]]
 
 
 def _exit(outcome: RuntimeRail[object] | DrainReceipt[object]) -> int:
-    # the one CLI exit fold both commands share: a rail folds Ok->0/Error->1, a batch
-    # receipt folds on its fault tally; the traceback never escapes the CLI boundary.
+    # the one CLI exit fold both commands share; the traceback never escapes the CLI boundary.
     match outcome:
         case Result() as rail:
             return rail.map(lambda _value: 0).default_value(1)
@@ -527,9 +487,8 @@ def _booted(bind: str, grace: float, routes: Block[Route]) -> Generator[Any, Any
 
 
 async def _settled(subject: str, stage: DrainStage) -> RuntimeRail[object]:
-    # one polymorphic stage settle: the stage() call itself is fenced so a synchronous raise
-    # converts instead of escaping the drain fold; a rail-returning sync owner (Telemetry.shutdown)
-    # passes through, an async owner awaits under the same named fence.
+    # the stage() call itself is fenced so a synchronous raise converts instead of escaping the drain fold; a rail-returning
+    # sync owner passes through, an async owner awaits under the same named fence.
     match boundary(subject, stage):
         case Error(_) as refused:
             return refused
@@ -553,9 +512,8 @@ async def _supervised(host: ServerHost, drains: Block[tuple[str, DrainStage]]) -
     trip = anyio.CancelScope()
 
     async def hosting(sink: MemoryObjectSendStream[RuntimeRail[object]]) -> None:
-        # the serve leg is fenced: a platform raise from the bind/start/health-flip calls lands on
-        # the rail instead of killing the group as an unconverted ExceptionGroup, so the trip
-        # cancel below ALWAYS runs and the daemon never hangs on a signal that will not come.
+        # the serve leg is fenced: a platform raise lands on the rail instead of killing the group as an unconverted
+        # ExceptionGroup, so the trip cancel below ALWAYS runs and the daemon never hangs on a signal that will not come.
         async with sink:
             await sink.send((await async_boundary("serve.host", host.serve)).bind(lambda rail: rail))
         trip.cancel()  # a failed or refused bind releases the signal wait
@@ -604,9 +562,8 @@ def companion_app(routes: Block[Route], drains: Block[tuple[str, DrainStage]] = 
 
     @app.command
     async def recipe(selector: str, assignments: Path | None = None) -> int:
-        # one-shot local execution binding the execution/recipe#RECIPE owner: a RecipeName member
-        # or an external recipe-folder path, input assignments one JSON document, the exit code the
-        # rail; the boot pair mirrors the serve leg so the engine-gate retries ride RETRY_HOOKS.
+        # one-shot local bind of the execution/recipe#RECIPE owner: a RecipeName member or an external recipe-folder path;
+        # the boot pair mirrors the serve leg so the engine-gate retries ride RETRY_HOOKS.
         Signals.configure()
         install(RetryMode.EMIT)
         execution = RecipeExecution(lane=LanePolicy(capacity=1))
@@ -628,3 +585,11 @@ def companion_app(routes: Block[Route], drains: Block[tuple[str, DrainStage]] = 
 
     return app
 ```
+
+## [05]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+-->
+
+(none)

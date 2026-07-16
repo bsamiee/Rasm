@@ -11,11 +11,11 @@ description: >-
 
 # [RHINO_MCP]
 
-Drives McNeel `Rhino-MCP-Platform` through the `mcp__rhino-mcp-platform__*` tool surface (the bridge README `[INSTALL]` owns the pinned platform version). The router (`rhino-mcp-router`, USER-scope stdio server in `~/.claude.json`) proxies each call to a per-document loopback HTTP listener inside the targeted Rhino "slot". Every document-touching tool is bound to that slot's `RhinoDoc`, never `RhinoDoc.ActiveDoc`. All outputs are JSON strings (viewport adds a JPEG block).
+Drives McNeel `Rhino-MCP-Platform` through the `mcp__rhino-mcp-platform__*` tool surface (the bridge README `[INSTALL]` owns the pinned platform version). `rhino-mcp-router`, a USER-scope stdio server in `~/.claude.json`, proxies each call to a per-document loopback HTTP listener inside the targeted Rhino "slot". Every document-touching tool is bound to that slot's `RhinoDoc`, never `RhinoDoc.ActiveDoc`. All outputs are JSON strings (viewport adds a JPEG block).
 
 [IMPORTANT] The `rhino-mcp-router` wrapper gates the vendor router behind a live Rhino: with Rhino down the server serves only a `rhino_status` tool and sweeps stray routers, and a host watchdog reaps the router generation the moment Rhino closes. Step 1 of any Rhino MCP work is `forge-rhino-up` — idempotent, splash-free — then reconnect the `rhino-mcp-platform` server (`/mcp` -> reconnect, or a fresh session) to load the full toolset; a stdio MCP connection never re-spawns on its own.
 
-[IMPORTANT] This platform is `additive_external` and STANDALONE. It shares one live RhinoWIP session with the Rasm rhino-bridge but the two never couple: the bridge suppresses this platform's listener autostart (`RHINO_MCP_AUTOSTART_PORT=0`) and only reports its presence as `mcp.platform.version` / `mcp.listener` capability facts. The bridge is the deterministic typed-verification boundary; this platform is the interactive conversational host. Use MCP for exploration, scripting, and graph authoring; never as a substitute for `[RhinoScenario]` closure.
+[IMPORTANT] This platform is `additive_external` and STANDALONE. It shares one live RhinoWIP session with the Rasm rhino-bridge but the two never couple: the bridge suppresses this platform's listener autostart (`RHINO_MCP_AUTOSTART_PORT=0`) and only reports its presence as `mcp.platform.version` / `mcp.listener` capability facts. Deterministic typed verification is the bridge's boundary; this platform is the interactive conversational host. Use MCP for exploration, scripting, and graph authoring; never as a substitute for `[RhinoScenario]` closure.
 
 ## [01]-[WHEN_TO_USE_MCP_VS_BRIDGE]
 
@@ -47,7 +47,7 @@ Every non-router tool accepts an implicit `slot` arg (animal-name ID). Omitting 
 
 ## [03]-[SCRIPTING]-[RUN_CSHARP_PYTHON_COMMAND]
 
-The universal escape hatch: full RhinoCommon scoped to the slot's doc, stdout/error captured.
+Scripting is the universal escape hatch: full RhinoCommon scoped to the slot's doc, stdout/error captured.
 
 | [INDEX] | [TOOL]         | [INPUT]   | [OUTPUT]                                           |
 | :-----: | :------------- | :-------- | :------------------------------------------------- |
@@ -103,7 +103,7 @@ Headless, no dialogs. All bound to the slot's doc.
 - Output: JSON metadata plus JPEG when the scene is renderable; metadata-only diagnostic when empty or off-screen.
 - Camera write: `location?`, `target?`, `up?`, `lensLength?`, `projection?`, and `boxMin?`/`boxMax?`; bbox framing applies last.
 
-[IMPORTANT] On an empty/off-screen capture, read `scene.boundingBox` and object counts before re-framing with `boxMin`/`boxMax` or `view`. The JPEG block costs context tokens: capture at the minimum resolution sufficient to diagnose, keep the `480x270` default first, and escalate toward the `1280x720` ceiling only after a metadata-only pass.
+[IMPORTANT] On an empty/off-screen capture, read `scene.boundingBox` and object counts before re-framing with `boxMin`/`boxMax` or `view`. Every JPEG block costs context tokens: capture at the minimum resolution sufficient to diagnose, keep the `480x270` default first, and escalate toward the `1280x720` ceiling only after a metadata-only pass.
 
 ## [07]-[GRASSHOPPER]-[GRAPH_AUTHORING_G2]
 
@@ -116,7 +116,7 @@ Headless, no dialogs. All bound to the slot's doc.
 
 [GH_COMPONENT_SHAPES]:
 - Component search: `query`, `category?`, `subcategory?`, and `limit=20` return `Guid`, `Name`, `Category`, `SubCategory`, `Kind`, and `Description`.
-- Component description: `g2_describe_component` returns `Inputs[]` and `Outputs[]` parameter records with `Name`, `UserName`, `Description`, `TypeName`, `Access`, and `Requirement`.
+- Component ports: `g2_describe_component` returns `Inputs[]`/`Outputs[]`: `Name`, `UserName`, `Description`, `TypeName`, `Access`, `Requirement`.
 
 Discovery operations use GH2 component lookup and port-inspection tools:
 
@@ -150,7 +150,7 @@ Wiring and solving operations connect objects, apply batches, and resolve the ca
 
 [GH_CANVAS_READBACK_SHAPE]:
 - Canvas readback: `g2_get_canvas_graph` accepts `include_data=true` and `sample_size=3`.
-- Canvas payload: readback returns `Objects[]` and `Wires[]`; records carry `Messages[]`, input `Sources[]`, data summaries, and slider `DisplaySummary` where applicable.
+- Canvas payload: readback returns `Objects[]` and `Wires[]`; records carry `Messages[]`, input `Sources[]`, data summaries, slider `DisplaySummary`.
 - Canvas cleanup: `g2_clear_canvas` requires `confirm=true` and accepts `solve=true`.
 
 Inspection and cleanup operations read or clear the current canvas:
@@ -164,4 +164,4 @@ Inspection and cleanup operations read or clear the current canvas:
 
 ## [08]-[PRECONDITIONS]
 
-[IMPORTANT] Assert the OFFICIAL McNeel platform, not the community `rhinomcp` fork. The official ship is assembly `RhinoMcpPlatform`, namespace `RhMcp`, with a pinned PlugIn GUID; the bridge's `bridge status` capability facts (`mcp.platform.version`, `mcp.listener`) match only the official platform. If `bridge status` reports the platform absent while these tools register, a fork is loaded — its behavior is not guaranteed by this skill. The bridge README `[10]-[INTEGRATIONS]` owns the full boundary contract.
+[IMPORTANT] Assert the OFFICIAL McNeel platform, not the community `rhinomcp` fork. That official ship carries assembly `RhinoMcpPlatform`, namespace `RhMcp`, and a pinned PlugIn GUID; the bridge's `bridge status` capability facts (`mcp.platform.version`, `mcp.listener`) match only the official platform. If `bridge status` reports the platform absent while these tools register, a fork is loaded — its behavior is not guaranteed by this skill. Bridge README `[10]-[INTEGRATIONS]` owns the full boundary contract.

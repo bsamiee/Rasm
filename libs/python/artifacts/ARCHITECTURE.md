@@ -19,7 +19,7 @@ artifacts/
 │   │   └── export.py    # host-free chart render and format dispatch with the in-page VegaTransform pre-pass
 │   ├── table.py         # great-tables publication-table owner exporting HTML/LaTeX/PDF
 │   └── diagram/
-│       ├── layout.py    # diagram coordinate assignment over five engines, emitting the ten DiagramKind rows
+│       ├── layout.py    # diagram coordinate assignment over the layout engines, emitting the DiagramKind rows
 │       ├── draw.py      # named-layer SVG and editable .drawio emission over the DrawTarget selector
 │       ├── schematic.py # named-symbol schematic producer for the diagram class the marks cannot express
 │       ├── solar.py     # pvlib SPA solar-ephemeris and sun-path furniture owner
@@ -92,7 +92,7 @@ artifacts/
 │   └── receipt.py       # the one ArtifactReceipt union, ConformanceVerdict, and the Metrics.record seam
 └── package/             # content-addressed compression, archive, and delta over one shared bundle vocabulary
     ├── bundle.py        # shared Bundle/CodecProfile/BundleManifest vocabulary and the BundleEvidence projection
-    ├── codec.py         # single-blob compression composing bundle, plus the block-fan band with crc32_combine
+    ├── codec.py         # single-blob compression composing bundle, plus the parallel block-fan band
     ├── archive.py       # archive containers and the reproducible-ZIP owner
     └── delta.py         # detools binary diff/patch; parent-keyed delta nodes against the base bundle key
 ```
@@ -226,8 +226,14 @@ flowchart LR
 
 High-order producer planes sit on a shared primitive substrate. `graphic` and `typography` own the raster, vector, marks, color, style, layer, font, shaping, math, and line-layout primitives every plane composes over one `PositionedGlyphRun` seam; the producer planes lower onto them; `composition` places the outputs, `export` and `exchange` finish them, `core` is the production spine, and `package` is the content-addressed close.
 
-- `core/receipt` is the one shared receipt owner every producer contributes one case to. `contribute` records numeric facts through the runtime `Metrics.record` arm; render duration stays the runtime `Metrics.measured` fact, never a receipt's.
-- Outward figure handoff is landed, not re-minted: `core/receipt.graduates` projects any `ArtifactReceipt` into the `compute/graduation` `HandoffAxis(artifact=)` keyed by `ContentIdentity` under the governed residual-ceiling policy, a caller's tighter ceiling overriding. Sources re-mint no canonical concept, so the runtime `Structural.drift` query stays clean.
-- `graphic/color/derive` is the one upstream color source every visual plane pulls palettes from; `graphic/color/managed` is the downstream ICC/LUT/CCTF egress the raster and document outputs route through.
-- Host-free rendering cuts every sub-domain: `vl-convert` is the primary chart export, `lets-plot` the second host-free engine, and the great-tables Selenium path the one gated host path, never the default.
-- Engine selection is the second structural axis: heavyweight render, raster, compression, text-layout, and 3D arms dispatch onto the runtime subprocess seam (`anyio.to_process.run_sync`) rather than importing provider-heavy modules into the core runtime path.
+- `core/receipt` is the one shared receipt owner every producer contributes one case to.
+- `contribute` records numeric facts through the runtime metrics arm; render duration stays a runtime fact, never a receipt's.
+- Outward figure handoff is landed, not re-minted: `core/receipt.graduates` projects any `ArtifactReceipt` into the compute graduation hub.
+- Projection keys by `ContentIdentity` under the governed residual-ceiling policy, a caller's tighter ceiling overriding.
+- Sources re-mint no canonical concept, so the runtime structural-drift query stays clean.
+- `graphic/color/derive` is the one upstream color source every visual plane pulls palettes from.
+- `graphic/color/managed` is the downstream ICC/LUT/CCTF egress the raster and document outputs route through.
+- Host-free rendering cuts every sub-domain: `vl-convert` is the primary chart export, `lets-plot` the second host-free engine.
+- great-tables' Selenium path is the one gated host path, never the default.
+- Engine selection is the second structural axis: heavy render, raster, compression, text-layout, and 3D arms dispatch onto the subprocess seam.
+- Provider-heavy modules never import into the core runtime path.

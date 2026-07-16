@@ -110,7 +110,7 @@ repeat with x in {"a", "b", "c"}
 end repeat
 ```
 
-A Cocoa method returning through an `NSError **` out-parameter binds in AppleScript to the literal keyword `reference`, and the call destructures a `{result, errorOut}` pair; `result` is `missing value` with the error populated on the failure path. The parameter label `error` requires vertical bars because `error` is a reserved word — the rail that carries every Foundation JSON, regex, date-formatter, and atomic-file failure back into AppleScript as a value instead of a raw exception.
+A Cocoa method returning through an `NSError **` out-parameter binds in AppleScript to the literal keyword `reference`, and the call destructures a `{result, errorOut}` pair; `result` is `missing value` with the error populated on the failure path. Parameter label `error` requires vertical bars because `error` is a reserved word — the rail that carries every Foundation JSON, regex, date-formatter, and atomic-file failure back into AppleScript as a value instead of a raw exception.
 
 ```applescript conceptual
 use framework "Foundation"
@@ -144,11 +144,11 @@ tell application id "com.apple.finder"
 end tell
 ```
 
-The implicit `it` inside a predicate names the candidate object under test; `it` outside the predicate remains the current `tell` target. An application that implements the filter evaluates the predicate itself; one that does not forces the script to materialize and test every candidate.
+An implicit `it` inside a predicate names the candidate object under test; `it` outside the predicate remains the current `tell` target. An application that implements the filter evaluates the predicate itself; one that does not forces the script to materialize and test every candidate.
 
 ## [08]-[CONSIDERING_IGNORING]
 
-The comparison attribute stack is a lexically scoped policy of seven independent attributes — `case`, `diacriticals`, `hyphens`, `punctuation`, `white space`, `expansion`, and `numeric strings` — read by text equality, ordering, `contains`, and `text item delimiters` alike. The default active set ignores `case` and `numeric strings` while considering the rest, so `"a" = "A"` is true unwrapped but magnitude ordering is opt-in. `expansion` (ligature folding) is inert. `considering numeric strings` orders embedded digit runs by magnitude, giving `"1.10" > "1.9"` and `"item2" < "item10"` without a custom parser, and `considering X but ignoring Y` composes the full stack in one clause.
+A comparison attribute stack is a lexically scoped policy of seven independent attributes — `case`, `diacriticals`, `hyphens`, `punctuation`, `white space`, `expansion`, and `numeric strings` — read by text equality, ordering, `contains`, and `text item delimiters` alike. Its default active set ignores `case` and `numeric strings` while considering the rest, so `"a" = "A"` is true unwrapped but magnitude ordering is opt-in. `expansion` (ligature folding) is inert. `considering numeric strings` orders embedded digit runs by magnitude, giving `"1.10" > "1.9"` and `"item2" < "item10"` without a custom parser, and `considering X but ignoring Y` composes the full stack in one clause.
 
 ```applescript conceptual
 considering numeric strings but ignoring case and white space
@@ -220,7 +220,7 @@ set loader to "on run argv" & linefeed & "return item 1 of argv & \"/\" & item 2
 run script loader with parameters {"a", "b"}
 ```
 
-The OSA file-kind rail distinguishes source, compiled script, and script bundle before any tool invokes `osacompile`, `osascript`, `NSAppleScript`, or `OSAScript` against a path; the extensions are conventional.
+An OSA file-kind rail distinguishes source, compiled script, and script bundle before any tool invokes `osacompile`, `osascript`, `NSAppleScript`, or `OSAScript` against a path; the extensions are conventional.
 
 | [INDEX] | [UTTYPE]                 | [IDENTIFIER]                          | [ROLE]                             | [EXTENSION]    |
 | :-----: | :----------------------- | :------------------------------------ | :--------------------------------- | :------------- |
@@ -322,7 +322,7 @@ A script object closes over its constructor's parameters, so a handler that retu
 
 ## [14]-[VOCABULARY_AND_VERSION_GATE]
 
-The `AppleScript` top-level object exposes read-only vocabulary constants — `pi`, `space`, `tab`, `return`, `linefeed`, `quote`, `version`, and time-span constants in integer seconds — that a rail treats as vocabulary rather than as literals. Date components (`hours`, `minutes`, `day`, `time`) are settable in place against a `date` value with no string reparse.
+`AppleScript`'s top-level object exposes read-only vocabulary constants — `pi`, `space`, `tab`, `return`, `linefeed`, `quote`, `version`, and time-span constants in integer seconds — that a rail treats as vocabulary rather than as literals. Date components (`hours`, `minutes`, `day`, `time`) are settable in place against a `date` value with no string reparse.
 
 ```applescript conceptual
 set d to (current date) + (1 * days)

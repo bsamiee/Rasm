@@ -18,7 +18,7 @@ Rasm.AppUi/
 │   ├── Input.cs          # Command-derived hotkeys, behavior rows, pan-zoom canvas, device drivers
 │   └── Accessibility.cs  # Automation identity, tab-order and trap law, one WCAG luminance gate
 ├── Render/               # Pure GPU-viewport and temporal tier
-│   ├── Pipeline.cs       # Render-graph pass-DAG: per-backend targets, resolve ladder, visibility fold, version ghost, GPU-time lane
+│   ├── Pipeline.cs       # Render-graph pass-DAG over per-backend GPU targets and the resolve ladder
 │   ├── Meshlets.cs       # Compute residency cluster consumption with hysteresis LOD and cull cut
 │   ├── PathTrace.cs      # BVH, ReSTIR, denoise oracle, and sun study over the one light rig
 │   ├── Shading.cs        # GPU shader cache per backend feeding the layered-BSDF shade pass
@@ -26,7 +26,7 @@ Rasm.AppUi/
 │   ├── Reality.cs        # Gaussian-splat and point-cloud capture over the one residency carrier
 │   ├── Capture.cs        # Raster capsule, color-policy owner, vector-print arm, and encode rows
 │   ├── Drafting.cs       # Sheet drafting with hidden-line consumption and one DWG/DXF write leg
-│   └── Animation.cs      # Timeline keyframe-track union with track-owned interpolation, per-element transform tracks, and 4D schedule playback
+│   └── Animation.cs      # Timeline keyframe-track union with 4D schedule playback
 ├── Charts/               # Chart, dashboard, and geo-basemap projection
 │   ├── Dashboards.cs     # Chart series and axis rows with downsampled stream binding and brushing
 │   ├── Custom.cs         # Custom-visual Skia layout algebra with a keyed color-policy projection
@@ -204,7 +204,7 @@ flowchart LR
     class e9 edgeError
 ```
 
-`[PORT]` edges into `Editing` and `Document` are the one AppHost runtime port spine every surface composes at app composition, resolving through the one `Rasm.AppHost/Runtime` boundary. `[CONTENT_KEY]` edges are one idiom: every AppUi content-identity mint composes the kernel `ContentHash.Of` seed-zero entry, and Compute-minted residency and splat keys stay decode-only. The `[PROJECTION]: ReplayWindow` edge also serves the Render version-compare lane: the Persistence `ReplayWindow`/commit-DAG fold derives the `(ElementId, DiffClass)` classification `VersionGhost` renders as diff-classed `VisibilityOverride` rows — values only, AppUi runs no ledger read. The `[RECEIPT]: ConstructionState` edge carries the 4D schedule-phase consumption: `Render/animation.md` `SchedulePlayback.FromSchedule` reads as values off `Rasm.Bim/Planning/schedule.md` `ConstructionState.At`/`TaskKind`.
+`[PORT]` edges into `Editing` and `Document` are the one AppHost runtime port spine every surface composes at app composition, resolving through the one `Rasm.AppHost/Runtime` boundary. `[CONTENT_KEY]` edges are one idiom: every AppUi content-identity mint composes the kernel `ContentHash.Of` seed-zero entry, and Compute-minted residency and splat keys stay decode-only. `[PROJECTION]: ReplayWindow` also serves the Render version-compare lane: the Persistence `ReplayWindow`/commit-DAG fold derives the `(ElementId, DiffClass)` classification `VersionGhost` renders as diff-classed `VisibilityOverride` rows — values only, AppUi runs no ledger read. `[RECEIPT]: ConstructionState` carries the 4D schedule-phase consumption: `Render/animation.md` `SchedulePlayback.FromSchedule` reads as values off `Rasm.Bim/Planning/schedule.md` `ConstructionState.At`/`TaskKind`.
 
 `Diagnostics ⇄ Rasm.AppHost` `[FAULT]` edge is the 6xxx `AppUiFaultBand` neighborhood: AppUi lowers every fault union onto its band and the AppHost lifecycle registry pins the reciprocal range, so fault codes never collide across the platform seam.
 
@@ -219,21 +219,22 @@ flowchart LR
 
 ## [04]-[PROHIBITIONS]
 
-Each prohibition names the owner region that forecloses it.
-
-- NEVER runtime XAML for production views — `Surfaces.RejectRuntimeXaml` folds an `AvaloniaXamlLoader.Load` attempt into `SurfaceFault.MountRejected`, so views enter only through the `Configure<TApp>` compiled-XAML class.
+Deleted patterns the owner regions foreclose:
+- NEVER runtime XAML for production views — the `Surfaces` mount gate rejects runtime loads, so views enter only through the compiled-XAML class.
 - NEVER per-host `GpuBackend`/`GRContext` construction in a dispatch arm — Avalonia owns backend selection through `EmbedOptions.RenderingMode`.
-- NEVER a per-surface image loader, telemetry sink, or receipt sink — every owner contributes through the one `AppUiTelemetry.Contribute` spine and `ReceiptSinkPort`.
+- NEVER a per-surface image loader, telemetry sink, or receipt sink — every owner contributes through the one `AppUiTelemetry.Contribute` spine.
 - NEVER an `SKSurface` outside the `Offscreen` capsule — the capture capsule owns the one Skia draw boundary.
-- NEVER ReactiveUI code-behind view binding — `BehaviorRail.Intent(ICommand)` is the single C# binding bridge, `BehaviorRail.RejectViewBinding` faulting rejected binder symbols.
-- NEVER a second command, hotkey, palette, or conflict registry beside the one `CommandIntent` table and `CommandDeck.Freeze` — every menu, gesture, and remote verb is a derivation fold over the one table.
-- NEVER a parallel control-generation or layout framework — control materialization is the one `ControlIntent` union through `ControlFactory`, and constraint layout is the one `LayoutConstraint` algebra solved by one `LayoutSolver` panel.
+- NEVER ReactiveUI code-behind view binding — the `BehaviorRail` intent bridge is the single C# binding seam and rejects binder symbols.
+- NEVER a second command, hotkey, palette, or conflict registry beside the one `CommandIntent` table — every verb is a derivation fold over it.
+- NEVER a parallel control-generation framework — the one `ControlIntent` union through `ControlFactory` materializes every control.
+- NEVER a parallel layout framework — constraint layout is the one `LayoutConstraint` algebra solved by one `LayoutSolver` panel.
 - NEVER a per-surface virtualizer — the one `VirtualWindow` owner over `DynamicData` change-sets owns every windowed surface.
 - NEVER a generic `IReceipt` or ledger abstraction — every receipt stays its typed record sealed through `ReceiptSinkPort`.
-- NEVER a fault code outside the `Diagnostics/evidence` `FAULT_TABLES` registry — every AppUi fault union's `Code` derives through its 6xxx `AppUiFaultBand` row.
-- NEVER a Loro byte as durable truth — the durable collaboration stream is the one `Collab/sync` `EditIntent` union projected onto Persistence-owned `OpLogEntry` rows, and the Loro snapshot survives only as a content-keyed cold-start accelerator.
-- NEVER a second revert vocabulary beside the one inverse algebra — `RevertibleOp` forward and inverse deltas fold across the client recorder window and the durable `OpLogEntry` inverse stream as two arms of one `RevertScope`.
-- NEVER a second BCF or coordination owner inside AppUi — `Rasm.Bim/coordination` owns the openBIM semantics, and AppUi retains only the `Viewpoint` board projection.
-- NEVER an AppUi-local content-identity mint beside the kernel `ContentHash.Of` — every AppUi content hash composes the one federation seed-zero entry.
-- NEVER a local geodesy, solar-position, clustering, or recompute engine — Bim owns geodesy, Compute owns solar position and meshlet clustering, and the AppHost `RecomputeGraph` owns incremental recompute.
+- NEVER a fault code outside the `Diagnostics/evidence` registry — every AppUi fault union's `Code` derives through its `AppUiFaultBand` row.
+- NEVER a Loro byte as durable truth — the durable stream is the one `EditIntent` union projected onto Persistence-owned `OpLogEntry` rows.
+- A Loro snapshot survives only as a content-keyed cold-start accelerator.
+- NEVER a second revert vocabulary — `RevertibleOp` folds forward and inverse deltas across the recorder and the durable inverse stream.
+- NEVER a second BCF or coordination owner in AppUi — `Rasm.Bim` owns the openBIM semantics; AppUi keeps only the `Viewpoint` board projection.
+- NEVER an AppUi-local content-identity mint — every AppUi content hash composes the one kernel `ContentHash.Of` seed-zero entry.
+- NEVER a local geodesy, solar-position, clustering, or recompute engine — Bim, Compute, and the AppHost `RecomputeGraph` own those.
 - CSP analyzer diagnostics are architecture pressure: fix the shape, refine the rule on a false positive, never suppress.

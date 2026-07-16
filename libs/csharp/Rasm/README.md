@@ -1,6 +1,8 @@
 # [RASM]
 
-`Rasm` owns the RhinoCommon-aware geometry and numeric kernel below the C# app strata — the exact-predicate substrate every upper stratum composes while the kernel references no sibling. Pure-numeric floor is host-neutral-shaped without minting a host-free assembly, and `Context.Of(RhinoDoc)` and `Analyze.From(RhinoDoc)` are its only doc-coupled entries.
+`Rasm` owns the RhinoCommon-aware geometry and numeric kernel below the C# app strata: the exact-arithmetic computational-geometry floor and the operational geometry plane above it, one body. Its robust tier — adaptive exact predicates, constrained Delaunay, exact arrangement and booleans, the predicate-exact crossing lattice, robust skeleton and medial, predicate-gated heal, decimate, flatten, fit, and solve — is necessary but not sufficient; the consumer tier composes it into the parametric forms behind every generated assembly, the toolpath-grade offsets, slices, and clearances behind every CNC and additive program, the encoded payloads behind every GPU residency lane, and the persistent topological naming behind every persistence diff. Where no admissible package carries the robustness guarantee the kernel authors from first principles; where the ecosystem owns the concern it composes the categorical-best engine; never both for one concern.
+
+`Rasm` references no sibling while every upper stratum composes it, and it is the one C# geometry owner — the host-free peers meet it only at the content-identity and tessellation wire. Pure-numeric floor is host-neutral-shaped without minting a host-free assembly, and `Context.Of(RhinoDoc)` and `Analyze.From(RhinoDoc)` are its only doc-coupled entries.
 
 ## [01]-[ROUTER]
 

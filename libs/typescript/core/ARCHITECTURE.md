@@ -2,8 +2,6 @@
 
 `core` is the branch's wave-0 vocabulary-and-law package: `value`, `state`, `interchange`, and `observe` meet through one content identity, one clock law, one fault vocabulary, and one keyed-decode wire registry. Core owns decode and vocabulary, never transport, persistence, or serving. `value` roots the internal graph — every other sub-domain composes it and none feeds back.
 
-Each codemap node is the source file its `.planning/` design page becomes; that scaffold is the authoring substrate, never part of the map.
-
 ## [01]-[DOMAIN_MAP]
 
 ```text codemap
@@ -194,6 +192,6 @@ flowchart LR
 ## [04]-[BOUNDARIES]
 
 - Core imports nothing from the branch and nothing host-bound; every module runs identically under node, bun, and the browser.
-- C# owns every `*Wire` shape; core decodes it verbatim into owned vocabulary and authors no wire, landing a family's decoded shape once even where its consumer arrives in a later wave.
+- C# owns every `*Wire` shape; core decodes it verbatim, authors no wire, and lands each family's decoded shape once even for a later-wave consumer.
 - Secret derivation is the security folder's concern; the digest engine here is content identity only.
 - Persistence, transport, serving, rendering, and exporters are later-wave concerns; core defines the shapes they carry and nothing they run.

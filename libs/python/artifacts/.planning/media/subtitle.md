@@ -1,19 +1,22 @@
 # [PY_ARTIFACTS_MEDIA_SUBTITLE]
 
-The temporal-artifact TIMED-TEXT arm — the subtitle/caption track that rides alongside the `media/container#CONTAINER` audio/video streams, owning the subtitle DOCUMENT (parse/convert/retime/restyle over `pysubs2`) and the two ways a track reaches a viewer: PASSTHROUGH-MUX of a soft-subtitle stream into an `av` container, and RGBA OVERLAY BURN-IN of hard subtitles onto an rgb24 frame sequence when the linked FFmpeg lacks the `subtitles`/`ass`/libass filter. `Subtitle` is a frozen `msgspec.Struct` whose op is ONE closed-payload `SubtitleOp` `expression.tagged_union` over the timed-text modalities — `Convert(text, src, dst)` (dialect transcode), `Retime(text, dialect, shift)` (constant-shift or framerate-rescale, the shift a discriminated `RetimeShift` per-mode payload), `Restyle(text, dialect, ops)` (rename/import/merge/clean over a `RestyleStep` sub-family), `Mux(text, container, dialect)` (soft-subtitle stream muxed into an existing container by packet copy plus one added `SubtitleStream`), and `BurnIn(text, dialect, frames, profile)` (per-event RGBA overlay composited onto the base frames, then encoded through the `media/container#CONTAINER` `_encode_video` worker) — dispatched by one total `match`/`case` closed by `assert_never`, returning `the `emit()`/`_emit` node contract` keyed over the produced subtitle/container bytes, never a parallel `convert_srt`/`retime_track`/`burn_subtitles` function family nor a per-dialect owner. The eleven writable dialects `pysubs2.formats.FORMAT_IDENTIFIERS` publishes fold into ONE `SubtitleDialect` `StrEnum` keyed inside each op's typed payload, never a free `format_` string the implementer re-validates. `pysubs2` owns the timed-text document — the per-dialect parsers, the SubStation override-tag grammar, the millisecond/frame timestamp codec, the format-autodetection, the constant-shift and framerate-rescale retiming, and the style rename/import/merge the module already ships; the owner wraps exactly `SSAFile.from_string`/`to_string` ingest/egress, the `MutableSequence[SSAEvent]` surface, `SSAFile.shift`/`transform_framerate`/`sort`/`rename_style`/`import_styles`/`remove_miscellaneous_events` track edits, `SSAEvent.plaintext`/`is_text`/`is_drawing` projections, `pysubs2.make_time`/`time.ms_to_frames` frame arithmetic, `pysubs2.formats.substation.parse_tags` styled-fragment decomposition, and `load_from_whisper` for the ASR-segment bridge from `media/analysis#ANALYSIS`. Only serialized subtitle bytes and projected `plaintext`/styled-fragment runs cross the owner boundary; the raw `SSAFile`/`SSAEvent` handles never do. This page composes the `media/container#CONTAINER` shared media family — the `MediaProfile` encode-policy value, the `MediaFault` closed av-boundary cause vocabulary, the `MediaEvidence` typed receipt, the `_media_fault`/`_deployment`/`_encode_video`/`_drive`/`_flush` worker primitives, the `WORKER_BAND`/`_WORKER_RETRY` subprocess lane — and READS them; it composes `media/filtergraph#FILTER`'s `filters_available` capability probe to select the BurnIn overlay arm (native `overlay` filter versus numpy alpha-composite) and the Mux-versus-BurnIn soft/hard-subtitle route; it composes `typography/shape#SHAPE` for the RTL/bidi-correct glyph→RGBA render (`uharfbuzz`+`python-bidi`, NOT the un-bundled Pillow RAQM backend) and `graphic/raster/io#IO` for the RGBA raster; and it OWNS the `SubtitleOp`/`RetimeShift`/`RestyleStep`/`SubtitleDialect` vocabulary, the `SubtitleEvidence` text-track receipt carrier, and the `_convert`/`_retime`/`_restyle`/`_mux_subtitle`/`_burn_in` worker functions. Each production contributes the single `ArtifactReceipt.Media` case the whole media plane shares — the subtitle event/style counts riding its `facts` band — never a parallel subtitle-receipt rail, and routes through the one `core/plan#PLAN` `ArtifactPipeline` entry as an `ArtifactWork` node keyed by its content key. This page realizes the timed-text leaf of the media plane.
+`Subtitle` owns the media plane's timed-text arm — the owner over a closed `SubtitleOp` union that holds the subtitle document (parse, convert, retime, restyle over `pysubs2`) and the two routes a track reaches a viewer. `Convert`/`Retime`/`Restyle` are the in-process `pysubs2` edits (parse once, apply, re-serialize); `Mux` passes a soft-subtitle stream through into an `av` container by packet copy; `BurnIn` composites hard subtitles as per-event RGBA overlays onto an rgb24 frame sequence, the substitute the capability rail selects when the linked FFmpeg lacks the libass `subtitles`/`ass` filter. Only serialized subtitle bytes and projected `plaintext`/styled-fragment runs cross the boundary — the raw `SSAFile`/`SSAEvent` handles never do.
+
+`SubtitleDialect` folds the writable dialects `pysubs2.formats.FORMAT_IDENTIFIERS` publishes into one vocabulary keyed inside each op's typed payload; `RetimeShift` and `RestyleStep` are per-mode unions so a body reads only the fields its mode carries. This page composes `media/container#CONTAINER`'s shared `MediaProfile`/`MediaFault`/`MediaEvidence` family and its `_encode_video`/`_media_fault`/`_WORKER_RETRY` primitives, `media/filtergraph#FILTER`'s `filters_available` probe routing Mux-versus-BurnIn and native-overlay-versus-numpy-composite, `typography/shape#SHAPE` for the RTL/bidi glyph→RGBA render, and `media/analysis#ANALYSIS` through the `of_whisper` ASR ingress; it owns the `SubtitleOp`/`RetimeShift`/`RestyleStep`/`SubtitleDialect` vocabulary, the `SubtitleEvidence` carrier, and the five worker arms. Each production contributes the shared `core/receipt#RECEIPT` `ArtifactReceipt.Media` case — the subtitle event/style counts on its `facts` band — and enters the `core/plan#PLAN` `ArtifactPipeline` as one `ArtifactWork` node keyed by content key.
 
 ## [01]-[INDEX]
 
-- [01]-[SUBTITLE]: the `Subtitle` owner over the closed-payload `SubtitleOp` family — `Convert`/`Retime`/`Restyle` the three in-process pure-`pysubs2` edit arms (`SSAFile.from_string(text, format_=src.value)` parse once, apply the edit, `to_string(format_=dst.value)` re-serialize) folding into one `SubtitleEvidence` text-track carrier, `Mux` the soft-subtitle passthrough (`av.open(BytesIO(container), "r")` demux the existing streams, `add_stream_from_template` packet-copy each, `add_stream(_SOFT_SUB[dialect])` mint the timed-text `SubtitleStream`, `mux_one` interleave), and `BurnIn` the hard-subtitle overlay (per event active at a frame's millisecond position render `SSAEvent.plaintext` or the `parse_tags` styled-fragment runs to an RGBA buffer through `typography/shape#SHAPE`, composite via the native `overlay` filter node or the numpy alpha-composite the `filters_available` probe selects, then `media/container#CONTAINER` `_encode_video`), each op returning `Result[SubtitleProduct, MediaFault]` and the owner `_keyed` arm spreading it onto the single `ArtifactReceipt.Media` case; the eleven-dialect `SubtitleDialect` `StrEnum` folded from `pysubs2.formats.FORMAT_IDENTIFIERS`, the `RetimeShift` (`Constant`/`Rescale`) and `RestyleStep` (`Rename`/`Import`/`Clean`) discriminated per-mode payloads, the `Subtitle.of_whisper` ASR-ingress classmethod folding a `load_from_whisper` transcript into a fresh track; `pysubs2` `SSAFile.from_string`/`to_string`/`shift`/`transform_framerate`/`sort`/`rename_style`/`import_styles`/`remove_miscellaneous_events`/`get_text_events`, `SSAEvent.start`/`end`/`plaintext`/`is_text`, `pysubs2.make_time`/`time.ms_to_frames`, `pysubs2.formats.substation.parse_tags`, `load_from_whisper`, and the `Pysubs2Error` subtree all settled against the folder `.api`; `av` `open`/`add_stream_from_template`/`add_stream`/`mux_one`/`VideoFrame.from_bytes`/`filter.filters_available` settled against the folder `.api`. The `MediaProfile`/`MediaFault`/`MediaEvidence`/`_media_fault`/`_deployment`/`_encode_video`/`_drive`/`_flush`/`WORKER_BAND`/`_WORKER_RETRY` family is `media/container#CONTAINER`'s, the capability probe `media/filtergraph#FILTER`'s, the glyph→RGBA render `typography/shape#SHAPE`'s; this page owns the `SubtitleOp` vocabulary, the `SubtitleEvidence` carrier, and the five worker arms.
+- [01]-[SUBTITLE]: the `Subtitle` owner over the closed `SubtitleOp` family — the `Convert`/`Retime`/`Restyle` `pysubs2` text edits, the `Mux` soft-subtitle passthrough, and the `BurnIn` hard-subtitle overlay — folding into the shared `ArtifactReceipt.Media` case.
 
 ## [02]-[SUBTITLE]
 
-- Owner: `Subtitle` the one timed-text owner discriminating modality over the closed `SubtitleOp` family, worked by five module-level functions on the `WORKER_BAND` subprocess lane; `SubtitleOp` an `expression.tagged_union` whose every case carries its own typed payload, never a shared erased `params` bag nor a per-modality `Subtitle` subclass nor a parallel `convert`/`retime`/`burn` function trio; `SubtitleDialect` the closed `StrEnum` of the eleven writable dialects `pysubs2.formats.FORMAT_IDENTIFIERS` publishes (`SRT`/`ASS`/`SSA`/`MICRODVD`/`JSON`/`MPL2`/`TMP`/`VTT`/`SAMI`/`WHISPER_JAX`/`TTML`), each member's `.value` the exact `format_` string `SSAFile.to_string`/`from_string` consume, never a free string the implementer re-validates against the module table; `RetimeShift` the closed `Constant(ms)`/`Rescale(in_fps, out_fps)` per-mode `tagged_union` so the constant-shift arm carries ONLY a millisecond delta and the framerate-rescale arm ONLY the two framerates (the permissive `(shift_ms, in_fps, out_fps)` bag whose fields are irrelevant per mode is the rejected DERIVED-NOT-PARALLEL form); `RestyleStep` the closed `Rename(old, new)`/`Import(source_text, source_dialect, overwrite)`/`Clean` `tagged_union` folded in sequence over one parsed `SSAFile`; `SubtitleEvidence` the frozen text-track receipt carrier this page OWNS (`container` the dialect or muxer tag, `codec` the `"text"`/`"subtitle"`/video-codec sentinel, `duration` seconds, `byte_count`, `count` the event or frame count, and the `facts` band carrying the `events`/`styles` counts) with its one `measure` constructor — it projects onto the shared `ArtifactReceipt.Media` case at the owner `_keyed` arm so the receipt owner imports no `pysubs2` handle, never a second receipt rail; `MediaFault` the closed cause vocabulary `media/container#CONTAINER` owns (`unregistered`/`invalid`/`codec`/`provision`/`worker`/`contract`), threaded unchanged so a `pysubs2` autodetect ambiguity maps to `invalid`, an unknown dialect to `unregistered`, and a `pysubs2`/`av` `ImportError` to `provision` — the subtitle raises fold onto the SAME six cases, never a parallel `SubtitleFault`; `Result[(ContentKey, ArtifactReceipt), MediaFault]` the one carrier every arm returns, keyed over the produced bytes through `ContentIdentity.of(product.container, blob)` so an identical track at an identical dialect is a cache hit by reference. The `Convert`/`Retime`/`Restyle` arms produce a text-track `SubtitleEvidence` directly (the dialect on `container`, `"text"` on `codec`); the `Mux`/`BurnIn` arms produce a real container and compose the `media/container#CONTAINER` `MediaEvidence`, merging the subtitle `facts` band onto it through `msgspec.structs.replace`. The owner owns no second `Media` subclass, no per-dialect subtitle owner, and no parallel `encode_subtitle` surface — the modality is one `SubtitleOp` case, the worker one module-level function.
-- Cases: `SubtitleOp` cases — `Convert(text, src, dst)` (`SSAFile.from_string(text, format_=src.value).to_string(format_=dst.value)`, one parse one serialize, the module owning the per-pair codec) · `Retime(text, dialect, shift)` (parse, then `subs.shift(ms=shift.ms)` for the `Constant` case or `subs.transform_framerate(shift.in_fps, shift.out_fps)` for the `Rescale` case, `sort()`, re-serialize to the same dialect — the retimed track) · `Restyle(text, dialect, ops)` (parse, fold each `RestyleStep` — `Rename` -> `rename_style`, `Import` -> `import_styles(SSAFile.from_string(...), overwrite=)`, `Clean` -> `remove_miscellaneous_events()` — then re-serialize) · `Mux(text, container, dialect)` (parse the subtitle to the muxable dialect, `av.open(BytesIO(container), "r")` demux the existing video/audio streams cloned by `add_stream_from_template` and packet-copied, `add_stream(_SOFT_SUB[dialect])` mint the `SubtitleStream`, and `mux_one` interleave — the soft-subtitle passthrough, gated by `filters_available`/muxer support else routed to `BurnIn`) · `BurnIn(text, dialect, frames, profile)` (parse, then per base frame at index `i` the active events are those where `event.start <= make_time(frames=i, fps=profile.rate) < event.end`, each event's `parse_tags` styled-fragment runs rendered to an RGBA `NDArray[np.uint8]` through `typography/shape#SHAPE`, composited onto the rgb24 base by the native `overlay` filter node when `"overlay" in filters_available` else a numpy alpha-composite, and the burned `Frames` handed to `media/container#CONTAINER` `_encode_video` — the hard-subtitle substitute the capability-detection rail selects when libass is absent) — matched by one total `match`/`case`, the five-case modality recovered from the `SubtitleOp` discriminant, never a name suffix.
-- Entry: `emit()` is `async` over the runtime `async_boundary` returning `the `emit()`/`_emit` node contract` — the domain `MediaFault` nested inside the boundary rail exactly as `media/container#CONTAINER` nests it, so `async_boundary` owns only a truly unexpected raise while every classified subtitle/av cause stays structurally addressable on the inner rail; `_emit` maps the `_dispatch` outcome through `_keyed` (deriving `ContentIdentity.of(...)` and spreading `SubtitleEvidence` onto the case), and `_dispatch` matches the `SubtitleOp` and dispatches the whole synchronous body onto `_WORKER_RETRY(to_process.run_sync, _worker, ..., limiter=WORKER_BAND)` catching `BrokenWorkerProcess` -> `MediaFault(worker=...)` and `BeartypeCallHintViolation` -> `MediaFault(contract=...)` exactly as the container owner does. Each `@beartype`-woven worker maps its own raises at the arm that incurs them — a `pysubs2.exceptions.Pysubs2Error` through `_subtitle_fault` (`FormatAutodetectionError`/`UnknownFormatIdentifierError`/`UnknownFileExtensionError` -> `unregistered`, any other `Pysubs2Error` or a `UnicodeError`/`ValueError` -> `invalid`), an `av.error.FFmpegError` through the shared `_media_fault`, and a `pysubs2`/`av` `ImportError` -> `MediaFault(provision=...)` — returning `Result[SubtitleProduct, MediaFault]` as picklable data across the `to_process` seam. `Subtitle.of` normalizes the construction — a lone op or the `(text, src, dst)` convert shorthand — and `Subtitle.of_whisper(result, dialect)` is the ASR-ingress classmethod folding a `load_from_whisper` OpenAI-Whisper transcript into a fresh `SSAFile` serialized to `dialect`, so a `media/analysis#ANALYSIS` speech-to-text segment set lands as an editable subtitle track the `Convert`/`Retime`/`Restyle`/`BurnIn` arms then drive.
-- Auto: the dialect is `SubtitleDialect`, so a producer never re-declares a `format_` string and a new writable dialect `pysubs2` registers is one `StrEnum` member; the retime discriminant is the `RetimeShift` case, so the constant-shift and framerate-rescale bodies read `shift.ms` or `(shift.in_fps, shift.out_fps)` off the value the case already carries, never a `mode` flag re-deriving which delta applies; the restyle steps fold in sequence over one parsed `SSAFile`, a new step one `RestyleStep` case plus one fold arm; the burn frame-mapping is `make_time(frames=i, fps=profile.rate)` (the `time` module owning the frame↔ms conversion, never a hand-rolled `i * 1000 // rate`), and the per-event render is `parse_tags(event.text, styles=subs.styles)` -> the styled-fragment runs (falling back to `event.plaintext` when a fragment carries no override) each rendered by `typography/shape#SHAPE` and alpha-composited, so an inline `\i`/`\b`/`\fn`/`\r` override burns faithfully rather than flattening to plaintext; the burn compositor this page ships is the `_composite` numpy alpha-fold (the verified, self-contained RGBA-onto-rgb24 blend), with the native `av` `overlay` filter node the optional `media/filtergraph#FILTER` optimization the capability rail may route when `"overlay" in media_filters` — the same result, the numpy fold the floor; the soft-subtitle mux dialect is `_SOFT_SUB[dialect]` (`mov_text` for an MP4 container, `ass`/`srt` for a Matroska one — the muxer-compatible encoder name), and a container whose muxer refuses a soft-subtitle stream routes to `BurnIn` under the same capability rail; `SubtitleEvidence.measure` folds the dialect, the `"text"`/muxer codec, the track duration (`max((ev.end for ev in subs), default=0) / 1000.0` seconds), the byte count, the event count, and the `{events, styles}` band once — the `Mux`/`BurnIn` arms instead compose `media/container#CONTAINER` `MediaEvidence` and merge the subtitle band through `msgspec.structs.replace(evidence, facts=evidence.facts | band)`.
-- Receipt: each subtitle production contributes `core/receipt#RECEIPT` `ArtifactReceipt.Media(key, container, codec, duration, bytes, frames, bit_rate=0, facts)` — a `Convert`/`Retime`/`Restyle` product spreads the `SubtitleDialect` value onto `container`, the `"text"` sentinel onto `codec`, the track duration onto `duration`, the byte count onto `bytes`, the event count onto `frames`, `bit_rate=0`, and the `{events, styles}` counts onto the `facts` band (`receipt.md` line 14 already names the `subtitle` event/style facts band, so this contribution is a band fill with ZERO receipt edit); a `Mux`/`BurnIn` product reuses the `media/container#CONTAINER` container/codec/duration/frame facts with the subtitle event/style counts merged onto the same band. The media pages all contribute this single `Media` case, never a parallel subtitle-receipt rail, and the `SubtitleEvidence` carrier stays subtitle-owned — the receipt owner imports no `pysubs2` handle. The one artifact keys through `ContentIdentity.of(...)` and enters the `core/plan#PLAN` `ArtifactPipeline` as one `ArtifactWork` node whose `parents` are the source frame-set or container content keys, so a re-rendered identical subtitle at an identical dialect is elided by the reuse fabric.
-- Growth: a new writable dialect is one `SubtitleDialect` member the `to_string`/`from_string` rows read; a new retime mode is one `RetimeShift` case plus one arm; a new restyle op is one `RestyleStep` case plus one fold arm; a new burn compositor (a GPU overlay, a `blend`-filter mode) is one entry on the `filters_available`-probed selector, the RGBA render already deriving its buffer; a new evidence fact (a per-language event tally, a WPM reading-speed metric) is one `(label, value)` band key on the widened `facts`, ZERO receipt edit; a new subtitle modality (a `Split` that partitions one track by language, a `Sync` that aligns to an audio track) is one `SubtitleOp` case plus one worker arm plus one `_dispatch` arm, the `assert_never` tail breaking the match at type-check until the arm exists; zero new surface — the modality space stays the five `SubtitleOp` cases on one owner, every addition a member, case, field, or arm.
+- Owner: `Subtitle` discriminates modality over the closed `SubtitleOp` union, each case carrying its own typed payload — never a shared erased `params` bag, a per-modality subclass, or a parallel `convert`/`retime`/`burn` trio. `SubtitleDialect`'s each `.value` is the exact `format_` string `SSAFile.to_string`/`from_string` consume, never a free string the implementer re-validates. `RetimeShift` (`Constant`/`Rescale`) and `RestyleStep` (`Rename`/`Import`/`Clean`) are per-mode unions so the constant-shift arm carries only a millisecond delta and the rescale arm only the two framerates — the permissive `(shift_ms, in_fps, out_fps)` bag whose fields go dead per mode is the rejected derived-not-parallel form.
+- Cases: the `Mux`-versus-`BurnIn` choice is capability-derived, not a knob — `filters_available` and muxer support select the soft passthrough, else route to `BurnIn`, the hard-subtitle substitute when libass is absent.
+- Entry: `Subtitle.of_whisper` is the ASR ingress — a `media/analysis#ANALYSIS` Whisper transcript folds through `load_from_whisper` into a fresh track the edit arms then drive. Each worker maps its own `pysubs2` raises through `_subtitle_fault` onto `media/container#CONTAINER`'s `MediaFault` cases (an unknown or ambiguous dialect to `unregistered`, malformed source or bad framerate to `invalid`), its `av` raises through the shared `_media_fault`, and an `ImportError` to `provision` — the subtitle causes fold onto the same rail, never a parallel `SubtitleFault`.
+- Auto: `parse_tags` decomposes each event into override-honoring styled runs (plaintext fallback for a tagless line), so an inline `\i`/`\b`/`\fn`/`\r` burns faithfully rather than flattening; `make_time` owns the frame→ms mapping; `_composite`'s numpy alpha-fold is the burn floor, the native `overlay` filter the optional `media/filtergraph#FILTER` optimization the capability rail routes when present. `_SOFT_SUB` maps each muxer to its compatible soft-subtitle encoder; a muxer absent routes to `BurnIn`.
+- Receipt: the text arms produce `SubtitleEvidence` directly; `Mux`/`BurnIn` compose `media/container#CONTAINER` `MediaEvidence` and merge the `{events, styles}` band through `msgspec.structs.replace` — a band fill with ZERO receipt edit. `SubtitleEvidence` stays subtitle-owned so the receipt owner imports no `pysubs2` handle, and the artifact keys through `ContentIdentity.of(...)` over the produced bytes so an identical track at an identical dialect is a cache hit by reference.
+- Packages: `pysubs2` owns the timed-text document — the per-dialect parsers, the SubStation override grammar, the ms/frame codec, format autodetection, the shift/framerate retiming, and the style rename/import — so the owner wraps its ingest/egress and track edits, never re-implementing them; `av` owns the mux capsule. Both settled against the folder `.api`.
+- Growth: a new writable dialect is one `SubtitleDialect` member; a new retime mode one `RetimeShift` case plus arm; a new restyle op one `RestyleStep` case plus fold arm; a new burn compositor one entry on the `filters_available` selector; a new evidence fact one band key (ZERO receipt edit); a new modality one `SubtitleOp` case plus worker plus dispatch arm, `assert_never` breaking the match until the arm exists.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -45,19 +48,18 @@ lazy import av.error
 lazy import av.filter
 lazy import pysubs2
 lazy import pysubs2.exceptions
-lazy import pysubs2.formats.substation  # parse_tags lives at formats.substation, NOT the phantom top-level pysubs2.substation
+lazy import pysubs2.formats.substation  # parse_tags lives at formats.substation, not the phantom top-level pysubs2.substation
 lazy from artifacts.typography.shape import (
     shaped_rgba,
-)  # styled-fragment -> RGBA raster (uharfbuzz + python-bidi; the owned RTL/bidi engine, not un-bundled Pillow RAQM)
+)  # styled-fragment -> RGBA raster (uharfbuzz + python-bidi, not the un-bundled Pillow RAQM backend)
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Styled = tuple[str, object]  # (fragment text, pysubs2 SSAStyle) from parse_tags; the render input per run
+type Styled = tuple[str, object]  # (fragment text, SSAStyle) from parse_tags
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 
-# the eleven writable dialects pysubs2.formats.FORMAT_IDENTIFIERS publishes, folded to one closed vocabulary;
 # each member's `.value` is the exact `format_` string `SSAFile.to_string`/`from_string` consume.
 class SubtitleDialect(StrEnum):
     SRT = "srt"
@@ -73,7 +75,7 @@ class SubtitleDialect(StrEnum):
     TTML = "ttml"
 
 
-# the muxer-compatible soft-subtitle encoder name per container muxer; a muxer absent here routes to BurnIn.
+# muxer -> compatible soft-subtitle encoder; a muxer absent here routes to BurnIn.
 _SOFT_SUB: frozendict[str, str] = frozendict({"mp4": "mov_text", "matroska": "ass", "webm": "webvtt"})
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -81,8 +83,6 @@ _SOFT_SUB: frozendict[str, str] = frozendict({"mp4": "mov_text", "matroska": "as
 
 @tagged_union(frozen=True)
 class RetimeShift:
-    # per-mode payload: the constant-shift arm carries ONLY a ms delta, the framerate-rescale arm ONLY the two
-    # framerates — the permissive `(shift_ms, in_fps, out_fps)` bag whose fields are dead per mode is rejected.
     tag: Literal["constant", "rescale"] = tag()
     constant: int = case()  # `SSAFile.shift(ms=...)` millisecond delta
     rescale: tuple[float, float] = case()  # `SSAFile.transform_framerate(in_fps, out_fps)`
@@ -93,7 +93,7 @@ class RestyleStep:
     tag: Literal["rename", "import_", "clean"] = tag()
     rename: tuple[str, str] = case()  # `SSAFile.rename_style(old, new)`
     import_: tuple[str, SubtitleDialect, bool] = case()  # (source text, source dialect, overwrite) -> import_styles
-    clean: None = case()  # `SSAFile.remove_miscellaneous_events()` (the CLI --clean)
+    clean: None = case()  # `SSAFile.remove_miscellaneous_events()`
 
 
 @tagged_union(frozen=True)
@@ -127,14 +127,12 @@ class SubtitleOp:
 
 
 class SubtitleEvidence(Struct, frozen=True):
-    # the text-track receipt carrier this page owns, projecting onto the shared ArtifactReceipt.Media case; a
-    # Mux/BurnIn product composes media/container#CONTAINER MediaEvidence instead and merges the band onto it.
     container: str  # dialect id (text arms) or muxer name (container arms)
     codec: str  # "text" for a serialized track, the video codec for a burned one
     duration: float
     byte_count: int
     count: int  # event count (text) or frame count (burned)
-    facts: frozendict[str, float | str] = frozendict()  # {"events": n, "styles": m} -> ArtifactReceipt.Media facts band
+    facts: frozendict[str, float | str] = frozendict()  # {events, styles} -> ArtifactReceipt.Media band
 
     @staticmethod
     def measure(container: str, codec: str, duration: float, blob: bytes, count: int, facts: frozendict[str, float | str], /) -> "SubtitleEvidence":
@@ -155,8 +153,7 @@ class Subtitle(Struct, frozen=True):
 
     @staticmethod
     def of_whisper(result: dict | list[dict], dialect: SubtitleDialect = SubtitleDialect.SRT, /) -> "Subtitle":
-        # the ASR-ingress: a media/analysis#ANALYSIS Whisper transcript folds into a fresh SSAFile serialized to
-        # `dialect`, then the Convert/Retime/Restyle/BurnIn arms drive the editable track — no hand-rolled loop.
+        # ASR ingress: a Whisper transcript folds into a fresh SSAFile serialized to `dialect`.
         text = pysubs2.load_from_whisper(result).to_string(format_=dialect.value)
         return Subtitle(op=SubtitleOp.Convert(text, dialect, dialect))
 
@@ -165,14 +162,11 @@ class Subtitle(Struct, frozen=True):
 
     @property
     def _key(self) -> ContentKey:
-        # key-over-INPUT: the canonical frozen op minted PRE-RUN — the muxed output's own content
-        # address rides the receipt facts, never the elision key.
+        # key over the INPUT op minted pre-run; the output's own address rides the receipt facts.
         return ContentIdentity.of(f"media.subtitle-{self.op.tag}", self.op, policy=CANONICAL_POLICY)
 
     async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
-        # the renamed private thunk — the inner Result[..., MediaFault] is DEAD: the member's MediaFault
-        # folds into ITS OWN rail's boundary fault (Work[ArtifactReceipt] forbids an inner Result), and
-        # the terminal receipt threads the PRE-RUN key (receipt.slot == node.key).
+        # the member MediaFault folds into the boundary fault (Work[ArtifactReceipt] forbids an inner Result).
         railed = await async_boundary(f"media.subtitle.{self.op.tag}", self._folded)
         return railed.bind(
             lambda res: res.map(lambda pair: pair[1]).map_error(
@@ -213,8 +207,7 @@ class Subtitle(Struct, frozen=True):
 
 
 def _subtitle_fault(op: str, exc: "pysubs2.exceptions.Pysubs2Error | ValueError | UnicodeError", /) -> MediaFault:
-    # the pysubs2 raises fold onto the SAME six MediaFault cases media/container#CONTAINER owns: an ambiguous or
-    # unknown dialect is an unregistered-format miss, a malformed source or bad framerate is invalid data.
+    # unknown/ambiguous dialect -> unregistered; malformed source or bad framerate -> invalid.
     match exc:
         case (
             pysubs2.exceptions.FormatAutodetectionError()
@@ -288,8 +281,7 @@ def _restyle(text: str, dialect: SubtitleDialect, ops: tuple[RestyleStep, ...], 
 
 
 def _active(subs: "pysubs2.SSAFile", index: int, rate: int, /) -> Iterator[Styled]:
-    # the events visible at frame `index`: pysubs2.make_time owns the frame->ms mapping (never i*1000//rate), and
-    # parse_tags decomposes each into override-honoring styled runs, falling back to plaintext for a tagless line.
+    # make_time owns frame->ms (never i*1000//rate); parse_tags -> styled runs, plaintext fallback for a tagless line.
     at = pysubs2.make_time(frames=index, fps=rate)
     for event in subs:
         if event.is_text and event.start <= at < event.end:
@@ -298,7 +290,7 @@ def _active(subs: "pysubs2.SSAFile", index: int, rate: int, /) -> Iterator[Style
 
 
 def _composite(base: NDArray[np.uint8], rgba: NDArray[np.uint8], x: int, y: int, /) -> None:
-    # the numpy alpha-composite substitute the `overlay` filter replaces when present: RGBA over rgb24 in place.
+    # numpy alpha-composite substitute for the native `overlay` filter: RGBA over rgb24 in place.
     h, w = rgba.shape[:2]
     region = base[y : y + h, x : x + w]
     alpha = rgba[..., 3:4].astype(np.float32) / 255.0
@@ -306,8 +298,7 @@ def _composite(base: NDArray[np.uint8], rgba: NDArray[np.uint8], x: int, y: int,
 
 
 def _burned(subs: "pysubs2.SSAFile", frames: Frames, profile: MediaProfile, /) -> Frames:
-    # per frame, render each active styled run through typography/shape#SHAPE to RGBA and alpha-composite; the
-    # `overlay` filter node is the native compositor when present, the numpy fold the verified substitute.
+    # per frame: render each active styled run to RGBA, alpha-composite; numpy fold substitutes the native overlay.
     height = frames[0].shape[0]
 
     def paint(index: int, base: NDArray[np.uint8], /) -> NDArray[np.uint8]:
@@ -342,8 +333,7 @@ def _from_container(pair: tuple[bytes, MediaEvidence], subs: "pysubs2.SSAFile", 
 
 @beartype
 def _mux_subtitle(text: str, container: bytes, dialect: SubtitleDialect, /) -> Result[SubtitleProduct, MediaFault]:
-    # soft-subtitle passthrough: demux the existing streams by template packet-copy, add one SubtitleStream carrying
-    # the pysubs2-serialized track, mux interleaved; a muxer absent from `_SOFT_SUB` routes the caller to BurnIn.
+    # soft-subtitle passthrough by template packet-copy; a muxer absent from `_SOFT_SUB` routes the caller to BurnIn.
     try:
         subs = pysubs2.SSAFile.from_string(text, format_=dialect.value)
         payload = subs.to_string(format_=dialect.value).encode("utf-8")
@@ -370,3 +360,11 @@ def _mux_subtitle(text: str, container: bytes, dialect: SubtitleDialect, /) -> R
     except (pysubs2.exceptions.Pysubs2Error, ValueError, UnicodeError) as exc:
         return Error(_subtitle_fault("mux_subtitle", exc))
 ```
+
+## [03]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+-->
+
+(none)

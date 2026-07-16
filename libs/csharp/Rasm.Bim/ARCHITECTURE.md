@@ -8,8 +8,8 @@ Domain map of `Rasm.Bim` — the host-neutral BIM/IFC owner and the IFC arm of t
 Rasm.Bim/
 ├── Model/                 # Host-neutral BIM object model and analytical model
 │   ├── Elements.cs        # Generated IfcClass taxonomy and release-map vocabulary
-│   ├── Query.cs           # Set-algebraic ElementPredicate query over the element set
-│   ├── Spatial.cs         # Spatial-structure rank vocabulary and derived containment tree
+│   ├── Query.cs           # Set-algebraic ElementPredicate query, predicate wire, store push-down
+│   ├── Spatial.cs         # Spatial rank vocabulary, containment tree, linear positioning
 │   ├── Zones.cs           # Many-to-many zone and program overlay
 │   ├── Systems.cs         # MEP connectivity view, directed system trace, interference check
 │   ├── Structural.cs      # Structural reader lowering restraints and loads onto neutral edges
@@ -22,9 +22,9 @@ Rasm.Bim/
 │   ├── Connection.cs      # Realizing-element surface lowered onto seam detail bags
 │   ├── GeoReference.cs    # Map-conversion and CRS lowering into the seam georeference
 │   └── Geospatial.cs      # NTS simple-features algebra with GDAL/OGR vector and raster ingest
-├── Planning/              # 4D/5D delivery network
+├── Planning/              # 4D/5D/6D delivery network
 │   ├── Schedule.cs        # 4D construction-task schedule over task-time intervals
-│   └── Cost.cs            # 5D cost-and-resource estimate with rollup fold
+│   └── Cost.cs            # 5D cost-and-resource estimate and 6D carbon rollup
 ├── Exchange/              # Universal interchange codec
 │   ├── Format.cs          # Format, codec, and extension axis with frame normalization
 │   ├── Import.cs          # Foreign-bytes ingest fold across the decode arms
@@ -37,7 +37,7 @@ Rasm.Bim/
 │   ├── Projector.cs       # Raises HBJSON/DFJSON/OSM/gbXML/IDF evidence
 │   └── Derive.cs          # BIM-to-BEM lowering across envelope, massing, and translation
 ├── Review/                # Model-checking and coordination
-│   ├── Validation.cs      # IDS owner folding facet arms over the seam graph
+│   ├── Validation.cs      # Two-tier QA owner — template-audit baseline beneath the IDS facet fold
 │   ├── Issues.cs          # BCF issue exchange with .bcfzip codec and REST projection
 │   ├── Diff.cs            # GlobalId-plus-content-key federation change-set
 │   ├── Coordination.cs    # Clash rule engine, impact report, and sign-off vocabulary

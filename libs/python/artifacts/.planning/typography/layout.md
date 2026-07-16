@@ -1,18 +1,23 @@
 # [PY_ARTIFACTS_LAYOUT]
 
-The locale-aware paragraph line-layout owner over the document rail. `LineLayout` is ONE owner that takes the shaped `typography/shape#SHAPE` `PositionedGlyphRun` and a measure and folds it through a closed `LayoutOp` family into line-broken paragraph runs, cell-width measures, and locale-collated indices. The break resolution is engine-polymorphic: `SegmentEngine.UNISEG` runs uniseg's locale-free UAX#14 default-table break inline, `SegmentEngine.ICU` runs PyICU's CLDR-tailored, dictionary-backed `BreakIterator.createLineInstance` on the gated worker so a spaceless Thai/Lao/Khmer/Burmese/Japanese/Chinese run breaks at lexical boundaries the default table cannot find. pyphen inserts the soft-hyphenation opportunities a tight measure needs (through `language_fallback`, the `DataInt.data` orthographic-mutation channel, and the `iterate` prefix/suffix split), every break/hyphen offset reconciled onto the UAX#29 extended-grapheme boundaries `grapheme_cluster_boundaries` resolves so no break lands mid-cluster, and a hand-rolled Knuth-Plass total-fit dynamic program encodes the run as a Box/Glue/Penalty item stream — reading the shaped run's HarfBuzz break-safety column so an `unsafe_to_break` cluster is never a legal breakpoint and a `tatweel_points` cluster carries elastic kashida elongation without opening a line — and finds the globally optimal breakpoint set by a badness/demerits program. `pyphen`, `uniseg`, and `PyICU` are admitted manifest rows with `.api` catalogues; the Knuth-Plass item algebra is this owner's own algorithm, never a library re-export. `LineBrokenRun` is the value object the paragraph arm carries — a tuple of `LayoutLine` slices over the shaped run plus its per-line advance — surfaced by the public `LineLayout.broken()` projection beside `lay()` so `drawing/annotate#ANNOTATE` `TextNote.Prose`, `document/emit#DOCUMENT` paragraph emission, and `composition/compose#COMPOSE` placement DRIVE the total-fit break from a shaped run rather than receiving a pre-computed payload value; `COLLATE`'s sort keys / index buckets are the locale-correct order `drawing/schedule`, `specification/classify`, and `visualization/table` read. Every arm returns a `RuntimeRail[ArtifactReceipt]`; the native ICU4C arms ride the gated `anyio.to_process` seam under one `CapacityLimiter` and one `the runtime retry class` worker-death retry inside an OpenTelemetry span carrying a `structlog` event, and the pure-Python uniseg/pyphen segmentation and the bounded per-paragraph Knuth-Plass DP run inline.
+`LineLayout` is the locale-aware paragraph line-layout owner over the document rail — one owner folding a shaped `typography/shape#SHAPE` `PositionedGlyphRun` and a measure through a closed `LayoutOp` family into line-broken paragraph runs, cell-width measures, and locale-collated indices. Break resolution is engine-polymorphic: `SegmentEngine.UNISEG` runs uniseg's locale-free UAX#14 default-table break, `SegmentEngine.ICU` runs PyICU's CLDR-tailored dictionary-backed `BreakIterator` so a spaceless Thai/Lao/Khmer/Burmese/CJK run breaks at lexical boundaries the default table cannot find. pyphen inserts soft-hyphenation opportunities, every break/hyphen offset reconciled onto the UAX#29 grapheme boundaries so no break lands mid-cluster, and a hand-rolled Knuth-Plass total-fit program encodes the run as a Box/Glue/Penalty item stream — reading the shaped run's HarfBuzz break-safety column so an `unsafe_to_break` cluster is never a legal breakpoint and a `tatweel_points` cluster carries elastic kashida — finding the globally optimal breakpoint set by a badness/demerits program.
+
+`pyphen`, `uniseg`, and `PyICU` are admitted manifest rows; the Knuth-Plass item algebra is this owner's own algorithm, never a library re-export. `LineBrokenRun` is the value object the paragraph arm carries, surfaced by the public `LineLayout.broken()` projection beside `lay()` so `drawing/annotate#ANNOTATE` `TextNote.Prose`, `document/emit#DOCUMENT` paragraph emission, and `composition/compose#COMPOSE` placement drive the total-fit break from a shaped run rather than a pre-computed payload; `COLLATE`'s sort keys and index buckets are the locale-correct order `drawing/schedule`, `specification/classify`, and `visualization/table` read. Native ICU4C arms ride the gated worker seam; the pure-Python uniseg/pyphen segmentation and the bounded per-paragraph Knuth-Plass DP run inline.
 
 ## [01]-[INDEX]
 
-- [02]-[LAYOUT]: the uniseg/PyICU line-break, pyphen hyphenation, uniseg east-asian measure, PyICU collation, and hand-rolled Knuth-Plass total-fit paragraph owner over the closed `LayoutOp` step table — `BREAK`/`HYPHENATE`/`PARAGRAPH`/`MEASURE`/`COLLATE`; `SegmentEngine` the `{UNISEG, ICU}` break-engine discriminant (the `_native` gate crossing the ICU arms onto the `to_process` cp-worker while the pure arms run inline), `Item` the Box/Glue/Penalty paragraph-item value (one closed `tagged_union`), `BreakClass` the UAX#14 break-opportunity policy the DP threads through the `Penalty` items, `LineBrokenRun` the line-broken value object the paragraph arm carries (surfaced by the public `LineLayout.broken()` projection beside `lay()` the annotate/emit/compose consumers drive from a shaped run), and the `Pyphen`/`BreakIterator`/`Collator`/`AlphabeticIndex` composition the arms fold.
+- [01]-[LAYOUT]: the uniseg/PyICU line-break, pyphen hyphenation, east-asian measure, PyICU collation, and hand-rolled Knuth-Plass total-fit paragraph owner over the closed `LayoutOp` step table — break resolution the `SegmentEngine` discriminant and the paragraph item stream one closed `Item` `tagged_union`.
 
 ## [02]-[LAYOUT]
 
-- Cases: `LayoutOp` rows `BREAK` (engine-polymorphic UAX#14 line-break-opportunity resolution — `SegmentEngine.UNISEG` folds `uniseg.linebreak.line_break_units(text, tailor=)` + `line_break(char)` into the `BreakClass` stream, `SegmentEngine.ICU` folds `BreakIterator.createLineInstance(Locale).setText` + `next`-until-`DONE` + `getRuleStatus` (soft/hard mandatory), both reconciled onto `grapheme_cluster_boundaries` so a break never lands mid-cluster — projecting each inter-token gap into a `BreakClass` row) · `HYPHENATE` (pyphen `Pyphen(lang=language_fallback(lang), left=, right=)` dictionary soft-hyphenation over `words(text)` uniseg word tokens, each `positions(word)` `DataInt` carrying both the integer offset and the `.data` `(change, index, cut)` orthographic-mutation channel the emission consumer applies, plus the `iterate(word)` `(head, tail)` split pairs the hyphen advance measures — never `Pyphen.inserted` string mangling) · `PARAGRAPH` (the hand-rolled Knuth-Plass total-fit break — encode the shaped run as the `Item` Box/Glue/Penalty stream threading the engine's break opportunities and the pyphen soft breaks, an East-Asian-wide ideograph boundary carrying a weighted zero-width `Penalty(ideograph_penalty)` where a Latin space carries the elastic inter-word `Glue`, a HarfBuzz `UNSAFE_TO_BREAK`-flagged cluster kept an unbreakable `Box` and a `SAFE_TO_INSERT_TATWEEL` cluster carrying a `kashida_stretch` glue behind an `inf`-penalty for Arabic elongation, walk the active-node program computing each candidate line's `badness` from the glue stretch/shrink ratio, fold badness + `Penalty` cost + consecutive-flagged/fitness-class demerits into the running total, prune dominated nodes, and trace the optimal breakpoint set into a `LineBrokenRun` the public `broken()` projection returns beside the byte-encoded PARAGRAPH arm) · `MEASURE` (`uniseg.wrap.tt_text_extents(text, ambiguous_as_wide=)` — the cumulative east-asian cell-width prefix a CJK-width-correct or monospace fixed-pitch column measure needs, distinct from the advance-based proportional Knuth-Plass measure) · `COLLATE` (`Collator.createInstance(Locale).getSortKey` locale-correct sort keys + `AlphabeticIndex(Locale)` A-Z bucketing — the collation seam the schedule/classify/table owners read, never a hand-rolled locale comparator) — selected by the frozen `_LAYOUT_TABLE` row; the measure, elasticity, hyphen-penalty, ideograph-penalty, and demerit weights are typed `LayoutParams` fields, the `Item` stream a closed `tagged_union`, the break-opportunity class the `BreakClass` policy row.
-- Auto: `BREAK` folds the source text through the engine's segmentation into the `(position, BreakClass)` opportunity stream reconciled against `grapheme_cluster_boundaries`; `HYPHENATE` resolves the language through `language_fallback` (guarding the unbundled locale as a rail fault, not a bare `KeyError`), folds each `words(text)` token through `positions(word)` into the offset+`DataInt.data`+`iterate` triple; the `PARAGRAPH` fold (`_stream`) decodes the whole `PositionedGlyphRun` and encodes its per-glyph advances into `Box` widths, each space opportunity into a breakable `Glue`, each East-Asian-wide ideograph opportunity into a `Box`+weighted `Penalty(ideograph_penalty)`, each `MANDATORY` break into a forced `Penalty(-inf)`, and each soft break (reconciled onto a grapheme boundary) into a flagged `Penalty(hyphen_penalty, hyphen_advance)`, refusing a break inside an `unsafe_to_break` cluster (an unbreakable `Box`) and elongating a `tatweel_points` cluster through a non-breaking `kashida_stretch` glue, then closes with a finishing `Glue(0, inf, 0)` and a terminal forced `Penalty(-inf)`; `_broken` precomputes the cumulative width/stretch/shrink prefix sums and runs the active-node program keeping the minimum-total-demerit candidate per fitness class, and `_trace` walks the optimal predecessor chain into `LayoutLine(start, stop, ratio, advance)` slices indexed through the parallel glyph-origin column; `MEASURE` reads the cell-width prefix; `COLLATE` sorts through `getSortKey` and buckets through `AlphabeticIndex`.
-- Receipt: every arm projects onto the shared `core/receipt#RECEIPT` `ArtifactReceipt.Document`, never a per-step receipt — `BREAK`/`HYPHENATE`/`PARAGRAPH`/`MEASURE`/`COLLATE` each contribute `ArtifactReceipt.Document` carrying the content key and the encoded output byte count (the break-opportunity stream, soft-break map, `LineBrokenRun`, cell-width prefix, or sort-key/bucket set). The line count, per-line adjustment ratios, total-demerit cost, flagged-break count, engine, ICU/Unicode data version, and bucket count stay interior evidence the arm folds into its content-key derivation, not new receipt fields the shared `Document` case cannot carry.
-- Growth: a new break engine is one `SegmentEngine` member plus one `_break`/`_paragraph` branch (never a parallel layout owner); a new locale break tailor is one `_TAILOR_TABLE` row threaded by language through the `tailor=` hook; a new hyphenation language is one `Pyphen(lang=)` value `language_fallback` resolves; a new paragraph-item kind is one `Item` `case()` plus its demerit arm; a new layout knob (looseness, emergency-stretch, ideograph penalty, kashida stretch) is one `LayoutParams` field; a new break-safety or justification read is one `PositionedGlyphRun` `GlyphFlags`-column derivation `_stream` reads (`unsafe_to_break`/`tatweel_points` are exactly that); a new line fact is one field on `LayoutLine`; a new collation axis (`setStrength`, `Transliterator` pre-fold) is one `COLLATE` line; zero new surface.
-- Boundary: no text shaping (`typography/shape#SHAPE` — this owner consumes the `PositionedGlyphRun`, never re-shaping), no bidi reorder (`typography/shape#SHAPE` `BIDI`, run upstream so the run arrives in visual order — its ICU `Bidi` upgrade rides the same gated seam this owner's ICU arms use), no font engineering (`typography/font#FONT`), no PDF authoring (`document/emit#DOCUMENT`). A greedy first-fit line-break loop is the rejected lower-capability form of the Knuth-Plass total-fit program; `uniseg.wrap.tt_wrap` greedy first-fit is the rejected form for the proportional document paragraph (it serves the monospace terminal medium, not the document); `Pyphen.inserted`/`wrap` string mangling and per-word first-fit are the rejected duplicates of the `positions`/`iterate` positional algebra; a hand-rolled UAX#14 break-class table is the rejected duplicate of `uniseg.line_break`; a re-implemented UCA collation or CLDR dictionary segmentation is the rejected duplicate of `PyICU`; `text.split()` word tokenization is the rejected duplicate of `uniseg.words`; a break offset landing mid-cluster is the rejected form the `grapheme_cluster_boundaries` reconciliation deletes; a second per-fitness-class break function and a parallel `_Box`/`_Glue`/`_Penalty` struct family are the collapsed forms — `Item` is the one closed `tagged_union` and one active-node program threads every fitness class.
+- Owner: `LineLayout` folds `(step, run, params)` — the shaped `PositionedGlyphRun` and a `LayoutParams` measure — through the `LayoutOp` step table; `SegmentEngine` discriminates the break engine, the `_native` gate crossing the ICU arms onto the gated worker while the pure arms run inline; `Item` is the one closed Box/Glue/Penalty `tagged_union`, and `LineBrokenRun` the line-broken value object the public `broken()` projection returns beside `lay()`.
+- Cases: `LayoutOp` rows — `BREAK` (engine-polymorphic UAX#14 opportunity resolution, both engines reconciled onto `grapheme_cluster_boundaries` so a break never lands mid-cluster), `HYPHENATE` (pyphen soft-hyphenation over uniseg word tokens, each `positions(word)` `DataInt` carrying the offset plus the `.data` `(change, index, cut)` orthographic-mutation channel — never `Pyphen.inserted` string mangling), `PARAGRAPH` (the Knuth-Plass total-fit break, `_stream` encoding the shaped run's break-safety and justification classes into the `Item` stream and the active-node program tracing the optimal breakpoint set into a `LineBrokenRun`), `MEASURE` (the cumulative east-asian cell-width prefix a CJK-correct or monospace column needs, distinct from the advance-based proportional measure), `COLLATE` (`Collator` sort keys + `AlphabeticIndex` bucketing, the collation seam schedule/classify/table read). Measure, elasticity, penalty, and demerit weights are typed `LayoutParams` fields.
+- Entry: `emit()` returns the one `ArtifactWork` keyed pre-run over `(step ⊕ run ⊕ params)`, the run payload the primary bytes-producing input; `_emit` maps the laid bytes onto `ArtifactReceipt.Document`; the `_native` gate offloads the ICU arms to the process lane while the uniseg/pyphen/DP arms fold inline, both inside one span.
+- Auto: `_dictionary`/`_soft_breaks` guard the unbundled locale as a rail fault, never a bare `KeyError`; `_broken` keeps the minimum-total-demerit candidate per fitness class, and `_trace` indexes each `LayoutLine` slice through the parallel glyph-origin column so a line's `start`/`stop` name shaped-run glyphs, not `Item` indices.
+- Receipt: every arm contributes `ArtifactReceipt.Document` carrying the content key and encoded output byte count (the opportunity stream, soft-break map, `LineBrokenRun`, cell-width prefix, or sort-key/bucket set). Line count, per-line adjustment ratios, total-demerit cost, engine, ICU/Unicode data version, and bucket count stay interior evidence in the content-key derivation, never new `Document` fields.
+- Packages: `pyphen` (`Pyphen`/`positions`/`iterate`/`language_fallback`), `uniseg` (`line_break_units`/`words`/`grapheme_cluster_boundaries`/`tt_text_extents`), `PyICU` (`BreakIterator`/`Collator`/`AlphabeticIndex`/`Bidi`), `core/receipt#RECEIPT` (`ArtifactReceipt.Document`, composed never re-declared); the Knuth-Plass item algebra is this owner's own.
+- Growth: a new break engine is one `SegmentEngine` member plus one `_break`/`_paragraph` branch; a new locale tailor one `_TAILOR_TABLE` row threaded by language; a new hyphenation language one `Pyphen(lang=)` value `language_fallback` resolves; a new paragraph-item kind one `Item` `case()` plus its demerit arm; a new layout knob one `LayoutParams` field; a new break-safety read one `PositionedGlyphRun` column `_stream` reads; a new line fact one `LayoutLine` field; a new collation axis one `COLLATE` line.
+- Boundary: no text shaping or bidi reorder (`typography/shape#SHAPE` — this owner consumes the `PositionedGlyphRun` in visual order, never re-shaping), no font engineering (`typography/font#FONT`), no PDF authoring (`document/emit#DOCUMENT`). A greedy first-fit line-break, `uniseg.wrap.tt_wrap` (the monospace-terminal form), `Pyphen.inserted`/`wrap` string mangling, a hand-rolled UAX#14 break-class table, a re-implemented UCA collation or CLDR segmentation, and `text.split()` tokenization are each rejected against the library op or the total-fit program that owns them; a break landing mid-cluster is deleted by the `grapheme_cluster_boundaries` reconciliation. `Item` is the one closed `tagged_union` and one active-node program threads every fitness class, never a parallel `_Box`/`_Glue`/`_Penalty` family or a per-fitness-class break function.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
@@ -34,8 +39,7 @@ from rasm.runtime.lanes import LanePolicy, Modality
 from rasm.runtime.resilience import RetryClass
 from rasm.runtime.faults import RuntimeRail, async_boundary
 
-# pyphen/uniseg are pure-Python (present on cp315, run inline); PyICU is cp-gated
-# (python_version<'3.15') native ICU4C reified ONLY inside the gated `to_process` worker.
+# pyphen/uniseg are pure-Python and run inline; PyICU native ICU4C is reified only inside the gated worker.
 lazy from pyphen import Pyphen, language_fallback
 lazy from uniseg.graphemecluster import grapheme_cluster_boundaries
 lazy from uniseg.linebreak import line_break, line_break_units
@@ -62,7 +66,7 @@ _WIDE: Final[frozenset[str]] = frozenset({"W", "F"})  # East_Asian_Width wide/fu
 _RUN_ENCODER: Final = msgspec.msgpack.Encoder()
 _LOG: Final = structlog.get_logger()
 _TRACER: Final = trace.get_tracer(__name__)
-# locale break tailors (a named picklable TailorFunction) land as rows, threaded into the uniseg `tailor=` hook by language.
+# locale break tailors land as rows, threaded into the uniseg `tailor=` hook by language.
 _TAILOR_TABLE: Final[Map[str, TailorFunction]] = Map.empty()
 
 # --- [MODELS] --------------------------------------------------------------------------
@@ -77,8 +81,8 @@ class LayoutOp(StrEnum):
 
 
 class SegmentEngine(StrEnum):
-    UNISEG = "uniseg"  # locale-free UAX#14 default table (pure, inline)
-    ICU = "icu"  # CLDR-tailored dictionary-backed (native ICU4C, gated to_process)
+    UNISEG = "uniseg"  # locale-free UAX#14 default table
+    ICU = "icu"  # CLDR-tailored dictionary-backed ICU4C
 
 
 class BreakClass(StrEnum):
@@ -153,8 +157,7 @@ class LineLayout(Struct, frozen=True):
 
     @property
     def _key(self) -> ContentKey:
-        # key-over-INPUT: canonical (step ⊕ run ⊕ params) minted PRE-RUN — never a key over the laid output
-        # bytes; the run payload is the primary bytes-producing input, so distinct texts never share a key.
+        # key over (step ⊕ run ⊕ params), the run payload the primary bytes-producing input.
         return ContentIdentity.of(f"layout-{self.step}", (self.step, self.run, self.params), policy=CANONICAL_POLICY)
 
     async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
@@ -163,7 +166,6 @@ class LineLayout(Struct, frozen=True):
         )
 
     async def _laid(self) -> bytes:
-        # the `_native` offload rides the runtime PROCESS lane inside one span; an inline arm folds under the same span
         acceptor = _LAYOUT_TABLE[self.step]
         with _TRACER.start_as_current_span(f"layout.{self.step}") as span:
             span.set_attributes({"step": self.step, "engine": self.params.engine, "native": self._native})
@@ -177,15 +179,10 @@ class LineLayout(Struct, frozen=True):
 
     @property
     def _native(self) -> bool:
-        # the CLDR/dictionary ICU4C arms cross the gated cp-worker seam; the pure uniseg/pyphen/DP arms run inline
         return self.step is LayoutOp.COLLATE or (self.step in (LayoutOp.BREAK, LayoutOp.PARAGRAPH) and self.params.engine is SegmentEngine.ICU)
 
     def broken(self) -> LineBrokenRun:
-        # the public Knuth-Plass projection beside `lay()`: `drawing/annotate#ANNOTATE` `TextNote.Prose`,
-        # `document/emit#DOCUMENT`, and `composition/compose#COMPOSE` drive the total-fit break FROM a shaped
-        # run through this synchronous owner method rather than receiving a pre-computed `LineBrokenRun` payload
-        # value — `lay()` stays the content-keyed rail, this the value projection over the same `_broken` core
-        # the consumer runs inside its own offload (the bounded per-paragraph DP is inline pure-Python).
+        # the public Knuth-Plass projection beside `lay()`: annotate/emit/compose drive the total-fit break from a shaped run (inline pure-Python DP).
         return _broken(self)
 
 
@@ -217,7 +214,7 @@ def _uniseg_breaks(params: "LayoutParams") -> tuple[Opportunity, ...]:
 
 
 def _icu_breaks(params: "LayoutParams") -> tuple[Opportunity, ...]:
-    iterator = BreakIterator.createLineInstance(Locale(params.language))  # CLDR-tailored + dictionary-backed
+    iterator = BreakIterator.createLineInstance(Locale(params.language))
     iterator.setText(params.text)
     boundaries, out = frozenset(grapheme_cluster_boundaries(params.text)), []
     iterator.first()
@@ -269,15 +266,13 @@ def _soft_breaks(params: "LayoutParams") -> frozenset[int]:
 
 
 def _ideographic(char: str) -> bool:
-    return bool(char) and east_asian_width(char) in _WIDE  # a CJK-wide boundary the DP weights apart from a space
+    return bool(char) and east_asian_width(char) in _WIDE
 
 
 def _stream(layout: "LineLayout", opportunities: Mapping[int, BreakClass], soft: frozenset[int]) -> Iterator[tuple[Item, int]]:
     positioned = msgspec.msgpack.decode(layout.run, type=PositionedGlyphRun)  # the shape owner's PositionedGlyphRun, never a bare-tuple decode
     run, unsafe, tatweel = positioned.glyphs, positioned.unsafe_to_break, frozenset(positioned.tatweel_points)
-    # `unsafe` (hb GlyphFlags.UNSAFE_TO_BREAK clusters) marks a boundary where breaking + re-shaping the halves alters the
-    # glyphs, so the DP refuses a line break there; `tatweel` (SAFE_TO_INSERT_TATWEEL clusters) marks a within-word kashida
-    # elongation position that carries justification stretch WITHOUT becoming a breakpoint.
+    # unsafe = UNSAFE_TO_BREAK clusters the DP refuses a break inside; tatweel = SAFE_TO_INSERT_TATWEEL kashida-stretch points.
     params, text = layout.params, layout.params.text
     for index, glyph in enumerate(run):
         cluster, advance = glyph[1], float(glyph[2])
@@ -440,7 +435,7 @@ def _broken(layout: "LineLayout") -> LineBrokenRun:
 
 
 def _paragraph(layout: "LineLayout") -> bytes:
-    return _RUN_ENCODER.encode(_broken(layout))  # the PARAGRAPH arm's content-key byte projection over the shared `_broken` core
+    return _RUN_ENCODER.encode(_broken(layout))
 
 
 def _measure(layout: "LineLayout") -> bytes:
@@ -468,3 +463,11 @@ _LAYOUT_TABLE: Final[Map[LayoutOp, LayoutAcceptor]] = Map.of_seq([
     (LayoutOp.COLLATE, _collate),
 ])
 ```
+
+## [03]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+-->
+
+(none)

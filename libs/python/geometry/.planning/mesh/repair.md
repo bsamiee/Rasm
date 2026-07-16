@@ -1,24 +1,21 @@
 # [PY_GEOMETRY_MESH_REPAIR]
 
-Robust mesh algebra — the canonical owner of the `manifold3d.Manifold` 3D boolean kernel and the `trimesh.repair` watertight-conditioning pass, the shared downstream primitive the tessellation, scan-reconstruction, clash-volume, and STEP hops compose. `MeshRepairOp` is ONE `@tagged_union` discriminating two operation kinds: `Condition` selects which winding/normal/inversion/hole-fill/stitch/weld passes run over the supplied `trimesh.Trimesh` through one `RepairStep` step-set, and `Boolean` runs n-ary `OpType`-keyed CSG over `manifold3d.Manifold.batch_boolean`. A new conditioning pass is one `RepairStep` row plus one `_CONDITION` table entry; a new CSG verb is one `BooleanOp` row plus one `_OPTYPES` entry — never a parallel per-operation class. The conditioning pass is parameterized over its step-set on both input and output: the caller selects exactly the passes a reconstruction surface needs rather than a fixed three-call hardcode behind a bare `weld: bool`.
+Robust mesh algebra: the canonical owner of the `manifold3d.Manifold` 3D boolean kernel and the `trimesh.repair` watertight-conditioning pass — the shared downstream primitive the tessellation, scan-reconstruction, clash-volume, and STEP hops compose. `MeshRepairOp` discriminates two kinds: `Condition` folds a selected `RepairStep` step-set over the supplied `trimesh.Trimesh`, and `Boolean` runs n-ary CSG through `manifold3d.Manifold.batch_boolean`. This owner conditions and combines triangulations in memory and never opens or writes a mesh file — decode/encode is the data `MeshPayload` owner's (`rasm.data.spatial.mesh`) across the `mesh ← data/spatial` seam.
 
-The boolean arm reaches the robust `manifold3d.Manifold` kernel directly. `batch_boolean(manifolds, op)` is the single n-ary owner, never a manual `reduce` over the `trimesh.boolean.union`/`difference`/`intersection` facade nor a `+`/`-`/`^` left-fold, and the arm gates on `status() == Error.NoError` so a non-manifold operand rails through the typed `RepairFault` rather than emitting a phantom solid. Both arms return `MeshResult` pairing the in-memory `trimesh.Trimesh` with `MeshRepairReceipt`. `MeshResult` is the `ReceiptContributor` carrier — its `contribute` yields one phase-keyed `Receipt.of("mesh.repair", (phase, subject, facts))` row over the leaf `MeshRepairReceipt.fact` projection carrying the watertight and winding verdict, the volume and area, the vertex and face counts, the applied step-set or CSG verb, the `manifold3d` `Error` status, and the kernel-vs-mesh `closure_gap` agreement the boolean arm cross-checks. A conditioned reconstruction graduates on the `reconstructed-mesh` subject, an n-ary CSG result on the `mesh-algebra` subject — both members of the geometry-minted `rasm.geometry.graduation` `GeometrySubject` union. `to_manifold` is this owner's PUBLIC kernel: repair is the chartered canonical `manifold3d` owner, so the one uint32-ceiling `Mesh`/`Mesh64` build lives here and the `mesh/spatial` and `mesh/quality` consumers compose it downward, never a re-spelled per-page build.
-
-The `manifold3d` kernel is CPU-bound worker, so `apply` is the offload-aware entry handing `_dispatch` to the runtime `LanePolicy.offload` as one PEP 734 subinterpreter hop under the active OTel context, the lane importing neither `manifold3d` nor the kernel. Receipt egress is the cross-cutting `@receipted(REDACTION)` aspect wearing the `_emit` builder the offload `Ok` `MeshResult` threads through, the canonical decorator rail `observability/receipts#RECEIPT` declares and the sibling `mesh/daemon.md#DAEMON` owner holds — never an inline `Signals.emit` threaded through the kernel. This owner conditions and combines triangulations and hands the result across the wire as in-memory geometry; mesh-file decode and encode is the data `MeshPayload` owner (`rasm.data.spatial.mesh`), which binds the three-engine `trimesh`/`meshio`/`rhino3dm` codec plus GLB preview. The geometry shed never opens or writes a mesh file.
+`to_manifold` is this owner's PUBLIC kernel: repair is the chartered `manifold3d` owner, so the one uint32-ceiling `Mesh`/`Mesh64` build lives here and the `mesh/spatial` and `mesh/quality` consumers compose it downward, never a re-spelled per-page build. A conditioned reconstruction graduates on the `reconstructed-mesh` subject and an n-ary CSG result on the `mesh-algebra` subject — geometry-minted `GeometrySubject` members. The CPU-bound kernel rides `LanePolicy.offload` (PEP 734) with the `@receipted(REDACTION)` egress streaming the typed receipt on the `Ok` path.
 
 ## [01]-[INDEX]
 
-- [01]-[MESH]: the conditioning and boolean operations under one `@tagged_union` over the `trimesh.repair` step table and the `manifold3d.Manifold` `batch_boolean` kernel, folded through one offload-aware `_dispatch`, handed to the runtime CPU-offload lane, the `Ok` `MeshResult` `ReceiptContributor` threaded through the `@receipted(REDACTION)` egress aspect, returning an in-memory `trimesh.Trimesh` and one streamed typed receipt.
+- [01]-[MESH]: conditioning and boolean operations under one union over the `trimesh.repair` step table and the `manifold3d` `batch_boolean` kernel, offloaded to the subinterpreter lane, returning `RuntimeRail[MeshResult]`.
 
 ## [02]-[MESH]
 
-- Owner: `MeshRepairOp` — the `@tagged_union` discriminating the two operation kinds; `RepairStep` the closed `StrEnum` step vocabulary (`FIX_WINDING`/`FIX_NORMALS`/`FIX_INVERSION`/`FILL_HOLES`/`STITCH`/`WELD`) so the conditioning pass is a selected step-set rather than a fixed call sequence behind a bare boolean; `BooleanOp` the closed `StrEnum` selecting the CSG verb so the boolean arm is one row rather than three sibling methods; `RepairFault` the typed `@tagged_union(Exception)` the kernel raises INTO the lane's `async_boundary` so a `status()`-rejected soup or an unmapped verb converts through the one `BoundaryFault` taxonomy rather than a domain `raise ValueError`; `_CONDITION` the `Final[Map[RepairStep, Callable[[trimesh.Trimesh], object]]]` step table binding each step to its `trimesh.repair` verb so the conditioning fold is data-driven and a missing step is the `Map.try_find` `Nothing` the fault rails, never a re-spelled per-step branch nor a bare `KeyError`; `_OPTYPES` the `Final[Map[BooleanOp, str]]` map binding each verb to its `manifold3d.OpType` member name (resolved through `getattr` at the boundary, no module-scope `manifold3d` import) so the CSG kind is a table lookup feeding the one `batch_boolean` owner; `MeshResult` the `ReceiptContributor` carrier pairing the conditioned `trimesh.Trimesh` with `MeshRepairReceipt`, its `contribute` yielding one phase-keyed `Receipt.of("mesh.repair", (phase, subject, facts))` row over the receipt's own `fact` projection so the receipt streams as one cross-cutting aspect rather than living on the leaf evidence struct; `MeshRepairReceipt` the leaf-scalar typed receipt owning that `(Phase, subject, facts)` projection — carrying the op tag, the `valid` verdict (watertight and `NoError`), the watertight and winding flags, the volume and area, the vertex and face counts, the applied step-set or CSG verb, the `manifold3d` `Error` status name, the kernel-vs-mesh `closure_gap`, and the `GeometrySubject` subject.
-- Cases: `MeshRepairOp` cases `Condition(mesh, steps)` (the `RepairStep`-keyed conditioning fold over the supplied in-memory `Trimesh`, each selected step binding its `trimesh.repair` verb through `_CONDITION`, the default `STEPS_WATERTIGHT` step-set running the full winding/normal/inversion/hole-fill/weld pass a non-watertight reconstruction needs before the boolean arm consumes it) and `Boolean(meshes, op)` (the n-ary CSG folding the operand sequence through `manifold3d.Manifold.batch_boolean(manifolds, op)`, the single n-ary owner over the robust `manifold3d` kernel) — matched by total `match`/`assert_never`, each binding the package surface that owns the operation. Inputs and outputs are in-memory `trimesh.Trimesh`; no mesh-file format axis and no `Codec` arm live here, since decode and encode are the data `MeshPayload` owner across the `mesh ← data/spatial` seam. `MeshRepairOp.Condition(mesh, steps)` is the one reconstruction-hop entry the `scan/reconstruction.md#RECONSTRUCTION` consumer reads, selecting `STEPS_WATERTIGHT` (re-weld) or `STEPS_ORIENT` (orientation-only) as a named `Steps` value rather than a bare `weld: bool` that re-hardcodes the pass — the step-set parameterizes input and output, so a new reconstruction surface composes a step tuple rather than racing a second factory.
-- Entry: `apply` is `async` — it hands `_dispatch` plus the `MeshRepairOp` to the runtime `LanePolicy.offload` and `.map`s the `Ok` `MeshResult` through the `@receipted(REDACTION)` `_emit` builder, returning the `RuntimeRail[MeshResult]` the consumer reads, so the worker `manifold3d` CSG rides one PEP 734 subinterpreter hop under the active OTel context, the lane imports neither `manifold3d` nor the kernel, and the receipt streams once on the success path through the egress aspect rather than an inline `Signals.emit` (the `_emit` builder returns the `MeshResult` itself, the `ReceiptContributor` the aspect harvests, so the `.map` arm keeps `result.mesh` AND emits the row — never a bare `result.mesh` return dropping the evidence); a worker-raised `RepairFault`/`BrokenWorkerInterpreter` crosses the lane's one `async_boundary` conversion to a `BoundaryFault` on the `RuntimeRail`, and the `Error` arm carries no emit since the lane fence's `_convert` already recorded the fault. `_dispatch` resolves the case through total `match`: the `Condition` arm folds the selected `RepairStep` set through `_CONDITION` over the in-place `Trimesh` (`trimesh.repair` verbs mutate toward a consistent outward-oriented closed solid) and reads `is_watertight`/`is_winding_consistent`/`volume`/`area` off the result; the `Boolean` arm round-trips every operand into a `manifold3d.Manifold` through `_to_manifold` (a `Mesh`/`Mesh64` carrier selected by vertex count so a large operand keeps 64-bit triangle indices), resolves the opcode name through `_OPTYPES.try_find(op)` and folds them through `batch_boolean(manifolds, getattr(OpType, opcode))`, rails the kernel status through the `status is Error.NoError or _raise(RepairFault(rejected=status.name))` expression gate when the soup is rejected, re-wraps `to_mesh()` into a `trimesh.Trimesh`, and cross-checks the exact kernel `volume()` against the re-wrapped `Trimesh.volume` as the `closure_gap` agreement. The conditioned `Trimesh` rides back in `MeshResult.mesh`; any persisted GLB/PLY/STL/3dm/VTK encode is a downstream `MeshPayload` call in `rasm.data.spatial.mesh`, never an arm here.
-- Auto: `trimesh.repair.fix_winding`/`fix_normals`/`fix_inversion` (`trimesh.md` repair row [08]) mutate the mesh in place toward consistent outward orientation, `repair.fill_holes` (row [07]) closes boundary loops returning a `bool` success, and `repair.stitch` (row [09]) re-joins open boundaries, so a non-watertight reconstruction becomes a valid solid before the boolean arm consumes it; `Trimesh.merge_vertices` welds the coincident vertices the kernel emits as independent blocks. `manifold3d.Manifold.batch_boolean(manifolds, op)` (`manifold3d.md` construction row [10]) is the single n-ary CSG owner (empty=>identity `Manifold`, single=>no-op), the robust guaranteed-manifold kernel the deprecated `compose` (row [12]) and the legacy `trimesh.boolean` left-fold are the deleted alternatives to; `OpType.Add`/`Subtract`/`Intersect` (`manifold3d.md` vocabulary row [01]) are union, difference (tail differenced from head), and intersection. `Manifold(mesh)` ingest (construction row [01]) sets a non-`NoError` `status()` (query row [02]) rather than raising when the soup is not an oriented 2-manifold, so the arm gates on `status()`, not exceptions; `Manifold.to_mesh` (query row [01]) and the `Mesh`/`Mesh64` carriers (type rows [03]/[04], `vert_properties` cols 0-2 XYZ, `tri_verts` `Nx3` index) are the in-memory wire back to a `trimesh.Trimesh`, never a serialized blob; `Manifold.volume`/`surface_area`/`num_vert`/`num_tri` (query rows [05]/[07]) are the exact kernel measures the receipt reads. `Trimesh.is_watertight`/`is_winding_consistent`/`volume`/`area` (`trimesh.md` validity row [04], mass row [01]) are lazily cached properties read once after the conditioning pass; the boolean arm reads the kernel `volume()` and the independent `Trimesh.volume` so the receipt carries a kernel-vs-mesh agreement rather than a single-source claim.
-- Receipt: `MeshResult.contribute` is the `ReceiptContributor` method yielding the canonical `Iterable[Receipt]` stream — one `Receipt.of("mesh.repair", (phase, subject, facts))` row over the leaf `MeshRepairReceipt.fact` `(Phase, GeometrySubject, dict[str, object])` projection through the owner's shape-polymorphic `(Phase, subject, facts)` factory, the `yield` shape (never a bare `Receipt`) the `ReceiptContributor.contribute(self) -> Iterable[Receipt]` port and the `@receipted` aspect's `_stream` normalizer both require, so the receipt-carrier and the leaf evidence stay one concept and the emit is the decorator rail rather than an inline call. The `@receipted(REDACTION)` egress aspect wears the `_emit` builder `apply` `.map`s the `Ok` `MeshResult` through, harvesting `contribute()` and routing it to `Signals.emit` on exit; the `REDACTION` is the empty `Redaction(classified=Map.empty())` policy since the watertight/winding verdict and the geometry measures carry no secret field. The `facts` is a `dict[str, object]` of native scalars the receipt owner's `enc_hook=repr` renderer serializes without a `str()`/`f"{...:.6f}"` coerce. The `valid` discriminant (watertight after a `NoError` gate) keys `phase="emitted"`; a conditioning pass that leaves a non-watertight surface keys `phase="admitted"` so an unreliable solid is flagged rather than asserted. A conditioned reconstruction carries the `reconstructed-mesh` subject, an n-ary CSG result the `mesh-algebra` subject — both geometry-minted `rasm.geometry.graduation` `GeometrySubject` members, never a bare `str`, so the cleaned mesh graduates through the one geometry rail the `mesh/brep.md#BREP` boolean arm and the `graph/algebra.md#ALGEBRA` mesh fold share.
-- Packages: `trimesh` (`Trimesh`/`Trimesh.is_watertight`/`Trimesh.is_winding_consistent`/`Trimesh.volume`/`Trimesh.area`/`Trimesh.vertices`/`Trimesh.faces`/`Trimesh.merge_vertices`/`repair.fix_winding`/`repair.fix_normals`/`repair.fix_inversion`/`repair.fill_holes`/`repair.stitch`), `manifold3d` (the robust 3D CSG kernel reached directly — `Manifold`/`Manifold.batch_boolean`/`Manifold.status`/`Manifold.to_mesh`/`Manifold.volume`/`Manifold.surface_area`/`Manifold.num_vert`/`Manifold.num_tri`/`Mesh`/`Mesh64`/`OpType`/`Error`, never the `trimesh.boolean` facade nor a manual `+`/`-`/`^` reduce), `numpy` (`asarray`/`iinfo` selecting the `Mesh`/`Mesh64` carrier by vertex count and conditioning the vertex/triangle arrays), `expression` (`tag`/`case`/`tagged_union` the `MeshRepairOp`/`RepairFault` unions, `Map`/`Map.of_seq`/`Map.try_find` the `_CONDITION`/`_OPTYPES` dispatch tables, `Option.default_with` the missing-step/verb fold raising `RepairFault`), `msgspec` (`Struct(frozen=True)` the `MeshResult` `ReceiptContributor` carrier, `Struct(frozen=True, gc=False)` the leaf-scalar `MeshRepairReceipt`), runtime (`LanePolicy`/`LanePolicy.offload`/`RuntimeRail` the offload rail, `Phase`/`Receipt`/`ReceiptContributor`/`Redaction`/`receipted` the typed receipt and the `@receipted(REDACTION)` egress aspect).
-- Boundary: no point-cloud registration (that is `scan/registration.md#REGISTRATION`); no IFC tessellation (that is `mesh/daemon.md#DAEMON`); no exact OCCT B-rep Boolean (that is `mesh/brep.md#BREP` over `BRepAlgoAPI_*` — robust triangle-mesh CSG is HERE over `manifold3d.Manifold`, exact B-rep CSG is there, the two kernels are distinct rows on the two owners, never a shared third surface); no mesh decimation, subdivision, smoothing, or quality metric (that is `mesh/quality.md#QUALITY`); no proximity, ray, contains, or sampling query (that is `mesh/spatial.md#SPATIAL`); mesh-file decode/encode is NOT this owner — the data `MeshPayload` owner (`rasm.data.spatial.mesh`) holds the canonical three-engine `trimesh`/`meshio`/`rhino3dm` codec, the `MeshBackend.of` extension router, the named-array `pyarrow` egress, the FE time-series rail, and the GLB `preview` export, so geometry hands in-memory `Trimesh` across the `mesh ← data/spatial` seam and never opens or writes a file. The deleted forms: a `union`/`difference`/`intersection` method family over the `BooleanOp` row, a manual `reduce` over `trimesh.boolean.union`/`difference`/`intersection` or the `manifold3d` `+`/`-`/`^` operators where `batch_boolean` owns n-ary CSG, the deprecated `Manifold.compose` where `batch_boolean(OpType.Add)` is the union owner, a non-manifold soup trusted without a `status()` gate, an imperative `if status != Error.NoError: raise` statement in the kernel where the `status is Error.NoError or _raise(RepairFault(rejected=...))` expression rail folds the gate as one short-circuit unifying with the `_OPTYPES` table-miss thunk, a fixed three-call conditioning hardcode behind a bare `weld: bool` where the `RepairStep` flag-set parameterizes the pass, a re-spelled per-step `if`-chain where `_CONDITION` folds the step table, a plain `dict` dispatch raising `KeyError` on a missing step/verb where the `expression.Map` `try_find` Option-folds it, a domain `raise ValueError` where the typed `RepairFault` converts through the lane's `async_boundary`, a stringly `dict[str, str]` receipt facts map (`str(...)`/`f"{...:.6f}"`-coerced) where the native-scalar `dict[str, object]` rides the `enc_hook=repr` renderer, a 4-positional-arg `Receipt.of("emitted", "mesh.repair", tag, facts)` where the owner's signature is `Receipt.of(owner, (phase, subject, facts))`, a `contribute` returning a bare `Receipt` rather than yielding the `Iterable[Receipt]` stream the Protocol declares, a `contribute` living on the leaf `MeshRepairReceipt` where the `MeshResult` carrier the `@receipted` aspect harvests is the `ReceiptContributor` and the receipt owns only its `fact` projection, an inline `Signals.emit(result.receipt)` threaded through `apply` or the kernel where the `@receipted(REDACTION)` egress aspect over the `_emit` builder owns the one emit on the `Ok` path, a fault-arm `Signals.emit` double-emit where the lane fence's `_convert` already records the `BoundaryFault`, a `_emit` returning the bare `result.mesh` dropping the `ReceiptContributor` the aspect harvests, a `dispatch`-and-return `apply` that never `.map`s the `Ok` result through the egress builder so the typed receipt never reaches `Signals.emit`, a non-empty `Redaction` classifying a non-secret geometry measure, an `execution.lanes` import path where the canonical owner is `rasm.runtime.lanes`, a synchronous `apply` blocking the companion event loop on the CPU kernel where the offload lane isolates it, a hand-rolled watertight-repair or hole-fill kernel where `trimesh.repair` is admitted, a hand-rolled mesh-boolean kernel where `manifold3d.Manifold` is admitted, a co-equal compas-datastructure fold (the compas half-edge algebra is the `graph/algebra.md#ALGEBRA` sibling), and ANY `MeshFormat`/`Codec`/`load`/`export` codec arm re-deriving the `MeshPayload` seam.
+- Owner: `MeshRepairOp` — one union over the two kinds; `RepairStep` makes the conditioning pass a selected step-set parameterizing input and output, never a fixed three-call hardcode behind a bare `weld: bool`; `BooleanOp` makes the CSG verb one row feeding the single `batch_boolean` owner; `MeshResult` is the carrier-contributor and `MeshRepairReceipt` the leaf evidence, the carrier/leaf split the mesh siblings share.
+- Cases: `Condition(mesh, steps)` is the one reconstruction-hop entry the `scan/reconstruction.md#RECONSTRUCTION` consumer reads, selecting `STEPS_WATERTIGHT` (re-weld) or `STEPS_ORIENT` (orientation-only) as a named `Steps` value, so a new reconstruction surface composes a step tuple rather than racing a second factory; `Boolean(meshes, op)` cross-checks the exact kernel `volume()` against the re-wrapped `Trimesh.volume` as the `closure_gap` agreement, a kernel-vs-mesh verdict rather than a single-source claim.
+- Auto: `batch_boolean(manifolds, op)` is the single n-ary CSG owner (empty folds to the identity `Manifold`, a singleton is a no-op) — the deprecated `Manifold.compose`, the `trimesh.boolean` facade, and a manual `+`/`-`/`^` left-fold rebuilding the kernel N-1 times never enter.
+- Packages: `trimesh` (the `repair` verbs and cached validity/mass axes), `manifold3d` (the robust CSG kernel, reached directly), `numpy`, `expression`, `msgspec`, and the runtime rails per the fence imports.
+- Growth: a new conditioning pass is one `RepairStep` row plus one `_CONDITION` entry; a new CSG verb is one `BooleanOp` row plus one `_OPTYPES` entry — never a parallel per-operation class.
+- Boundary: point-cloud registration is `scan/registration.md#REGISTRATION`'s; IFC tessellation is `mesh/daemon.md#DAEMON`'s; exact OCCT B-rep Boolean is `mesh/brep.md#BREP`'s — robust triangle-mesh CSG here, exact B-rep CSG there, two kernels on two owners; decimation/subdivision/smoothing/metrics are `mesh/quality.md#QUALITY`'s; proximity/ray/contains/sampling are `mesh/spatial.md#SPATIAL`'s; the compas half-edge algebra is `graph/algebra.md#ALGEBRA`'s.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -47,16 +44,16 @@ type Meshes = tuple[trimesh.Trimesh, ...]
 type Steps = tuple[RepairStep, ...]
 
 
-class RepairStep(StrEnum):  # the conditioning pass is a selected step-set, never a fixed call sequence behind a bare weld bool
+class RepairStep(StrEnum):
     FIX_WINDING = "fix_winding"
     FIX_NORMALS = "fix_normals"
     FIX_INVERSION = "fix_inversion"
     FILL_HOLES = "fill_holes"
     STITCH = "stitch"
-    WELD = "weld"  # Trimesh.merge_vertices weld of the coincident vertices the kernel emits as independent blocks
+    WELD = "weld"  # merge_vertices weld of the coincident vertices the kernel emits as independent blocks
 
 
-class BooleanOp(StrEnum):  # the CSG verb is one row feeding the single batch_boolean owner, never three sibling methods
+class BooleanOp(StrEnum):
     UNION = "union"
     DIFFERENCE = "difference"
     INTERSECTION = "intersection"
@@ -70,28 +67,24 @@ STEPS_WATERTIGHT: Final[Steps] = (RepairStep.FIX_WINDING, RepairStep.FIX_NORMALS
 # the orientation-only pass for an already-merged reconstruction whose coincident vertices need no re-weld
 STEPS_ORIENT: Final[Steps] = (RepairStep.FIX_WINDING, RepairStep.FIX_NORMALS, RepairStep.FIX_INVERSION, RepairStep.FILL_HOLES)
 
-# the empty field-policy the `@receipted` egress aspect carries into `Signals.emit`; the watertight/winding
-# verdict and the geometry measures are non-secret, so no field classifies — anchored after the Redaction model it builds.
+# keep-all policy: the verdicts and geometry measures are non-secret, so no field classifies.
 REDACTION: Final[Redaction] = Redaction(classified=Map.empty())
 
 # --- [ERRORS] ---------------------------------------------------------------------------
 
 
-# the degenerate-soup and unmapped-verb failures the kernel raises INTO the lane's `async_boundary` so the one
-# `_convert` rail folds them onto `RuntimeRail`; never a domain `raise ValueError` the lane re-wraps.
+# raised INTO the lane's `async_boundary`, never a domain `raise ValueError` the lane re-wraps.
 @tagged_union(frozen=True)
 class RepairFault(Exception):
     tag: Literal["rejected", "unknown_step"] = tag()
-    rejected: str = case()  # the non-NoError manifold3d Error name the status gate trips on
-    unknown_step: str = case()  # a RepairStep / BooleanOp absent from its dispatch table
+    rejected: str = case()  # the non-NoError manifold3d Error name
+    unknown_step: str = case()  # a step/verb absent from its dispatch table
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class MeshRepairReceipt(
-    Struct, frozen=True, gc=False
-):  # leaf-scalar evidence; owns its (Phase, subject, facts) projection, the result-carrier is the ReceiptContributor
+class MeshRepairReceipt(Struct, frozen=True, gc=False):  # leaf-scalar evidence; owns only its fact projection
     op: OpKind
     valid: bool  # watertight AND NoError; the phase discriminant
     watertight: bool
@@ -103,12 +96,12 @@ class MeshRepairReceipt(
     verb: str  # the applied step-set join or the CSG verb
     status: str  # the manifold3d Error name ("NoError" off the conditioning arm)
     subject: GeometrySubject
-    closure_gap: float | None = None  # |kernel volume - re-wrapped Trimesh volume| on the boolean arm, None on conditioning
+    closure_gap: float | None = None  # |kernel volume - re-wrapped Trimesh volume| on the boolean arm
 
-    # the valid discriminant keys phase: watertight-after-NoError emits; an open conditioned surface is an admitted caveat
+    # watertight-after-NoError emits; an open conditioned surface is an admitted caveat
     def fact(self) -> tuple[Phase, GeometrySubject, dict[str, object]]:
         phase: Phase = "emitted" if self.valid else "admitted"
-        facts: dict[str, object] = {  # native scalars; the receipts owner's enc_hook=repr renderer serializes without a str() coerce
+        facts: dict[str, object] = {  # native scalars for the receipts enc_hook=repr renderer
             "op": self.op,
             "verb": self.verb,
             "status": self.status,
@@ -123,11 +116,10 @@ class MeshRepairReceipt(
         return phase, self.subject, facts
 
 
-class MeshResult(Struct, frozen=True):  # the result-carrier is the ReceiptContributor: it keeps the conditioned mesh AND streams its receipt
+class MeshResult(Struct, frozen=True):
     mesh: trimesh.Trimesh
     receipt: MeshRepairReceipt
 
-    # the ReceiptContributor port yields an Iterable[Receipt] (never a bare Receipt) so the @receipted aspect's _stream normalizes it through one fold
     def contribute(self) -> Iterable[Receipt]:
         yield Receipt.of("mesh.repair", self.receipt.fact())
 
@@ -139,9 +131,7 @@ class MeshRepairOp:
     boolean: tuple[Meshes, BooleanOp] = case()
 
     @staticmethod
-    def Condition(
-        mesh: trimesh.Trimesh, steps: Steps = STEPS_WATERTIGHT
-    ) -> Self:  # the reconstruction-hop entry; the consumer selects the step-set, never a bare weld bool
+    def Condition(mesh: trimesh.Trimesh, steps: Steps = STEPS_WATERTIGHT) -> Self:
         return MeshRepairOp(condition=(mesh, steps))
 
     @staticmethod
@@ -151,8 +141,7 @@ class MeshRepairOp:
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# each RepairStep binds its trimesh.repair verb, so the conditioning fold is one Map.try_find rather than a
-# re-spelled per-step branch; an unmapped step is the RepairFault the boundary rails, never a bare KeyError.
+# each step binds its trimesh.repair verb; an unmapped step is the RepairFault via try_find, never a bare KeyError.
 _CONDITION: Final[Map[RepairStep, Callable[[trimesh.Trimesh], object]]] = Map.of_seq((
     (RepairStep.FIX_WINDING, trimesh.repair.fix_winding),
     (RepairStep.FIX_NORMALS, trimesh.repair.fix_normals),
@@ -162,8 +151,7 @@ _CONDITION: Final[Map[RepairStep, Callable[[trimesh.Trimesh], object]]] = Map.of
     (RepairStep.WELD, lambda m: m.merge_vertices()),
 ))
 
-# the CSG verb maps to a manifold3d.OpType member NAME (no module-scope manifold3d import, banned by import policy);
-# _combined resolves the real opcode through getattr at the boundary. Subtract differences the tail from the head.
+# verb -> OpType member NAME: no module-scope manifold3d import; `getattr` resolves at the boundary. Subtract differences tail from head.
 _OPTYPES: Final[Map[BooleanOp, str]] = Map.of_seq((
     (BooleanOp.UNION, "Add"),
     (BooleanOp.DIFFERENCE, "Subtract"),
@@ -175,33 +163,25 @@ _OPTYPES: Final[Map[BooleanOp, str]] = Map.of_seq((
 
 
 async def apply(op: MeshRepairOp, lane: LanePolicy) -> "RuntimeRail[MeshResult]":
-    # the kernel offloads onto the lane PEP-734 hop (the lane stitches the active OTel context and folds a worker
-    # raise through its own async_boundary), then the Ok MeshResult threads through the @receipted egress builder
-    # so the typed receipt streams on the success path — emission is the decorator rail, never an inline Signals.emit.
     return (await lane.offload(_dispatch, op)).map(_emit)
 
 
 @receipted(REDACTION)
 def _emit(result: MeshResult) -> MeshResult:
-    # the @receipted aspect harvests `result.contribute()` and emits the phase-keyed row on exit; the builder
-    # returns the MeshResult itself (the contributor) so the consumer's mapped Ok arm keeps the conditioned
-    # result.mesh AND the receipt streams once — never a bare result.mesh return dropping the evidence egress.
+    # returns the contributor itself, so the mapped `Ok` arm keeps the mesh AND the receipt streams once.
     return result
 
 
-# expression-form raise so the Option.default_with table-miss fold and the status-gate rail stay one-expression
-# thunks unifying with the site's expected type; the raised RepairFault converts on the enclosing lane async_boundary.
+# keeps the table-miss folds and the status-gate rail one-expression thunks; converts on the lane boundary.
 def _raise[T](fault: RepairFault) -> T:
     raise fault
 
 
-def to_manifold(
-    mesh: trimesh.Trimesh,
-) -> "manifold3d.Manifold":  # the PUBLIC uint32-ceiling Manifold build: repair is the chartered manifold3d owner, spatial/quality compose this kernel downward
+def to_manifold(mesh: trimesh.Trimesh) -> "manifold3d.Manifold":  # the PUBLIC uint32-ceiling build spatial/quality compose downward
     import manifold3d
 
     verts, faces = np.asarray(mesh.vertices), np.asarray(mesh.faces)
-    if len(verts) > np.iinfo(np.uint32).max:  # the f64 carrier: float64 positions matched to uint64 indices, never a float32 down-cast
+    if len(verts) > np.iinfo(np.uint32).max:  # past the uint32 ceiling: f64 positions with u64 indices, never a float32 down-cast
         return manifold3d.Manifold(manifold3d.Mesh64(vert_properties=verts.astype(np.float64), tri_verts=faces.astype(np.uint64)))
     return manifold3d.Manifold(manifold3d.Mesh(vert_properties=verts.astype(np.float32), tri_verts=faces.astype(np.uint32)))
 
@@ -209,7 +189,7 @@ def to_manifold(
 def _conditioned(mesh: trimesh.Trimesh, steps: Steps) -> MeshResult:
     for step in steps:
         verb = _CONDITION.try_find(step).default_with(lambda: _raise(RepairFault(unknown_step=step)))
-        verb(mesh)  # trimesh.repair verbs mutate in place toward a consistent outward-oriented closed solid
+        verb(mesh)  # repair verbs mutate in place toward a consistent outward-oriented closed solid
     watertight = bool(mesh.is_watertight)
     return MeshResult(
         mesh,
@@ -234,11 +214,11 @@ def _combined(meshes: Meshes, op: BooleanOp) -> MeshResult:
 
     opcode = _OPTYPES.try_find(op).default_with(lambda: _raise(RepairFault(unknown_step=op)))
     solid = manifold3d.Manifold.batch_boolean([to_manifold(m) for m in meshes], getattr(manifold3d.OpType, opcode))
-    status = solid.status()  # the kernel sets status rather than raising; a non-NoError operand rails through RepairFault, never a phantom solid
+    status = solid.status()  # the kernel sets status rather than raising; a non-NoError soup rails, never a phantom solid
     _ = status is manifold3d.Error.NoError or _raise(RepairFault(rejected=status.name))
     soup = solid.to_mesh()
     mesh = trimesh.Trimesh(vertices=np.asarray(soup.vert_properties)[:, :3], faces=np.asarray(soup.tri_verts), process=True)
-    watertight, kernel_volume = bool(mesh.is_watertight), float(solid.volume())  # status is NoError past the gate, so valid reduces to watertight
+    watertight, kernel_volume = bool(mesh.is_watertight), float(solid.volume())  # past the gate valid reduces to watertight
     return MeshResult(
         mesh,
         MeshRepairReceipt(
@@ -267,3 +247,11 @@ def _dispatch(op: MeshRepairOp) -> MeshResult:
         case unreachable:
             assert_never(unreachable)
 ```
+
+## [03]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+-->
+
+(none)

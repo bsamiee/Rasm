@@ -16,12 +16,12 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Ripple: <origin/counterpart card this entry pairs with across folders, as `pkg` `[SLUG]`; present only on a cross-folder ripple counterpart card>.
 -->
 
-[UNIT_SCHEME_BIM_COUNTERPART]-[QUEUED]: Land the Bim ends of the model-unit round-trip over the seam-landed `UnitScheme` header policy.
-- Capability: an IFC model's declared display units (`IfcUnitAssignment`) survive ingest and egress as presentation policy while the interior stays SI-canonical.
-- Shape: the `Projection/semantic` ingress lowers `IfcUnitAssignment` onto `Header.Units` (quantity-type token → declared unit token, beside the existing numeric `UnitScale` coercion); the `Projection/egress` re-emits the declared units instead of forcing SI; the seam `Graph/wire` `HeaderWire` gains the additive map field at the wire unfreeze.
-- Unlocks: a mm-declared Revit export renders and re-exports in its own units off one policy read; schedules and UI drop per-call-site unit picks.
-- Anchors: `UnitScale` already walks the assignment per base axis; `api-geometrygym-ifc` catalogs `IfcUnitAssignment.ScaleSI`; the seam `Header.Units` trailing default keeps existing construction sites compiling.
-- Tension: the `HeaderWire` field is gated on the wire unfreeze — the ingest/egress ends land first, the wire field with the next unfreeze window.
+[UNIT_SCHEME_BIM_COUNTERPART]-[BLOCKED]: Carry the model-unit presentation scheme across the cross-runtime wire.
+- Capability: a peer runtime decoding `HeaderWire` reads the model's declared display units without re-sniffing the IFC bytes.
+- Shape: the seam `Graph/wire` `HeaderWire` gains the additive `Units` map field at the wire unfreeze; the Bim ingest (`UnitsOf` on `Projection/semantic`) and egress (the `EmitContext` declared-regime raise on `Projection/egress`) ends are landed and read the field with zero further edits.
+- Unlocks: schedules and UI on the TypeScript peers render project units off one wire read.
+- Anchors: the landed `Header.Units` `UnitScheme` policy both Bim ends compose; `api-geometrygym-ifc` catalogs `IfcUnitAssignment.ScaleSI`.
+- Tension: the `HeaderWire` field is gated on the wire unfreeze window — the frozen wire never widens outside it.
 - Ripple: `Rasm.Element` `[UNIT_SCHEME_BIM_COUNTERPART]`.
 
 [CONNECTION_INTERFACE_GEOMETRY_DECODE]-[QUEUED]: Land the Bim lowering and re-materialization for the seam-landed `Connect.Interface` content key.
@@ -39,17 +39,10 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Tension: the seam column ripples the counted-bag canonical-bytes injectivity law, the frozen wire, and the `Bake` merge — the seam owner lands first.
 - Ripple: `Rasm.Element` `[QUANTITY_BAG_GROUP_AXIS]`.
 
-[TEMPLATE_AUDIT_VALIDATION_TIER]-[BLOCKED]: Rule where the spec-free `TemplateAudit` baseline surfaces beside the buildingSMART IDS v1.0 lane.
-- Capability: one model-health entry answering both the zero-configuration template audit and the authored-IDS verdict without forking report consumers.
-- Shape: either `Review/validation` absorbs the `Semantics/properties#TEMPLATE_AUDIT` `TemplateFinding` stream as its baseline tier beneath any authored IDS, or model-health stays the properties page's own surface and `Rasm.AppUi` composes the two reports.
-- Unlocks: a single QA verdict surface for `Rasm.AppUi` and the review pipeline.
-- Anchors: `TemplateAudit.Run` landed with the axis-named `TemplateVerdict` vocabulary; the IDS owner's facet lane narrows the SAME constraint family into `ValueConstraint`.
-- Tension: blocked on the validation-owner charter ruling — the IDS owner's charter is strictly buildingSMART IDS v1.0, so absorbing a spec-free tier widens it; the ruling wants an interview, not a guess.
-
 ## [02]-[CLOSED]
 
 <!-- source-only: closed task card template:
 [ID]-[COMPLETE|DROPPED]: <one-line disposition>; keep closed tasks collapsed unless a second retained fact changes future routing.
 -->
 
-(none)
+[TEMPLATE_AUDIT_VALIDATION_TIER]-[COMPLETE]: Ruled — `Review/validation` widened to the two-tier QA owner: `ModelHealth`/`ModelFinding` compose the `TemplateFinding` stream as the baseline tier beneath authored IDS, the case the tier discriminant, one verdict surface for `Rasm.AppUi` and the review pipeline.

@@ -4,7 +4,7 @@ THE FASTENER SEED PAGE owns the `ComponentFamily.Fastener` fold and the single-f
 
 ## [01]-[INDEX]
 
-- [02]-[FASTENER_FAMILY]: the `FastenerKind`/`ThreadSeries`/`BoltCategory`/`FayingSurface` policy vocabularies, the `HexHardware` envelope, the `ThreadRow`/`GradeRow` frozen standards tables with `Threads`/`Grades` owners, the `Fastening` single-bolt capacity and thread-split algebra, the `FastenerDetail` realization bag, and the `FastenerSeed.Rows` typed-selection generator over the `StockRow` symbolic rows.
+- [02]-[FASTENER_FAMILY]: the `FastenerKind`/`ThreadSeries`/`BoltCategory`/`FayingSurface` policy vocabularies, the `HexHardware` envelope, the `ThreadRow`/`GradeRow` frozen standards tables with `Threads`/`Grades` owners, the `Fastening` single-bolt capacity, thread-split, and EC5 dowel-type timber-connection algebra, the `FastenerDetail` realization bag, and the `FastenerSeed.Rows` typed-selection generator over the `StockRow` symbolic rows.
 - [03]-[BOLT_ASSEMBLY]: the `FastenerAssembly` complete-connection owner — bolt + grip-plies (`Dimension`) + shear-planes + nut + washer over one `(ThreadRow, GradeRow, BoltCategory, FayingSurface)`, the `PreloadKn` `Fp,C = 0.7·fub·As` projection, the `FastenerInstallation` admitted slip-and-torque factor set, the `SlipResistanceKn` EN 1993-1-8 preloaded design value, and the ISO 7089/7090 washer-hardness selection.
 
 ## [02]-[FASTENER_FAMILY]
@@ -235,6 +235,34 @@ public static class Fastening {
     public static double UnthreadedShankMm(FastenerKind kind, ThreadRow thread, double lengthMm) =>
         lengthMm - ThreadLengthMm(kind, thread, lengthMm);
     public static double ThreadRunoutMm(ThreadRow thread) => 2.5 * thread.PitchMm;
+
+    // EC5 §8 dowel-type TIMBER connection — the first cross-material composition of the fastener and timber
+    // vocabularies: embedment fh,k = 0.082·(1 − 0.01·d)·ρk (Eq 8.32, predrilled bolt/dowel) off TimberGrade.DensityK,
+    // fastener yield moment My,Rk = 0.3·fu,b·d^2.6 (Eq 8.30) off the grade band's fub, the per-shear-plane
+    // timber-to-timber single-shear characteristic Fv,Rk as the MINIMUM over the six Johansen modes (Eq 8.6 a-f, the
+    // rope-effect Fax/4 term taken 0 — the withdrawal capacity is hardware-specific data), and the design value
+    // kmod·Fv,Rk/γM with the CONNECTION γM = 1.3 and the timber LoadDuration/ServiceClass joint. Steel-to-timber and
+    // multi-plane groups are the forward Compute join over this per-plane value.
+    public static Fin<double> TimberDowelShearKn(
+        ThreadRow thread, GradeRow grade, TimberGrade side1, double t1Mm, TimberGrade side2, double t2Mm,
+        ServiceClass service, LoadDuration duration, Op key) =>
+        from admitted in guard(double.IsFinite(t1Mm) && t1Mm > 0.0 && double.IsFinite(t2Mm) && t2Mm > 0.0,
+            ComponentFault.Dimension(key, $"<dowel-ply-thickness-rejected:{t1Mm:R}:{t2Mm:R}>"))
+        let d = thread.MajorMm
+        let fh1 = 0.082 * (1.0 - 0.01 * d) * side1.DensityK
+        let fh2 = 0.082 * (1.0 - 0.01 * d) * side2.DensityK
+        let beta = fh2 / fh1
+        let my = 0.3 * grade.At(thread).TensileStrengthMpa * Math.Pow(d, 2.6)
+        let ratio = t2Mm / t1Mm
+        let modeC = fh1 * t1Mm * d / (1.0 + beta)
+            * (Math.Sqrt(beta + 2.0 * beta * beta * (1.0 + ratio + ratio * ratio) + beta * beta * beta * ratio * ratio) - beta * (1.0 + ratio))
+        let modeD = 1.05 * fh1 * t1Mm * d / (2.0 + beta)
+            * (Math.Sqrt(2.0 * beta * (1.0 + beta) + 4.0 * beta * (2.0 + beta) * my / (fh1 * d * t1Mm * t1Mm)) - beta)
+        let modeE = 1.05 * fh1 * t2Mm * d / (1.0 + 2.0 * beta)
+            * (Math.Sqrt(2.0 * beta * beta * (1.0 + beta) + 4.0 * beta * (1.0 + 2.0 * beta) * my / (fh1 * d * t2Mm * t2Mm)) - beta)
+        let modeF = 1.15 * Math.Sqrt(2.0 * beta / (1.0 + beta)) * Math.Sqrt(2.0 * my * fh1 * d)
+        let fvk = Seq(fh1 * t1Mm * d, fh2 * t2Mm * d, modeC, modeD, modeE, modeF).Min()
+        select duration.KmodFor(service) * fvk / 1.3 * 1e-3;
 }
 
 // The seed-time DetailLane.Realization bag — rows byte-identical to the retired projector switch (FastenerType token,
@@ -419,3 +447,4 @@ public readonly record struct FastenerAssembly(
 - [INCH_HARDWARE_ENVELOPE]: RESEARCH — the UNC rows' `Hardware` column is `None`; the ASME B18.2.1 head, B18.2.2 nut, and B18.22.1 washer rows seed the inch `HexHardware` when an inch-detailed generative target lands (the across-flats wrench sizes are already carried). Until then an inch bolt's thread form, stress area, and capacities are complete while its hex solid waits on the ASME envelope rows.
 - [GRADE_SIZE_BANDS]: REALIZED — ISO 898-1 bands the 8.8 mechanical values by size (proof `580`/tensile `800`/yield `640 MPa` at `≤ M16`; `600`/`830`/`660` above): the `GradeStep` option column carries the >threshold triple, `GradeRow.At(thread)` is the ONE band read every capacity projection (`ProofLoadKn`/`TensileLoadKn`/`ShearCapacityKn`/`PreloadKn`) routes through, and the prior single hybrid row (>M16 proof beside ≤M16 tensile — a 3.4% proof overstatement on the stocked `m12`/`m16` bolts) is retired; ASTM F3125 unified the old A325 over-1in reduction, so no inch row steps and the designations are unchanged.
 - [COMPUTE_CONSUMER]: `Rasm.Compute` consumes `Fastening.ShearCapacityKn`, `Fastening.TensileLoadKn`, and the optional `FastenerAssembly.SlipResistanceKn`; the absence branch is a snug-tight connection, never numeric zero.
+- [TIMBER_DOWEL]: REALIZED — `Fastening.TimberDowelShearKn` is the EC5 §8 dowel-type timber connection, the first capability composing the fastener and timber vocabularies: embedment `fh,k = 0.082·(1 − 0.01·d)·ρk` reads `TimberGrade.DensityK` (the carried column previously without an embedment consumer), the yield moment `My,Rk = 0.3·fu,b·d^2.6` reads the grade band's published `fub` through `GradeRow.At(thread)`, the per-shear-plane timber-to-timber `Fv,Rk` is the minimum over the six Johansen modes (Eq 8.6 a-f; the rope-effect `Fax/4` term 0 — withdrawal capacity is hardware-certified data), and the design value folds `kmod` off the timber `LoadDuration`/`ServiceClass` joint over the connection `γM = 1.3`. Steel-to-timber plates and multi-fastener group effects are the forward `Rasm.Compute` join over this per-plane value. Ripple counterpart: `timber#TIMBER_FAMILY` (`TimberGrade.DensityK` the embedment input, now consumed).

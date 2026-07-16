@@ -13,7 +13,7 @@ Rasm.Materials/            # AEC-DOMAIN materials projector; refs {Rasm, Rasm.El
 │   ├── Cmu.cs             # Concrete-masonry-unit family
 │   ├── Timber.cs          # Timber family over sawn, glulam, and CLT lamellae
 │   ├── Glazing.cs         # Glazing family over insulated-glass pane, spacer, and cavity records
-│   ├── Reinforcement.cs   # Reinforcement family over the concrete-section rebar arrangement
+│   ├── Reinforcement.cs   # Reinforcement family over the rebar arrangement and prestressing-strand line
 │   ├── Fastener.cs        # Fastener family over the threaded bolt, nut, and washer assembly
 │   ├── Connector.cs       # Connector family
 │   ├── Joint.cs           # Joint family over the weld, adhesive, and stud connection record
@@ -164,16 +164,24 @@ flowchart LR
 
 ## [03]-[DOMAIN_LAW]
 
-Canonical-collapse law the sub-domains share — one owner per axis, one entrypoint family per rail, growth by data. Per-page boundary cards carry the concrete seams; this map states the collapse rule the codemap enforces.
+Canonical-collapse law the sub-domains share — one owner per axis, one entrypoint family per rail, growth by data. Per-page boundary cards carry the concrete seams.
 
-- One owner per concept: a cross-section is a `ComponentFamily` row over one `Component`, its section properties the one `SectionSolver.Solve` dispatch over the closed `SectionProfile` algebra; a material is a `MaterialLibrary` row over one `MaterialGraph`, a lobe a `BsdfLobe` `[Union]` case, a layering modifier a `Slab` over one `SlabStack`, and the whole material-and-Type subgraph the one `ComponentProjector.Project`.
-- Growth is a row or a closed-union case; a per-family `Component`, a second `MaterialProjector`/`ConnectionProjector`, a peer-side OpenPBR re-mint, or a generic `IMaterial`/`IProfile` abstraction is the named drift.
-- `ComponentFamily` axis is closed, each family carrying a `ComponentClass` discriminant over the Primary one-piece `IfcBuiltElement`, Panel many-piece sheet goods, and Minor many-piece `IfcElementComponent` rows. An anchor folds as a `FastenerKind` arm; a metal deck, gypsum board, or rigid-board insulation is a `PanelKind` row, never a new family.
-- `BsdfLobe` family is closed; a new lobe admits only when no parameterization of the set reproduces the measured physics, and then serves every material.
-- Material-composition vocabulary is the seam `MaterialComposition` — single, layer-set, profile-set (`ProfileRef`), constituent-set — referenced here, not re-owned; a fourth composition case is a seam growth, and a parallel Materials assignment type is the named drift.
-- Owner mints its own identity: the `ComponentProjector` mints the deterministic-rooted Type `Object`, its `NodeId` derived from the representation-excluded canonical seed so a later geometry attach never re-keys the type and identical Components dedup to one Type, and stamps its `Classification`/`PredefinedType` off the `Component` owner's stored `IfcBinding` row.
-- A model author mints Occurrence `Object`s and `Rasm.Bim` ingests `IfcElementType` into the same Type `Object`; the named `Bake` type→occurrence inheritance is the seam's, the projector binding occurrences via `Assign.TypeDefinition`.
-- Model is host-neutral: no owner holds a `Rhino.Geometry` curve or transform. Run and layout geometry lands in `Rasm.Generation`, materialized by the host at the app root; `Rasm.Materials` keeps only the material-composition lowering into the seam `Material` node the `ComponentProjector` authors.
-- Composition over re-mint at every seam: `Rasm.Materials` projects onto the `Rasm.Element` seam and re-mints no seam type, color axis, unit owner, or dimension. Color is Wacton.Unicolour consumed directly as the scene-linear/spectral owner; the photometric and appearance unit coercion admits UnitsNet in-folder through the `Appearance/photometric` `MaterialUnits` boundary; the engineering-property SI coercion rides the seam `MeasureValue`; dimensions are the `Rasm.Numerics` kernel value-objects.
-- Only the documented author-kernel set — RGB→SPD, RRT/ODT scene-referred tone-map, BSDF/Fresnel/GGX/noise — is hand-authored; an out-of-gamut, non-finite, or degenerate result rails to a banded fault (`ComponentFault`/`MaterialFault`/`ProjectionFault`, each reading its integer off the type-enforced `Rasm.Element` `FaultBand` registry, disjoint from the kernel `GeometryFault` and seam `ElementFault` rows), never a propagated NaN or sentinel.
-- Standards data is in-fence C# under `SEED_ROW_LAW`: tables are `REFLECTED`, `DELEGATED`, or `AUTHORED`; columns carry `VENDOR`/`DEFINED`/`PUBLISHED` provenance; policy vocabularies stay `[SmartEnum]`, standards-data enums become `readonly record struct` row tables, and every seed row flows through `ComponentFamily.Rows → Component.Of → SectionSolver.Solve` as `Fin<Seq<ComponentRow>>`.
+- One component owner: a cross-section is a `ComponentFamily` row over one `Component`, solved by the one dispatch over the closed profile algebra.
+- One appearance owner: a material is a `MaterialLibrary` row over one `MaterialGraph`, a lobe a case, a layering modifier a `Slab`.
+- One `ComponentProjector.Project` carries the whole material-and-Type subgraph.
+- Growth is a row or a closed-union case; a per-family type, a second projector, or a generic material abstraction is the named drift.
+- `ComponentFamily` is a closed axis, each family carrying its `ComponentClass` discriminant over the Primary, Panel, and Minor rows.
+- An anchor folds as a `FastenerKind` arm; a metal deck, gypsum board, or rigid-board insulation is a `PanelKind` row, never a new family.
+- `BsdfLobe` is a closed family; a new lobe admits only when no parameterization reproduces the measured physics, then serves every material.
+- Material-composition vocabulary is the seam `MaterialComposition`, referenced and never re-owned; a new case is seam growth.
+- Owner mints its own identity: the `ComponentProjector` mints the deterministic-rooted Type `Object` from the exclusion-seeded canonical bytes.
+- A Type stamps `Classification`/`PredefinedType` off the stored `IfcBinding` row, so a later geometry attach never re-keys it.
+- A model author mints Occurrence `Object`s and `Rasm.Bim` ingests `IfcElementType` into the same Type; the `Bake` inheritance is the seam's.
+- Model is host-neutral: no owner holds a host curve or transform; run and layout geometry lands in `Rasm.Generation` at the app root.
+- Composition over re-mint at every seam: Materials projects onto `Rasm.Element` and re-mints no seam type, color axis, unit owner, or dimension.
+- Color is the admitted perceptual owner consumed directly; units admit UnitsNet at the photometric boundary and ride the seam `MeasureValue`.
+- Only the documented author-kernel set — RGB-to-SPD, scene-referred tone-map, BSDF microfacet, noise — is hand-authored.
+- An out-of-gamut, non-finite, or degenerate result rails to its banded fault off the `FaultBand` registry, never a propagated NaN or sentinel.
+- Standards data is in-fence C# under `SEED_ROW_LAW`: a table is `REFLECTED`, `DELEGATED`, or `AUTHORED`.
+- Every seed column carries `VENDOR`, `DEFINED`, or `PUBLISHED` provenance.
+- Policy vocabularies stay `[SmartEnum]`, standards enums become frozen row tables, and every seed row flows the one catalogue-to-solver rail.

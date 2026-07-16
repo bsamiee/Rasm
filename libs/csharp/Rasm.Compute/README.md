@@ -1,6 +1,8 @@
 # [COMPUTE]
 
-`Rasm.Compute` owns APP-PLATFORM measured execution: one intent rail admits every execution request once, a substrate axis routes it over row data, bounded lanes carry it, and the one `ComputeReceipt` union records every outcome. It reads the `Rasm` kernel, the `Rasm.Element` seam, AppHost ports, and Persistence stores as settled lower-stratum vocabulary and never reverses the dependency onto the AEC-domain peers.
+`Rasm.Compute` is the federation's measured-execution engine: the discipline-assessment authority over the concrete `ElementGraph` — a farm of solvers whose failure semantics are engineered as rigorously as their success semantics, every verdict cached by content key and every failure a typed cached fact with a retry policy — over a numeric substrate sized for building-scale modal, buckling, and meshing work, an optimization, uncertainty, and design-of-experiments spine over one evaluate oracle, a symbolic lane with real CAS depth, and the ONNX model plane. Its bar is throughput law, not solver hygiene: generated-design screening loops re-solve thousands of variants, so failure caching, content-keyed reuse, and dispatchable sweeps are load-bearing capability, and a discipline the seam declares that Compute cannot answer is a coverage defect.
+
+One intent rail admits every execution request once, a substrate axis routes it over row data, bounded lanes carry it, and the one `ComputeReceipt` union records every outcome. It reads the `Rasm` kernel, the `Rasm.Element` seam, AppHost ports, and Persistence stores as settled lower-stratum vocabulary and never reverses the dependency onto the AEC-domain peers.
 
 ## [01]-[ROUTER]
 

@@ -1,6 +1,6 @@
 # [TS_SECURITY_ARCHITECTURE]
 
-`security` owns the identity-and-custody concern — three sub-domains (`crypt`, `authn`, `access`) meeting through one crypto authority, one session vocabulary, and one tenancy contract. Every stateful obligation is a port Tag the data wave satisfies at app composition, so the folder imports only core.
+`security` owns the identity-and-custody concern — the `crypt`, `authn`, and `access` sub-domains meeting through one crypto authority, one session vocabulary, and one tenancy contract. Every stateful obligation is a port Tag the data wave satisfies at app composition, so the folder imports only core.
 
 ## [01]-[DOMAIN_MAP]
 
@@ -8,13 +8,13 @@
 security/
 └── src/
     ├── crypt/                 # Crypto authority: signing, minting, shredding, custody, inbound verification
-    │   ├── sign.ts            # Argon2id, HMAC egress, opaque tokens, AES-GCM Shredder, jose keys, JWT/JWS/JWKS/JWE
+    │   ├── sign.ts            # The sole mint — every digest, signature, token, and envelope originates here
     │   ├── verify.ts          # Inbound-signature dialect table + one constant-time verify fold over HELD request octets
     │   └── secret.ts          # DopplerSDK leased-secret custody behind Layer.scoped — download, targeted read, name census
     ├── authn/                 # Authentication: session spine, digest credentials, OAuth, passkeys
-    │   ├── session.ts         # Subject/Session/CredentialRef/TokenPair spine, rotation, ports, CSRF egress
+    │   ├── session.ts         # The identity spine the ceremonies feed — rotation, ports, CSRF egress
     │   ├── credential.ts      # Digest — the one mint-and-resolve idiom over OTP, recovery codes, and machine API keys
-    │   ├── oauth.ts           # Issuer-row OAuth authorization-code ceremony over arctic — url/exchange/refresh/revoke legs per row
+    │   ├── oauth.ts           # Issuers modeled as rows over one authorization-code ceremony
     │   └── webauthn.ts        # Both passkey halves as per-runtime subpaths: RP verifier (./server) + browser invocation (./browser)
     └── access/                # Authorization: entitlement fold and the tenancy contract
         ├── claim.ts           # Entitlement vocabulary + the RBAC-union-ReBAC evaluation fold, resolved once per request
@@ -72,6 +72,7 @@ flowchart LR
     Crypt e8@-->|"[SHAPE]: Shredder envelope"| Data
     Crypt e9@-->|"[BOUNDARY]: Intake verify"| Runtime
     Crypt e10@-->|"[BOUNDARY]: leased env"| Iac
+    Access e11@-->|"[PORT]: FlagGate"| Runtime
     classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
     classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
     classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
@@ -81,7 +82,7 @@ flowchart LR
     class Runtime external
     class Data data
     class Core,Iac annotation
-    class e1,e2,e3,e4,e5,e6,e7,e8,e9,e10 edgeControl
+    class e1,e2,e3,e4,e5,e6,e7,e8,e9,e10,e11 edgeControl
 ```
 
 ## [03]-[ORGANIZATION]
@@ -94,3 +95,4 @@ flowchart LR
 - Content-identity digesting stays core's; this folder owns secret derivation and authenticated crypto only.
 - Cookie framing and CSRF are egress projections declared here and consumed by the runtime browser plane; no browser API is touched here.
 - Tenancy is declared here and enforced in the data wave; the folder opens no database transaction.
+- Flag evaluation is the `FlagGate` consumer port the runtime wave satisfies; the entitlement fold composes flag verdicts and owns no flag engine.

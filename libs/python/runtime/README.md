@@ -1,6 +1,8 @@
 # [PY_RUNTIME]
 
-`runtime` owns the host-free execution foundation every `libs/python` sibling composes: one polymorphic owner per sub-domain mints the shared value shapes — content identity, the boundary-fault and resilience rails, caller-owned admission, resource transport and the companion gRPC server, logical time, and local receipts — once, and every sibling returns through them rather than re-minting its own. Companion decode admits only C#-minted wire shapes and owns no wire vocabulary, so identity crosses the runtime boundary through a single mint.
+`runtime` is stratum zero of the Python branch — the host-free execution foundation every sibling composes, where foundation-grade proof outranks feature reach. Every shared vocabulary — content identity, the boundary-fault and resilience rails, caller-owned admission, execution lanes, logical time, receipts and telemetry, resource transport, the companion gRPC server — is minted exactly once and consumed by symbol, and the module set stands alone with zero sibling packages installed. Its bar is multiplied trust: every sibling fold returns through the fault rail, every retry in the branch rides the one policy table, every scheduled pipeline crosses the lane owner, and the C# host drives the served wire — a defect here multiplies across the branch, so nothing lands as convention that can land as proof.
+
+One polymorphic owner per sub-domain mints the shared value shapes once, and every sibling returns through them rather than re-minting its own. Companion decode admits only C#-minted wire shapes and owns no wire vocabulary, so identity crosses the runtime boundary through a single mint.
 
 ## [01]-[ROUTER]
 

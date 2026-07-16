@@ -1,14 +1,23 @@
 # [PY_ARTIFACTS_SHAPE]
 
-The text-shaping, itemization, and color-glyph rasterization owner over the document rail. `Shaping` is ONE owner that folds a Unicode text run and a font through a closed 7-arm `ShapeOp` family — `NORMALIZE` (UAX#15 NFC pre-compose), `BIDI` (UAX#9 logical→visual reorder), `ITEMIZE` (script/direction visual-run split into typed `ItemizedRun` spans carrying the `typography/font#FONT` `ScriptTags` OT-tag+direction resolution at the seam, never a re-derived script→tag map), `FALLBACK` (per-CLUSTER covering-face assignment over a grapheme/UVS/ZWJ-aware cluster probe, UVS variants read through `get_variation_glyph`), `SHAPE` (uharfbuzz OpenType shaping under a `Buffer.cluster_level` granularity into a `PositionedGlyphRun` carrying per-glyph GID/cluster/advance/offset, the HarfBuzz break-safety flags column, the per-glyph `get_glyph_extents` ink-bbox column, the `get_font_extents` ascender/descender/line-gap fact, the `get_layout_baseline` per-run OT baseline, the resolved `get_style_value` `StyleValues`, optional `synthetic_bold`/`synthetic_slant`, and the advance-threaded `SVGPathPen` outline), `RASTERIZE` (color-format-probed COLRv1 / CBDT-sbix-PNG / SVG-table / CPU-BGRA32 glyph render, the CPAL palette selected by `OTColorPaletteFlags` light/dark-background flag), and `QA` (vharfbuzz golden round-trip WITH the diff-gated `shape(onchange=)` per-lookup GSUB/GPOS trace). Each arm rides its own offload lane — `THREAD` for the GIL-releasing native shape/raster/QA/fallback, `PROCESS` for the gated python-bidi/PyICU/fontTools+stdlib reorder-normalize-itemize workers — keyed by one row on the frozen `_SHAPE_TABLE` `frozendict` under a single `CapacityLimiter`, every offload wrapped in a driving explicit `Buffer.direction` and vertical advances; the bidi and segmentation owner is a `BidiEngine`/`SegmentEngine` policy value per run (`python-bidi` + fontTools/stdlib default, `PyICU` when provisioned), and the cluster granularity a `ClusterLevel` axis, never a parallel shaping owner. The `PositionedGlyphRun` carries the per-glyph `GlyphFlags` column so `typography/layout#LAYOUT` reads `UNSAFE_TO_BREAK`/`UNSAFE_TO_CONCAT` for line-break refusal and `SAFE_TO_INSERT_TATWEEL` for kashida justification, plus the `extents`/`ascender`/`descender`/`line_gap`/`line_height`/`baseline` metrics `typography/layout#LAYOUT` reads for line-height and mixed-script alignment. uharfbuzz, fonttools, blackrenderer, python-bidi, vharfbuzz, PyICU, and uniseg are admitted in the manifest; the `PositionedGlyphRun` is consumed by `document/emit#DOCUMENT` text placement, `composition/compose#COMPOSE` annotation, and `typography/layout#LAYOUT` line-break, while face selection, the `ScriptTags` seam, and variation location are read from `typography/font#FONT`. Every arm returns `RuntimeRail[ArtifactReceipt]` keyed by the runtime content key and contributes one `ArtifactReceipt.Document`/`.Preview`.
+`Shaping` is the text-shaping, itemization, and color-glyph rasterization owner over the document rail — one owner folding a Unicode text run and a font through a closed 7-arm `ShapeOp` family: `NORMALIZE` (UAX#15 NFC), `BIDI` (UAX#9 logical→visual reorder), `ITEMIZE` (script/direction visual-run split into typed `ItemizedRun` spans carrying the `typography/font#FONT` `ScriptTags` resolution at the seam), `FALLBACK` (per-cluster covering-face assignment over a grapheme/UVS/ZWJ-aware probe), `SHAPE` (uharfbuzz OpenType shaping into a `PositionedGlyphRun` carrying GID/cluster/advance/offset, the HarfBuzz break-safety flags, the ink-bbox and font-extents columns, the OT baseline, the resolved `StyleValues`, and the advance-threaded outline), `RASTERIZE` (color-format-probed COLRv1 / CBDT-sbix-PNG / SVG-table / CPU-BGRA32 glyph render, the CPAL palette selected by light/dark-background flag), and `QA` (vharfbuzz golden round-trip with the diff-gated per-lookup GSUB/GPOS trace).
+
+Each arm's offload lane is one row on the frozen `_SHAPE_TABLE` — `THREAD` for the GIL-releasing native shape/raster/QA/fallback, `PROCESS` for the gated python-bidi/PyICU reorder-normalize-itemize workers — while the bidi/segment owner is a `BidiEngine`/`SegmentEngine` policy value per run and the cluster granularity a `ClusterLevel` axis, never a parallel shaping owner; the `PositionedGlyphRun` carries the `GlyphFlags` column so `typography/layout#LAYOUT` reads `UNSAFE_TO_BREAK`/`UNSAFE_TO_CONCAT` for break refusal and `SAFE_TO_INSERT_TATWEEL` for kashida, plus the extents/ascender/descender/line-gap/baseline metrics layout reads for line-height and mixed-script alignment; it feeds `document/emit#DOCUMENT` text placement and `composition/compose#COMPOSE` annotation, while face selection, the `ScriptTags` seam, and variation location arrive from `typography/font#FONT`. Every arm keys by the runtime content key and contributes one `ArtifactReceipt.Document`/`.Preview`.
 
 ## [01]-[INDEX]
 
-- [01]-[SHAPE]: the 7-arm `ShapeOp` shaping-itemization-rasterization owner over the frozen `_SHAPE_TABLE` `frozendict` — each row a `(ShapeAcceptor, Lane)` pair so the offload lane is a row property (never a smuggled `if self.step is BIDI`), `PositionedGlyphRun` the carried shaped-run value object the `SHAPE` arm produces (its outline bridged through the advance-threaded `SVGPathPen`/`TransformPen` pen, carrying per-glyph ink `extents`, the `ascender`/`descender`/`line_gap`/`baseline` metrics, and the `StyleValues` read-back) and the `RASTERIZE` arm reshapes, `ItemizedRun` the typed span the `ITEMIZE` arm emits over the `ScriptTags` seam, `ColorFormat` the probe-selected color-glyph render policy row with `PaletteUsage` the CPAL flag selector, `WritingDirection`/`BidiEngine`/`SegmentEngine`/`ClusterLevel` the closed policy axes driving `Buffer.direction`/vertical metrics/`Buffer.cluster_level` and the bidi/segment owner, every native render offloaded off the event loop under one `CapacityLimiter` and one `ShapeOp` the closed `StrEnum` over `NORMALIZE`/`BIDI`/`ITEMIZE`/`FALLBACK`/`SHAPE`/`RASTERIZE`/`QA`; one frozen `_SHAPE_TABLE` `frozendict` data-row dispatch maps each step to its `(ShapeAcceptor, Lane)` pair with zero `match`/`case` sprawl, the closed `StrEnum` total over the table by construction and `_ARM` keying only the `anyio` async-loop crossing per `Lane`. uharfbuzz owns the OpenType layout engine, the `ot_layout_*`/`axis_infos` introspection, the cluster/feature/variation shaping surface, the `get_nominal_glyph` coverage probe, the `GlyphFlags` break-safety signal, the CBDT/sbix PNG + SVG-table color extractors, and the `RasterPaint`/`RasterImage` zero-native-dep BGRA32/A8 CPU rasterizer; fonttools owns the binary font model, the `SVGPathPen` outline pen, and the `fontTools.unicodedata.script` itemization fallback; blackrenderer owns the COLRv1 paint-graph rasterizer and the `listBackends` deployment matrix; python-bidi owns the UAX#9 reorder default; PyICU owns the locale-aware `Bidi.getVisualRun`/`Script.getScript`/`Normalizer2` upgrade behind the `SegmentEngine`/`BidiEngine` row; uniseg + stdlib `unicodedata` own the locale-free itemize/normalize default. `WritingDirection` drives `Buffer.direction` (`ttb` carrying the vertical advances hb fills from `vhea`); `ClusterLevel` drives `Buffer.cluster_level` for caret/mark-attachment/grapheme-selection granularity; `RasterBackend` keys the blackrenderer surface registry; `ColorFormat` is the probe-selected color-glyph render policy the `RASTERIZE` arm dispatches on, its CPAL palette selected by the `PaletteUsage` light/dark-background flag; `PositionedGlyphRun` is the carried shaped-run value object the `SHAPE` arm produces (its 7-tuple glyph column carrying GID/cluster/x-advance/y-advance/x-offset/y-offset/flags, plus the per-glyph `extents` ink-bbox column, the `ascender`/`descender`/`line_gap`/`baseline` metrics, and the `StyleValues` style read-back) and the `RASTERIZE` arm reshapes; `ItemizedRun` is the typed single-direction/single-script span the `ITEMIZE` arm emits, carrying the `ScriptTags` OT-tag+direction resolution.
-- Auto: every arm offloads off the event loop under one `CapacityLimiter`, its lane read off the `_SHAPE_TABLE` row — `SHAPE`/`RASTERIZE`/`FALLBACK`/`QA` ride the `THREAD` lane (GIL-releasing native, zero-copy of the font bytes the worker shares), `NORMALIZE`/`BIDI`/`ITEMIZE` ride the gated `PROCESS` lane their PyO3/native-C++ bindings require — and every offload is wrapped in one `the runtime retry class` bound to `BrokenWorkerProcess`/`BrokenWorkerInterpreter` inside an OpenTelemetry span carrying step/lane/direction/backend and a `structlog` event carrying the emitted byte count. `NORMALIZE` folds the run through `Normalizer2.getNFCInstance().normalize` (`SegmentEngine.ICU`) or `unicodedata.normalize("NFC", ...)` (default) so combining marks pre-compose before shaping; `BIDI` folds through `bidi.get_display(base_dir=...)` (`BidiEngine.PYTHON_BIDI`) or `Bidi.setPara`/`writeReordered` (`ICU`) into visual order; `ITEMIZE` partitions the run into single-direction/single-script spans through `Bidi.getVisualRun` + `Script.getScript` (`ICU`) or a `fontTools.unicodedata.script` run-length grouping (default), each span enriched by `ScriptTags.of` into a typed `ItemizedRun` carrying the OpenType tags + direction (the `typography/font#FONT` face-selection seam composed here, never a re-derived script→OT-tag map), the spans feeding `typography/font#FONT` fallback and per-span shaping; `FALLBACK` walks the `_cluster_probes` grapheme/UVS/ZWJ-aware cluster set (a base plus its combining marks, a UVS selector, and a ZWJ sequence folding to ONE probe) and resolves a per-CLUSTER `(cluster-start, face-rank)` covering-face assignment via `get_variation_glyph` (UVS) / `get_nominal_glyph` over the primary + `fallback_faces` faces (`-1` = tofu the `Buffer.not_found_glyph` override renders); `SHAPE` folds the run through `Face.create` → `Font.create` (applying `synthetic_bold`/`synthetic_slant` when the face lacks a real bold/italic) → `Buffer.create`/`add_str` → `_segment` (explicit `Buffer.direction` from `WritingDirection`, `Buffer.cluster_level` from `ClusterLevel`, `set_script_from_ot_tag`/`set_language_from_ot_tag` when pinned, `guess_segment_properties` filling the rest, `PRODUCE_UNSAFE_TO_CONCAT` flag set) → `shape(font, buffer, features)` then reads `glyph_infos`/`glyph_positions` (zipped strict, `info.flags` into the 7th column) into a `PositionedGlyphRun`, threading each glyph's `x_advance`/`y_advance` cursor and `x_offset`/`y_offset` through the `TransformPen(SVGPathPen(...))` so the combined `outline` lays along the horizontal or vertical baseline AND drawing each glyph to its own origin `SVGPathPen` into `glyph_outlines` (the `run.on_path()` per-glyph outline + advance pairs the `graphic/vector/region#REGION` `text_path` curved-baseline seam threads), plus reading per-glyph `get_glyph_extents` into the `extents` column, `get_font_extents(direction)` into `ascender`/`descender`/`line_gap`, `get_layout_baseline` into `baseline`, and `get_style_value` into `StyleValues`; `RASTERIZE` probes `Face.has_color_paint`/`has_color_png`/`has_color_svg` and dispatches the `_COLOR_TABLE` row — COLRv1 through the blackrenderer `getSurfaceClass`→`BlackRendererFont`→`drawGlyph` paint-graph traversal (its CPAL palette selected by `_select_palette` reading `Face.color_palettes` for the first `OTColorPaletteFlags` light/dark-background match, not a raw index), CBDT/sbix through `Font.get_glyph_color_png`, SVG-table through `Face.get_glyph_color_svg`, and the zero-native-dep `RasterPaint`→`paint_glyph`→`render` BGRA32 CPU fallback when no blackrenderer backend module imports; `QA` writes the font to a temp path, shapes through `Vharfbuzz` with an `onchange` callback capturing the diff-gated per-lookup GSUB/GPOS trace, and serializes both the `hb-shape` golden through `serialize_buf` and the `(stage, lookup-id)` trace.
-- Receipt: every arm projects its output onto the shared `core/receipt#RECEIPT` `ArtifactReceipt` family, never a per-step receipt — `SHAPE`/`BIDI`/`ITEMIZE`/`NORMALIZE`/`FALLBACK` contribute `ArtifactReceipt.Document` carrying the content key and the encoded byte count (the `PositionedGlyphRun`, the reordered text, the `ItemizedRun` partition, the NFC text, or the per-cluster coverage assignment), `QA` contributes `ArtifactReceipt.Document` carrying the encoded golden+trace byte count, and `RASTERIZE` contributes `ArtifactReceipt.Preview` carrying the content key and the pixel width/height. The resolved COLR version, chosen `ColorFormat`, selected CPAL palette index and its `OTColorPaletteFlags`, backend name, `listBackends` deployment matrix, glyph count, resolved script/direction/OT-tags, the `get_font_extents`/`get_layout_baseline`/`StyleValues` metrics, the cluster level, the per-lookup GSUB/GPOS trace length, and pixel bounds stay interior evidence the arm folds into its content-key derivation and the structlog span, never new receipt fields the shared `Document`/`Preview` cases cannot carry.
-- Growth: a new shaping feature is one `shape` feature-dict row; a new offload arm is one `ShapeOp` member plus one `_SHAPE_TABLE` `(acceptor, lane)` row; a new raster backend is one `RasterBackend` row keyed on the `getSurfaceClass` registry; a new color-glyph format is one `ColorFormat` member plus one `_COLOR_PROBE` predicate and one `_COLOR_TABLE` row; a new writing direction is one `WritingDirection` member plus one `_HB_DIRECTION`/`_BIDI_BASE` correspondence; a new cluster granularity is one `ClusterLevel` member (name-resolved to `hb.BufferClusterLevel`); a new bidi/segment owner is one `BidiEngine`/`SegmentEngine` member plus one `match` arm on the owning acceptor; a new palette-selection policy is one `PaletteUsage` member plus one `_select_palette` flag; a new style-attribute read is one `StyleValues` field plus one `hb.StyleTag`; a new shaped-run fact is one column on the `PositionedGlyphRun` glyph tuple (or one field for a per-run metric) plus its derived property; a new itemization fact is one `ItemizedRun` field; zero new surface.
-- Boundary: no font subsetting/instancing (that stays at `typography/font#FONT`), no line-break/hyphenation/paragraph layout (that is `typography/layout#LAYOUT`, which reads the `PositionedGlyphRun` break-safety column), no PDF authoring (that is `document/emit#DOCUMENT`), no PAdES/PDF security (that is `exchange/conformance#CONFORMANCE`); the owner shapes text, itemizes, reorders, normalizes, resolves fallback coverage, and renders glyphs, never breaking a paragraph or producing a document. Text-on-path — threading each shaped glyph's outline along an arc-length-parameterized baseline `Path` with a tangent-following transform and merging overlaps on tight curves — is the LANDED `graphic/vector/region#REGION` `text_path(glyphs, baseline)` entrypoint's `skia-pathops`/`svgelements` algebra: the `SHAPE` arm draws each glyph to its OWN origin `SVGPathPen` (`PositionedGlyphRun.glyph_outlines`), and a curved-baseline consumer hands `run.on_path()` (the per-glyph outline + advance pairs) to `vector.text_path` at the seam, never a `pathops` import here — the straight-baseline run stays this owner's own advance-threaded combined `outline` pen. The uharfbuzz `SubsetInput`/`subset` is the rejected duplicate of the `typography/font#FONT` `SUBSET` footprint; a hand-rolled COLRv1 `PaintFormat` dispatch is the rejected duplicate of blackrenderer's in-package `drawGlyph`; the `renderText` one-shot is the rejected lower-capability form (it hides the palette/location/glyph-bounds/backend evidence); a hand-rolled UAX#9 reorder, a hand-rolled UAX#14/UAX#29 break-class table, and a hand-coded script-to-OT-tag map are the rejected duplicates of `bidi.get_display`, `uniseg`, and `fontTools.unicodedata.script`; a parallel `_RasterBackend` enum beside the policy, a second shaping-buffer construction, and a smuggled `if self.step is BIDI` lane branch are the collapsed forms — the `_SHAPE_TABLE` row carries the lane and the one `Buffer` pipeline shapes every run.
+- [01]-[SHAPE]: the 7-arm `ShapeOp` shaping/itemization/rasterization owner over the frozen `_SHAPE_TABLE`, each row a `(ShapeAcceptor, Lane)` pair so the offload lane is a row property — `NORMALIZE`/`BIDI`/`ITEMIZE`/`FALLBACK`/`SHAPE`/`RASTERIZE`/`QA`, `PositionedGlyphRun` the shaped-run value object and `ItemizedRun` the itemized span.
+
+## [02]-[SHAPE]
+
+- Owner: `Shaping` folds `(step, font, params)` through the frozen `_SHAPE_TABLE`, each row a `(ShapeAcceptor, Lane)` pair — the lane is a row property, never a smuggled `if self.step is BIDI`. uharfbuzz owns the OpenType layout engine, the `ot_layout_*`/`axis_infos` introspection, the coverage probe, the `GlyphFlags` signal, the CBDT/sbix+SVG color extractors, and the zero-native-dep BGRA32 CPU rasterizer; fonttools owns the binary model, the `SVGPathPen` outline, and the `fontTools.unicodedata.script` itemize fallback; blackrenderer owns the COLRv1 paint-graph rasterizer; python-bidi owns the UAX#9 default; PyICU owns the locale-aware upgrade behind the `SegmentEngine`/`BidiEngine` row.
+- Cases: seven arms on one `ShapeOp`, each dispatched to its library-owned acceptor per the Owner split — `ITEMIZE` enriches each single-direction/single-script span by `ScriptTags.of` at the seam, `FALLBACK` resolves a per-cluster covering face over the grapheme/UVS/ZWJ probe (`-1` marking tofu), `SHAPE` runs the one `Buffer` pipeline into a `PositionedGlyphRun`, `RASTERIZE` dispatches the `_COLOR_TABLE` row the format probe selects. `WritingDirection`/`ClusterLevel`/`RasterBackend`/`ColorFormat`/`PaletteUsage` drive the buffer and the raster surface.
+- Entry: `emit()` returns the one `ArtifactWork` keyed pre-run over `(step ⊕ font ⊕ params)`; `_emit` maps the crossed bytes onto `ArtifactReceipt.Document`; the `_SHAPE_TABLE` row's `Lane` picks `Modality.PROCESS`/`.THREAD`, the PROCESS arms reading only `params` and ignoring the shared font bytes, spanned once.
+- Auto: every arm offloads off the event loop under one `CapacityLimiter`, its lane read off the `_SHAPE_TABLE` row; `SHAPE` draws each glyph twice — the advance-threaded combined `outline` plus the per-glyph origin outlines `run.on_path()` hands to `graphic/vector/region#REGION` `text_path` — reading extents, font extents, the OT baseline, and `StyleValues` in one pass; `FALLBACK` folds a base+marks, a UVS selector, and a ZWJ sequence to one cluster probe; `RASTERIZE` selects the CPAL palette by the light/dark-background flag, never a raw index; `QA`'s `onchange` trace fires only on a buffer-changing lookup, the regression oracle the production path omits.
+- Receipt: `SHAPE`/`BIDI`/`ITEMIZE`/`NORMALIZE`/`FALLBACK`/`QA` contribute `ArtifactReceipt.Document` carrying the content key and encoded byte count; `RASTERIZE` contributes `ArtifactReceipt.Preview` carrying the pixel width/height. Resolved COLR version, chosen `ColorFormat`, selected palette and its flags, backend name, glyph count, resolved script/direction/OT-tags, the font-extents/baseline/`StyleValues` metrics, and pixel bounds stay interior evidence in the content key and the span, never new `Document`/`Preview` fields.
+- Packages: `uharfbuzz` (the layout engine, `ot_layout_*`/`axis_infos` introspection, the coverage probe, the `GlyphFlags` signal, the color extractors, the `RasterPaint` CPU rasterizer), `fonttools` (`SVGPathPen`/`TransformPen`, `fontTools.unicodedata.script`), `blackrenderer` (the COLRv1 rasterizer, `listBackends`), `python-bidi`, `vharfbuzz`, `PyICU`, `uniseg` (the grapheme probe), `core/receipt#RECEIPT` (`ArtifactReceipt.Document`/`.Preview`, composed never re-declared).
+- Growth: a new shaping feature is one `shape` feature-dict row; a new arm one `ShapeOp` member plus one `_SHAPE_TABLE` row; a new raster backend one `RasterBackend` row; a new color format one `ColorFormat` member plus one `_COLOR_PROBE` predicate and one `_COLOR_TABLE` row; a new writing direction one `WritingDirection` member plus its `_HB_DIRECTION`/`_BIDI_BASE` rows; a new cluster granularity one `ClusterLevel` member; a new bidi/segment owner one `BidiEngine`/`SegmentEngine` member plus one arm; a new palette policy one `PaletteUsage` member; a new style read one `StyleValues` field plus one `hb.StyleTag`; a new shaped-run fact one column on the glyph tuple or one per-run field; a new itemization fact one `ItemizedRun` field.
+- Boundary: no font subsetting/instancing (`typography/font#FONT`), no line-break/hyphenation/paragraph layout (`typography/layout#LAYOUT`, which reads the break-safety column), no PDF authoring (`document/emit#DOCUMENT`), no PAdES/PDF security (`exchange/conformance#CONFORMANCE`) — the owner shapes, itemizes, reorders, normalizes, resolves fallback, and renders glyphs, never breaking a paragraph or producing a document. Text-on-path is the landed `graphic/vector/region#REGION` `text_path` entrypoint's `skia-pathops`/`svgelements` algebra: `SHAPE` draws each glyph to its own origin pen and a curved-baseline consumer hands `run.on_path()` to `vector.text_path`, never a `pathops` import here. A uharfbuzz subsetter, a hand-rolled COLRv1 dispatch, the `renderText` one-shot (it hides the palette/glyph-bounds/backend evidence), a hand-rolled UAX#9 reorder, a hand-rolled break-class table, and a hand-coded script→OT-tag map are each rejected against blackrenderer, `bidi.get_display`, `uniseg`, `fontTools.unicodedata.script`, or the `typography/font#FONT` op that owns them; a parallel `_RasterBackend` enum, a second buffer construction, and a smuggled lane branch collapse into the `_SHAPE_TABLE` row and the one `Buffer` pipeline.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -43,12 +52,12 @@ lazy from fontTools.pens.transformPen import TransformPen
 lazy from fontTools.ttLib import TTFont
 lazy from fontTools.unicodedata import script as ot_script
 lazy from uniseg.graphemecluster import grapheme_cluster_boundaries  # UAX#29 extended grapheme boundaries for the per-cluster fallback probe
-lazy from icu import Bidi, Normalizer2, Script  # gated PyICU upgrade behind the BidiEngine/SegmentEngine.ICU rows; absent -> the default arms run
+lazy from icu import Bidi, Normalizer2, Script  # gated PyICU upgrade behind the .ICU rows; absent, the default arms run
 lazy from vharfbuzz import Vharfbuzz
 
 lazy from artifacts.typography.font import (
     ScriptTags,
-)  # the face-selection seam: script -> (OT tags, direction), composed at ITEMIZE, never a re-derived script->tag map
+)  # the face-selection seam: script -> (OT tags, direction), composed at ITEMIZE
 
 # --- [TYPES] ----------------------------------------------------------------------------
 type FeatureSpec = Mapping[str, int | bool | Sequence[tuple[int, int, int | bool]]]
@@ -67,8 +76,8 @@ class ShapeOp(StrEnum):
 
 
 class Lane(StrEnum):
-    THREAD = "thread"  # GIL-releasing native (shape/raster/QA); the worker shares the font bytes zero-copy
-    PROCESS = "process"  # gated PyO3/native-C++ workers (python-bidi/PyICU/uniseg) with no in-process gated package
+    THREAD = "thread"  # GIL-releasing native lane; the worker shares the font bytes zero-copy
+    PROCESS = "process"  # gated PyO3/native-C++ lane
 
 
 class WritingDirection(StrEnum):
@@ -79,17 +88,17 @@ class WritingDirection(StrEnum):
 
 
 class BidiEngine(StrEnum):
-    PYTHON_BIDI = "python-bidi"  # the locale-free UAX#9 default (cp315-active)
-    ICU = "icu"  # the locale/explicit-level PyICU upgrade (gated absent today)
+    PYTHON_BIDI = "python-bidi"  # the locale-free UAX#9 default
+    ICU = "icu"  # the locale/explicit-level PyICU upgrade
 
 
 class SegmentEngine(StrEnum):
-    DEFAULT = "default"  # locale-free default: fontTools.unicodedata.script itemize + stdlib NFC (the itemize owner is fontTools, NOT uniseg — no naming drift)
-    ICU = "icu"  # the CLDR-tailored PyICU upgrade (gated absent today)
+    DEFAULT = "default"  # locale-free default: fontTools.unicodedata.script itemize + stdlib NFC (itemize owner is fontTools, not uniseg)
+    ICU = "icu"  # the CLDR-tailored PyICU upgrade
 
 
 class ClusterLevel(StrEnum):
-    # hb.BufferClusterLevel member names, resolved at the seam via `getattr(hb.BufferClusterLevel, level.name)`; drives caret placement, mark attachment, and grapheme-aware selection
+    # hb.BufferClusterLevel names, resolved via getattr; drives caret/mark-attachment/grapheme selection
     MONOTONE_GRAPHEMES = "MONOTONE_GRAPHEMES"  # the HarfBuzz default
     MONOTONE_CHARACTERS = "MONOTONE_CHARACTERS"
     GRAPHEMES = "GRAPHEMES"
@@ -112,8 +121,8 @@ class ColorFormat(StrEnum):
 
 class PaletteUsage(StrEnum):
     ANY = "any"  # the explicit `palette_index`
-    LIGHT = "light"  # first CPAL palette flagged OTColorPaletteFlags.USABLE_WITH_LIGHT_BACKGROUND
-    DARK = "dark"  # first CPAL palette flagged OTColorPaletteFlags.USABLE_WITH_DARK_BACKGROUND
+    LIGHT = "light"  # first CPAL palette flagged USABLE_WITH_LIGHT_BACKGROUND
+    DARK = "dark"  # first CPAL palette flagged USABLE_WITH_DARK_BACKGROUND
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -121,9 +130,9 @@ _DEFAULT_FONT_SIZE: Final = 250.0
 _DEFAULT_MARGIN: Final = 20
 _SHAPE_SLOTS: Final[int] = os.process_cpu_count() or 4
 _RUN_ENCODER: Final = msgspec.msgpack.Encoder()
-_UNSAFE_TO_BREAK: Final = 0x0001  # mirrors hb.GlyphFlags.UNSAFE_TO_BREAK — the layout owner refuses a line break inside the cluster
-_UNSAFE_TO_CONCAT: Final = 0x0002  # mirrors hb.GlyphFlags.UNSAFE_TO_CONCAT — the run-cache owner refuses a shaped-run splice
-_SAFE_TO_INSERT_TATWEEL: Final = 0x0004  # mirrors hb.GlyphFlags.SAFE_TO_INSERT_TATWEEL — the kashida justifier's tatweel-insertion points
+_UNSAFE_TO_BREAK: Final = 0x0001  # mirrors hb.GlyphFlags.UNSAFE_TO_BREAK — layout refuses a break inside the cluster
+_UNSAFE_TO_CONCAT: Final = 0x0002  # mirrors hb.GlyphFlags.UNSAFE_TO_CONCAT — the run cache refuses a shaped-run splice
+_SAFE_TO_INSERT_TATWEEL: Final = 0x0004  # mirrors hb.GlyphFlags.SAFE_TO_INSERT_TATWEEL — kashida tatweel-insertion points
 _VARIATION_SELECTORS: Final[frozenset[int]] = frozenset(range(0xFE00, 0xFE10)) | frozenset(
     range(0xE0100, 0xE01F0)
 )  # VS1-16 + VS17-256 selecting a UVS glyph variant
@@ -152,7 +161,7 @@ _BIDI_BASE: Final[Map[WritingDirection, str | None]] = Map.of_seq([
     (WritingDirection.TTB, None),
 ])
 _ICU_LEVEL: Final[Map[WritingDirection, int]] = (
-    Map.of_seq(  # 0 = LTR base level, 1 = RTL (UAX#9); AUTO falls to the LTR base absent the ICU DEFAULT_LTR constant
+    Map.of_seq(  # 0 = LTR base, 1 = RTL (UAX#9); AUTO falls to the LTR base
         [(WritingDirection.AUTO, 0), (WritingDirection.LTR, 0), (WritingDirection.RTL, 1), (WritingDirection.TTB, 0)]
     )
 )
@@ -160,7 +169,7 @@ _ICU_LEVEL: Final[Map[WritingDirection, int]] = (
 
 # --- [MODELS] ---------------------------------------------------------------------------
 class StyleValues(Struct, frozen=True):
-    # the resolved OpenType style-attribute values (Font.get_style_value(StyleTag)) a variable/opsz-aware publication shaper carries as evidence
+    # resolved OT style-attribute values (Font.get_style_value(StyleTag)) the opsz-aware shaper carries as evidence
     weight: float = 400.0
     width: float = 100.0
     optical_size: float = 0.0
@@ -169,17 +178,17 @@ class StyleValues(Struct, frozen=True):
 
 
 class ItemizedRun(Struct, frozen=True):
-    # one single-direction/single-script span the ITEMIZE arm emits, carrying the typography/font#FONT ScriptTags resolution FONT selects a face per and SHAPE shapes per
+    # one single-direction/single-script span carrying the ScriptTags resolution FONT selects a face per, SHAPE shapes per
     start: int
     stop: int
     script: str  # ISO 15924 / ICU short script code
-    ot_tags: tuple[str, ...]  # OpenType script tags (multi for Indic v1/v2, e.g. "dev2"/"deva") resolved via ScriptTags.of, never a re-derived map
+    ot_tags: tuple[str, ...]  # OT script tags (multi for Indic v1/v2) via ScriptTags.of, never a re-derived map
     direction: str  # "LTR" / "RTL" from ScriptTags.direction
     level: int  # bidi embedding level (0 = LTR base)
 
 
 class PositionedGlyphRun(Struct, frozen=True):
-    # glyph = (codepoint/GID, cluster, x_advance, y_advance, x_offset, y_offset, flags); `flags` is the hb.GlyphFlags column layout reads for break/concat safety and tatweel points
+    # glyph = (codepoint/GID, cluster, x_advance, y_advance, x_offset, y_offset, flags); flags is the hb.GlyphFlags column layout reads
     glyphs: tuple[tuple[int, int, int, int, int, int, int], ...]
     outline: str = ""
     direction: str = "ltr"
@@ -189,14 +198,14 @@ class PositionedGlyphRun(Struct, frozen=True):
     ] = ()  # per-glyph origin-drawn d-strings `graphic/vector/region#REGION` `text_path` threads arc-length; empty when the consumer reads `outline`
     extents: tuple[
         tuple[int, int, int, int], ...
-    ] = ()  # per-glyph (x_bearing, y_bearing, width, height) from Font.get_glyph_extents — the ink bbox `typography/layout#LAYOUT` reads
+    ] = ()  # per-glyph ink bbox (x_bearing, y_bearing, width, height) from Font.get_glyph_extents, layout reads
     ascender: int = 0  # Font.get_font_extents(direction).ascender
     descender: int = 0  # .descender (negative below the baseline)
-    line_gap: int = 0  # .line_gap — the run's vertical leading `typography/layout#LAYOUT` reads for line-height
+    line_gap: int = 0  # .line_gap — the run's vertical leading layout reads for line-height
     baseline: int = (
-        0  # Font.get_layout_baseline(ideo|romn, direction, script) — the per-run OT baseline a mixed Latin+CJK union aligns on (0 = no BASE table)
+        0  # get_layout_baseline: the per-run OT baseline a mixed Latin+CJK union aligns on (0 = no BASE table)
     )
-    style: StyleValues = StyleValues()  # the resolved WEIGHT/WIDTH/OPTICAL_SIZE/ITALIC/SLANT_ANGLE evidence
+    style: StyleValues = StyleValues()
 
     @property
     def count(self) -> int:
@@ -204,12 +213,11 @@ class PositionedGlyphRun(Struct, frozen=True):
 
     @property
     def line_height(self) -> int:
-        # ascender - descender + line_gap: the natural leading `typography/layout#LAYOUT` folds into `LineBrokenRun.line_height`
+        # the natural leading layout folds into LineBrokenRun.line_height
         return self.ascender - self.descender + self.line_gap
 
     def on_path(self) -> tuple[tuple[str, float], ...]:
-        # the `graphic/vector/region#REGION` `text_path` seam value: each glyph's origin-drawn outline paired with its x-advance,
-        # so a curved-baseline consumer hands `run.on_path()` to `vector.text_path(glyphs, baseline)` (never a pathops import here).
+        # each glyph's origin-drawn outline paired with its x-advance for `graphic/vector/region#REGION` `text_path`.
         return tuple((outline, float(glyph[2])) for glyph, outline in zip(self.glyphs, self.glyph_outlines, strict=True))
 
     def to_svg_path(self) -> str:
@@ -261,12 +269,11 @@ class Shaping(Struct, frozen=True):
 
     @property
     def _key(self) -> ContentKey:
-        # key-over-INPUT: canonical (step ⊕ font ⊕ params) minted PRE-RUN — never a key over shaped output bytes.
+        # key over (step ⊕ font ⊕ params); never a key over shaped output bytes.
         return ContentIdentity.of(f"shape-{self.step}", (self.step, self.font, self.params), policy=CANONICAL_POLICY)
 
     async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
-        # the lane is a `_SHAPE_TABLE` row, never a smuggled `if self.step is BIDI`; the whole Shaping crosses
-        # the runtime lane (the PROCESS arms read only `params`, ignoring the shared `font` bytes), spanned once.
+        # lane is a `_SHAPE_TABLE` row; the PROCESS arms read only `params`, ignoring the shared `font` bytes.
         return (await async_boundary(f"shape.{self.step}", self._shaped)).map(
             lambda data: ArtifactReceipt.Document(self._key, len(data))
         )
@@ -290,7 +297,7 @@ def _shape_raise(fault: object) -> bytes:
 def _segment(buffer: object, params: "ShapeParams", /) -> None:
     # Exemption: wiring the native hb.Buffer — pin explicit direction/script/language/cluster-level before `guess` fills the rest
     buffer.flags = hb.BufferFlags.PRODUCE_UNSAFE_TO_CONCAT
-    buffer.cluster_level = getattr(hb.BufferClusterLevel, params.cluster_level.name)  # caret/mark-attachment/grapheme-selection granularity
+    buffer.cluster_level = getattr(hb.BufferClusterLevel, params.cluster_level.name)
     if (direction := _HB_DIRECTION[params.direction]) is not None:
         buffer.direction = direction
     if params.script is not None:
@@ -331,8 +338,7 @@ def _span(start: int, stop: int, script: str, level: int, /) -> ItemizedRun:
 
 
 def _itemize_runs(shaping: "Shaping") -> bytes:
-    # partition the run into single-direction/single-script ItemizedRun spans FONT selects a face per, SHAPE shapes per;
-    # each span's OpenType tags + direction resolve through ScriptTags at the seam rather than a re-derived script->OT-tag map
+    # partition into single-direction/single-script ItemizedRun spans, each span's OT tags + direction via ScriptTags at the seam.
     params = shaping.params
     match params.segment_engine:
         case SegmentEngine.ICU:
@@ -352,8 +358,8 @@ def _itemize_runs(shaping: "Shaping") -> bytes:
 
 
 def _cluster_probes(text: str, /) -> tuple[tuple[int, int, int], ...]:
-    # per UAX#29 extended grapheme cluster -> (cluster start, base codepoint, following variation selector or 0); uniseg owns the
-    # grapheme boundary (ZWJ emoji / Indic conjunct / regional-indicator / combining sequences fold to ONE cluster), never a hand-rolled UAX#29 table
+    # per grapheme cluster -> (cluster start, base codepoint, trailing variation selector or 0); uniseg owns the
+    # boundary (ZWJ/Indic-conjunct/regional-indicator/combining sequences fold to one cluster), never a hand-rolled UAX#29 table.
     return tuple(
         (start, ord(text[start]), next((ord(ch) for ch in text[start + 1 : stop] if ord(ch) in _VARIATION_SELECTORS), 0))
         for start, stop in pairwise(grapheme_cluster_boundaries(text))
@@ -366,8 +372,8 @@ def _covers(font: object, base: int, vs: int, /) -> bool:
 
 
 def _fallback_coverage(shaping: "Shaping") -> bytes:
-    # per-CLUSTER covering-face assignment (never per-codepoint): (cluster-start, face-rank) over the primary + fallback_faces,
-    # -1 marking a cluster no face covers (tofu the Buffer.not_found_glyph override renders) — matching the per-cluster prose the prior per-codepoint scan broke
+    # per-cluster covering-face assignment: (cluster-start, face-rank) over primary + fallback_faces,
+    # -1 marking a cluster no face covers (tofu the Buffer.not_found_glyph override renders).
     params = shaping.params
     fonts = tuple(
         hb.Font.create(hb.Face.create(data, index))
@@ -385,7 +391,7 @@ def _glyph_bbox(font: object, gid: int, /) -> tuple[int, int, int, int]:
 
 
 def _run_baseline(font: object, script: str, direction: str, /) -> int:
-    # the per-run OpenType baseline — `ideo` for a CJK script, `romn` otherwise — a mixed Latin+CJK union aligns on; 0 when the font carries no BASE table
+    # per-run OT baseline: `ideo` for a CJK script, `romn` otherwise; 0 when the font carries no BASE table
     tag = "ideo" if script.lower()[:4] in _IDEOGRAPHIC_SCRIPTS else "romn"
     return font.get_layout_baseline(tag, direction or "ltr", script.lower()[:4], "") or 0
 
@@ -429,7 +435,7 @@ def _shape_text(shaping: "Shaping") -> bytes:
         x_offset,
         y_offset,
         _flags,
-    ) in glyphs:  # a bare origin draw stacks glyphs at (0, 0); ORIGIN-drawn pens let `graphic/vector/region#REGION` `text_path` curve the baseline
+    ) in glyphs:  # a bare origin draw stacks glyphs at (0, 0); origin-drawn pens let `graphic/vector/region#REGION` `text_path` curve the baseline
         font.draw_glyph_with_pen(gid, TransformPen(pen, (1.0, 0.0, 0.0, 1.0, cursor_x + x_offset, cursor_y + y_offset)))
         glyph_pen = SVGPathPen(glyph_set)
         font.draw_glyph_with_pen(gid, glyph_pen)
@@ -551,9 +557,8 @@ def _raster_cpu(shaping: "Shaping", face: object, hb_font: object) -> bytes:
 
 
 def _shape_qa(shaping: "Shaping") -> bytes:
-    # the hb-shape golden round-trip alongside the live production hb.shape, with the diff-gated `shape(onchange=)` per-lookup
-    # trace WIRED (vharfbuzz installs Buffer.set_message_func internally): the (stage, lookup-id) pairs record WHICH GSUB/GPOS
-    # lookup mutated the buffer, fired only on a buffer-changing lookup — the shaping-regression oracle the production path omits.
+    # the hb-shape golden round-trip with the diff-gated `shape(onchange=)` trace (vharfbuzz installs set_message_func): the
+    # (stage, lookup-id) pairs record which GSUB/GPOS lookup mutated the buffer, fired only on a buffer-changing lookup.
     params = shaping.params
     with tempfile.NamedTemporaryFile(suffix=".ttf", delete=False) as handle:
         sink = Path(handle.name)
@@ -588,3 +593,11 @@ _SHAPE_TABLE: Final[Map[ShapeOp, tuple[ShapeAcceptor, Lane]]] = Map.of_seq([
     (ShapeOp.QA, (_shape_qa, Lane.THREAD)),
 ])
 ```
+
+## [03]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+-->
+
+(none)

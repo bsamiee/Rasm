@@ -86,14 +86,14 @@ flowchart LR
     class e7 edgeExternal
 ```
 
-## [03]-[PRINCIPLE]
+## [03]-[ORGANIZATION]
 
 One `StackSpec` decodes into an arm, and the arm realizer proves every spec coordinate on the `DeployFault` rail before minting a `PulumiFn` — a rejected coordinate never reaches a provider. `provider` holds the single `_estate` composition the metal bootstrap and the EKS escalation both feed, so k8s realization keeps one owner across planes beside the docker machine estate at container depth. `automation` is the sole executor; resilience, retry, and per-run budgets internalize there. Per-file wiring — the tier rows each realizer emits, the mirror fan-out, the reconcile loop — lives on the owning implementation pages.
 
 ## [04]-[BOUNDARIES]
 
 - Nothing imports this package at runtime; values cross back only as typed stack outputs read from env at boot.
-- iac applies DDL and extension rosters at provision and the data wave verifies at startup; the runtime never mutates schema, so out-of-band divergence fails closed at startup, never a pulumi read-back.
-- Object-engine vocabulary is `minio | ceph` — pgsty/minio continuation image and Ceph RGW; Garage carries no spelling, unable to honor an `If-None-Match: *` conditional put.
-- Viewer-pinned transcoder assets (draco/basis/meshopt) ship with the app shell and serve byte-identical through the runtime asset rows; a foreign-CDN side-load is a CSP breach.
+- iac applies DDL and extensions; data verifies at startup, runtime never mutates schema, so divergence fails closed, never a pulumi read-back.
+- Object-engine vocabulary is `minio | ceph`; Garage carries no spelling, unable to honor an `If-None-Match: *` conditional put.
+- Viewer transcoder assets ship with the app shell, byte-identical through the runtime asset rows; a foreign-CDN side-load is a CSP breach.
 - No queue extension is provisioned; the data matrix carries none, and SKIP-LOCKED outbox statements with the runtime relay own the class.

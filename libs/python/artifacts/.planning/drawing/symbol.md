@@ -1,24 +1,22 @@
 # [PY_ARTIFACTS_DRAWING_SYMBOL]
 
-The AEC drawing-symbol vocabulary and the deep graphic owner that populates the STUB graphic-cell bytes `composition/sheet#SHEET` leaves empty. `Symbol` is ONE owner over a closed `SymbolKind` `expression.tagged_union` — `Section`/`Elevation`/`Detail`/`Grid`/`MatchLine`/`North`/`ScaleBar`/`Revision`/`KeyPlan`/`Datum`/`BreakLine` — each case carrying its own typed geometry plus one `SymbolStyle`, dispatched by ONE total `match` and dual-lowered over the `SymbolTarget` policy value. The vocabulary is closed and total: a new AEC marker is one `SymbolKind` case plus one geometry arm, never a per-marker class family and never an erased attribute `dict`. `SymbolStyle` is the drawing-plane mark-style owner composed from `drawing/regime#REGIME`'s owned vocabulary — the `fill`/`stroke` palette index into `visualization/chart/spec#CHART`'s `hex_ramp`-projected ramp, the `LayerName` ISO 13567/AIA codec binding the mark's named group, the `LineWeight` ISO 128 pen, the `TextHeight` ISO 3098 lettering height, and the `Terminator` ISO 129-1/128-2 line-end — so a mark's layer, colour, weight, and lettering all trace to one owned row rather than a per-mark literal. It is the ISO-grounded drawing-plane peer of the diagram-plane `visualization/diagram/glyphset#GLYPHSET` `GlyphStyle` (palette-indexed identical), the one mark-style owner the sibling `drawing/annotate` and `drawing/detail` producers will compose rather than re-declaring.
+The AEC drawing-symbol vocabulary and the deep graphic owner populating the STUB graphic-cell bytes `composition/sheet#SHEET` leaves empty. `Symbol` is ONE owner over a closed `SymbolKind` union — `Section`/`Elevation`/`Detail`/`Grid`/`MatchLine`/`North`/`ScaleBar`/`Revision`/`KeyPlan`/`Datum`/`BreakLine` — each case carrying its typed geometry plus one `SymbolStyle`, dispatched by one total `match` and dual-lowered over the `SymbolTarget` policy value into a `drawsvg` named-layer group or an `ezdxf` reusable block. A new AEC marker is one case plus one geometry arm, never a per-marker class family and never an erased attribute `dict`.
 
-Every mark's compound geometry is composed, never hand-emitted: ONE `schemdraw` `ElementCompound` per marker appends typed `Segment`/`SegmentCircle`/`SegmentArc`/`SegmentText`/`SegmentPoly` primitives to `self.segments` and declares its terminal points in `self.anchors` — the `cut`/`point`/`attach`/`leader` terminals the future `drawing/annotate#FLAGNOTE` and `drawing/detail#CALLOUT` leaders bind — rendered font-independent through `use('svg')` + `svgconfig.text='path'` (the bundled `ziafont` outlining every `SegmentText` to a `<path>`) to `get_imagedata('svg')` bytes, never a hand-emitted `<path d>` string. All eleven marks lower through the ONE total `_element` fold, so `_element` is exhaustive over the family — no partial dispatch dressed as total. Each named-layer bucket serializes to its own `drawsvg` `Group(id=layer)` `<svg>` for the layered-export path, AND each mark dual-lowers to an `ezdxf` reusable block (`doc.blocks.new` authored ONCE per distinct geometry signature, placed N times by `add_blockref` with a per-placement `add_attdef` ATTRIB, seeded onto a `Standard.seed`-authored document) for the DXF drawing path — so a section marker, a grid bubble, and a north arrow read as one mark grammar across both the vector-figure and the CAD egress.
-
-The synchronous `schemdraw`/`ezdxf`/`kiwisolver` render offloads off the event loop through the runtime thread lane (`LanePolicy.offload(..., retry=RetryClass.OCCT)`) — the shared-address-space thread lane the `msgspec`/`numpy` receipt owners force, exactly as `visualization/diagram/draw#DRAW` takes — and rails through the runtime `RuntimeRail`/`async_boundary` `BoundaryFault`, never a decorative page-local fault union the boundary never reads. A grid-bubble run aligns collinear and blended-even through one REAL `kiwisolver.Solver`: endpoints pinned `required`, the given interior positions honoured `weak`, an even gap preferred `medium`, `updateVariables()` writing each solved `value()` BACK into the mark's re-keyed anchor before the geometry fold. The `glyph` seam rasterizes ONE mark to PNG bytes through the LANDED `graphic/vector/region#REGION` `rasterize` (`resvg`) — because `composition/sheet#SHEET`'s `NorthArrow.glyph`/`KeyPlan.figure` cells feed a `reportlab` `ImageReader`/`drawImage` that reads a raster, never an SVG. `Symbol` mints no IFC (that stays `csharp:Rasm.Bim`), computes no sheet placement (that stays `composition/sheet#SHEET`), and re-renders nothing.
+`SymbolStyle` is the ONE drawing-plane mark-style owner composing `drawing/regime#REGIME`'s `LayerName`/`LineWeight`/`TextHeight`/`Terminator` with `fill`/`stroke` indexing the `hex_ramp` ramp `visualization/chart/spec#CHART` declares once — the ISO-grounded peer of the diagram-plane `visualization/diagram/glyphset#GLYPHSET` `GlyphStyle`, the mark-style owner the sibling `drawing/annotate` and `drawing/detail` producers compose rather than a parallel `AnnotateStyle`. Compound geometry is `schemdraw` `ElementCompound` for all eleven marks; the DXF arm authors one block per geometry signature onto a `drawing/standard#STANDARD` `Standard.seed` document, so a section marker, a grid bubble, and a north arrow read as one grammar across the vector-figure and CAD egress. The synchronous render offloads on the runtime thread lane and rails through `RuntimeRail`/`async_boundary`; `SymbolStyle.layer.compose()` buckets marks for `export/layered#LAYERED`; and the `glyph` PNG projection feeds `composition/sheet#SHEET`'s `NorthArrow.glyph`/`KeyPlan.figure` cells through `graphic/vector/region#REGION` `rasterize` — the raster the sheet cell's `reportlab` `ImageReader` reads. The owner contributes one `core/receipt#RECEIPT` `ArtifactReceipt.Drawing` and one `core/plan#PLAN` `ArtifactWork` node.
 
 ## [01]-[INDEX]
 
-- [01]-[SYMBOL]: the `Symbol` owner over the closed `SymbolKind` `expression.tagged_union` (`Section`/`Elevation`/`Detail`/`Grid`/`MatchLine`/`North`/`ScaleBar`/`Revision`/`KeyPlan`/`Datum`/`BreakLine`) dual-lowering each mark over the `SymbolTarget` policy value into a `drawsvg` named-layer `Group` (self-contained `schemdraw`-rendered, `ziafont`-outlined text) or an `ezdxf` reusable block (`doc.blocks.new` authored once + `add_attdef` + N `add_blockref`, seeded by `drawing/standard#STANDARD` `Standard.seed`/`graphics`), composing `schemdraw` `ElementCompound`/`Segment*`/`self.anchors` for the compound geometry with named terminals, `ezdxf` `add_circle`/`add_lwpolyline` + `add_hatch().set_solid_fill()` for the DXF block shapes at SVG fill parity (the filled north half + datum triangle), and one `kiwisolver.Solver` per collinear grid run for two-axis grid blended-even alignment (endpoint-pinned, `value()` read BACK) — `SymbolStyle` palette-indexed to the `hex_ramp` ramp and ISO-grounded to `drawing/regime#REGIME`'s `LayerName`/`LineWeight`/`TextHeight`/`Terminator`, layer-bound for `export/layered#LAYERED`, its `glyph` PNG projection feeding the `composition/sheet#SHEET` `NorthArrow.glyph`/`KeyPlan.figure` cells through `graphic/vector/region#REGION` `rasterize`, railed through `RuntimeRail`/`async_boundary`, offloaded via the runtime thread lane, contributing one `core/receipt#RECEIPT` `ArtifactReceipt.Drawing` case and one `core/plan#PLAN` `ArtifactWork` node.
+- [01]-[SYMBOL]: the closed `SymbolKind` marker union dual-lowered over `SymbolTarget` into a `drawsvg` named-layer group or an `ezdxf` reusable block.
 
 ## [02]-[SYMBOL]
 
-- Owner: `Symbol` the one drawing-symbol owner holding `marks: tuple[SymbolKind, ...]`, the `graphic/color/derive#DERIVE` `Palette`, and the `SymbolTarget` egress policy value (the DXF arm seeding a default `drawing/standard#STANDARD` `Standard.of()` document, the SVG arm needing no profile), discriminating operation over the closed `SymbolKind` `expression.tagged_union` whose every case carries its own typed geometry-and-`SymbolStyle` payload — never a per-marker `SectionMarker`/`GridBubble` class family and never a `StrEnum` keyed against an erased `dict[str, object]`. `SymbolStyle` is the ONE drawing-plane mark-style `Struct` composing `drawing/regime#REGIME`'s owned vocabulary — the `fill`/`stroke` palette index into the `hex_ramp`-projected ramp (imported from `visualization/chart/spec#CHART` where it is declared once), the `LayerName` ISO 13567/AIA codec whose `.compose()` binds the named `drawsvg.Group` and whose discipline pens the `ezdxf` `GfxAttribs`, the `LineWeight` ISO 128 pen, the `TextHeight` ISO 3098 lettering height, and the `Terminator` ISO 129-1/128-2 line-end — so the drawing plane carries one mark-style owner and never a parallel `AnnotateStyle` or a bare-float pen the future `drawing/annotate`/`detail` producers would re-derive. `SymbolTarget` is the closed `StrEnum` (`SVG`/`DXF`) keying the `_ENGINES` `frozendict[SymbolTarget, arm]` dual-lowering table straight to its engine callable so a new egress is one row, never a per-target `Symbol` subtype and never a one-field engine wrapper. `schemdraw` owns ALL compound-symbol geometry (`ElementCompound` + `Segment`/`SegmentCircle`/`SegmentArc`/`SegmentText`/`SegmentPoly` + the named `self.anchors` terminals, rendered font-independent through `use('svg')` + `svgconfig.text='path'` + `get_imagedata('svg')`); `drawsvg` owns the named-layer `Group` container and the `as_svg` serialization; `ezdxf` owns the DXF block model (`doc.blocks.new`/`add_attdef`/`add_blockref`/`add_circle`/`add_line`/`add_lwpolyline`/`add_text` + `add_hatch().set_solid_fill()` the solid-poche fill bringing the north half and datum triangle to SVG parity) driven onto a `Standard.seed`-authored document; `kiwisolver` owns the grid-bubble collinear-alignment solve; `graphic/vector/region#REGION` `rasterize` owns the SVG→PNG raster for the sheet-cell seam. No sheet-set, dimension, or annotation logic crosses this owner — those are `composition/sheet#SHEET`, `drawing/dimension#DIMENSION`, and `drawing/annotate#ANNOTATE`.
-- Cases: `SymbolKind` cases — `Section(center, radius, detail_no, sheet_ref, bearing, style)` (the ISO 7200 section-cut marker: a bisected circle carrying the detail number over the sheet reference, a cutting-plane tail at `bearing` terminated by the `style.terminator` schemdraw `arrow=`, the tail endpoint the named `cut` anchor a `drawing/detail#CALLOUT` cross-reference binds) · `Elevation(center, radius, elev_no, sheet_ref, angle, style)` (the interior-elevation marker: a circle with a `SegmentPoly` pointer triangle rotated to `angle`, the elevation number over the sheet reference, the `point` anchor the pointed wall) · `Detail(center, radius, detail_no, sheet_ref, style)` (the detail-callout bubble: a bisected circle carrying the detail number over the sheet reference, the `leader` anchor the `drawing/detail#CALLOUT`/`drawing/annotate#KEYNOTE` leader lands on) · `Grid(anchor, radius, label, style)` (the ISO grid bubble: a circle at a grid-line end carrying the grid label, the `attach` anchor the grid line meets, aligned collinear along its run by the `kiwisolver` solve) · `MatchLine(vertices, sheet_ref, style)` (the match line: a heavy dashed polyline carrying the "MATCH LINE — SEE {sheet_ref}" caption at its midpoint, the `match` anchor its terminus) · `North(center, radius, bearing, style)` (the in-field north arrow: a filled north half plus a hollow south half rotated to `bearing`, the "N" label above) · `ScaleBar(origin, length, segments, units, ratio, style)` (the graphic scale bar: alternating filled/clear division rects over `segments` divisions plus the units-and-ratio caption, the standalone twin of the `composition/sheet#SHEET` `Scale.bar` geometry) · `Revision(center, size, mark, style)` (the revision triangle: an equilateral triangle carrying the revision number) · `KeyPlan(origin, extent, parcels, highlight, style)` (the key-plan reference figure: the parcel rectangles with the `highlight` index parcel filled, the reference `composition/sheet#SHEET`'s `KeyPlan.figure` cell consumes) · `Datum(anchor, size, level, style)` (the ISO spot-level/benchmark marker: a filled level triangle at the anchor carrying the RL/elevation value) · `BreakLine(vertices, style)` (the ISO 128 break line: a polyline with a zigzag break at its midpoint marking a truncated view) — matched by one total `match`/`case` over `tag` in the `_element` fold, never a per-marker special case.
-- Entry: `Symbol.over` is the one modal-arity entrypoint normalizing `SymbolKind | Iterable[SymbolKind]` into the `marks` tuple by a structural `match` at the head (a lone marker the singleton case, a mixed sheet the multi-element case), never a `batch` knob or a per-marker sibling; `render` is `async` over the runtime `async_boundary`, returns a `RuntimeRail[ArtifactReceipt]` beside the `layered()` `LayerPlan` projection`, and offloads the whole synchronous fold onto the runtime thread lane (`LanePolicy.offload(..., retry=RetryClass.OCCT)`) — the shared-address-space thread arm (the `schemdraw`/`ezdxf`/`kiwisolver` render touches the `numpy` palette and returns the `msgspec`-backed `Layer`/`ArtifactReceipt` owners a `to_interpreter` isolate cannot load, the same lane the `visualization/diagram/draw#DRAW` sibling takes). The `_svg_engine` runs the `kiwisolver` grid solve, folds each mark through `_svg_mark` (the `schemdraw` `ElementCompound` geometry rendered to a self-contained `<svg>`), buckets each into its `SymbolStyle.layer.compose()` `drawsvg.Group`, serializes each named `Group` to its own per-layer `<svg>` as a `Layer(name, source, bbox)` row, and derives the content key over the joined layer bytes; the `_dxf_engine` seeds one `Standard.seed` document, mints ONE `doc.blocks.new` block per distinct `(tag, extent)` geometry signature populated by the `_dxf_block` builders + `add_attdef` ATTRIBs, places each mark by `add_blockref` under `Standard.graphics(layer)` attributes, and writes the DXF as one `Layer("dxf", data, bbox)` row. `glyph` is the symbol→sheet seam: it renders ONE mark's self-contained SVG then rasterizes it to PNG through `graphic/vector/region#REGION` `rasterize`, the byte form a `composition/sheet#SHEET` `NorthArrow.glyph`/`KeyPlan.figure` cell's `ImageReader`/`drawImage` consumes — never a raw SVG the raster loader cannot read, and never a second geometry fold.
-- Auto: `SymbolStyle.fill`/`stroke` are integer indices into the `hex_ramp`-projected ramp resolved once per render, so a recolor is a palette swap never a per-mark hex literal, exactly as `visualization/diagram/glyphset#GLYPHSET` indexes its `GlyphStyle`; `SymbolStyle.layer.compose()` buckets each mark into its named `drawsvg.Group` the `export/layered#LAYERED` OCG/SVG-layer owner binds, and `Standard.graphics(layer)` projects the same `LayerName` into the `ezdxf` `GfxAttribs` so the SVG group and the DXF layer carry one discipline pen. The compound geometry is `schemdraw` for every mark — one `ElementCompound` subclass appending typed `Segment*` to `self.segments` (`SegmentCircle` the bubble, `Segment` the bisector/tail/match-line, `SegmentPoly` the pointer/triangle/parcel, `SegmentArc` the elevation sweep) with the terminal points declared in `self.anchors`, rendered through one `schemdraw.Drawing` under `use('svg')`/`svgconfig.text='path'` (the bundled `ziafont` outlining every `SegmentText` to a font-independent `<path>`) to `get_imagedata('svg')` bytes — so the `North` south-half and the `Revision`/`MatchLine`/`Datum` captions are all drawn geometry, never a promised-but-dropped part; the DXF block marks mirror the SVG fills — `add_hatch().set_solid_fill()` over a closed boundary path closes the filled north half and datum triangle (`add_lwpolyline` alone left them outline-only) at cross-egress parity. Each collinear grid run threads its OWN `kiwisolver.Solver`: `_grid_runs` partitions the grid bubbles into a shared-y horizontal band and a shared-x vertical band so a TWO-AXIS structural grid solves each axis independently rather than collapsing both onto one diagonal; within a run each bubble's position is a `t` `Variable`, the endpoints pinned `required` (`t == 0.0`/`t == 1.0`), each given interior position honoured `weak` (`t == projected_fraction`), an even gap preferred `medium` (`(b - a) == (c - b)`), and a monotone min-separation kept `weak`, so `updateVariables()` writes each solved `value()` back into the mark's re-keyed anchor before `_element` reads it — the `strength` bands separating the hard endpoint snap from the aesthetic spacing.
-- Growth: a new AEC marker is one `SymbolKind` case plus one `_element` arm (its `schemdraw` `ElementCompound` builder) and one `_dxf_block` arm — the five compound primitives cover the marker geometry, so a new fixture symbol is a `Segment*`-built compound, never a hand-emitted path; a new egress is one `SymbolTarget` member plus one `_ENGINES` row; a new mark visual axis (a hatch fill, a dash pattern) is one `SymbolStyle` field threaded into the consuming arm; a new named terminal is one `self.anchors` key; a new alignment axis (the realized two-axis grid run partition, a future radial distribution or interior obstacle avoidance) is one `_grid_runs` band plus one `kiwisolver` constraint at its `strength` band; a new line-end is one `Terminator` member on `drawing/regime#REGIME` plus one `_ARROW` row; a new receipt fact is one scalar the shared `ArtifactReceipt.Drawing` case already carries; a filled-band match line or a unioned north silhouette composes the LANDED `graphic/vector/region#REGION` `boolean`/`outline` (present on that owner) as a variant (not a load-bearing dependency, since `schemdraw` already draws the heavy dashed line and the two arrow halves as the correct self-contained default); zero new surface for a new marker or a new layer.
-- Boundary: the deleted forms are a per-marker `SectionMarker`/`GridBubble`/`NorthArrow` class family where one closed `SymbolKind` union states them; a hand-emitted `<path d>` or `<g id>` string where `schemdraw` `Segment*` and the `drawsvg.Group` container author it; a per-placement geometry copy where `doc.blocks.new` authors one block per signature placed N times by `add_blockref`; an outline-only DXF mark where the SVG arm fills it, where `add_hatch().set_solid_fill()` brings the north filled half and the datum triangle to cross-egress parity; a shared revision/datum arm authoring both with one wrong triangle where the split arms author each its own; a single-run grid solve collapsing a two-axis structural grid onto one diagonal where `_grid_runs` partitions it into independent X/Y runs; a per-marker colour literal where the `SymbolStyle` palette index binds through the `hex_ramp` ramp; a bare-float pen or a parallel `Terminator` vocabulary where `drawing/regime#REGIME`'s `LineWeight`/`TextHeight`/`Terminator` own the ISO codes; a `batch`/`mode` knob where `SymbolTarget` and the modal `over` head discriminate; a hollow `kiwisolver` solve that adds constraints and reads nothing back where `updateVariables()` re-keys each anchor; a `partial` `match` routing a reachable case to `assert_never` where `_element` is total over all eleven; a raw SVG fed to the sheet's raster `ImageReader` where `glyph` rasterizes to PNG; a decorative page-local fault union the boundary never reads where `RuntimeRail`/`async_boundary` carries the `BoundaryFault`; a phantom `Vector.over(ops)._worked(ops)` private-method reach (`_worked` is a private module fold on `graphic/vector`, not a `Vector` method); a synchronous render on the event loop where the runtime lane offloads it; a phantom sheet-cell absorb where the PNG seam feeds `composition/sheet#SHEET`'s `NorthArrow.glyph`/`KeyPlan.figure` cells and `sheet.md` keeps its title-block value objects; a parallel drawing receipt where the shared `ArtifactReceipt.Drawing` case carries the mark/extent/byte facts. `schemdraw` owns compound geometry, `drawsvg` the named-layer container, `ezdxf` the DXF block model, `kiwisolver` the constraint solve, `drawing/regime#REGIME` the owned ISO vocabulary, `graphic/vector/region#REGION` the SVG↔raster and the landed boolean/offset (`RegionOp.boolean`/`RegionOp.outline` present on that owner), `export/layered#LAYERED` the layer binding, `composition/sheet#SHEET` the cell placement, and `csharp:Rasm.Bim` the IFC semantics; identity minting is the runtime's.
-- Packages: `schemdraw` (`ElementCompound`/`Segment`/`SegmentCircle`/`SegmentArc`/`SegmentText`/`SegmentPoly`/`self.anchors`/`Drawing`/`use`/`svgconfig`/`get_imagedata` the compound-symbol geometry with named terminals, the bundled `ziafont` outlining `SegmentText` under `svgconfig.text='path'`); `drawsvg` (`Drawing`/`Group`/`Raw`/`as_svg` the named-layer container); `ezdxf` (`new`/`doc.blocks.new`/`add_attdef`/`add_blockref`/`add_circle`/`add_line`/`add_lwpolyline`/`add_text`/`add_hatch`/`Hatch.paths.add_polyline_path`/`Hatch.set_solid_fill` the DXF block model with the solid-poche fill parity); `kiwisolver` (`Solver`/`Variable`/`addConstraint`/`updateVariables`/`Variable.value`/`strength` the per-run collinear/two-axis alignment solve); `expression` (`tagged_union`/`tag`/`case`/`Result` the vocabulary and rail); `msgspec` (`Struct(frozen=True)` the value objects); `builtins.frozendict` (the `_ENGINES`/`_ARROW` tables); runtime (`identity.ContentIdentity`, `faults.RuntimeRail`/`async_boundary`); `core/receipt#RECEIPT` (`ArtifactReceipt.Drawing`); `export/layered#LAYERED` (`Layer`); `graphic/vector/region#REGION` (`RenderPolicy`/`RegionFault`/`rasterize` the SVG→PNG seam); `drawing/regime#REGIME` (`LayerName`/`LineWeight`/`TextHeight`/`Terminator`) + `drawing/standard#STANDARD` (`Standard` the `ezdxf` lowering); `graphic/color/derive#DERIVE` (`Palette`/`hex_ramp`).
+- Owner: `Symbol` holds `marks`, the `Palette`, and the `SymbolTarget` egress policy (the DXF arm seeds a default `Standard.of()` document, the SVG arm needs no profile); it discriminates over the closed `SymbolKind` union whose every case carries its typed geometry plus one `SymbolStyle` — never a per-marker `SectionMarker`/`GridBubble` family, never a `StrEnum` over an erased `dict[str, object]`. `SymbolStyle` is the ONE drawing-plane mark-style `Struct`, the ISO-grounded peer of `glyphset#GLYPHSET`'s `GlyphStyle`, whose `LayerName.compose()` binds both the named `drawsvg.Group` and the `ezdxf` `GfxAttribs`. `SymbolTarget` keys the `_ENGINES` dual-lowering table straight to its engine callable so a new egress is one row, never a per-target subtype.
+- Cases: the eleven marker cases, each carrying its typed geometry, one `SymbolStyle`, and (for the bubble/pointer/grid/match marks) a named `self.anchors` terminal — `cut`/`point`/`leader`/`attach`/`match`/`north`/`level` — a `drawing/detail#CALLOUT`/`drawing/annotate` leader binds; matched by one total `_element` fold closed by `assert_never`, never a per-marker special case. `ScaleBar` is the standalone twin of the `composition/sheet#SHEET` `Scale.bar` geometry; `KeyPlan` is the reference figure `sheet`'s `KeyPlan.figure` cell consumes.
+- Entry: `Symbol.over` normalizes `SymbolKind | Iterable[SymbolKind]` into `marks` by a structural head-`match` (a lone mark the singleton, an iterable the multi-mark sheet), never a `batch` knob; `render`/`layered` are `async` over `async_boundary`, offloading the whole synchronous fold onto the runtime thread lane. `_svg_engine` runs the grid solve, folds each mark to a self-contained `<svg>`, buckets by `SymbolStyle.layer.compose()` into a `drawsvg.Group`, and emits one per-layer `Layer` row each; `_dxf_engine` mints ONE `doc.blocks.new` per distinct `(tag, extent)` signature placed by N `add_blockref` under `Standard.graphics(layer)` attributes. `glyph` renders ONE mark's SVG then rasterizes to PNG through `region` `rasterize` for a sheet cell whose `ImageReader` reads a raster, never an SVG or a second geometry fold.
+- Auto: `SymbolStyle.fill`/`stroke` index the `hex_ramp` ramp resolved once per render, so a recolor is a palette swap; `Standard.graphics(layer)` projects the same `LayerName` into the `ezdxf` `GfxAttribs` so the SVG group and the DXF layer carry one discipline pen. The `North` south-half and the `Revision`/`MatchLine`/`Datum` captions are all DRAWN geometry, never a promised-but-dropped part; the DXF block marks mirror the SVG fills through `add_hatch().set_solid_fill()` over a closed boundary path (`add_lwpolyline` alone left the north half and datum triangle outline-only) at cross-egress parity. Each collinear grid run threads its OWN `kiwisolver.Solver` — endpoints `required`, given positions `weak`, an even gap at `medium`, min-separation `weak`, the `strength` bands separating the hard endpoint snap from aesthetic spacing — and `_grid_runs` partitions a two-axis structural grid into independent X/Y runs so both axes never collapse onto one diagonal; `updateVariables()` writes each solved `value()` back into the re-keyed anchor before `_element` reads it.
+- Packages: `schemdraw` owns all compound geometry (`ElementCompound` + `Segment*` + the named `self.anchors` terminals, rendered font-independent through `use('svg')`/`svgconfig.text='path'` — the bundled `ziafont` outlines every `SegmentText` to a `<path>`); `drawsvg` the named-layer `Group` container; `ezdxf` the DXF block model, its `add_hatch().set_solid_fill()` bringing the north half and datum triangle to SVG fill parity; `kiwisolver` the per-run collinear/two-axis alignment solve; `graphic/vector/region#REGION` `rasterize` the SVG→PNG raster; `drawing/regime#REGIME` and `drawing/standard#STANDARD` the ISO vocabulary and the `ezdxf` lowering; `graphic/color/derive#DERIVE` the `hex_ramp` ramp. The runtime rails, `ArtifactReceipt.Drawing`, and `export/layered#LAYERED` `Layer` compose silently.
+- Growth: a new AEC marker is one `SymbolKind` case plus one `_element` arm and one `_dxf_block` arm — the five compound primitives cover the geometry; a new egress one `SymbolTarget` member plus one `_ENGINES` row; a new visual axis one `SymbolStyle` field; a new named terminal one `self.anchors` key; a new alignment axis one `_grid_runs` band plus one `kiwisolver` constraint at its `strength` band; a new line-end one `Terminator` member plus one `_ARROW` row; a new receipt fact one scalar the shared `ArtifactReceipt.Drawing` carries.
+- Boundary: no sheet-set, dimension, or annotation logic (`composition/sheet#SHEET`/`drawing/dimension#DIMENSION`/`drawing/annotate#ANNOTATE`); no IFC semantics (`csharp:Rasm.Bim`); identity minting is the runtime's. `graphic/vector/region#REGION` owns the SVG↔raster and the landed `boolean`/`outline` a filled-band match line or unioned north silhouette composes; `export/layered#LAYERED` owns the layer binding; `composition/sheet#SHEET` owns the cell placement.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -58,7 +56,7 @@ type Box = tuple[float, float, float, float]
 type SymbolTag = Literal["section", "elevation", "detail", "grid", "matchline", "north", "scale_bar", "revision", "keyplan", "datum", "breakline"]
 
 _MIN_GAP: float = 0.02  # minimum t-separation keeping a dense grid-bubble run monotone and non-overlapping
-_GLYPH: RenderPolicy = RenderPolicy(dpi=300.0)  # the sheet-cell PNG raster policy `graphic/vector/region#REGION` `rasterize` reads
+_GLYPH: RenderPolicy = RenderPolicy(dpi=300.0)  # the sheet-cell PNG raster policy region rasterize reads
 
 
 class SymbolTarget(StrEnum):  # the dual-lowering egress — a new target is one `_ENGINES` row, never a subtype
@@ -68,16 +66,13 @@ class SymbolTarget(StrEnum):  # the dual-lowering egress — a new target is one
 
 # --- [MODELS] ---------------------------------------------------------------------------
 class SymbolStyle(Struct, frozen=True):
-    # the ONE drawing-plane mark-style owner (the ISO-grounded peer of `visualization/diagram/glyphset#GLYPHSET`
-    # `GlyphStyle`) the future `drawing/annotate`/`detail` producers compose, never a parallel `AnnotateStyle`:
-    # `fill`/`stroke` index the `hex_ramp` ramp, `layer`/`weight`/`text_height`/`terminator` compose the
-    # `drawing/regime#REGIME` owned ISO vocabulary so the pen traces to one discipline row.
+    # the ONE drawing-plane mark-style owner: fill/stroke index the hex_ramp ramp, layer/weight/text_height/terminator compose regime's ISO vocabulary.
     layer: LayerName
     fill: int = 0
     stroke: int = 0
-    weight: LineWeight = LineWeight.W025  # ISO 128 line-weight group `drawing/regime#REGIME` legislates
-    text_height: TextHeight = TextHeight.H2_5  # ISO 3098 lettering height `drawing/regime#REGIME` legislates
-    terminator: Terminator = Terminator.FILLED_ARROW  # ISO 129-1/128-2 line-end the section/elevation tails draw
+    weight: LineWeight = LineWeight.W025  # ISO 128 line-weight
+    text_height: TextHeight = TextHeight.H2_5  # ISO 3098 lettering height
+    terminator: Terminator = Terminator.FILLED_ARROW  # ISO 129-1 line-end the section/elevation tails draw
 
 
 # --- [VOCABULARY] -----------------------------------------------------------------------
@@ -149,7 +144,7 @@ class Symbol(Struct, frozen=True):
 
     @classmethod
     def over(cls, marks: SymbolKind | Iterable[SymbolKind], palette: Palette, /, *, target: SymbolTarget = SymbolTarget.SVG) -> Self:
-        match marks:  # the one modal-arity head — a lone mark is the singleton, an iterable the multi-mark sheet
+        match marks:  # modal-arity head: a lone mark the singleton, an iterable the multi-mark sheet
             case SymbolKind():
                 return cls(marks=(marks,), palette=palette, target=target)
             case _:
@@ -160,43 +155,38 @@ class Symbol(Struct, frozen=True):
 
     @property
     def _key(self) -> ContentKey:
-        # key-over-INPUT: the canonical frozen spec minted PRE-RUN so keyed admission probes the warm
-        # seed BEFORE the native fold runs — never a key over rendered layer bytes.
+        # key-over-INPUT: minted PRE-RUN, never over rendered bytes.
         return ContentIdentity.of(f"drawing-symbol-{self.target}", (self.marks, self.palette, self.target), policy=CANONICAL_POLICY)
 
     async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
-        # the renamed private render thunk — the terminal receipt threads the PRE-RUN key (receipt.slot == node.key);
-        # the layer payload is the layered() LayerPlan projection (V14), never a tuple on the producer rail.
+        # the receipt threads the PRE-RUN key; the layer payload is the layered() projection.
         return (await async_boundary(f"drawing.symbol.{self.target}", self._crossed)).map(lambda pair: pair[1])
 
     async def layered(self) -> RuntimeRail[LayerPlan]:
-        # the V14 projection: the engine fold's rows as ONE semantic LayerPlan tree — substrate DATA the
-        # layered/sheet consumers compose as parents, never part of the producer rail.
+        # the engine rows as ONE LayerPlan tree — substrate the layered/sheet consumers compose as parents.
         return (await async_boundary(f"drawing.symbol.{self.target}", self._crossed)).map(
             lambda pair: LayerPlan(schema=NamingSchema.ISO13567, roots=pair[0])
         )
 
     async def _crossed(self) -> tuple[tuple[LayerNode, ...], ArtifactReceipt]:
-        # synchronous native/CPU fold — crosses the runtime thread lane, never a folder-minted limiter.
+        # synchronous fold — crosses the runtime thread lane.
         crossed = await LanePolicy.offload(_ENGINES[self.target], self, modality=Modality.THREAD, retry=RetryClass.OCCT)
         return crossed.default_with(lambda fault: _fold_raise(fault))
 
     async def glyph(self, mark: SymbolKind, /) -> RuntimeRail[bytes]:
-        # the symbol->sheet seam: ONE mark rasterized to PNG for a `composition/sheet#SHEET` `NorthArrow.glyph`
-        # / `KeyPlan.figure` cell whose reportlab `ImageReader`/`drawImage` reads a raster, never an SVG. The
-        # palette crosses the offload raw — `hex_ramp` runs inside `_raster`, never on the loop before the seam.
+        # the symbol->sheet seam: ONE mark rasterized to PNG for a sheet NorthArrow.glyph/KeyPlan.figure cell
+        # whose reportlab ImageReader reads a raster, never an SVG; the palette crosses the offload raw.
         return await LanePolicy.offload(_raster, mark, self.palette, modality=Modality.THREAD, retry=RetryClass.OCCT)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 def _fold_raise(fault: object) -> tuple[tuple[LayerNode, ...], ArtifactReceipt]:
-    # terminal collapse at the render boundary: an offload fault reconstructs the raise the node's rail folds.
+    # terminal collapse: an offload fault reconstructs the raise the node's rail folds.
     raise ValueError(str(fault))
 
 
 def _row(*, name: str, source: bytes, bbox: tuple[float, float, float, float] | None = None, group: str | None = None) -> LayerNode:
-    # lowers one engine row into the graphic/layer vocabulary (V14): the SVG/DXF fragment carries its own
-    # extent, a group name nests as the path prefix the LayerPlan fold groups on, z rides row order.
+    # lowers one engine row into the graphic/layer vocabulary: a group name nests as the LayerPlan path prefix, z rides row order.
     return LayerNode(name=name if group is None else f"{group}/{name}", intent=LayerIntent.ANNOTATION, content=Some(LayerContent(fragment=source)))
 
 
@@ -263,9 +253,7 @@ def _extent(mark: SymbolKind, /) -> float:
 
 
 def _element(mark: SymbolKind, ramp: list[str]) -> tuple["elements.ElementCompound", Point]:
-    # the `schemdraw` compound-symbol geometry with NAMED terminal anchors — one `ElementCompound` per marker
-    # appending typed `Segment*` to `self.segments` and declaring the terminal `self.anchors` a
-    # `drawing/annotate#FLAGNOTE`/`drawing/detail#CALLOUT` leader binds. TOTAL over the eleven-case family.
+    # the schemdraw compound geometry with NAMED terminal anchors a detail/annotate leader binds. TOTAL over the eleven-case family.
     match mark:
         case SymbolKind(tag="section", section=(center, radius, detail_no, sheet_ref, bearing, style)):
             return _section_element(radius, detail_no, sheet_ref, bearing, style, ramp), center
@@ -299,8 +287,7 @@ def _pen(style: SymbolStyle, ramp: list[str], /) -> tuple[str, str, float, float
 
 
 def _bisected_bubble(radius: float, upper: str, lower: str, style: SymbolStyle, ramp: list[str]) -> "elements.ElementCompound":
-    # the shared section/detail bubble — a bisected circle carrying two stacked labels; the section/detail arms
-    # differ only in their tail and named anchor, so the bisected core is one builder, not two copies.
+    # the shared section/detail bubble — the arms differ only in tail and named anchor, so the core is one builder.
     sym, (stroke, _fill, lw, size) = elements.ElementCompound(), _pen(style, ramp)
     sym.segments.append(segments.SegmentCircle((0.0, 0.0), radius, color=stroke, lw=lw))
     sym.segments.append(segments.Segment([(-radius, 0.0), (radius, 0.0)], color=stroke, lw=lw))
@@ -348,8 +335,6 @@ def _grid_element(radius: float, label: str, style: SymbolStyle, ramp: list[str]
 
 
 def _matchline_element(vertices: tuple[Point, ...], sheet_ref: str, style: SymbolStyle, ramp: list[str]) -> "elements.ElementCompound":
-    # the heavy dashed match line + its "MATCH LINE — SEE X" caption, drawn through `schemdraw`'s native
-    # `lw`/`ls` stroke (the correct default) — a filled-band form composes the landed `graphic/vector/region#REGION` `outline`.
     sym, (stroke, _fill, lw, size) = elements.ElementCompound(), _pen(style, ramp)
     origin, path = vertices[0], [(vx - vertices[0][0], vy - vertices[0][1]) for vx, vy in vertices]
     sym.segments.append(segments.Segment(path, color=stroke, lw=lw * 4.0, ls="--"))
@@ -361,8 +346,7 @@ def _matchline_element(vertices: tuple[Point, ...], sheet_ref: str, style: Symbo
 
 
 def _north_element(radius: float, bearing: float, style: SymbolStyle, ramp: list[str]) -> "elements.ElementCompound":
-    # the north arrow as a filled north half PLUS a hollow south half rotated to `bearing`, the "N" above —
-    # both halves and the label are drawn geometry, never a promised-but-dropped part.
+    # both halves and the "N" all drawn geometry, never a dropped part.
     sym, (stroke, fill, _lw, size) = elements.ElementCompound(), _pen(style, ramp)
     rot, base = math.radians(bearing), radius * 0.42
     tip, tail = _rotate((0.0, radius), rot), _rotate((0.0, -radius * 0.25), rot)
@@ -375,12 +359,11 @@ def _north_element(radius: float, bearing: float, style: SymbolStyle, ramp: list
 
 
 def _scale_element(length: float, seg: int, units: str, ratio: str, style: SymbolStyle, ramp: list[str]) -> "elements.ElementCompound":
-    # the divided graphic-scale ruler — the standalone twin of `composition/sheet#SHEET` `Scale.bar`.
     sym, (stroke, fill, lw, size) = elements.ElementCompound(), _pen(style, ramp)
     step, height = length / max(seg, 1), size
     for i in range(
         max(seg, 1)
-    ):  # Exemption: schemdraw builds a symbol by appending Segment* to the mutable self.segments; the alternating-fill ruler assembles in place
+    ):  # Exemption: schemdraw appends Segment* to the mutable self.segments; the ruler assembles in place
         sym.segments.append(
             segments.SegmentPoly(
                 [(i * step, 0.0), ((i + 1) * step, 0.0), ((i + 1) * step, height), (i * step, height)],
@@ -422,7 +405,7 @@ def _keyplan_element(
 
 
 def _datum_element(size_: float, level: str, style: SymbolStyle, ramp: list[str]) -> "elements.ElementCompound":
-    # the ISO spot-level / benchmark marker — a filled level triangle carrying the RL/elevation value.
+    # the ISO spot-level marker.
     sym, (stroke, fill, lw, text) = elements.ElementCompound(), _pen(style, ramp)
     sym.segments.append(segments.SegmentPoly([(0.0, 0.0), (-size_ * 0.5, size_), (size_ * 0.5, size_)], closed=True, color=stroke, fill=fill))
     sym.segments.append(segments.SegmentText((size_ * 0.8, size_ * 0.6), level, align=("left", "center"), fontsize=text, color=stroke))
@@ -431,7 +414,7 @@ def _datum_element(size_: float, level: str, style: SymbolStyle, ramp: list[str]
 
 
 def _breakline_element(vertices: tuple[Point, ...], style: SymbolStyle, ramp: list[str]) -> "elements.ElementCompound":
-    # the ISO 128 break line — a polyline with a zigzag inserted at its midpoint marking a truncated view.
+    # the ISO 128 break line — a midpoint zigzag marking a truncated view.
     sym, (stroke, _fill, lw, _size) = elements.ElementCompound(), _pen(style, ramp)
     origin = vertices[0]
     rel = [(vx - origin[0], vy - origin[1]) for vx, vy in vertices]
@@ -446,9 +429,7 @@ def _rotate(point: Point, radians: float) -> Point:  # rotate about the compound
 
 
 def _svg_mark(mark: SymbolKind, ramp: list[str]) -> bytes:
-    # ONE self-contained SVG mark: the schemdraw compound renders font-independent through `use('svg')` +
-    # `svgconfig.text='path'` (the bundled ziafont outlining each SegmentText), wrapped in a viewBox-framed
-    # `<svg>` the layered container and the sheet-cell raster seam both read.
+    # ONE self-contained SVG mark: schemdraw renders font-independent via use('svg') + svgconfig.text='path' (ziafont outlines each SegmentText).
     use("svg")
     svgconfig.text = "path"
     element, center = _element(mark, ramp)
@@ -458,16 +439,13 @@ def _svg_mark(mark: SymbolKind, ramp: list[str]) -> bytes:
 
 
 def _raster(mark: SymbolKind, palette: Palette) -> Result[bytes, RegionFault]:
-    # the sheet-cell seam: render ONE mark to SVG then rasterize to PNG through `graphic/vector/region#REGION`'s
-    # landed resvg floor, the byte form the reportlab `ImageReader`/`drawImage` cell consumes; `hex_ramp`
-    # runs here in the worker, never on the loop as a pre-offload argument expression.
+    # the sheet-cell seam: render ONE mark to SVG then rasterize to PNG through region; hex_ramp runs here in the worker, never on the loop.
     return rasterize(_svg_mark(mark, hex_ramp(palette)), _GLYPH)
 
 
 def _grid_runs(indices: tuple[int, ...], anchors: tuple[Point, ...]) -> tuple[tuple[int, ...], ...]:
-    # partition axis-aligned grid bubbles into collinear runs — a shared-y horizontal band and a shared-x vertical
-    # band — so a TWO-AXIS structural grid (letters along X, numbers along Y) solves each axis independently rather
-    # than collapsing both onto one diagonal line; each bubble joins whichever band holds more collinear peers.
+    # partition axis-aligned bubbles into collinear runs — a shared-y and a shared-x band — so a two-axis grid
+    # solves each axis independently, not on one diagonal; each bubble joins the band with more peers.
     rows: dict[float, list[int]] = {}
     cols: dict[float, list[int]] = {}
     for index, (x, y) in zip(
@@ -487,10 +465,9 @@ def _grid_runs(indices: tuple[int, ...], anchors: tuple[Point, ...]) -> tuple[tu
 
 
 def _grid_solve(marks: tuple[SymbolKind, ...]) -> tuple[SymbolKind, ...]:
-    # each collinear grid run aligns blended-even through one kiwisolver.Solver: each bubble's position along its OWN
-    # run is a `t` Variable, endpoints pinned `required`, given interior positions honoured `weak`, an even gap
-    # preferred `medium`, a monotone min-separation kept `weak`; `updateVariables()` writes each solved `value()`
-    # BACK into the re-keyed anchor. A two-axis grid solves its X-run and Y-run in separate independent solvers.
+    # each collinear run aligns through one kiwisolver.Solver: each position a `t` Variable, endpoints `required`,
+    # given positions `weak`, even gap `medium`, min-separation `weak`; `updateVariables()` writes each solved
+    # `value()` BACK into the re-keyed anchor.
     grid = tuple(index for index, mark in enumerate(marks) if mark.tag == "grid")
     if len(grid) < 3:  # two endpoints fully determine a line; the solve refines three or more
         return marks
@@ -522,8 +499,7 @@ def _grid_solve(marks: tuple[SymbolKind, ...]) -> tuple[SymbolKind, ...]:
 
 # --- [BOUNDARIES] -----------------------------------------------------------------------
 def _layer_svg(name: str, frags: list[bytes], box: Box) -> bytes:
-    # bucket the marks of one `SymbolStyle.layer` into a named `drawsvg.Group`; each mark rides as a
-    # `drawsvg.Raw` self-contained fragment, the canvas sized to the real content bbox, never a 1x1 stub.
+    # bucket one SymbolStyle.layer's marks into a named drawsvg.Group; the canvas sized to the real content bbox.
     xmin, ymin, xmax, ymax = box
     canvas = drawsvg.Drawing(xmax - xmin, ymax - ymin, origin=(xmin, ymin))
     group = drawsvg.Group(id=name)
@@ -550,20 +526,17 @@ def _bbox(marks: tuple[SymbolKind, ...]) -> Box:
 
 
 def _dxf_block(block: object, mark: SymbolKind) -> object:
-    # the parametric block geometry authored ONCE per (tag, extent) signature; a bubble number is an
-    # `add_attdef` ATTRIB the `add_blockref` placement fills. TOTAL over the eleven-case family.
+    # the parametric block geometry authored ONCE per (tag, extent) signature; a number is an add_attdef ATTRIB. TOTAL over the family.
     match mark:
         case SymbolKind(tag="north", north=(_, radius, _bearing, _style)):
-            # the filled north half + hollow south half at canonical bearing, matching the SVG two-tone arrow; the
-            # solid hatch closes the SVG-vs-DXF fill parity gap (add_hatch + set_solid_fill over a closed boundary path).
-            solid = block.add_hatch()  # Exemption: ezdxf Hatch is the native fill sink; the boundary path + solid fill mutate in place
+            # filled north half + hollow south half matching the SVG two-tone arrow; the solid hatch closes the SVG-vs-DXF fill parity gap.
+            solid = block.add_hatch()  # Exemption: ezdxf Hatch is the native fill sink; boundary path + solid fill mutate in place
             solid.paths.add_polyline_path([(0.0, radius), (-radius * 0.42, -radius * 0.55), (0.0, -radius * 0.25)], is_closed=True)
             solid.set_solid_fill()
             block.add_lwpolyline([(0.0, radius), (radius * 0.42, -radius * 0.55), (0.0, -radius * 0.25)], close=True)  # hollow south half
             block.add_attdef("N", (0.0, radius * 1.2))
         case SymbolKind(tag="datum", datum=(_, size, _level, _style)):
-            # the ISO spot-level triangle FILLED to SVG parity (the SVG datum SegmentPoly fills) via a solid hatch,
-            # its own triangle geometry + right-set MARK attdef (the prior shared revision arm authored both wrong).
+            # the ISO spot-level triangle FILLED to SVG parity via a solid hatch, its own geometry + right-set MARK attdef.
             solid = block.add_hatch()  # Exemption: the native Hatch fill sink mutates in place
             solid.paths.add_polyline_path([(0.0, 0.0), (-size * 0.5, size), (size * 0.5, size)], is_closed=True)
             solid.set_solid_fill()
@@ -595,7 +568,7 @@ def _dxf_block(block: object, mark: SymbolKind) -> object:
 
 
 # --- [TABLES] ---------------------------------------------------------------------------
-# ISO 129-1/128-2 line-end -> schemdraw arrow style; the section/elevation cutting-plane tails draw it.
+# ISO 129-1 line-end -> schemdraw arrow style; the section/elevation cutting-plane tails draw it.
 _ARROW: frozendict[Terminator, str] = frozendict({
     Terminator.FILLED_ARROW: "->",
     Terminator.OPEN_ARROW: "->",
@@ -610,7 +583,7 @@ def _svg_engine(symbol: Symbol) -> tuple[tuple[LayerNode, ...], ArtifactReceipt]
     aligned = _grid_solve(symbol.marks)
     box = _bbox(aligned)
     groups: dict[str, list[bytes]] = {}
-    for mark in aligned:  # Exemption: the drawsvg named-layer tree buckets marks by `SymbolStyle.layer` through a mutable dict of fragment lists, as visualization/diagram/draw#DRAW does
+    for mark in aligned:  # Exemption: the drawsvg named-layer tree buckets marks by SymbolStyle.layer through a mutable dict of fragment lists
         groups.setdefault(_style(mark).layer.compose(), []).append(_svg_mark(mark, ramp))
     layers = tuple(_row(name=name, source=_layer_svg(name, frags, box), bbox=box) for name, frags in sorted(groups.items()))
     key = symbol._key
@@ -620,8 +593,7 @@ def _svg_engine(symbol: Symbol) -> tuple[tuple[LayerNode, ...], ArtifactReceipt]
 
 
 def _dxf_engine(symbol: Symbol) -> tuple[tuple[LayerNode, ...], ArtifactReceipt]:
-    # each distinct (tag, extent) signature is authored ONCE as a `doc.blocks.new` block and placed by N
-    # `add_blockref` under the `Standard.graphics(layer)` discipline pen — never a per-placement geometry copy.
+    # each (tag, extent) signature authored ONCE as a doc.blocks.new block, placed by N add_blockref under Standard.graphics(layer) — never a per-placement copy.
     doc, std = ezdxf.new("R2018", setup=True), Standard.of()
     std.seed(doc, layers=tuple({_style(mark).layer for mark in symbol.marks}))
     msp = doc.modelspace()
@@ -649,4 +621,10 @@ _ENGINES: frozendict[SymbolTarget, Callable[[Symbol], tuple[tuple[LayerNode, ...
 __all__ = ["Symbol", "SymbolKind", "SymbolStyle", "SymbolTarget"]
 ```
 
-`Symbol` is the one drawing-symbol grammar every AEC marker is built from: the closed `SymbolKind` union (`Section`/`Elevation`/`Detail`/`Grid`/`MatchLine`/`North`/`ScaleBar`/`Revision`/`KeyPlan`/`Datum`/`BreakLine`) carries each mark's typed geometry and its `SymbolStyle`, and the `SymbolTarget` policy value selects the dual lowering — a `drawsvg` named-layer `Group` whose `schemdraw`-rendered fragments carry `ziafont`-outlined text, or an `ezdxf` reusable block authored once per geometry signature and placed by `add_blockref` under a `Standard.seed`-authored document. The compound geometry is `schemdraw` `ElementCompound` + `Segment*` + named `self.anchors` for ALL eleven marks — one total `_element` fold with no partial dispatch, the `North` south-half and the `Revision`/`MatchLine`/`Datum` captions all drawn geometry, and the DXF block marks mirror the SVG fills through `add_hatch().set_solid_fill()` — and each collinear grid run (a two-axis structural grid partitioned into its X-run and Y-run by `_grid_runs`) aligns through its own `kiwisolver.Solver` that pins endpoints, honours given positions, prefers an even gap, and writes each solved `value()` BACK into the re-keyed anchor. Every mark palette-indexes to the `hex_ramp` ramp and ISO-grounds its pen through `drawing/regime#REGIME`'s `LayerName`/`LineWeight`/`TextHeight`/`Terminator`; the synchronous render offloads onto the runtime thread lane off the event loop and rails through `RuntimeRail`/`async_boundary`; and the `glyph` PNG projection feeds the `composition/sheet#SHEET` `NorthArrow.glyph`/`KeyPlan.figure` cells directly through `graphic/vector/region#REGION` `rasterize` — a raster seam that leaves `sheet.md`'s title-block value objects intact. The owner contributes one `ArtifactReceipt.Drawing` (kind/entity/extent/byte facts) on the shared receipt family and one `core/plan#PLAN` `ArtifactWork` node keyed by the content identity, composites nothing, and re-renders nothing.
+## [03]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+-->
+
+(none)

@@ -4,7 +4,7 @@ Billing is the cross-cutting foundation: every domain and VPS purchase consumes 
 
 ## [01]-[CATALOG]
 
-The catalog is two levels: a catalog item carries a `category`, a string `id`, and a `prices[]` array, and each price carries its own string `id`. A purchase consumes the PRICE `id`, never the catalog-item `id`.
+Catalog resolution runs two levels: a catalog item carries a `category`, a string `id`, and a `prices[]` array, and each price carries its own string `id`. A purchase consumes the PRICE `id`, never the catalog-item `id`.
 
 - Catalog-item id: `hostingercom-<category>-<sku>` — `hostingercom-vps-kvm2`, `hostingercom-domain-com`.
 - Price id: `<catalog-item-id>-<currency>-<periodN><unit>` — `hostingercom-vps-kvm2-usd-1m`, `hostingercom-domain-com-usd-1y`.
@@ -14,7 +14,7 @@ The catalog is two levels: a catalog item carries a `category`, a string `id`, a
 curl -X GET "https://developers.hostinger.com/api/billing/v1/catalog?category=vps" -H "Authorization: Bearer $HOSTINGER_API_TOKEN"
 ```
 
-Each price carries `currency`, `price`, `first_period_price` (the promotional first-term price), `period`, and `period_unit` (`month`, `year`, `day`, `week`, `none`); the catalog-item `metadata` shape varies by category. The order lands through the resource endpoint that owns the product — `POST /api/domains/v1/portfolio` for a domain, `POST /api/vps/v1/virtual-machines` for a VM — each taking the price `item_id` and an optional `payment_method_id`; the generic billing orders endpoint was retired, so no order rides `/api/billing/v1` directly.
+Each price carries `currency`, `price`, `first_period_price` (the promotional first-term price), `period`, and `period_unit` (`month`, `year`, `day`, `week`, `none`); the catalog-item `metadata` shape varies by category. An order lands through the resource endpoint that owns the product — `POST /api/domains/v1/portfolio` for a domain, `POST /api/vps/v1/virtual-machines` for a VM — each taking the price `item_id` and an optional `payment_method_id`; the generic billing orders endpoint was retired, so no order rides `/api/billing/v1` directly.
 
 ## [02]-[PAYMENT_METHODS]
 

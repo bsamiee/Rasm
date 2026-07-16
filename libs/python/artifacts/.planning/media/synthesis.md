@@ -1,19 +1,22 @@
 # [PY_ARTIFACTS_MEDIA_SYNTHESIS]
 
-The temporal-artifact SYNTHESIS arm — the INVERSE of `media/analysis#ANALYSIS`: it GENERATES an audio waveform from a numpy oscillator/noise/envelope bank and ENCODES it into a container through the `media/audio#MEDIA` `_encode_audio` worker, reusing that owner's `Pcm`/`MediaProfile`/`Master`/`MediaEvidence`/`MediaFault` vocabulary rather than a second encode surface. `Synthesis` is a frozen `msgspec.Struct` whose op is ONE closed-payload `SynthOp` `expression.tagged_union` over the generator modalities — `Oscillator(waveform, hz, seconds, amplitude)`, `Noise(color, seconds, amplitude)`, `Additive(partials, seconds)`, `Fm(carrier_hz, ratio, index, seconds)`, `Am(carrier_hz, rate_hz, depth, seconds)`, `Sweep(low_hz, high_hz, seconds, logarithmic)`, and `Impulse(seconds)` — dispatched by one total `match`/`case` closed by `assert_never`, each producing a numpy `float32` mono buffer, shaped by an `Adsr` envelope and mastered by the `MediaProfile.master` chain, chunked into `Pcm` blocks, and handed to `media/audio#MEDIA` `_encode_audio` for the container/mux, returning `the `emit()`/`_emit` node contract` keyed over the encoded bytes, never a parallel `make_sine`/`make_noise`/`make_chirp` function family nor a second audio encoder. The oscillator bank is numpy-native — verified that NO `compute` owner exposes `scipy.signal.chirp`/`sawtooth`/`gausspulse` (the `compute/analysis` band is transform/measure, not generation) — so the phase-accumulation `np.cumsum` oscillators (band-limited saw/square/triangle by odd/even harmonic sum), the `np.random.Generator` white/pink/brown noise, the additive/FM/AM synthesis, the `np.interp` piecewise ADSR, and the `np.cumsum`-of-an-instantaneous-frequency-track chirp are the generation floor this page OWNS. This page composes the `media/audio#MEDIA` encode owner — `_encode_audio`, the `Pcm` producer-dtype union (`float32` selecting the `flt`/`fltp` ingest through the `_INGEST` table with no per-dtype arm), the `MediaProfile` encode-policy value with its `master` mastering slot, the `Master`/`Stage` mastering vocabulary applied pre-encode, the `MediaEvidence`/`MediaFault` receipt/fault family, and the `WORKER_BAND`/`_WORKER_RETRY` subprocess lane — and READS them, re-owning none; it OWNS the `SynthOp` generator vocabulary, the `Waveform`/`NoiseColor` value axes, the `Adsr` envelope value, and the numpy generator primitives. The cross-branch `compute/analysis/signal#DSP` `SignalOp.Filter`/`Resample` band-limit and the `compute/analysis/transform#TRANSFORM` spectral verification are the deeper seams a generated signal reaches for shaping and QA; the numpy oscillator bank is the self-contained floor. Every generation contributes the single `ArtifactReceipt.Media` case — the synthesis parameters (`fundamental_hz`/`waveform`/`duration`) riding its `facts` band — never a parallel synth-receipt rail, and routes through the one `core/plan#PLAN` `ArtifactPipeline` entry as an `ArtifactWork` node keyed by its content key. This is the synthesis leaf of the media plane.
+`Synthesis` owns the media plane's synthesis arm — the inverse of `media/analysis#ANALYSIS`: it generates an audio waveform from a numpy oscillator/noise/envelope bank and encodes it through the `media/audio#MEDIA` `_encode_audio` worker, reusing that owner's `Pcm`/`MediaProfile`/`Master`/`MediaEvidence`/`MediaFault` vocabulary rather than a second encode surface. `Synthesis` discriminates the generator modalities over a closed `SynthOp` union — oscillator, noise, additive, FM, AM, sweep, impulse — each producing a `float32` mono buffer shaped by an `Adsr` envelope, mastered by the `MediaProfile.master` chain, chunked into `Pcm` blocks, and handed to the shared encoder. Numpy owns the oscillator bank: no `compute` owner exposes `scipy.signal.chirp`/`sawtooth`/`gausspulse` (the `compute/analysis` band is transform/measure, not generation), so the phase-accumulation oscillators, the noise generators, the additive/FM/AM synthesis, the `np.interp` ADSR, and the `np.cumsum` chirp are the generation floor this page owns.
+
+This page composes the `media/audio#MEDIA` encode owner — `_encode_audio`, the `Pcm` producer-dtype union (`float32` selecting the `_INGEST` `flt` ingest with no per-dtype arm), the `MediaProfile` encode policy with its `master` slot, the `Master`/`Stage` mastering vocabulary, and the `WORKER_BAND`/`_WORKER_RETRY` lane — and reads them, re-owning none; it owns the `SynthOp` generator vocabulary, the `Waveform`/`NoiseColor` axes, the `Adsr` envelope, and the numpy generator primitives. `compute/analysis/signal#DSP`'s `Filter`/`Resample` band-limit and `compute/analysis/transform#TRANSFORM`'s spectral verification are the deeper seams a generated signal reaches for shaping and QA; the numpy bank is the self-contained floor. Every generation contributes the shared `core/receipt#RECEIPT` `ArtifactReceipt.Media` case — the synthesis params (`fundamental_hz`/`waveform`/`duration`) on its `facts` band — and enters the `core/plan#PLAN` `ArtifactPipeline` as one root `ArtifactWork` node keyed by content key (a synthesis generates its source, so it has no upstream parent).
 
 ## [01]-[INDEX]
 
-- [01]-[SYNTHESIS]: the `Synthesis` owner over the closed-payload `SynthOp` family — `Oscillator` the `Waveform` phase-accumulation generator (`np.cumsum` phase, `np.sin` for `SINE`, the band-limited odd/even harmonic sum for `SAW`/`SQUARE`/`TRIANGLE`), `Noise` the `NoiseColor` generator (`np.random.default_rng().standard_normal` white, the FFT `1/sqrt(f)` pink, the `np.cumsum` brown), `Additive` the harmonic-partial sum, `Fm`/`Am` the frequency/amplitude modulation pair, `Sweep` the `np.cumsum`-of-instantaneous-frequency chirp (linear or logarithmic), and `Impulse` the click — each generating one `float32` mono buffer shaped by the `Adsr` `np.interp` envelope, mastered by the `MediaProfile.master` `Master.stages` chain, chunked into `Pcm` blocks, and encoded by `media/audio#MEDIA` `_encode_audio`, folding into the single `ArtifactReceipt.Media` case with the synthesis params on its `facts` band; `numpy` `cumsum`/`sin`/`sign`/`arctan`/`interp`/`random.default_rng`/`fft.rfft`/`fft.irfft`/`hanning`/`clip`/`concatenate` settled against the shared `.api`. The `_encode_audio`/`Pcm`/`_INGEST`/`MediaProfile`/`Master`/`Stage`/`MediaEvidence`/`MediaFault`/`WORKER_BAND`/`_WORKER_RETRY` family is `media/audio#MEDIA`'s (itself composing `media/container#CONTAINER`); this page owns the `SynthOp` generator vocabulary, the `Waveform`/`NoiseColor` axes, the `Adsr` envelope, and the numpy generator primitives.
+- [01]-[SYNTHESIS]: the `Synthesis` owner over the closed `SynthOp` family — the `Oscillator`/`Noise`/`Additive`/`Fm`/`Am`/`Sweep`/`Impulse` numpy generators, each shaped by the `Adsr` envelope and encoded through `media/audio#MEDIA`, folding into the shared `ArtifactReceipt.Media` case.
 
 ## [02]-[SYNTHESIS]
 
-- Owner: `Synthesis` the one generator owner discriminating modality over the closed `SynthOp` family, worked by the `_synthesize` module-level function on the `WORKER_BAND` subprocess lane; `SynthOp` an `expression.tagged_union` whose every case carries its own typed generation payload (an oscillator `(waveform, hz, seconds, amplitude)`, a noise `(color, seconds, amplitude)`, an additive partial set, an FM/AM triple, a chirp `(low_hz, high_hz, seconds, logarithmic)`, an impulse `seconds`), never a shared erased `params` bag nor a per-generator `Synthesis` subclass nor a parallel `sine`/`noise`/`chirp` function trio; `Waveform` the closed `SINE`/`SAW`/`SQUARE`/`TRIANGLE` `StrEnum` selecting the oscillator harmonic structure and `NoiseColor` the `WHITE`/`PINK`/`BROWN` `StrEnum` selecting the spectral shape, each a value the generator reads not a body it re-derives; `Adsr` the frozen envelope value (`attack`/`decay`/`sustain`/`release` seconds and the sustain level) shaping every generated buffer through one `np.interp` piecewise gain, applied uniformly across the generator family so a new generator inherits the envelope for free; `SynthProfile` the frozen synth-policy value bundling the `Adsr` envelope and the `MediaProfile` encode policy (the container/codec/rate/layout and the `master` mastering slot), so the generation shaping and the encode policy are ONE value the op carries, never loose knobs; `MediaProfile`/`Master`/`Stage`/`Pcm`/`MediaEvidence`/`MediaFault` the encode family `media/audio#MEDIA` owns, threaded unchanged — the `float32` generated blocks admit through the `_INGEST` `flt` row with no per-dtype arm, the optional `Master.stages` (the `highpass`/`acompressor`/`alimiter`/`loudnorm` broadcast chain) master the synthesized signal before encode, and the `MediaFault` av-boundary vocabulary rails the encode; `Result[(ContentKey, ArtifactReceipt), MediaFault]` the one carrier keyed over the encoded bytes through the `media/audio#MEDIA` `ContentIdentity.of(container, blob)` derivation so an identical synthesis at an identical profile is a cache hit by reference. The owner owns no second audio encoder, no per-waveform generator owner, and no parallel `synthesize` surface beside `media/audio` — the generation is one `SynthOp` case producing a numpy buffer, the encode the shared `_encode_audio` worker.
-- Cases: `SynthOp` cases — `Oscillator(waveform, hz, seconds, amplitude)` (`np.cumsum` of the constant per-sample phase increment `2π·hz/rate`, then `np.sin` for `SINE` or the band-limited harmonic sum for `SAW` (all harmonics `1/k`), `SQUARE` (odd harmonics `1/k`), and `TRIANGLE` (odd harmonics `(-1)^m/k²`), summed only up to the Nyquist-safe harmonic count so no partial aliases) · `Noise(color, seconds, amplitude)` (`np.random.default_rng(seed).standard_normal` white, the `np.fft.rfft` white spectrum scaled by `1/sqrt(f)` then `irfft` pink, the `np.cumsum(white)` DC-removed brown) · `Additive(partials, seconds)` (the `(hz, amplitude)` partial set summed as sines over the sample grid) · `Fm(carrier_hz, ratio, index, seconds)` (`np.sin(carrier_phase + index·np.sin(ratio·carrier_phase))`, the modulator a ratio of the carrier) · `Am(carrier_hz, rate_hz, depth, seconds)` (`(1 + depth·np.sin(mod_phase))·np.sin(carrier_phase)`) · `Sweep(low_hz, high_hz, seconds, logarithmic)` (the chirp: `np.cumsum` of an instantaneous-frequency track linear or `np.geomspace`-logarithmic from `low_hz` to `high_hz`, scaled to phase, then `np.sin`) · `Impulse(seconds)` (a unit click at t=0, the impulse response probe) — matched by one total `match`/`case`, the seven-case modality recovered from the `SynthOp` discriminant, never a name suffix; every case returns one `float32` mono buffer the `_shaped` envelope and the profile master then process.
-- Entry: `emit()` is `async` over the runtime `async_boundary` returning `the `emit()`/`_emit` node contract`; `_emit` maps the `_dispatch` outcome, and `_dispatch` runs the whole synchronous generate-shape-master-encode body on `_WORKER_RETRY(to_process.run_sync, _synthesize, op, profile, limiter=WORKER_BAND)` catching `BrokenWorkerProcess` -> `MediaFault(worker=...)` and `BeartypeCallHintViolation` -> `MediaFault(contract=...)`, exactly as the audio/container owners do. The `_synthesize` worker generates the numpy buffer through the `SynthOp` match, applies the `Adsr` envelope through `_shaped`, chunks it into `Pcm` blocks through `_blocks`, and hands the blocks to `media/audio#MEDIA` `_encode_audio(blocks, profile.media)` — which opens the `av.open(sink, "w")` container, masters each block through `profile.media.master` (the `Master.stages` `loudnorm`/`alimiter` chain), resamples/reframes to the encoder's `frame_size`, drives the encode-mux loop, and returns `Result[(bytes, MediaEvidence), MediaFault]` — then merges the synthesis `facts` band onto the returned evidence through `msgspec.structs.replace`. `Synthesis.of` normalizes the construction over a lone `SynthOp` (defaulting the `SynthProfile`), so a caller emits a mastered A440 sine, a pink-noise bed, or a log sweep with one op and no encoder knowledge.
-- Auto: the waveform harmonic structure is `Waveform`, so a producer never re-derives the partial series and a new oscillator shape is one `StrEnum` member plus one `_HARMONICS` row; the chirp instantaneous-frequency track is `np.linspace` or `np.geomspace` keyed by the `logarithmic` flag the case carries (never a `mode` string re-parsed), and the phase is the ONE `np.cumsum` accumulation both the oscillator and the chirp share so a frequency-varying signal never re-implements phase; the noise color selects the spectral shaping (white passthrough, the FFT `1/sqrt(f)` pink, the `np.cumsum` brown) off the `NoiseColor` value; the `Adsr` envelope is one `np.interp` over the `(0, attack, attack+decay, total-release, total)` breakpoints against the `(0, 1, sustain, sustain, 0)` gains, applied to every buffer uniformly so the envelope is generation-family policy not a per-case body; the `float32` block dtype selects the `_INGEST` `flt` ingest at `media/audio#MEDIA` with no per-dtype arm, and the `MediaProfile.layout` (mono here) rides the audio owner's existing resample/reframe path; `_blocks` chunks the generated buffer into `(1, block)` `float32` frames so a long synthesis streams block-by-block through `_encode_audio` rather than one giant frame; the synthesis `facts` band (`fundamental_hz`, `waveform`, `duration`) merges onto the `MediaEvidence.facts` the audio encode already carries (the bundled-libav deployment band) through `msgspec.structs.replace`, so the receipt carries both the encode and the synthesis evidence with no second fold.
-- Receipt: each generation contributes `core/receipt#RECEIPT` `ArtifactReceipt.Media(key, container, codec, duration, bytes, frames, bit_rate, facts)` through the `media/audio#MEDIA` encode — the audio container/codec/duration/frame/bit-rate facts plus the synthesis `{fundamental_hz, waveform, duration}` band merged onto the `facts` slot. `receipt.md`'s band enumeration lists `container`/`filtergraph`/`audio`/`subtitle`/`analysis` but not `synthesis` by name; the shared `Media` `facts` band still absorbs the synthesis params by the anticipatory collapse the case was shaped for (one band key per parameter, ZERO case widening), and `synthesis` is added to the band-enumeration prose for parity. The media pages all contribute this single `Media` case, never a parallel synth-receipt rail, and the synthesis carrier stays synth-owned — the receipt owner imports no numpy handle. The producer keys through the audio owner's `ContentIdentity.of(...)` over the encoded bytes and enters the `core/plan#PLAN` `ArtifactPipeline` as one `ArtifactWork` node (a root — a synthesis has no upstream content-key parent, it generates its source).
-- Growth: a new oscillator shape is one `Waveform` member plus one `_HARMONICS` row (the phase accumulation already deriving its samples); a new noise color is one `NoiseColor` member plus one spectral-shaping arm; a new generator modality (a `Karplus` plucked string, a `Wavetable` lookup, a `Granular` cloud) is one `SynthOp` case plus one `_synthesize` arm, the `assert_never` tail breaking the match until the arm exists; a new envelope stage (a hold segment, an exponential curve) is one `Adsr` field plus one `np.interp` breakpoint; a band-limit or spectral QA is the `compute/analysis/signal#DSP` `Filter`/`Resample` or `compute/analysis/transform#TRANSFORM` cross-branch seam applied to the generated buffer pre-encode; a new synthesis fact is one band key merged onto `MediaEvidence.facts`, ZERO receipt edit; zero new surface — the modality space stays the seven `SynthOp` cases on one owner, every addition a case, member, row, field, or band key.
+- Owner: `Synthesis` discriminates modality over the closed `SynthOp` union, each case carrying its own typed generation payload — never a shared erased `params` bag, a per-generator subclass, or a parallel `sine`/`noise`/`chirp` trio. `Waveform` and `NoiseColor` are values the generator reads, not bodies it re-derives; `Adsr` shapes every buffer through one `np.interp` piecewise gain, applied uniformly so a new generator inherits the envelope for free; `SynthProfile` bundles the `Adsr` envelope and the `MediaProfile` encode policy into one value the op carries, never loose knobs. `media/audio#MEDIA`'s encode family threads unchanged — the `float32` blocks admit through the `_INGEST` `flt` row, the optional `Master.stages` master the signal before encode.
+- Cases: the phase is the one `np.cumsum` accumulation both the constant-frequency oscillators and the frequency-varying chirp share, so a swept signal never re-implements phase; the oscillators sum harmonics only up to the Nyquist-safe count so no partial aliases.
+- Entry: `Synthesis.of` normalizes construction over a lone `SynthOp`, defaulting the `SynthProfile`, so a caller emits a mastered A440 sine, a pink-noise bed, or a log sweep with one op and no encoder knowledge. `_synthesize` generates, ADSR-shapes, chunks, and hands the blocks to `media/audio#MEDIA` `_encode_audio`, then merges the synthesis band onto the returned `MediaEvidence`.
+- Auto: the waveform harmonic recipe is `_HARMONICS[waveform]`; the chirp track is `np.linspace` or `np.geomspace` keyed by the `logarithmic` flag the case carries, never a `mode` string re-parsed; the noise color selects the spectral shaping off the `NoiseColor` value; the `Adsr` envelope is generation-family policy, not a per-case body. `_blocks` chunks the buffer into `(1, _BLOCK)` frames so a long synthesis streams block-by-block.
+- Receipt: each generation keys through the audio owner's `ContentIdentity.of(...)` over the encoded bytes and merges the `{fundamental_hz, waveform, duration}` band onto the audio `MediaEvidence.facts` through `msgspec.structs.replace` — the shared `Media` band absorbs the synthesis params by anticipatory collapse (one key per parameter, ZERO case widening), and `synthesis` joins the `core/receipt#RECEIPT` band enumeration for parity, the carrier staying synth-owned so the receipt owner imports no numpy handle.
+- Packages: the numpy oscillator/noise/FFT/interp primitives are the generation floor; `media/audio#MEDIA` owns the encode. numpy settled against the shared `.api`.
+- Growth: a new oscillator shape is one `Waveform` member plus one `_HARMONICS` row; a new noise color one `NoiseColor` member plus one spectral arm; a new generator modality one `SynthOp` case plus one `_synthesize` arm, `assert_never` breaking the match until it exists; a new envelope stage one `Adsr` field plus one `np.interp` breakpoint; a band-limit or spectral QA the `compute/analysis/signal#DSP`/`compute/analysis/transform#TRANSFORM` cross-branch seam applied pre-encode; a new synthesis fact one band key (ZERO receipt edit).
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -40,7 +43,7 @@ from artifacts.media.audio import (
     Master,
     Pcm,
     _encode_audio,
-)  # the shared audio encode owner; float32 blocks admit through _INGEST["flt"] (av deferred inside the audio module)
+)  # the shared audio encode owner; float32 blocks admit through _INGEST["flt"]
 from artifacts.media.container import ContainerFormat, MediaEvidence, MediaFault, MediaProfile, _WORKER_RETRY
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -49,7 +52,7 @@ type Partials = tuple[tuple[float, float], ...]  # (hz, amplitude) partial set f
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_BLOCK: int = 4096  # per-frame sample chunk so a long synthesis streams block-by-block
+_BLOCK: int = 4096  # per-frame chunk so a long synthesis streams block-by-block
 
 
 class Waveform(StrEnum):
@@ -65,11 +68,10 @@ class NoiseColor(StrEnum):
     BROWN = "brown"
 
 
-# the band-limited harmonic recipe per waveform: (harmonic-index step, amplitude law, alternating sign) — the SINE
-# row is the single fundamental, the others sum partials up to the Nyquist-safe count so no harmonic aliases.
+# per-waveform recipe: (harmonic-index step, amplitude law, alternating sign); the others sum to the Nyquist-safe count so no aliases.
 type Harmonic = tuple[int, Literal["inverse", "inverse_square"], bool]
 _HARMONICS: frozendict[Waveform, Harmonic] = frozendict({
-    Waveform.SINE: (1, "inverse", False),  # fundamental only (max_harmonic pinned to 1 in `_oscillator`)
+    Waveform.SINE: (1, "inverse", False),  # fundamental only
     Waveform.SAW: (1, "inverse", False),  # every harmonic, 1/k
     Waveform.SQUARE: (2, "inverse", False),  # odd harmonics, 1/k
     Waveform.TRIANGLE: (2, "inverse_square", True),  # odd harmonics, (-1)^m/k^2
@@ -85,7 +87,7 @@ class Adsr(Struct, frozen=True):
     release: float = 0.2
 
     def gain(self, samples: int, rate: int, /) -> NDArray[np.float64]:
-        # one np.interp piecewise ramp over the ADSR breakpoints; a generator inherits this shaping uniformly.
+        # one np.interp piecewise ramp over the ADSR breakpoints.
         total = samples / rate
         knots = np.array([0.0, self.attack, self.attack + self.decay, max(total - self.release, self.attack + self.decay), total])
         levels = np.array([0.0, 1.0, self.sustain, self.sustain, 0.0])
@@ -165,14 +167,11 @@ class Synthesis(Struct, frozen=True):
 
     @property
     def _key(self) -> ContentKey:
-        # key-over-INPUT: the canonical frozen op minted PRE-RUN — the muxed output's own content
-        # address rides the receipt facts, never the elision key.
+        # key over the INPUT op minted pre-run; the output's own address rides the receipt facts.
         return ContentIdentity.of(f"media.synthesis-{self.op.tag}", self.op, policy=CANONICAL_POLICY)
 
     async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
-        # the renamed private thunk — the inner Result[..., MediaFault] is DEAD: the member's MediaFault
-        # folds into ITS OWN rail's boundary fault (Work[ArtifactReceipt] forbids an inner Result), and
-        # the terminal receipt threads the PRE-RUN key (receipt.slot == node.key).
+        # the member MediaFault folds into the boundary fault (Work[ArtifactReceipt] forbids an inner Result).
         railed = await async_boundary(f"media.synthesis.{self.op.tag}", self._folded)
         return railed.bind(
             lambda res: res.map(lambda pair: pair[1]).map_error(
@@ -196,8 +195,7 @@ class Synthesis(Struct, frozen=True):
 
 
 def _phase(hz: NDArray[np.float64] | float, samples: int, rate: int, /) -> NDArray[np.float64]:
-    # the ONE phase accumulation both the constant-frequency oscillators and the frequency-varying chirp share:
-    # cumulative sum of the per-sample increment 2π·f/rate, so a swept frequency never re-implements phase.
+    # the ONE phase accumulation the oscillators and the chirp share: cumsum of 2π·f/rate, so a swept frequency never re-implements phase.
     increment = 2.0 * np.pi * np.asarray(hz, np.float64) / rate
     return np.cumsum(np.broadcast_to(increment, (samples,)))
 
@@ -262,15 +260,14 @@ def _shaped(buffer: NDArray[np.float64], envelope: Adsr, rate: int, /) -> NDArra
 
 
 def _blocks(buffer: NDArray[np.float64], /) -> tuple[Pcm, ...]:
-    # chunk the mono float32 buffer into (1, _BLOCK) packed frames the media/audio _INGEST["flt"] row admits.
+    # chunk the mono float32 buffer into (1, _BLOCK) frames the media/audio _INGEST["flt"] row admits.
     packed = buffer.astype(np.float32).reshape(1, -1)
     return tuple(packed[:, start : start + _BLOCK] for start in range(0, packed.shape[1], _BLOCK))
 
 
 @beartype
 def _synthesize(op: SynthOp, profile: SynthProfile, /) -> Result[tuple[ContentKey, ArtifactReceipt], MediaFault]:
-    # generate -> ADSR-shape -> chunk -> hand to the shared media/audio encode (which masters + resamples + muxes),
-    # then merge the synthesis band onto the returned MediaEvidence and key over the encoded bytes.
+    # generate -> ADSR-shape -> chunk -> media/audio encode; merge the synthesis band onto the returned MediaEvidence.
     rate = profile.media.rate
     buffer = _shaped(_generated(op, rate, profile.seed), profile.envelope, rate)
     band = frozendict({"fundamental_hz": op.fundamental, "waveform": op.tag, "duration": buffer.size / rate})
@@ -278,8 +275,7 @@ def _synthesize(op: SynthOp, profile: SynthProfile, /) -> Result[tuple[ContentKe
 
 
 def _keyed(pair: tuple[bytes, MediaEvidence], band: frozendict[str, float | str], /) -> tuple[ContentKey, ArtifactReceipt]:
-    # the same `ContentIdentity.of(container, blob)` derivation the media/audio#MEDIA `_emit` arm keys over the
-    # encoded bytes — a by-reference cache key, never a re-minted identity beside the audio owner's.
+    # the same ContentIdentity.of(container, blob) key the media/audio#MEDIA _emit arm derives — by-reference, not re-minted.
     blob, evidence = pair
     merged = msgspec.structs.replace(evidence, facts=evidence.facts | band)
     key = ContentIdentity.of(evidence.container.value, blob)
@@ -287,3 +283,11 @@ def _keyed(pair: tuple[bytes, MediaEvidence], band: frozendict[str, float | str]
         key, merged.container.value, merged.codec, merged.duration, merged.byte_count, merged.frame_count, merged.bit_rate, merged.facts
     )
 ```
+
+## [03]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+-->
+
+(none)

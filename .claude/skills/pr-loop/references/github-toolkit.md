@@ -18,7 +18,7 @@ gh pr list --state open --head "$(git branch --show-current)" \
 
 ## [02]-[S1_FEEDBACK_SURFACES]
 
-The four orthogonal surfaces — reviews, inline review comments, issue comments, review threads (the only carrier of resolution state) — pull to disk via `${CLAUDE_SKILL_DIR}/scripts/pull-comments.sh` and join via `merge-comments.py`. Field law the consumer needs:
+Four orthogonal surfaces — reviews, inline review comments, issue comments, review threads (the only carrier of resolution state) — pull to disk via `${CLAUDE_SKILL_DIR}/scripts/pull-comments.sh` and join via `merge-comments.py`. Field law the consumer needs:
 - An outdated inline comment carries `line == null`; anchor on `original_line`. `subject_type == "file"` anchors on `path` alone.
 - `pull_request_review_id` joins an inline comment to its owning review for the review-level `commit_id` and verdict; the thread comment's `databaseId` is the REST join key and the `#discussion_r<id>` anchor.
 - Bots edit summaries in place — track `updated_at` high-water on issue comments for report freshness, never as a completion signal.
@@ -61,7 +61,7 @@ gh api graphql -f query='mutation{t0:resolveReviewThread(input:{threadId:"PRRT_.
 
 ## [06]-[S6_MERGE_SURFACE]
 
-The convergence gate reads via `${CLAUDE_SKILL_DIR}/scripts/converge.sh`. The raw merge-surface read for the report:
+`${CLAUDE_SKILL_DIR}/scripts/converge.sh` reads the convergence gate. Raw merge-surface read for the report:
 
 ```bash template
 gh pr view "$PR" --json reviewDecision,mergeable,mergeStateStatus,statusCheckRollup

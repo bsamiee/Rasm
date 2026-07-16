@@ -11,7 +11,7 @@ allowed-tools: Bash(git:*) Bash(greptile:*) Bash(command:*) Bash(curl:*) Bash(np
 
 # [CLI_REVIEW]
 
-Run a Greptile review from the local checkout and summarize the findings. `greptile review` diffs the current branch against its base — the repository default, or `-b <base>` — so it needs no PR and no freshly created branch. The runbook sections run in order to reach the summary; the reference sections that follow carry the `.greptile/` configuration cascade and the CLI surface, consulted when the review calls for them.
+Run a Greptile review from the local checkout and summarize the findings. `greptile review` diffs the current branch against its base — the repository default, or `-b <base>` — so it needs no PR and no freshly created branch. Runbook sections run in order to reach the summary; the reference sections that follow carry the `.greptile/` configuration cascade and the CLI surface, consulted when the review calls for them.
 
 ## [01]-[CONTEXT]
 
@@ -42,7 +42,7 @@ A usage error on `--json` falls back to `greptile review --agent`. When both fai
 
 ## [05]-[SUMMARY]
 
-JSON output reports review status, finding count, highest-severity findings first, files needing edits, and the suggested next command or fix path. Plain-text output preserves the same structure. The summary stays concise and actionable.
+JSON output reports review status, finding count, highest-severity findings first, files needing edits, and the suggested next command or fix path. Plain-text output preserves the same structure. Summaries stay concise and actionable.
 
 ## [06]-[CONFIGURATION_REFERENCE]
 
@@ -50,7 +50,7 @@ A `.greptile/` directory in any directory of the repository configures reviews f
 
 - [CONFIG]: `config.json` — review settings, run filters, structured rules, cross-repo context.
 - [RULES]: `rules.md` — plain markdown review context for the directory tree; severities and rule IDs live only in `config.json` rules.
-- [FILES]: `files.json` — `{"files": [{path, description, scope}]}` pointing the reviewer at load-bearing files; references accumulate down the cascade.
+- [FILES]: `files.json` — `{"files": [{path, description, scope}]}` points reviewers at load-bearing files; references accumulate down the cascade.
 
 ### [06.1]-[CONFIG_JSON_FIELDS]
 
@@ -77,9 +77,12 @@ A `.greptile/` directory in any directory of the repository configures reviews f
 
 ### [06.2]-[CASCADING]
 
-- Greptile walks from the repository root to each reviewed file and collects every `.greptile/` directory on the path: scalar settings take the most specific value, arrays replace parent arrays, section objects merge field-wise, and rules, file references, and instructions accumulate.
+- Greptile walks from the repository root to each reviewed file, collecting every `.greptile/` directory on the path.
+- Merge semantics: scalars take the most specific value, arrays replace parent arrays, section objects merge field-wise.
+- Accumulation: rules, file references, and instructions accumulate down the cascade.
 - A child disables an inherited rule by listing its `id` in `disabledRules`; a rule without an `id` cannot be selectively disabled.
-- Precedence low to high: dashboard settings, org default rules, root `.greptile/`, intermediate `.greptile/`, most specific `.greptile/`, org enforced rules — enforced rules always apply and cannot be overridden from the repository.
+- Precedence low to high: dashboard, org default rules, root `.greptile/`, intermediate `.greptile/`, most specific `.greptile/`, org enforced rules.
+- Org enforced rules always apply; the repository cannot override them.
 
 ### [06.3]-[SECURITY_REVIEW]
 
@@ -88,4 +91,5 @@ No dedicated security mode or flag exists. Security standards land as high-sever
 ## [07]-[CLI_REFERENCE]
 
 - [OUTPUT]: `--json` selects machine parsing, `--text`/`--agent` plain text; the remaining render flags route to `greptile review --help`.
-- [SESSIONS]: `--resume` continues an interrupted review; `greptile review show [ID]` reopens a finished one; `greptile review status` exits `0` completed, `3` in progress, `4` failed, `5` cancelled.
+- [SESSIONS]: `--resume` continues an interrupted review; `greptile review show [ID]` reopens a finished one.
+- [STATUS]: `greptile review status` exits `0` completed, `3` in progress, `4` failed, `5` cancelled.

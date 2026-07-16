@@ -1,6 +1,6 @@
 # [DOMAIN_STACK]
 
-The domain stack routes specialized C# implementation decisions after the root stack pages have already fixed language shape, generated owners, dispatch, rails, boundaries, algorithms, and system-API replacement. Use this README to choose the domain page; use the selected page for the law.
+Domain pages route specialized C# implementation decisions after the root stack pages have already fixed language shape, generated owners, dispatch, rails, boundaries, algorithms, and system-API replacement. Use this README to choose the domain page; use the selected page for the law.
 
 ## [01]-[ROUTER]
 

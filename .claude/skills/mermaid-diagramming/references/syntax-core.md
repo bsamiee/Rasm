@@ -4,9 +4,9 @@ Advanced grammar for flowchart, sequence, state, class, and ER; baseline node, e
 
 ## [01]-[FLOWCHART]
 
-The `@{ shape: name }` form and aliases resolve to canonical names (`database` = `cyl`). The complete shape registry with its aliases is the styling reference's property.
+`@{ shape: name }` form and aliases resolve to canonical names (`database` = `cyl`). Complete shape registry with its aliases is the styling reference's property.
 
-An edge ID names one edge for animation and curve, never stroke: `A e1@--> B` then `e1@{ animate: true }` or `e1@{ animation: fast }`; per-edge curves through `e1@{ curve: linear }`. An edge ID is also a `classDef` target — `classDef pulse stroke:#FF79C6,stroke-dasharray:4 6` then `class e1 pulse` styles the edge stroke through the class system. The curve roster and the `linkStyle` dash-animation mechanics are the styling reference's property. `datastore` joins the shape registry as a persistence-role alias beside `cyl`.
+An edge ID names one edge for animation and curve, never stroke: `A e1@--> B` then `e1@{ animate: true }` or `e1@{ animation: fast }`; per-edge curves through `e1@{ curve: linear }`. An edge ID is also a `classDef` target — `classDef pulse stroke:#FF79C6,stroke-dasharray:4 6` then `class e1 pulse` styles the edge stroke through the class system. Curve roster and the `linkStyle` dash-animation mechanics are the styling reference's property. `datastore` joins the shape registry as a persistence-role alias beside `cyl`.
 
 Icon and image shapes: `A@{ icon: "fa:user", form: "square", label: "User", pos: "t", h: 60 }` and `B@{ img: "<url>", w: 80, h: 60, constraint: "on" }`; `form` is `square`, `circle`, or `rounded` and `pos` is `t` or `b`; `constraint: on` preserves aspect ratio by deriving width from height. An icon resolves only against a pack registered at the renderer, never in frontmatter. `A --> B & C` fans one source to many; `~~~` is an invisible rank-only link; extra dashes (`---->`) lengthen rank distance. Markdown strings and KaTeX (flowchart and sequence only) compose on the same node:
 
@@ -145,7 +145,7 @@ sequenceDiagram
     API-xCache: evict
 ```
 
-Lifecycle uses `create participant X`, the aliased variant `create actor D as Donald`, and `destroy X` mid-diagram. Grouping boxes wrap participants: `box rgb(33, 34, 44) Name ... end`, or `box transparent Name`, and `rect` background blocks nest. The async `-)`/`--)` send terminates in the `-filled-head` marker, which the engine leaves unstyled — the family `themeCSS` stamps it onto the signal hue. Parallel and conditional blocks are `par ... and ... end`, `critical ... option ... end`, and `break ... end`. `autonumber` accepts a decimal start and increment: `autonumber 10.5 0.25`, `autonumber off` halts numbering, and a bare `autonumber` resumes it. A note takes a `:wrap:` or `:nowrap:` modifier as `Note over X:wrap: text`. Actor menus attach interactive links, live in interactive renderers only: `link Alice: Dashboard @ <url>` and `links Alice: {"Dashboard": "<url>"}`. KaTeX renders in participant names and messages.
+Lifecycle uses `create participant X`, the aliased variant `create actor D as Donald`, and `destroy X` mid-diagram. Grouping boxes wrap participants: `box rgb(33, 34, 44) Name ... end`, or `box transparent Name`, and `rect` background blocks nest. Async `-)`/`--)` sends terminate in the `-filled-head` marker, which the engine leaves unstyled — the family `themeCSS` stamps it onto the signal hue. Parallel and conditional blocks are `par ... and ... end`, `critical ... option ... end`, and `break ... end`. `autonumber` accepts a decimal start and increment: `autonumber 10.5 0.25`, `autonumber off` halts numbering, and a bare `autonumber` resumes it. A note takes a `:wrap:` or `:nowrap:` modifier as `Note over X:wrap: text`. Actor menus attach interactive links, live in interactive renderers only: `link Alice: Dashboard @ <url>` and `links Alice: {"Dashboard": "<url>"}`. KaTeX renders in participant names and messages.
 
 [GOTCHAS]:
 - Balance every `+` activation with a `-` deactivation.
@@ -352,7 +352,7 @@ erDiagram
     class r external
 ```
 
-Word-alias cardinalities map onto the crow's-foot markers, and `to` versus `optionally to` names the identifying versus non-identifying join. Quoted entity and attribute text takes markdown and Unicode, and a multi-line attribute label breaks with `<br/>`. The ER family draws relationship lines and cardinality marks from `lineColor` and composites its label backing from `tertiaryColor` — both are floor keys on every ER fence.
+Word-alias cardinalities map onto the crow's-foot markers, and `to` versus `optionally to` names the identifying versus non-identifying join. Quoted entity and attribute text takes markdown and Unicode, and a multi-line attribute label breaks with `<br/>`. ER family draws relationship lines and cardinality marks from `lineColor` and composites its label backing from `tertiaryColor` — both are floor keys on every ER fence.
 
 | [INDEX] | [ALIAS]                       | [MARKER]         |
 | :-----: | :---------------------------- | :--------------- |
@@ -364,4 +364,4 @@ Word-alias cardinalities map onto the crow's-foot markers, and `to` versus `opti
 [GOTCHAS]:
 - Keys accept only `PK`, `FK`, `UK` — no Unicode or markdown in a key.
 - An empty entity block `{ }` is invalid; reserved words are `ONE`, `MANY`, `TO`, `U`, `1`.
-- The hand-drawn look and `direction` apply.
+- Hand-drawn look and `direction` apply.

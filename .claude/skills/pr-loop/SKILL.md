@@ -17,24 +17,26 @@ Ship landed work through review to a merged PR with nothing left behind: branch,
 ## [01]-[ROUTING]
 
 [REFERENCES]:
-- [01]-[GITHUB_TOOLKIT](references/github-toolkit.md): gh/GraphQL snippets for the judgment-bearing steps — pin, reviewer-state, re-trigger, thread mutations, ship, merge close-out; opens at PHASE 1.
-- [02]-[REVIEWERS](references/reviewers.md): the per-reviewer registry — completion signals, false-positive surfaces, re-trigger strings and caps, severity grammar; opens at PHASE 1 (census) and PHASE 5 (re-trigger).
-- [03]-[FIXER_CONTRACT](references/fixer-contract.md): the pr-fixer dispatch prompt, ledger schema, ledger verification, three-rail grading; opens only at a substantive PHASE 4 round.
+- [01]-[GITHUB_TOOLKIT](references/github-toolkit.md): gh/GraphQL snippets — pin, reviewer-state, re-trigger, threads, ship, close-out; PHASE 1.
+- [02]-[REVIEWERS](references/reviewers.md): each reviewer's completion signal, false positives, re-trigger caps, severity grammar; PHASES 1, 5.
+- [03]-[FIXER_CONTRACT](references/fixer-contract.md): carries the pr-fixer prompt, ledger schema, verification, three-rail grading; PHASE 4 only.
 
 [SCRIPTS] (run by `${CLAUDE_SKILL_DIR}/scripts/<name>`; their queries never transcribe into context):
-- [01]-[WATCH](scripts/watch-reviewers.sh): the reviewer-completion watcher — one verdict line per arming.
-- [02]-[PULL](scripts/pull-comments.sh): the four-surface feedback pull to disk.
+- [01]-[WATCH](scripts/watch-reviewers.sh): watches each reviewer to completion — one verdict line per arming.
+- [02]-[PULL](scripts/pull-comments.sh): pulls the four feedback surfaces to disk.
 - [03]-[MERGE_SET](scripts/merge-comments.py): join, dedup, severity-normalize into `merged.json`/`--md`.
 - [04]-[RESOLVE](scripts/resolve-threads.sh): disposition-driven replies plus one batched resolve, false-done gated.
-- [05]-[CONVERGE](scripts/converge.sh): the four-condition gate read, `{met, missing[]}`.
+- [05]-[CONVERGE](scripts/converge.sh): reads the four-condition gate, `{met, missing[]}`.
 
 ## [02]-[AUTONOMY_CONTRACT]
 
 Declared once at entry; holds for the whole run without per-fix prompts.
 
-- Fix every independently-confirmed real finding — no severity floor; the smallest change that fully corrects it. Skips are exactly: false-positive (pushed back with disk evidence), unvalidatable from local code, out-of-branch scope — each lands in the report, never in an edit.
-- Never weaken to converge: deleting, skipping, or xfail-ing tests, loosening assertions, or removing code to turn a check green is a failure, not a pass.
-- Merge is the terminal act (squash). Forbidden throughout: `git push --force*`, `git commit --amend` of pushed history, `git rebase` of pushed history, `git reset --hard`, `git stash` in any form, and edits to `.github/workflows/**`. History is append-only until the squash-merge collapses it.
+- Fix every independently-confirmed real finding — no severity floor; the smallest change that fully corrects it.
+- Skips are exactly: false-positive (pushed back with disk evidence), unvalidatable locally, out-of-branch scope — each reported, never edited.
+- Never weaken to converge: deleting, skipping, or xfail-ing tests, loosening assertions, or removing code to green a check is a failure, not a pass.
+- Merge is the terminal act (squash); history is append-only until the squash-merge collapses it.
+- Forbidden: `git push --force*`, `git commit --amend`/`git rebase` of pushed history, `git reset --hard`, any `git stash`, `.github/workflows/**`.
 - Stay out of the loop: no per-fix approval; surface only at a bounded STOP or at merge, with the report.
 
 ## [03]-[SPINE]
@@ -87,7 +89,7 @@ Machine pre-filter first, no judgment: a fix candidate is a `surface=="thread"` 
 
 ### [03.6]-[PHASE_5_RESOLVE_AND_RETRIGGER]
 
-The push landed in PHASE 4 (fixer or main agent). Re-pin `HEAD`, assemble `disposition.json` (ledger rows plus the triage stale rows), then:
+PHASE 4 landed the push (fixer or main agent). Re-pin `HEAD`, assemble `disposition.json` (ledger rows plus the triage stale rows), then:
 
 ```bash template
 ${CLAUDE_SKILL_DIR}/scripts/resolve-threads.sh --disposition <workdir>/disposition.json --head <SHA>
@@ -101,7 +103,7 @@ Push precedes resolve — a resolve without the fix in the pushed head is the on
 ${CLAUDE_SKILL_DIR}/scripts/converge.sh <PR> --head <SHA> --reviewers <csv>
 ```
 
-Proceed to PHASE 7 only on `met: true` confirmed on TWO consecutive reads (absorbs CI and reviewer jitter). The gate: `reviewDecision` in {APPROVED, null}; zero unresolved non-outdated threads; `mergeable==MERGEABLE` with `mergeStateStatus` in {CLEAN, HAS_HOOKS} and zero failing or pending contexts (a Macroscope `neutral` conclusion is a pass); per-reviewer positive signals at head (Greptile `5/5`, CodeRabbit review present, Macroscope runs complete, Codex/Claude reviews at head).
+Proceed to PHASE 7 only on `met: true` confirmed on TWO consecutive reads (absorbs CI and reviewer jitter). Gate: `reviewDecision` in {APPROVED, null}; zero unresolved non-outdated threads; `mergeable==MERGEABLE` with `mergeStateStatus` in {CLEAN, HAS_HOOKS} and zero failing or pending contexts (a Macroscope `neutral` conclusion is a pass); per-reviewer positive signals at head (Greptile `5/5`, CodeRabbit review present, Macroscope runs complete, Codex/Claude reviews at head).
 
 ### [03.8]-[PHASE_7_MERGE_AND_CLOSEOUT]
 
@@ -110,10 +112,11 @@ Proceed to PHASE 7 only on `met: true` confirmed on TWO consecutive reads (absor
 ## [04]-[GUARDS]
 
 - Caps: at most 5 fix iterations. Track `(unresolved_threads, failing_checks)`; three consecutive non-decreasing iterations is no-progress — STOP.
-- Oscillation: a `fixed` row's `dedup_key` reappearing fresh, or an alternating CI-failure signature, is a ping-pong or a flaky test — STOP and surface, never loop.
+- Oscillation: a `fixed` `dedup_key` reappearing fresh or an alternating CI-failure signature is ping-pong or a flake — STOP and surface, never loop.
 - Stale-SHA invariant: re-pin `HEAD` after every push and at each phase top.
-- No-spam: one re-trigger per reviewer per head, only when no run is in flight; CodeRabbit additionally caps at 2 explicit triggers per rolling hour. Pushing a no-op commit to re-trigger is forbidden.
-- Hard STOP to the human, never a guess: merge `DIRTY`/`CONFLICTING`, `BEHIND` that `gh pr update-branch` cannot clear, a reviewer timeout after its re-trigger, an ambiguous-but-valid human finding, a mixed working tree at PHASE 0, or any forbidden action needed to proceed.
+- No-spam: one re-trigger per reviewer per head, only when no run is in flight, never a no-op commit; CodeRabbit caps 2 explicit per rolling hour.
+- Hard STOP on a merge `DIRTY`/`CONFLICTING`, a `BEHIND` that `gh pr update-branch` cannot clear, or a reviewer timeout after its re-trigger.
+- Hard STOP on an ambiguous-but-valid human finding, a mixed working tree at PHASE 0, or any forbidden action needed to proceed — never a guess.
 
 ## [05]-[REPORT]
 
@@ -121,4 +124,4 @@ Every run ends — merged or bounded — with a structured report and one PR com
 
 ## [06]-[MAINTENANCE]
 
-The bundle and `.claude/agents/pr-fixer.md` propagate byte-identical across the estate repos, the skill additionally to `~/.codex/skills/pr-loop/`; `cmp` proves each copy after any edit. The fixer's standing law lives in the agent body and the per-round wiring in `references/fixer-contract.md` — a fix-law change edits the agent, a wiring change edits the reference. A completion-predicate change lands in `scripts/watch-reviewers.sh` and its registry prose in the same pass.
+Every bundle file and `.claude/agents/pr-fixer.md` propagate byte-identical across the estate repos, the skill additionally to `~/.codex/skills/pr-loop/`; `cmp` proves each copy after any edit. Agent body owns the fixer's standing law, `references/fixer-contract.md` the per-round wiring — a fix-law change edits the agent, a wiring change edits the reference. A completion-predicate change lands in `scripts/watch-reviewers.sh` and its registry prose in the same pass.

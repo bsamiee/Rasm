@@ -1,6 +1,8 @@
 # [PY_DATA]
 
-`data` owns host-free data interchange for the Python branch: one columnar, relational, and lakehouse tabular core plus the `spatial`, `gridded`, `graph`, and `impact` planes, every plane keyed by content identity and lowered to an Arrow carrier. It consumes runtime `ContentIdentity`, `ReceiptContributor`, and `TransportResource` at the boundary and re-mints none, meeting C# only at the content-identity wire and the companion seams.
+`data` is the host-free data-interchange plane of the Python branch: every AEC dataset the platform touches — BIM quantity tables, scan point clouds, simulation tensors, geospatial context, carbon declarations — crosses through it as typed, content-keyed, Arrow-carried claims. One columnar, relational, and lakehouse tabular core carries the `spatial`, `gridded`, `graph`, and `impact` planes, and the bar is interchange trust: an admitted package is mined to fence depth, a claimed provider arm is a realized fold, and a frame that leaves is self-describing — source, unit, identifier, and content key ride the columns, so a consumer decodes by name and never re-derives attribution. Compute schedules studies over its frames, C# Persistence federates its content keys and Substrait plans, and artifacts renders its profiles and quality reports.
+
+It consumes runtime `ContentIdentity`, `ReceiptContributor`, and `TransportResource` at the boundary and re-mints none, meeting C# only at the content-identity wire and the companion seams.
 
 ## [01]-[ROUTER]
 
@@ -48,7 +50,7 @@ Data-domain libraries admitted by this folder; versions centralize in the one br
 - `dataframely`
 - `pointblank`
 - `pandera`
-- `pandas` — Boundary lowering only: external producers hand pandas frames at the wire, and `read_fwf` is the fixed-width foreign decode; no internal owner constructs one.
+- `pandas` — Boundary lowering only: external frames arrive at the wire, `read_fwf` the fixed-width decode; no internal owner constructs one.
 
 [LAKEHOUSE_QUERY]:
 - `deltalake`
@@ -137,5 +139,5 @@ Shared Python substrate consumed from the branch registry; `libs/python/.plannin
 - `meshio`
 
 [TRANSPORT]:
-- `fsspec` — Filesystem-resolution substrate beneath `universal-pathlib`; the `UPath.fs` handle threads into the DuckDB scan session via `register_filesystem`.
+- `fsspec` — Filesystem-resolution substrate beneath `universal-pathlib`; the `UPath.fs` handle threads into the DuckDB scan session.
 - `obstore` — Object-store substrate for content-keyed egress, conditional mutation, Arrow listing, credentials, retry, and fsspec adaptation.

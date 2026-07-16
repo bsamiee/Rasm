@@ -1,23 +1,22 @@
 # [PY_ARTIFACTS_CODEC]
 
-The single-blob compression PRODUCER over the four codec rows — `ZSTD`/`LZ4`/`BROTLI`/`GZIP` — composing the `package/bundle#BUNDLE` vocabulary downward and importing no sibling. `Codec` packs already-emitted payloads into ONE content-addressed blob of self-delimiting frames and walks the inverse back into a `BundleManifest`; the entry is `emit() -> ArtifactWork` per the one producer contract — the node key is `Bundle.key`'s PRE-RUN input mint (spec ⊕ parent keys), `admission=Admission(keyed=None)`, and `_emit` threads that same key into the terminal `ArtifactReceipt.Bundle` so `receipt.slot == node.key`. Every heavy body rides the runtime lane, never the event loop: the in-wheel GIL-releasing `zstandard`/`zlib-ng` arms offload `Modality.THREAD`, the `lz4`/`brotli` arms cross `Modality.PROCESS`, both under `offload(retry=RetryClass.OCCT)` — the worker-death band — with the runtime `THREAD_BAND`/`WORKER_BAND` owning the limiter; the page mints no `CapacityLimiter` and no retry caller. Every frame carries its own integrity proof (zstd `write_checksum` trailer, lz4 `content_checksum`, gzip RFC 1952 trailer CRC), `verified` reports the codec's real capability (only `BROTLI` honestly zero), and every recovery is bomb-bounded against `_DECOMPRESS_CEILING`. This is the compression close over already-emitted bytes — it produces no upstream artifact and re-owns no vocabulary.
+`Codec` is the single-blob compression producer over the four codec rows — `ZSTD`/`LZ4`/`BROTLI`/`GZIP`. It packs already-emitted payloads into ONE content-addressed blob of self-delimiting frames and walks the inverse back into a `BundleManifest`, composing the `package/bundle#BUNDLE` vocabulary downward and importing no sibling.
+
+`emit() -> ArtifactWork` carries the producer contract — the node key is `Bundle.key`'s pre-run mint (spec ⊕ parent keys), `Admission(keyed=None)`, and `_emit` threads that key into the terminal `ArtifactReceipt.Bundle` so `receipt.slot == node.key`. In-wheel GIL-releasing `zstandard`/`zlib-ng` arms offload `Modality.THREAD` while the `lz4`/`brotli` arms cross `Modality.PROCESS`; every frame carries its own integrity proof (zstd `write_checksum`, lz4 `content_checksum`, gzip trailer CRC), `verified` reports the codec's real capability (only `BROTLI` honestly zero), and every recovery is bomb-bounded against `_DECOMPRESS_CEILING`.
 
 ## [01]-[INDEX]
 
-- [02]-[CODEC]: the `Codec` producer over the four single-blob `CompressionAlgo` rows — `of`/`trained` construction, `emit()`/`_emit` the node contract, `unpack` the manifest inverse, `Codec.pack`/`Codec.recover` the `PackWorker` port kernels (one total match each, THREAD or PROCESS by row), the `_walked` `Block.unfold` anamorphic frame walk hashing each frame to `xxh3_128` (the dict-aware `_zstd_frame` decoder factory rehydrating the profile dictionary so a `trained` bundle is recoverable, `_gzip_frame`/`_lz4_frame`/`_brotli_frame` the per-codec end-of-frame seams), the `_gzip_member` size-disposition routing large payloads onto the `gzip_ng_threaded` block-fan, the `_ZSTD_DICT`/`_ZSTD_STRATEGY` provider dispatch rows, and the `_DECOMPRESS_CEILING`/`_DECOMPRESS_WINDOW`/`_GZIP_PARALLEL_THRESHOLD` bomb-and-lane bounds; `zstandard` `ZstdCompressor`/`ZstdCompressionParameters.from_level`(`strategy`/`hash_log`/`chain_log`/`target_length`/`window_log`)/`STRATEGY_*`/`ZstdCompressionDict`(`train_dictionary`/`precompute_compress`)/`multi_compress_to_buffer`(`backend_features`-guarded)/`ZstdDecompressor(dict_data=, max_window_size=)`/`get_frame_parameters`/`frame_content_size`/`MAX_COMPRESSION_LEVEL`/`DICT_TYPE_*`, `lz4` `frame.compress`/`LZ4FrameDecompressor`/`get_frame_info`/`BLOCKSIZE_*`, `brotli` `compress`/`Decompressor`/`MODE_*`, and the shared `zlib-ng` `gzip_ng`/`gzip_ng_threaded`/`zlib_ng`/`crc32_combine` rails settled against the both-tier `.api`, contributing the one `core/receipt#RECEIPT` `ArtifactReceipt.Bundle` case and a `core/plan#PLAN` `ArtifactWork` node.
+- [02]-[CODEC]: the `Codec` producer over the four single-blob rows — the `emit`/`unpack` node contract, the `PackWorker` port kernels, the `_walked` anamorphic frame walk, and the per-codec end-of-frame decoders.
 
 ## [02]-[CODEC]
 
-- Owner: `Codec` the one single-blob producer wrapping the `package/bundle#BUNDLE` `Bundle` carrier; the four codec rows resolve here, the container rows on `package/archive#ARCHIVE`, the delta row on `package/delta#DELTA` — each sibling composes bundle downward, none imports another. `Codec.pack` and `Codec.recover` are the page's `PackWorker` port kernels: public staticmethods, total over the four rows, module-picklable by qualified name so the `PROCESS` offload carries them across the worker lane with the profile crossing as msgspec data, never a native handle.
-- Entry: `emit()` returns ONE `ArtifactWork(key=self.bundle.key, work=self._emit, parents=self.bundle.parents, admission=Admission(keyed=None), cost=byte-volume)` — the key mints over the frozen request (algo, profile, payload digests) ⊕ parent keys BEFORE any compression runs, so a re-issued identical bundle elides at admission. `_emit` is the bound zero-arg render thunk: it offloads `Codec.pack` through the runtime lane and maps the rail onto `evidence.receipt(self.bundle.key)` — the receipt carries the input key (`receipt.slot == node.key`), a failed pack folds to the rail fault, and the packed blob's own output address is store-side lane evidence, never the elision key. `unpack(blob)` is the inverse entry: it offloads `Codec.recover` on the same modality row and maps the rail onto `BundleManifest.of`.
-- Modality: `pack` folds a singular payload OR a `*payloads` spread into ONE blob of self-delimiting frames, discriminating on spread arity, never a `batch` flag — the `ZSTD` arm runs `multi_compress_to_buffer` (threaded, dictionary-shared) when the spread carries two-or-more AND `zstandard.backend_features` advertises it (the batch carriers exist only under the `cext` backend), falling to a per-payload `compress` loop that also serves the singular arm under `cffi`. `recover` walks frames back through each codec's own end-of-frame seam — `ZSTD`/`GZIP` `decompressobj().unused_data`, `LZ4` `LZ4FrameDecompressor.eof`/`unused_data`, `BROTLI` a per-member 8-byte length prefix (its stream is not concatenation-splittable) — every decode bomb-bounded: refused when the declared size exceeds `_DECOMPRESS_CEILING` or the per-call output cap trips, the `ZSTD` decode additionally bounded `ZstdDecompressor(max_window_size=_DECOMPRESS_WINDOW)` so an adversarial small-declared/huge-window-log frame never forces an oversized allocation before the size guard fires.
-- Dictionary: the `ZSTD` arm rehydrates `ZstdCompressionDict(dict_data, dict_type=_ZSTD_DICT[dict_mode])` from `ZstdKnobs.dict_data`/`dict_mode` at arm scope (the trained dictionary crosses any lane as raw bytes) and calls `precompute_compress(compression_params=params)` once for the repeated-compress corpus pass; `Codec.trained` mines `zstandard.train_dictionary` over a many-similar-artifact corpus and binds the trained `as_bytes()` into a `ZSTD` profile — the dominant small-payload ratio win for receipts, glyph runs, and repeated chart JSON. Recovery is symmetric and load-bearing correctness: `_zstd_frame(trained)` closes over ONE dict-aware `ZstdDecompressor(dict_data=trained, max_window_size=_DECOMPRESS_WINDOW)` reused across every frame, because a `FULLDICT` frame decoded dictless raises "Data corruption detected" and a `trained` bundle would otherwise be unrecoverable by its own manifest walk.
-- Frame: the `ZSTD` arm tunes through ONE `ZstdCompressionParameters.from_level(level, window_log=, hash_log=, chain_log=, target_length=, threads=, enable_ldm=, write_checksum=, write_content_size=True)` derived object passed as `compression_params=` (never `level=` beside it — mutually exclusive); the matcher axes carry 0 as the from_level auto-sentinel while a `strategy` token overrides through `_ZSTD_STRATEGY` ("auto" skips the override — `STRATEGY_*` has no zero member). Receipt `frame_size` sums `zstandard.frame_content_size` per frame, sentinel-guarded (`CONTENTSIZE_UNKNOWN`/`CONTENTSIZE_ERROR` fold to zero); the level axis caps at `zstandard.MAX_COMPRESSION_LEVEL`; the `GZIP` arm sums original payload lengths (the RFC 1952 trailer is its size source).
-- Gzip: the `GZIP` arm composes the shared `zlib-ng` SIMD substrate through the `_gzip_member` size-disposition — below `_GZIP_PARALLEL_THRESHOLD` the single-shot `gzip_ng.compress(payload, compresslevel=, mtime=)`, at/above it the `gzip_ng_threaded.open(sink, "wb", threads=, block_size=)` GIL-escaping block-fan whose per-block CRCs recombine into the RFC 1952 trailer via `crc32_combine` INSIDE the writer, never a hand-rolled partition/pool. The threaded writer exposes no mtime knob, so the member's RFC 1952 header mtime field (bytes `[4:8]`) is overwritten with the fixed `int(mtime)` little-endian stamp — both lanes emit ONE byte-reproducible self-delimiting member, so a multi-payload bundle concatenates into one valid multi-member gzip blob any stdlib `gzip` peer reads, and `recover` walks members through `zlib_ng.decompressobj(wbits=31)` + `unused_data` (never `gzip_ng.decompress`, which erases member boundaries). The level axis is the zlib `0..9` range; the substrate is COMPOSED (the `[ARTIFACTS]`-tagged manifest row), this page its sole live consumer band.
-- Integrity: `verified` is the real per-member proof count — `ZSTD` counts `get_frame_parameters(frame).has_checksum` (set by `write_checksum=True`, a 4-byte xxhash64 trailer per frame), `LZ4` counts `get_frame_info(frame)["content_checksum"]`, `GZIP` counts every member (the trailer CRC is always present and verified on decode), and `BROTLI` honestly reports zero (no in-band checksum; transport-integrity only) — never a uniform lie. Declined as architecturally incompatible: `FORMAT_ZSTD1_MAGICLESS` (no magic to delimit, `frame_content_size` unreadable — breaks the bomb-guarded walk), the `stream_writer`/`compressobj` and brotli `Compressor.process` streaming sinks (the ingress is already-materialized `bytes`; a sink adds no back-pressure memory has not committed), `multi_decompress_to_buffer` on recovery (materializes every frame at once, breaking the bounded `_walked` anamorphism), and the `lz4.block dict=` primer (the many-small-similar concern is `trained`'s zstd `FULLDICT` ownership; lz4 owns the orthogonal hot-path).
-- Growth: a new single-blob algorithm is one bundle-page `CompressionAlgo`/`CodecProfile`/`DEFAULT_PROFILE` row, one `pack` arm, one frame decoder, and one `recover` arm here; a new tuning knob is one field on the owning bundle-page knob-struct; a new bounded knob value is one `Literal` token plus one arm-scope dispatch row; zero new verb beside the `emit`/`unpack` pair.
-- Packages: `zstandard` (eager — the core arm and `trained`), `lz4.frame`/`brotli`/`zlib-ng` (lazy — reify at arm scope, in the worker process for the `PROCESS` rows), `xxhash` (`xxh3_128_digest` the walk digests on the runtime identity family), `expression` (`Block.unfold` the anamorphism, `Map.of_seq` the dispatch rows, `Option`/`Some`/`Nothing` the walk step), `msgspec` (`Struct`), runtime `identity`/`faults`/`lanes`/`resilience` (`ContentKey`, `RuntimeRail`, `LanePolicy.offload`/`Modality`, `RetryClass.OCCT`), `artifacts.core.plan` (`ArtifactWork`/`Admission`), `artifacts.core.receipt` (`ArtifactReceipt`), `artifacts.package.bundle` (the whole vocabulary floor).
-- Boundary: no sibling import (archive/delta compose bundle themselves), no vocabulary re-own, no folder-minted `CapacityLimiter`/`OCCT` owns worker-death retry), no receipt-case widening (the eight-scalar `Bundle` case carries every codec), no key-over-output mint (`ContentIdentity.of(blob)` as the node key is the deleted form — the output address is lane admission evidence only).
+- Owner: `Codec` the one single-blob producer wrapping the `Bundle` carrier; the four codec rows resolve here, the container rows on `package/archive#ARCHIVE`, the delta row on `package/delta#DELTA`. `Codec.pack`/`Codec.recover` are the `PackWorker` port kernels: public staticmethods, total over the four rows, module-picklable so the `PROCESS` offload carries them by qualified name with the profile crossing as data.
+- Cases: `pack` discriminates on spread arity, never a `batch` flag — the `ZSTD` arm takes `multi_compress_to_buffer` for a two-or-more spread its backend advertises, else a per-payload loop serving the singular arm too, tuning through ONE `from_level(...)` object (`compression_params=`, never `level=` beside it — mutually exclusive). Both `GZIP` lanes emit one byte-reproducible self-delimiting member any stdlib `gzip` reads, and `BROTLI` rides an 8-byte length prefix since its stream is not concatenation-splittable. `recover` walks each codec's own end-of-frame seam, every decode bomb-bounded against `_DECOMPRESS_CEILING` and the `ZSTD` decode additionally `max_window_size=_DECOMPRESS_WINDOW` against a small-declared/huge-window frame; `_zstd_frame(trained)` reuses ONE dict-aware decompressor across frames because a `FULLDICT` frame decoded dictless raises corruption and a `trained` bundle is otherwise unrecoverable by its own manifest walk.
+- Entry: `_emit` offloads `Codec.pack` and maps onto `evidence.receipt(self.bundle.key)`, `unpack` offloads `Codec.recover` on the same modality row and maps onto `BundleManifest.of`. `Codec.trained` mines `zstandard.train_dictionary` over a many-similar corpus and binds the trained `as_bytes()` into a `ZSTD` profile — the dominant small-payload ratio win for receipts, glyph runs, and repeated chart JSON.
+- Output: `verified` is the real per-member proof count, never a uniform lie — the zstd `write_checksum` trailer, lz4 `content_checksum`, and gzip trailer CRC each verify on decode while `BROTLI` honestly reports zero (no in-band checksum); `frame_size` reads `zstandard.frame_content_size` per zstd frame (sentinel-guarded to zero), the other arms summing payload or `content_size` lengths, the level axis capping at `zstandard.MAX_COMPRESSION_LEVEL`.
+- Packages: `zstandard` (eager — the core arm and `trained`), `lz4.frame`/`brotli`/`zlib-ng` (lazy — reify at arm scope, in the worker process for the `PROCESS` rows), `xxhash` (`xxh3_128_digest` the walk digests), `expression` (`Block.unfold` the anamorphism, `Map.of_seq` the dispatch rows, `Option`/`Some`/`Nothing` the walk step), `msgspec` (`Struct`), runtime `identity`/`faults`/`lanes`/`resilience`, `artifacts.core.plan`/`core.receipt`/`package.bundle`.
+- Growth: a new single-blob algorithm is one bundle-page `CompressionAlgo`/`CodecProfile`/`DEFAULT_PROFILE` row, one `pack` arm, one frame decoder, and one `recover` arm; a new tuning knob is one field on the owning bundle-page knob-struct; a new bounded knob value is one `Literal` token plus one arm-scope dispatch row — zero new verb beside `emit`/`unpack`.
+- Boundary: no sibling import, no vocabulary re-own, no folder-minted limiter (`OCCT` owns worker-death retry), no receipt-case widening (the flat `Bundle` case carries every codec), no key-over-output mint (`ContentIdentity.of(blob)` as the node key is the deleted form — the output address is lane-admission evidence only). Declined as architecturally incompatible: `FORMAT_ZSTD1_MAGICLESS` (no magic to delimit, breaking the bomb-guarded walk), `multi_decompress_to_buffer` on recovery (materializes every frame, breaking the bounded `_walked` anamorphism), and the `lz4.block dict=` primer (the many-small-similar concern is `trained`'s zstd `FULLDICT` ownership).
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -60,14 +59,12 @@ lazy from zlib_ng import gzip_ng, gzip_ng_threaded, zlib_ng
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_DECOMPRESS_CEILING: Final[int] = 1 << 31  # per-frame decompressed-output bomb ceiling; a declared or actual size above it is refused
-_DECOMPRESS_WINDOW: Final[int] = 1 << 27  # zstd window bound: a small-declared/huge-window-log frame never allocates before the size guard
-_GZIP_PARALLEL_THRESHOLD: Final[int] = 1 << 20  # at/above: the gzip_ng_threaded block-fan; below: single-shot — a size disposition, not a flag
+_DECOMPRESS_CEILING: Final[int] = 1 << 31  # per-frame decompressed-output bomb ceiling
+_DECOMPRESS_WINDOW: Final[int] = 1 << 27  # zstd window bound: a huge-window-log frame never allocates before the size guard
+_GZIP_PARALLEL_THRESHOLD: Final[int] = 1 << 20  # at/above: gzip_ng_threaded block-fan; below: single-shot — a size disposition, not a flag
 _SINGLE_BLOB: Final[frozenset[CompressionAlgo]] = frozenset(
     {CompressionAlgo.ZSTD, CompressionAlgo.LZ4, CompressionAlgo.BROTLI, CompressionAlgo.GZIP}
 )
-# the page's one offload seam: THREAD for the in-wheel GIL-releasing zstd/zlib-ng arms, PROCESS for lz4/brotli;
-# the runtime THREAD_BAND/WORKER_BAND own the limiter — zero artifacts-minted CapacityLimiter.
 _PACK_LANE: Final[LanePolicy] = LanePolicy(capacity=os.process_cpu_count() or 1)
 
 # --- [TABLES] ---------------------------------------------------------------------------
@@ -77,7 +74,7 @@ _ZSTD_DICT: Final[Map[ZstdDictMode, int]] = Map.of_seq([
     ("fulldict", zstandard.DICT_TYPE_FULLDICT),
     ("rawcontent", zstandard.DICT_TYPE_RAWCONTENT),
 ])
-# the nine named DEFLATE-matcher strategies fast-to-densest; "auto" absent by design (it skips the from_level override)
+# the DEFLATE-matcher strategies fast-to-densest; "auto" absent by design (it skips the from_level override)
 _ZSTD_STRATEGY: Final[Map[ZstdStrategy, int]] = Map.of_seq([
     ("fast", zstandard.STRATEGY_FAST),
     ("dfast", zstandard.STRATEGY_DFAST),
@@ -119,7 +116,7 @@ class Codec(Struct, frozen=True):
         packed = await _PACK_LANE.offload(
             Codec.pack, self.bundle.payloads, self.bundle.algo, self.bundle.profile, modality=self._modality, retry=RetryClass.OCCT
         )
-        # threads the PRE-RUN input key so receipt.slot == node.key; the blob's own output address is lane-admission evidence
+        # threads the pre-run key so receipt.slot == node.key
         return packed.map(lambda pe: pe[1].receipt(self.bundle.key))
 
     async def unpack(self, blob: bytes, /) -> RuntimeRail[BundleManifest]:
@@ -130,16 +127,15 @@ class Codec(Struct, frozen=True):
 
     @property
     def _cost(self) -> float:
-        return float(sum(map(len, self.bundle.payloads)) or 1)  # byte-volume CPM weight the plan's forward pass sums
+        return float(sum(map(len, self.bundle.payloads)) or 1)  # byte-volume CPM weight
 
     @property
     def _modality(self) -> Modality:
-        # zstd/zlib-ng release the GIL in-wheel (THREAD_BAND); lz4/brotli cross the worker lane (WORKER_BAND)
+        # zstd/zlib-ng release the GIL in-wheel; lz4/brotli cross the worker lane
         return Modality.PROCESS if self.bundle.algo in (CompressionAlgo.LZ4, CompressionAlgo.BROTLI) else Modality.THREAD
 
     @staticmethod
     def pack(payloads: tuple[bytes, ...], algo: CompressionAlgo, profile: CodecProfile, /) -> tuple[bytes, BundleEvidence]:
-        # the PackWorker pack kernel — ONE total match over the four rows; picklable by qualified name for the PROCESS lane
         match profile:
             case CodecProfile(tag="zstd", zstd=ZstdKnobs() as k):
                 level = min(k.level, zstandard.MAX_COMPRESSION_LEVEL)
@@ -197,7 +193,7 @@ class Codec(Struct, frozen=True):
             case CodecProfile(tag="brotli", brotli=BrotliKnobs() as k):
                 modes = Map.of_seq([("generic", brotli.MODE_GENERIC), ("text", brotli.MODE_TEXT), ("font", brotli.MODE_FONT)])
                 # a Brotli stream is NOT self-delimiting on concatenation, so each member rides an 8-byte big-endian
-                # length prefix the `_brotli_frame` walk slices back — the whole spread folds, never silently payloads[0].
+                # length prefix the `_brotli_frame` walk slices back.
                 frames = tuple(brotli.compress(payload, mode=modes[k.mode], quality=k.quality, lgwin=k.lgwin, lgblock=k.lgblock) for payload in payloads)
                 blob = b"".join(len(frame).to_bytes(8, "big") + frame for frame in frames)
                 return blob, BundleEvidence.measure(algo, k.quality, 0, sum(map(len, payloads)), 0, payloads, (blob,))
@@ -206,7 +202,6 @@ class Codec(Struct, frozen=True):
 
     @staticmethod
     def recover(blob: bytes, algo: CompressionAlgo, profile: CodecProfile, /) -> tuple[MemberTriple, ...]:
-        # the PackWorker recover kernel — each row walks its own end-of-frame seam through the one `_walked` anamorphism
         match profile:
             case CodecProfile(tag="zstd", zstd=ZstdKnobs() as k):
                 trained = zstandard.ZstdCompressionDict(k.dict_data, dict_type=_ZSTD_DICT[k.dict_mode]) if k.dict_data is not None else None
@@ -230,9 +225,8 @@ def _declared(frame: bytes, /) -> int:
 
 
 def _gzip_member(payload: bytes, k: GzipKnobs, /) -> bytes:
-    # size disposition on the value: at/above the threshold the GIL-escaping gzip_ng_threaded block-fan (per-block CRCs
-    # recombined via crc32_combine INSIDE the writer), below it single-shot; the threaded writer exposes no mtime knob,
-    # so its RFC 1952 header mtime field (bytes [4:8]) is overwritten with the fixed stamp — both lanes byte-reproducible.
+    # the threaded writer exposes no mtime knob, so its RFC 1952 mtime field (bytes [4:8]) is overwritten with the
+    # fixed stamp — both lanes byte-reproducible.
     if len(payload) < _GZIP_PARALLEL_THRESHOLD:
         return gzip_ng.compress(payload, compresslevel=k.level, mtime=k.mtime)
     sink = BytesIO()
@@ -243,8 +237,7 @@ def _gzip_member(payload: bytes, k: GzipKnobs, /) -> bytes:
 
 
 def _walked(blob: bytes, decode: Callable[[bytes], tuple[bytes, bytes]], /) -> tuple[MemberTriple, ...]:
-    # anamorphic frame walk: each `decode` peels one self-delimiting frame, the payload hashed to a 16-byte xxh3_128
-    # digest (the runtime identity family) and freed per step, so the walk never buffers every decompressed member.
+    # each `decode` peels one self-delimiting frame, the payload hashed to xxh3_128 and freed per step.
     def step(seed: tuple[bytes, int], /) -> Option[tuple[MemberTriple, tuple[bytes, int]]]:
         rest, index = seed
         if not rest:
@@ -256,8 +249,7 @@ def _walked(blob: bytes, decode: Callable[[bytes], tuple[bytes, bytes]], /) -> t
 
 
 def _zstd_frame(trained: "zstandard.ZstdCompressionDict | None", /) -> Callable[[bytes], tuple[bytes, bytes]]:
-    # ONE dict-aware decompressor built once and reused across every frame; max_window_size is the second bomb gate
-    # the declared-size guard alone cannot cover.
+    # ONE dict-aware decompressor reused across every frame; max_window_size is the second bomb gate the size guard alone cannot cover.
     decompressor = zstandard.ZstdDecompressor(dict_data=trained, max_window_size=_DECOMPRESS_WINDOW)
 
     def decode(frame: bytes, /) -> tuple[bytes, bytes]:
@@ -294,3 +286,11 @@ def _brotli_frame(frame: bytes, /) -> tuple[bytes, bytes]:
         raise ValueError("<decompression-bomb>")
     return payload, tail
 ```
+
+## [03]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+-->
+
+(none)

@@ -16,12 +16,13 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Ripple: <origin/counterpart card this entry pairs with across folders, as `pkg` `[SLUG]`; present only on a cross-folder ripple counterpart card>.
 -->
 
-[UNIT_SCHEME_BIM_COUNTERPART]-[QUEUED]: Close the model-unit round-trip — the Bim ends of the landed `UnitScheme` header seam.
-- Capability: an IFC model's declared display units (the `IfcUnitAssignment`) survive ingest, wire, and egress as presentation policy while the interior stays SI-canonical.
-- Shape: the seam half is LANDED — `Graph/element` `Header.Units` (trailing `UnitScheme = default`, `CanonicalBytes`-excluded as presentation, the `StepHeader`-exclusion mirror) over the `Properties/quantity` `UnitScheme` (`QuantityType` token → `UnitInfo.Name`, `Render` composing `MeasureValue.In` through the `Registry` index). The open counterparts: the Bim ingress lowers `IfcUnitAssignment` onto `Header.Units` (quantity-type token → declared unit token beside the existing numeric `UnitScale` coercion), the egress re-emits the declared units instead of forcing SI, and `Graph/wire` `HeaderWire` gains the additive map field at the wire unfreeze.
-- Unlocks: a mm-declared Revit export renders and re-exports in its own units off one policy read; schedules and UI drop per-call-site unit picks.
-- Anchors: `Header.Units` trailing default (existing construction sites compile unchanged); `UnitScale` already walks the assignment per base axis; `api-geometrygym-ifc` catalogs `IfcUnitAssignment.ScaleSI`.
-- Ripple: `Rasm.Bim` `[UNIT_SCHEME_BIM_COUNTERPART]` (the `Projection/semantic` + `Projection/egress` ends); `Graph/wire` additive `HeaderWire` field.
+[UNIT_SCHEME_BIM_COUNTERPART]-[BLOCKED]: Carry the model-unit presentation scheme across the cross-runtime wire.
+- Capability: a peer runtime decoding `HeaderWire` reads the model's declared display units without re-sniffing the IFC bytes.
+- Shape: the seam half is LANDED — `Graph/element` `Header.Units` (trailing `UnitScheme = default`, `CanonicalBytes`-excluded as presentation, the `StepHeader`-exclusion mirror) over the `Properties/quantity` `UnitScheme` (`QuantityType` token → `UnitInfo.Name`, `Render` composing `MeasureValue.In` through the `Registry` index) — and the Bim ingest (`UnitsOf` on `Projection/semantic`) and egress (the `EmitContext` declared-regime raise on `Projection/egress`) ends are landed; the open counterpart is the `Graph/wire` `HeaderWire` additive map field at the wire unfreeze.
+- Unlocks: schedules and UI on the TypeScript peers render project units off one wire read.
+- Anchors: the landed `Header.Units` both Bim ends compose; `api-geometrygym-ifc` catalogs `IfcUnitAssignment.ScaleSI`.
+- Tension: the `HeaderWire` field is gated on the wire unfreeze window — the frozen wire never widens outside it.
+- Ripple: `Rasm.Bim` `[UNIT_SCHEME_BIM_COUNTERPART]`.
 
 [CONNECTION_INTERFACE_GEOMETRY_DECODE]-[QUEUED]: Close the connection-interface round-trip — the Bim lowering and the typed decode leg for the landed `Connect.Interface` key.
 - Capability: `IfcConnectionGeometry` and `IfcRelSpaceBoundary2ndLevel` interface surfaces ride the graph as content-keyed typed geometry instead of stranding in `Generic` attributes.
@@ -44,6 +45,20 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Unlocks: federated coordination review and partial IFC deliverables over the one graph spine.
 - Anchors: `ElementGraph` frozen snapshot + incidence index; `NodeId` regime keeps rooted ids globally unique (Guid-v7 / content-hash).
 - Tension: blocked on the singular-`Header` reconciliation ruling (per-source schema/tolerance/georeference) — the ruling shapes the design and wants an interview, not a guess.
+
+[OBSERVATION_SERIES]-[BLOCKED]: A monitored/measured time-series evidence modality beside the computed assessment receipt — the operating-asset record the model keeps past handover.
+- Capability: sensor telemetry (temperature, humidity, energy meters, structural-health strain, occupancy) attaches to the elements it observes as typed observation-series evidence, so measured data folds into the same `Bake` read, diffs under the same merge, crosses the same wire, and the commissioning comparison (declared U-value vs metered heat flux, predicted vs metered energy) is a graph query, never an external historian join.
+- Shape: one new `Node` case (`Observation`) wrapping a series descriptor — observed `QuantityType` token, sampling cadence and observation `Interval` (NodaTime), sensor provenance, and a content-keyed series blob — attached through the existing `Assign` algebra as one `AssignKind` row, the descriptor's `CanonicalBytes` co-located on the payload per the `AssessmentPayload` discipline.
+- Unlocks: the digital-twin/commissioning lane over the one graph spine; `Rasm.Compute` computed-vs-measured comparison routes reading both evidence kinds off one baked element.
+- Anchors: the by-reference heavy-payload pattern is proven twice (`Geospatial/coverage` `RasterKey`, `Assessment/assessment` `ResultBlob`); NodaTime is admitted substrate; `LegalAssign` and `Bake` each grow by one row/arm.
+- Tension: a new `Node` case is a new `NodeWire` oneof arm — the `rasm.element.v1` wire is campaign-frozen, so the case lands at the wire unfreeze beside the queued `NodeWire` column adds; a seam-only landing would strand the node at every crossing.
+
+[REDACTION_SCOPED_EGRESS]-[BLOCKED]: Sensitivity-classed wire egress — share the model, withhold the commercial and personal columns.
+- Capability: partner-scoped exchange as a first-class egress mode — one model, N lawful projections: unit costs and lifecycle rates (commercial secrets), `OwnerHistory`/`Provenance` authors (GDPR-class personal data), and supplier-confidential EPD references cross only to the peers a policy admits, the redaction typed and auditable instead of a per-deal hand-stripped copy.
+- Shape: a sensitivity classification on the known columns (`CostWire`, `OwnerHistoryWire`, `ProvenanceWire`, the EPD evidence rows) plus a `WireLimits`-style redaction policy record parameterizing `ElementWire.Encode` — redacted fields unset through the proto3 optional/unset forms, zero wire-schema change — composing the admitted `libs/csharp/.api/api-redaction.md` substrate catalog.
+- Unlocks: lawful federation-partner deliverables and discipline packages off one stored model; the redaction substrate catalog earns its Element consumer.
+- Anchors: `Encode` is the one egress fold every crossing takes; proto3 presence semantics already model absence; the `Object` canonical bytes already exclude `OwnerHistory`, so that column redacts identity-inert.
+- Tension: some classified columns FOLD into node content ids (`MaterialPropertySet.CaseBytes` writes the EPD `PropertyEvidence`; `AssessmentPayload` excludes `Provenance` but a `Material` node's id folds its property sets) — whether a redacted crossing preserves the source content keys (breaking the peer's `ContentAddress.Verify` re-hash on redacted nodes) or re-derives them (forking identity off the source model) is the unresolved ruling that shapes the design; the decode-side `AddressUnstable` posture and the cross-runtime parity corpus both hang on it.
 
 ## [02]-[CLOSED]
 

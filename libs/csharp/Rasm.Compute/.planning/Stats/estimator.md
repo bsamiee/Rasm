@@ -1,22 +1,24 @@
 # [COMPUTE_ESTIMATOR]
 
-Rasm.Compute statistical-learning lane: one `Estimator` `[Union]` carrying a uniform `Fit(X,y) → FittedModel` / `Predict(FittedModel, X) → Prediction` contract over the supervised-regression, GLM, dimensionality-reduction, clustering, classification, and time-series families, and one `EstimatorModel` `[Union]` fit-result carrier keyed by case — every learned model is a row on one Fit/Predict contract, never a per-model class. The contract is uniform but the SOLUTION MECHANISM is a row property partitioned three ways and never forced: a closed-form factorization where one exists (OLS/ridge through QR, PCA through SVD, LS-SVM through the Gram solve, AR through the lag QR) factors through the `Tensor/blas#DENSE_ALGEBRA` `DenseRoute`/`DenseOps`/`Admission`/`Factorization` surface; a smooth-convex objective (lasso L1, the canonical-link GLM deviance) folds to one `Tensor` loss minimized under `torch.autograd` + a `torch.optim` `Driver` inside one `DisposeScope` through `IterativeEngine`; and a specialized iteration that is genuinely NOT a gradient problem (k-means Lloyd, GMM-EM, NMF multiplicative updates, DBSCAN density reachability, agglomerative linkage) plus the lazy/moment fits (kNN store, Gaussian naive-Bayes moments) is its own genuine kernel — forcing k-means or EM through a `torch.optim` loss is the same deleted form as the blas lane's forced-SVD-for-k-means. Descriptive moments fold `MathNet.Numerics.Statistics` (`Mean`/`Variance`/`MeanVariance`/`Quantile`) and never a hand-rolled Welford. The `Prediction` `[Union]` egress (response vector, projection matrix, label assignment) replaces a `Vector<double>`-cramming contract with a typed result whose case matches the family. The page owns the `EstimatorKind`/`LinkFunction`/`OptimDriver`/`TimeSeriesModel` vocabulary, the `Estimator`/`EstimatorModel`/`Prediction`/`FittedModel` carriers, and the `EstimatorFold` Fit/Predict surface; the hypothesis `[2.1]-[HYPOTHESIS_LAW]` sub-section owns the `StatisticalTest` axis returning a typed `TestResult` over the matching `MathNet.Numerics.Distributions` CDF. The dense factorizations ride `Tensor/blas#DENSE_ALGEBRA`, the descriptive/distribution surfaces ride the admitted `MathNet.Numerics` assembly, and the `ComputeReceipt` rail, `WorkLane`/`Substrate`/`AllocationClass`, `CorrelationId`, `ClockPolicy`, and the `ComparerAccessors.StringOrdinal` accessor arrive settled. The time-series and classification rows CONSUME the `Stats/signal#SIGNAL_LANE` `Transform` spectral features; offline deep-training studies cross the `ONE_GRADUATION_EVIDENCE` seam from Python by content key, with C# owning classical fit plus ONNX inference and Python owning deep training.
+Rasm.Compute statistical-learning lane: one `Estimator` `[Union]` carrying a uniform `Fit(X,y) → FittedModel` / `Predict(FittedModel, X) → Prediction` contract across supervised-regression, GLM, dimensionality-reduction, clustering, classification, and time-series families, keyed to one `EstimatorModel` `[Union]` fit-result carrier — every learned model is a row on one contract, never a per-model class. Contract stays uniform while the solution MECHANISM is a row property partitioned three ways and never forced: a closed-form factorization (OLS/ridge QR, PCA SVD, LS-SVM Gram, AR lag-QR) factors through the `Tensor/blas#DENSE_ALGEBRA` surface; a smooth-convex objective (lasso L1, canonical-link GLM deviance) folds to one `Tensor` loss under `torch.autograd` + a `torch.optim` `Driver` inside one `DisposeScope` through `IterativeEngine`; a genuinely non-gradient iteration (k-means Lloyd, GMM-EM, NMF updates, DBSCAN reachability, agglomerative linkage) plus the lazy/moment fits (kNN store, Gaussian naive-Bayes moments) binds its own kernel — forcing Lloyd or EM through a `torch.optim` loss is the same deleted form as a forced-SVD-for-k-means. Descriptive moments fold `MathNet.Numerics.Statistics`, never a hand-rolled Welford, and the `Prediction` egress (response vector, projection matrix, label assignment) replaces a `Vector<double>`-cramming contract with a case matched to the family.
+
+Vocabulary owned here: `EstimatorKind`/`LinkFunction`/`OptimDriver`/`TimeSeriesModel`, the `Estimator`/`EstimatorModel`/`Prediction`/`FittedModel` carriers, the `EstimatorFold` Fit/Predict surface, and the `[02.1]-[HYPOTHESIS_LAW]` `StatisticalTest` axis returning a typed `TestResult` over the matching `MathNet.Numerics.Distributions` CDF. Dense factorizations ride `Tensor/blas#DENSE_ALGEBRA` (estimator.md and blas.md are one assembly — composition, not a project edge); descriptive/distribution surfaces ride the admitted `MathNet.Numerics`; `ComputeReceipt`, `WorkLane`/`Substrate`/`AllocationClass`, `CorrelationId`, `ClockPolicy`, and `ComparerAccessors.StringOrdinal` arrive settled. Time-series and classification rows CONSUME `Stats/signal#SIGNAL_LANE` `Transform` spectral features (signal produces, estimator consumes); a fit lands the dedicated `Runtime/receipts#RECEIPT_UNION` `Fit` case; offline deep-training studies cross the `ONE_GRADUATION_EVIDENCE` seam from Python by content key, C# owning classical fit plus ONNX inference and Python owning deep training.
 
 ## [01]-[INDEX]
 
-- [01]-[ESTIMATOR_LANE]: Fit/Predict contract; closed-form (QR/SVD/Gram) + torch-loss (lasso/GLM) + specialized-iteration (Lloyd/EM/NMF/density/linkage) + lazy/moment (kNN/naive-Bayes) + temporal rows over one `EstimatorModel` carrier and one `Prediction` egress.
-- the `[2.1]-[HYPOTHESIS_LAW]` sub-section owns the `StatisticalTest` axis: each row binds its statistic kernel and its p-value tail over the matching `Distributions` CDF (t/welch → `StudentT`, anova → `FisherSnedecor`, chi-square → `ChiSquared`, mann-whitney → `Normal` rank approximation) or the Kolmogorov series (ks).
+- [01]-[ESTIMATOR_LANE]: Fit/Predict contract over one `EstimatorModel` carrier and one `Prediction` egress, mechanism partitioned closed-form / torch-loss / specialized-iteration / lazy-moment / temporal by row.
+- [01.1]-[HYPOTHESIS_LAW]: `StatisticalTest` axis binding each row's statistic kernel and p-value tail over the matching `Distributions` CDF.
 
 ## [02]-[ESTIMATOR_LANE]
 
-- Owner: `LinkFunction` `[SmartEnum<string>]` the GLM link rows (identity/logit/log/inverse) each carrying the inverse-link `Mean(η)` (applied at predict) and the family `Variance(μ)` (the GLM dispersion weight) — a link enum nothing reads is the rejected decorative form; `OptimDriver` `[SmartEnum<string>]` the `torch.optim` rows (lbfgs/adam) each carrying the optimizer factory delegate and a `LineSearch` flag (the `LBFGS` closure form); `EstimatorKind` `[SmartEnum<string>]` the learning-algorithm rows carrying `Factorized` (a closed-form factorization fit exists, so a non-`Factorized` supervised regression row folds to a `torch` loss instead), `Supervised`, `Driver` (the `torch.optim` row the torch-loss fit minimizes under), and `Link` (the GLM link, `Identity` for the rest), the GLM rows additionally carrying the family `Deviance` torch closure; `TimeSeriesModel` `[SmartEnum<string>]` the temporal rows (ar/arma/exponential-smoothing/state-space) extending the Fit/Predict contract; `Estimator` `[Union]` the typed problem cases; `EstimatorModel` `[Union]` the fit-result carrier keyed by case (coefficients+link, principal basis, kernel dual, factor pair, partition, mixture, margin, neighbors, Bayes moments, lag), never one result type per algorithm; `Prediction` `[Union]` the typed egress (response/projection/assignment) so a reduction returns a projection matrix and a cluster returns a label assignment without cramming both into a `Vector<double>`; `IterativeEngine` the one `torch.autograd`+`torch.optim` loss-minimization owner under a `DisposeScope`; `EstimatorPolicy` the regularization/energy/iteration/tolerance/bandwidth/learning-rate/neighbor record; `FittedModel` the carrier-plus-quality result; `EstimatorFold` the static Fit/Predict surface dispatching by `Estimator` case.
-- Cases: `LinkFunction` rows identity · logit · log · inverse (4); `OptimDriver` rows lbfgs · adam (2); `EstimatorKind` rows ols · ridge · lasso · glm-logistic · glm-poisson · glm-gamma · pca · kernel-pca · nmf · kmeans · gmm · dbscan · hierarchical · knn · svm · naive-bayes (16, each carrying `factorized`/`supervised`/`driver`/`link`); `TimeSeriesModel` rows ar · arma · exponential-smoothing · state-space (4); `Estimator` cases `Regression(EstimatorKind Kind, Option<LinkFunction> Link)` · `Reduction(EstimatorKind Kind, int Rank)` · `Cluster(EstimatorKind Kind, int Groups)` · `Classify(EstimatorKind Kind)` · `Temporal(TimeSeriesModel Model, int Lags)`; `EstimatorModel` cases `Linear` · `Basis` · `KernelBasis` · `Factors` · `Partition` · `Mixture` · `Margin` · `Neighbors` · `Bayes` · `Lag` (10); `Prediction` cases `Response(Vector<double>)` · `Projection(Matrix<double>)` · `Assignment(ImmutableArray<int>)` (3).
-- Entry: `public static Fin<FittedModel> Fit(Estimator estimator, Matrix<double> features, Option<Vector<double>> targets, EstimatorPolicy policy, CorrelationId correlation, ClockPolicy clocks)` is the one fit fold — an in-package Stats-lane fold (the shape of the sibling `Stats/signal#SIGNAL_LANE` `Apply`, not a `ComputeIntent` admission case) whose outcome lands the dedicated `Runtime/receipts#RECEIPT_UNION` `Fit` receipt case at the sink edge — `Fin<T>` aborts on a rank-deficient design, a missing supervised target, a degenerate group count, or a non-converged iteration; `public static Fin<Prediction> Predict(FittedModel model, Matrix<double> features)` is the one predict fold projecting/assigning/responding through the `EstimatorModel` total `Switch`; the hypothesis `Test` entry lives on the `[2.1]` `Hypothesis` surface.
-- Auto: `Fit` dispatches by the `Estimator` case — `Regression` routes OLS/ridge through the `Tensor/blas#DENSE_ALGEBRA` `DenseRoute.Solve(FactorRoute.Orthonormal)` thin-QR over the intercept-augmented design (ridge stacking the un-penalized-intercept `√λ·I` Tikhonov block), and routes lasso/GLM through `IterativeEngine.Minimize` under the row's `Driver` (lasso the soft-thresholded least-squares objective under `Adam`, the GLM rows the canonical-link family `Deviance` under `LBFGS`, each differentiated by `backward()` inside one `torch.NewDisposeScope()`), folding the effective link `r.Link.IfNone(r.Kind.Link)` onto the carrier; `Reduction` routes PCA through `DenseOps.Decompose(centered, FactorizationKind.Svd)` truncated by `EnergyFraction`, kernel-PCA through the centered-RBF-kernel `DenseOps.Decompose(..., Evd)`, and NMF through the Lee–Seung multiplicative-update kernel; `Cluster` routes k-means through Lloyd, GMM through EM (Gaussian responsibilities via the blas `Admission.Definite` Cholesky log-density), DBSCAN through density reachability, and hierarchical through agglomerative average linkage; `Classify` routes LS-SVM through the regularized Gram `DenseRoute.Solve(FactorRoute.SquarePivoting)`, kNN through a labelled-design store, and naive-Bayes through per-class `Statistics.MeanVariance` moments; `Temporal` splits on the `TimeSeriesModel.Iterative` column — pure-AR (closed-form) through the lag-design thin-QR, and the iterative ARMA, Holt exponential-smoothing, and local-linear-trend Kalman state-space rows each through their OWN distinct conditional recurrence minimized by the one `LevenbergMarquardt` owner; `Predict` answers a `Response` (regression mean through the link, temporal forecast), a `Projection` (reduction scores, NMF encoding), or an `Assignment` (nearest-centroid cluster, posterior-argmax classifier, decision-sign margin) through the `EstimatorModel` total `Switch`.
-- Receipt: the estimator fit emits the dedicated `Fit` `ComputeReceipt` case the `Runtime/receipts#RECEIPT_UNION` owner declares for this lane — the one new case row the union's one-case-per-measured-concern Growth law admits, exactly as the FEA `Solver/contract#SOLVE_CONTRACT` `Solve` case and the optimizer/sweep/clash/twin/uncertainty solver-lane cases each own a dedicated row rather than overloading a sibling — carrying the family, the estimator key (`method`), the carrier parameter count, the fit iteration count, the fit residual, the converged flag, the interpretable fit-quality value under its named metric (R²/explained-energy/inertia/log-likelihood/reconstruction-error/accuracy by family), and the retained reduction rank; a closed-form fit ALSO emits the blas `Factorization` receipt under the same `CorrelationId` (two facts, one correlation); the fit-quality value and retained rank the `FittedModel` carrier surfaces now read back operator-visibly through the receipt stream (and a stalled fit through `ReceiptFolds.Nonconverged`) instead of dying write-only on the carrier; a fit through the dense factorization rides the same provider/determinism evidence the blas lane stamps so a regression fit is reproducible.
-- Packages: MathNet.Numerics, TorchSharp, libtorch-cpu, HyperJet (the temporal-fit exact-Jacobian scalar-AD leg — recursions authored once over `DDScalar`, the LM hyperdual arm reading `GetGradient()`), System.Numerics.Tensors, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.Persistence (project), BCL inbox
-- Growth: a new estimator is one `EstimatorKind` row (its `factorized`/`supervised`/`torchLoss`/`driver`/`link` columns) plus one branch arm (a closed-form row reuses the dense factorization, a torch-loss row supplies a `Tensor` loss closure to `IterativeEngine.Minimize`, a specialized row a genuine kernel) and one `EstimatorModel` case if its fit-result shape is new; a new optimizer is one `OptimDriver` row binding its `torch.optim` factory; a new GLM family is one `EstimatorKind` GLM row carrying its `Link` and `Deviance`; a new link is one `LinkFunction` row; a new time-series model is one `TimeSeriesModel` row; a new prediction shape is one `Prediction` case; a new hypothesis test is one `StatisticalTest` row binding its statistic kernel and p-value tail; zero new surface — an `OlsEstimator`/`PcaEstimator`/`KMeansEstimator` class family is the rejected form collapsed onto the one `EstimatorFold`, a `RegressionModel`/`ClusterModel`/`ReductionModel` result trio is collapsed onto the one `EstimatorModel` union, a hand-rolled `CoordinateDescent`/`Irls`/`Em` loop beside `IterativeEngine` for a row that is genuinely a torch loss is the deleted form, and a `Lloyd`/`EmFit` torch-loss masquerade for a row that is genuinely a specialized iteration is the equal-and-opposite deleted form.
-- Boundary: the lane is contract-uniform — every estimator answers the one Fit/Predict contract and the solution mechanism is a row property, so a forced SVD route for k-means is wrong (k-means is density/iterative; the shared contract is Fit/Predict, not a shared factorization) and the symmetric forced-torch-loss route for k-means or EM is equally wrong (Lloyd and EM are not gradient problems — folding them to a `torch.optim` loss is the deleted masquerade); every closed-form estimator factors through the `Tensor/blas#DENSE_ALGEBRA` surface — OLS/ridge through `DenseRoute.Solve(FactorRoute.Orthonormal)` thin-QR, PCA through `DenseOps.Decompose(FactorizationKind.Svd)`, kernel-PCA through the centered-kernel `Evd`, LS-SVM through the regularized-Gram `DenseRoute.Solve(FactorRoute.SquarePivoting)`, the GMM responsibility log-density through the gated `Admission.Definite` Cholesky `DeterminantLn`/`Solve` — never a hand-rolled normal-equations solve, FFT, or matrix inverse, so the regression fit shares the dense-algebra provider and determinism tag and the same intra-package owner the blas lane custodies (estimator.md and blas.md are one assembly, so this is composition, not a project edge); the OLS/ridge design prepends a ones intercept column so the fitted intercept is real and never a hardcoded `0.0`, and the ridge Tikhonov block zeroes the intercept's penalty row so the bias is un-regularized; lasso has no closed form so the L1 row folds to the `IterativeEngine` `torch` loss under `Adam` while the L2/OLS rows ride the factorization — one Fit fold, two mechanisms by row; the GLM rows fold the canonical-link family `Deviance` carried on the `EstimatorKind` row (the `softplus(η)−y·η` Bernoulli / `exp(η)−y·η` Poisson / `η+y·exp(−η)` log-link Gamma terms, reverse-mode-differentiated by `backward()`) to a `torch` loss minimized under `LBFGS` rather than a hand-rolled IRLS loop, and the GLM `Predict` applies the row's `Link.Mean` so a logistic fit egresses probabilities, not the bare linear predictor — a GLM that predicts the linear predictor without the inverse link, or a `LinkFunction` enum no fit or predict reads, is the deleted decorative form, and the `Identity` link's `Variance(μ)=1` is the Gaussian constant, never the Bernoulli `μ(1−μ)` the row must NOT carry; the `naive-bayes` row fits per-class `Statistics.MeanVariance` moments through the admitted assembly rather than a hand-rolled Gaussian, the `kmeans`/`gmm`/`nmf`/`dbscan`/`hierarchical` rows bind their genuine Lloyd/EM/multiplicative-update/density/linkage kernels (the in-place Lloyd assignment, EM responsibility, NMF update, DBSCAN region-query, and agglomerative-merge loops are this page's statement exemption), and `knn` stores the labelled design for a lazy vote — the shared contract is Fit/Predict, not a shared solution mechanism; every `IterativeEngine` fit runs inside one `torch.NewDisposeScope()` so no native ATen tensor leaks to the GC, the verified `AnomalyMode(enabled: true, check_nan: true)` `IDisposable` traps a NaN/inf fit to a typed `ComputeFault` instead of a silently-diverged coefficient, `set_default_dtype(Float64)` floors the math at double, and only the egressed `Vector<double>` coefficient projection crosses the lane boundary — a `Tensor` escaping onto the wire or a reliance on finalization for native reclamation is the deleted form, the `DisposeScopeManager.Statistics` `ThreadDisposeScopeStatistics` memory evidence riding the fit; the descriptive moments fold `Statistics.Mean`/`Variance`/`MeanVariance` and the quantiles read `Statistics.Quantile`, never a hand-rolled accumulator, and the regression quality reads `GoodnessOfFit.CoefficientOfDetermination` rather than a hand-derived R²; the `Predict` egress is the typed `Prediction` union switched through the `EstimatorModel` total generated `Switch` — the prior `model.Carrier switch { … _ => Fin.Fail }` non-total C# switch with a runtime-silent `_` arm over a union is the deleted form, because a union dispatch must be compile-time exhaustive and a reduction's projection matrix or a cluster's label assignment must not be flattened into a `Vector<double>`; the fit-quality and retained rank ride the `FittedModel` carrier AND the dedicated `Fit` `ComputeReceipt` case the `Runtime/receipts#RECEIPT_UNION` owner declares for this lane — a new measured concern is one case row on the union per its Growth law, exactly the dedicated-case discipline the FEA `Solve` and the optimizer/sweep/clash/twin/uncertainty solver lanes hold, never a semantic overload of the FEA `Solve` case whose `physics`/`dofs` slots a regression family and a carrier parameter count never truly were, so a stalled k-means/GLM/EM fit lands as a `Fit` fact `ReceiptFolds.Nonconverged` reads back apart from the FEA-solver `Diverged` view rather than polluting it; the time-series and classification rows CONSUME the `Stats/signal#SIGNAL_LANE` `Transform` spectral features (the signal lane is the producer, the estimator the consumer — the bidirectional record the signal page states), the hypothesis tests can validate the `Solver/uncertainty#UNCERTAINTY_LANE` response samples, and offline deep-training models cross the `ONE_GRADUATION_EVIDENCE` seam from Python by content key (C# owns inference plus classical fit, Python owns deep training — an in-proc deep-training loop is the rejected form because the training role belongs to the Python branch); the optimizer's `Surrogate` (GP/RBF/POD) and the digital-twin baseline are the `Solver/optimizer#OPTIMIZER_LANE`'s OWN owners fitted in its acquisition loop — this lane does not own or feed them, so a claim that the optimizer and the stats lane share one regression fold is the deleted illusory seam.
+- Owner: `EstimatorKind` `[SmartEnum<string>]` rows carry `Factorized`/`Supervised`/`Driver`/`Link` (GLM rows adding the family `Deviance` torch closure) — a link enum no fit or predict reads is the rejected decorative form; `LinkFunction` carries the inverse-link `Mean(η)` applied at predict and the family `Variance(μ)` GLM weight; `OptimDriver` binds the `torch.optim` factory and a `LineSearch` flag; `TimeSeriesModel` rows carry an `Iterative` column; `Estimator` `[Union]` types the problem case, `EstimatorModel` `[Union]` carries the fit result keyed by case (never one result type per algorithm), `Prediction` `[Union]` types the egress so a reduction returns a projection matrix and a cluster a label assignment without cramming both into a `Vector<double>`; `IterativeEngine` owns the one `torch.autograd`+`torch.optim` loss-minimization under a `DisposeScope`; `EstimatorPolicy` records the regularization/energy/iteration/tolerance/bandwidth/rate/neighbor knobs; `FittedModel` is the carrier-plus-quality result; `EstimatorFold` is the static Fit/Predict surface.
+- Cases: `EstimatorKind` ols · ridge · lasso · glm-logistic · glm-poisson · glm-gamma · pca · kernel-pca · nmf · kmeans · gmm · dbscan · hierarchical · knn · svm · naive-bayes; `LinkFunction` identity · logit · log · inverse; `OptimDriver` lbfgs · adam; `TimeSeriesModel` ar · arma · exponential-smoothing · state-space; `Estimator` `Regression`/`Reduction`/`Cluster`/`Classify`/`Temporal`; `EstimatorModel` Linear · Basis · KernelBasis · Factors · Partition · Mixture · Margin · Neighbors · Bayes · Lag; `Prediction` Response · Projection · Assignment.
+- Entry: `public static Fin<FittedModel> Fit(Estimator estimator, Matrix<double> features, Option<Vector<double>> targets, EstimatorPolicy policy, CorrelationId correlation, ClockPolicy clocks)` — an in-package Stats-lane fold (shaped like the sibling `Stats/signal#SIGNAL_LANE` `Apply`, not a `ComputeIntent` admission case) whose outcome lands the dedicated `Runtime/receipts#RECEIPT_UNION` `Fit` case at the sink; `Fin<T>` aborts on a rank-deficient design, a missing supervised target, a degenerate group count, or a non-converged iteration. `Predict(FittedModel model, Matrix<double> features)` projects/assigns/responds through the `EstimatorModel` total `Switch`; the hypothesis `Test` entry lives on `[02.1]`.
+- Auto: `Fit` dispatches by `Estimator` case — `Regression` routes OLS/ridge through the `DenseRoute.Solve(FactorRoute.Orthonormal)` thin-QR (ridge stacking the un-penalized-intercept `√λ·I` Tikhonov block) and lasso/GLM through `IterativeEngine.Minimize` under the row's `Driver`; `Reduction` routes PCA through `DenseOps.Decompose(FactorizationKind.Svd)`, kernel-PCA through the centered-RBF-kernel `Evd`, NMF through Lee–Seung multiplicative updates; `Cluster` routes k-means Lloyd, GMM-EM (responsibilities via the `Admission.Definite` Cholesky log-density), DBSCAN reachability, hierarchical average linkage; `Classify` routes LS-SVM through the regularized-Gram `DenseRoute.Solve(FactorRoute.SquarePivoting)`, kNN through a labelled-design store, naive-Bayes through per-class `Statistics.MeanVariance`; `Temporal` splits on `TimeSeriesModel.Iterative` — pure-AR through the lag-design thin-QR, ARMA/Holt/state-space each through their own conditional recurrence minimized by the one `LevenbergMarquardt` owner. `Predict` answers a `Response`, `Projection`, or `Assignment` through the `EstimatorModel` total `Switch`.
+- Receipt: a fit emits the dedicated `Fit` `ComputeReceipt` case `Runtime/receipts#RECEIPT_UNION` declares for this lane (one case row per measured concern, as the FEA `Solver/contract#SOLVE_CONTRACT` `Solve` and the optimizer/sweep/clash/twin/uncertainty cases each own a row rather than overloading a sibling), carrying family, estimator key, carrier parameter count, iteration count, residual, converged flag, the named fit-quality value (R²/explained-energy/inertia/log-likelihood/reconstruction-error/accuracy by family), and retained reduction rank; a closed-form fit ALSO emits the blas `Factorization` receipt under the same `CorrelationId`. Fit-quality and rank read back operator-visibly through the receipt stream (a stall through `ReceiptFolds.Nonconverged`) instead of dying write-only on the carrier.
+- Packages: MathNet.Numerics, TorchSharp, libtorch-cpu, HyperJet (temporal-fit exact-Jacobian scalar-AD — recurrences authored once over `DDScalar`, the LM hyperdual arm reading `GetGradient()`), System.Numerics.Tensors, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.Persistence (project), BCL inbox
+- Growth: a new estimator is one `EstimatorKind` row (its `factorized`/`supervised`/`driver`/`link` columns) plus one branch arm (closed-form reuses the dense factorization, a torch-loss row supplies a `Tensor` loss to `IterativeEngine.Minimize`, a specialized row a genuine kernel) and one `EstimatorModel` case if its fit-result shape is new; a new optimizer is one `OptimDriver` row; a new GLM family one `EstimatorKind` GLM row carrying `Link` and `Deviance`; a new link one `LinkFunction` row; a new time-series model one `TimeSeriesModel` row; a new prediction shape one `Prediction` case; a new hypothesis test one `StatisticalTest` row binding its statistic kernel and p-value tail; zero new surface — an `OlsEstimator`/`PcaEstimator`/`KMeansEstimator` class family collapses onto `EstimatorFold`, a `RegressionModel`/`ClusterModel`/`ReductionModel` trio onto `EstimatorModel`, a hand-rolled `CoordinateDescent`/`Irls`/`Em` loop for a genuine torch-loss row is the deleted form, and a `Lloyd`/`EmFit` torch-loss masquerade for a genuine specialized iteration the equal-and-opposite deleted form.
+- Boundary: lane is contract-uniform — mechanism is a row property, so a forced SVD route for k-means (density/iterative, not a factorization) and the symmetric forced-`torch.optim`-loss for k-means or EM (neither a gradient problem) are both deleted forms; every closed-form estimator factors through the `Tensor/blas#DENSE_ALGEBRA` surface (OLS/ridge `Orthonormal` thin-QR, PCA `Svd`, kernel-PCA centered-kernel `Evd`, LS-SVM regularized-Gram `SquarePivoting`, GMM log-density via the `Admission.Definite` Cholesky), never a hand-rolled normal-equations solve or matrix inverse, sharing the dense-algebra provider and determinism tag as one intra-package owner (estimator.md and blas.md are one assembly — composition, not a project edge). GLM rows fold the canonical-link family `Deviance` to a `torch` loss under `LBFGS` never a hand-rolled IRLS, and `Predict` applies `Link.Mean` so a logistic fit egresses probabilities, not the bare linear predictor — a `LinkFunction` no fit or predict reads is the deleted decorative form. Lloyd/EM/NMF/DBSCAN/linkage bind genuine kernels — their in-place assignment/responsibility/update/region-query/merge loops are this page's mutation exemption; naive-Bayes fits per-class `Statistics.MeanVariance` and regression quality reads `GoodnessOfFit.CoefficientOfDetermination`, never a hand-rolled accumulator; only the egressed `Vector<double>` crosses the boundary, never a `Tensor` on the wire. `Predict` switches the typed `Prediction` through the `EstimatorModel` total generated `Switch` — a non-total `_`-arm over a union is the deleted form, and a reduction's projection matrix or a cluster's label assignment must not flatten into a `Vector<double>`. Seams: time-series and classification rows consume `Stats/signal#SIGNAL_LANE` `Transform` spectral features (signal produces, estimator consumes — bidirectional); the hypothesis tests validate `Solver/uncertainty#UNCERTAINTY_LANE` response samples; offline deep-training models cross the `ONE_GRADUATION_EVIDENCE` seam from Python by content key (C# owns inference plus classical fit, Python owns deep training — an in-proc deep-training loop is rejected); the optimizer's `Surrogate` and digital-twin baseline are `Solver/optimizer#OPTIMIZER_LANE`'s own, not fed here, so a shared-regression-fold claim is the deleted illusory seam.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -72,10 +74,8 @@ public sealed partial class EstimatorKind {
     public static readonly EstimatorKind Svm = new("svm", factorized: true, supervised: true);
     public static readonly EstimatorKind NaiveBayes = new("naive-bayes", factorized: false, supervised: true);
 
-    // factorized rows ride the dense-algebra route; a non-factorized supervised regression row folds to a
-    // torch loss under Driver; the remainder bind a specialized kernel selected by the Estimator case. Link
-    // is Identity except on the GLM rows; Deviance is the GLM family NLL term (null-forgiving — reached only
-    // by the GLM regression branch). The user constructor delegates the key to the generated `this(key)`.
+    // Factorized rides the dense-algebra route; a non-factorized supervised regression folds to a torch loss under Driver; the rest bind a specialized kernel by Estimator case.
+    // Deviance is null-forgiving — reached only by the GLM regression branch; the user constructor delegates the key to the generated `this(key)`.
     private EstimatorKind(string key, bool factorized = false, bool supervised = false, OptimDriver? driver = null, LinkFunction? link = null, Func<Tensor, Tensor, Tensor>? deviance = null) : this(key) {
         Factorized = factorized;
         Supervised = supervised;
@@ -120,15 +120,13 @@ public abstract partial record Estimator {
         regression: static _ => "regression", reduction: static _ => "reduction", cluster: static _ => "cluster",
         classify: static _ => "classify", temporal: static _ => "temporal");
 
-    // One uniform estimator key for the receipt — the row key for the learning families, the model key for
-    // temporal, never a fabricated EstimatorKind.Ols stand-in for a case that carries no EstimatorKind.
+    // One uniform estimator key for the receipt — row key for the learning families, model key for temporal, never a fabricated EstimatorKind.Ols stand-in for a case carrying no EstimatorKind.
     public string Key => Switch(
         regression: static r => r.Kind.Key, reduction: static d => d.Kind.Key, cluster: static c => c.Kind.Key,
         classify: static c => c.Kind.Key, temporal: static t => t.Model.Key);
 
-    // The fit-quality metric NAME the receipt's QualityMetric label carries so a downstream fold reads R²
-    // apart from explained-energy apart from inertia apart from log-likelihood without re-deriving the family;
-    // FittedModel.Quality is the higher-is-better VALUE, this names the underlying metric the value scores.
+    // Metric NAME the receipt's QualityMetric label carries so a downstream fold reads the family metric without re-deriving it;
+    // FittedModel.Quality is the higher-is-better VALUE, this names the metric that value scores.
     public string QualityMetric => Switch(
         regression: static _ => "r2",
         reduction: static d => d.Kind == EstimatorKind.Nmf ? "reconstruction-error" : "explained-energy",
@@ -164,9 +162,8 @@ public abstract partial record EstimatorModel {
         bayes: static b => (long)b.Priors.Count,
         lag: static l => (long)(l.ArCoefficients.Count + l.MaCoefficients.Count));
 
-    // The retained reduction rank the receipt's RetainedRank slot carries — the basis/kernel-basis component
-    // count and the NMF inner dimension; zero on the non-reduction carriers so a non-reduction fit reads
-    // "no retained rank" without a family probe.
+    // Retained reduction rank for the receipt's RetainedRank slot — basis/kernel-basis component count, NMF inner dimension;
+    // zero on non-reduction carriers so a non-reduction fit reads no retained rank without a family probe.
     public int RetainedRank => Switch(
         basis: static b => b.Singular.Count,
         kernelBasis: static k => k.Eigen.Count,
@@ -195,12 +192,8 @@ public sealed record FittedModel(Estimator Estimator, EstimatorModel Carrier, do
     public Fin<Prediction> Predict(Matrix<double> features) => EstimatorFold.Predict(this, features);
 }
 
-// The torch-loss EstimatorKind rows fold to a Tensor loss minimized under torch.autograd + the row's
-// OptimDriver inside one DisposeScope: the design and response ingress through torch.from_array, the loss
-// closure is differentiated by backward(), the LBFGS line-search form re-evaluates the closure per probe,
-// and the surviving coefficient Tensor egresses to a Vector<double> for the EstimatorModel carrier. Every
-// intermediate is reclaimed at scope exit and stamped by DisposeScopeManager.Statistics; AnomalyMode traps a
-// NaN/inf fit to a typed fault. set_default_dtype floors the math at Float64. No Tensor escapes the lane.
+// Torch-loss rows minimize a Tensor loss under torch.autograd + the row's OptimDriver inside one DisposeScope; the LBFGS line-search form re-evaluates the closure per probe.
+// Every intermediate is reclaimed at scope exit and stamped by DisposeScopeManager.Statistics; AnomalyMode traps a NaN/inf fit, set_default_dtype floors at Float64, no Tensor escapes the lane.
 public static class IterativeEngine {
     public static Fin<(Vector<double> Theta, double Loss, int Iterations, bool Converged, ThreadDisposeScopeStatistics Memory)> Minimize(
         Func<Tensor, Tensor, Tensor, Tensor> loss, Matrix<double> design, Vector<double> response, OptimDriver driver, EstimatorPolicy policy) {
@@ -277,8 +270,7 @@ public static class EstimatorFold {
                     .Map(fit => Build(r, x, targets, Split(fit.Theta), link, fit.Loss, fit.Iterations, fit.Converged, clocks));
         });
 
-    // OLS/ridge: thin-QR over the intercept-augmented design through the dense-algebra route; ridge stacks the
-    // un-penalized-intercept √λ·I Tikhonov block onto the design and zero-pads the response.
+    // OLS/ridge thin-QR over the intercept-augmented design; ridge stacks the un-penalized-intercept √λ·I Tikhonov block and zero-pads the response.
     static Fin<FittedModel> Closed(Estimator.Regression r, Matrix<double> x, Vector<double> y, EstimatorPolicy policy, LinkFunction link, ClockPolicy clocks) {
         Matrix<double> design = Intercept(x);
         bool ridge = r.Kind == EstimatorKind.Ridge;
@@ -292,10 +284,8 @@ public static class EstimatorFold {
         var carrier = new EstimatorModel.Linear(split.Slopes, split.Intercept, link);
         Vector<double> predicted = x.Multiply(split.Slopes).Add(split.Intercept).Map(link.Mean);
         double r2 = GoodnessOfFit.CoefficientOfDetermination(predicted, y);
-        // Pearson dispersion √(Σ (yᵢ−μᵢ)²/V(μᵢ) / (n−p)): the family variance V(μ) the LinkFunction row carries
-        // weights each squared residual, so a logistic fit scores on its Bernoulli scale (V=μ(1−μ)) and the
-        // Identity link (V=1) recovers the Gaussian residual standard error — never an unweighted RMSE blind to
-        // the link variance, the residual NOT reading `Link.Variance` being the decorative form this deletes.
+        // Pearson dispersion √(Σ (yᵢ−μᵢ)²/V(μᵢ)/(n−p)): the LinkFunction V(μ) weights each squared residual, so a logistic fit scores on its Bernoulli scale (V=μ(1−μ)) and Identity (V=1) recovers the Gaussian standard error.
+        // Never an unweighted RMSE blind to the link variance — a residual not reading `Link.Variance` is the deleted decorative form.
         int dispersionDof = Math.Max(1, y.Count - split.Slopes.Count - 1);
         double dispersion = Math.Sqrt(Enumerable.Range(0, y.Count).Sum(i => Math.Pow(y[i] - predicted[i], 2) / Math.Max(1e-12, link.Variance(predicted[i]))) / dispersionDof);
         return new FittedModel(estimator, carrier, r2, double.IsFinite(dispersion) ? dispersion : loss, iterations, converged, clocks.Now);
@@ -328,7 +318,7 @@ public static class EstimatorFold {
             }));
     }
 
-    // Kernel-PCA: the centered RBF Gram matrix is the operand, its top eigenvectors the dual coefficients;
+    // Kernel-PCA: centered RBF Gram is the operand, its top eigenvectors the duals;
     // out-of-sample projection double-centers the test/train kernel against the stored row/grand means.
     static Fin<FittedModel> FitKernelPca(Estimator.Reduction d, Matrix<double> x, EstimatorPolicy policy, ClockPolicy clocks) {
         int n = x.RowCount;
@@ -407,9 +397,8 @@ public static class EstimatorFold {
         return Fin.Succ(new FittedModel(c, new EstimatorModel.Partition(centroids, [.. labels]), -inertia, inertia / Math.Max(1, n), iter, !moved, clocks.Now));
     }
 
-    // GMM-EM as a Fin-threaded fold: each EmStep computes responsibilities through the gated Cholesky
-    // log-density and re-estimates (weights, means, covariances), short-circuiting once the log-likelihood
-    // stalls — a Cholesky failure on a degenerate covariance aborts the whole fit through the rail.
+    // GMM-EM as a Fin-threaded fold: each EmStep computes responsibilities through the gated Cholesky log-density and re-estimates (weights, means, covariances), short-circuiting once the log-likelihood stalls.
+    // A Cholesky failure on a degenerate covariance aborts the whole fit through the rail.
     static Fin<FittedModel> ExpectationMaximization(Estimator.Cluster c, Matrix<double> x, EstimatorPolicy policy, ClockPolicy clocks) {
         int n = x.RowCount, dim = x.ColumnCount, k = c.Groups;
         if (k <= 0 || k > n) { return Fin.Fail<FittedModel>(ComputeFault.Create($"<gmm-groups:{k}>")); }
@@ -499,9 +488,8 @@ public static class EstimatorFold {
             : c.Kind == EstimatorKind.NaiveBayes ? FitNaiveBayes(c, x, targets, policy, clocks)
             : Fin.Fail<FittedModel>(ComputeFault.Create($"<classify-kind-miss:{c.Kind.Key}>")));
 
-    // LS-SVM: the regularized-Gram KKT system [[0, yᵀ],[y, K+I/γ]]·[b; α] = [0; 1] solved once through the
-    // dense-algebra square route — the closed-form kernel classifier; the box-constrained C-SVM dual (SMO /
-    // projected gradient) is the noted alternative where the hard-margin sparsity is required.
+    // LS-SVM: the regularized-Gram KKT system [[0, yᵀ],[y, K+I/γ]]·[b; α] = [0; 1] solved once through the dense-algebra square route (the closed-form kernel classifier).
+    // Box-constrained C-SVM dual (SMO / projected gradient) is the noted alternative where hard-margin sparsity is required.
     static Fin<FittedModel> FitSvm(Estimator.Classify c, Matrix<double> x, Vector<double> y, EstimatorPolicy policy, ClockPolicy clocks) {
         int n = x.RowCount;
         Vector<double> signed = y.Map(static v => v > 0.0 ? 1.0 : -1.0);
@@ -542,9 +530,8 @@ public static class EstimatorFold {
 
     // --- [TEMPORAL] -----------------------------------------------------------------------
 
-    // The Iterative column splits the closed-form AR (lag-design thin-QR) from the three genuine iterative
-    // recurrences, each with its OWN conditional kernel minimized by the shared LevenbergMarquardt owner — never
-    // one ARMA(p,1) masquerade standing in for exponential-smoothing and state-space.
+    // Iterative column splits the closed-form AR (lag-design thin-QR) from the three genuine iterative recurrences, each with its OWN conditional kernel minimized by the shared LevenbergMarquardt owner.
+    // Never one ARMA(p,1) masquerade standing in for exponential-smoothing and state-space.
     static Fin<FittedModel> FitTemporal(Estimator.Temporal t, Matrix<double> x, EstimatorPolicy policy, ClockPolicy clocks) {
         Vector<double> series = x.Column(0);
         return !t.Model.Iterative ? FitAr(t, series, clocks)
@@ -553,8 +540,7 @@ public static class EstimatorFold {
             : FitStateSpace(t, series, clocks);
     }
 
-    // Pure AR(p): the lag design Y[t] = Σ φₖ·Y[t−k] solved through the dense-algebra thin-QR least squares —
-    // the same closed-form route OLS rides, the AR coefficients its solution.
+    // Pure AR(p): the lag design Y[t] = Σ φₖ·Y[t−k] solved through the dense-algebra thin-QR — the same closed-form route OLS rides, the AR coefficients its solution.
     static Fin<FittedModel> FitAr(Estimator.Temporal t, Vector<double> series, ClockPolicy clocks) {
         int p = Math.Max(1, t.Lags), n = series.Count;
         if (n <= p) { return Fin.Fail<FittedModel>(ComputeFault.Create($"<ar-short-series:{n}<={p}>")); }
@@ -569,13 +555,9 @@ public static class EstimatorFold {
             });
     }
 
-    // ARMA: the MA term is nonlinear in the parameters, so the conditional sum-of-squares is a nonlinear least
-    // squares minimized through the dense lane's LevenbergMarquardt HYPERDUAL arm — the residual recursion is
-    // authored ONCE over the HyperJet DDScalar, so the LM Jacobian is EXACT row-by-row through GetGradient()
-    // (the finite-difference fall is deleted; FD survives only on genuine black-box oracles) — never a torch
-    // loss whose graph the in-place residual write and the CPU-scalar read would sever. Exponential-smoothing
-    // and state-space ride the SAME LM arm but over their OWN distinct recurrences (Holt errors, Kalman
-    // innovations), never this ARMA residual.
+    // ARMA: the MA term is nonlinear, so the conditional sum-of-squares is minimized through the dense lane's LevenbergMarquardt HYPERDUAL arm — the residual recursion authored ONCE over the HyperJet DDScalar,
+    // so the LM Jacobian is EXACT through GetGradient() (FD survives only on genuine black-box oracles), never a torch loss whose graph the in-place residual write and CPU-scalar read would sever.
+    // Exponential-smoothing and state-space ride the SAME LM arm over their OWN distinct recurrences (Holt errors, Kalman innovations), never this ARMA residual.
     static Fin<FittedModel> FitArma(Estimator.Temporal t, Vector<double> series, EstimatorPolicy policy, ClockPolicy clocks) {
         int p = Math.Max(1, t.Lags), q = p, n = series.Count;
         if (n <= p + q) { return Fin.Fail<FittedModel>(ComputeFault.Create($"<arma-short-series:{n}>")); }
@@ -593,10 +575,8 @@ public static class EstimatorFold {
             });
     }
 
-    // Holt linear-trend exponential smoothing: a genuinely distinct level+trend recurrence (NOT an ARMA roll).
-    // The smoothing pair (α, β) is logistic-reparametrized so LevenbergMarquardt searches ℝ² unconstrained while
-    // the live rates stay in (0,1); the carrier stores the realized (α, β) and the terminal (level, trend) the
-    // forecast extrapolates as level + h·trend.
+    // Holt linear-trend exponential smoothing: a genuinely distinct level+trend recurrence (NOT an ARMA roll); (α, β) is logistic-reparametrized so LevenbergMarquardt searches ℝ² unconstrained while live rates stay in (0,1).
+    // Carrier stores the realized (α, β) and the terminal (level, trend) the forecast extrapolates as level + h·trend.
     static Fin<FittedModel> FitHolt(Estimator.Temporal t, Vector<double> series, ClockPolicy clocks) {
         int n = series.Count;
         if (n < 3) { return Fin.Fail<FittedModel>(ComputeFault.Create($"<holt-short-series:{n}>")); }
@@ -608,11 +588,9 @@ public static class EstimatorFold {
             });
     }
 
-    // Local-linear-trend structural state-space fit by the Kalman recurrence: the level/slope signal-to-noise
-    // pair (qLevel, qSlope) is log-reparametrized for the unconstrained LM search over the RAW one-step
-    // prediction-error innovations v (the minimum-prediction-error criterion — standardizing by √F would let LM
-    // drive q→∞ degenerately), and the carrier stores the filtered terminal (level, slope) the forecast projects
-    // forward — the optimal Kalman gain the AR lag-regression and the Holt smoother both lack.
+    // Local-linear-trend state-space fit by the Kalman recurrence: (qLevel, qSlope) is log-reparametrized for the unconstrained LM search over the RAW one-step prediction-error innovations v
+    // (the minimum-prediction-error criterion — standardizing by √F would let LM drive q→∞ degenerately); the carrier stores the filtered terminal (level, slope) the forecast projects forward,
+    // the optimal Kalman gain the AR lag-regression and the Holt smoother both lack.
     static Fin<FittedModel> FitStateSpace(Estimator.Temporal t, Vector<double> series, ClockPolicy clocks) {
         int n = series.Count;
         if (n < 4) { return Fin.Fail<FittedModel>(ComputeFault.Create($"<state-space-short-series:{n}>")); }
@@ -724,22 +702,19 @@ public static class EstimatorFold {
         return centered.Multiply(basis.Alphas);
     }
 
-    // NMF transform of new rows given the learned components H: one non-negative projection step per
-    // component (the full non-negative least squares is the noted refinement); the encoding stays W ≥ 0.
+    // NMF transform of new rows given components H: one non-negative projection step per component (full NNLS is the noted refinement); the encoding stays W ≥ 0.
     static Matrix<double> NonNegativeEncode(Matrix<double> x, Matrix<double> components) =>
         Matrix<double>.Build.Dense(x.RowCount, components.RowCount, (i, k) =>
             Math.Max(0.0, x.Row(i).DotProduct(components.Row(k)) / Math.Max(1e-12, components.Row(k).DotProduct(components.Row(k)))));
 
-    // Model-aware forecast: the Lag.Model tag routes to the matching extrapolation — the AR(+MA) roll for the
-    // lag-regression families, the level+trend line for Holt, the level+slope line for the local-trend SSM.
+    // Model-aware forecast: the Lag.Model tag routes extrapolation — AR(+MA) roll for the lag-regression families, level+trend line for Holt, level+slope line for the local-trend SSM.
     static Vector<double> Forecast(EstimatorModel.Lag lag, int horizon) =>
         lag.Model == TimeSeriesModel.ExponentialSmoothing ? HoltForecast(lag, horizon)
         : lag.Model == TimeSeriesModel.StateSpace ? StateSpaceForecast(lag, horizon)
         : ArmaForecast(lag, horizon);
 
-    // AR(+MA) roll: ŷ[T+h] = Σφₖ·ŷ[T+h−1−k] + Σψₖ·ê[T+h−1−k]; a future shock has zero expectation, so the MA
-    // term decays to zero past q steps while the AR feedback continues from the rolled forecasts. Pure-AR (q=0)
-    // skips the residual loop — one roll serving both lag-regression rows.
+    // AR(+MA) roll: ŷ[T+h] = Σφₖ·ŷ[T+h−1−k] + Σψₖ·ê[T+h−1−k]; a future shock has zero expectation, so the MA term decays to zero past q steps while the AR feedback continues from the rolled forecasts.
+    // Pure-AR (q=0) skips the residual loop — one roll serving both lag-regression rows.
     static Vector<double> ArmaForecast(EstimatorModel.Lag lag, int horizon) {
         int p = lag.ArCoefficients.Count, q = lag.MaCoefficients.Count;
         var obs = new double[p];
@@ -766,11 +741,8 @@ public static class EstimatorFold {
     static Vector<double> StateSpaceForecast(EstimatorModel.Lag lag, int horizon) =>
         Vector<double>.Build.Dense(Math.Max(1, horizon), h => lag.Tail[0] + (h + 1) * lag.Tail[1]);
 
-    // Holt one-step error e[t] = y[t] − (ℓ[t−1]+b[t−1]); ℓ[t] = ℓ[t−1]+b[t−1]+α·e[t], b[t] = b[t−1]+α·β·e[t].
-    // (α, β) arrive logistic-mapped from the unconstrained LM iterate so the live rates stay in (0,1).
-    // Authored ONCE over the HyperJet DDScalar: the LM hyperdual arm reads the EXACT Jacobian through
-    // GetGradient(), and the post-fit state read is the same recursion seeded with constants — one
-    // authoring, two instantiations, zero finite differences and zero duplicated double body.
+    // Holt one-step level+trend recurrence; (α, β) arrive logistic-mapped from the LM iterate so live rates stay in (0,1).
+    // Authored ONCE over the HyperJet DDScalar — the LM hyperdual arm reads the EXACT Jacobian through GetGradient(), the post-fit read the same recursion seeded with constants, zero finite differences.
     static (DDScalar[] Errors, DDScalar Level, DDScalar Trend) HoltFilter(Vector<double> series, DDScalar[] theta) {
         DDScalar alpha = Logistic(theta[0]), beta = Logistic(theta[1]);
         int n = series.Count;
@@ -797,13 +769,8 @@ public static class EstimatorFold {
         return (run.Level.Value, run.Slope.Value, variance);
     }
 
-    // The 2-state (level, slope) local-linear-trend Kalman filter: transition T=[[1,1],[0,1]], observation
-    // H=[1,0] with unit measurement variance, diffuse covariance start, and process variances (qLevel, qSlope).
-    // P⁻ = T·P·Tᵀ + Q expands to the three symmetric entries; the optimal gain K = P⁻Hᵀ/F updates the state and
-    // the Joseph-equivalent (I−KH)P⁻ posterior. The raw innovation v feeds the LM prediction-error fit.
-    // Authored ONCE over the DDScalar so the innovation Jacobian is exact THROUGH the filter recursion —
-    // the covariance/gain arithmetic differentiates too, the algorithmic-derivative posture the FD probe
-    // could only approximate.
+    // 2-state (level, slope) local-linear-trend Kalman filter: transition T=[[1,1],[0,1]], observation H=[1,0] with unit measurement variance, diffuse covariance start, process variances (qLevel, qSlope); the raw innovation v feeds the LM prediction-error fit.
+    // Authored ONCE over the DDScalar so the innovation Jacobian is exact THROUGH the filter recursion — the covariance/gain arithmetic differentiates too, the algorithmic derivative the FD probe could only approximate.
     static (DDScalar[] Innovations, DDScalar Level, DDScalar Slope) StateSpaceFilter(Vector<double> series, DDScalar[] theta) {
         DDScalar qLevel = HyperJetMath.Exp(theta[0]), qSlope = HyperJetMath.Exp(theta[1]);
         int n = series.Count;
@@ -827,9 +794,8 @@ public static class EstimatorFold {
 
     static DDScalar Logistic(DDScalar z) => 1.0 / (1.0 + HyperJetMath.Exp(-z));
 
-    // Conditional residual recursion r[t] = y[t] − (Σφₖ·y[t−1−k] + Σψₖ·r[t−1−k]); residuals before the
-    // max(p,q) warmup are zero, the standard conditional-sum-of-squares start. Authored ONCE over
-    // DDScalar so the LM gradient is machine-exact — no finite-difference probe exists on this rail.
+    // Conditional residual recursion r[t] = y[t] − (Σφₖ·y[t−1−k] + Σψₖ·r[t−1−k]); residuals before the max(p,q) warmup are zero, the standard conditional-sum-of-squares start.
+    // Authored ONCE over DDScalar so the LM gradient is machine-exact — no finite-difference probe exists on this rail.
     static DDScalar[] ArmaResiduals(Vector<double> series, int p, int q, DDScalar[] theta) {
         int n = series.Count, warmup = Math.Max(p, q);
         DDScalar zero = theta[0] * 0.0;
@@ -844,8 +810,7 @@ public static class EstimatorFold {
         return residuals[warmup..];
     }
 
-    // The constant seeding for post-fit reads (gradient-free, order-1-compatible) and the primal projection
-    // back onto the MathNet vector the model carriers store.
+    // Constant seeding for post-fit reads (gradient-free, order-1-compatible) and the primal projection back onto the MathNet vector the model carriers store.
     static DDScalar[] Constants(Vector<double> theta) => [.. theta.Select(static v => DDScalar.Constant(v, 0, order: 1))];
 
     static Vector<double> Primal(DDScalar[] values) => Vector<double>.Build.Dense([.. values.Select(static v => v.Value)]);
@@ -854,11 +819,11 @@ public static class EstimatorFold {
 
 ### [02.1]-[HYPOTHESIS_LAW]
 
-- Owner: `StatisticalTest` `[SmartEnum<string>]` the hypothesis rows, each binding ONE `Evaluate` kernel that computes the test statistic, the (possibly fractional) degrees of freedom, and the p-value from its own tail — collapsing the prior parallel `Statistic`/`PValue`/`dof` helper trio into row data; `TestResult` the (statistic, p-value, decision, dof) carrier; `Hypothesis` the static `Test` surface threading the settled `ClockPolicy`.
-- Cases: `StatisticalTest` rows t · welch-t · anova · chi-square · ks · mann-whitney (6).
-- Entry: `public static Fin<TestResult> Test(StatisticalTest test, Seq<ReadOnlyMemory<double>> samples, double alpha, CorrelationId correlation, ClockPolicy clocks)` computes the row's statistic and reads the p-value from the matching `Distributions` CDF, stamping the instant from `clocks.Now` — never the ambient `SystemClock`, the foreclosed second clock.
-- Auto: the pooled-variance `t` and the Welch `welch-t` rows read a two-sided tail from `StudentT.CDF` (Welch carrying the Welch–Satterthwaite fractional dof); `anova` reads the upper tail of `FisherSnedecor.CDF` over the (k−1, N−k) one-way F; `chi-square` reads the upper tail of `ChiSquared.CDF` over the Σ(O−E)²/E goodness-of-fit statistic; `ks` reads the two-sample sup-distance against the Kolmogorov asymptotic series `Q(λ)=2·Σ(−1)^{j−1}·e^{−2j²λ²}` (no MathNet CDF exists, so the series is the row's kernel); `mann-whitney` reads a tie-corrected, continuity-corrected normal approximation through `Normal.CDF` over the rank-sum U.
-- Boundary: each test row owns its complete kernel so a hand-derived error function beside the `Distributions` CDF is the deleted form for the t/anova/chi-square/mann-whitney rows, and the Kolmogorov series + the rank-sum computation are this page's statement-exemption numeric kernels exactly as the signal lane's direct-form recurrence is exempt; the tail direction is row policy (two-sided for t/welch/mann-whitney, upper for anova/chi-square, the Kolmogorov complement for ks) so a fixed one-sided tail across the family is the deleted form; the tests validate the `Solver/uncertainty#UNCERTAINTY_LANE` response samples (a KS distribution-fit check or an ANOVA across design regions) so the hypothesis surface consumes the UQ lane's draws without re-sampling.
+- Owner: `StatisticalTest` `[SmartEnum<string>]` rows each bind ONE `Evaluate` kernel computing the statistic, the (possibly fractional) dof, and the p-value from its own tail — collapsing a parallel `Statistic`/`PValue`/`dof` helper trio into row data; `TestResult` carries (statistic, p-value, decision, dof); `Hypothesis` is the static `Test` surface threading the settled `ClockPolicy`.
+- Cases: `StatisticalTest` t · welch-t · anova · chi-square · ks · mann-whitney.
+- Entry: `public static Fin<TestResult> Test(StatisticalTest test, Seq<ReadOnlyMemory<double>> samples, double alpha, CorrelationId correlation, ClockPolicy clocks)` computes the row's statistic and reads the p-value from the matching `Distributions` CDF, stamping `clocks.Now` — never the ambient `SystemClock`.
+- Auto: pooled-variance `t` and Welch `welch-t` read a two-sided `StudentT.CDF` tail (Welch carrying the Welch–Satterthwaite fractional dof); `anova` reads the upper `FisherSnedecor.CDF` tail over the one-way F; `chi-square` reads the upper `ChiSquared.CDF` tail over Σ(O−E)²/E; `ks` reads the two-sample sup-distance against the Kolmogorov series `Q(λ)=2·Σ(−1)^{j−1}·e^{−2j²λ²}` (no MathNet CDF exists); `mann-whitney` reads a tie-corrected, continuity-corrected `Normal.CDF` approximation over the rank-sum U.
+- Boundary: each row owns its complete kernel, so a hand-derived error function beside the `Distributions` CDF is the deleted form for t/anova/chi-square/mann-whitney, while the Kolmogorov series and the rank-sum computation are this page's statement-exemption kernels (as the signal lane's direct-form recurrence is exempt); tail direction is row policy (two-sided for t/welch/mann-whitney, upper for anova/chi-square, Kolmogorov complement for ks), so a fixed one-sided tail across the family is the deleted form; the tests validate `Solver/uncertainty#UNCERTAINTY_LANE` response samples without re-sampling.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -876,8 +841,7 @@ public sealed partial class StatisticalTest {
 
     public (double Statistic, double PValue, double Dof) Evaluate(Seq<ReadOnlyMemory<double>> samples) => evaluate(samples);
 
-    // Pooled (Student) or separate-variance (Welch) two-sample t; Welch carries the fractional
-    // Welch–Satterthwaite dof; both read the two-sided StudentT tail.
+    // Pooled (Student) or separate-variance (Welch) two-sample t; Welch carries the fractional Welch–Satterthwaite dof; both read the two-sided StudentT tail.
     static (double, double, double) StudentTwoSample(Seq<ReadOnlyMemory<double>> samples, bool pooled) {
         double[] a = samples[0].ToArray(), b = samples[1].ToArray();
         (double ma, double va) = a.MeanVariance();
@@ -911,8 +875,7 @@ public sealed partial class StatisticalTest {
         return (chi, 1.0 - ChiSquared.CDF(dof, chi), dof);
     }
 
-    // Two-sample Kolmogorov–Smirnov: the sup gap of the empirical CDFs against the Kolmogorov asymptotic
-    // series — MathNet ships no Kolmogorov distribution, so the alternating exponential series is the kernel.
+    // Two-sample Kolmogorov–Smirnov: sup gap of the empirical CDFs against the Kolmogorov asymptotic series — MathNet ships no Kolmogorov distribution, so the alternating exponential series is the kernel.
     static (double, double, double) KolmogorovSmirnov(Seq<ReadOnlyMemory<double>> samples) {
         double[] a = [.. samples[0].ToArray().Order()], b = [.. samples[1].ToArray().Order()];
         int na = a.Length, nb = b.Length, i = 0, j = 0;
@@ -973,6 +936,10 @@ public static class Hypothesis {
 
 ## [03]-[RESEARCH]
 
-- [GLM_DEVIANCE]: the GLM fit folds the canonical-link family `Deviance` carried on the `EstimatorKind` GLM row to a `torch` loss minimized under `LBFGS` through `IterativeEngine.Minimize`, reverse-mode-differentiated by `backward()` (`softplus(η)−y·η` Bernoulli / `exp(η)−y·η` Poisson / `η+y·exp(−η)` log-link Gamma), so the second-order quasi-Newton step replaces the explicit IRLS normal-equation re-solve and the `Link.Mean` inverse link reconstructs the predicted mean at egress; the `Build` residual IS the Pearson dispersion √(Σ (y−μ)²/V(μ)/(n−p)) reading the row's `Link.Variance` (V=μ(1−μ) Bernoulli, V=μ Poisson, V=1 the Gaussian Identity floor), so the family variance is load-bearing rather than decorative, and the receipt's fit-quality stamp carries it; the open leaf is the EXACT deviance over the `MathNet.Numerics.Distributions` `Density`/`CumulativeDistribution` normalizing constant where the family needs it beyond the quasi-likelihood dispersion, and the canonical inverse-link Gamma path (`LinkFunction.Inverse`, reachable through the `Estimator.Regression.Link` override) grounds against the `−log(−η)−y·η` form where positivity holds.
-- [LS_SVM_VS_DUAL]: the realized SVM is the least-squares formulation — the regularized-Gram KKT system solved once through the `Tensor/blas#DENSE_ALGEBRA` `DenseRoute.Solve(FactorRoute.SquarePivoting)`, the dual coefficients its solution and the RBF bandwidth a policy column; the open leaf is the box-constrained C-SVM dual (the hinge/quadratic-margin objective under `0 ≤ α ≤ C`, `Σαᵢyᵢ = 0`) whose sparse support set the LS-SVM dense solution trades for closed-form conditioning, grounded against an SMO/projected-gradient kernel where hard-margin sparsity is required, the Gram-matrix conditioning riding the `Admission.Definite` Cholesky gate.
-- [GRADUATION_MODELS]: the offline deep-training models (gradient-boosted, deep-net) are the Python `compute/graduation` companion's, decoded by content key over the `ONE_GRADUATION_EVIDENCE` seam — C# owns the classical fit plus the ONNX inference, and the model-signature (input/output tensor names, feature interleave) grounds against the companion-published signature at the graduation-decode gate, the fitted classical estimators staying the C# producer; the spectral features the time-series and classification rows consume arrive from the `Stats/signal#SIGNAL_LANE` `Transform` axis, the producer of the frequency-domain evidence this lane reads.
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+-->
+
+- [GLM_DEVIANCE]-[OPEN]: exact family deviance over the `MathNet.Numerics.Distributions` `Density`/`CumulativeDistribution` normalizing constant beyond the quasi-likelihood Pearson dispersion, plus the canonical inverse-link Gamma path (`LinkFunction.Inverse` via the `Estimator.Regression.Link` override) as the `−log(−η)−y·η` form where positivity holds; verify against the `MathNet.Numerics.Distributions` surface.
+- [LS_SVM_VS_DUAL]-[OPEN]: box-constrained C-SVM dual (hinge/quadratic-margin under `0 ≤ α ≤ C`, `Σαᵢyᵢ = 0`) trading the LS-SVM dense closed-form for a sparse support set where hard-margin sparsity is required; verify an SMO/projected-gradient kernel with the `Admission.Definite` Cholesky conditioning gate.
+- [GRADUATION_MODELS]-[BLOCKED]: offline deep-training model signature (input/output tensor names, feature interleave) the `ONE_GRADUATION_EVIDENCE` graduation-decode gate reads; verify against the Python `compute/graduation` companion-published signature.

@@ -1,32 +1,40 @@
 # [MONOREPO_ARCHITECTURE]
 
-The canonical monorepo hierarchy law — the strata, the dependency direction, the universal-vs-Rhino-capture rule, the geometry/mesh/IFC flow, the `.planning/` lifecycle, the per-language roles, and the cross-language wire seams. This Tier-0 law owns the cross-cutting topology that no single branch or package can own; it is distinct from the authoring standard (`README.md`, which owns the doc-set tiers and page grammar) and the campaign method (`campaign-method.md`, which owns the planning loop). Per-package detail — owner registries, source trees, intra-package seams — lives in each folder `ARCHITECTURE.md` and is never restated here. Tier-0 is the only tier that names a language; branches and folders consume this topology as settled vocabulary.
+Canonical monorepo hierarchy law: the strata, the dependency direction, the universal-vs-Rhino-capture rule, the geometry/mesh/IFC flow, the `.planning/` lifecycle, the per-language roles, and the cross-language wire seams. This Tier-0 law owns the cross-cutting topology that no single branch or package can own; it is distinct from the authoring standard (`README.md`, which owns the doc-set tiers and page grammar) and the campaign method (`campaign-method.md`, which owns the planning loop). Per-package detail — owner registries, source trees, intra-package seams — lives in each folder `ARCHITECTURE.md` and is never restated here. Tier-0 is the only tier that names a language; branches and folders consume this topology as settled vocabulary.
 
 ## [01]-[STRATA]
 
-The repository is one tri-language AEC platform organized into strict strata. Each stratum depends only upward; each package is a genuine higher-order domain, never a weak or mini sibling. The C# branch carries the durable host-bound source and the geometry/AEC capability; Python and TypeScript are host-free peer runtimes that consume the wire.
+This repository is one tri-language AEC platform organized into strict strata. Each stratum depends only upward; each package is a genuine higher-order domain, never a weak or mini sibling. C# carries the durable host-bound source and the geometry/AEC capability; Python and TypeScript are host-free peer runtimes that consume the wire.
 
 [KERNEL]:
 - Folder(s): `Rasm`
-- The RhinoCommon-aware geometry/numeric kernel — planning-scoped, one `.planning/` root whose sub-domains are folder-true namespaces. The branch base: referenced by every higher stratum, references none.
+- `Rasm` is the RhinoCommon-aware geometry/numeric kernel — planning-scoped, one `.planning/` root whose sub-domains are folder-true namespaces.
+- Branch base: referenced by every higher stratum, references none.
 
 [AEC-DOMAIN]:
 - Folder(s): the lowest-AEC element seam `Rasm.Element`, then the AEC peers `Rasm.Materials`, `Rasm.Bim`, `Rasm.Fabrication`.
-- `Rasm.Element` is the shared lowest-AEC sub-stratum: the canonical `ElementGraph` property-graph (entity + objectified relationships + typed property/quantity/material/assessment/coverage payloads) plus the `IElementProjection`/`IGraphConstraint` contracts the peers depend up on and implement. It references the kernel only, owns no IFC stack and no host geometry (geometry is referenced by content hash), and re-mints nothing the kernel owns (one `XxHash128` seed).
-- The AEC peers carry host-neutral AEC capability: profiles/appearance/construction, the BIM object-model + IFC/glTF/STEP exchange, and portable fabrication (HLR/CAM/nesting).
-- Each AEC peer depends up on `{Rasm, Rasm.Element}` and projects its foreign source (GeometryGym in Bim, VividOrange in Materials) onto the shared `ElementGraph` through an `IElementProjection`; the peers never reference each other.
-- AEC peer alignment travels through seam contracts and the content-keyed wire, the same shape as depending on the kernel, so each package stays fully usable in isolation.
+- `Rasm.Element` is the shared lowest-AEC sub-stratum: the canonical `ElementGraph` property graph and the contracts the peers implement.
+- `ElementGraph` folds entity, objectified relationships, and typed property, quantity, material, assessment, and coverage payloads.
+- `IElementProjection` and `IGraphConstraint` are the seam contracts, declared on the seam and implemented by every peer.
+- `Rasm.Element` references the kernel only, owns no IFC stack and no host geometry (geometry by content hash), and re-mints nothing the kernel owns.
+- AEC peers carry host-neutral capability: profiles, appearance, and construction; the BIM model with IFC exchange; portable fabrication.
+- Each AEC peer depends up on `{Rasm, Rasm.Element}` and projects its foreign source onto the shared graph through an `IElementProjection`.
+- Peers never reference each other.
+- Peer alignment travels through seam contracts and the content-keyed wire, so each package stays fully usable in isolation.
 
 [APP-PLATFORM]:
 - Folder(s): `Rasm.AppHost`, `Rasm.Compute`, `Rasm.Persistence`, `Rasm.AppUi`
-- Generic application capability: runtime spine, measured execution, durable stores, product UI. Composes the kernel and AEC-domain and owns no geometry, BIM semantics, or fabrication algorithms — it consumes them.
+- Generic application capability: runtime spine, measured execution, durable stores, product UI.
+- It composes the kernel and AEC-domain and owns no geometry, BIM semantics, or fabrication algorithms — it consumes them.
 - Target: `Rasm.Generation` — the layout/generation/assembly orchestration library.
-- `Rasm.Generation` owns the orchestration that turns a sited occurrence, inherited `Component` generative data, construction primitives, and bond/layout policy into host-neutral kernel geometry.
-- It composes the kernel's geometry operations rather than owning geometry primitives, depends up on `{Rasm, Rasm.Element, Rasm.Materials, Rasm.Bim, Rasm.Fabrication}`, and leaves live-document bake to the host boundary.
+- `Rasm.Generation` turns a sited occurrence, inherited generative data, construction primitives, and bond/layout policy into kernel geometry.
+- It composes the kernel's geometry operations rather than owning primitives, and depends up on the kernel, the seam, and the AEC peers.
+- Live-document bake stays at the host boundary.
 
 [HOST-BOUNDARY]:
 - Folder(s): `Rasm.Rhino`, `Rasm.Grasshopper`
-- Self-contained, host-bound RhinoCommon/GH2 boundaries. Reference only the kernel; admitted only at the app roots, never as an interior dependency of a host-neutral package.
+- Self-contained, host-bound RhinoCommon/GH2 boundaries referencing only the kernel.
+- Admitted only at the app roots, never as an interior dependency of a host-neutral package.
 
 [APP]:
 - Folder pattern: `apps/<concern>` product shells.
@@ -37,54 +45,71 @@ The repository is one tri-language AEC platform organized into strict strata. Ea
 Dependency is strictly upward through the strata; the graph is acyclic with the kernel at the base and the app shells at the leaf.
 
 - `Rasm` references no sibling and is referenced by every C# stratum above it.
-- `Rasm.Element` (the lowest-AEC seam) references only `Rasm`, names no IFC or provider package, and is referenced as the shared lower stratum by every AEC peer and by the app-platform stores that persist or read the `ElementGraph`.
-- The AEC peers (`Rasm.Materials`, `Rasm.Bim`, `Rasm.Fabrication`) depend up on `{Rasm, Rasm.Element}` and never reference each other — alignment travels only through the `IElementProjection`/`IGraphConstraint` seam contracts and the content-keyed wire, never a direct peer reference.
-- App-platform references the kernel and the element seam; cross-references between AEC-domain and app-platform are one-directional (app-platform consumes the element seam and the AEC-domain capability, never the reverse). The `Rasm.Generation` target follows this direction: it consumes the element seam (occurrences + `Bake`/`TypeId`) and the AEC-domain capability (`Component` generative data, construction primitives), and nothing references it downward.
-- No host-neutral package (KERNEL, AEC-DOMAIN, APP-PLATFORM) references a HOST-BOUNDARY package. `Rasm.Rhino` and `Rasm.Grasshopper` reference only `Rasm` and are composed at the app roots.
-- `Rasm.AppUi` is the app-platform consuming leaf; it is not the app composition root. Product composition that binds host boundaries (Rhino/GH2) lives at the APP stratum, never inside app-platform. `Rasm.AppUi` references only `{Rasm, Rasm.AppHost, Rasm.Compute, Rasm.Persistence}`; the host boundaries enter at the app root that composes a live host, never as an interior `Rasm.AppUi` reference.
+- `Rasm.Element` references only `Rasm` and names no IFC or provider package.
+- Every AEC peer and the app-platform stores that persist or read the `ElementGraph` reference the seam as the shared lower stratum.
+- AEC peers depend up on `{Rasm, Rasm.Element}` and never reference each other; alignment travels the seam contracts and the wire.
+- App-platform references the kernel and the seam; it consumes the element seam and AEC-domain capability, never the reverse.
+- `Rasm.Generation` follows the same direction, and nothing references it downward.
+- No host-neutral package references a HOST-BOUNDARY package; `Rasm.Rhino` and `Rasm.Grasshopper` reference only `Rasm`, composed at the app roots.
+- `Rasm.AppUi` is the app-platform consuming leaf, not the app composition root; host-binding composition lives at the APP stratum.
+- `Rasm.AppUi` references only `{Rasm, Rasm.AppHost, Rasm.Compute, Rasm.Persistence}`; host boundaries enter at the composing app root.
 
 ## [03]-[UNIVERSAL_VS_CAPTURE]
 
-"Universal" never means host-free C#. The entire C# branch is RhinoCommon-aware, the kernel included. Universal means the portable cross-runtime contracts the host-free runtimes consume: content-identity, geometry payload/GLB, IFC/BIM semantics, material-profile-as-data, and the typed receipts. The host-free peers (Python, TypeScript) consume those contracts; they never consume RhinoCommon.
+"Universal" never means host-free C#. Every C# stratum is RhinoCommon-aware, the kernel included. Universal means the portable cross-runtime contracts the host-free runtimes consume: content-identity, geometry payload/GLB, IFC/BIM semantics, material-profile-as-data, and the typed receipts. Host-free peers (Python, TypeScript) consume those contracts; they never consume RhinoCommon.
 
-- A host-neutral owner exists only for a genuine non-Rhino consumer contract. Otherwise the Rhino-native surface is captured as a rich host-specific feature. Consumer absence never lowers the capability bar, but a contract with no cross-runtime consumer is a Rhino feature, not a universal owner.
-- `Rasm.Rhino/Exchange` and `Rasm.Rhino` drafting stay rich Rhino features and are NOT thinned. Rhino owns Make2D, sheet layout, and native file I/O; `Rasm.Bim` independently owns the universal IFC/exchange semantic model. The two coexist — Rhino-native capture and host-neutral semantics — and neither is gutted to feed the other.
-- A host-neutral AEC-domain or app-platform owner expresses the universal contract; the host boundary expresses the native surface; they meet only at the contract, never by one re-implementing the other.
+- A host-neutral owner exists only for a genuine non-Rhino consumer contract; otherwise the Rhino-native surface is captured as a rich host feature.
+- Consumer absence never lowers the capability bar, but a contract with no cross-runtime consumer is a Rhino feature, not a universal owner.
+- `Rasm.Rhino` exchange and drafting stay rich Rhino features and are NOT thinned; Rhino owns Make2D, sheet layout, and native file IO.
+- `Rasm.Bim` independently owns the universal IFC/exchange semantic model; native capture and host-neutral semantics coexist, neither gutted.
+- A host-neutral owner expresses the universal contract, the host boundary the native surface; they meet only at the contract.
 
 ## [04]-[GEOMETRY_FLOW]
 
 Geometry, meshing, and IFC each have exactly one owner per runtime; the runtimes meet only at the wire. No concern is owned twice within a runtime, and no runtime re-implements a peer's geometry.
 
-- C# geometry source-of-truth is `Rasm` (the kernel). `Rasm.Compute` (tensor-encode/tessellate/solve), `Rasm.Persistence` (content-hash identity/federation), and `Rasm.Bim` (BIM model/IFC) consume `Rasm` geometry; they never own or re-implement it.
+- C# geometry source-of-truth is `Rasm`; the compute, persistence, and BIM owners consume it and never own or re-implement it.
 - Python owns host-free geometry for offline scan/IFC work — an independent peer producer, not a `Rasm` consumer.
-- `Rasm` and Python geometry meet only at the wire: content-identity plus the GLB/GeometryPayload tessellation rail. TypeScript consumes that wire for web render and owns no geometry.
-- Meshing has one owner per runtime: Rasm-DEC (C#), Py-scan (Python), TS-render (TypeScript). IFC has one semantic owner per runtime: `Rasm.Bim` (C# semantics) and Python `ifcopenshell` (offline evaluation); they meet at the wire, never by duplication.
+- `Rasm` and Python geometry meet only at the wire: content identity plus the GLB tessellation rail.
+- TypeScript consumes that wire for web render and owns no geometry.
+- Meshing has one owner per runtime — the C# kernel, the Python scan plane, the TypeScript render tier.
+- IFC has one semantic owner per runtime — `Rasm.Bim` in C#, the IfcOpenShell companion in Python — meeting at the wire, never by duplication.
 
 ## [05]-[PLANNING_LIFECYCLE]
 
 `.planning/` is a transient greenfield scaffold, not a permanent fixture. It exists to bring an under-developed folder to the decision-complete bar and dissolves as source lands; the eventual source tree is authored only when code is written.
 
-- A greenfield package keeps its design pages inside one `.planning/` at the package root, organized into sub-domain sub-folders that mirror the eventual source tree (`<pkg>/.planning/<sub-domain>/<page>.md`). The package root carries the four index docs — `README.md`, `ARCHITECTURE.md`, `IDEAS.md`, `TASKLOG.md` — and nothing else.
-- All planning lives under the single `.planning/`: never a `.planning/` inside a real source sub-folder. The package `ARCHITECTURE.md` maps the full folder structure (including planned sub-domains that have no page yet), so the map fuels ideas and tasks without scattering planning across the tree.
-- Mature folders with real code at the bar carry NO `.planning/`, neither at the package root nor inside a sub-folder. Their co-located source architecture note is the only design surface; their open split/cleanup/re-architect work lives as task cards in the branch `TASKLOG.md`.
-- The one exception is a genuinely new unbuilt sub-domain inside an otherwise mature package: it keeps its scaffold in that sub-domain folder, because a package-root `.planning/` incorrectly marks mature siblings as planning scope.
-- `Rasm.Rhino` and `Rasm.Grasshopper` are HOST-BOUNDARY planning folders: each carries the four index docs, design pages under one `.planning/`, and a folder `.api/` tier over its host assemblies, referencing only the `Rasm` kernel; their solution rows stay out of `Workspace.slnx` under the architecture-test host-boundary gate.
+- A greenfield package keeps its design pages inside one `.planning/` at the package root, sub-domain sub-folders mirroring the eventual source tree.
+- A package root carries the index docs and nothing else.
+- All planning lives under the single `.planning/`, never inside a real source sub-folder.
+- Each package `ARCHITECTURE.md` maps the full folder structure including planned sub-domains without pages, so the map fuels ideas and tasks.
+- Mature folders with real code carry NO `.planning/`; the co-located source architecture note is the only design surface.
+- A mature folder's open split, cleanup, or re-architect work lives as task cards in the branch `TASKLOG.md`.
+- One exception stands: a genuinely new unbuilt sub-domain inside a mature package keeps its scaffold in that sub-domain folder.
+- `Rasm.Rhino` and `Rasm.Grasshopper` are HOST-BOUNDARY planning folders with a folder `.api/` tier over their host assemblies.
+- Their solution rows stay out of `Workspace.slnx` under the architecture-test host-boundary gate.
 
 ## [06]-[PER_LANGUAGE_ROLES]
 
-The three branches are first-class peers, each a complete library adoptable in any monorepo, coupled only at the wire. Their roles are distinct in kind, not a name-mirror of one another.
+All three branches are first-class peers, each a complete library adoptable in any monorepo, coupled only at the wire. Their roles are distinct in kind, not a name-mirror of one another.
 
-- C# is the Rhino/GH2-aware AEC platform: the geometry kernel, the AEC-domain (materials/BIM/fabrication), the app-platform, and the host boundaries. It is the producer of the wire vocabulary and the capability descriptors every peer consumes.
-- Python is the host-free science/compute/data/geometry/IFC companion: offline analysis, tessellation, data interchange, and artifact/visualization production flow through branch manifests and `.api` catalogues. It integrates only through the wire and the companion/offline seams.
-- TypeScript is the first-class host-free web/edge platform: capability domains composing whole products; wire decode is a boundary concern inside `core` interchange, not the branch's identity. It consumes the C# wire and the GLB rail only and owns no geometry; its test infrastructure lives under `tests/`, never in the branch.
+- C# is the Rhino/GH2-aware AEC platform: the geometry kernel, the AEC domain, the app platform, and the host boundaries.
+- C# produces the wire vocabulary and the capability descriptors every peer consumes.
+- Python is the host-free science/compute/data/geometry/IFC companion, integrating only through the wire and the companion seams.
+- TypeScript is the first-class host-free web/edge platform; wire decode is a boundary concern inside `core`, never the branch identity.
+- TypeScript consumes the C# wire and the GLB rail only, owns no geometry, and keeps its test infrastructure under `tests/`.
 
 Within each language the same organization principle holds: real higher-order domain folders (no weak or mini sibling — a small isolated concern folds into the bigger concept it belongs to), source-mirroring sub-domain organization, OOP capsules at boundaries and FP-ROP internals. A branch re-derives its topology from the finalized owner set, never from a stale layout.
 
 ## [07]-[CROSS_LANGUAGE_WIRE]
 
-The branches couple ONLY through the wire contracts and the companion/offline seams; coupling beyond them is a defect. This section states the wire law; the concrete integration point for any one seam lives as a boundary/wire consideration on the task that builds it, not in a standalone cross-reference ledger that drifts.
+Branches couple ONLY through the wire contracts and the companion/offline seams; coupling beyond them is a defect. This section states the wire law; the concrete integration point for any one seam lives as a boundary/wire consideration on the task that builds it, not in a standalone cross-reference ledger that drifts.
 
-- Each shared canonical concept carries ONE name and ONE owner across the three branches, consumed at the boundary and never re-minted. The shared owners are content-address identity (the `XxHash128` seed), the proto wire vocabulary, the suite wire law, the op-log CRDT payload, the capability descriptor + SDK source, tenant/causal identity, the geometry/IFC tessellation rail (GLB), and graduation evidence.
-- C# owns the wire vocabulary; Python and TypeScript decode it and never mint a parallel. Python owns the geometry/IFC evaluation companion (the `IFC → IfcOpenShell → GLB` two-hop); C# requests and re-imports; TypeScript consumes the GLB for web render.
-- Content-identity is reproduced bit-identically in all three runtimes from the one C#-owned seed, so an artifact computed by any runtime is reusable by the others.
-- A second mint of a shared concept in any branch is the named cross-language drift defect. The cross-`libs/` `IDEAS.md` and `TASKLOG.md` carry the cross-language concert and the seams it spans; each branch states only its own owner of a shared concept and consumes the peer's at the boundary.
+- Each shared canonical concept carries ONE name and ONE owner across the three branches, consumed at the boundary and never re-minted.
+- Shared owners: content-address identity, the proto wire vocabulary, the suite wire law, and the op-log CRDT payload.
+- Shared owners, continued: the capability descriptor and SDK source, tenant/causal identity, the GLB tessellation rail, and graduation evidence.
+- C# owns the wire vocabulary; Python and TypeScript decode it and never mint a parallel.
+- Python owns the geometry/IFC evaluation companion; C# requests and re-imports; TypeScript consumes the GLB for web render.
+- Content identity reproduces bit-identically in all three runtimes from the one C#-owned seed, so any runtime's artifact is reusable by the others.
+- A second mint of a shared concept in any branch is the named cross-language drift defect.
+- Cross-`libs/` `IDEAS.md` and `TASKLOG.md` carry the cross-language concert; each branch states only its own owner of a shared concept.

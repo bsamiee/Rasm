@@ -1,38 +1,15 @@
 # [TS_CORE]
 
-`libs/typescript/core` owns the branch's wave-0 law: the cross-language value floor, the host-free state algebra, the interchange plane decoding every C#-minted wire family through one keyed-decode registry, and the observability vocabulary with its SLO and dashboard derivation. Core imports nothing host-bound and nothing from the branch; every other folder composes these owners.
+`core` is the TypeScript branch's wave-0 law — the single acyclic base every folder composes: the cross-language value floor, the host-free state algebra over it, the C#-minted wire boundary, and the observability vocabulary, one body joined by one content identity, one clock law, one fault vocabulary, and one keyed-decode registry. Its bar is decode-once, travel-settled: every cross-language primitive is admitted and branded at exactly one seam, cross-runtime parity — content keys, clock layout, digests — is proven bit-identical against frozen contract corpora rather than claimed, partiality is honestly typed (never a `NaN`, a silent round, or a fabricated causal order), and every module runs identically under node, bun, and the browser. A new wire family is a census row, a new fault class is a table entry, a new identity dimension is one static — every concept has one authority and no parallel restatement exists to drift.
+
+Core imports nothing host-bound and nothing from the branch; every other folder composes these owners, and the whole C# estate lands its wire families through the one interchange registry. Unit conversion and non-SI admission stay C#-owned — a `{value, unit}` shape never exists in the branch. Core defines the shapes persistence, transport, serving, and rendering carry, and nothing they run.
 
 ## [01]-[ROUTER]
 
-[VALUE]:
-- [01]-[SCHEMA](.planning/value/schema.md): Refined branded-primitive vocabulary and the `Ingress` decode-budget ceilings.
-- [02]-[IDENTITY](.planning/value/identity.md): `AppIdentity` deployment spine and the tenant scope key rails resolve against.
-- [03]-[CONTENTKEY](.planning/value/contentKey.md): One content-identity digest mint every delegating site seeds from.
-- [04]-[CLOCK](.planning/value/clock.md): `Hlc` hybrid-logical stamp and the uncertainty-grade time windows.
-- [05]-[QUANTITY](.planning/value/quantity.md): SI-coherent magnitude and its dimension vector, canonicalized at admission.
-- [06]-[FAULT](.planning/value/fault.md): Fault severity vocabulary, retry-budget ledger, and degrade ladder every rail inherits.
-
-[STATE]:
-- [07]-[MERGE](.planning/state/merge.md): Lawful CRDT merge algebra proving the lattice laws its siblings compose.
-- [08]-[FOLD](.planning/state/fold.md): Keyed-fold owner carrying the single `AsOf` time coordinate and replay lane.
-- [09]-[CAUSAL](.planning/state/causal.md): Version-vector lattice, causal delivery buffer, and stability frontier.
-- [10]-[COMMIT](.planning/state/commit.md): Content-keyed commit graph, branch heads, and Merkle summaries.
-- [11]-[MACHINE](.planning/state/machine.md): Data-driven statechart compiled once into fold, drivers, and serializable actor.
-- [12]-[EVIDENCE](.planning/state/evidence.md): Decoded outcome family — receipts, progress, and availability.
-- [13]-[FEED](.planning/state/feed.md): `Hlc`-ordered evidence timeline and its column band.
-- [14]-[PRESENCE](.planning/state/presence.md): Actor-presence CRDT over proven merge rows.
-
-[INTERCHANGE]:
-- [15]-[FORMAT](.planning/interchange/format.md): Byte-dialect engines behind one decode transform.
-- [16]-[CODEC](.planning/interchange/codec.md): One keyed-decode registry every C#-minted wire family lands on as a census row.
-- [17]-[FRAME](.planning/interchange/frame.md): Keyed frame-reassembly fold under the `Ingress` budget.
-- [18]-[CONTRACT](.planning/interchange/contract.md): Descriptor-drift diff graded into verdicts before decode fails at runtime.
-- [19]-[INVOKE](.planning/interchange/invoke.md): Command capability contract carried both directions.
-
-[OBSERVE]:
-- [20]-[CONVENTION](.planning/observe/convention.md): Typed semconv attribute, metric, and event vocabulary.
-- [21]-[SLO](.planning/observe/slo.md): Objective and SLI algebra and the burn-rate alert derivation.
-- [22]-[BOARD](.planning/observe/board.md): Dashboard model, query, and pack/suite dispatch.
+- [01]-[VALUE](.planning/value/): Decode-once value floor — content mint, `Hlc` clock, SI quantity, fault policy; one edit site per concept.
+- [02]-[STATE](.planning/state/): Host-free algebra over the floor — CRDT merge, the keyed fold with its one `AsOf`, causal lattice, statechart.
+- [03]-[INTERCHANGE](.planning/interchange/): One keyed-decode registry every C#-minted wire family lands on; never transport.
+- [04]-[OBSERVE](.planning/observe/): Observability vocabulary and its total derivations — SLO-as-algebra and the dashboard model; zero exporters.
 
 ## [02]-[DOMAIN_PACKAGES]
 
