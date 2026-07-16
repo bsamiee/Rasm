@@ -11,27 +11,31 @@ Rasm.Persistence routes every read by its consistency demand: interactive-correc
 
 ## [02]-[READ_ROUTING]
 
-- Owner: `QueryLane` carries the composition-time wait policy; `ReadRequest` is the closed correctness/modality discriminant; `StalenessWatermark` is measured sequence evidence; `ReadRouter` owns routing, non-stale admission, and daemon-fan measurement.
-- Cases: `ReadRequest` is `Interactive | GraphAnalytic | Retrieval | Aggregate | Reuse`; `QueryLane` is `Topology | Columnar | Cypher | Retrieval | Cache`, and each row carries `Option<Duration> WaitBudget` instead of a parallel consistency vocabulary.
-- Entry: `Route` folds `ReadRequest` directly to its lane; `AwaitNonStale` consumes the lane-carried wait budget and the production `IProjectionDaemon.WaitForNonStaleData`; `Measure` folds `EventStoreStatistics.EventSequenceNumber` against `ShardState.Sequence`, and its plural arm selects the worst shard.
-- Auto: an interactive-correctness query (clash narrow-phase, void-resolution, live QTO, containment ancestry) routes to the synchronous lane by construction so it reads the inline `GraphProjection` and QuikGraph view written in the append transaction, never a daemon-lagged async projection; an analytical query carries the `StalenessWatermark` so its consumer reads the lag; a re-run analytical clash demanding correctness from an async view calls `AwaitNonStale` first so the daemon catches up to the head before the read.
-- Receipt: a routed read rides `store.query.route` carrying the demand and the lane; an async-stale wait rides `store.query.wait` carrying the watermark and the elapsed wait.
-- Packages: Marten (`IProjectionDaemon.WaitForNonStaleData(TimeSpan)` the production non-stale block; `ShardState`/`ShardName`/`EventStoreStatistics`, `AdvancedOperations.FetchEventStoreStatistics`/`AllProjectionProgress`), NodaTime (`Duration`), LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox.
-- Growth: a new read modality is one `ReadRequest` case and one generated `Route` arm; a new analytical wait posture is one `QueryLane` row value.
-- Boundary: authoritative topology and containment stay synchronous and co-transactional (`C2`) — the inline `GraphProjection` in the write transaction, the in-process QuikGraph view — so a read-your-writes interactive query is correct by construction; that synchronous lane is NOT infallible, since the `Query/topology` `Traversals.Run` it binds returns `Fin<TopologyResult>` railing the typed `TopologyFault` band, so a router consumer composes the topology `Fin` into its OWN rail rather than assuming success and an absent-root containment query surfaces as an honest typed fault, never a silent empty result; AGE and DuckDB are ANALYTICAL ONLY with an explicit `StalenessWatermark`, and interactive-correctness queries block on `WaitForNonStaleData` and never route to an async projection without the wait — a clash reading a daemon-lagged AGE view is the deleted form, and the gate rides the production `IProjectionDaemon`, not a test-only symbol; staleness is a MEASURED sequence gap (`EventSequenceNumber` head against `ShardState.Sequence`), never `ShardState.Timestamp`, a daemon-side recording stamp (`DateTimeOffset.UtcNow` at row construction) that measures read-latency rather than producer-to-projection lag — a `Measure` returning `Duration.Zero` on a trailing shard is the illusory form this owner forbids; strong-consistency reads go through the inline projection and the synchronous topology, never the columnar aggregate, so the columnar lane stays the rollup/search lane and the topology lane the correctness lane.
+- Owner: `QueryLane` carries the composition-time wait policy; `ReadRequest` is the closed correctness/modality discriminant; `StalenessWatermark` is measured sequence evidence; `ReadRouter` owns routing, non-stale admission, and daemon-fan measurement; `GraphQlDocument` admits the web-native query document and `ReflectedRead` owns the in-database `graphql.resolve` door over the RLS-guarded identity relations.
+- Cases: `ReadRequest` is `Interactive | GraphAnalytic | Retrieval | Aggregate | Reuse | Reflected`; `QueryLane` is `Topology | Columnar | Cypher | Retrieval | Cache | Reflected`, and each row carries `Option<Duration> WaitBudget` instead of a parallel consistency vocabulary.
+- Entry: `Route` folds `ReadRequest` directly to its lane; `AwaitNonStale` consumes the lane-carried wait budget and the production `IProjectionDaemon.WaitForNonStaleData`; `Measure` folds `EventStoreStatistics.EventSequenceNumber` against `ShardState.Sequence`, and its plural arm selects the worst shard; `public static IO<Fin<JsonElement>> ReflectedRead.Resolve(NpgsqlDataSource store, GraphQlDocument query, JsonElement variables, ProjectionContext frame)` runs ONE `graphql.resolve` call — the query document and its variables bind as parameters, the tenant GUC sets in-session so the identity tier's RLS partition applies, and the returned envelope's `errors` array folds to the typed fault because the resolver never raises.
+- Auto: an interactive-correctness query (clash narrow-phase, void-resolution, live QTO, containment ancestry) routes to the synchronous lane by construction so it reads the inline `GraphProjection` and QuikGraph view written in the append transaction, never a daemon-lagged async projection; an analytical query carries the `StalenessWatermark` so its consumer reads the lag; a re-run analytical clash demanding correctness from an async view calls `AwaitNonStale` first so the daemon catches up to the head before the read; the reflected door is the ZERO-RESOLVER web contract — `pg_graphql` reflects the live `element_identity`/`node_cell` schema (tables → object types, FKs → connection fields, comments → `@graphql` directives) into a Relay-paginated, introspectable GraphQL schema browser and mobile clients page through, recomputed lazily and DDL-invalidated by the extension's own event triggers, so a hand-written GraphQL schema or an out-of-process gateway beside the reflected one is the deleted form.
+- Receipt: a routed read rides `store.query.route` carrying the demand and the lane; an async-stale wait rides `store.query.wait` carrying the watermark and the elapsed wait; a reflected read rides `store.query.reflected` carrying the operation name and the envelope's error count.
+- Packages: Marten (`IProjectionDaemon.WaitForNonStaleData(TimeSpan)` the production non-stale block; `ShardState`/`ShardName`/`EventStoreStatistics`, `AdvancedOperations.FetchEventStoreStatistics`/`AllProjectionProgress`), Npgsql (`NpgsqlDataSource.CreateCommand`/`NpgsqlParameter` — the `graphql.resolve` door; `NpgsqlDbType.Jsonb`), pg_graphql (`graphql.resolve(query, variables, operationName, extensions)` → `jsonb` per `api-pg-graphql` — server-side, no managed assembly), NodaTime (`Duration`), LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox.
+- Growth: a new read modality is one `ReadRequest` case and one generated `Route` arm; a new analytical wait posture is one `QueryLane` row value; a reflected-schema tuning is an `@graphql` comment directive riding the identity tier's reviewed-migration DDL, never a resolver code path.
+- Boundary: authoritative topology and containment stay synchronous and co-transactional (`C2`) — the inline `GraphProjection` in the write transaction, the in-process QuikGraph view — so a read-your-writes interactive query is correct by construction; that synchronous lane is NOT infallible, since the `Query/topology` `Traversals.Run` it binds returns `Fin<TopologyResult>` railing the typed `TopologyFault` band, so a router consumer composes the topology `Fin` into its OWN rail rather than assuming success and an absent-root containment query surfaces as an honest typed fault, never a silent empty result; AGE and DuckDB are ANALYTICAL ONLY with an explicit `StalenessWatermark`, and interactive-correctness queries block on `WaitForNonStaleData` and never route to an async projection without the wait — a clash reading a daemon-lagged AGE view is the deleted form, and the gate rides the production `IProjectionDaemon`, not a test-only symbol; staleness is a MEASURED sequence gap (`EventSequenceNumber` head against `ShardState.Sequence`), never `ShardState.Timestamp`, a daemon-side recording stamp (`DateTimeOffset.UtcNow` at row construction) that measures read-latency rather than producer-to-projection lag — a `Measure` returning `Duration.Zero` on a trailing shard is the illusory form this owner forbids; strong-consistency reads go through the inline projection and the synchronous topology, never the columnar aggregate, so the columnar lane stays the rollup/search lane and the topology lane the correctness lane; the reflected door executes wholly in-database over the RLS-guarded identity relations — AppHost hosts the web endpoint and maps its principal onto the tenant frame at the port boundary, Persistence owns only the parameterized `graphql.resolve` call, and the reflected mutation fields (`insertInto*/update*/deleteFrom*Collection`) are never exposed because the identity tier is a READ projection whose one write authority is the `Element/graph#STORE_RAIL` rail.
 
 ```csharp signature
 using System.Buffers;
 using System.Buffers.Binary;
+using System.Globalization;
 using System.IO.Hashing;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using LanguageExt;
 using Marten;
 using Marten.Events.Daemon;
 using Marten.Events.Projections;
 using NetTopologySuite.Geometries;
 using NodaTime;
+using Npgsql;
+using NpgsqlTypes;
 using Rasm.Element.Graph;
 using Thinktecture;
 using Rasm.Persistence.Element;                   // FaultBand — the one band registry (graph#FAULT_TABLES); H3Cell — the identity cell
@@ -49,6 +53,7 @@ public abstract partial record ReadRequest {
     public sealed record Retrieval : ReadRequest;
     public sealed record Aggregate : ReadRequest;
     public sealed record Reuse : ReadRequest;
+    public sealed record Reflected : ReadRequest;
 }
 
 public readonly record struct StalenessWatermark(long HeadSequence, long ProjectedSequence) {
@@ -65,8 +70,19 @@ public sealed partial class QueryLane {
     public static readonly QueryLane Cypher = new("cypher", Some(Duration.FromSeconds(5)));
     public static readonly QueryLane Retrieval = new("retrieval", Some(Duration.FromSeconds(5)));
     public static readonly QueryLane Cache = new("cache", None);
+    // Reflected reads hit the transactionally-current identity relations; no daemon, no wait budget.
+    public static readonly QueryLane Reflected = new("reflected", None);
     public Option<Duration> WaitBudget { get; }
     private QueryLane(string key, Option<Duration> waitBudget) : this(key) => WaitBudget = waitBudget;
+}
+
+// The web-native query document: non-empty, NUL-free, bound as a parameter — never concatenated.
+[ValueObject<string>]
+[ValidationError<SelectionFault>]
+public readonly partial struct GraphQlDocument {
+    static partial void ValidateFactoryArguments(ref SelectionFault? validationError, ref string value) {
+        if (string.IsNullOrWhiteSpace(value) || value.Contains('\0')) { validationError = new SelectionFault.Reflected("<document>"); }
+    }
 }
 
 public static class ReadRouter {
@@ -75,7 +91,8 @@ public static class ReadRouter {
         graphAnalytic: static _ => QueryLane.Cypher,
         retrieval: static _ => QueryLane.Retrieval,
         aggregate: static _ => QueryLane.Columnar,
-        reuse: static _ => QueryLane.Cache);
+        reuse: static _ => QueryLane.Cache,
+        reflected: static _ => QueryLane.Reflected);
 
     public static IO<Unit> AwaitNonStale(IProjectionDaemon daemon, QueryLane lane) =>
         lane.WaitBudget.Match(
@@ -103,6 +120,37 @@ public static class ReadRouter {
             Some: state => Measure(stats, state),
             None: () => new StalenessWatermark(stats.EventSequenceNumber, 0L));
 }
+
+// The reflected door: one transaction pins the tenant GUC (RLS partition) and resolves the whole
+// GraphQL operation in-database; the resolver never raises, so the errors envelope folds typed.
+public static class ReflectedRead {
+    public static IO<Fin<JsonElement>> Resolve(NpgsqlDataSource store, GraphQlDocument query, JsonElement variables, Option<string> operation, ProjectionContext frame) =>
+        IO.liftAsync(async () => {
+            await using NpgsqlConnection lane = await store.OpenConnectionAsync().ConfigureAwait(false);
+            await using NpgsqlTransaction scope = await lane.BeginTransactionAsync().ConfigureAwait(false);
+            try {
+                await using NpgsqlBatch batch = lane.CreateBatch();
+                NpgsqlBatchCommand pin = new("SELECT set_config('rasm.tenant', @tenant, true)");
+                _ = pin.Parameters.AddWithValue("tenant", frame.Tenant.ToString("x32", CultureInfo.InvariantCulture));
+                NpgsqlBatchCommand door = new("SELECT graphql.resolve(@query, @variables, @operation, NULL)");
+                _ = door.Parameters.AddWithValue("query", (string)query);
+                door.Parameters.Add(new NpgsqlParameter("variables", NpgsqlDbType.Jsonb) { Value = variables.GetRawText() });
+                _ = door.Parameters.AddWithValue("operation", operation.Match<object>(Some: static name => name, None: static () => DBNull.Value));
+                batch.BatchCommands.Add(pin);
+                batch.BatchCommands.Add(door);
+                await using NpgsqlDataReader evidence = await batch.ExecuteReaderAsync().ConfigureAwait(false);
+                _ = await evidence.NextResultAsync().ConfigureAwait(false);
+                string envelope = await evidence.ReadAsync().ConfigureAwait(false) ? evidence.GetString(0) : "{}";
+                await evidence.DisposeAsync().ConfigureAwait(false);
+                await scope.CommitAsync().ConfigureAwait(false);
+                using JsonDocument parsed = JsonDocument.Parse(envelope);
+                return parsed.RootElement.TryGetProperty("errors", out JsonElement errors) && errors.GetArrayLength() > 0
+                    ? Fin<JsonElement>.Fail(new SelectionFault.Reflected(errors[0].GetRawText()))
+                    : Fin<JsonElement>.Succ(parsed.RootElement.TryGetProperty("data", out JsonElement data) ? data.Clone() : default);
+            }
+            catch (PostgresException wire) { return Fin<JsonElement>.Fail(new SelectionFault.Reflected(wire.MessageText)); }
+        });
+}
 ```
 
 | [INDEX] | [POLICY]                | [VALUE]                                             | [BINDING]                                               |
@@ -112,6 +160,7 @@ public static class ReadRouter {
 |  [03]   | request routing         | one `ReadRequest` case                              | impossible combinations are absent                     |
 |  [04]   | non-stale gate          | `IProjectionDaemon.WaitForNonStaleData`             | the production runner member; not `TestingExtensions`   |
 |  [05]   | watermark               | `EventSequenceNumber` vs shard `Sequence`           | sequence evidence; no synthetic wall duration           |
+|  [06]   | reflected door          | one `graphql.resolve` call, RLS tenant pinned       | zero resolver code; errors envelope folds typed         |
 
 ## [03]-[ELEMENT_SET_ALGEBRA]
 
@@ -150,18 +199,22 @@ public abstract partial record SelectionFault : Expected, IValidationError<Selec
     private SelectionFault() : base() { }
     public sealed record Depth(int Found) : SelectionFault;
     public sealed record Rejected(string Detail) : SelectionFault;
+    public sealed record Reflected(string Detail) : SelectionFault;
 
     public override int Code => FaultBand.Selection + Switch(
-        depth:    static _ => 0,
-        rejected: static _ => 1);
+        depth:     static _ => 0,
+        rejected:  static _ => 1,
+        reflected: static _ => 2);
 
     public override string Message => Switch(
-        depth:    static c => $"<selection-depth:{c.Found}>",
-        rejected: static c => $"<selection-rejected:{c.Detail}>");
+        depth:     static c => $"<selection-depth:{c.Found}>",
+        rejected:  static c => $"<selection-rejected:{c.Detail}>",
+        reflected: static c => $"<selection-reflected:{c.Detail}>");
 
     public override string Category => Switch(
-        depth:    static _ => "Depth",
-        rejected: static _ => "Rejected");
+        depth:     static _ => "Depth",
+        rejected:  static _ => "Rejected",
+        reflected: static _ => "Reflected");
 
     public static SelectionFault Create(string message) => new Rejected(message);
 }

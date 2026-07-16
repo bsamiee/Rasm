@@ -592,7 +592,7 @@ public static class Modes {
 - Owner: `ViewportModes` — the per-viewport binding rail: `Assign` resolves the descriptor and sets `RhinoViewport.DisplayMode` under the viewport lease, `Assigned` reads the bound mode id off the leased viewport, and `Capture` renders one frame under a passed mode through the `RhinoView.CaptureToBitmap(DisplayModeDescription)` overloads, with `Size2i` selecting the sized overload and the frame delivered as Viewport/capture.md's leased `CaptureArtifact.RasterCase` — a bare host bitmap never crosses.
 - Law: assignment resolves through `GetDisplayMode` before the lease opens, so a dangling mode id refuses without touching the viewport; the `DisplayMode` set is a host property assignment inside the borrow.
 - Law: mode-scoped capture never mutates the viewport's assigned mode — the overload renders the frame under the passed descriptor and the binding survives untouched.
-- Law: the attribute-typed `CaptureToBitmap` overloads collapse into the mode-typed pair — a public attribute object exists only through a descriptor, so the mode id is the one capture discriminant and an attributes parameter would re-describe it.
+- Law: the attribute-typed `CaptureToBitmap` overloads collapse into the mode-typed pair — a public attribute object exists only through a descriptor, so the mode id is the one capture discriminant and an attributes parameter re-describes it.
 - Boundary: settings-driven capture — media size, layout, decorations, scale, printer — is Viewport/capture.md's `CapturePlan`/`Captures.Run`; this entry owns only the display-mode-scoped frame and mints it through that page's `CaptureArtifact.Raster` factory.
 - Growth: a per-detail or broadcast assignment is arity on `ViewportTarget` resolution, never a sibling entry.
 
@@ -716,17 +716,17 @@ public abstract partial record AnalysisOp {
 
 ## [06]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]                 | [OWNER]                          | [FORM]                                                     | [ENTRY]                    |
-| :-----: | :------------------------ | :------------------------------- | :--------------------------------------------------------- | :------------------------- |
-|  [01]   | appearance patch          | `DisplayProfile`                 | `Option`-sloted concern schemas folded onto the editor     | `Modes.Configure`          |
-|  [02]   | width/scope discriminants | `WidthSource`, `ScopeSource`     | isomorphic host-enum collapse rows                         | schema fields              |
-|  [03]   | frame-buffer fill         | `FillSpec`                       | one union over `FillMode` plus the `SetFill` overloads     | `ShadingSchema.Fill`       |
-|  [04]   | object paint source       | `ObjectPaint`                    | three-way source union over the exclusive host bools       | `ShadingSchema.Paint`      |
-|  [05]   | SubD/mesh edge classes    | `SubDEdgeClass`, `MeshEdgeClass` | writer-column `[SmartEnum]` tables over per-class members  | `SubDSchema`/`MeshSchema`  |
-|  [06]   | descriptor policy flags   | `ModePolicy`                     | `Option`-sloted descriptor patch plus rename               | `Modes.Configure`          |
-|  [07]   | built-in mode roster      | `BuiltinMode`                    | id rows deferring to the host special-mode statics         | `Modes.Derive` source      |
-|  [08]   | mode configure/derive     | `Modes`                          | `ModeOp` find/copy fold, profile write, update persist     | `Modes.Configure`/`Derive` |
-|  [09]   | per-viewport binding      | `ViewportModes`                  | leased `DisplayMode` assignment and read-back              | `ViewportModes.Assign`     |
-|  [10]   | mode-scoped capture       | `ViewportModes`                  | descriptor-typed `CaptureToBitmap` under the lease         | `ViewportModes.Capture`    |
-|  [11]   | built-in analysis roster  | `BuiltinAnalysis`                | id rows plus live `Find` resolution                        | `AnalysisOp` payloads      |
-|  [12]   | analysis attachment       | `AnalysisOp`                     | one union over enablement, census, mesh/UI/range controls  | `AnalysisOp.Apply`         |
+| [INDEX] | [CONCERN]                | [OWNER]                          | [FORM]                                        | [ENTRY]                    |
+| :-----: | :----------------------- | :------------------------------- | :-------------------------------------------- | :------------------------- |
+|  [01]   | appearance patch         | `DisplayProfile`                 | `Option`-sloted schemas folded on the editor  | `Modes.Configure`          |
+|  [02]   | width/scope selectors    | `WidthSource`, `ScopeSource`     | isomorphic host-enum collapse rows            | schema fields              |
+|  [03]   | frame-buffer fill        | `FillSpec`                       | `FillMode` + `SetFill` overload union         | `ShadingSchema.Fill`       |
+|  [04]   | object paint source      | `ObjectPaint`                    | source union over the exclusive host bools    | `ShadingSchema.Paint`      |
+|  [05]   | SubD/mesh edge classes   | `SubDEdgeClass`, `MeshEdgeClass` | writer-column tables per edge class           | `SubDSchema`/`MeshSchema`  |
+|  [06]   | descriptor policy flags  | `ModePolicy`                     | `Option`-sloted descriptor patch plus rename  | `Modes.Configure`          |
+|  [07]   | built-in mode roster     | `BuiltinMode`                    | id rows over the host special-mode statics    | `Modes.Derive` source      |
+|  [08]   | mode configure/derive    | `Modes`                          | `ModeOp` find/copy, profile write, persist    | `Modes.Configure`/`Derive` |
+|  [09]   | per-viewport binding     | `ViewportModes`                  | leased `DisplayMode` assignment and read-back | `ViewportModes.Assign`     |
+|  [10]   | mode-scoped capture      | `ViewportModes`                  | mode-typed `CaptureToBitmap` under the lease  | `ViewportModes.Capture`    |
+|  [11]   | built-in analysis roster | `BuiltinAnalysis`                | id rows plus live `Find` resolution           | `AnalysisOp` payloads      |
+|  [12]   | analysis attachment      | `AnalysisOp`                     | enablement, census, mesh, UI, range as cases  | `AnalysisOp.Apply`         |

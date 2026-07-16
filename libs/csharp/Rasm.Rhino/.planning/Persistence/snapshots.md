@@ -11,10 +11,10 @@ Snapshot scripting, plugin participation, and worksession reads (`Rasm.Rhino.Per
 
 ## [02]-[SCRIPTED_MUTATION]
 
-- Owner: `SnapshotAction` rows carry command verb plus required roster state before and after execution. `SnapshotCommand` combines one admitted name with one action.
+- Owner: `SnapshotAction` rows carry command verb plus required roster state before and after execution. `SnapshotCommand` combines one admitted name with one action, and every commit returns a `SnapshotFact` receipt.
 - Name admission: names reject quotes and line breaks before interpolation into the Rhino command macro.
 - Host boundary: every mutation calls `RhinoApp.RunScript(uint, string, bool)` with the current document serial and requires `SessionNeed.Interrupt`, so headless sessions fail before scripting.
-- Watcher gate: `RhinoApp.InEventWatcher` fails before `RunScript`; observation callbacks never invoke snapshot commands.
+- Watcher gate: `RunScript` throws `ApplicationException` from inside an event watcher — the gating member is host-internal — so the caught host call is the gate and observation callbacks land the refusal on the rail.
 - Roster proof: capture requires absence then proves presence, restore requires and preserves presence, and delete requires presence then proves absence.
 - Transient restore: `Within` validates its body before capture, saves to an absent GUID sentinel, restores the target, runs the body, then restores and deletes the sentinel on every outcome while accumulating cleanup faults.
 
@@ -59,19 +59,23 @@ public sealed record SnapshotCommand {
     }
 }
 
+public sealed record SnapshotFact(SnapshotAction Action, string Name) : IDetachedDocumentResult;
+
+internal sealed record SnapshotRoster(Seq<string> Names) : IDetachedDocumentResult;
+
 // --- [SCRIPT_ENTRY] -------------------------------------------------------------------------
 public static class Snapshots {
     public static Fin<Seq<string>> Roster(DocumentSession session) {
         Op op = Op.Of();
         return from context in Optional(session).ToFin(Fail: op.InvalidInput())
-               from names in context.Demand(
-                   use: document => op.Catch(() => Fin.Succ(value: toSeq(document.Snapshots.Names).Strict())),
+               from roster in context.Demand(
+                   use: document => op.Catch(() => Fin.Succ(value: new SnapshotRoster(Names: toSeq(document.Snapshots.Names).Strict()))),
                    key: op,
                    needs: [SessionNeed.Read])
-               select names;
+               select roster.Names;
     }
 
-    public static Fin<Unit> Commit(DocumentSession session, SnapshotCommand command) {
+    public static Fin<SnapshotFact> Commit(DocumentSession session, SnapshotCommand command) {
         Op op = Op.Of();
         return from context in Optional(session).ToFin(Fail: op.InvalidInput())
                from active in Optional(command).ToFin(Fail: op.InvalidInput())
@@ -115,8 +119,7 @@ public static class Snapshots {
             .As()
             .ToFin();
 
-    private static Fin<Unit> Run(RhinoDoc document, SnapshotCommand command, Op op) =>
-        from _watcher in guard(!RhinoApp.InEventWatcher, op.InvalidInput()).ToFin()
+    private static Fin<SnapshotFact> Run(RhinoDoc document, SnapshotCommand command, Op op) =>
         from before in Contains(document: document, name: command.Name, op: op)
         from _before in guard(before == command.Action.PresentBefore, before ? op.InvalidInput() : op.MissingContext()).ToFin()
         from _run in op.Catch(() => op.Confirm(success: RhinoApp.RunScript(
@@ -127,7 +130,7 @@ public static class Snapshots {
             echo: false)))
         from after in Contains(document: document, name: command.Name, op: op)
         from _after in guard(after == command.Action.PresentAfter, op.InvalidResult(detail: command.Name)).ToFin()
-        select unit;
+        select new SnapshotFact(Action: command.Action, Name: command.Name);
 
     private static Fin<bool> Contains(RhinoDoc document, string name, Op op) =>
         op.Catch(() => Fin.Succ(value: toSeq(document.Snapshots.Names).Exists(candidate => string.Equals(
@@ -298,10 +301,10 @@ public sealed class SnapshotParticipant : SnapShotsClient {
         return from declared in Optional(spec).ToFin(Fail: op.InvalidInput())
                from claimed in op.Catch(() => {
                    Guid token = Guid.NewGuid();
-                   HashMap<Guid, Guid> held = Registered.Swap(state => state.Find(key: declared.ClientId).IsSome
+                   HashMap<Guid, Guid> held = Registered.Swap(state => state.Find(declared.ClientId).IsSome
                        ? state
-                       : state.Add(key: declared.ClientId, value: token));
-                   return guard(held.Find(key: declared.ClientId).Exists(candidate => candidate == token), op.InvalidInput()).ToFin();
+                       : state.Add(declared.ClientId, token));
+                   return guard(held.Find(declared.ClientId).Exists(candidate => candidate == token), op.InvalidInput()).ToFin();
                })
                from registered in op.Catch(() => {
                    SnapshotParticipant participant = new(spec: declared);
@@ -317,7 +320,7 @@ public sealed class SnapshotParticipant : SnapShotsClient {
 
     public override Guid PlugInId() => _spec.PlugInId;
     public override Guid ClientId() => _spec.ClientId;
-    public override string Category() => _spec.Category.ToValue();
+    public override string Category() => _spec.Category.Key;
     public override string Name() => _spec.Name;
 
     public override bool SupportsDocument() => _spec.Document.IsSome;
@@ -513,8 +516,8 @@ public sealed class SnapshotParticipant : SnapShotsClient {
 - Owner: `WorksessionFacts` carries file, name, runtime serial, host count, and model paths without forcing the known count/path disagreement into one value.
 - Absence: `FileName` is null and `Name` is empty when no saved worksession identity exists, so both project to `None`.
 - Roster: `ModelCount` may exceed `ModelPaths.Count` by one when the active model is unsaved; `UnsavedActive` states that host fact.
-- Static resolution: model and worksession serials reject zero before calling the host resolvers.
-- Mutation: worksession changes remain command-owned, and `DocumentStream` owns `EventFamily.WorksessionFile` observation.
+- Resolution: `ModelPathFromSerialNumber` is an instance member of the live worksession, so model-serial resolution rides `Of` — requested serials reject zero before the read window and land in `ResolvedPaths`; `FileNameFromRuntimeSerialNumber` is the one static host resolver and backs `FileOf`.
+- Mutation: worksession changes remain command-owned, and `DocumentStream` owns `EventFamily.WorksessionFile` observation; `EventPayload.Worksession` model serials resolve to paths through `Of`.
 
 ```csharp signature
 // --- [WORKSESSION_MODEL] --------------------------------------------------------------------
@@ -523,35 +526,38 @@ public sealed record WorksessionFacts(
     Option<string> Name,
     uint Serial,
     int ModelCount,
-    Seq<string> ModelPaths) : IDetachedDocumentResult {
+    Seq<string> ModelPaths,
+    HashMap<uint, string> ResolvedPaths) : IDetachedDocumentResult {
     public bool UnsavedActive => ModelCount == ModelPaths.Count + 1;
 
-    public static Fin<WorksessionFacts> Of(DocumentSession session) {
+    public static Fin<WorksessionFacts> Of(DocumentSession session, params ReadOnlySpan<uint> modelSerials) {
         Op op = Op.Of();
         return from context in Optional(session).ToFin(Fail: op.InvalidInput())
+               from serials in toSeq(modelSerials.ToArray()).TraverseM(serial => serial > 0u
+                       ? Fin.Succ(value: serial)
+                       : Fin.Fail<uint>(error: op.InvalidInput()))
+                   .As()
                from facts in context.Demand(
                    use: document => op.Catch(() => Optional(document.Worksession)
                        .ToFin(Fail: op.MissingContext())
-                       .Map(live => new WorksessionFacts(
-                           File: Optional(live.FileName).Filter(static value => value.Length > 0),
-                           Name: Optional(live.Name).Filter(static value => value.Length > 0),
-                           Serial: live.RuntimeSerialNumber,
-                           ModelCount: live.ModelCount,
-                           ModelPaths: toSeq(live.ModelPaths ?? []).Strict()))),
+                       .Bind(live => serials.TraverseM(serial => op.Catch(() =>
+                               Optional(live.ModelPathFromSerialNumber(modelSerialNumber: serial))
+                                   .Filter(static value => value.Length > 0)
+                                   .ToFin(Fail: op.MissingContext()))
+                               .Map(path => (serial, path)))
+                           .As()
+                           .Map(resolved => new WorksessionFacts(
+                               File: Optional(live.FileName).Filter(static value => value.Length > 0),
+                               Name: Optional(live.Name).Filter(static value => value.Length > 0),
+                               Serial: live.RuntimeSerialNumber,
+                               ModelCount: live.ModelCount,
+                               ModelPaths: toSeq(live.ModelPaths ?? []).Strict(),
+                               ResolvedPaths: resolved.Fold(
+                                   HashMap<uint, string>(),
+                                   static (state, pair) => state.AddOrUpdate(pair.serial, pair.path)))))),
                    key: op,
                    needs: [SessionNeed.Read])
                select facts;
-    }
-
-    public static Fin<string> ModelPath(uint modelSerialNumber, Op? key = null) {
-        Op op = key.OrDefault();
-        return from serial in modelSerialNumber > 0u
-                   ? Fin.Succ(value: modelSerialNumber)
-                   : Fin.Fail<uint>(error: op.InvalidInput())
-               from path in op.Catch(() => Optional(Worksession.ModelPathFromSerialNumber(serial))
-                   .Filter(static value => value.Length > 0)
-                   .ToFin(Fail: op.MissingContext()))
-               select path;
     }
 
     public static Fin<string> FileOf(uint runtimeSerialNumber, Op? key = null) {
@@ -569,12 +575,13 @@ public sealed record WorksessionFacts(
 
 ## [05]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN] | [OWNER] | [FORM] | [ENTRY] |
-| :-----: | :-------- | :------ | :----- | :------ |
-| [01] | scripted action | `SnapshotAction` | verb and roster policy row | `Create` |
-| [02] | snapshot table | `Snapshots` | roster and live commit | `Commit` / `Within` |
-| [03] | participant codec | `SnapshotCodec` | schema write and envelope upgrade | `Read` |
-| [04] | participation lanes | `DocumentLane` / `ObjectLane` / `AnimationLane` | admitted callbacks | `Create` |
-| [05] | host adapter | `SnapshotParticipant` | total lane dispatch | `Enlist` |
-| [06] | worksession read | `WorksessionFacts` | detached identity and roster | `Of` / `ModelPath` |
-| [07] | worksession file | `WorksessionFacts` | serial resolver | `FileOf` |
+| [INDEX] | [CONCERN]           | [OWNER]                                         | [FORM]                                    | [ENTRY]                          |
+| :-----: | :------------------ | :---------------------------------------------- | :---------------------------------------- | :------------------------------- |
+|  [01]   | scripted action     | `SnapshotAction`                                | verb and roster policy row                | `Create`                         |
+|  [02]   | snapshot table      | `Snapshots`                                     | roster read and live commit               | `Roster` / `Commit` / `Within`   |
+|  [03]   | commit receipt      | `SnapshotFact`                                  | action plus proven name                   | `Snapshots.Commit`               |
+|  [04]   | participant codec   | `SnapshotCodec`                                 | schema write and envelope upgrade         | `Read`                           |
+|  [05]   | participation lanes | `DocumentLane` / `ObjectLane` / `AnimationLane` | admitted callbacks                        | `Create`                         |
+|  [06]   | host adapter        | `SnapshotParticipant`                           | total lane dispatch                       | `Enlist`                         |
+|  [07]   | worksession read    | `WorksessionFacts`                              | detached identity, roster, resolved paths | `Of`                             |
+|  [08]   | worksession file    | `WorksessionFacts`                              | serial resolver                           | `FileOf`                         |

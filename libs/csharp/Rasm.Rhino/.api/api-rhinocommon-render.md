@@ -1,6 +1,6 @@
 # [RASM_RHINO_API_RHINOCOMMON_RENDER]
 
-The `Rhino.Render` boundary owns renderer lifecycle over the display pipeline: `RenderPipeline` drives a batch render with pause/resume control into a `RenderWindow`, `RealtimeDisplayMode` publishes the framebuffer and middleground hooks and pass-count state that let a realtime engine draw inside the interactive viewport, `RenderWindow` exposes the channel and per-pixel color access plus post-effect execution control, and `RenderTexture` yields an evaluator and a simulated-texture bake. The host resolves against the current WIP `RhinoCommon` assembly; the realtime path composes `DisplayPipeline` and `DisplayPipelineAttributes` from `api-rhinocommon-display.md` at the framebuffer seam, consumes `ViewInfo`/`ViewportInfo` from `api-rhinocommon-document.md`, and writes `Color4f` pixels the display and capture surfaces read back.
+`Rhino.Render` owns renderer lifecycle over the display pipeline: `RenderPipeline` drives a batch render with pause/resume control into a `RenderWindow`, `RealtimeDisplayMode` publishes the framebuffer and middleground hooks and pass-count state that let a realtime engine draw inside the interactive viewport, `RenderWindow` exposes the channel and per-pixel color access plus post-effect execution control, and `RenderTexture` yields an evaluator and a simulated-texture bake. Every symbol resolves against the current WIP `RhinoCommon` assembly; the realtime path composes `DisplayPipeline` and `DisplayPipelineAttributes` from `api-rhinocommon-display.md` at the framebuffer seam, consumes `ViewInfo`/`ViewportInfo` from `api-rhinocommon-document.md`, and writes `Color4f` pixels the display and capture surfaces read back.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -28,7 +28,7 @@ The `Rhino.Render` boundary owns renderer lifecycle over the display pipeline: `
 [PUBLIC_TYPE_SCOPE]: channel, evaluation, and post-effect carriers
 - rail: host-boundary render
 
-`RenderWindow.StandardChannels` opens the RGBA, depth, normal, and object-ID framebuffer channels for read/write. The realtime event handles carry `Attributes` and `Pipeline`.
+`RenderWindow.StandardChannels` opens the RGBA, depth, normal, and object-ID framebuffer channels for read/write. Realtime event handles carry `Attributes` and `Pipeline`.
 
 | [INDEX] | [SYMBOL]                                  | [KIND]           | [CAPABILITY]                        |
 | :-----: | :---------------------------------------- | :--------------- | :---------------------------------- |
@@ -46,7 +46,7 @@ The `Rhino.Render` boundary owns renderer lifecycle over the display pipeline: `
 [ENTRYPOINT_SCOPE]: `RenderPipeline` — batch render session
 - rail: host-boundary render
 
-`RenderPipeline` is abstract with a protected constructor — `RenderPipeline(RhinoDoc, RunMode, PlugIn, Size sizeRendering, string caption, RenderWindow.StandardChannels, bool reuseRenderWindow, bool clearLastRendering)` — so a subclass binds the document, plug-in, size, and channel set and implements the four abstract worker hooks. `Render()` and `RenderWindow(RhinoView view, Rectangle rect, bool inWindow)` execute full-frame and view-region renders; both return `RenderReturnCode`, and `Ok` marks success. The `GetRenderWindow` overloads each mint a fresh caller-owned window wrapper the pipeline never retains — disposal tears down the native render session, never a managed window; `PauseRendering` and `ResumeRendering` control an in-flight render.
+`RenderPipeline` is abstract with a protected constructor — `RenderPipeline(RhinoDoc, RunMode, PlugIn, Size sizeRendering, string caption, RenderWindow.StandardChannels, bool reuseRenderWindow, bool clearLastRendering)` — so a subclass binds the document, plug-in, size, and channel set and implements the four abstract worker hooks. `Render()` and `RenderWindow(RhinoView view, Rectangle rect, bool inWindow)` execute full-frame and view-region renders; both return `RenderReturnCode`, and `Ok` marks success. Each `GetRenderWindow` overload mints a fresh caller-owned window wrapper the pipeline never retains — disposal tears down the native render session, never a managed window; `PauseRendering` and `ResumeRendering` control an in-flight render.
 
 | [INDEX] | [SURFACE]                                                                                            | [CALL_SHAPE] |
 | :-----: | :--------------------------------------------------------------------------------------------------- | :----------- |
@@ -66,7 +66,7 @@ The `Rhino.Render` boundary owns renderer lifecycle over the display pipeline: `
 [ENTRYPOINT_SCOPE]: `RealtimeDisplayMode` — in-viewport realtime hooks
 - rail: host-boundary render
 
-The abstract lifecycle every realtime engine implements covers render size, startup, shutdown, started/completed state, and framebuffer availability. The events initialize the framebuffer against `Pipeline`, draw the middleground pass, and react to active-pipeline `DisplayPipelineAttributes` changes; control and pass state select OpenGL, post-effects, and the progressive-refinement ceiling.
+Every realtime engine implements the abstract lifecycle covering render size, startup, shutdown, started/completed state, and framebuffer availability. Its events initialize the framebuffer against `Pipeline`, draw the middleground pass, and react to active-pipeline `DisplayPipelineAttributes` changes; control and pass state select OpenGL, post-effects, and the progressive-refinement ceiling.
 
 | [INDEX] | [SURFACE]                                                                                    | [CALL_SHAPE] |
 | :-----: | :------------------------------------------------------------------------------------------- | :----------- |
@@ -116,13 +116,13 @@ The abstract lifecycle every realtime engine implements covers render size, star
 - Texture evaluation splits live and baked: `CreateEvaluator` yields the per-point evaluator, and `SimulateTexture` bakes a `SimulatedTexture` only where live evaluation is refused, gated by the `TextureGeneration` mode.
 
 [STACKING]:
-- `api-rhinocommon-display.md`: the realtime path is the render→display seam — `RealtimeDisplayMode` framebuffer and middleground events carry the `DisplayPipeline` and its `DisplayPipelineAttributes`, so a realtime engine draws through the display pipeline's state stacks rather than a private surface.
+- `api-rhinocommon-display.md`: carries the render→display seam — `RealtimeDisplayMode` framebuffer and middleground events carry the `DisplayPipeline` and its `DisplayPipelineAttributes`, so a realtime engine draws through the display pipeline's state stacks rather than a private surface.
 - `api-languageext.md`(`../../.api/api-languageext.md`): a render session, an opened channel, and a texture evaluator are trapped onto the rail — `Try.lift(() => RenderWindow.Create(size)).Run()` and a `using` over the `IDisposable` `RenderPipeline` bounded by an `Eff`; a failed `Render` or refused channel crosses as `Fin<A>`.
 - `api-thinktecture-runtime-extensions.md`(`../../.api/api-thinktecture-runtime-extensions.md`): `StandardChannels`, `TextureEvaluatorFlags`, and `TextureGeneration` map at the edge to `[SmartEnum]`/flag owners; the domain composes the bounded channel/mode vocabulary, never the raw host enum.
 - `api-rhinocommon-document.md`: `RenderWindow.SetView`/`GetRenderWindow` consume `ViewInfo`/`ViewportInfo`, and the constructed `RenderPipeline` binds a `RhinoDoc` — the document catalog owns those carriers.
 
 [LOCAL_ADMISSION]:
-- The `Rhino.Render` types are host handles trapped and mapped at the boundary; a `RenderPipeline`, `RenderWindow`, or `RenderTexture` never appears in a domain signature — the domain sees a `Fin<A>`, a bounded owner, or a canonical shape.
+- `Rhino.Render` types are host handles trapped and mapped at the boundary; a `RenderPipeline`, `RenderWindow`, or `RenderTexture` never appears in a domain signature — the domain sees a `Fin<A>`, a bounded owner, or a canonical shape.
 - `RenderPipeline` is the single batch-render owner and `RealtimeDisplayMode` the single realtime owner; a parallel render loop beside either is the collapsed form.
 
 [RAIL_LAW]:

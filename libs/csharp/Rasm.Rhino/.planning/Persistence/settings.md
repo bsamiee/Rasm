@@ -261,7 +261,7 @@ internal static class SettingCodecs {
 
 - Owner: `SettingRequest` closes mutation and question verbs under one total dispatch. `Settings.Run` resolves one node, aborts on the first failed operation, and returns ordered answers plus mutation names.
 - Clamp: `IntegerClamp` carries lower and upper bounds as one admitted product. Bounded `GetInteger` stays on the mutation side because its fallback overload writes defaults and missing values.
-- Guards: `Guard` installs one typed validator only when `GetValidator<T>` returns null; mismatched or duplicate registrations fail. `Reject` sets `Cancel`, `Coerce` replaces `CurrentValue`, and `Accept` leaves args untouched.
+- Guards: host `RegisterSettingsValidator<T>` overwrites an existing registration unconditionally, so `Guard` installs only when `GetValidator<T>` returns null; a duplicate registration fails, and a cross-`T` mismatch throws `InvalidCastException` from the probe and lands on the rail. `Reject` sets `Cancel`, `Coerce` replaces `CurrentValue`, and `Accept` leaves args untouched.
 - Metadata: trait reads preserve type, read-only, and hidden absence independently. Host read-only metadata is reported rather than locally enforced.
 - Change evidence: changed-baseline, clear, and cross-tree modified probes share the request rail.
 
@@ -496,8 +496,8 @@ public static class Settings {
 
 - Owner: `SettingsTree` recursively detaches explicit values, readable defaults, metadata, and children. Unsupported host types fail the entire snapshot.
 - Event: `SettingsSaved` carries provenance, the plugin tree, and every requested command tree; no live `PersistentSettings` node crosses the callback.
-- Dispatch: decompile confirms `Rhino.PlugIns.PlugIn.SettingsSaved` is an instance `EventHandler<PersistentSettingsSavedEventArgs>`; `PlugInSettings` and `CommandSettings(string)` supply callback custody.
-- Subscription: one wrapper identity serves attach and idempotent detach, while snapshot failure reaches the sink on the same `Fin` rail.
+- Dispatch: `Rhino.PlugIns.PlugIn.SettingsSaved` is an instance `EventHandler<PersistentSettingsSavedEventArgs>`; the `args.PlugInSettings` property and `args.CommandSettings(string)` supply callback custody.
+- Subscription: Document's `Subscription` capsule owns wrapper identity, throwing-attach rollback, and idempotent detach; snapshot failure reaches the sink on the same `Fin` rail.
 
 ```csharp signature
 // --- [DETACHED_TREE] ------------------------------------------------------------------------
@@ -510,19 +510,19 @@ public sealed record SettingsTree(
 
     private static Fin<SettingsTree> DetachCore(PersistentSettings node, Op op) =>
         from values in toSeq(node.Keys).TraverseM(name =>
-                from type in (node.TryGetSettingType(name, out Type stored)
-                    ? Fin.Succ(value: stored)
-                    : Fin.Fail<Type>(error: op.MissingContext()))
-                from value in SettingValue.Read(node, name, type, Seq<string>(), fromDefault: false, op)
-                from held in value.ToFin(Fail: op.MissingContext())
-                from fallback in SettingValue.Read(node, name, type, Seq<string>(), fromDefault: true, op)
-                select (name, Entry: new SettingEntry(
-                    Value: held,
-                    Default: fallback,
-                    Trait: new SettingTrait(
-                        StoredType: Some(type),
-                        ReadOnly: node.TryGetSettingIsReadOnly(name, out bool readOnly) ? Some(readOnly) : None,
-                        Hidden: node.TryGetSettingIsHiddenFromUserInterface(name, out bool hidden) ? Some(hidden) : None)))
+                op.Catch(() => node.TryGetSettingType(name, out Type stored)
+                        ? Fin.Succ(value: stored)
+                        : Fin.Fail<Type>(error: op.MissingContext()))
+                    .Bind(type => SettingValue.Read(node, name, type, Seq<string>(), fromDefault: false, op)
+                        .Bind(value => value.ToFin(Fail: op.MissingContext()))
+                        .Bind(held => SettingValue.Read(node, name, type, Seq<string>(), fromDefault: true, op)
+                            .Map(fallback => (name, Entry: new SettingEntry(
+                                Value: held,
+                                Default: fallback,
+                                Trait: new SettingTrait(
+                                    StoredType: Some(type),
+                                    ReadOnly: node.TryGetSettingIsReadOnly(name, out bool readOnly) ? Some(readOnly) : None,
+                                    Hidden: node.TryGetSettingIsHiddenFromUserInterface(name, out bool hidden) ? Some(hidden) : None)))))))
             .As()
         from children in toSeq(node.ChildKeys).TraverseM(name =>
                 node.TryGetChild(name, out PersistentSettings child)
@@ -540,7 +540,7 @@ public sealed record SettingsSaved(
     HashMap<string, SettingsTree> Commands) : IDetachedDocumentResult;
 
 public static class SettingsWatch {
-    public static Fin<IDisposable> Attach(
+    public static Fin<Subscription> Attach(
         global::Rhino.PlugIns.PlugIn owner,
         Seq<string> commandNames,
         Action<Fin<SettingsSaved>> sink) {
@@ -549,44 +549,38 @@ public static class SettingsWatch {
                from commands in commandNames.TraverseM(name => op.AcceptText(value: name)).As()
                from _ in guard(commands.Distinct().Count == commands.Count, op.InvalidInput()).ToFin()
                from deliver in Optional(sink).ToFin(Fail: op.InvalidInput())
-               from capsule in op.Catch(() => {
-                   void Handler(object? _, PersistentSettingsSavedEventArgs args) => deliver(
-                       from pluginTree in SettingsTree.Detach(node: args.PlugInSettings, op: op)
-                       from commandTrees in commands.TraverseM(name => op.Catch(() =>
-                               Optional(args.CommandSettings(name)).ToFin(Fail: op.MissingContext()))
-                               .Bind(node => SettingsTree.Detach(node: node, op: op))
-                               .Map(tree => (name, tree)))
-                           .As()
-                       select new SettingsSaved(
-                           SavedByThisRhino: args.SavedByThisRhino,
-                           PlugIn: pluginTree,
-                           Commands: commandTrees.Fold(
-                               HashMap<string, SettingsTree>(),
-                               static (state, pair) => state.AddOrUpdate(pair.name, pair.tree))));
-                   plugin.SettingsSaved += Handler;
-                   return Fin.Succ<IDisposable>(value: new Detacher(release: () => plugin.SettingsSaved -= Handler));
-               })
+               from capsule in Subscription.Attach<EventHandler<PersistentSettingsSavedEventArgs>>(
+                   subscribe: handler => plugin.SettingsSaved += handler,
+                   unsubscribe: handler => plugin.SettingsSaved -= handler,
+                   handler: (_, args) => deliver(Snapshot(args: args, commands: commands, op: op)))
                select capsule;
     }
 
-    private sealed class Detacher(Action release) : IDisposable {
-        private int _released;
-        public void Dispose() {
-            if (Interlocked.Exchange(location1: ref _released, value: 1) == 0) release();
-        }
-    }
+    private static Fin<SettingsSaved> Snapshot(PersistentSettingsSavedEventArgs args, Seq<string> commands, Op op) =>
+        from pluginTree in SettingsTree.Detach(node: args.PlugInSettings, op: op)
+        from commandTrees in commands.TraverseM(name => op.Catch(() =>
+                Optional(args.CommandSettings(name)).ToFin(Fail: op.MissingContext()))
+                .Bind(node => SettingsTree.Detach(node: node, op: op))
+                .Map(tree => (name, tree)))
+            .As()
+        select new SettingsSaved(
+            SavedByThisRhino: args.SavedByThisRhino,
+            PlugIn: pluginTree,
+            Commands: commandTrees.Fold(
+                HashMap<string, SettingsTree>(),
+                static (state, pair) => state.AddOrUpdate(pair.name, pair.tree)));
 }
 ```
 
 ## [06]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN] | [OWNER] | [FORM] | [ENTRY] |
-| :-----: | :-------- | :------ | :----- | :------ |
-| [01] | settings node | `SettingsScope` | root plus admitted child path | `Create` / `Resolve` |
-| [02] | typed value | `SettingValue` | payload plus retained codec discriminant | `Create` / `As` |
-| [03] | host matrix | `SettingCodecs` | generated explicit/default/full capability rows | `Resolve` |
-| [04] | operation rail | `SettingRequest` | total mutation and question union | `Settings.Run` |
-| [05] | integer clamp | `IntegerClamp` | admitted optional lower and upper bounds | `Apply` |
-| [06] | validator | `GuardVerdict<T>` | accept, reject, or coerce | `SettingRequest.Guard<T>` |
-| [07] | saved snapshot | `SettingsTree` | recursive values, defaults, traits, and children | `Detach` |
-| [08] | saved watch | `SettingsWatch` | instance event capsule and detached payload | `Attach` |
+| [INDEX] | [CONCERN]      | [OWNER]           | [FORM]                                           | [ENTRY]                   |
+| :-----: | :------------- | :---------------- | :----------------------------------------------- | :------------------------ |
+|  [01]   | settings node  | `SettingsScope`   | root plus admitted child path                    | `Create` / `Resolve`      |
+|  [02]   | typed value    | `SettingValue`    | payload plus retained codec discriminant         | `Create` / `As`           |
+|  [03]   | host matrix    | `SettingCodecs`   | generated explicit/default/full capability rows  | `Resolve`                 |
+|  [04]   | operation rail | `SettingRequest`  | total mutation and question union                | `Settings.Run`            |
+|  [05]   | integer clamp  | `IntegerClamp`    | admitted optional lower and upper bounds         | `Apply`                   |
+|  [06]   | validator      | `GuardVerdict<T>` | accept, reject, or coerce                        | `SettingRequest.Guard<T>` |
+|  [07]   | saved snapshot | `SettingsTree`    | recursive values, defaults, traits, and children | `Detach`                  |
+|  [08]   | saved watch    | `SettingsWatch`   | Document subscription capsule, detached payload  | `Attach`                  |

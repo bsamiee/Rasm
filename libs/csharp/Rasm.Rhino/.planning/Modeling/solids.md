@@ -13,7 +13,7 @@
 
 - Owner: `ModelGate` — the one custody kernel under every Modeling arm: `Borrow` projects a live native of the demanded kind out of a leased handle, `BorrowMany` nests borrow windows over a handle spread, `Own`/`OwnMany` mint owned leases for freshly constructed natives, and `Folded` is the batch fold every page entry runs; `Built<TSlot>` — products plus evidence as one value; `BuildBody` `[Union]` — the closed evidence payload vocabulary; `BuildReceipt<TSlot>` — the slot-generic fact-stream monoid.
 - Law: a construction result is an acquisition, never a crossing — the native static's return is this rail's own owned material, so `Own` mints the owned lease directly and `GeometryCrossing.Cross` remains the entry for foreign or document geometry; a null single result and a null-or-empty array are the native failure signal folded to `InvalidResult`, and a mid-spread `OwnMany` failure disposes every handle it already minted.
-- Law: one receipt algebra serves seven pages — `BuildReceipt<TSlot>` is generic over the page's slot vocabulary, so diagnostics points, index maps, tallies, deviations, and codes are one body union with one `+` monoid and one projection set, and a new evidence kind is one `BuildBody` case every page gains at once.
+- Law: one receipt algebra serves every Modeling page — `BuildReceipt<TSlot>` is generic over the page's slot vocabulary, so diagnostic points, uv rows, labels, index maps, segments, faces, components, region topology, tallies, codes, measures, flags, and texts are one `BuildBody` union with one `+` monoid; every typed reader derives from the one polymorphic `Project<T>(slot, select)` core, so the projection surface is total over the body vocabulary and a new evidence kind is one `BuildBody` case plus one `Project`-backed accessor every page gains at once.
 - Law: the batch fold is failure-symmetric — `Folded` sums products and receipts monoidally and releases every product accumulated by earlier operations the moment a later operation faults, so a batch never half-leaks custody.
 - Law: `Borrow` is the type gate — a handle whose live native is not the demanded kind refuses through `Unsupported` with both types named, so no arm ever pattern-matches raw geometry beyond its own dispatch.
 - Growth: a new evidence payload is one `BuildBody` case; a new custody modality is one `ModelGate` member; sibling pages add zero spine surface.
@@ -35,6 +35,7 @@ public abstract partial record BuildBody {
     public sealed record ComponentRows(Seq<ComponentIndex> Indices) : BuildBody;
     public sealed record Segments(Seq<Line> Lines) : BuildBody;
     public sealed record Faces(Seq<MeshFace> Rows) : BuildBody;
+    public sealed record RegionSegments(Seq<(int Region, int Boundary, int Segment, int PlanarCurve, Interval Domain, bool Reversed)> Rows) : BuildBody;
     public sealed record Flag(bool Value) : BuildBody;
     public sealed record Text(string Value) : BuildBody;
 }
@@ -57,27 +58,56 @@ public readonly record struct BuildReceipt<TSlot> where TSlot : notnull {
     public static BuildReceipt<TSlot> Of(TSlot slot, BuildBody body) =>
         new(facts: Seq(new BuildFact<TSlot>(Slot: slot, Body: body)));
 
-    public Seq<Point3d> Points(TSlot slot) =>
-        facts.Filter(fact => fact.Slot.Equals(slot))
-            .Choose(static fact => fact.Body is BuildBody.Marks body ? Some(body.Points) : Option<Seq<Point3d>>.None)
-            .Bind(static points => points);
+    public Seq<T> Project<T>(TSlot slot, Func<BuildBody, Option<T>> select) =>
+        facts.Filter(fact => fact.Slot.Equals(slot)).Choose(fact => select(fact.Body));
 
-    public Seq<int> Tallies(TSlot slot) =>
-        facts.Filter(fact => fact.Slot.Equals(slot))
-            .Choose(static fact => fact.Body is BuildBody.Tally body ? Some(body.Count) : Option<int>.None);
+    public Seq<Point3d> Points(TSlot slot) =>
+        Project(slot, static body => body is BuildBody.Marks b ? Some(b.Points) : Option<Seq<Point3d>>.None).Bind(identity);
+
+    public Seq<Point2d> UvRows(TSlot slot) =>
+        Project(slot, static body => body is BuildBody.UvRows b ? Some(b.Rows) : Option<Seq<Point2d>>.None).Bind(identity);
+
+    public Seq<(Point3d Location, string Text)> Labels(TSlot slot) =>
+        Project(slot, static body => body is BuildBody.Labels b ? Some(b.Rows) : Option<Seq<(Point3d Location, string Text)>>.None).Bind(identity);
 
     public Seq<Seq<int>> Maps(TSlot slot) =>
-        facts.Filter(fact => fact.Slot.Equals(slot))
-            .Choose(static fact => fact.Body switch {
-                BuildBody.SourceMap body => Some(Seq(body.Rows)),
-                BuildBody.SourceGroups body => Some(body.Groups),
-                _ => Option<Seq<Seq<int>>>.None,
-            })
-            .Bind(static groups => groups);
+        Project(slot, static body => body switch {
+            BuildBody.SourceMap b => Some(Seq(b.Rows)),
+            BuildBody.SourceGroups b => Some(b.Groups),
+            _ => Option<Seq<Seq<int>>>.None,
+        }).Bind(identity);
+
+    public Seq<Line> Segments(TSlot slot) =>
+        Project(slot, static body => body is BuildBody.Segments b ? Some(b.Lines) : Option<Seq<Line>>.None).Bind(identity);
+
+    public Seq<MeshFace> Faces(TSlot slot) =>
+        Project(slot, static body => body is BuildBody.Faces b ? Some(b.Rows) : Option<Seq<MeshFace>>.None).Bind(identity);
+
+    public Seq<int> Components(TSlot slot) =>
+        Project(slot, static body => body is BuildBody.Components b ? Some(b.Indices) : Option<Seq<int>>.None).Bind(identity);
+
+    public Seq<ComponentIndex> ComponentRows(TSlot slot) =>
+        Project(slot, static body => body is BuildBody.ComponentRows b ? Some(b.Indices) : Option<Seq<ComponentIndex>>.None).Bind(identity);
+
+    public Seq<(int Region, int Boundary, int Segment, int PlanarCurve, Interval Domain, bool Reversed)> Regions(TSlot slot) =>
+        Project(slot, static body => body is BuildBody.RegionSegments b
+            ? Some(b.Rows)
+            : Option<Seq<(int Region, int Boundary, int Segment, int PlanarCurve, Interval Domain, bool Reversed)>>.None).Bind(identity);
+
+    public Seq<int> Tallies(TSlot slot) =>
+        Project(slot, static body => body is BuildBody.Tally b ? Some(b.Count) : Option<int>.None);
+
+    public Seq<int> Codes(TSlot slot) =>
+        Project(slot, static body => body is BuildBody.Code b ? Some(b.Value) : Option<int>.None);
 
     public Seq<double> Measures(TSlot slot) =>
-        facts.Filter(fact => fact.Slot.Equals(slot))
-            .Choose(static fact => fact.Body is BuildBody.Measure body ? Some(body.Value) : Option<double>.None);
+        Project(slot, static body => body is BuildBody.Measure b ? Some(b.Value) : Option<double>.None);
+
+    public Seq<bool> Flags(TSlot slot) =>
+        Project(slot, static body => body is BuildBody.Flag b ? Some(b.Value) : Option<bool>.None);
+
+    public Seq<string> Texts(TSlot slot) =>
+        Project(slot, static body => body is BuildBody.Text b ? Some(b.Value) : Option<string>.None);
 
     public int FactCount(TSlot slot) =>
         facts.Count(fact => fact.Slot.Equals(slot));
@@ -149,8 +179,9 @@ internal static class ModelGate {
 
 ## [03]-[POLICY_FAMILY]
 
-- Owner: `BooleanVerb` `[SmartEnum<int>]` — union, intersection, difference, split as rows with a second-set demand column; `FilletShape` `[Union]` — the four `Brep.FilletSurfaceSettings` profile factories as cases, chamfer a profile beside the three fillet forms, never a sibling method; `EdgeFillet` — one edge row pairing the index with a constant or parameter-profiled radius law; `MatchLaw` — the complete `MatchSrfSettings` carrier with context-rigged refinement; `PipeLaw` `[Union]` — constant, variable, thick, and thick-variable radius profiles; `SolidSeed` `[Union]` — analytic primitives and geometry conversions minting a first brep; `ExtrusionSeed` `[Union]` — the lightweight-solid factories; `SolidEdit` `[Union]` — the value-semantic in-place edit verbs; `TrimCutter`/`ConnectSeed` — the trim and face-extension discriminants.
+- Owner: `BooleanVerb` `[SmartEnum<int>]` — union, intersection, difference, split as rows with a second-set demand column; `PlanarBooleanVerb` `[SmartEnum<int>]` — the planar subset without an illusory split row; `FilletShape` `[Union]` — the four `Brep.FilletSurfaceSettings` profile factories as cases, chamfer a profile beside the three fillet forms, never a sibling method; `SectionFilletProfile` `[Union]` — the verified `SurfaceFilletBase` section family with cubic, quartic, and quintic degree generated from one discriminant; `EdgeFillet` — one edge row pairing the index with a constant or parameter-profiled radius law; `MatchLaw` — the complete `MatchSrfSettings` carrier with context-rigged refinement; `PipeLaw` `[Union]` — constant, variable, thick, and thick-variable radius profiles; `SolidSeed` `[Union]` — analytic primitives and geometry conversions minting a first brep; `ExtrusionSeed` `[Union]` — the lightweight-solid factories; `SolidEdit` `[Union]` — the value-semantic in-place edit verbs; `TrimCutter`/`ConnectSeed` — the trim and face-extension discriminants.
 - Law: the fillet profile is the settings factory — every `Brep[]`-returning fillet/chamfer overload is obsolete, so `FilletShape.Rig` is the only site naming `CreateRationalArcSettings`/`CreateNonRationalSettings`/`CreateG2BlendSettings`/`CreateChamferSettings`, the tolerance slot reads the regime, and `ContinueAcrossTangentFaces` rides every case as the one public post-factory knob.
+- Law: section fillets generate the degree space — rational arcs and G2 chordal quintic are terminal cases, while non-rational arc and slider profiles admit cubic, quartic, or quintic degree; cubic consumes tangent only, quartic and quintic require tangent plus inner slider, and every other combination refuses before dispatch.
 - Law: parallel arrays are rows — an edge fillet enters as `(Edge, Law)` rows and the arm splits all-constant rows onto `CreateFilletEdges` and any-profiled rows onto `CreateFilletEdgesVariableRadius` with `BrepEdgeFilletDistance` rows minted per profile point, so equal-cardinality is proven by construction and the two native members stay one case.
 - Law: `MatchLaw` collapses the host's split configuration — constructor continuities, public property knobs, and the `EnableRefinement` seam rig in one member, so a match is one value and the `PreserveIsoCurveMethod`/`Continuity` vocabularies never leak past the rig.
 - Law: seeds carry no custody unless the source is geometry — analytic primitive cases hold value structs; the surface, revolve, and mesh conversion cases hold leased handles borrowed only inside `Build`.
@@ -164,6 +195,15 @@ public sealed partial class BooleanVerb {
     public static readonly BooleanVerb Intersection = new(key: 1, requiresSecond: true);
     public static readonly BooleanVerb Difference = new(key: 2, requiresSecond: true);
     public static readonly BooleanVerb Split = new(key: 3, requiresSecond: true);
+
+    public bool RequiresSecond { get; }
+}
+
+[SmartEnum<int>]
+public sealed partial class PlanarBooleanVerb {
+    public static readonly PlanarBooleanVerb Union = new(key: 0, requiresSecond: false);
+    public static readonly PlanarBooleanVerb Intersection = new(key: 1, requiresSecond: true);
+    public static readonly PlanarBooleanVerb Difference = new(key: 2, requiresSecond: true);
 
     public bool RequiresSecond { get; }
 }
@@ -196,6 +236,25 @@ public abstract partial record FilletShape {
                 chamfer: static shape => shape.AcrossTangents);
             return Fin.Succ(value: settings);
         });
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record SectionFilletProfile {
+    private SectionFilletProfile() { }
+    public sealed record RationalArcs : SectionFilletProfile;
+    public sealed record NonRationalArcs(int Degree) : SectionFilletProfile;
+    public sealed record NonRational(int Degree, double TangentSlider, Option<double> InnerSlider = default) : SectionFilletProfile;
+    public sealed record G2ChordalQuintic : SectionFilletProfile;
+
+    internal bool IsAdmitted => Switch(
+        rationalArcs: static _ => true,
+        nonRationalArcs: static profile => profile.Degree is 3 or 4 or 5,
+        nonRational: static profile => profile.Degree switch {
+            3 => profile.InnerSlider.IsNone,
+            4 or 5 => profile.InnerSlider.IsSome,
+            _ => false,
+        },
+        g2ChordalQuintic: static _ => true);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -315,6 +374,13 @@ public abstract partial record SolidEdit {
 // --- [MODELS] -----------------------------------------------------------------------------
 public readonly record struct EdgeFillet(int Edge, RadiusLaw Law);
 
+public sealed record SectionFilletLaw(
+    double Radius,
+    int RailDegree,
+    SectionFilletProfile Profile,
+    bool Trim = true,
+    bool Extend = false);
+
 public sealed record MatchLaw(
     Continuity Match,
     Continuity OtherEnd,
@@ -337,7 +403,7 @@ public sealed record MatchLaw(
                 enabled: Refine,
                 positionalTolerance: domain.Absolute.Value,
                 angleToleranceRadians: domain.Angle.Value,
-                curvatureTolerance: domain.Fractional.Value);
+                curvatureTolerance: domain.Fractional);
             return Fin.Succ(value: settings);
         });
 }
@@ -394,11 +460,12 @@ public sealed partial class SolidSlot {
 public abstract partial record SolidOp {
     private SolidOp() { }
     public sealed record Boolean(BooleanVerb Verb, Seq<GeometryHandle> First, Seq<GeometryHandle> Second, bool ManifoldOnly = false) : SolidOp;
-    public sealed record PlanarBoolean(BooleanVerb Verb, Plane Plane, Seq<GeometryHandle> First, Seq<GeometryHandle> Second) : SolidOp;
+    public sealed record PlanarBoolean(PlanarBooleanVerb Verb, Plane Plane, Seq<GeometryHandle> First, Seq<GeometryHandle> Second) : SolidOp;
     public sealed record Solidify(Seq<GeometryHandle> Open) : SolidOp;
     public sealed record FilletEdges(GeometryHandle Target, Seq<EdgeFillet> Edges, BlendType Blend, RailType Rail, bool Setback = false) : SolidOp;
     public sealed record FaceFillet(GeometryHandle First, int FirstFace, Point2d FirstUv, GeometryHandle Second, int SecondFace, Point2d SecondUv, FilletShape Shape) : SolidOp;
     public sealed record FaceCurveFillet(GeometryHandle Host, int Face, Point2d Uv, GeometryHandle Along, double Parameter, FilletShape Shape) : SolidOp;
+    public sealed record SectionFillet(GeometryHandle First, int FirstFace, Point2d FirstUv, GeometryHandle Second, int SecondFace, Point2d SecondUv, SectionFilletLaw Law) : SolidOp;
     public sealed record BlendSurface(
         GeometryHandle First, int FirstFace, int FirstEdge, Interval FirstDomain, bool FirstReversed, BlendContinuity FirstContinuity,
         GeometryHandle Second, int SecondFace, int SecondEdge, Interval SecondDomain, bool SecondReversed, BlendContinuity SecondContinuity) : SolidOp;
@@ -472,15 +539,16 @@ public abstract partial record SolidOp {
                 Op op = Op.Of(name: nameof(PlanarBoolean));
                 return ModelGate.BorrowMany<Brep, Built<SolidSlot>>(handles: edit.First, key: op, body: first =>
                     ModelGate.BorrowMany<Brep, Built<SolidSlot>>(handles: edit.Second, key: op, allowEmpty: !edit.Verb.RequiresSecond, body: second =>
-                        edit.Verb.Switch(
+                        from _ in guard(edit.Verb.RequiresSecond == !second.IsEmpty, op.InvalidInput())
+                        from built in edit.Verb.Switch(
                             state: (First: first, Second: second, Plane: edit.Plane, Tolerance: model.Absolute.Value, Op: op),
                             union: static ctx => Booled(ctx.Op, () => Brep.CreatePlanarUnion(
                                 breps: ctx.First.AsIterable(), plane: ctx.Plane, tolerance: ctx.Tolerance)),
                             intersection: static ctx => Paired(ctx.First, ctx.Second, ctx.Op, (a, b) => Booled(ctx.Op, () =>
                                 Brep.CreatePlanarIntersection(b0: a, b1: b, plane: ctx.Plane, tolerance: ctx.Tolerance))),
                             difference: static ctx => Paired(ctx.First, ctx.Second, ctx.Op, (a, b) => Booled(ctx.Op, () =>
-                                Brep.CreatePlanarDifference(b0: a, b1: b, plane: ctx.Plane, tolerance: ctx.Tolerance))),
-                            split: static ctx => Fin.Fail<Built<SolidSlot>>(error: ctx.Op.Unsupported(geometryType: typeof(Plane), outputType: typeof(Brep))))));
+                                Brep.CreatePlanarDifference(b0: a, b1: b, plane: ctx.Plane, tolerance: ctx.Tolerance))))
+                        select built));
             },
             solidify: static (model, edit) => {
                 Op op = Op.Of(name: nameof(Solidify));
@@ -546,6 +614,21 @@ public abstract partial record SolidOp {
                             .Bind(_ => Harvested(results: results, op: op)))
                         select built));
             },
+            sectionFillet: static (model, edit) => {
+                Op op = Op.Of(name: nameof(SectionFillet));
+                return ModelGate.Borrow<Brep, Built<SolidSlot>>(handle: edit.First, key: op, body: first =>
+                    ModelGate.Borrow<Brep, Built<SolidSlot>>(handle: edit.Second, key: op, body: second =>
+                        from _ in guard(
+                            edit.FirstFace >= 0 && edit.FirstFace < first.Faces.Count
+                            && edit.SecondFace >= 0 && edit.SecondFace < second.Faces.Count
+                            && edit.Law.Profile.IsAdmitted,
+                            op.InvalidInput())
+                        from built in SectionFilleted(
+                            first: first.Faces[edit.FirstFace], firstUv: edit.FirstUv,
+                            second: second.Faces[edit.SecondFace], secondUv: edit.SecondUv,
+                            law: edit.Law, tolerance: model.Absolute.Value, op: op)
+                        select built));
+            },
             blendSurface: static (_, edit) => {
                 Op op = Op.Of(name: nameof(BlendSurface));
                 return ModelGate.Borrow<Brep, Built<SolidSlot>>(handle: edit.First, key: op, body: first =>
@@ -606,8 +689,10 @@ public abstract partial record SolidOp {
             shell: static (model, edit) => {
                 Op op = Op.Of(name: nameof(Shell));
                 return ModelGate.Borrow<Brep, Built<SolidSlot>>(handle: edit.Target, key: op, body: target =>
-                    Many(op, SolidSlot.Shelled, () => Brep.CreateShell(
-                        brep: target, facesToRemove: edit.FacesToRemove.AsIterable(), distance: edit.Distance, tolerance: model.Absolute.Value)));
+                    from _ in guard(edit.FacesToRemove.ForAll(face => face >= 0 && face < target.Faces.Count), op.InvalidInput())
+                    from built in Many(op, SolidSlot.Shelled, () => Brep.CreateShell(
+                        brep: target, facesToRemove: edit.FacesToRemove.AsIterable(), distance: edit.Distance, tolerance: model.Absolute.Value))
+                    select built);
             },
             pipe: static (model, edit) => {
                 Op op = Op.Of(name: nameof(Pipe));
@@ -705,9 +790,9 @@ public abstract partial record SolidOp {
                     ModelGate.Borrow<Brep, Built<SolidSlot>>(handle: edit.Second, key: op, body: second =>
                         Single(op, SolidSlot.Merged, () => edit.Seam.Case switch {
                             (Point2d p0, Point2d p1, double roundness, bool smooth) => Brep.MergeSurfaces(
-                                b0: first, b1: second, tolerance: model.Absolute.Value, angleToleranceRadians: model.Angle.Value,
+                                brep0: first, brep1: second, tolerance: model.Absolute.Value, angleToleranceRadians: model.Angle.Value,
                                 point0: p0, point1: p1, roundness: roundness, smooth: smooth),
-                            _ => Brep.MergeSurfaces(b0: first, b1: second, tolerance: model.Absolute.Value, angleToleranceRadians: model.Angle.Value),
+                            _ => Brep.MergeSurfaces(brep0: first, brep1: second, tolerance: model.Absolute.Value, angleToleranceRadians: model.Angle.Value),
                         })));
             },
             match: static (model, edit) => {
@@ -733,6 +818,12 @@ public abstract partial record SolidOp {
                 return ModelGate.Borrow<Brep, Built<SolidSlot>>(handle: edit.First, key: op, body: first =>
                     ModelGate.Borrow<Brep, Built<SolidSlot>>(handle: edit.Second, key: op, body: second =>
                         from _ in guard(edit.FirstFace >= 0 && edit.FirstFace < first.Faces.Count && edit.SecondFace >= 0 && edit.SecondFace < second.Faces.Count, op.InvalidInput())
+                        from __ in edit.At.Case switch {
+                            ConnectSeed.AtEdges at => guard(
+                                at.FirstEdge >= 0 && at.FirstEdge < first.Edges.Count && at.SecondEdge >= 0 && at.SecondEdge < second.Edges.Count,
+                                op.InvalidInput()),
+                            _ => Fin.Succ(value: unit),
+                        }
                         from built in op.Catch(() => {
                             Brep extended0 = null!;
                             Brep extended1 = null!;
@@ -742,7 +833,7 @@ public abstract partial record SolidOp {
                                     Face0: ctx.First, edgeIndex0: at.FirstEdge, Face1: ctx.Second, edgeIndex1: at.SecondEdge,
                                     tol: ctx.Tol, angleTol: ctx.Angle, outBrep0: out extended0, outBrep1: out extended1),
                                 atPoints: (ctx, at) => Brep.ExtendBrepFacesToConnect(
-                                    Face0: ctx.First, f_sel_pt: at.First, Face1: ctx.Second, f_sel_pt1: at.Second,
+                                    Face0: ctx.First, f0_sel_pt: at.First, Face1: ctx.Second, f1_sel_pt: at.Second,
                                     tol: ctx.Tol, angleTol: ctx.Angle, outBrep0: out extended0, outBrep1: out extended1));
                             return op.Confirm(success: connected).Bind(_ =>
                                 from owned in ModelGate.Own(built: extended0, key: op)
@@ -900,6 +991,72 @@ public abstract partial record SolidOp {
                 + BuildReceipt<SolidSlot>.Of(slot: SolidSlot.Trimmed0, body: new BuildBody.Tally(Count: trimmed0.Count))
                 + BuildReceipt<SolidSlot>.Of(slot: SolidSlot.Trimmed1, body: new BuildBody.Tally(Count: trimmed1.Count)));
 
+    private static Fin<Built<SolidSlot>> SectionFilleted(
+        BrepFace first, Point2d firstUv, BrepFace second, Point2d secondUv,
+        SectionFilletLaw law, double tolerance, Op op) =>
+        op.Catch(() => {
+            System.Collections.Generic.List<Brep> trimmed0 = [];
+            System.Collections.Generic.List<Brep> trimmed1 = [];
+            System.Collections.Generic.List<Brep> fillets = [];
+            bool created = law.Profile.Switch(
+                state: (First: first, FirstUv: firstUv, Second: second, SecondUv: secondUv, Law: law, Tolerance: tolerance, Trimmed0: trimmed0, Trimmed1: trimmed1, Fillets: fillets),
+                rationalArcs: static ctx => SurfaceFilletBase.CreateRationalArcsFilletSrf(
+                    ctx.First, ctx.FirstUv, ctx.Second, ctx.SecondUv, ctx.Law.Radius, ctx.Tolerance,
+                    ctx.Trimmed0, ctx.Trimmed1, ctx.Law.RailDegree, ctx.Law.Trim, ctx.Law.Extend, ctx.Fillets),
+                nonRationalArcs: static (ctx, profile) => profile.Degree switch {
+                    3 => SurfaceFilletBase.CreateNonRationalCubicArcsFilletSrf(
+                        ctx.First, ctx.FirstUv, ctx.Second, ctx.SecondUv, ctx.Law.Radius, ctx.Tolerance,
+                        ctx.Trimmed0, ctx.Trimmed1, ctx.Law.RailDegree, ctx.Law.Trim, ctx.Law.Extend, ctx.Fillets),
+                    4 => SurfaceFilletBase.CreateNonRationalQuarticArcsFilletSrf(
+                        ctx.First, ctx.FirstUv, ctx.Second, ctx.SecondUv, ctx.Law.Radius, ctx.Tolerance,
+                        ctx.Trimmed0, ctx.Trimmed1, ctx.Law.RailDegree, ctx.Law.Trim, ctx.Law.Extend, ctx.Fillets),
+                    5 => SurfaceFilletBase.CreateNonRationalQuinticArcsFilletSrf(
+                        ctx.First, ctx.FirstUv, ctx.Second, ctx.SecondUv, ctx.Law.Radius, ctx.Tolerance,
+                        ctx.Trimmed0, ctx.Trimmed1, ctx.Law.RailDegree, ctx.Law.Trim, ctx.Law.Extend, ctx.Fillets),
+                    _ => false,
+                },
+                nonRational: static (ctx, profile) => profile.Degree switch {
+                    3 => SurfaceFilletBase.CreateNonRationalCubicFilletSrf(
+                        ctx.First, ctx.FirstUv, ctx.Second, ctx.SecondUv, ctx.Law.Radius, ctx.Tolerance,
+                        ctx.Trimmed0, ctx.Trimmed1, ctx.Law.RailDegree, profile.TangentSlider, ctx.Law.Trim, ctx.Law.Extend, ctx.Fillets),
+                    4 => SurfaceFilletBase.CreateNonRationalQuarticFilletSrf(
+                        ctx.First, ctx.FirstUv, ctx.Second, ctx.SecondUv, ctx.Law.Radius, ctx.Tolerance,
+                        ctx.Trimmed0, ctx.Trimmed1, ctx.Law.RailDegree, profile.TangentSlider, profile.InnerSlider.IfNone(0.0),
+                        ctx.Law.Trim, ctx.Law.Extend, ctx.Fillets),
+                    5 => SurfaceFilletBase.CreateNonRationalQuinticFilletSrf(
+                        ctx.First, ctx.FirstUv, ctx.Second, ctx.SecondUv, ctx.Law.Radius, ctx.Tolerance,
+                        ctx.Trimmed0, ctx.Trimmed1, ctx.Law.RailDegree, profile.TangentSlider, profile.InnerSlider.IfNone(0.0),
+                        ctx.Law.Trim, ctx.Law.Extend, ctx.Fillets),
+                    _ => false,
+                },
+                g2ChordalQuintic: static ctx => SurfaceFilletBase.CreateG2ChordalQuinticFilletSrf(
+                    ctx.First, ctx.FirstUv, ctx.Second, ctx.SecondUv, ctx.Law.Radius, ctx.Tolerance,
+                    ctx.Trimmed0, ctx.Trimmed1, ctx.Law.RailDegree, ctx.Law.Trim, ctx.Law.Extend, ctx.Fillets));
+            return op.Confirm(success: created).Bind(_ => Harvested(
+                fillets: fillets, trimmed0: trimmed0, trimmed1: trimmed1, op: op));
+        });
+
+    private static Fin<Built<SolidSlot>> Harvested(
+        System.Collections.Generic.IEnumerable<Brep> fillets,
+        System.Collections.Generic.IEnumerable<Brep> trimmed0,
+        System.Collections.Generic.IEnumerable<Brep> trimmed1,
+        Op op) =>
+        from builtFillets in ModelGate.OwnMany(built: fillets, key: op)
+        from built0 in ModelGate.OwnMany(built: trimmed0, key: op, allowEmpty: true).MapFail(error => {
+            _ = builtFillets.Iter(static handle => handle.Dispose());
+            return error;
+        })
+        from built1 in ModelGate.OwnMany(built: trimmed1, key: op, allowEmpty: true).MapFail(error => {
+            _ = builtFillets.Iter(static handle => handle.Dispose());
+            _ = built0.Iter(static handle => handle.Dispose());
+            return error;
+        })
+        select new Built<SolidSlot>(
+            Products: builtFillets + built0 + built1,
+            Evidence: BuildReceipt<SolidSlot>.Of(slot: SolidSlot.Filleted, body: new BuildBody.Tally(Count: builtFillets.Count))
+                + BuildReceipt<SolidSlot>.Of(slot: SolidSlot.Trimmed0, body: new BuildBody.Tally(Count: built0.Count))
+                + BuildReceipt<SolidSlot>.Of(slot: SolidSlot.Trimmed1, body: new BuildBody.Tally(Count: built1.Count)));
+
     private static Fin<Seq<GeometryHandle>> FilletFace(BrepFace? face, Op op) =>
         Optional(face).Case switch {
             BrepFace live => op.Catch(() => ModelGate.Own(built: live.Duplicate(), key: op).Map(handle => Seq(handle))),
@@ -912,24 +1069,35 @@ public abstract partial record SolidOp {
             cap: static ctx => Owned(ctx.Op, ctx.Working, () => ctx.Working.CapPlanarHoles(tolerance: ctx.Domain.Absolute.Value)),
             joinNaked: static ctx => ctx.Op.Catch(() => Fin.Succ(value: ctx.Working.JoinNakedEdges(tolerance: ctx.Domain.Absolute.Value)))
                 .Bind(count => Kept(ctx.Op, ctx.Working, extra: BuildReceipt<SolidSlot>.Of(slot: SolidSlot.Edited, body: new BuildBody.Tally(Count: count)))),
-            mergeCoplanar: static (ctx, edit) => ctx.Op.Confirm(success: edit.Faces.Case switch {
+            mergeCoplanar: static (ctx, edit) =>
+                from _ in edit.Faces.Case switch {
+                    (int a, int b) => guard(
+                        a >= 0 && a < ctx.Working.Faces.Count && b >= 0 && b < ctx.Working.Faces.Count,
+                        ctx.Op.InvalidInput()),
+                    _ => Fin.Succ(value: unit),
+                }
+                from __ in ctx.Op.Confirm(success: edit.Faces.Case switch {
                     (int a, int b) => ctx.Working.MergeCoplanarFaces(faceIndex0: a, faceIndex1: b, tolerance: ctx.Domain.Absolute.Value, angleTolerance: ctx.Domain.Angle.Value),
                     _ => ctx.Working.MergeCoplanarFaces(tolerance: ctx.Domain.Absolute.Value, angleTolerance: ctx.Domain.Angle.Value),
                 })
-                .Bind(_ => Kept(ctx.Op, ctx.Working)),
-            unjoinEdges: static (ctx, edit) => ctx.Op.Catch(() =>
-                ModelGate.OwnMany(built: ctx.Working.UnjoinEdges(edgesToUnjoin: edit.Edges.AsIterable()), key: ctx.Op).Map(owned => {
-                    ctx.Working.Dispose();
-                    return new Built<SolidSlot>(
-                        Products: owned,
-                        Evidence: BuildReceipt<SolidSlot>.Of(slot: SolidSlot.Edited, body: new BuildBody.Tally(Count: owned.Count)));
-                })),
+                from built in Kept(ctx.Op, ctx.Working)
+                select built,
+            unjoinEdges: static (ctx, edit) =>
+                from _ in guard(edit.Edges.ForAll(edge => edge >= 0 && edge < ctx.Working.Edges.Count), ctx.Op.InvalidInput())
+                from built in ctx.Op.Catch(() =>
+                    ModelGate.OwnMany(built: ctx.Working.UnjoinEdges(edgesToUnjoin: edit.Edges.AsIterable()), key: ctx.Op).Map(owned => {
+                        ctx.Working.Dispose();
+                        return new Built<SolidSlot>(
+                            Products: owned,
+                            Evidence: BuildReceipt<SolidSlot>.Of(slot: SolidSlot.Edited, body: new BuildBody.Tally(Count: owned.Count)));
+                    }))
+                select built,
             removeHoles: static (ctx, edit) => Owned(ctx.Op, ctx.Working, () => ctx.Working.RemoveHoles(loops: edit.Loops.AsIterable(), tolerance: ctx.Domain.Absolute.Value)),
             removeFins: static ctx => ctx.Op.Confirm(success: ctx.Working.RemoveFins()).Bind(_ => Kept(ctx.Op, ctx.Working)),
             cullFaces: static ctx => ctx.Op.Confirm(success: ctx.Working.CullUnusedFaces()).Bind(_ => Kept(ctx.Op, ctx.Working)),
             repair: static ctx => ctx.Op.Confirm(success: ctx.Working.Repair(tolerance: ctx.Domain.Absolute.Value)).Bind(_ => Kept(ctx.Op, ctx.Working)),
             reseam: static (ctx, edit) =>
-                from _ in guard(edit.Face >= 0 && edit.Face < ctx.Working.Faces.Count, ctx.Op.InvalidInput())
+                from _ in guard(edit.Face >= 0 && edit.Face < ctx.Working.Faces.Count && edit.Direction is 0 or 1, ctx.Op.InvalidInput())
                 from built in Owned(ctx.Op, ctx.Working, () => Brep.ChangeSeam(
                     face: ctx.Working.Faces[edit.Face], direction: edit.Direction, parameter: edit.Parameter, tolerance: ctx.Domain.Absolute.Value))
                 select built);
@@ -975,12 +1143,13 @@ public static class Solids {
 |  [01]   | custody kernel         | `ModelGate`           | typed borrow fold, owned acquisition, batch fold   | `Borrow` / `Own` / `Folded`    |
 |  [02]   | product carrier        | `Built<TSlot>`        | owned handles + receipt as one monoid              | every page entry               |
 |  [03]   | evidence algebra       | `BuildReceipt<TSlot>` | slot-generic fact stream with projections          | `Of` / `+` / projections       |
-|  [04]   | boolean verbs          | `BooleanVerb`         | rows with a second-set demand column               | `SolidOp.Boolean` / `Planar`   |
+|  [04]   | boolean verbs          | `BooleanVerb` / `PlanarBooleanVerb` | host-admitted rows with a second-set demand column | `SolidOp.Boolean` / `Planar` |
 |  [05]   | fillet profile         | `FilletShape`         | four settings factories as one union               | `Rig(domain, key)`             |
-|  [06]   | edge radius law        | `EdgeFillet`          | constant or profiled rows, arrays paired           | `SolidOp.FilletEdges`          |
-|  [07]   | surface match          | `MatchLaw`            | one value rigging `MatchSrfSettings`               | `SolidOp.Match`                |
-|  [08]   | pipe profile           | `PipeLaw`             | constant, variable, thick, thick-variable          | `SolidOp.Pipe`                 |
-|  [09]   | primitive seeding      | `SolidSeed`           | analytic values + leased conversions               | `SolidOp.Seed`                 |
-|  [10]   | lightweight solid      | `ExtrusionSeed`       | profile and analytic extrusion factories           | `SolidOp.Lite` / `LiteHeavy`   |
-|  [11]   | value-semantic edit    | `SolidEdit`           | duplicate-edit-own verbs                           | `SolidOp.Edit`                 |
-|  [12]   | solid verbs            | `SolidOp`             | one flat `[Union]`, total generated dispatch       | `Solids.Build`                 |
+|  [06]   | section fillet profile | `SectionFilletProfile` | verified profile family generated by degree       | `SolidOp.SectionFillet`        |
+|  [07]   | edge radius law        | `EdgeFillet`          | constant or profiled rows, arrays paired           | `SolidOp.FilletEdges`          |
+|  [08]   | surface match          | `MatchLaw`            | one value rigging `MatchSrfSettings`               | `SolidOp.Match`                |
+|  [09]   | pipe profile           | `PipeLaw`             | constant, variable, thick, thick-variable          | `SolidOp.Pipe`                 |
+|  [10]   | primitive seeding      | `SolidSeed`           | analytic values + leased conversions               | `SolidOp.Seed`                 |
+|  [11]   | lightweight solid      | `ExtrusionSeed`       | profile and analytic extrusion factories           | `SolidOp.Lite` / `LiteHeavy`   |
+|  [12]   | value-semantic edit    | `SolidEdit`           | duplicate-edit-own verbs                           | `SolidOp.Edit`                 |
+|  [13]   | solid verbs            | `SolidOp`             | one flat `[Union]`, total generated dispatch       | `Solids.Build`                 |

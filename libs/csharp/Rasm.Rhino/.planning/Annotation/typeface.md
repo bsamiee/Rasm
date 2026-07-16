@@ -1,11 +1,11 @@
 # [RASM_RHINO_ANNOTATION_TYPEFACE]
 
-Typeface and section-presentation rail (`Rasm.Rhino.Annotation`). `FaceQuery` resolves a validated quartet face or a full-axis `Font` constructor into `FaceInfo`, including every catalogued name, style axis, capability flag, installation verdict, and substitute. Installed census remains session-free machine state. `FontTable.FindOrCreate` stays quarantined because the catalog proves the table but not its `RhinoDoc` accessor spelling. Section authoring/amendment stays quarantined because the catalog proves no `SectionStyle` constructor or duplicate seed; verified import and usage-gated deletion remain executable. `.secstyles` import remaps referenced hatch indices before adding styles. `FontOrigin`/`FontType` remain absent because no public `Font` property exposes them.
+Typeface and section-presentation rail (`Rasm.Rhino.Annotation`). `FaceQuery` resolves a validated quartet face or a full-axis `Font` constructor into `FaceInfo`, including every catalogued name, style axis, capability flag, installation verdict, and substitute. Installed census remains session-free machine state; document binding rides `RhinoDoc.Fonts.FindOrCreate`, whose answer is a `DimStyles` index because the host font table is a face over the style table. Section authoring seeds `new SectionStyle()`, amendment seeds the copy constructor, and both land the composed `SectionSpec` through the table; `.secstyles` import remaps referenced hatch indices before adding styles. `FontOrigin`/`FontType` remain absent because no public `Font` property exposes them, and `Font` itself is immutable — every property is read-only, so a face never mutates and only construction or resolution mints one.
 
 ## [01]-[INDEX]
 
 - [02]-[FACE_MODEL]: `FaceWeight`, `FaceSlant`, `FaceStretch`, `FaceQuery`, and the detached `FaceInfo` projection.
-- [03]-[TYPEFACE_ENTRIES]: session-free resolution and census statics; quarantined document binding.
+- [03]-[TYPEFACE_ENTRIES]: session-free resolution and census statics plus the `DimStyles`-backed document bind.
 - [04]-[SECTION_MODEL]: `SectionFillMode`, `SectionRule`, and the `SectionSpec` composition over sibling resources.
 - [05]-[SECTION_RAIL]: `SectionOp`, `SectionTransaction`, usage-censused snapshot, and catalogued table state.
 - [06]-[SURFACE_LEDGER]: the page's owner table.
@@ -149,9 +149,9 @@ public sealed record FaceResolution(FaceInfo Face, Option<FaceInfo> Substitute);
 
 ## [03]-[TYPEFACE_ENTRIES]
 
-- Owner: `Typefaces` — `Resolve` into `FaceResolution`, `Installed` optionally family-scoped, `Quartets` as the four-face grid, and `FaceNames` as the flat roster.
-- Law: census is session-free — installed fonts are machine state the host answers without a document, so these entries take no session and mutate nothing.
-- RESEARCH: add document binding only after decompilation proves the `FontTable` accessor on `RhinoDoc`; then `FindOrCreate(face, bold, italic[, template_style])` resolves an optional template through `StyleOp.Lens`. Query `Rhino.RhinoDoc` through the `rhino-common` rail; current fences contain no assumed `RhinoDoc.Fonts` member.
+- Owner: `Typefaces` — `Resolve` into `FaceResolution`, `Installed` optionally family-scoped, `Quartets` as the four-face grid, `FaceNames` as the flat roster, and the session-bound `Bind`.
+- Law: census is session-free — installed fonts are machine state the host answers without a document, so those entries take no session and mutate nothing.
+- Law: document binding is style-table state — `RhinoDoc.Fonts` projects `DimStyles` (its indexer answers `DimStyles[index].Font`), and its one mutator `FindOrCreate(face, bold, italic[, template_style])` answers a `DimStyles` index — so `Bind` runs under the mutation grant, resolves an optional template through `StyleOp.Lens`, and returns the index as a style `ResourceRef`, never a font handle.
 
 ```csharp signature
 // --- [OPERATIONS] ---------------------------------------------------------------------------
@@ -189,6 +189,24 @@ public static class Typefaces {
 
     public static Fin<Seq<string>> FaceNames() =>
         Op.Of().Catch(() => Fin.Succ(value: toSeq(Font.AvailableFontFaceNames())));
+
+    public static Fin<ResourceRef> Bind(DocumentSession session, string face, bool bold, bool italic, Option<ResourceRef> template = default) {
+        Op op = Op.Of();
+        return from name in op.AcceptText(value: face)
+               from address in session.Demand(
+                   use: document =>
+                       from seed in template.Traverse(target => target.Resolve(document: document, lens: StyleOp.Lens, key: op)).As()
+                       from index in op.Catch(() => seed.Match(
+                           Some: style => document.Fonts.FindOrCreate(face: name, bold: bold, italic: italic, template_style: style),
+                           None: () => document.Fonts.FindOrCreate(face: name, bold: bold, italic: italic)) is var found && found >= 0
+                           ? Fin.Succ(value: found)
+                           : Fin.Fail<int>(error: op.InvalidResult()))
+                       from bound in ResourceRef.Of(index: index)
+                       select bound,
+                   key: op,
+                   needs: [SessionNeed.Mutate])
+               select address;
+    }
 }
 ```
 
@@ -197,7 +215,7 @@ public static class Typefaces {
 - Owner: `SectionFillMode`/`SectionRule` `[SmartEnum<int>]` — the cut-face fill and fill-rule vocabularies keyed on explicit host values; `SectionFill` — background mode with display and print colors; `SectionBoundary` — visibility, stroke colors, width scale, plot weight, and the linetype address; `SectionHatch` — the pattern address with scale, rotation, and colors; `SectionSpec` — the whole presentation composed of the three rows plus the fill rule.
 - Law: composition binds by resolution — the boundary linetype and cut-fill pattern enter as `ResourceRef` values resolved against the sibling lenses inside the bracket before any index writes, so a section style can never bind an index its tables do not hold.
 - Law: colors quantize at the write — every fill, boundary, and hatch color is a kernel `PerceptualColor` minting its `System.Drawing.Color` inside `Apply`, never a host channel average.
-- RESEARCH: admit `SectionSpec` author/amend only after decompilation proves a public `SectionStyle` constructor or duplicate seed. Query `Rhino.DocObjects.SectionStyle` through the `rhino-common` rail; current fences contain no unverified construction.
+- Law: the seed is a constructor pair — `new SectionStyle()` births authoring and `new SectionStyle(other)` the amendment copy; the host exposes no `Duplicate()` member, and `Apply` stamps the spec's name so an amendment carrying a fresh name is also the rename.
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
@@ -261,6 +279,7 @@ public sealed record SectionSpec(string Name, SectionFill Fill, SectionBoundary 
                from pattern in self.Hatch.Pattern
                    .Traverse(address => address.Resolve(document: document, lens: HatchSpec.Lens, key: key)).As()
                from _ in key.Catch(() => {
+                   style.Name = self.Name;
                    style.BackgroundFillMode = self.Fill.Mode.Host;
                    style.BackgroundFillColor = Sys(self.Fill.Color);
                    style.BackgroundFillPrintColor = Sys(self.Fill.PrintColor);
@@ -292,7 +311,8 @@ public sealed record SectionSpec(string Name, SectionFill Fill, SectionBoundary 
 
 ## [05]-[SECTION_RAIL]
 
-- Owner: `SectionOp` `[Union]` — usage-gated deletion and coupled `.secstyles` import landing styles beside remapped hatch patterns; `SectionTransaction` — the commit plan; `SectionSnapshot` — one-pass read with three-way usage census; `Sections` — the `Commit`/`Ask` entry pair.
+- Owner: `SectionOp` `[Union]` — spec authoring and amendment, usage-gated deletion, and coupled `.secstyles` import landing styles beside remapped hatch patterns; `SectionTransaction` — the commit plan; `SectionSnapshot` — one-pass read with three-way usage census; `Sections` — the `Commit`/`Ask` entry pair.
+- Law: `Author` refuses an existing name and lands a fresh seed through `Add`; `Amend` seeds the copy constructor from the resolved style and lands through `Modify` by index, so the live component never mutates in the table.
 - Law: delete reads the census first — `InUse(index, out definitions, out objects, out layers)` answers who binds the style, the counts ride the snapshot, and a delete against a used style is the host's refusal surfaced typed, never a silent orphaning.
 - Law: import is one bracket, two tables — `SectionStyle.ReadFromFile` answers styles and referenced patterns together; patterns land first, source hatch indices remap to target indices, then styles enter `SectionStyleTable`.
 
@@ -301,6 +321,8 @@ public sealed record SectionSpec(string Name, SectionFill Fill, SectionBoundary 
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SectionOp {
     private SectionOp() { }
+    public sealed record Author(SectionSpec Spec) : SectionOp;
+    public sealed record Amend(ResourceRef Target, SectionSpec Spec, bool Quiet = true) : SectionOp;
     public sealed record Delete(ResourceRef Target, bool Quiet = true) : SectionOp;
     public sealed record Import(string Path) : SectionOp;
 
@@ -314,6 +336,23 @@ public abstract partial record SectionOp {
     internal Fin<DraftReceipt> Apply(RhinoDoc document, Op op) =>
         Switch(
             (Document: document, Op: op),
+            author: static (context, edit) =>
+                from _ in guard(context.Document.SectionStyles.FindName(name: edit.Spec.Name) is null, context.Op.InvalidInput()).ToFin()
+                from seed in context.Op.Catch(() => Fin.Succ(value: new SectionStyle()))
+                from __ in edit.Spec.Apply(style: seed, document: context.Document, key: context.Op)
+                from index in context.Op.Catch(() => context.Document.SectionStyles.Add(sectionstyle: seed) is var added && added >= 0
+                    ? Fin.Succ(value: added)
+                    : Fin.Fail<int>(error: context.Op.InvalidResult()))
+                select DraftReceipt.Component(slot: DraftSlot.Authored, index: index),
+            amend: static (context, edit) =>
+                from style in edit.Target.Resolve(document: context.Document, lens: Lens, key: context.Op)
+                from index in context.Op.Catch(() => Fin.Succ(value: context.Document.SectionStyles.Find(
+                    id: style.Id, ignoreDeletedSectionStyles: true)))
+                from copy in context.Op.Catch(() => Fin.Succ(value: new SectionStyle(style)))
+                from _ in edit.Spec.Apply(style: copy, document: context.Document, key: context.Op)
+                from __ in context.Op.Confirm(success: context.Document.SectionStyles.Modify(
+                    sectionstyle: copy, index: index, quiet: edit.Quiet))
+                select DraftReceipt.Component(slot: DraftSlot.Amended, index: index),
             delete: static (context, edit) =>
                 from style in edit.Target.Resolve(document: context.Document, lens: Lens, key: context.Op)
                 from index in context.Op.Catch(() => Fin.Succ(value: context.Document.SectionStyles.Find(
@@ -509,12 +548,12 @@ public static class Sections {
 
 ## [06]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]            | [OWNER]         | [FORM]                                                    | [ENTRY]                       |
-| :-----: | :------------------- | :-------------- | :--------------------------------------------------------- | :----------------------------- |
-|  [01]   | face resolution      | `FaceQuery`     | quartet/axes union over explicit-value axis vocabularies    | `Typefaces.Resolve`            |
-|  [02]   | face projection      | `FaceInfo`      | every name face + axes + capability flags, detached         | `FaceResolution`               |
-|  [03]   | installed census     | `Typefaces`     | session-free statics over the host font census              | `Installed` / `Quartets` / `FaceNames` |
-|  [04]   | font-table bind      | quarantined     | accessor spelling requires decompile proof                  | `FontTable.FindOrCreate`       |
-|  [05]   | section presentation | `SectionSpec`   | fill + boundary + hatch rows binding sibling resources      | quarantined seed               |
-|  [06]   | section mutations    | `SectionOp`     | usage-gated delete + remapped `.secstyles` import           | `Sections.Commit`              |
-|  [07]   | section reads        | `SectionAsk`    | usage-censused snapshot, table state, name mint             | `Sections.Ask`                 |
+| [INDEX] | [CONCERN]            | [OWNER]       | [FORM]                                                   | [ENTRY]                                |
+| :-----: | :------------------- | :------------ | :------------------------------------------------------- | :------------------------------------- |
+|  [01]   | face resolution      | `FaceQuery`   | quartet/axes union over explicit-value axis vocabularies | `Typefaces.Resolve`                    |
+|  [02]   | face projection      | `FaceInfo`    | every name face + axes + capability flags, detached      | `FaceResolution`                       |
+|  [03]   | installed census     | `Typefaces`   | session-free statics over the host font census           | `Installed` / `Quartets` / `FaceNames` |
+|  [04]   | font-table bind      | `Typefaces`   | `RhinoDoc.Fonts.FindOrCreate` answering a style address  | `Bind`                                 |
+|  [05]   | section presentation | `SectionSpec` | fill + boundary + hatch rows binding sibling resources   | `SectionOp.Author` / `Amend`           |
+|  [06]   | section mutations    | `SectionOp`   | author/amend + usage-gated delete + remapped `.secstyles` import | `Sections.Commit`              |
+|  [07]   | section reads        | `SectionAsk`  | usage-censused snapshot, table state, name mint          | `Sections.Ask`                         |

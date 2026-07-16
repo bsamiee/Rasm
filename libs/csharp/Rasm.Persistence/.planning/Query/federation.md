@@ -6,11 +6,12 @@ Rasm.Persistence admits protobuf, Substrait JSON, or registered-table SQL into o
 
 - [01]-[PLAN_INGRESS]: the three-door `PlanWire` admission, the `SourceKind` capability axis, the `FederationMode` cadence union, the retained-wire-bytes round-trip law, the `ContentHash.Of(wireBytes)` plan digest, and the `FederationFault` closed band.
 - [02]-[PLAN_LOWERING]: the `RelationVisitor` double-dispatch lowering onto `LoweringTarget`, the `SetExpr` key-selection arm and the columnar/ADBC tabular arm, the ONE `Federation.Execute` entry owning the cut-shape default and the cadence dispatch, and the `FederatedResult` receipt with its replay triple.
+- [03]-[FLIGHT_RESULT_PLANE]: the Arrow Flight return wire — the `ReplayKey`-ticketed `FederationFlight` producer whose `GetFlightInfo` admits-and-executes a command-descriptor plan and whose `DoGet` streams the held result's record batches zero-copy to a cross-runtime consumer.
 
 ## [02]-[PLAN_INGRESS]
 
 - Owner: `SourceKind` is the closed source-binding family; each case carries the identity required to distinguish an attested artifact or external binding, while `AcceptsPlan` and `IsLive` derive from the case. `FederationMode` owns cadence and materialized-view identity. `PlanWire` owns the three ingress forms. `FederationPlan.Admit` normalizes each form and mints one digest.
-- Cases: `SourceKind` is `DurableStore | SignedArtifact(UInt128 Attestation) | AdbcWarehouse(Identifier Binding) | SqlStaged(Identifier Binding)`; `FederationMode` is `OneShot | Materialized(Identifier View, Seq<Identifier> Keys)`; `PlanWire` is `Protobuf | Json | Sql(string Text, Seq<(Identifier Table, NamedStruct Schema)> Tables)`; `FederationFault` occupies `8421` through `8426`.
+- Cases: `SourceKind` is `DurableStore | SignedArtifact(UInt128 Attestation) | AdbcWarehouse(Identifier Binding) | SqlStaged(Identifier Binding)`; `FederationMode` is `OneShot | Materialized(Identifier View, Seq<Identifier> Keys)`; `PlanWire` is `Protobuf | Json | Sql(string Text, Seq<(Identifier Table, NamedStruct Schema)> Tables)`; `FederationFault` occupies `8421` through `8427`.
 - Entry: `public static Fin<FederationPlan> Admit(PlanWire wire, SourceKind source, FederationMode mode)` admits the foreign plan ONCE — the `Protobuf` door parses `Substrait.Protobuf.Plan.Parser.ParseFrom(bytes.Span)` and lifts through `new SubstraitDeserializer().Deserialize(parsed)`; the `Json` door parses the Substrait-JSON through `JsonParser.Default.Parse<WirePlan>` (Substrait-JSON IS the message's own wire-JSON), retains `ToByteArray()` — the canonical protobuf twin, so a JSON plan and its byte-identical protobuf sibling share ONE digest — and lifts through the same `Deserialize(parsed)`; the `Sql` door registers each `(Table, Schema)` through `SqlPlanBuilder.AddTableDefinition`, lowers the text through `Sql(text)`, and composes `GetPlan()` — every door normalizing to its retained wire and stamping `Digest = ContentHash.Of(wireBytes)`; a `SubstraitParseException` or a protobuf decode fault rails `FederationFault.SubstraitParse`, and a plan door against a `SqlStaged` source rails `SourceUncapable` BEFORE any parse.
 - Auto: the retained bytes ARE the outbound wire — `SubstraitSerializer` is `internal`, so a managed `Plan` cannot re-lower to protobuf and the round-trip law is retention, never re-serialization (`api-flowtide-substrait#SUBSTRAIT_TOPOLOGY`); the digest composes the kernel seed-zero `ContentHash.Of` so the plan identity, the blob residence, and the reuse index share ONE identity scheme (a local `XxHash128` mint beside it is the deleted second hasher); function references inside a `Sql`-door plan resolve through the `FunctionExtensions.Functions*` URI catalogs (`FunctionsComparison.Equal`, `FunctionsArithmetic.Sum`, …) so no magic string names a Substrait function; custom federation tables and operators register through `ITableProvider`/`ISqlFunctionRegister` — the schema catalog is the table provider, never an ad-hoc string.
 - Receipt: an admission rides `store.federation.admit` carrying the door, the source row, and the digest; a refused admission rides the typed `FederationFault` on the rail, never a receipt.
@@ -103,6 +104,7 @@ public abstract partial record FederationFault : Expected, IValidationError<Fede
     public sealed record WriteRejected(string Table) : FederationFault;
     public sealed record SourceUncapable(string Source) : FederationFault;
     public sealed record MaterializationRejected(string Detail) : FederationFault;
+    public sealed record TicketUnknown(UInt128 Ticket) : FederationFault;
 
     public override int Code => FaultBand.Federation + Switch(
         substraitParse:      static _ => 1,
@@ -110,7 +112,8 @@ public abstract partial record FederationFault : Expected, IValidationError<Fede
         sourceUnreachable:   static _ => 3,
         writeRejected:       static _ => 4,
         sourceUncapable:     static _ => 5,
-        materializationRejected: static _ => 6);
+        materializationRejected: static _ => 6,
+        ticketUnknown:       static _ => 7);
 
     public override string Message => Switch(
         substraitParse:      static c => $"<substrait-parse:{c.Detail}>",
@@ -118,7 +121,8 @@ public abstract partial record FederationFault : Expected, IValidationError<Fede
         sourceUnreachable:   static c => $"<federation-source-unreachable:{c.Endpoint}>",
         writeRejected:       static c => $"<federation-write-rejected:{c.Table}>",
         sourceUncapable:     static c => $"<federation-source-uncapable:{c.Source}>",
-        materializationRejected: static c => $"<federation-materialization-rejected:{c.Detail}>");
+        materializationRejected: static c => $"<federation-materialization-rejected:{c.Detail}>",
+        ticketUnknown:       static c => $"<federation-ticket-unknown:{c.Ticket:x32}>");
 
     public override string Category => Switch(
         substraitParse:      static _ => "Parse",
@@ -126,7 +130,8 @@ public abstract partial record FederationFault : Expected, IValidationError<Fede
         sourceUnreachable:   static _ => "Availability",
         writeRejected:       static _ => "Write",
         sourceUncapable:     static _ => "Capability",
-        materializationRejected: static _ => "Admission");
+        materializationRejected: static _ => "Admission",
+        ticketUnknown:       static _ => "Ticket");
 
     public static FederationFault Create(string message) => new SubstraitParse(message);
 }
@@ -543,3 +548,77 @@ public sealed class FederatedResult : IValidityEvidence {
 |  [07]   | replay identity   | `(digest·cut·watermark·source·mode)` → `ReplayKey` | bindings and materialized views remain distinct                |
 |  [08]   | receipt validity  | `IValidityEvidence` + `ValidityClaim.All`          | the kernel [C] floor; never a hand-rolled `&&` chain           |
 |  [09]   | streaming cadence | `Mode.Materialized(View, Keys)` case dispatch      | one plan IR, one entry; never a sibling execution surface      |
+
+## [04]-[FLIGHT_RESULT_PLANE]
+
+- Owner: `FederationFlight` the `Apache.Arrow.Flight.Server` `FlightServer` subclass — the RESULT half of the plan wire: a portable plan flows IN through `#PLAN_INGRESS` and its batches flow BACK OUT through this producer as zero-copy Arrow record streams, so a Python or TypeScript analytics consumer never re-serializes through files or an ad-hoc wire; the ticket registry is the constructor-injected `Atom<HashMap<UInt128, FederatedResult>>` hold keyed by `ReplayKey`.
+- Cases: `GetFlightInfo` takes a COMMAND descriptor whose `Command` bytes are the protobuf plan wire — it admits through `FederationPlan.Admit(new PlanWire.Protobuf(...), source, new FederationMode.OneShot())`, executes through the ONE `Federation.Execute`, holds the result under its `ReplayKey`, and answers a `FlightInfo` carrying the result schema, ONE `FlightEndpoint` whose `FlightTicket` is the big-endian `ReplayKey` bytes, and the honest `TotalRecords`/`TotalBytes`; `DoGet` redeems the 16-byte ticket against the hold and streams every batch through `FlightServerRecordBatchStreamWriter.WriteAsync` (the first write auto-emits the schema message); an unknown or expired ticket rails `FederationFault.TicketUnknown`.
+- Entry: `public override async Task<FlightInfo> GetFlightInfo(FlightDescriptor descriptor, ServerCallContext context)` and `public override async Task DoGet(FlightTicket ticket, FlightServerRecordBatchStreamWriter responseStream, ServerCallContext context)` — the two overridden verbs; every other base verb keeps its base throw because this plane is a read-only result producer, never an ingest door (`DoPut`/`DoExchange` stay unimplemented by decision, not omission).
+- Auto: the ticket IS the content-addressed result identity — `ReplayKey` already frames `(plan-digest·full-cut·watermark·source·mode)`, so a byte-identical plan re-described at the same cut redeems the SAME ticket and reuse is identity, never a session table; a keyed (`ElementSet`) result projects to ONE single-column `id` batch through `StringArray.Builder.AppendRange` over the set's sorted keys so keyed and tabular results stream through one verb with no result-shape fork; the hold is an `Atom` swap (idempotent CAS re-add under a race) whose eviction rides the `Query/cache` reuse index cadence — the hold is a serving window over already-executed results, never a second cache; the typed `TicketUnknown` fault converts to the gRPC `NotFound` status at the verb edge because a `FlightServer` verb has no rail return — the one platform-forced throw seam this plane carries.
+- Receipt: a described plan rides `store.federation.flight.describe` carrying the digest and the minted ticket; a redeemed stream rides `store.federation.flight.stream` carrying the ticket, the batch count, and the drained rows.
+- Packages: Apache.Arrow.Flight (`FlightServer`/`FlightDescriptor`/`FlightTicket`/`FlightInfo`/`FlightEndpoint`/`FlightLocation`/`FlightServerRecordBatchStreamWriter` — the served node; `api-arrow` Flight server family), Apache.Arrow (`RecordBatch`/`Schema.Builder`/`Field.Builder`/`StringArray.Builder`), Google.Protobuf (`ByteString` — the descriptor command and ticket payload carrier), Grpc.Core (`ServerCallContext`/`RpcException`/`StatusCode` — the hosting seam's per-call context), LanguageExt.Core, BCL inbox.
+- Growth: a new result consumer is zero surface — it dials the host channel and redeems tickets; a new served identity axis is one `ReplayKey` preimage field (the `#PLAN_LOWERING` frame already owns it); a discovery need is the `ListFlights` verb overridden over the same hold; zero new surface — a bespoke result file drop, a second result wire beside the ticket plane, a session-keyed ticket, or a `DoPut` ingest arm on this producer is the deleted form because the ticket is the replay identity and plan ingress stays the `#PLAN_INGRESS` door.
+- Boundary: AppHost owns the gRPC channel, TLS, credentials, and service binding — the `FlightServer` subclass is Persistence's contribution mapped at the host composition root exactly as the `Version/egress` `WireNative` sink rides the AppHost `OutboundHop` (the standing delivery-honesty split; a Persistence-owned listener is the strata inversion); the `python:data` consumer leg rides the `ARCHITECTURE.md [02]-[SEAMS]` Flight-ticket return edge beside the inbound `SubstraitPlan` wire; `DoGet` streams the HELD batches — a live `QueryResult` never crosses (the `#PLAN_LOWERING` `Tabular` port drained it inside the ADBC statement window), so the plane serves owned memory only; the hold's serving window bounds memory (an evicted result re-executes through `GetFlightInfo`, cost never correctness), and `Authority.Admit` gates the demand at the caller exactly as the `Store/blobstore` issuer grants are gated.
+
+```csharp signature
+using Apache.Arrow.Flight;
+using Apache.Arrow.Flight.Server;
+using Apache.Arrow.Types;
+using Google.Protobuf;
+using Grpc.Core;
+
+namespace Rasm.Persistence.Query;
+
+// --- [SERVICES] -----------------------------------------------------------------------------
+// The result half of the federation wire: plans in through PLAN_INGRESS, batches out through DoGet.
+// AppHost binds the gRPC service; this class is the Persistence contribution, constructor-injected.
+public sealed class FederationFlight(FederationPorts ports, SourceKind source, Atom<HashMap<UInt128, FederatedResult>> hold) : FlightServer {
+    public override async Task<FlightInfo> GetFlightInfo(FlightDescriptor descriptor, ServerCallContext context) {
+        Fin<FederatedResult> executed = await FederationPlan
+            .Admit(new PlanWire.Protobuf(descriptor.Command.Memory), source, new FederationMode.OneShot())
+            .Match(
+                Succ: plan => Federation.Execute(plan, None, ports),
+                Fail: fault => IO.pure(Fin<FederatedResult>.Fail(fault)))
+            .RunAsync().ConfigureAwait(false);
+        return executed.Match(
+            Succ: result => {
+                _ = hold.Swap(held => held.AddOrUpdate(result.ReplayKey, result));
+                Seq<RecordBatch> batches = Batches(result);
+                return new FlightInfo(
+                    batches.Head.Match(Some: static b => b.Schema, None: KeySchema),
+                    descriptor,
+                    [new FlightEndpoint(new FlightTicket(ByteString.CopyFrom(TicketBytes(result.ReplayKey))), [])],
+                    batches.Sum(static b => (long)b.Length),
+                    -1L);
+            },
+            Fail: fault => throw new RpcException(new Status(StatusCode.InvalidArgument, fault.Message)));   // gRPC verb edge: no rail return exists on FlightServer
+    }
+
+    public override async Task DoGet(FlightTicket ticket, FlightServerRecordBatchStreamWriter responseStream, ServerCallContext context) {
+        UInt128 key = BinaryPrimitives.ReadUInt128BigEndian(ticket.Ticket.Span);
+        await hold.Value.Find(key).Match(
+            Some: async result => { foreach (RecordBatch batch in Batches(result)) { await responseStream.WriteAsync(batch).ConfigureAwait(false); } },
+            None: () => throw new RpcException(new Status(StatusCode.NotFound, new FederationFault.TicketUnknown(key).Message))).ConfigureAwait(false);
+    }
+
+    // A keyed result streams as ONE single-column `id` batch; a tabular result streams its drained batches.
+    static Seq<RecordBatch> Batches(FederatedResult result) => result.Batch.IfNone(() =>
+        Seq(new RecordBatch.Builder().Append("id", false, new StringArray.Builder().AppendRange(result.Keys.Keys.Map(static k => k.Value)).Build()).Build()));
+
+    static Schema KeySchema() => new Schema.Builder().Field(new Field.Builder().Name("id").DataType(StringType.Default).Nullable(false).Build()).Build();
+
+    static byte[] TicketBytes(UInt128 key) {
+        byte[] bytes = new byte[16];
+        BinaryPrimitives.WriteUInt128BigEndian(bytes, key);
+        return bytes;
+    }
+}
+```
+
+| [INDEX] | [POLICY]         | [VALUE]                                        | [BINDING]                                                     |
+| :-----: | :--------------- | :---------------------------------------------- | :------------------------------------------------------------ |
+|  [01]   | ticket identity  | `ReplayKey` big-endian 16 bytes                 | content-addressed; a re-described identical plan re-redeems   |
+|  [02]   | verbs            | `GetFlightInfo` + `DoGet` only                  | read-only result plane; `DoPut`/`DoExchange` stay base throws |
+|  [03]   | keyed projection | one `id` `StringArray` batch                    | keyed and tabular results share one stream verb               |
+|  [04]   | hosting          | AppHost gRPC channel, Persistence `FlightServer` | the `WireNative` delivery-honesty split; no local listener    |
+|  [05]   | hold             | `Atom<HashMap<UInt128, FederatedResult>>`       | serving window over executed results; eviction re-executes    |

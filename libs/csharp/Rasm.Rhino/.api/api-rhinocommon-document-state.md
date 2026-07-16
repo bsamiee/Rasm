@@ -76,7 +76,7 @@ This catalog owns the document-scoped saved-state presets: named construction pl
 - `SnapshotTable.Document : RhinoDoc` — re-resolves the owning document; snapshot capture and restore route through `RunScript` and `SnapShotsClient`.
 
 [SNAPSHOT_PARTICIPATION]:
-- `Rhino.DocObjects.SnapShots.SnapShotsClient.RegisterSnapShotClient(SnapShotsClient client) : bool` (static) — enlists a plugin client into the snapshot pipeline; the public parameterless constructor auto-adds the instance to the internal client list, and the class is `abstract class SnapShotsClient : IDisposable` carrying `CppPointer : nint`, `SerialNumber : int` (get/set), and `Dispose()`.
+- `Rhino.DocObjects.SnapShots.SnapShotsClient.RegisterSnapShotClient(SnapShotsClient client) : bool` (static) — enlists a plugin client into the snapshot pipeline; the public parameterless constructor auto-adds the instance to the internal client list, the class is `abstract class SnapShotsClient : IDisposable` carrying `CppPointer : nint`, `SerialNumber : int` (get/set), and `Dispose()`, and NO removal member exists — `Dispose` never takes the instance back out of the process client list.
 - `SnapShotsClient.PlugInId() : Guid` / `ClientId() : Guid` / `Category() : string` / `Name() : string` — the abstract identity contract; `ApplicationCategory()`/`DocumentCategory()`/`RenderingCategory()`/`ViewsCategory()`/`ObjectsCategory()`/`LayersCategory()`/`LightsCategory()` are static METHODS returning the predefined category strings, and `Category()` returns one of them.
 - `SnapShotsClient.SupportsDocument() : bool` / `SaveDocument(RhinoDoc, BinaryArchiveWriter) : bool` / `RestoreDocument(RhinoDoc, BinaryArchiveReader) : bool` / `SnapshotRestored(RhinoDoc) : void` — the document-scoped capture and restore overrides.
 - `SnapShotsClient.SupportsObjects() : bool` / `SupportsObject(RhinoObject) : bool` / `SaveObject(RhinoDoc, RhinoObject, ref Transform, BinaryArchiveWriter) : bool` / `RestoreObject(RhinoDoc, RhinoObject, ref Transform, BinaryArchiveReader) : bool` — the per-object capture and restore overrides.
@@ -89,7 +89,7 @@ This catalog owns the document-scoped saved-state presets: named construction pl
 [WORKSESSION]:
 - `Rhino.DocObjects.Worksession.ModelCount : int` / `ModelPaths : string[]` — the reference-model roster count and paths; `ModelCount` includes the active model even unsaved while `ModelPaths` excludes an unsaved active model, so the two can disagree by one.
 - `Worksession.FileName : string` / `Name : string` / `RuntimeSerialNumber : uint` / `Document : RhinoDoc` — worksession identity and owner; `FileName` is null and `Name` empty when no worksession or an unsaved one is active.
-- `Worksession.ModelPathFromSerialNumber(uint modelSerialNumber) : string` / `FileNameFromRuntimeSerialNumber(uint runtimeSerialNumber) : string` (static) — model-path and worksession-file resolution.
+- `Worksession.ModelPathFromSerialNumber(uint modelSerialNumber) : string` — INSTANCE member resolving against the owning worksession's document; `Worksession.FileNameFromRuntimeSerialNumber(uint runtimeSerialNumber) : string` (static) — the one static worksession-file resolver.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

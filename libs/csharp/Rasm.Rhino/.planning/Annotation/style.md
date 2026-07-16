@@ -36,7 +36,7 @@ public sealed record ResourceLens<TComponent>(
     Func<RhinoDoc, int, TComponent?> ByIndex) where TComponent : class;
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record ResourceRef {
+public abstract partial record ResourceRef : IDetachedDocumentResult {
     private ResourceRef() { }
     public sealed record ById(Guid Value) : ResourceRef;
     public sealed record ByName(string Value) : ResourceRef;
@@ -88,7 +88,7 @@ public sealed partial class LengthDisplayRow {
 ## [03]-[FIELD_SCHEMA]
 
 - Owner: `StyleAxis` `[SmartEnum<int>]` — seven config axes; `ValueKind` keyless `[SmartEnum]` — the payload-shape vocabulary; `StyleValue` `[Union]` — the typed payload carriers; `StyleField` `[SmartEnum<int>]` — one row per catalog-proven property/`DimensionStyle.Field` pairing, keyed on the explicit host field value and carrying axis, kind, and read/write delegates minted through one generic factory; `StyleEdit` — one kind-checked field assignment; `StylePatch` — the ordered edit run with the table fold and per-annotation `Overlay` mint.
-- Law: the schema is the one write surface — a patch applies through row delegates, each host setter marks its own field overridden, and enum-valued fields ride `Whole` payloads whose host cast lives inside the row; a call site naming a `DimensionStyle` property directly bypasses the census and is the deleted form.
+- Law: the schema is the one write surface — a patch applies through row delegates, and enum-valued fields ride `Whole` payloads whose host cast lives inside the row; a call site naming a `DimensionStyle` property directly bypasses the census and is the deleted form.
 - Law: kind agreement is admission — `StyleEdit.Of` refuses a payload whose kind differs from the row's column, so `Write` never sees a mismatched case and the cast inside a row delegate is total.
 - Law: color/plot-source `Field` cases from `ExtLineColorSource` through `DimLinePlotWeight_mm`, plus `MaskFlags`, `SignedOrdinate`, and `UnitSystem`, carry no CLR property on `DimensionStyle`; `Name` and `Index` cannot inherit from a parent. `StyleField` excludes every non-property case, and the override census reports schema rows alone.
 - Law: every host setter routes `ON_DimStyle_Set*` with `setOverride: true`, so a row's `Write` is also its override marking — the schema needs no second marking pass, and `MaskOffset` pairs `Field.MaskBorder`, the host's name for the mask-offset slot.
@@ -736,13 +736,13 @@ internal static class DraftSpine {
 
 ## [07]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]           | [OWNER]            | [FORM]                                              | [ENTRY]                                |
-| :-----: | :------------------ | :----------------- | :--------------------------------------------------- | :-------------------------------------- |
-|  [01]   | resource address    | `ResourceRef`      | one union: id, name, index over a per-table lens     | `Of` / `Resolve(document, lens, key)`  |
-|  [02]   | unit vocabulary     | `LengthDisplayRow` | rows keyed on explicit host values, metric column    | `Host` projection                       |
-|  [03]   | config schema       | `StyleField`       | one row per catalog-proven property/`Field` pairing  | `Read` / `Write`                        |
-|  [04]   | edit currency       | `StylePatch`       | kind-checked edit run with table and override folds  | `Apply` / `Overlay`                     |
-|  [05]   | style mutations     | `StyleOp`          | one flat `[Union]`, duplicate-then-`Modify` law      | `Styles.Commit`                         |
-|  [06]   | style reads         | `StyleAsk`         | snapshot, built-ins, swatch lease, name mint         | `Styles.Ask`                            |
-|  [07]   | commit kernel       | `DraftSpine`       | demand + undo bracket + redraw compensation          | `Commit(session, name, ...)`            |
-|  [08]   | receipts            | `DraftReceipt`     | `DraftFact` stream + slot projections                | `Components` / `Ids` / `Tallies`        |
+| [INDEX] | [CONCERN]        | [OWNER]            | [FORM]                                              | [ENTRY]                               |
+| :-----: | :--------------- | :----------------- | :-------------------------------------------------- | :------------------------------------ |
+|  [01]   | resource address | `ResourceRef`      | one union: id, name, index over a per-table lens    | `Of` / `Resolve(document, lens, key)` |
+|  [02]   | unit vocabulary  | `LengthDisplayRow` | rows keyed on explicit host values, metric column   | `Host` projection                     |
+|  [03]   | config schema    | `StyleField`       | one row per catalog-proven property/`Field` pairing | `Read` / `Write`                      |
+|  [04]   | edit currency    | `StylePatch`       | kind-checked edit run with table and override folds | `Apply` / `Overlay`                   |
+|  [05]   | style mutations  | `StyleOp`          | one flat `[Union]`, duplicate-then-`Modify` law     | `Styles.Commit`                       |
+|  [06]   | style reads      | `StyleAsk`         | snapshot, built-ins, swatch lease, name mint        | `Styles.Ask`                          |
+|  [07]   | commit kernel    | `DraftSpine`       | demand + undo bracket + redraw compensation         | `Commit(session, name, ...)`          |
+|  [08]   | receipts         | `DraftReceipt`     | `DraftFact` stream + slot projections               | `Components` / `Ids` / `Tallies`      |

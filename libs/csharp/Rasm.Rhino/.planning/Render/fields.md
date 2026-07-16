@@ -1,6 +1,6 @@
 # [RASM_RHINO_RENDER_FIELDS]
 
-Typed parameter family (`Rasm.Rhino.Render`). Host field carriers collapse onto one `FieldValue` union with exactly sixteen cases: one total dispatch declares plain or textured fields through payload-typed overloads, one writes through payload-typed `Set`, one recovers a live carrier without a silent arm, and one boxes values for object-typed host seams. `FieldSpec` adds filename presentation without duplicating the payload family, `DynamicFieldSpec` admits type-aligned bounds before the runtime bracket opens, `FieldBinding` closes both binding overloads, `ParamScope` closes the three name-keyed parameter routes, and `FieldPortrait` detaches the census. Every write rides `ChangeScope`; no live `Field` or `FieldDictionary` crosses the demand window.
+Typed parameter family (`Rasm.Rhino.Render`). Host field carriers collapse onto one `FieldValue` union with exactly sixteen cases: one total dispatch declares plain or textured fields through payload-typed overloads, one writes through payload-typed `Set`, one recovers a live carrier without a silent arm, and one boxes values for object-typed host seams. `FieldSpec` adds filename presentation without duplicating the payload family, `DynamicFieldSpec` admits type-aligned bounds before the runtime bracket opens, `FieldBinding` closes both binding overloads, `ParamScope` closes the two name-keyed parameter routes, and `FieldCensus` detaches the one-pass dictionary walk. Every write rides `ChangeScope`; no live `Field` or `FieldDictionary` crosses the demand window.
 
 ## [01]-[INDEX]
 
@@ -13,7 +13,8 @@ Typed parameter family (`Rasm.Rhino.Render`). Host field carriers collapse onto 
 
 - Owner: `FieldValue` `[Union]` — sixteen cases, one per host field carrier: `Toggle`/`BoolField`, `Whole`/`IntField`, `Single`/`FloatField`, `Real`/`DoubleField`, `Colour`/`Color4fField`, `Vec2`/`Vector2dField`, `Vec3`/`Vector3dField`, `Pt2`/`Point2dField`, `Pt3`/`Point3dField`, `Pt4`/`Point4dField`, `Text`/`StringField`, `Stamp`/`DateTimeField`, `Key`/`GuidField`, `Motion`/`TransformField`, `Bytes`/`ByteArrayField`, `Null`/`NullField`.
 - Law: four total dispatches close the family — `Declare` routes plain/textured presentation, `Write` routes payload-typed `Set`, `Of` recovers only an exact carrier, and `Boxed` projects object-typed host seams; a seventeenth payload breaks every dispatch at compile time.
-- Law: `Null` is declaration-only — it exists so a `NullField` census row survives typed, and a `Write` against it refuses typed rather than minting a phantom set.
+- Law: `Add` and `AddTextured` throw on a duplicate key and never return null, so the declaration bracket's `Catch` is the duplicate-key failure surface; `Bytes` declares through the value-only `Add(key, byte[])` — the host carries no prompt, section, or textured overload for bytes — and refuses a textured presentation typed.
+- Law: `Null` preserves a `NullField` census row and boxes to `null` for object-typed parameter seams; payload-typed dictionary `Write` refuses because no `Set` overload exists for `NullField`.
 - Boundary: `Color4f` rides the union as the host color seam value — field payloads are content-parameter truth, and a domain color composes the kernel `PerceptualColor` owner at the consumer that treats it as color, never inside the parameter carrier.
 
 ```csharp signature
@@ -30,7 +31,7 @@ namespace Rasm.Rhino.Render;
 
 // --- [TYPES] --------------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record FieldValue {
+public abstract partial record FieldValue : IDetachedDocumentResult {
     private FieldValue() { }
     public sealed record Toggle(bool Value) : FieldValue;
     public sealed record Whole(int Value) : FieldValue;
@@ -87,12 +88,14 @@ public abstract partial record FieldValue {
             stamp: static (ctx, c) => Added(ctx, c.Value, static (f, n, v, p, s) => f.Add(n, v, p, s), static (f, n, v, p, t, s) => f.AddTextured(n, v, p, t, s)),
             key: static (ctx, c) => Added(ctx, c.Value, static (f, n, v, p, s) => f.Add(n, v, p, s), static (f, n, v, p, t, s) => f.AddTextured(n, v, p, t, s)),
             motion: static (ctx, c) => Added(ctx, c.Value, static (f, n, v, p, s) => f.Add(n, v, p, s), static (f, n, v, p, t, s) => f.AddTextured(n, v, p, t, s)),
-            bytes: static (ctx, c) => Added(ctx, c.Value.ToArray(), static (f, n, v, p, s) => f.Add(n, v, p, s), static (f, n, v, p, t, s) => f.AddTextured(n, v, p, t, s)),
+            bytes: static (ctx, c) => ctx.Textured.IsSome
+                ? Fin.Fail<Unit>(error: ctx.Op.InvalidInput())
+                : ctx.Op.Catch(() => { _ = ctx.Fields.Add(ctx.Name, c.Value.ToArray()); return Fin.Succ(value: unit); }),
             @null: static (ctx, _) => ctx.Op.Catch(() => {
-                Field added = ctx.Textured.Match(
+                _ = ctx.Textured.Match(
                     Some: treat => ctx.Fields.AddTextured(ctx.Name, ctx.Prompt, treat, ctx.Section),
                     None: () => ctx.Fields.Add(ctx.Name, ctx.Prompt, ctx.Section));
-                return Optional(added).ToFin(Fail: ctx.Op.InvalidResult()).Map(static _ => unit);
+                return Fin.Succ(value: unit);
             }));
 
     internal Fin<Unit> Write(FieldDictionary fields, string name, Op key) =>
@@ -140,10 +143,10 @@ public abstract partial record FieldValue {
         Func<FieldDictionary, string, T, string, int, Field> plain,
         Func<FieldDictionary, string, T, string, bool, int, Field> withTexture) =>
         ctx.Op.Catch(() => {
-            Field added = ctx.Textured.Match(
+            _ = ctx.Textured.Match(
                 Some: treat => withTexture(ctx.Fields, ctx.Name, value, ctx.Prompt, treat, ctx.Section),
                 None: () => plain(ctx.Fields, ctx.Name, value, ctx.Prompt, ctx.Section));
-            return Optional(added).ToFin(Fail: ctx.Op.InvalidResult()).Map(static _ => unit);
+            return Fin.Succ(value: unit);
         });
 }
 ```
@@ -182,9 +185,8 @@ public sealed record FieldSpec(
                 fields: ctx.Fields, name: ctx.Name, prompt: ctx.Prompt, sectionId: ctx.Spec.SectionId, textured: Some(row.TreatAsLinear), key: ctx.Op),
             filename: static (ctx, _) => ctx.Spec.Value is FieldValue.Text path
                 ? ctx.Op.Catch(() => {
-                    Field added = ctx.Fields.AddFilename(
-                        key: ctx.Name, value: path.Value, prompt: ctx.Prompt, sectionId: ctx.Spec.SectionId);
-                    return Optional(added).ToFin(Fail: ctx.Op.InvalidResult()).Map(static _ => unit);
+                    _ = ctx.Fields.AddFilename(key: ctx.Name, value: path.Value, prompt: ctx.Prompt, sectionId: ctx.Spec.SectionId);
+                    return Fin.Succ(value: unit);
                 })
                 : Fin.Fail<Unit>(error: ctx.Op.InvalidInput())));
     }
@@ -243,10 +245,11 @@ public static class DynamicFields {
 
 ## [04]-[BINDING_AND_PARAMS]
 
-- Owner: `FieldBinding` `[Union]` — the two `BindParameterToField` overloads as cases: `Direct` binds a named parameter, `AtSlot` binds through a child-slot name; `ParamScope` `[Union]` — the three name-keyed parameter routes: `Named` the direct `GetParameter`/`SetParameter` pair, `Extra` the auto-UI extra-requirement pair, `ChildExtra` the child-slot extra-requirement pair; `FieldPortrait` — the detached census row: name, current value, textured-amount bounds, texture-usage grants, auto-UI visibility.
+- Owner: `FieldBinding` `[Union]` — the two `BindParameterToField` overloads as cases: `Direct` binds a named parameter, `AtSlot` binds through a child-slot name; `ParamScope` `[Union]` — the two name-keyed parameter routes: `Named` the direct `GetParameter`/`SetParameter` pair, `Extra` the auto-UI extra-requirement pair; `FieldPortrait` — the detached census row: name, current value, textured-amount bounds, texture-usage grants, auto-UI visibility; `FieldCensus` — the detached one-pass roster.
+- Law: no third parameter route exists — `GetChildSlotParameter`/`SetChildSlotParameter` carry `(contentParameterName, extraRequirementParameter)` parameters and are the same extra-requirement surface the `Extra` pair owns; a child-slot parameter resolves through `FindChild` plus `Named`, or the host name correspondence.
 - Law: name resolution stays host-owned — `ChildSlotNameFromParamName`/`ParamNameFromChildSlotName` answer the correspondence at the consulting site, and no local table mirrors it.
 - Law: reads recover typed — a `ParamScope` read boxes through the host and immediately classifies into `FieldValue` by runtime payload type, so `object` dies at this seam.
-- Law: the census walks the dictionary once — `FieldPortrait.CensusOf` enumerates `FieldDictionary`, projecting value, bounds, and visibility per field; a consumer probing fields one key at a time re-derives what one pass carries.
+- Law: the census walks the dictionary once — `FieldCensus.Of` enumerates `FieldDictionary`, projecting value, bounds, and visibility per field; a consumer probing fields one key at a time re-derives what one pass carries.
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
@@ -275,16 +278,13 @@ public abstract partial record ParamScope {
     private ParamScope() { }
     public sealed record Named(string Parameter) : ParamScope;
     public sealed record Extra(string Parameter, string Requirement) : ParamScope;
-    public sealed record ChildExtra(string ChildSlot, string Parameter) : ParamScope;
 
     internal Fin<FieldValue> Read(RenderContent content, Op key) =>
         Switch(
             state: (Content: content, Op: key),
             named: static (ctx, scope) => ctx.Op.Catch(() => Classified(ctx.Content.GetParameter(parameterName: scope.Parameter), ctx.Op)),
             extra: static (ctx, scope) => ctx.Op.Catch(() => Classified(
-                ctx.Content.GetExtraRequirementParameter(contentParameterName: scope.Parameter, extraRequirementParameter: scope.Requirement), ctx.Op)),
-            childExtra: static (ctx, scope) => ctx.Op.Catch(() => Classified(
-                ctx.Content.GetChildSlotParameter(childSlotName: scope.ChildSlot, parameterName: scope.Parameter), ctx.Op)));
+                ctx.Content.GetExtraRequirementParameter(contentParameterName: scope.Parameter, extraRequirementParameter: scope.Requirement), ctx.Op)));
 
     internal Fin<Unit> Write(
         RenderContent content, FieldValue value, ChangeReason reason,
@@ -294,9 +294,7 @@ public abstract partial record ParamScope {
             named: static (ctx, scope) => ctx.Op.Catch(() => ctx.Op.Confirm(success: ctx.Content.SetParameter(
                 parameterName: scope.Parameter, value: ctx.Value.Boxed()))),
             extra: static (ctx, scope) => ctx.Op.Catch(() => ctx.Op.Confirm(success: ctx.Content.SetExtraRequirementParameter(
-                contentParameterName: scope.Parameter, extraRequirementParameter: scope.Requirement, value: ctx.Value.Boxed(), sc: ctx.Context))),
-            childExtra: static (ctx, scope) => ctx.Op.Catch(() => ctx.Op.Confirm(success: ctx.Content.SetChildSlotParameter(
-                childSlotName: scope.ChildSlot, parameterName: scope.Parameter, value: ctx.Value.Boxed(), sc: ctx.Context))));
+                contentParameterName: scope.Parameter, extraRequirementParameter: scope.Requirement, value: ctx.Value.Boxed(), sc: ctx.Context)))));
 
     private static Fin<FieldValue> Classified(object? payload, Op key) =>
         payload switch {
@@ -328,8 +326,10 @@ public sealed record FieldPortrait(
     double TextureAmountMax,
     bool UseTextureOn,
     bool UseTextureAmount,
-    bool HiddenInAutoUi) : IDetachedDocumentResult {
-    internal static Fin<Arr<FieldPortrait>> CensusOf(FieldDictionary fields, Op key) =>
+    bool HiddenInAutoUi) : IDetachedDocumentResult;
+
+public sealed record FieldCensus(Arr<FieldPortrait> Rows) : IDetachedDocumentResult {
+    internal static Fin<FieldCensus> Of(FieldDictionary fields, Op key) =>
         key.Catch(() => toSeq(fields)
             .TraverseM(field => FieldValue.Of(field: field, key: key).Map(value => new FieldPortrait(
                 Name: field.Name,
@@ -340,7 +340,7 @@ public sealed record FieldPortrait(
                 UseTextureAmount: field.UseTextureAmount,
                 HiddenInAutoUi: field.IsHiddenInAutoUI)))
             .As()
-            .Map(static rows => toArr(rows)));
+            .Map(static rows => new FieldCensus(Rows: toArr(rows))));
 }
 ```
 
@@ -352,5 +352,5 @@ public sealed record FieldPortrait(
 |  [02]   | field declaration | `FieldSpec`     | name + value + prompt + section + presentation row        | `Declare(fields, key)`              |
 |  [03]   | dynamic fields    | `DynamicFields` | begin/rows/end bracket as one fold                        | `Declare(content, automatic, rows)` |
 |  [04]   | parameter binding | `FieldBinding`  | the two `BindParameterToField` overloads as cases         | `Bind(content, field, reason)`      |
-|  [05]   | name-keyed params | `ParamScope`    | direct, extra-requirement, child-slot routes on one owner | `Read` / `Write`                    |
-|  [06]   | field census      | `FieldPortrait` | one-pass dictionary walk to detached rows                 | `CensusOf(fields, key)`             |
+|  [05]   | name-keyed params | `ParamScope`    | direct and extra-requirement routes on one owner          | `Read` / `Write`                    |
+|  [06]   | field census      | `FieldCensus`   | one-pass dictionary walk to detached `FieldPortrait` rows | `Of(fields, key)`                   |

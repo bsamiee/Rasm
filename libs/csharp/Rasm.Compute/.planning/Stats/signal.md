@@ -2,22 +2,22 @@
 
 Rasm.Compute signal/spectral lane: one `SpectralTransform` `[SmartEnum<string>]` frequency-domain axis whose rows carry transform and inverse delegates, folding to deferred `Transform.Apply` and `Transform.Invert` surfaces. `IO<Fin<T>>` preserves the outer lowering effect and inner domain fault without forcing either inside the numeric lane. Forward and inverse share one surface: `stft` preserves frame phase and overlap-add evidence, while evidence-destroying `spectrogram` and averaged periodograms return typed inverse faults. One `FilterDesign` `[SmartEnum<string>]` axis closes each IIR row's analog prototype into the shared `Bilinear` map, while FIR rows fold to windowed-sinc or equiripple `DenseRoute` least squares.
 
-Vocabulary owned here: `SpectralTransform`/`FilterDesign`/`WindowKind`/`WaveletFamily`, the `SpectralOutput`/`SignalPolicy`/`Spectrogram`/`FilterShape` unions, the admitted `SignalContext`/`FilterContext` interiors, the `Spectrum`/`WaveletDecomposition`/`CrossSpectrum`/`FilterCoefficients`/`FilterResponse` carriers, the `FilterSpec` record, and the `Transform` Apply/Invert/Design/Coherence surface. Per-bin transforms ride `MathNet.Numerics.IntegralTransforms.Fourier` over split `double[]` planes, windowing rides `MathNet.Numerics.Window`, magnitude/phase read `TensorPrimitives.Hypot`/`Atan2`, bin spacing reads `Fourier.FrequencyScale`, FFT overlap-add rides `Tensor/dispatch#KERNEL_DISPATCH` `ComplexZip(TensorOpFamily.Multiply)`, and FIR convolution plus wavelet analysis/synthesis ride `Tensor/factor#KERNEL_LOWERING` `Conv1D`. Equiripple FIR and modal eigen-spectra cross to `Tensor/blas#DENSE_ALGEBRA`; `ComputeFault` and `ComparerAccessors.StringOrdinal` arrive settled; NodaTime `IClock` supplies instants — the App-owned `ClockPolicy` stays at composition. Spectral features feed `Stats/estimator#ESTIMATOR_LANE`; cross-spectral coherence feeds modal identification; conditioned signals feed those estimators and `Solver/clash#CLASH_AND_TWIN`.
+Vocabulary owned here: `SpectralTransform`/`FilterDesign`/`WindowKind`/`WaveletFamily`, the `SpectralOutput`/`SignalPolicy`/`Spectrogram`/`FilterShape` unions, the admitted `SignalContext`/`FilterContext` interiors, the `Spectrum`/`WaveletDecomposition`/`CrossSpectrum`/`MeasuredMode`/`ModalEstimate`/`FilterCoefficients`/`FilterResponse` carriers, the `FilterSpec` record, and the `Transform` Apply/Invert/Design/Coherence/Modal surface. Per-bin transforms ride `MathNet.Numerics.IntegralTransforms.Fourier` over split `double[]` planes, windowing rides `MathNet.Numerics.Window`, magnitude/phase read `TensorPrimitives.Hypot`/`Atan2`, bin spacing reads `Fourier.FrequencyScale`, FFT overlap-add rides `Tensor/dispatch#KERNEL_DISPATCH` `ComplexZip(TensorOpFamily.Multiply)`, and FIR convolution plus wavelet analysis/synthesis ride `Tensor/factor#KERNEL_LOWERING` `Conv1D`. Equiripple FIR and modal eigen-spectra cross to `Tensor/blas#DENSE_ALGEBRA`; `ComputeFault` and `ComparerAccessors.StringOrdinal` arrive settled; NodaTime `IClock` supplies instants — the App-owned `ClockPolicy` stays at composition. Spectral features feed `Stats/estimator#ESTIMATOR_LANE`; `Coherence` plus the `Modal` frequency-domain decomposition own measured-mode identification, and `MeasuredMode` crosses to `Solver/clash#CLASH_AND_TWIN` as the FE-updating measured end; conditioned signals feed those estimators and the twin.
 
 ## [01]-[INDEX]
 
-- [01]-[SIGNAL_LANE]: effect-preserving FFT/STFT/PSD/wavelet `Transform` over MathNet Fourier + Window, paired row-owned inversion, Welch cross-spectral coherence, and family-shaped FIR/IIR design over one band-aware `Bilinear` map with `Conv1D`, pooled FFT overlap-add, direct-form-II recurrence, and magnitude/phase/group-delay response.
+- [01]-[SIGNAL_LANE]: effect-preserving FFT/STFT/PSD/wavelet `Transform` over MathNet Fourier + Window, paired row-owned inversion, Welch cross-spectral coherence, N-channel FDD measured-mode extraction, and family-shaped FIR/IIR design over one band-aware `Bilinear` map with `Conv1D`, pooled FFT overlap-add, direct-form-II recurrence, and magnitude/phase/group-delay response.
 
 ## [02]-[SIGNAL_LANE]
 
 - Owner: `SpectralTransform` `[SmartEnum<string>]` rows each carry a `Windowed` admission discriminant, a row-owned `SignalPolicy → Fin<SignalContext>` admission delegate, a `(ReadOnlyMemory<float>, SignalContext, Instant) → IO<Fin<SpectralOutput>>` transform delegate, and a `SpectralOutput → IO<Fin<ReadOnlyMemory<float>>>` inverse delegate. `SignalPolicy` `[Union]` closes `PerBin`, `Framed`, and `Wavelet` evidence; `SignalContext` exists only after row admission. `FilterShape` `[Union]` closes `Windowed`, `Equiripple`, `Butterworth`, `Chebyshev1`, `Chebyshev2`, and `Elliptic` parameter evidence; its `Design` projection selects the corresponding `FilterDesign` row, so no caller supplies a reconstructible design knob. `FilterDesign` rows carry the sole `Recursive` result discriminator and admitted design delegate. `SpectralOutput` owns `Bins`/`Frames`/`Bands`; `Spectrogram` owns inverse-sufficient `Phasor` frames and magnitude-only `Power` frames. `FilterCoefficients` admits invariants before `Apply`, `Response`, or `ZeroPhase`; `FilterResponse` carries magnitude, unwrapped phase, and group delay.
 - Cases: `SpectralTransform` fft · rfft · stft · spectrogram · welch-psd · dwt; `SignalPolicy` per-bin · framed · wavelet; `FilterShape` windowed · equiripple · butterworth · chebyshev1 · chebyshev2 · elliptic; `FilterDesign` fir-window · fir-remez · iir-butterworth · iir-chebyshev1 · iir-chebyshev2 · iir-elliptic; `FilterBand` low-pass · high-pass · band-pass · band-stop; `WindowKind` hann · hamming · blackman · blackman-harris · blackman-nuttall · nuttall · flat-top · bartlett · bartlett-hann · cosine · lanczos · triangular · gauss · tukey · rectangular; `WaveletFamily` haar · db2 · db4 · sym4 · coif1.
-- Entry: `Transform.Apply(SpectralTransform transform, ReadOnlyMemory<float> signal, SignalPolicy policy, IClock clock) → IO<Fin<SpectralOutput>>` composes sample admission with row policy admission, then dispatches over `SignalContext`. `Invert(SpectralOutput output) → IO<Fin<ReadOnlyMemory<float>>>` projects and dispatches the owning row. `Coherence(ReadOnlyMemory<float> x, ReadOnlyMemory<float> y, SignalPolicy policy, IClock clock)` composes synchronous-channel admission plus a two-segment floor with the `welch-psd` row's `Framed` admission. `Design(FilterSpec spec)` projects `FilterShape.Design`, admits `FilterContext`, dispatches the row, and admits emitted coefficients. `FilterCoefficients.Apply → IO<Fin<float[]>>`, `Response`, and `ZeroPhase` enter through coefficient admission.
+- Entry: `Transform.Apply(SpectralTransform transform, ReadOnlyMemory<float> signal, SignalPolicy policy, IClock clock) → IO<Fin<SpectralOutput>>` composes sample admission with row policy admission, then dispatches over `SignalContext`. `Invert(SpectralOutput output) → IO<Fin<ReadOnlyMemory<float>>>` projects and dispatches the owning row. `Coherence(ReadOnlyMemory<float> x, ReadOnlyMemory<float> y, SignalPolicy policy, IClock clock)` composes synchronous-channel admission plus a two-segment floor with the `welch-psd` row's `Framed` admission. `Modal(Seq<ReadOnlyMemory<float>> channels, SignalPolicy policy, IClock clock)` runs the N-channel frequency-domain decomposition over the same Welch admission — per-bin Hermitian cross-PSD matrices, dominant singular pair by power iteration, first-singular-value peak picking with half-power damping — returning the `ModalEstimate` measured-mode set. `Design(FilterSpec spec)` projects `FilterShape.Design`, admits `FilterContext`, dispatches the row, and admits emitted coefficients. `FilterCoefficients.Apply → IO<Fin<float[]>>`, `Response`, and `ZeroPhase` enter through coefficient admission.
 - Auto: each `SpectralTransform` `Kernel` realizes one split-plane `Fourier` transform: `fft` full-length, `rfft` Hermitian half-spectrum, `stft` centered magnitude/phase frames, `spectrogram` squared STFT magnitudes, `welch-psd` averaged periodograms, and `dwt` a stride-2 `Conv1D` QMF cascade. Each `Invert` realizes the paired inverse: `fft`/`rfft` reciprocal transforms, `stft` weighted overlap-add, and `dwt` zero-stuff synthesis trimmed to recorded extents. `Design` produces windowed-sinc or equiripple FIR taps and shared-`Bilinear` IIR coefficients. `FilterCoefficients.Apply` routes short-FIR `Conv1D`, pooled long-FIR FFT overlap-add, or direct-form-II-transposed IIR recurrence.
 - Receipt: the spectral fold mints no hot-path receipt. Evidence rides `Spectrum.Length`/`BinHz`/`Samples`/`Scaling`, each `Spectrogram` case's `Frames`/`Bins`, `WaveletDecomposition.Levels`/`Extents`, and `CrossSpectrum.Coherence`. Tensor-lowered legs compose the `Runtime/receipts#RECEIPT_UNION` `ComputeReceipt.TensorRun(Family, Dtype, Elements, SimdWidth, Partitions)` their owning operation stamps. Bare `Fourier` transforms and IIR recurrence mint no fabricated tensor receipt.
 - Packages: MathNet.Numerics, System.Numerics.Tensors, CommunityToolkit.HighPerformance, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: a new spectral transform is one `SpectralTransform` row binding admission, forward kernel, and inverse; a new window is one `WindowKind` row; a new wavelet is one `WaveletFamily` row. A new filter family adds one parameter-evidence `FilterShape` case and its projected `FilterDesign` row, closing any analog prototype into unchanged `Bilinear`. `FftTransform`/`StftTransform`/`PsdEstimator` collapse onto `Transform.Apply`; inverse siblings collapse onto `Transform.Invert`; FIR/IIR classes collapse onto `FilterCoefficients`; per-family designers collapse onto `FilterShape` plus the row-owned design delegate.
-- Boundary: `MathNet.Numerics.IntegralTransforms.Fourier` operates in place. Per-bin and framed kernels apply recorded `FourierOptions`; overlap-add and Welch pin `FourierOptions.NoScaling` and own their normalization. Split real/imaginary arrays let `TensorPrimitives.Hypot`/`Atan2` read contiguous spans; `ForwardReal`/`InverseReal` own packed half-spectra; `Fourier.FrequencyScale` owns bin resolution. Inversion consumes forward evidence: `Spectrum` records `Samples` and `Scaling`; `Spectrogram.Phasor` records `Samples`, `FrameSize`, `Hop`, `Window`, `Scaling`, magnitude, and phase for weighted overlap-add; `Spectrogram.Power` and Welch output typed inverse faults; `WaveletDecomposition` records per-level `Extents`. Window functions ride `MathNet.Numerics.Window`; periodic forms apply only where MathNet exposes them. IIR feedback routes to direct-form-II-transposed after finite, nonempty, nonzero-`a₀` admission. FIR application routes short taps through `KernelLowering`, while long taps accumulate through pooled `MemoryOwner<float>` storage plus FFT overlap-add. `FilterResponse` derives group delay from unwrapped phase. One band-aware `Bilinear` consumes closed-over analog prototypes. Equiripple FIR rides `DenseRoute.Solve` across an explicit transition band. `WaveletFamily` owns scaling tables because MathNet exposes no wavelet surface. Spectral features feed `Stats/estimator#ESTIMATOR_LANE`; `Coherence` feeds modal identification; conditioned signals feed learning and `Solver/clash#CLASH_AND_TWIN`.
+- Boundary: `MathNet.Numerics.IntegralTransforms.Fourier` operates in place. Per-bin and framed kernels apply recorded `FourierOptions`; overlap-add and Welch pin `FourierOptions.NoScaling` and own their normalization. Split real/imaginary arrays let `TensorPrimitives.Hypot`/`Atan2` read contiguous spans; `ForwardReal`/`InverseReal` own packed half-spectra; `Fourier.FrequencyScale` owns bin resolution. Inversion consumes forward evidence: `Spectrum` records `Samples` and `Scaling`; `Spectrogram.Phasor` records `Samples`, `FrameSize`, `Hop`, `Window`, `Scaling`, magnitude, and phase for weighted overlap-add; `Spectrogram.Power` and Welch output typed inverse faults; `WaveletDecomposition` records per-level `Extents`. Window functions ride `MathNet.Numerics.Window`; periodic forms apply only where MathNet exposes them. IIR feedback routes to direct-form-II-transposed after finite, nonempty, nonzero-`a₀` admission. FIR application routes short taps through `KernelLowering`, while long taps accumulate through pooled `MemoryOwner<float>` storage plus FFT overlap-add. `FilterResponse` derives group delay from unwrapped phase. One band-aware `Bilinear` consumes closed-over analog prototypes. Equiripple FIR rides `DenseRoute.Solve` across an explicit transition band. `WaveletFamily` owns scaling tables because MathNet exposes no wavelet surface. Spectral features feed `Stats/estimator#ESTIMATOR_LANE`; `Coherence` conditions channel pairs and `Modal` extracts the measured modes — the FDD first-singular-value spectrum is an operational estimate whose peaks are honest only where excitation is broadband, so `ModalEstimate` carries the full singular spectrum beside its picked modes and a consumer re-judges a peak against its own floor; `MeasuredMode` crosses to `Solver/clash#CLASH_AND_TWIN` as the FE-updating measured end, and conditioned signals feed learning and the twin.
 
 ```csharp signature
 // --- [TYPES] ----------------------------------------------------------------------------
@@ -314,6 +314,12 @@ public sealed record CrossSpectrum(int Bins, double BinHz, ReadOnlyMemory<double
     }
 }
 
+// One operational-deflection mode measured from ambient records: peak frequency, half-power damping where the peak
+// bandwidth resolves, and the dominant singular vector as per-channel magnitude/phase — the FE-updating ingress.
+public sealed record MeasuredMode(double FrequencyHz, Option<double> DampingRatio, ReadOnlyMemory<double> ShapeMagnitude, ReadOnlyMemory<double> ShapePhase, double Singular);
+
+public sealed record ModalEstimate(int Channels, int Bins, double BinHz, ReadOnlyMemory<double> SingularSpectrum, Seq<MeasuredMode> Modes, Instant At);
+
 public sealed record FilterResponse(int Bins, ReadOnlyMemory<double> Magnitude, ReadOnlyMemory<double> Phase, ReadOnlyMemory<double> GroupDelay);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -537,6 +543,101 @@ public static class Transform {
         }
         return Fin.Succ(new CrossSpectrum(bins, BinHz(frame, policy.SampleRate), [.. sxx.Select(value => value / segments)], [.. syy.Select(value => value / segments)], crossMag, crossPhase, coherence, at));
     }
+
+    // Frequency-domain decomposition over N synchronous ambient channels: the same Welch fold accumulates the per-bin
+    // Hermitian cross-PSD matrix G(f); a PSD matrix's SVD is its EVD, so the dominant singular pair per bin resolves by
+    // Hermitian power iteration; peaks of the first singular-value spectrum are the measured natural frequencies and the
+    // paired eigenvector the operational mode shape — the OMA route from records to as-built modes.
+    public static Fin<ModalEstimate> Modal(Seq<ReadOnlyMemory<float>> channels, SignalPolicy policy, IClock clock) =>
+        channels.Count < 2
+            ? Fin.Fail<ModalEstimate>(ComputeFault.Create($"<modal-channels:{channels.Count}<2>"))
+        : channels[0].Length == 0 || channels.Exists(c => c.Length != channels[0].Length) || channels.Exists(c => !TensorPrimitives.IsFiniteAll<float>(c.Span))
+            ? Fin.Fail<ModalEstimate>(ComputeFault.Create("<modal-admission>"))
+            : SpectralTransform.WelchPsd.Admit(policy, channels[0].Length).Bind(context =>
+                1 + (channels[0].Length - context.FrameSize) / context.HopSize < 2
+                    ? Fin.Fail<ModalEstimate>(ComputeFault.Create($"<modal-segments:{channels[0].Length}/{context.FrameSize}/{context.HopSize}>"))
+                    : Fin.Succ(ModalAdmitted(channels, context, clock.GetCurrentInstant())));
+
+    private static ModalEstimate ModalAdmitted(Seq<ReadOnlyMemory<float>> channels, SignalContext policy, Instant at) {
+        int n = channels.Count, frame = policy.FrameSize, hop = policy.HopSize, bins = frame / 2 + 1;
+        int segments = 1 + (channels[0].Length - frame) / hop;
+        double[] taper = policy.Window.Taper(frame, periodic: false);
+        (double[] gre, double[] gim) = (new double[bins * n * n], new double[bins * n * n]);
+        (double[][] xr, double[][] xi) = ([.. Enumerable.Range(0, n).Select(_ => new double[frame])], [.. Enumerable.Range(0, n).Select(_ => new double[frame])]);
+        for (int s = 0; s < segments; s++) {
+            int offset = s * hop;
+            for (int c = 0; c < n; c++) {
+                for (int i = 0; i < frame; i++) { xr[c][i] = channels[c].Span[offset + i] * taper[i]; }
+                Array.Clear(xi[c]);
+                Fourier.Forward(xr[c], xi[c], FourierOptions.NoScaling);
+            }
+            for (int k = 0; k < bins; k++) {
+                for (int i = 0; i < n; i++) {
+                    for (int j = 0; j < n; j++) {                                        // Gij(k) += Xi(k)·conj(Xj(k)) — Hermitian by construction.
+                        int cell = (k * n + i) * n + j;
+                        gre[cell] += xr[i][k] * xr[j][k] + xi[i][k] * xi[j][k];
+                        gim[cell] += xi[i][k] * xr[j][k] - xr[i][k] * xi[j][k];
+                    }
+                }
+            }
+        }
+        double[] s1 = new double[bins];
+        (double[] vre, double[] vim) = (new double[bins * n], new double[bins * n]);
+        for (int k = 0; k < bins; k++) { s1[k] = Dominant(gre, gim, k, n, vre.AsSpan(k * n, n), vim.AsSpan(k * n, n)) / segments; }
+        double floor = ModalPeakFloor * Median(s1);
+        Seq<MeasuredMode> modes = Seq<MeasuredMode>();
+        double binHz = BinHz(frame, policy.SampleRate);
+        for (int k = 1; k < bins - 1; k++) {
+            if (s1[k] <= floor || s1[k] <= s1[k - 1] || s1[k] < s1[k + 1]) { continue; }
+            (double[] magnitude, double[] phase) = (new double[n], new double[n]);
+            TensorPrimitives.Hypot(vre.AsSpan(k * n, n), vim.AsSpan(k * n, n), magnitude);
+            TensorPrimitives.Atan2(vim.AsSpan(k * n, n), vre.AsSpan(k * n, n), phase);
+            modes = modes.Add(new MeasuredMode(k * binHz, HalfPower(s1, k, binHz), magnitude, phase, s1[k]));
+        }
+        return new ModalEstimate(n, bins, binHz, s1, modes, at);
+    }
+
+    // 32 Hermitian power iterations resolve the dominant eigenpair of a small NxN PSD matrix without a complex-SVD dependency.
+    private static double Dominant(double[] gre, double[] gim, int bin, int n, Span<double> vre, Span<double> vim) {
+        int seed = 0;
+        for (int i = 1; i < n; i++) { if (gre[(bin * n + i) * n + i] > gre[(bin * n + seed) * n + seed]) { seed = i; } }
+        vre.Clear(); vim.Clear(); vre[seed] = 1.0;
+        Span<double> wre = stackalloc double[n], wim = stackalloc double[n];
+        double lambda = 0.0;
+        for (int iteration = 0; iteration < 32; iteration++) {
+            for (int i = 0; i < n; i++) {
+                (wre[i], wim[i]) = (0.0, 0.0);
+                for (int j = 0; j < n; j++) {
+                    int cell = (bin * n + i) * n + j;
+                    wre[i] += gre[cell] * vre[j] - gim[cell] * vim[j];
+                    wim[i] += gre[cell] * vim[j] + gim[cell] * vre[j];
+                }
+            }
+            double norm = Math.Sqrt(TensorPrimitives.SumOfSquares<double>(wre) + TensorPrimitives.SumOfSquares<double>(wim));
+            if (norm < 1e-300) { return 0.0; }
+            lambda = norm;
+            for (int i = 0; i < n; i++) { vre[i] = wre[i] / norm; vim[i] = wim[i] / norm; }
+        }
+        return lambda;
+    }
+
+    // Half-power (−3 dB) bandwidth damping ζ ≈ Δf/(2·f_peak); None when the band never resolves inside the spectrum.
+    private static Option<double> HalfPower(double[] s1, int peak, double binHz) {
+        double half = s1[peak] / 2.0;
+        int lo = peak, hi = peak;
+        while (lo > 0 && s1[lo] > half) { lo--; }
+        while (hi < s1.Length - 1 && s1[hi] > half) { hi++; }
+        return s1[lo] <= half && s1[hi] <= half && peak > 0
+            ? Some((hi - lo) * binHz / (2.0 * peak * binHz))
+            : None;
+    }
+
+    private static double Median(double[] values) {
+        double[] sorted = [.. values.Order()];
+        return sorted.Length == 0 ? 0.0 : sorted[sorted.Length / 2];
+    }
+
+    private const double ModalPeakFloor = 8.0;
 
     // --- [SPECTRAL] -- forward kernels each SpectralTransform row binds.
 

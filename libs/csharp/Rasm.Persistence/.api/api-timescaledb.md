@@ -1,13 +1,12 @@
 # [RASM_PERSISTENCE_API_TIMESCALEDB]
 
 `TimescaleDB` supplies the hypertable, continuous-aggregate, retention, and columnstore (hypercore)
-provisioning surface over the `OpLogEntry`-rollup table, plus its native bgworker policy scheduler so
+provisioning surface over the series tables, plus its native bgworker policy scheduler so
 the AppHost schedule port never schedules a refresh/retention/compression job. It carries no managed
 assembly and no first-party EF translator: every surface is server-side SQL the
-`Store/provisioning#SERVER_EXTENSIONS` `ServerExtension` rows fold — as the `Hypertable`/`ContinuousAggregate`/
-`RetentionPolicy`/`ColumnstorePolicy` cases whose `ProvisionSql` `Fin<string>` projection rides
-`MigrationBuilder.Sql` through the one `ServerExtension` `CreateSql` install (`Store/provisioning#SERVER_EXTENSIONS`) —
-and the rollups feed `Query/columnar#COLUMNAR_LANE` and the dashboard tiles. The extension is
+`Query/columnar#SERIES_AND_SCALEOUT` `SeriesLane.Provision` derivation emits per `SeriesKind` row,
+riding `MigrationBuilder.Sql` behind the `Store/provisioning#SERVER_EXTENSIONS` extension admission —
+and the rollup views feed the analytical reads and the dashboard tiles. The extension is
 preload-gated (it rides the `Store/provisioning#SERVER_EXTENSIONS` `Preload` `shared_preload_libraries`
 row), never a self-provisioned `CREATE EXTENSION` annotation.
 
@@ -21,8 +20,8 @@ row), never a self-provisioned `CREATE EXTENSION` annotation.
 - emission split: SELECT-functions vs CALL-procedures (the `ServerExtension` `CreateSql` projection must emit the correct verb in its `Fin<string>` — see `[06]`)
 - rail: timescale-provisioning, analytical-lane
 
-The time column is the HLC `Physical` instant on the rollup table; the rollup mirrors the `OpLogEntry`
-columns the `DuckDBOpLogMap` projects on `Query/columnar#COLUMNAR_LANE`. One time dimension is the
+The time column is the sample instant on each `SeriesKind` table (`assessment_series`/`sensor_series`,
+`Query/columnar#SERIES_AND_SCALEOUT`). One time dimension is the
 partition key; secondary `by_hash` dimensions are held under a provisioning probe, not catalogued.
 
 ## [02]-[HYPERTABLE]
@@ -112,8 +111,8 @@ are SELECT functions and `run_job` is a CALL procedure (the receipt's manual-fir
 ## [06]-[IMPLEMENTATION_LAW]
 
 [EMISSION_LAW]:
-- The `Hypertable`/`ContinuousAggregate`/`RetentionPolicy`/`ColumnstorePolicy` cases' `ProvisionSql` `Fin<string>.Succ` must carry `SELECT <fn>(...)` for `create_hypertable`, `add_dimension`, `add_retention_policy`, `add_continuous_aggregate_policy`, `remove_retention_policy`, `remove_continuous_aggregate_policy`, `add_job`, `delete_job`, and `alter_job` — they are functions returning a job_id/regclass (the existing `Hypertable` row already emits `SELECT create_hypertable(...)`).
-- The same `ProvisionSql` must carry `CALL <proc>(...)`, never `SELECT`, for `add_columnstore_policy`, `remove_columnstore_policy`, `convert_to_columnstore`, `convert_to_rowstore`, `run_job`, and `refresh_continuous_aggregate` — they are procedures, so a `ColumnstorePolicy` row emitting `SELECT add_columnstore_policy(...)` is a faulted spelling. A `refresh_continuous_aggregate` CALL cannot run inside an explicit migration transaction block, so it is a `MigrationBuilder.Sql(..., suppressTransaction: true)` arm or a post-migration step, never a member of the in-transaction provisioning batch.
+- The `Query/columnar#SERIES_AND_SCALEOUT` `SeriesLane.Provision` rows must carry `SELECT <fn>(...)` for `create_hypertable`, `add_dimension`, `add_retention_policy`, `add_continuous_aggregate_policy`, `remove_retention_policy`, `remove_continuous_aggregate_policy`, `add_job`, `delete_job`, and `alter_job` — they are functions returning a job_id/regclass.
+- The same derivation must carry `CALL <proc>(...)`, never `SELECT`, for `add_columnstore_policy`, `remove_columnstore_policy`, `convert_to_columnstore`, `convert_to_rowstore`, `run_job`, and `refresh_continuous_aggregate` — they are procedures, so a row emitting `SELECT add_columnstore_policy(...)` is a faulted spelling. A `refresh_continuous_aggregate` CALL cannot run inside an explicit migration transaction block, so it is a `MigrationBuilder.Sql(..., suppressTransaction: true)` arm or a post-migration step, never a member of the in-transaction provisioning batch.
 - Named-argument `=>` syntax is used for every optional parameter so a server default-shift never silently rebinds a positional argument; `if_not_exists`/`if_exists` make every provisioning step idempotent under re-run.
 - The columnstore enable (`ALTER TABLE ... SET (timescaledb.enable_columnstore=true, segmentby, orderby)`) precedes `add_columnstore_policy` — the policy schedules compression of already-columnstore-enabled chunks; `segmentby` is the equality-filter column family of the analytical lane and `orderby` is the `Physical` time column.
 

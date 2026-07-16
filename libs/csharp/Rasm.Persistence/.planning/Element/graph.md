@@ -7,7 +7,7 @@ Rasm.Persistence persists each `Rasm.Element` graph as one Marten stream keyed b
 - [02]-[STREAM_GRAIN]: model-stream identity, the `GraphEvent` body family, optimistic append, and the schema-keyed event registration.
 - [03]-[GRAPH_PROJECTION]: the inline `SingleStreamProjection` folding `GraphDelta` into the STJ-rehydratable `GraphProjection` over the seam `GraphDelta.ReplayOnto`, the materialized `ElementGraph` read boundary, and the read-your-writes consistency boundary.
 - [04]-[STORE_RAIL]: the Persistence-owned frame shapes (`StoreActor`/`ProjectionContext`/`ResolvedProfile`), the one `GraphStoreOp` operation family over the generated total `Switch`, the session bracket, the exclusive-lock escalation, AS-OF reconstruction, the durable naming-lineage rows, and the co-transactional identity commit.
-- [05]-[FAULT_TABLES]: the `FaultBand` `[SmartEnum<int>]` band-allocation registry (21 own decades + pinned foreign mirrors) and the `GraphFault` band it hosts.
+- [05]-[FAULT_TABLES]: the `FaultBand` `[SmartEnum<int>]` band-allocation registry (one row per own decade + pinned foreign mirrors) and the `GraphFault` band it hosts.
 
 ## [02]-[STREAM_GRAIN]
 
@@ -460,7 +460,7 @@ public static class GraphStore {
 
 ## [05]-[FAULT_TABLES]
 
-- Owner: `FaultBand` the `[SmartEnum<int>]` band-allocation registry — ONE row per Persistence fault decade (21 own decades) plus the pinned MIRROR rows reserving every foreign registry's integers against Persistence claimants, mirroring the seam `Rasm.Element` registry shape (its own/mirror discriminant included); `GraphFault` the store-rail band this page hosts as the registry's own exemplar (8300-8303), the `[Union]` over the kernel `Rasm.Domain.Expected` every projection/store failure rails.
+- Owner: `FaultBand` the `[SmartEnum<int>]` band-allocation registry — ONE row per Persistence fault decade plus the pinned MIRROR rows reserving every foreign registry's integers against Persistence claimants, mirroring the seam `Rasm.Element` registry shape (its own/mirror discriminant included); `GraphFault` the store-rail band this page hosts as the registry's own exemplar (8300-8303), the `[Union]` over the kernel `Rasm.Domain.Expected` every projection/store failure rails.
 - Entry: every Persistence fault union derives `Code => FaultBand.<Row> + n` through the generated implicit `SmartEnum`-to-`int` conversion — one line, never a `.Value` spelling and never a bare integer literal; a duplicate band integer FAILS the generated key lookup at type initialization, so cross-page disjointness is type-enforced, never prose (per-page decade prose is the deleted form; this registry is the one pointer).
 - Growth: a new band is ONE row here plus the owning page's union derivation; a new case inside a band is one union case whose offset stays inside the row's decade; a foreign registry change is one mirror-row edit; zero new surface — a page-local band constant, a loose `Error.New(83xx)` integer, or a prose decade table is the deleted form.
 - Boundary: own rows carry `Mirror: false` and name their owning page anchor for telemetry docs; mirror rows reserve the integer only (AppHost 1xxx/4100-4810, Compute 2200-2299 + Remote `WireFault` 4520-4532, AppUi 6xxx, the AEC registry 2300/2350/2400/2450/2470/2500/2600/2700-2710, kernel-substrate 9104) and no Persistence union ever derives from a mirror; the folded-transaction concurrency conflict is the registered `GraphFault.TxnConflict` sub-band row 8303, NEVER a loose 7001; `Element/authority` composes `IdentityFault` (8340) and carries no band of its own; `Version/timetravel`/`Version/merge`/`Version/provenance`/`Query/lane` are the no-band total algebras.
@@ -495,6 +495,9 @@ public sealed partial class FaultBand {
     public static readonly FaultBand Coordination = new(8430, "Store/coordination#CoordinationFault");
     public static readonly FaultBand GeoIngest    = new(8440, "Ingest/geospatial#GeoIngestFault");
     public static readonly FaultBand WideColumn   = new(8450, "Query/cache#WideColumnFault");
+    public static readonly FaultBand Selection    = new(8460, "Query/lane#SelectionFault");
+    public static readonly FaultBand Issue        = new(8470, "Ingest/issue#IssueFault");
+    public static readonly FaultBand Series       = new(8480, "Query/columnar#SeriesFault (the temporal/scale-out residences beside the 835x engine decade)");
     // Pinned mirrors — foreign registries' integers reserved; no Persistence union derives from these rows.
     public static readonly FaultBand AppHostCore  = new(1000, "Rasm.AppHost 1xxx", mirror: true);
     public static readonly FaultBand ComputeCore  = new(2200, "Rasm.Compute 2200-2299", mirror: true);

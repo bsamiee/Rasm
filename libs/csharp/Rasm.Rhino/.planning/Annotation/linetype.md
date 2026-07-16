@@ -14,6 +14,7 @@ Linetype rail (`Rasm.Rhino.Annotation`). `StrokeDef` owns dash/gap segments, emb
 - Owner: `SegmentRow` — one dash or gap with its length; `ShapeRow` `[Union]` — an embedded curve or text glyph positioned by offset along the pattern; `TaperRow` — the start/end width pair with an optional mid taper point; `StrokeDef` — the whole definition: name, segment run, shapes, taper, caps, joins, width, width units, and the model-distance grant.
 - Law: the signed convention lives on one projection — `SegmentRow.Signed` renders positive dash and negative gap for the table's `Add(name, segmentLengths)` and the `.lin` grammar, and the typed pair is what travels; a raw signed `double` in request data is the deleted form.
 - Law: definition content applies to a duplicate — `Apply` writes segments (`SetSegments`), shapes (`AddShape` per row after `RemoveAllShapes`), taper (`SetTaper`/`RemoveTaper`), and stroke config onto a `DuplicateLinetype` copy, and the table `Modify` lands it inside the bracket; `CommitChanges` on a live linetype bypasses the transaction and is the deleted form.
+- Law: `DuplicateLinetype` clears the copy's name and id — the amend kernel re-stamps the live name on every duplicate before revision, and `Apply` then lands the def's own name, so an amendment carrying a fresh def name is also the rename.
 - Law: a text shape embeds detached geometry — the `TextEntity` enters through this page's sibling `TextSpec.Mint`, so linetype glyphs and document text share one construction path.
 
 ```csharp signature
@@ -114,6 +115,7 @@ public sealed record StrokeDef(
                            Some: mid => fun(() => linetype.SetTaper(startWidth: taper.StartWidth, taperPoint: mid, endWidth: taper.EndWidth))(),
                            None: () => fun(() => linetype.SetTaper(startWidth: taper.StartWidth, endWidth: taper.EndWidth))()),
                        None: () => fun(linetype.RemoveTaper)());
+                   linetype.Name = self.Name;
                    linetype.LineCapStyle = self.Cap;
                    linetype.LineJoinStyle = self.Join;
                    linetype.Width = self.Width;
@@ -238,7 +240,11 @@ public abstract partial record LinetypeOp {
         RhinoDoc document, int index, bool quiet, Op op,
         Func<Linetype, Op, Fin<Unit>> revise, DraftSlot slot) =>
         from live in Optional(document.Linetypes.FindIndex(index: index)).ToFin(Fail: op.MissingContext())
-        from copy in op.Catch(() => Fin.Succ(value: live.DuplicateLinetype()))
+        from copy in op.Catch(() => {
+            Linetype fresh = live.DuplicateLinetype();
+            fresh.Name = live.Name;
+            return Fin.Succ(value: fresh);
+        })
         from _ in revise(copy, op)
         from __ in op.Confirm(success: document.Linetypes.Modify(linetype: copy, index: index, quiet: quiet))
         select DraftReceipt.Component(slot: slot, index: index);
@@ -384,10 +390,10 @@ public static class Linetypes {
 
 ## [05]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]           | [OWNER]          | [FORM]                                                  | [ENTRY]                  |
-| :-----: | :------------------ | :--------------- | :------------------------------------------------------- | :------------------------ |
-|  [01]   | segment atom        | `SegmentRow`     | typed dash/gap pair, signed `.lin` projection            | `StrokeDef` / `Signed`    |
-|  [02]   | embedded shapes     | `ShapeRow`       | curve/text glyph union over `AddShape`                   | `StrokeDef.Apply`         |
-|  [03]   | definition model    | `StrokeDef`      | segments + shapes + taper + stroke config as one value   | `LinetypeOp.Author`       |
-|  [04]   | linetype mutations  | `LinetypeOp`     | add-then-shape, revert, defaults, `.lin` import, tags    | `Linetypes.Commit`        |
-|  [05]   | linetype reads      | `LinetypeAsk`    | definition snapshot, table state, object resolution     | `Linetypes.Ask`           |
+| [INDEX] | [CONCERN]          | [OWNER]       | [FORM]                                                 | [ENTRY]                |
+| :-----: | :----------------- | :------------ | :----------------------------------------------------- | :--------------------- |
+|  [01]   | segment atom       | `SegmentRow`  | typed dash/gap pair, signed `.lin` projection          | `StrokeDef` / `Signed` |
+|  [02]   | embedded shapes    | `ShapeRow`    | curve/text glyph union over `AddShape`                 | `StrokeDef.Apply`      |
+|  [03]   | definition model   | `StrokeDef`   | segments + shapes + taper + stroke config as one value | `LinetypeOp.Author`    |
+|  [04]   | linetype mutations | `LinetypeOp`  | add-then-shape, revert, defaults, `.lin` import, tags  | `Linetypes.Commit`     |
+|  [05]   | linetype reads     | `LinetypeAsk` | definition snapshot, table state, object resolution    | `Linetypes.Ask`        |

@@ -1,6 +1,6 @@
 # [RASM_RHINO_ANNOTATION_HATCH]
 
-Hatch rail (`Rasm.Rhino.Annotation`). `PatternDef` projects catalogued hatch-pattern content as an ordered `LineDef` run. Default authoring derives from `GetDefaultHatchPatterns()` instead of duplicating its roster as code rows, while `.pat` interchange admits arbitrary definitions through verified host factories. Custom definition construction remains excluded because the sealed catalog proves neither `HatchPattern`/`HatchLine` constructors nor `HatchLine` setters. `HatchSpec` carries explicit loops, nested curves, or a planar brep face into plural `Hatch` geometry under one `FillPlacement`. Gradient assignment, pattern scaling, boundary extraction, display geometry, solid projection, and explosion ride the shared spine and receipt. Reclamation stays `TableOp.Reclaim(TableKind.HatchPatterns)`; placed hatches resolve as `RhinoObject.Geometry is Hatch` because no `HatchObject` exists.
+Hatch rail (`Rasm.Rhino.Annotation`). `PatternDef` is the complete detached pattern content — an ordered `LineDef` run under identity, fill, and unit regime — and it mints real host patterns: `new HatchPattern()` plus `new HatchLine()` with settable `Angle`/`BasePoint`/`Offset` and `SetDashes` realize custom authoring and amendment. Default authoring derives from `GetDefaultHatchPatterns()` instead of duplicating its roster as code rows, and `.pat` interchange admits arbitrary definitions through verified host factories. `HatchSpec` carries explicit loops, nested curves, or a planar brep face into plural `Hatch` geometry under one `FillPlacement`. Gradient assignment, pattern scaling, boundary extraction, display geometry, solid projection, and explosion ride the shared spine and receipt. Reclamation stays `TableOp.Reclaim(TableKind.HatchPatterns)`; placed hatches resolve as `RhinoObject.Geometry is Hatch` because no `HatchObject` exists.
 
 ## [01]-[INDEX]
 
@@ -14,9 +14,9 @@ Hatch rail (`Rasm.Rhino.Annotation`). `PatternDef` projects catalogued hatch-pat
 
 - Owner: `FillKind` `[SmartEnum<int>]` — fill vocabulary keyed on explicit `HatchPatternFillType` values; `LineDef` — one detached dash-line generator row; `PatternDef` — complete detached pattern content: name, description, fill kind, unit regime, distance policy, and ordered generator run.
 - Law: default census and authoring derive from `HatchPattern.GetDefaultHatchPatterns()`; no copied nine-case vocabulary can drift from the host roster.
-- Law: arbitrary definitions enter through `ReadFromFile` until construction APIs are proven. Table content changes still require fully composed values through `Modify`; live table mutation remains absent.
+- Law: `Mint` is the one detached-to-host projection — a fresh `HatchPattern` takes `Name`, `Description`, `FillType`, `PatternUnitSystem`, and `AlwaysModelDistances` through its setters and its line set through `SetHatchLines` over freshly minted `HatchLine` values; table content changes land the fully composed mint through `Modify`, so live table mutation stays absent.
 - Law: a `Lines`-kind pattern demands at least one generator row and a `Solid`/`Gradient` kind demands none — the def factory enforces the coupling so an empty line-definition set can never render as invisible fill.
-- RESEARCH: admit custom `PatternDef` construction only after decompilation proves public `HatchPattern`/`HatchLine` constructors and settable `HatchLine.Angle`/`BasePoint`/`Offset`. Query `Rhino.DocObjects.HatchPattern` and `Rhino.DocObjects.HatchLine` through the `rhino-common` rail; current fences contain none of those unverified members.
+- Law: the dash/gap atom is the sibling `SegmentRow` — its `Signed` projection feeds `SetDashes`, where the host reads a negative length as a gap — so hatch dashes and linetype segments travel one typed pair and a raw signed `double` in request data is the deleted form.
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
@@ -30,14 +30,24 @@ public sealed partial class FillKind {
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------
-public sealed record LineDef(double Angle, Point2d Base, Vector2d Offset, Seq<double> Dashes) {
-    public static Fin<LineDef> Of(double angle, Point2d @base, Vector2d offset, params ReadOnlySpan<double> dashes) {
+public sealed record LineDef(double Angle, Point2d Base, Vector2d Offset, Seq<SegmentRow> Dashes) {
+    public static Fin<LineDef> Of(double angle, Point2d @base, Vector2d offset, params ReadOnlySpan<SegmentRow> dashes) {
         Op op = Op.Of(name: nameof(LineDef));
         return from turn in op.AcceptInput(value: angle)
                from anchor in op.AcceptInput(value: @base)
                from step in op.AcceptInput(value: offset)
-               from run in toSeq(dashes.ToArray()).TraverseM(dash => op.AcceptInput(value: dash)).As()
+               from run in toSeq(dashes.ToArray()).TraverseM(dash => SegmentRow.Of(
+                   length: dash.Length, solid: dash.Solid, key: op)).As()
                select new LineDef(Angle: turn, Base: anchor, Offset: step, Dashes: run);
+    }
+
+    internal Fin<HatchLine> Mint(Op key) {
+        LineDef self = this;
+        return key.Catch(() => {
+            HatchLine line = new() { Angle = self.Angle, BasePoint = self.Base, Offset = self.Offset };
+            line.SetDashes(dashes: self.Dashes.Map(static row => row.Signed).AsIterable());
+            return Fin.Succ(value: line);
+        });
     }
 }
 
@@ -60,6 +70,23 @@ public sealed record PatternDef(
                select new PatternDef(
                    Name: label, Description: description, Fill: kind, Units: units,
                    AlwaysModelDistances: alwaysModelDistances, Lines: run);
+    }
+
+    internal Fin<HatchPattern> Mint(Op key) {
+        PatternDef self = this;
+        return from lines in self.Lines.TraverseM(row => row.Mint(key: key)).As()
+               from pattern in key.Catch(() => {
+                   HatchPattern minted = new() {
+                       Name = self.Name,
+                       Description = self.Description.IfNone(noneValue: string.Empty),
+                       FillType = self.Fill.Host,
+                       PatternUnitSystem = self.Units,
+                       AlwaysModelDistances = self.AlwaysModelDistances,
+                   };
+                   _ = minted.SetHatchLines(hatchLines: lines.AsIterable());
+                   return Fin.Succ(value: minted);
+               })
+               select pattern;
     }
 }
 ```
@@ -125,8 +152,8 @@ public abstract partial record HatchSpec {
 
 ## [04]-[HATCH_RAIL]
 
-- Owner: `HatchOp` `[Union]` — default-pattern authoring, rename, deletion, `.pat` import/export, hatch placement, gradient assignment, and pattern rescale on placed hatches; `HatchTransaction` — the commit plan; `Hatches` — the `Commit`/`Ask` entry pair.
-- Law: `AuthorDefault` refuses an existing pattern name; `MintName` supplies a rename target for a subsequently authored or imported pattern.
+- Owner: `HatchOp` `[Union]` — custom and default pattern authoring, content amendment, rename, deletion, `.pat` import/export, hatch placement, gradient assignment, and pattern rescale on placed hatches; `HatchTransaction` — the commit plan; `Hatches` — the `Commit`/`Ask` entry pair.
+- Law: `Author` and `AuthorDefault` refuse an existing pattern name; `Amend` lands a fully composed `PatternDef.Mint` through `Modify` by index, and `MintName` supplies a fresh name for a subsequently authored or imported pattern.
 - Law: placed-hatch mutation is duplicate-then-`Replace` — `Regrade` and `Rescale` resolve the object, cast its geometry to `Hatch`, mutate the duplicate (`SetGradientFill`, `ScalePattern`), and land through `ObjectTable.Replace` inside the bracket.
 - Law: import lands per pattern — `.pat` files carry many patterns, each read definition adds as its own row, and the first name collision stops the monadic fold with a typed failure.
 - Boundary: `Marks.Render`'s `HatchCase` and the pipeline's `DrawHatch` draw this rail's geometry; `CreateDisplayGeometry` here resolves the drawable primitives, the Display rail owns the pixels.
@@ -136,7 +163,9 @@ public abstract partial record HatchSpec {
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record HatchOp {
     private HatchOp() { }
+    public sealed record Author(PatternDef Def) : HatchOp;
     public sealed record AuthorDefault(string Name) : HatchOp;
+    public sealed record Amend(ResourceRef Target, PatternDef Def, bool Quiet = true) : HatchOp;
     public sealed record Rename(ResourceRef Target, string Name) : HatchOp;
     public sealed record Delete(ResourceRef Target, bool Quiet = true) : HatchOp;
     public sealed record Import(string Path, bool Quiet = true) : HatchOp;
@@ -148,6 +177,11 @@ public abstract partial record HatchOp {
     internal Fin<DraftReceipt> Apply(RhinoDoc document, Op op) =>
         Switch(
             (Document: document, Op: op),
+            author: static (context, edit) =>
+                from minted in edit.Def.Mint(key: context.Op)
+                from _ in guard(context.Document.HatchPatterns.FindName(name: edit.Def.Name) is null, context.Op.InvalidInput()).ToFin()
+                from index in Added(document: context.Document, pattern: minted, op: context.Op)
+                select DraftReceipt.Component(slot: DraftSlot.Authored, index: index),
             authorDefault: static (context, edit) =>
                 from name in context.Op.AcceptText(value: edit.Name)
                 from built in context.Op.Catch(() => toSeq(HatchPattern.GetDefaultHatchPatterns())
@@ -156,6 +190,12 @@ public abstract partial record HatchOp {
                 from _ in guard(context.Document.HatchPatterns.FindName(name: built.Name) is null, context.Op.InvalidInput()).ToFin()
                 from index in Added(document: context.Document, pattern: built, op: context.Op)
                 select DraftReceipt.Component(slot: DraftSlot.Authored, index: index),
+            amend: static (context, edit) =>
+                from pattern in edit.Target.Resolve(document: context.Document, lens: HatchSpec.Lens, key: context.Op)
+                from minted in edit.Def.Mint(key: context.Op)
+                from _ in context.Op.Confirm(success: context.Document.HatchPatterns.Modify(
+                    hatchPattern: minted, hatchPatternIndex: pattern.Index, quiet: edit.Quiet))
+                select DraftReceipt.Component(slot: DraftSlot.Amended, index: pattern.Index),
             rename: static (context, edit) =>
                 from pattern in edit.Target.Resolve(document: context.Document, lens: HatchSpec.Lens, key: context.Op)
                 from name in context.Op.AcceptText(value: edit.Name)
@@ -270,7 +310,9 @@ public abstract partial record HatchAsk {
             patternState: static (ctx, ask) =>
                 from pattern in ask.Target.Resolve(document: ctx.Document, lens: HatchSpec.Lens, key: ctx.Op)
                 from lines in ctx.Op.Catch(() => Fin.Succ(value: toSeq(pattern.HatchLines).Map(static line =>
-                    new LineDef(Angle: line.Angle, Base: line.BasePoint, Offset: line.Offset, Dashes: toSeq(line.GetDashes)))))
+                    new LineDef(Angle: line.Angle, Base: line.BasePoint, Offset: line.Offset,
+                        Dashes: toSeq(line.GetDashes).Map(static dash =>
+                            new SegmentRow(Length: double.Abs(dash), Solid: dash >= 0.0))))))
                 from fill in Optional(FillKind.TryGet((int)pattern.FillType, out FillKind? kind) ? kind : null)
                     .ToFin(Fail: ctx.Op.InvalidResult())
                 select (HatchAnswer)new HatchAnswer.Pattern(Snapshot: new PatternSnapshot(
@@ -384,12 +426,12 @@ public static class Hatches {
 
 ## [06]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]           | [OWNER]           | [FORM]                                                | [ENTRY]                 |
-| :-----: | :------------------ | :---------------- | :----------------------------------------------------- | :----------------------- |
-|  [01]   | pattern content     | `PatternDef`      | identity + fill + unit + ordered `LineDef` run          | `HatchAsk.PatternState`  |
-|  [02]   | built-in roster     | `HatchPattern`    | generated names feeding default authoring               | `HatchOp.AuthorDefault`  |
-|  [03]   | hatch construction  | `HatchSpec`       | loops/nested/brep-face union, plural product            | `HatchOp.Place`          |
-|  [04]   | pattern binding     | `FillPlacement`   | `ResourceRef` resolution, rotation, scale               | `Mint`                   |
-|  [05]   | hatch mutations     | `HatchOp`         | table verbs + `.pat` interchange + placed-hatch amends  | `Hatches.Commit`         |
-|  [06]   | drawable resolution | `HatchDisplay`    | bounds + pattern lines + solid brep in one call         | `HatchAsk.Display`       |
-|  [07]   | hatch reads         | `HatchAsk`        | snapshot, defaults, preview, loops, fill, solid, pieces | `Hatches.Ask`            |
+| [INDEX] | [CONCERN]           | [OWNER]         | [FORM]                                                  | [ENTRY]                 |
+| :-----: | :------------------ | :-------------- | :------------------------------------------------------ | :---------------------- |
+|  [01]   | pattern content     | `PatternDef`    | identity + fill + unit + `LineDef` run, host `Mint`     | `HatchOp.Author` / `Amend` |
+|  [02]   | built-in roster     | `HatchPattern`  | generated names feeding default authoring               | `HatchOp.AuthorDefault` |
+|  [03]   | hatch construction  | `HatchSpec`     | loops/nested/brep-face union, plural product            | `HatchOp.Place`         |
+|  [04]   | pattern binding     | `FillPlacement` | `ResourceRef` resolution, rotation, scale               | `Mint`                  |
+|  [05]   | hatch mutations     | `HatchOp`       | authoring + table verbs + `.pat` interchange + placed-hatch amends | `Hatches.Commit` |
+|  [06]   | drawable resolution | `HatchDisplay`  | bounds + pattern lines + solid brep in one call         | `HatchAsk.Display`      |
+|  [07]   | hatch reads         | `HatchAsk`      | snapshot, defaults, preview, loops, fill, solid, pieces | `Hatches.Ask`           |

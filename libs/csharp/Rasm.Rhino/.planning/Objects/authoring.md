@@ -7,7 +7,7 @@ Custom-object and grip authoring belongs to `Rasm.Rhino.Objects`. Host subclassi
 - [02]-[OBJECT_PROGRAM]: `ObjectProgram` and the forwarding kernel every adapter shares.
 - [03]-[ADAPTERS]: the `ClassId`-ready host derivations.
 - [04]-[GRIP_PROGRAM]: `GripSeed`, `GripProgram`, `RasmGrip`, `RasmGrips`, and the enabler rig.
-- [05]-[GRIP_EDIT]: `GripMove`, `GripFacts`, and the `Grips` value entry.
+- [05]-[GRIP_EDIT]: `GripMove`, `GripEdit`, `GripFacts`, and the `Grips` entry pair.
 - [06]-[SURFACE_LEDGER]: the page's owner table.
 
 ## [02]-[OBJECT_PROGRAM]
@@ -263,7 +263,7 @@ public abstract class RasmPointObject : CustomPointObject {
 - Owner: `GripSeed` carries admitted index, origin, and weight. `GripProgram` owns seed and regrow functions plus every verified location, reset, mesh-update, topology, draw, and disposal hook. `RasmGrip` repairs the host weight sentinel and forwards location changes; `RasmGrips` forwards the set program; `GripRig` registers the enabler.
 - Law: `NewGeometry` fires once at the end of a drag — the shim collects every grip's index and current location, hands them to `Regrow`, and a refusal logs and answers null so the host keeps existing geometry; per-frame rebuild gating stays on the host's own `NewLocation`/`GripsMoved` flags, and the global `Dragging()` probe is a static host fact, never an instance flag.
 - Law: `Weight` must be carried by the shim — the custom grip base deliberately stubs the member with a sentinel getter (`-1.234...E+308`) and a no-op setter, so `RasmGrip` overrides both accessors over a real field seeded from `GripSeed.Weight`; an authored grip trusting the base member reads garbage.
-- Law: the enabler keys on the grips type's `[Guid]` — `RegisterGripsEnabler` resolves `typeof(TGrips).GUID`, not `ClassIdAttribute`, re-registration replaces the prior enabler, and the enabler installs through `EnableCustomGrips` only when the mint answers `Some`; a non-`Some` candidate keeps standard host grips.
+- Law: the enabler keys on the grips type's `[Guid]` — `RegisterGripsEnabler` resolves `typeof(TGrips).GUID`, not `ClassIdAttribute`, re-registration replaces the prior enabler, and the enabler installs through `EnableCustomGrips` only when the mint answers `Some`; a non-`Some` candidate keeps standard host grips. Registration demands the declared `GuidAttribute` because the runtime synthesizes a fallback for an unattributed type, so `Type.GUID` is never empty and only the attribute probe proves a stable key.
 - Law: the grip draw hook runs before base — the base `OnDraw` draws the grips themselves, so a program draws dynamic elements first and the shim calls base after. Reset and mesh-update hooks augment the completed base operation; disposal notifies before base releases the carrier.
 
 ```csharp signature
@@ -452,7 +452,9 @@ public static class GripRig {
     public static Fin<Unit> Register<TGrips>(Func<RhinoObject, Option<TGrips>> mint) where TGrips : CustomObjectGrips {
         Op op = Op.Of(name: nameof(GripRig));
         return from factory in Optional(mint).ToFin(Fail: op.InvalidInput())
-               from __ in guard(typeof(TGrips).GUID != Guid.Empty, op.InvalidInput()).ToFin()
+               from __ in guard(
+                   typeof(TGrips).IsDefined(typeof(System.Runtime.InteropServices.GuidAttribute), inherit: false),
+                   op.InvalidInput()).ToFin()
                from _ in op.Catch(() => {
                    CustomObjectGrips.RegisterGripsEnabler(
                        enabler: candidate => {
@@ -475,10 +477,10 @@ public static class GripRig {
 
 ## [05]-[GRIP_EDIT]
 
-- Owner: `GripMove` `[Union]` — the relocation verbs: absolute point, delta vector, transform, and single-step undo; `GripFacts` — the whole grip read in one pass: identity, positions, movement state, weight, local frame, and the surface, curve, and cage parameter coordinates with their control-vertex indices, each projected as absence where the grip kind carries none; `Grips` — the value entry over enabled grips.
-- Law: grips resolve from their owner — `Rig` toggles `GripsOn`, `Census` and `Move` read `GetGrips` inside the grant, and a grip index addresses into that roster; no `GripObject` leases outward, because grip lifetime ends when the owner's grips turn off.
+- Owner: `GripMove` `[Union]` — the relocation verbs: absolute point, delta vector, transform, and single-step undo; `GripEdit` `[Union]` — the two grip mutations: `Rig` toggles `GripsOn`, `Move` relocates one indexed grip or every grip through a `GripMove` verb; `GripFacts` — the whole grip read in one pass: identity, positions, movement state, weight, local frame, and the surface, curve, and cage parameter coordinates with their control-vertex indices, each projected as absence where the grip kind carries none; `GripReceipt`/`GripCensus` — the detached results; `Grips` — the two entries: `Census` the read, `Touch` the immediate mutation.
+- Law: grips resolve from their owner — `GripEdit.Rig` toggles `GripsOn`, `Census` and `GripEdit.Move` read `GetGrips` inside the grant, and a grip index addresses into that roster; no `GripObject` leases outward, because grip lifetime ends when the owner's grips turn off.
 - Law: parameter reads are capability probes — `GetSurfaceParameters`, `GetCurveParameters`, `GetCageParameters`, and the CV-index members answer `false` or empty on grips of another kind, and the facts project absence rather than faulting, so one census serves every grip kind.
-- Law: movement is immediate visual state under the host's drag machinery — `Move` and `UndoMove` mutate the grip, and the geometry consequence lands when the host drives the owner's grip pipeline; a program wanting transactional geometry replacement routes the regrown value through `TableOp.Replace`.
+- Law: movement is immediate visual state under the host's drag machinery — `Move` and `UndoMove` mutate the grip, `Touch` opens no undo record, and the geometry consequence lands when the host drives the owner's grip pipeline; a program wanting transactional geometry replacement routes the regrown value through `TableOp.Replace`.
 
 ```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
@@ -507,7 +509,27 @@ public abstract partial record GripMove {
             back: static (context, _) => context.Op.Catch(() => { context.Grip.UndoMove(); return Fin.Succ(value: unit); }));
 }
 
+[Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record GripEdit {
+    private GripEdit() { }
+    public sealed record Rig(bool On) : GripEdit;
+    public sealed record Move(Option<int> Index, GripMove Motion) : GripEdit;
+
+    internal Fin<GripEdit> Admit(Op op) =>
+        Switch(
+            context: op,
+            rig: static (_, edit) => Fin.Succ<GripEdit>(edit),
+            move: static (key, edit) =>
+                from motion in Optional(edit.Motion).ToFin(Fail: key.InvalidInput()).Bind(value => value.Admit(op: key))
+                from _ in guard(edit.Index.Map(static value => value >= 0).IfNone(noneValue: true), key.InvalidInput()).ToFin()
+                select (GripEdit)new Move(Index: edit.Index, Motion: motion));
+}
+
 // --- [MODELS] -----------------------------------------------------------------------------
+public readonly record struct GripReceipt(Seq<Guid> Ids) : IDetachedDocumentResult;
+
+public sealed record GripCensus(Seq<(Guid Owner, Seq<GripFacts> Rows)> Rows) : IDetachedDocumentResult;
+
 public sealed record GripFacts(
     int Index,
     Guid OwnerId,
@@ -549,21 +571,7 @@ public sealed record GripFacts(
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static class Grips {
-    public static Fin<Seq<Guid>> Rig(DocumentSession session, TableTarget target, bool on) {
-        Op op = Op.Of();
-        return session.Demand(
-            use: document =>
-                from natives in Objects.Resolve(document: document, target: target, key: op)
-                from rigged in natives.TraverseM(native => op.Catch(() => {
-                    native.GripsOn = on;
-                    return Fin.Succ(value: native.Id);
-                })).As()
-                select rigged,
-            key: op,
-            needs: [SessionNeed.Mutate]);
-    }
-
-    public static Fin<Seq<(Guid Id, Seq<GripFacts> Rows)>> Census(DocumentSession session, TableTarget target) {
+    public static Fin<GripCensus> Census(DocumentSession session, TableTarget target) {
         Op op = Op.Of();
         return session.Demand(
             use: document =>
@@ -572,45 +580,50 @@ public static class Grips {
                     Optional(native.GetGrips()).Map(static held => toSeq(held)).IfNone(Seq<GripObject>())
                         .TraverseM(grip => GripFacts.Of(grip: grip, key: op)).As()
                         .Map(facts => (native.Id, facts)))).As()
-                select rows,
+                select new GripCensus(Rows: rows),
             key: op,
             needs: [SessionNeed.Read]);
     }
 
-    public static Fin<Seq<Guid>> Move(DocumentSession session, TableTarget target, Option<int> index, GripMove move) {
+    public static Fin<GripReceipt> Touch(DocumentSession session, TableTarget target, GripEdit edit) {
         Op op = Op.Of();
-        return from verb in Optional(move).ToFin(Fail: op.InvalidInput()).Bind(value => value.Admit(op: op))
-               from _ in guard(index.Map(static value => value >= 0).IfNone(noneValue: true), op.InvalidInput()).ToFin()
-               from moved in session.Demand(
+        return from active in Optional(edit).ToFin(Fail: op.InvalidInput()).Bind(value => value.Admit(op: op))
+               from receipt in session.Demand(
                    use: document =>
                        from natives in Objects.Resolve(document: document, target: target, key: op)
-                       from ids in natives.TraverseM(native =>
-                           from roster in op.Catch(() => Fin.Succ(value: Optional(native.GetGrips())
-                               .Map(static held => toSeq(held)).IfNone(Seq<GripObject>())))
-                           from chosen in index.Case switch {
-                               int at => roster.Filter(grip => grip.Index == at) switch {
-                                   [var only] => Fin.Succ(value: Seq(only)),
-                                   _ => Fin.Fail<Seq<GripObject>>(error: op.MissingContext()),
-                               },
-                               _ => Fin.Succ(value: roster),
-                           }
-                           from _ in guard(!chosen.IsEmpty, op.MissingContext()).ToFin()
-                           from __ in chosen.TraverseM(grip => verb.Apply(grip: grip, op: op)).As()
-                           select native.Id).As()
-                       select ids,
+                       from ids in natives.TraverseM(native => active.Switch(
+                           context: (Native: native, Op: op),
+                           rig: static (ctx, edit) => ctx.Op.Catch(() => {
+                               ctx.Native.GripsOn = edit.On;
+                               return Fin.Succ(value: ctx.Native.Id);
+                           }),
+                           move: static (ctx, edit) =>
+                               from roster in ctx.Op.Catch(() => Fin.Succ(value: Optional(ctx.Native.GetGrips())
+                                   .Map(static held => toSeq(held)).IfNone(Seq<GripObject>())))
+                               from chosen in edit.Index.Case switch {
+                                   int at => roster.Filter(grip => grip.Index == at) switch {
+                                       [var only] => Fin.Succ(value: Seq(only)),
+                                       _ => Fin.Fail<Seq<GripObject>>(error: ctx.Op.MissingContext()),
+                                   },
+                                   _ => Fin.Succ(value: roster),
+                               }
+                               from _ in guard(!chosen.IsEmpty, ctx.Op.MissingContext()).ToFin()
+                               from __ in chosen.TraverseM(grip => edit.Motion.Apply(grip: grip, op: ctx.Op)).As()
+                               select ctx.Native.Id)).As()
+                       select new GripReceipt(Ids: ids),
                    key: op,
                    needs: [SessionNeed.Mutate])
-               select moved;
+               select receipt;
     }
 }
 ```
 
 ## [06]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]             | [OWNER]           | [FORM]                                                   | [ENTRY]                        |
-| :-----: | :-------------------- | :---------------- | :--------------------------------------------------------- | :------------------------------ |
-|  [01]   | override program      | `ObjectProgram`   | optional `Fin` hooks over the complete verified roster     | adapter `Program` slots         |
-|  [02]   | host derivations      | `Rasm*Object`     | sealed forwarding over one shared kernel, base-first       | `[ClassId]` concrete subclasses |
-|  [03]   | grip authoring        | `GripProgram`     | admitted seed/regrow core plus verified optional hooks     | `RasmGrips` overrides           |
-|  [04]   | grip shims            | `RasmGrip`/`RasmGrips` | sentinel-weight repair and roster forwarding          | `GripRig.Register<TGrips>`      |
-|  [05]   | grip value edits      | `GripMove`        | absolute, delta, transform, and undo verbs                 | `Grips.Move` / `Census` / `Rig` |
+| [INDEX] | [CONCERN]        | [OWNER]                | [FORM]                                                 | [ENTRY]                         |
+| :-----: | :--------------- | :--------------------- | :----------------------------------------------------- | :------------------------------ |
+|  [01]   | override program | `ObjectProgram`        | optional `Fin` hooks over the complete verified roster | adapter `Program` slots         |
+|  [02]   | host derivations | `Rasm*Object`          | sealed forwarding over one shared kernel, base-first   | `[ClassId]` concrete subclasses |
+|  [03]   | grip authoring   | `GripProgram`          | admitted seed/regrow core plus verified optional hooks | `RasmGrips` overrides           |
+|  [04]   | grip shims       | `RasmGrip`/`RasmGrips` | sentinel-weight repair and roster forwarding           | `GripRig.Register<TGrips>`      |
+|  [05]   | grip value edits | `GripEdit`             | rig and move over `GripMove` verbs, detached receipts  | `Grips.Touch` / `Census`        |

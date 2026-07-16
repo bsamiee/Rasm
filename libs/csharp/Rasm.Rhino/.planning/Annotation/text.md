@@ -1,13 +1,13 @@
 # [RASM_RHINO_ANNOTATION_TEXT]
 
-Text-annotation rail (`Rasm.Rhino.Annotation`). One `TextSeed` union carries plain and RTF content into `TextEntity` and `Leader` construction; `RunEdit` owns live rich-text mutation, while `RunStyle` carries the smaller formatting delta `FormatRtfString` actually accepts. Text-to-geometry outlining is one `OutlineSpec` over four egress forms crossed with grouping and small-caps metrics, covering sixteen modes through eight maximal overloads and named arguments because grouped solid/shell members transpose `smallCapsScale` before `height` and the base member spells `CreatePolySurfaces` where its grouped sibling spells `CreatePolysurfacesGrouped`. `FieldExpr` carries all twenty-nine catalogued `TextFields` evaluators as typed cases; `FieldProgram` preserves positional optional arguments, quotes tokens, and resolves exclusively through document-explicit `TextFields.TryFormat`. Per-annotation restyling composes `StylePatch.Overlay`. Block-attribute extraction remains outside this owner because the current Blocks seam publishes no corresponding boundary.
+Text-annotation rail (`Rasm.Rhino.Annotation`). One `TextSeed` union carries plain and RTF content into `TextEntity` and `Leader` construction; `RunEdit` owns live rich-text mutation, while `RunStyle` carries the smaller formatting delta `FormatRtfString` actually accepts. Text-to-geometry outlining is one `OutlineSpec` over four egress forms crossed with grouping and small-caps metrics, covering sixteen modes through eight maximal overloads and named arguments because grouped solid/shell members transpose `smallCapsScale` before `height` and the base member spells `CreatePolySurfaces` where its grouped sibling spells `CreatePolysurfacesGrouped`. `FieldExpr` carries the catalogued `TextFields` evaluator roster as typed cases; `FieldProgram` preserves positional optional arguments, quotes tokens, and resolves exclusively through document-explicit `TextFields.TryFormat`. Field source rides `RichText` because the host marks `TextFormula` and `Text` obsolete as aliases of `RichText`/`PlainText`. Per-annotation restyling composes `StylePatch.Overlay`; leader points, leader facts, and text/leader explosion ride the same rail. Block-attribute extraction remains outside this owner because the current Blocks seam publishes no corresponding boundary.
 
 ## [01]-[INDEX]
 
 - [02]-[CONTENT_MODEL]: `TextSeed`, `TextSpec`, `LeaderSpec`, live `RunEdit`, and detached `RunStyle`.
 - [03]-[FIELD_FORMULAS]: `CoordAxis`, `FieldExpr`, `TextRun`, and the `FieldProgram` compose/evaluate pair.
 - [04]-[OUTLINING]: `GlyphMetrics`, `Grouping`, `OutlineForm`, `OutlineSpec`, and the typed `OutlineProduct`.
-- [05]-[TEXT_RAIL]: `TextOp`, `TextTransaction`, the `Texts` entry pair, and the `TextState` snapshot with doc-object projections.
+- [05]-[TEXT_RAIL]: `TextOp`, `TextTransaction`, the `Texts` entry pair, and the `TextState`/`LeaderFacts` snapshots with doc-object projections.
 - [06]-[SURFACE_LEDGER]: the page's owner table.
 
 ## [02]-[CONTENT_MODEL]
@@ -16,6 +16,7 @@ Text-annotation rail (`Rasm.Rhino.Annotation`). One `TextSeed` union carries pla
 - Law: the seed selects the host overload — a caller states content, never picks between `Create` and `CreateWithRichText`; RTF admission is the host parser's, and `PlainTextToRtf` lifts plain text into the run model where a formatting edit demands it.
 - Law: live and detached mutations share only the host's real intersection — `RunEdit` reaches live `AnnotationBase` members, and `RunStyle` reaches `FormatRtfString`'s formatting-only clear/set arguments. `Replace` and `Wrap` never masquerade as detached RTF operations.
 - Law: `SetBold`/`SetItalic`/`SetUnderline`/`SetFacename` are whole-content operations — the host exposes no run-range formatting member, so the only span-scoped mutation is `Replace` over run indices from `GetPlainTextWithRunMap`; a fence claiming range-scoped bold is a phantom.
+- Law: first-character and uniform-formatting evidence reads live — `FirstCharFont` answers the leading run's face/bold/italic and `IsAllBold`/`IsAllItalic`/`IsAllUnderlined` the whole-content probes on the snapshot; the static `FirstCharProperties` is host-obsolete and never composed.
 - Boundary: `Wrap` re-flows to `FormatWidth`; wrap state reads back through `TextIsWrapped`/`FormatWidth`/`TextModelWidth` on the snapshot, and DPI or viewport scaling never enters the run model.
 
 ```csharp signature
@@ -110,8 +111,6 @@ public abstract partial record RunEdit {
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
-public readonly record struct RunFace(bool Bold, bool Italic, bool Underline, string Face);
-
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record FaceDelta {
     private FaceDelta() { }
@@ -155,16 +154,6 @@ public static class TextRtf {
                    facename: faceArgs.Name)))
                select formatted;
     }
-
-    public static Fin<RunFace> Probe(string rtf) {
-        Op op = Op.Of();
-        return op.AcceptText(value: rtf).Bind(source => op.Catch(() => {
-            (bool bold, bool italic, bool underline, string face) = (false, false, false, string.Empty);
-            return AnnotationBase.FirstCharProperties(rtfStr: source, bold: ref bold, italic: ref italic, underline: ref underline, facename: ref face)
-                ? Fin.Succ(value: new RunFace(Bold: bold, Italic: italic, Underline: underline, Face: face))
-                : Fin.Fail<RunFace>(error: op.InvalidResult());
-        }));
-    }
 }
 ```
 
@@ -172,9 +161,9 @@ public static class TextRtf {
 
 - Owner: `CoordAxis` `[SmartEnum<string>]` — the axis token vocabulary the coordinate evaluators consume; `FieldExpr` `[Union]` — one typed case per `TextFields` evaluator across the document, object, page, and block families, each projecting `(name, args)` through one `Token` fold; `TextRun` `[Union]` — literal or field segments; `FieldProgram` — the ordered segment run with `Compose` and session-bound `Evaluate`.
 - Law: composition is typed, evaluation is host — a program renders to the host token grammar (`%<Name("arg",...)>%`) through `Compose`, preserves empty positional arguments when a later optional is present, escapes quoted content, and resolves only through `TextFields.TryFormat(text, document, out result)` inside the session grant.
-- Law: the case set is the verified host roster — the geometry evaluator is `Volume`, no `VolumeAll` member exists, and `TryParse(text, document, out tokens)` is the one token splitter; a formula string concatenated by hand at a call site is the deleted form.
+- Law: the case set is the verified host roster — the geometry evaluator is `Volume`, no `VolumeAll` member exists, `BlockName` supersedes the host's soft-deprecated `BlockInstanceName`, and `TryParse(text, document, out tokens)` is the one token splitter; a formula string concatenated by hand at a call site is the deleted form.
 - Law: ids travel typed — object, layer, detail, and block-instance references enter as `Guid` and render as strings only inside `Token`, because the host grammar is stringly and this union is where that boundary stops.
-- Boundary: `BlockAttributeText` and `GetInstanceAttributeFields` stay outside this owner; the current Blocks seam publishes no attribute-text boundary. This union carries only block field evaluators (`BlockName`, `BlockInstanceName`, `BlockDescription`, `BlockInstanceCount`, `BlockInsertionCoordinate`).
+- Boundary: `BlockAttributeText` and `GetInstanceAttributeFields` stay outside this owner; the current Blocks seam publishes no attribute-text boundary. This union carries only block field evaluators (`BlockName`, `BlockDescription`, `BlockInstanceCount`, `BlockInsertionCoordinate`).
 - Growth: a new host evaluator is one case with its `Token` arm; `Compose`, `Evaluate`, and every consumer read it with zero new surface.
 
 ```csharp signature
@@ -214,7 +203,6 @@ public abstract partial record FieldExpr {
     public sealed record Volume(Guid Target, Option<string> UnitSystem = default, bool AllowOpen = false) : FieldExpr;
     public sealed record CurveLength(Guid Target, Option<string> UnitSystem = default) : FieldExpr;
     public sealed record BlockName(Guid Instance) : FieldExpr;
-    public sealed record BlockInstanceName(Guid Instance) : FieldExpr;
     public sealed record BlockDescription(string NameOrId) : FieldExpr;
     public sealed record BlockInstanceCount(string NameOrId) : FieldExpr;
     public sealed record BlockInsertionCoordinate(Guid Instance, CoordAxis Axis) : FieldExpr;
@@ -247,7 +235,6 @@ public abstract partial record FieldExpr {
         volume: static f => (nameof(Volume), Seq(f.Target.ToString("D")) + Positionals(f.UnitSystem, f.AllowOpen ? Some("true") : Option<string>.None)),
         curveLength: static f => (nameof(CurveLength), Seq(f.Target.ToString("D")) + Positionals(f.UnitSystem)),
         blockName: static f => (nameof(BlockName), Seq(f.Instance.ToString("D"))),
-        blockInstanceName: static f => (nameof(BlockInstanceName), Seq(f.Instance.ToString("D"))),
         blockDescription: static f => (nameof(BlockDescription), Seq(f.NameOrId)),
         blockInstanceCount: static f => (nameof(BlockInstanceCount), Seq(f.NameOrId)),
         blockInsertionCoordinate: static f => (nameof(BlockInsertionCoordinate), Seq(f.Instance.ToString("D"), f.Axis.Key)));
@@ -392,10 +379,12 @@ public abstract partial record OutlineProduct : IDetachedDocumentResult {
 
 ## [05]-[TEXT_RAIL]
 
-- Owner: `TextOp` `[Union]` — placement of text and leader geometry, run amendment, wrap re-flow, formula assignment, and per-annotation restyle/unstyle over the style page's patch algebra; `TextTransaction` — the commit plan; `Texts` — the `Commit`/`Ask` entry pair; `TextState` — the one-pass annotation read: content triple, wrap state, font facts, mask facts, override presence, and the doc-object projections `DisplayText` and `HasMeasurableTextFields`.
+- Owner: `TextOp` `[Union]` — placement of text and leader geometry, run amendment, wrap re-flow, formula assignment, leader repointing, and per-annotation restyle/unstyle over the style page's patch algebra; `TextTransaction` — the commit plan; `Texts` — the `Commit`/`Ask` entry pair; `TextState` — the one-pass annotation read: content triple, wrap state, font and first-run facts, uniform-formatting probes, mask facts, override presence, and the doc-object projections `DisplayText` and `HasMeasurableTextFields`; `LeaderFacts` — the leader-only read: point runs, detached spline, arrow, curve style, and landing state.
 - Law: live annotation mutation is duplicate-then-`Replace` — the target resolves to one `AnnotationObjectBase`, its geometry duplicates, the change applies to the copy, and `ObjectTable.Replace` lands it inside the bracket; mutating the live geometry in place bypasses the undo record and is the deleted form.
 - Law: `Restyle` composes `StylePatch.Overlay` — the override style mints on the duplicate before `Replace`, so per-annotation customization and style-table authoring share one field algebra; `Unstyle` is `ClearPropertyOverrides` on the same kernel.
-- Law: a formula lands as source — `Reformula` writes `TextFormula` from `FieldProgram.Compose()` and the host resolves display text on its own schedule; the `Evaluate` ask is the read-side resolution and never mutates.
+- Law: a formula lands as rich-text source — `Reformula` writes `RichText` from `FieldProgram.Compose()` because the host carries field tokens in the rich text and marks `TextFormula` obsolete as its alias; the host resolves display text on its own schedule, and the `Evaluate` ask is the read-side resolution that never mutates.
+- Law: `Repoint` is the leader's own re-fit — `Points3D` re-admits an ordered run of at least two points on the duplicate, and a repoint aimed at a non-leader annotation is a typed refusal, the same kind law `DimAdjust` holds for dimensions.
+- Law: explosion detaches per kind — `TextEntity.Explode` answers glyph outline curves and `Leader.Explode` curve-plus-text geometry; both land as caller-owned products on one `Pieces` ask.
 - Boundary: `Marks.Render`'s `WorldTextCase`/`AnnotationCase` draw this page's geometry through the display pipeline; drawing is the Display rail's, and this rail never names a pipeline member.
 
 ```csharp signature
@@ -407,6 +396,7 @@ public abstract partial record TextOp {
     public sealed record PlaceLeader(LeaderSpec Spec, Plane Frame, ResourceRef Style, Option<StylePatch> Overrides = default, Option<ObjectAttributes> Attributes = default) : TextOp;
     public sealed record Amend(TableTarget Target, Seq<RunEdit> Edits) : TextOp;
     public sealed record Reformula(TableTarget Target, FieldProgram Program) : TextOp;
+    public sealed record Repoint(TableTarget Target, Seq<Point3d> Points) : TextOp;
     public sealed record Restyle(TableTarget Target, StylePatch Patch) : TextOp;
     public sealed record Unstyle(TableTarget Target) : TextOp;
 
@@ -439,9 +429,21 @@ public abstract partial record TextOp {
             reformula: static (context, edit) =>
                 Reworked(document: context.Document, target: edit.Target, op: context.Op, slot: DraftSlot.Reformulated,
                     change: (annotation, key) => key.Catch(() => {
-                        annotation.TextFormula = edit.Program.Compose();
+                        annotation.RichText = edit.Program.Compose();
                         return Fin.Succ(value: unit);
                     })),
+            repoint: static (context, edit) =>
+                from _ in guard(edit.Points.Count >= 2, context.Op.InvalidInput()).ToFin()
+                from run in edit.Points.TraverseM(point => context.Op.AcceptInput(value: point)).As()
+                from receipt in Reworked(document: context.Document, target: edit.Target, op: context.Op, slot: DraftSlot.Adjusted,
+                    change: (annotation, key) =>
+                        from leader in Optional(annotation as Leader).ToFin(Fail: key.InvalidInput())
+                        from __ in key.Catch(() => {
+                            leader.Points3D = run.ToArray();
+                            return Fin.Succ(value: unit);
+                        })
+                        select unit)
+                select receipt,
             restyle: static (context, edit) =>
                 Reworked(document: context.Document, target: edit.Target, op: context.Op, slot: DraftSlot.Restyled,
                     change: (annotation, key) => edit.Patch.Overlay(annotation: annotation, key: key).Map(static _ => unit)),
@@ -484,7 +486,6 @@ public sealed record TextState(
     string PlainText,
     string PlainTextWithFields,
     string RichText,
-    Option<string> Formula,
     bool Wrapped,
     double FormatWidth,
     double ModelWidth,
@@ -492,7 +493,11 @@ public sealed record TextState(
     double RotationRadians,
     string FontFace,
     string FirstCharFace,
-    int FontIndex,
+    bool FirstCharBold,
+    bool FirstCharItalic,
+    bool AllBold,
+    bool AllItalic,
+    bool AllUnderlined,
     bool HasRtfFormatting,
     bool MaskEnabled,
     PerceptualColor MaskColor,
@@ -518,7 +523,6 @@ public sealed record TextState(
             PlainText: annotation.PlainText,
             PlainTextWithFields: annotation.PlainTextWithFields,
             RichText: annotation.RichText,
-            Formula: Optional(annotation.TextFormula).Filter(static formula => formula.Length > 0),
             Wrapped: annotation.TextIsWrapped,
             FormatWidth: annotation.FormatWidth,
             ModelWidth: annotation.TextModelWidth,
@@ -526,7 +530,11 @@ public sealed record TextState(
             RotationRadians: annotation.TextRotationRadians,
             FontFace: annotation.Font.FaceName,
             FirstCharFace: annotation.FirstCharFont.FaceName,
-            FontIndex: annotation.FontIndex,
+            FirstCharBold: annotation.FirstCharFont.Bold,
+            FirstCharItalic: annotation.FirstCharFont.Italic,
+            AllBold: annotation.IsAllBold(),
+            AllItalic: annotation.IsAllItalic(),
+            AllUnderlined: annotation.IsAllUnderlined(),
             HasRtfFormatting: annotation.TextHasRtfFormatting,
             MaskEnabled: annotation.MaskEnabled,
             MaskColor: mask,
@@ -541,15 +549,30 @@ public sealed record TextState(
         select state;
 }
 
+public sealed record LeaderFacts(
+    Guid Key,
+    Seq<Point2d> Points2D,
+    Seq<Point3d> Points3D,
+    Option<NurbsCurve> Spline,
+    DimensionStyle.ArrowType ArrowType,
+    double ArrowSize,
+    Option<Guid> ArrowBlockId,
+    DimensionStyle.LeaderCurveStyle CurveStyle,
+    DimensionStyle.LeaderContentAngleStyle ContentAngleStyle,
+    bool HasLanding,
+    double LandingLength) : IDetachedDocumentResult;
+
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record TextAsk {
     private TextAsk() { }
     public sealed record State(TableTarget Target) : TextAsk;
+    public sealed record LeaderState(TableTarget Target) : TextAsk;
     public sealed record RunMap(TableTarget Target) : TextAsk;
     public sealed record Evaluate(FieldProgram Program) : TextAsk;
     public sealed record Tokens(string Text) : TextAsk;
     public sealed record Outline(TableTarget Target, OutlineSpec Spec) : TextAsk;
+    public sealed record Pieces(TableTarget Target) : TextAsk;
     public sealed record Scale(ResourceRef Style, Viewport.ViewportTarget Viewport) : TextAsk;
 
     internal Fin<TextAnswer> Answer(RhinoDoc document, Op op) =>
@@ -559,15 +582,33 @@ public abstract partial record TextAsk {
                 from native in Single(document: ctx.Document, target: ask.Target, key: ctx.Op)
                 from snapshot in TextState.Of(native: native, key: ctx.Op)
                 select (TextAnswer)new TextAnswer.State(Snapshot: snapshot),
+            leaderState: static (ctx, ask) =>
+                from native in Single(document: ctx.Document, target: ask.Target, key: ctx.Op)
+                from leader in Optional(native.AnnotationGeometry as Leader).ToFin(Fail: ctx.Op.InvalidInput())
+                from facts in ctx.Op.Catch(() => Fin.Succ(value: new LeaderFacts(
+                    Key: native.Id,
+                    Points2D: toSeq(leader.Points2D),
+                    Points3D: toSeq(leader.Points3D),
+                    Spline: Optional(leader.Curve).Map(static spline => (NurbsCurve)spline.Duplicate()),
+                    ArrowType: leader.LeaderArrowType,
+                    ArrowSize: leader.LeaderArrowSize,
+                    ArrowBlockId: Optional(leader.LeaderArrowBlockId).Filter(static id => id != Guid.Empty),
+                    CurveStyle: leader.LeaderCurveStyle,
+                    ContentAngleStyle: leader.LeaderContentAngleStyle,
+                    HasLanding: leader.LeaderHasLanding,
+                    LandingLength: leader.LeaderLandingLength)))
+                select (TextAnswer)new TextAnswer.LeaderState(Facts: facts),
             runMap: static (ctx, ask) =>
                 from native in Single(document: ctx.Document, target: ask.Target, key: ctx.Op)
                 from annotation in Optional(native.AnnotationGeometry).ToFin(Fail: ctx.Op.InvalidResult())
                 from mapped in ctx.Op.Catch(() => {
                     int[] map = [];
                     string text = annotation.GetPlainTextWithRunMap(map: ref map);
-                    return Fin.Succ(value: (Text: text, Map: toSeq(map)));
+                    return guard(map.Length % 3 == 0, ctx.Op.InvalidResult()).ToFin()
+                        .Map(_ => (Text: text, Runs: toSeq(map.Chunk(3))
+                            .Map(static row => (Run: row[0], Start: row[1], Length: row[2]))));
                 })
-                select (TextAnswer)new TextAnswer.Mapped(Text: mapped.Text, RunMap: mapped.Map),
+                select (TextAnswer)new TextAnswer.Mapped(Text: mapped.Text, Runs: mapped.Runs),
             evaluate: static (ctx, ask) =>
                 from resolved in ask.Program.Evaluate(document: ctx.Document, key: ctx.Op)
                 select (TextAnswer)new TextAnswer.Resolved(Text: resolved),
@@ -583,6 +624,19 @@ public abstract partial record TextAsk {
                 from style in Optional(text.DimensionStyle).ToFin(Fail: ctx.Op.MissingContext())
                 from product in ask.Spec.Apply(text: text, style: style, key: ctx.Op)
                 select (TextAnswer)new TextAnswer.Outlined(Product: product),
+            pieces: static (ctx, ask) =>
+                from native in Single(document: ctx.Document, target: ask.Target, key: ctx.Op)
+                from products in ctx.Op.Catch(() => native.AnnotationGeometry switch {
+                    TextEntity text => Optional(text.Explode())
+                        .Map(static curves => toSeq(curves).Map(static curve => (GeometryBase)curve))
+                        .ToFin(Fail: ctx.Op.InvalidResult()),
+                    Leader leader => Optional(leader.Explode())
+                        .Map(static exploded => toSeq(exploded))
+                        .ToFin(Fail: ctx.Op.InvalidResult()),
+                    var unmapped => Fin.Fail<Seq<GeometryBase>>(error: ctx.Op.Unsupported(
+                        geometryType: unmapped.GetType(), outputType: typeof(GeometryBase))),
+                })
+                select (TextAnswer)new TextAnswer.Pieces(Products: products),
             scale: static (ctx, ask) =>
                 from style in ask.Style.Resolve(document: ctx.Document, lens: StyleOp.Lens, key: ctx.Op)
                 from rows in ask.Viewport.Resolve(document: ctx.Document, key: ctx.Op)
@@ -603,10 +657,12 @@ public abstract partial record TextAsk {
 public abstract partial record TextAnswer : IDetachedDocumentResult {
     private TextAnswer() { }
     public sealed record State(TextState Snapshot) : TextAnswer;
-    public sealed record Mapped(string Text, Seq<int> RunMap) : TextAnswer;
+    public sealed record LeaderState(LeaderFacts Facts) : TextAnswer;
+    public sealed record Mapped(string Text, Seq<(int Run, int Start, int Length)> Runs) : TextAnswer;
     public sealed record Resolved(string Text) : TextAnswer;
     public sealed record Split(Seq<string> Tokens) : TextAnswer;
     public sealed record Outlined(OutlineProduct Product) : TextAnswer;
+    public sealed record Pieces(Seq<GeometryBase> Products) : TextAnswer;
     public sealed record Scaled(double Factor) : TextAnswer;
 }
 
@@ -646,4 +702,4 @@ public static class Texts {
 |  [04]   | field resolution | `FieldProgram`         | session-bound `TryFormat`               | `TextAsk.Evaluate`                 |
 |  [05]   | outlining        | `OutlineSpec`          | form × grouping × metrics               | `TextAsk.Outline`                  |
 |  [06]   | mutation rail    | `TextOp`               | one union, duplicate-then-`Replace`      | `Texts.Commit`                     |
-|  [07]   | read rail        | `TextAsk`              | state, runs, fields, outlines, scale     | `Texts.Ask`                        |
+|  [07]   | read rail        | `TextAsk`              | state, leader facts, runs, fields, outlines, pieces, scale | `Texts.Ask`      |

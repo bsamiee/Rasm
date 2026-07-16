@@ -270,19 +270,21 @@ public abstract partial record SheetScale {
                select model;
     }
 
-    private static Fin<(double Value, LengthUnit Unit)> ParseSide(string text, LengthUnit fallback, Op op) {
-        Seq<(string Suffix, LengthUnit Unit, StringComparison Comparison)> known = toSeq(Enum.GetValues<UnitSystem>())
+    private static readonly Lazy<Seq<(string Suffix, LengthUnit Unit, StringComparison Comparison)>> KnownSuffixes = new(static () =>
+        toSeq(Enum.GetValues<UnitSystem>())
             .Filter(static unit => unit is not UnitSystem.None and not UnitSystem.Unset and not UnitSystem.CustomUnits)
             .Map(static unit => LengthUnit.FromKnownUnitSystem(knownUnitSystem: unit))
             .Bind(static unit => Seq(
                 (unit.Symbol, unit, StringComparison.Ordinal),
                 (unit.Name, unit, StringComparison.OrdinalIgnoreCase)))
-            .Filter(static row => !string.IsNullOrWhiteSpace(value: row.Suffix));
+            .Filter(static row => !string.IsNullOrWhiteSpace(value: row.Suffix)));
+
+    private static Fin<(double Value, LengthUnit Unit)> ParseSide(string text, LengthUnit fallback, Op op) {
         Seq<(string Suffix, LengthUnit Unit, StringComparison Comparison)> custom = Seq(
                 (fallback.Symbol, fallback, StringComparison.OrdinalIgnoreCase),
                 (fallback.Name, fallback, StringComparison.OrdinalIgnoreCase))
             .Filter(static row => !string.IsNullOrWhiteSpace(value: row.Suffix));
-        Seq<(string Suffix, LengthUnit Unit, StringComparison Comparison)> suffixes = (custom + known)
+        Seq<(string Suffix, LengthUnit Unit, StringComparison Comparison)> suffixes = (custom + KnownSuffixes.Value)
             .OrderByDescending(static row => row.Suffix.Length)
             .AsIterable()
             .ToSeq();

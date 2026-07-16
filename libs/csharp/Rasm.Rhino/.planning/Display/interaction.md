@@ -1,6 +1,6 @@
 # [RASM_RHINO_INTERACTION]
 
-The in-viewport interaction owner (`Rasm.Rhino.Display`). Three host tiers become three typed owners on one fact vocabulary: `Pointers` adapts the document-wide `MouseCallback` hook — the six paired begin/end overrides plus enter/hover/leave — into a `PointerFact` stream delivered through a bounded channel so a per-move callback submits and returns; `GumballRig` owns the manipulator lifecycle — one `GumballSeat` `[Union]` collapsing the `GumballObject.SetFrom*` family, `GumballAppearanceSettings` as policy, the `GumballDisplayConduit` seat/pick/update drag fold over `PickGumball` and both `UpdateGumball` overloads; and `WidgetHost` registers the Rhino 9 `UserInterfaceObjectBase` families — grip, direction grip, rotation grip, text dot, SVG control, and slider — as typed `WidgetSpec` rows whose events fold into one `WidgetFact` stream and whose hit facts come from the picked `MouseState` (`Button`, `FrustumLine`, curve/line `IsMouseOver` tests). Every fact carries kernel-neutral values — screen points as `Point2d`, world rays as `Line`, identities as `Guid` — and no live host handle, `MouseCallbackEventArgs`, or `MouseState` crosses into a consumer.
+In-viewport interaction owner (`Rasm.Rhino.Display`). Three host tiers become three typed owners on one fact vocabulary: `Pointers` adapts the document-wide `MouseCallback` hook — the six paired begin/end overrides plus enter/hover/leave — into a `PointerFact` stream delivered through a bounded channel so a per-move callback submits and returns; `GumballRig` owns the manipulator lifecycle — one `GumballSeat` `[Union]` collapsing the `GumballObject.SetFrom*` family, `GumballAppearanceSettings` as policy, the `GumballDisplayConduit` seat/pick/update drag fold over `PickGumball` and both `UpdateGumball` overloads; and `WidgetHost` registers the Rhino 9 `UserInterfaceObjectBase` families — grip, direction grip, rotation grip, text dot, SVG control, and slider — as typed `WidgetSpec` rows whose events fold into one `WidgetFact` stream and whose hit facts come from the picked `MouseState` (`Button`, `FrustumLine`, curve/line `IsMouseOver` tests). Every fact carries kernel-neutral values — screen points as `Point2d`, world rays as `Line`, identities as `Guid` — and no live host handle, `MouseCallbackEventArgs`, or `MouseState` crosses into a consumer.
 
 ## [01]-[INDEX]
 
@@ -449,13 +449,13 @@ public sealed class WidgetHost : IDisposable {
     public Fin<Guid> Mount(WidgetSpec spec, Option<Func<ConduitFrame, Fin<Unit>>> paint = default, bool activeViewOnly = true, Op? key = null) {
         Op op = key.OrDefault();
         WidgetSink sink = new(Identity: Guid.NewGuid(), Writer: channel.Writer, Painter: paint);
-        return from widget in spec.Switch<Fin<Rhino.UI.UserInterfaceObjectBase>>(
-                   gripCase: row => op.Catch(() => Fin.Succ((Rhino.UI.UserInterfaceObjectBase)new GripWidget(spec: row, sink: sink))),
-                   directionCase: row => op.Catch(() => Fin.Succ((Rhino.UI.UserInterfaceObjectBase)new DirectionWidget(spec: row, sink: sink))),
-                   rotationCase: row => op.Catch(() => Fin.Succ((Rhino.UI.UserInterfaceObjectBase)new RotationWidget(spec: row, sink: sink))),
-                   textDotCase: row => op.Catch(() => Fin.Succ((Rhino.UI.UserInterfaceObjectBase)new TextDotWidget(spec: row, sink: sink))),
-                   svgCase: row => op.Catch(() => Fin.Succ((Rhino.UI.UserInterfaceObjectBase)new SvgWidget(spec: row, sink: sink))),
-                   sliderCase: row => op.Catch(() => Fin.Succ((Rhino.UI.UserInterfaceObjectBase)new SliderWidget(spec: row, sink: sink))))
+        return from widget in op.Catch(() => Fin.Succ(spec.Switch<Rhino.UI.UserInterfaceObjectBase>(
+                   gripCase: row => new GripWidget(spec: row, sink: sink),
+                   directionCase: row => new DirectionWidget(spec: row, sink: sink),
+                   rotationCase: row => new RotationWidget(spec: row, sink: sink),
+                   textDotCase: row => new TextDotWidget(spec: row, sink: sink),
+                   svgCase: row => new SvgWidget(spec: row, sink: sink),
+                   sliderCase: row => new SliderWidget(spec: row, sink: sink))))
                from _ in op.Catch(() => {
                    widget.BoundToActiveView = activeViewOnly;
                    widget.Visible = true;

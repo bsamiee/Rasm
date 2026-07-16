@@ -1,6 +1,6 @@
 # [RASM_RHINO_MODELING_DEFORM]
 
-`Rasm.Rhino.Modeling` owns nonlinear deformation and host-fidelity flattening. One `DeformOp` union carries every `SpaceMorph`, persistent curve-pair control, mesh-pair vertex mapping, developable unrolling, stress-relaxed squishing, inverse mark mapping, and uv unwrapping through `Deforms.Apply`. Drivers enter as leased `GeometryHandle`s, engines remain bracketed inside their borrow windows, and every mutating native runs on a working duplicate. Document motion and kernel DEC flattening remain upstream owners.
+`Rasm.Rhino.Modeling` owns nonlinear deformation and host-fidelity flattening. One `DeformOp` union carries every `SpaceMorph`, persistent curve-pair control, developable unrolling, stress-relaxed squishing, inverse mark mapping, and uv unwrapping through `Deforms.Apply`. Drivers enter as leased `GeometryHandle`s, engines remain bracketed inside their borrow windows, and every mutating native runs on a working duplicate. Document motion and kernel DEC flattening remain upstream owners.
 
 ## [01]-[INDEX]
 
@@ -200,10 +200,9 @@ public sealed record SquishLaw(
 ## [04]-[OPERATION_RAIL]
 
 - Owner: `DeformSlot` `[SmartEnum<int>]` — the consequence vocabulary; `DeformOp` `[Union]` — morph, vertex map, unroll, squish, squish-back, and unwrap as one verb family; `Deforms` — the one entry folding any operation spread into one `Built<DeformSlot>`.
-- Law: products carry custody, receipts carry facts — every flattened brep, mapped mark, and unwrapped mesh crosses as an owned `GeometryHandle` in `Built.Products`, while unrolled points, dot rows, mapped vertices, and per-class tallies ride the `BuildReceipt` fact stream; product ordering follows the slot tallies (primary products, then followed or mapped geometry), so a consumer partitions the flat product seq by the receipt's counts.
+- Law: products carry custody, receipts carry facts — every flattened brep and unwrapped mesh crosses as an owned `GeometryHandle` in `Built.Products`, while unrolled points, dot rows, and per-class tallies ride the `BuildReceipt` fact stream; product ordering follows the slot tallies (primary products, then followed geometry), so a consumer partitions the flat product seq by the receipt's counts.
 - Law: squish dispatches on the borrowed native — a `Surface` target runs `SquishSurface` onto a flat `Brep`, a `Mesh` target runs `SquishMesh`, any other kind refuses typed; the caller-owned mark output list drains into crossed products under `MarkMapped`, and `CaptureNets` additionally crosses the flat and source triangulations under `Netted`.
-- Law: the vertex map is evidence, not custody — `MapVertices` drives the mesh-pair `MeshMorphMesh` engine over a bare point spread and answers the mapped positions as one `Marks` fact, because the host engine transforms coordinates rather than geometry.
-- Law: unwrap is value-semantic per mesh — each leased mesh duplicates, the one `MeshUnwrapper` writes texture coordinates onto the duplicates under the optional symmetry plane, and the duplicates cross as products; a `false` unwrap disposes every duplicate before the fault leaves.
+- Law: unwrap is value-semantic per mesh — each leased mesh duplicates, the one `MeshUnwrapper` writes texture coordinates onto the duplicates under the optional set-only symmetry plane, and the duplicates cross as products; a `false` unwrap disposes every duplicate before the fault leaves.
 - Law: the entry is arity-polymorphic — one `params ReadOnlySpan<DeformOp>` absorbs the singular and batch call, the fold sums products and receipts monoidally, and a mid-batch failure releases every product accumulated by earlier operations before the fault leaves.
 - Growth: a new deformation verb is one `DeformOp` case with its arm; a new consequence class is one slot row.
 
@@ -212,27 +211,23 @@ public sealed record SquishLaw(
 [SmartEnum<int>]
 public sealed partial class DeformSlot {
     public static readonly DeformSlot Morphed = new(key: 0);
-    public static readonly DeformSlot Mapped = new(key: 1);
-    public static readonly DeformSlot Unrolled = new(key: 2);
-    public static readonly DeformSlot Followed = new(key: 3);
-    public static readonly DeformSlot Squished = new(key: 4);
-    public static readonly DeformSlot MarkMapped = new(key: 5);
-    public static readonly DeformSlot Netted = new(key: 6);
-    public static readonly DeformSlot Restored = new(key: 7);
-    public static readonly DeformSlot Unwrapped = new(key: 8);
-    public static readonly DeformSlot Mesh2dEdges = new(key: 9);
-    public static readonly DeformSlot Mesh3dEdges = new(key: 10);
-    public static readonly DeformSlot Length2d = new(key: 11);
-    public static readonly DeformSlot Length3d = new(key: 12);
-    public static readonly DeformSlot AreaConstraints = new(key: 13);
-    public static readonly DeformSlot SpringConstants = new(key: 14);
+    public static readonly DeformSlot Unrolled = new(key: 1);
+    public static readonly DeformSlot Followed = new(key: 2);
+    public static readonly DeformSlot Squished = new(key: 3);
+    public static readonly DeformSlot MarkMapped = new(key: 4);
+    public static readonly DeformSlot Netted = new(key: 5);
+    public static readonly DeformSlot Restored = new(key: 6);
+    public static readonly DeformSlot Unwrapped = new(key: 7);
+    public static readonly DeformSlot Mesh2dEdges = new(key: 8);
+    public static readonly DeformSlot Mesh3dEdges = new(key: 9);
+    public static readonly DeformSlot AreaConstraints = new(key: 10);
+    public static readonly DeformSlot SpringConstants = new(key: 11);
 }
 
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record DeformOp {
     private DeformOp() { }
     public sealed record Morph(GeometryHandle Target, MorphKind Kind, MorphTuning Tuning = default) : DeformOp;
-    public sealed record MapVertices(Seq<Point3d> Vertices, GeometryHandle StartMesh, GeometryHandle AdjustedMesh) : DeformOp;
     public sealed record Unroll(GeometryHandle Target, Following Followers, UnrollLaw Law) : DeformOp;
     public sealed record Squish(GeometryHandle Target, SquishLaw Law, Seq<GeometryHandle> Marks) : DeformOp;
     public sealed record SquishBack(GeometryHandle Pattern, Seq<GeometryHandle> Marks) : DeformOp;
@@ -248,21 +243,6 @@ public abstract partial record DeformOp {
                         Products: Seq(product),
                         Evidence: BuildReceipt<DeformSlot>.Of(slot: DeformSlot.Morphed, body: new BuildBody.Tally(Count: 1))));
             },
-            mapVertices: static (_, edit) => {
-                Op op = Op.Of(name: nameof(MapVertices));
-                return ModelGate.Borrow<Mesh, Built<DeformSlot>>(handle: edit.StartMesh, key: op, body: start =>
-                    ModelGate.Borrow<Mesh, Built<DeformSlot>>(handle: edit.AdjustedMesh, key: op, body: adjusted =>
-                        from _ in guard(!edit.Vertices.IsEmpty, op.InvalidInput())
-                        from mapped in op.Catch(() => {
-                            using Morphs.MeshMorphMesh engine = new(referenceMesh: start, meshToMorph: adjusted);
-                            Point3d[] working = edit.Vertices.ToArray();
-                            return op.Confirm(success: engine.Apply(vertices: working, startMesh: start, adjustedMesh: adjusted))
-                                .Map(_ => toSeq(working));
-                        })
-                        select new Built<DeformSlot>(
-                            Products: Seq<GeometryHandle>(),
-                            Evidence: BuildReceipt<DeformSlot>.Of(slot: DeformSlot.Mapped, body: new BuildBody.Marks(Points: mapped)))));
-            },
             unroll: static (model, edit) => {
                 Op op = Op.Of(name: nameof(Unroll));
                 return ModelGate.Borrow<GeometryBase, Built<DeformSlot>>(handle: edit.Target, key: op, body: source =>
@@ -277,7 +257,7 @@ public abstract partial record DeformOp {
                                 active.ExplodeOutput = edit.Law.Explode;
                                 active.ExplodeSpacing = edit.Law.Spacing;
                                 active.AbsoluteTolerance = model.Absolute.Value;
-                                active.RelativeTolerance = model.Fractional.Value;
+                                active.RelativeTolerance = model.Fractional;
                                 _ = Op.SideWhen(!followers.IsEmpty, () => active.AddFollowingGeometry(curves: followers.AsIterable()));
                                 _ = Op.SideWhen(!edit.Followers.Points.IsEmpty, () => active.AddFollowingGeometry(points: edit.Followers.Points.AsIterable()));
                                 _ = edit.Followers.Dots.Iter(row => active.AddFollowingGeometry(dotLocation: row.Location, dotText: row.Text));
@@ -316,7 +296,10 @@ public abstract partial record DeformOp {
                                     built: engine.SquishMesh(sp: sp, mesh3d: mesh, marks: marks.AsIterable(), squished_marks_out: mapped), key: op),
                                 _ => Fin.Fail<GeometryHandle>(error: op.Unsupported(geometryType: source.GetType(), outputType: typeof(Squisher))),
                             };
-                            return flat.Bind(primary => (
+                            return flat.MapFail(error => {
+                                _ = mapped.Iter(static geometry => geometry?.Dispose());
+                                return error;
+                            }).Bind(primary => (
                                 from crossed in ModelGate.OwnMany(built: mapped, key: op, allowEmpty: true)
                                 from nets in (edit.Law.CaptureNets
                                     ? from flat2d in ModelGate.Own(built: engine.Get2dMesh(), key: op)
@@ -334,10 +317,8 @@ public abstract partial record DeformOp {
                                     Evidence: BuildReceipt<DeformSlot>.Of(slot: DeformSlot.Squished, body: new BuildBody.Tally(Count: 1))
                                         + BuildReceipt<DeformSlot>.Of(slot: DeformSlot.MarkMapped, body: new BuildBody.Tally(Count: crossed.Count))
                                         + BuildReceipt<DeformSlot>.Of(slot: DeformSlot.Netted, body: new BuildBody.Tally(Count: nets.Count))
-                                        + BuildReceipt<DeformSlot>.Of(slot: DeformSlot.Mesh2dEdges, body: new BuildBody.Segments(Lines: toSeq(engine.GetMesh2dEdges() ?? [])))
-                                        + BuildReceipt<DeformSlot>.Of(slot: DeformSlot.Mesh3dEdges, body: new BuildBody.Segments(Lines: toSeq(engine.GetMesh3dEdges() ?? [])))
-                                        + BuildReceipt<DeformSlot>.Of(slot: DeformSlot.Length2d, body: new BuildBody.Segments(Lines: toSeq(engine.GetLengthConstrained2dLines() ?? [])))
-                                        + BuildReceipt<DeformSlot>.Of(slot: DeformSlot.Length3d, body: new BuildBody.Segments(Lines: toSeq(engine.GetLengthConstrained3dLines() ?? [])))
+                                        + BuildReceipt<DeformSlot>.Of(slot: DeformSlot.Mesh2dEdges, body: new BuildBody.Segments(Lines: toSeq(engine.GetLengthConstrained2dLines() ?? [])))
+                                        + BuildReceipt<DeformSlot>.Of(slot: DeformSlot.Mesh3dEdges, body: new BuildBody.Segments(Lines: toSeq(engine.GetLengthConstrained3dLines() ?? [])))
                                         + BuildReceipt<DeformSlot>.Of(slot: DeformSlot.AreaConstraints, body: new BuildBody.Faces(Rows: toSeq(engine.GetAreaConstrainedTrianglesIndices() ?? [])))
                                         + BuildReceipt<DeformSlot>.Of(slot: DeformSlot.SpringConstants, body: new BuildBody.Measure(Value: boundaryBias))
                                         + BuildReceipt<DeformSlot>.Of(slot: DeformSlot.SpringConstants, body: new BuildBody.Measure(Value: deformationBias))))
@@ -406,14 +387,13 @@ public static class Deforms {
 
 ## [05]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]         | [OWNER]       | [FORM]                                            | [ENTRY]                   |
-| :-----: | :---------------- | :------------ | :------------------------------------------------ | :------------------------ |
-|  [01]   | deformation kinds | `MorphKind`   | one union, ten rig arms, one `Deformed` kernel    | `DeformOp.Morph`          |
-|  [02]   | engine tuning     | `MorphTuning` | preview and structure grants as one value         | `Morph` payload           |
-|  [03]   | vertex mapping    | `DeformOp`    | mesh-pair engine over a bare point spread         | `DeformOp.MapVertices`    |
-|  [04]   | unroll policy     | `UnrollLaw`   | explode, spacing, relative-tolerance override     | `DeformOp.Unroll`         |
-|  [05]   | carried geometry  | `Following`   | leased curves, bare points, dot rows              | `Unroll` payload          |
-|  [06]   | squish policy     | `SquishLaw`   | one value rigging the split native surface        | `DeformOp.Squish` / `Rig` |
-|  [07]   | inverse mapping   | `DeformOp`    | static pattern probe plus mark restore            | `DeformOp.SquishBack`     |
-|  [08]   | uv unwrap         | `DeformOp`    | value-semantic duplicate set under one unwrapper  | `DeformOp.Unwrap`         |
-|  [09]   | deform verbs      | `DeformOp`    | one flat `[Union]`, total generated dispatch      | `Deforms.Apply`           |
+| [INDEX] | [CONCERN]         | [OWNER]       | [FORM]                                           | [ENTRY]                   |
+| :-----: | :---------------- | :------------ | :----------------------------------------------- | :------------------------ |
+|  [01]   | deformation kinds | `MorphKind`   | one union, ten rig arms, one `Deformed` kernel   | `DeformOp.Morph`          |
+|  [02]   | engine tuning     | `MorphTuning` | preview and structure grants as one value        | `Morph` payload           |
+|  [03]   | unroll policy     | `UnrollLaw`   | explode and spacing; `Context` supplies tolerance | `DeformOp.Unroll`         |
+|  [04]   | carried geometry  | `Following`   | leased curves, bare points, dot rows             | `Unroll` payload          |
+|  [05]   | squish policy     | `SquishLaw`   | one value rigging the split native surface       | `DeformOp.Squish` / `Rig` |
+|  [06]   | inverse mapping   | `DeformOp`    | static pattern probe plus mark restore           | `DeformOp.SquishBack`     |
+|  [07]   | uv unwrap         | `DeformOp`    | value-semantic duplicate set under one unwrapper | `DeformOp.Unwrap`         |
+|  [08]   | deform verbs      | `DeformOp`    | one flat `[Union]`, total generated dispatch     | `Deforms.Apply`           |

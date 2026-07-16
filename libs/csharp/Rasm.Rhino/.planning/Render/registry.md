@@ -1,6 +1,6 @@
 # [RASM_RHINO_RENDER_REGISTRY]
 
-Content registry and operation rail (`Rasm.Rhino.Render`). `ContentTypeInfo` detaches the disposable factory census, `ContentSerializer` adapts custom formats, and `ContentOp` has only two identity regimes: admission without an existing target and mutation of one resolved target. Nested generated unions carry the real host discriminants. `Contents.Commit` owns one demand window, one `UndoBracket`, one verified per-kind table scope, redraw restoration, and one additive receipt. Reads use typed `ContentQuery<T>` programs, so request and answer types remain correlated without mirrored unions. Eleven static `RenderContent` events fold into detached `ContentFact` values through `ContentStream`; document-table transitions remain the Document events owner's surface.
+Content registry and operation rail (`Rasm.Rhino.Render`). `ContentTypeInfo` detaches the disposable factory census, `ContentSerializer` adapts custom formats, and `ContentOp` has only two identity regimes: admission without an existing target and mutation of one resolved target. Nested generated unions carry the real host discriminants. `Contents.Commit` owns one demand window, one `UndoBracket`, one verified per-kind table scope, redraw restoration, and one additive receipt. Reads use typed `ContentQuery<T>` programs whose result type stays correlated at compile time and carries the session's `IDetachedDocumentResult` census — a detached fact or a self-disposing capsule, never a raw host shape. Eleven static `RenderContent` events fold into detached `ContentFact` values through `ContentStream`; document-table transitions remain the Document events owner's surface.
 
 ## [01]-[INDEX]
 
@@ -23,6 +23,7 @@ Content registry and operation rail (`Rasm.Rhino.Render`). `ContentTypeInfo` det
 using System.Reflection;
 using Rasm.Domain;
 using Rasm.Rhino.Document;
+using Rasm.Rhino.Viewport;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.Render;
@@ -116,7 +117,7 @@ public abstract partial record ContentAdmission {
         Switch(
             context: (Document: document, Reason: reason, Op: op),
             factory: static (context, source) =>
-                from _ in guard(source.TypeId != Guid.Empty, context.Op.InvalidInput()).ToFin()
+                from _ in guard(source.TypeId != Guid.Empty, context.Op.InvalidInput())
                 from parent in source.Into.Traverse(into =>
                     from slot in context.Op.AcceptText(value: into.Slot)
                     from live in into.Parent.Resolve(document: context.Document, key: context.Op)
@@ -161,7 +162,7 @@ public abstract partial record ContentAdmission {
         Option<(RenderContent Content, string Slot)> parent, ChangeReason reason, Op op) {
         Fin<ContentReceipt> outcome =
             from actual in ContentKind.Of(lease.Resource).ToFin(op.InvalidResult())
-            from _ in guard(actual == expected, op.InvalidInput()).ToFin()
+            from _ in guard(actual == expected, op.InvalidInput())
             from __ in parent.Case switch {
                 (RenderContent content, string slot) => ChangeScope.Write(
                     content: content, reason: reason, key: op,
@@ -202,7 +203,7 @@ public abstract partial record TreeMutation {
                 select ContentReceipt.Content(slot: ContentSlot.Pruned, id: ctx.Parent.Id),
             slot: static (ctx, edit) =>
                 from name in ctx.Op.AcceptText(value: edit.Name)
-                from _ in guard(edit.On.IsSome || edit.Amount.IsSome, ctx.Op.InvalidInput()).ToFin()
+                from _ in guard(edit.On.IsSome || edit.Amount.IsSome, ctx.Op.InvalidInput())
                 from __ in ChangeScope.Write(content: ctx.Parent, reason: edit.Reason, key: ctx.Op, body: live => ctx.Op.Catch(() => {
                     _ = edit.On.Iter(on => live.SetChildSlotOn(name, on, edit.Reason.Native));
                     _ = edit.Amount.Iter(amount => live.SetChildSlotAmount(name, amount, edit.Reason.Native));
@@ -268,7 +269,7 @@ public abstract partial record ContentMutation {
                 from material in Optional(ctx.Content as RenderMaterial).ToFin(Fail: ctx.Op.InvalidInput())
                 from ids in edit.Objects.Resolve(document: ctx.Document, key: ctx.Op)
                 from _ in ctx.Op.Catch(() => {
-                    Seq<ObjRef> references = ids.Map(id => new ObjRef(ctx.Document, id));
+                    Arr<ObjRef> references = toArr(ids.Map(id => new ObjRef(ctx.Document, id)));
                     try {
                         return ctx.Op.Confirm(success: material.AssignTo(references, edit.SubFaces, edit.Blocks, bInteractive: false));
                     } finally {
@@ -308,7 +309,7 @@ public abstract partial record ContentMutation {
         Fin<ContentReceipt> outcome =
             from targetKind in ContentKind.Of(target).ToFin(op.InvalidResult())
             from replacementKind in ContentKind.Of(lease.Resource).ToFin(op.InvalidResult())
-            from _ in guard(targetKind == replacementKind, op.InvalidInput()).ToFin()
+            from _ in guard(targetKind == replacementKind, op.InvalidInput())
             from __ in op.Catch(() => op.Confirm(success: target.Replace(newcontent: lease.Resource)))
             select ContentReceipt.Content(slot: ContentSlot.Swapped, id: lease.Resource.Id);
         return outcome.Match(
@@ -338,13 +339,13 @@ public abstract partial record ContentOp {
         Switch(
             context: (Document: document, Scope: scope, Reason: reason, Op: op),
             admit: static (ctx, edit) =>
-                from _ in guard(edit.Source.Expected == ctx.Scope, ctx.Op.InvalidInput()).ToFin()
+                from _ in guard(edit.Source.Expected == ctx.Scope, ctx.Op.InvalidInput())
                 from receipt in edit.Source.Apply(document: ctx.Document, reason: ctx.Reason, op: ctx.Op)
                 select receipt,
             mutate: static (ctx, edit) =>
                 from content in edit.Target.Resolve(document: ctx.Document, key: ctx.Op)
                 from kind in ContentKind.Of(content).ToFin(ctx.Op.InvalidResult())
-                from _ in guard(kind == ctx.Scope, ctx.Op.InvalidInput()).ToFin()
+                from _ in guard(kind == ctx.Scope, ctx.Op.InvalidInput())
                 from receipt in edit.Change.Apply(content: content, document: ctx.Document, op: ctx.Op)
                 select receipt);
 }
@@ -352,10 +353,11 @@ public abstract partial record ContentOp {
 
 ## [04]-[COMMIT_AND_QUERY]
 
-- Owner: `ContentTransaction` — the commit plan: name, verified kind under change, operation sequence, table-scope reason, redraw policy, undo grant. `ContentQuery<T>` — one typed read program whose result type stays correlated at compile time. `Contents` — commit, query, roster, factory census, current-environment census, and registration entries.
+- Owner: `ContentTransaction` — the commit plan: name, verified kind under change, operation sequence, table-scope reason, redraw policy, undo grant. `ContentQuery<T>` — one typed read program constrained to marker-carrying results, so every query answer crosses the session's `Demand` seam by construction. `Contents` — commit, query, roster, factory census, current-environment census, and registration entries.
 - Law: the spine is the one bracket owner — the whole mutation runs inside one `Demand` window, the undo record opens through the document `UndoBracket` only when the plan records, the plan's kind opens its table change scope around the fold and closes it on every exit, redraw suppression restores prior state, and the bracket's `Seal` rolls a failed owned record back before the fault leaves.
 - Law: grants are proven per plan shape against one snapshot — `Mutate` always, `Undo` when the plan records, `Redraw` when the plan redraws — and the session is the only document ingress; the redraw vocabulary is the document `RedrawPolicy` rows, shared with the table and block rails.
-- Law: reads never open an undo record — `Query`, `Roster`, and `CurrentEnvironments` demand `SessionNeed.Read` alone; every result is detached or an owned lease, while global factory census needs no document grant.
+- Law: reads never open an undo record — `Query`, `Roster`, and `CurrentEnvironments` demand `SessionNeed.Read` alone; every result carries `IDetachedDocumentResult` as a detached fact or a self-disposing capsule (`ContentIcon` owns its bitmap lease), and the baked-material and PBR reads are borrow windows whose live material dies inside the query.
+- Law: the workflow-corrected hash resolves the document's own `LinearWorkflow` inside the query window off the probe's `DocumentWorkflow` posture; a live sub-owner never enters or leaves a query value.
 - Boundary: the current-environment triple reads through `RhinoDoc.CurrentEnvironment`; the settings-side per-usage binding is the settings page's edit rail, and the two never merge.
 
 ```csharp signature
@@ -376,7 +378,17 @@ public sealed record EnvironmentBindings(
     Option<Guid> Reflection,
     Option<Guid> Lighting) : IDetachedDocumentResult;
 
-public sealed class ContentQuery<T> {
+public sealed record ContentArchive(string Xml, Seq<string> EmbeddedFiles) : IDetachedDocumentResult;
+
+public sealed record ContentRoster(ContentKind Kind, Seq<Guid> Ids) : IDetachedDocumentResult;
+
+public readonly record struct MatchEvidence(RenderContent.MatchDataResult Verdict) : IDetachedDocumentResult;
+
+public sealed record ContentIcon(Lease<System.Drawing.Bitmap> Image) : IDetachedDocumentResult, IDisposable {
+    public void Dispose() => Image.Dispose();
+}
+
+public sealed class ContentQuery<T> where T : IDetachedDocumentResult {
     private readonly Func<RhinoDoc, RenderContent, Op, Fin<T>> read;
 
     internal ContentQuery(Func<RhinoDoc, RenderContent, Op, Fin<T>> read) => this.read = read;
@@ -388,13 +400,16 @@ public static class ContentQuery {
     public static ContentQuery<ContentSnapshot> Snapshot { get; } =
         new(read: static (_, content, op) => ContentSnapshot.Of(content: content, key: op));
 
-    public static ContentQuery<string> Xml { get; } =
-        new(read: static (_, content, op) => op.AcceptText(value: content.Xml));
+    public static ContentQuery<ContentArchive> Archive { get; } =
+        new(read: static (_, content, op) =>
+            from xml in op.AcceptText(value: content.Xml)
+            from embedded in op.Catch(() => Fin.Succ(value: toSeq(content.GetEmbeddedFilesList())))
+            select new ContentArchive(Xml: xml, EmbeddedFiles: embedded));
 
-    public static ContentQuery<Arr<FieldPortrait>> Fields { get; } =
-        new(read: static (_, content, op) => FieldPortrait.CensusOf(fields: content.Fields, key: op));
+    public static ContentQuery<FieldCensus> Fields { get; } =
+        new(read: static (_, content, op) => FieldCensus.Of(fields: content.Fields, key: op));
 
-    public static ContentQuery<Seq<(MaterialScent Scent, bool Plain, bool Textured)>> Scents { get; } =
+    public static ContentQuery<ScentCensus> Scents { get; } =
         Material(static (material, _) => Fin.Succ(value: MaterialScent.CensusOf(material: material)));
 
     public static ContentQuery<TextureConfig> Config { get; } =
@@ -403,14 +418,14 @@ public static class ContentQuery {
     public static ContentQuery<TextureTraits> Traits { get; } =
         Texture(static (texture, op) => TextureTraits.Of(texture: texture, key: op));
 
-    public static ContentQuery<Seq<string>> Embedded { get; } =
-        new(read: static (_, content, op) => op.Catch(() => Fin.Succ(value: toSeq(content.GetEmbeddedFilesList()))));
-
-    public static ContentQuery<uint> Hash(HashProbe probe, Option<LinearWorkflow> workflow = default) =>
-        new(read: (_, content, op) => workflow.Case switch {
-            LinearWorkflow active => probe.Read(content: content, workflow: active, key: op),
-            _ => probe.Read(content: content, key: op),
-        });
+    public static ContentQuery<HashWitness> Hash(HashProbe probe) =>
+        new(read: (document, content, op) =>
+            (probe.DocumentWorkflow
+                ? probe.Read(content: content, workflow: document.RenderSettings.LinearWorkflow, key: op)
+                : probe.Read(content: content, key: op))
+            .Map(value => new HashWitness(
+                Flags: probe.Flags, Excluded: probe.ExcludedParameters,
+                DocumentWorkflow: probe.DocumentWorkflow, Value: value)));
 
     public static ContentQuery<FieldValue> Param(ParamScope scope) =>
         new(read: (_, content, op) => scope.Read(content: content, key: op));
@@ -418,36 +433,43 @@ public static class ContentQuery {
     public static ContentQuery<SlotUsage> Usage(RenderMaterial.StandardChildSlots slot) =>
         Material((material, op) => MaterialBridge.Usage(material: material, slot: slot, key: op));
 
-    public static ContentQuery<Lease<Material>> Bake(RenderTexture.TextureGeneration generation) =>
-        Material((material, op) => MaterialBridge.Bake(material: material, generation: generation, key: op));
+    public static ContentQuery<TOut> Bake<TOut>(
+        RenderTexture.TextureGeneration generation, Func<Material, Fin<TOut>> borrow)
+        where TOut : IDetachedDocumentResult =>
+        Material((material, op) => MaterialBridge.Bake(
+            material: material, generation: generation, borrow: borrow, key: op));
 
     public static ContentQuery<TOut> Pbr<TOut>(
-        RenderTexture.TextureGeneration generation, Func<PhysicallyBasedMaterial, Fin<TOut>> borrow) =>
+        RenderTexture.TextureGeneration generation, Func<PhysicallyBasedMaterial, Fin<TOut>> borrow)
+        where TOut : IDetachedDocumentResult =>
         Material((material, op) => MaterialBridge.Pbr(
             material: material, generation: generation, borrow: borrow, key: op));
 
     public static ContentQuery<EnvironmentState> Environment(bool dataOnly) =>
         Environment((environment, op) => EnvironmentState.Bake(environment: environment, isForDataOnly: dataOnly, key: op));
 
-    public static ContentQuery<Lease<System.Drawing.Bitmap>> Icon(System.Drawing.Size extent) =>
+    public static ContentQuery<ContentIcon> Icon(Size2i extent) =>
         new(read: (_, content, op) => op.Catch(() =>
-            content.Icon(extent, out System.Drawing.Bitmap rendered) && rendered is not null
-                ? Fin.Succ<Lease<System.Drawing.Bitmap>>(value: new Lease<System.Drawing.Bitmap>.Owned(Value: rendered))
-                : Fin.Fail<Lease<System.Drawing.Bitmap>>(error: op.InvalidResult())));
+            content.Icon(extent.Native, out System.Drawing.Bitmap rendered) && rendered is not null
+                ? Fin.Succ(value: new ContentIcon(Image: new Lease<System.Drawing.Bitmap>.Owned(Value: rendered)))
+                : Fin.Fail<ContentIcon>(error: op.InvalidResult())));
 
-    public static ContentQuery<RenderContent.MatchDataResult> Match(ContentRef old) =>
+    public static ContentQuery<MatchEvidence> Match(ContentRef old) =>
         new(read: (document, content, op) =>
             from prior in old.Resolve(document: document, key: op)
-            from verdict in op.Catch(() => Fin.Succ(value: content.MatchData(oldContent: prior)))
+            from verdict in op.Catch(() => Fin.Succ(value: new MatchEvidence(Verdict: content.MatchData(oldContent: prior))))
             select verdict);
 
-    private static ContentQuery<TOut> Material<TOut>(Func<RenderMaterial, Op, Fin<TOut>> project) =>
+    private static ContentQuery<TOut> Material<TOut>(Func<RenderMaterial, Op, Fin<TOut>> project)
+        where TOut : IDetachedDocumentResult =>
         new(read: (_, content, op) => Optional(content as RenderMaterial).ToFin(Fail: op.InvalidInput()).Bind(material => project(material, op)));
 
-    private static ContentQuery<TOut> Texture<TOut>(Func<RenderTexture, Op, Fin<TOut>> project) =>
+    private static ContentQuery<TOut> Texture<TOut>(Func<RenderTexture, Op, Fin<TOut>> project)
+        where TOut : IDetachedDocumentResult =>
         new(read: (_, content, op) => Optional(content as RenderTexture).ToFin(Fail: op.InvalidInput()).Bind(texture => project(texture, op)));
 
-    private static ContentQuery<TOut> Environment<TOut>(Func<RenderEnvironment, Op, Fin<TOut>> project) =>
+    private static ContentQuery<TOut> Environment<TOut>(Func<RenderEnvironment, Op, Fin<TOut>> project)
+        where TOut : IDetachedDocumentResult =>
         new(read: (_, content, op) => Optional(content as RenderEnvironment).ToFin(Fail: op.InvalidInput()).Bind(environment => project(environment, op)));
 }
 
@@ -521,10 +543,11 @@ public static class Contents {
                select result;
     }
 
-    public static Fin<Seq<Guid>> Roster(DocumentSession session, ContentKind kind) {
+    public static Fin<ContentRoster> Roster(DocumentSession session, ContentKind kind) {
         Op op = Op.Of();
         return session.Demand(
-            use: document => op.Catch(() => Fin.Succ(value: kind.Roster(document).Map(static content => content.Id))),
+            use: document => op.Catch(() => Fin.Succ(value: new ContentRoster(
+                Kind: kind, Ids: kind.Roster(document).Map(static content => content.Id)))),
             key: op,
             needs: [SessionNeed.Read]);
     }
@@ -550,7 +573,7 @@ public static class Contents {
 ## [05]-[RECEIPTS]
 
 - Owner: `ContentSlot` `[SmartEnum<int>]` — the consequence vocabulary; `ContentBody` — the payload union; `ContentReceipt` — the additive fold over the fact stream with slot-keyed projections, the same fact-stream form the document table and block rails carry.
-- Law: one fact stream, kind-discriminated — content ids, assigned object ids, export paths, and undo serials are `ContentBody` cases on one record; every projection is a `Choose` over the stream, and a new consequence class is one slot row or one body case.
+- Law: one fact stream, kind-discriminated — content ids, assigned object ids, export paths, and undo serials are `ContentBody` cases on one record; every projection is a `Choose` over the stream, and a new consequence class is one slot row or one body case; the mapping page's channel bind stamps its `Mapped` facts onto this same receipt.
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
@@ -571,6 +594,7 @@ public sealed partial class ContentSlot {
     public static readonly ContentSlot Ungrouped = new(key: 12);
     public static readonly ContentSlot Exported = new(key: 13);
     public static readonly ContentSlot Undo = new(key: 14);
+    public static readonly ContentSlot Mapped = new(key: 15);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -651,7 +675,7 @@ public readonly record struct ContentFact(ContentPulse Pulse, Option<DocKey> Key
 
 public sealed record PulseFilter(Seq<ChangeReason> DroppedReasons) {
     public static readonly PulseFilter None = new(DroppedReasons: Seq<ChangeReason>());
-    public static readonly PulseFilter Settled = new(DroppedReasons: Seq(ChangeReason.RealTimeUi));
+    public static readonly PulseFilter WithoutRealTimeUi = new(DroppedReasons: Seq(ChangeReason.RealTimeUi));
 
     internal bool Admits(Option<ChangeReason> reason) =>
         reason.Map(row => !DroppedReasons.Contains(row)).IfNone(true);
@@ -762,7 +786,7 @@ public sealed class ContentStream : IDisposable {
     public static Fin<ContentStream> Of(
         EventScope scope, Seq<ContentPulse> pulses, Func<ContentFact, Fin<Unit>> sink, PulseFilter? filter = null) {
         Op op = Op.Of(name: nameof(ContentStream));
-        PulseFilter active = filter ?? PulseFilter.Settled;
+        PulseFilter active = filter ?? PulseFilter.WithoutRealTimeUi;
         return from _ in guard(!pulses.IsEmpty, op.InvalidInput())
                from attached in Subscription.AttachAll(pulses.Distinct().Map(pulse =>
                    (Func<Fin<Subscription>>)(() => pulse.Bind(pulse: pulse, scope: scope, filter: active, deliver: sink))))
@@ -779,7 +803,7 @@ public sealed class ContentStream : IDisposable {
 |  [02]   | factory census   | `ContentTypeInfo`   | exception-safe projection over disposable descriptors     | `Contents.Types`                 |
 |  [03]   | custom format    | `ContentSerializer` | host serializer base over one typed program               | plug-in registration             |
 |  [04]   | mutation regimes | `ContentOp`         | admission or one-target mutation                          | `Contents.Commit`                |
-|  [05]   | typed reads      | `ContentQuery<T>`   | result-correlated query programs                          | `Contents.Query<T>`              |
+|  [05]   | typed reads      | `ContentQuery<T>`   | marker-carrying result-correlated query programs          | `Contents.Query<T>`              |
 |  [06]   | commit spine     | `Contents`          | undo bracket + table change scope + redraw + receipt fold | `Commit(session, plan)`          |
 |  [07]   | receipts         | `ContentReceipt`    | `ContentFactRow` stream + slot projections                | `Contents` / `Ids` / `FactCount` |
 |  [08]   | content events   | `ContentPulse`      | eleven bind rows over the static event roster             | `ContentStream.Of`               |

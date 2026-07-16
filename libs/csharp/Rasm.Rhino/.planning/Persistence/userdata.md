@@ -1,6 +1,6 @@
 # [RASM_RHINO_PERSISTENCE_USERDATA]
 
-Attached-data custody (`Rasm.Rhino.Persistence`). `ArchiveIo` owns schema-framed `ArchiveMap` IO. `TypedUserData` seals every required `UserData` override onto that seam and forces each derived type to interpret stored schema before accepting payload. `DataRoster` projects live lists and owns internal mutation adapters. `CustodyMove` closes whole-roster copy and move operations. `SharedMap` composes the decompile-verified lazy `CommonObject.UserDictionary` accessor without pretending its getter is pure.
+Attached-data custody (`Rasm.Rhino.Persistence`). `ArchiveIo` owns schema-framed `ArchiveMap` IO. `TypedUserData` seals every required `UserData` override onto that seam and forces each derived type to interpret stored schema before accepting payload. `DataRoster` projects live lists and owns internal mutation adapters. `CustodyMove` closes whole-roster copy and move operations. `SharedMap` composes the lazy `CommonObject.UserDictionary` accessor without pretending its getter is pure.
 
 ## [01]-[INDEX]
 
@@ -148,11 +148,11 @@ public abstract class TypedUserData : UserData {
 
 ## [04]-[ROSTER_TRANSFER]
 
-- Owner: `DataRoster` projects each live entry to `DataMark`, including opaque `UnknownUserData`, and exposes typed payload lookup without returning a host handle.
-- Admission: `Attach` mirrors the decompiled host gate exactly: a concrete entry type must be public and expose a public parameterless constructor. Host `Add` may detach the entry from a previous roster before attaching it.
+- Owner: `DataRoster` projects each live entry to `DataMark` — managed type, description, write opt-in, opacity, and the accumulated host `Transform` — including opaque `UnknownUserData`, and exposes typed payload lookup without returning a host handle.
+- Admission: `Attach` enforces the host reflection gate — a public class with a public parameterless constructor, which host `Add` throws `ArgumentException` against — and additionally rejects abstract types that gate admits but cannot instantiate. Host `Add` detaches the entry from a previous roster before attaching it.
 - Lifecycle: `Remove` requires an explicit keep-or-dispose disposition because host `UserDataList.Remove` detaches without disposing the managed/native handle. `Purge` remains an explicit destructive operation that also removes opaque data.
 - Transfer: `CustodyMove` maps total dispatch onto `UserData.Copy`, `MoveUserDataFrom`, and `MoveUserDataTo`; batch execution aborts on the first failed move and returns holding ids in operation order.
-- Shared map: decompile confirms `CommonObject.UserDictionary : ArchivableDictionary` finds `SharedUserDictionary`, lazily creates and attaches it when absent, and returns null when `UserData.Add` fails. `Ensure` names that mutation; `Overwrite` preflights a mint before clearing and rewriting through exact codec dispatch.
+- Shared map: `CommonObject.UserDictionary : ArchivableDictionary` finds the internal `SharedUserDictionary` — the one type host `Add` admits past its reflection gate — lazily creates and attaches it when absent, and returns null when `UserData.Add` fails. `Ensure` names that mutation; `Overwrite` preflights a mint before clearing and rewriting through exact codec dispatch.
 - Seam: roster and shared-map mutations remain internal adapters. Document-owned objects invoke them only inside the `DocumentSession` and `Tables.Commit` mutation spine; detached objects need no session.
 
 ```csharp signature
@@ -161,7 +161,8 @@ public readonly record struct DataMark(
     Type ManagedType,
     string Description,
     bool ShouldWrite,
-    bool Opaque) : IDetachedDocumentResult;
+    bool Opaque,
+    Transform Accumulated) : IDetachedDocumentResult;
 
 [SmartEnum<int>]
 internal sealed partial class DataRelease {
@@ -209,7 +210,8 @@ public static class DataRoster {
                    ManagedType: entry.GetType(),
                    Description: entry.Description,
                    ShouldWrite: entry.ShouldWrite,
-                   Opaque: entry is UnknownUserData))))
+                   Opaque: entry is UnknownUserData,
+                   Accumulated: entry.Transform))))
                select marks;
     }
 
@@ -298,12 +300,12 @@ internal static class SharedMap {
 
 ## [05]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN] | [OWNER] | [FORM] | [ENTRY] |
-| :-----: | :-------- | :------ | :----- | :------ |
-| [01] | archive schema | `ArchiveSchema` | admitted major and minor identity | `Create` / `Reads` |
-| [02] | archive crossing | `ArchiveIo` | independently checked version and dictionary legs | `Write` / `Read` |
-| [03] | custom data | `TypedUserData` | sealed overrides plus required upgrade | derive protected members |
-| [04] | roster query | `DataRoster` | detached census, presence, and typed payload | `Census` / `Contains` / `PayloadOf` |
-| [05] | roster mutation | `DataRoster` | internal attach, removal, and purge | `Attach` / `Remove` / `Purge` |
-| [06] | custody transfer | `CustodyMove` | total copy, harvest, and deposit dispatch | `Custody.Execute` |
-| [07] | shared dictionary | `SharedMap` | lazy host accessor plus exact typed overwrite | `Ensure` / `Overwrite` |
+| [INDEX] | [CONCERN]         | [OWNER]         | [FORM]                                            | [ENTRY]                             |
+| :-----: | :---------------- | :-------------- | :------------------------------------------------ | :---------------------------------- |
+|  [01]   | archive schema    | `ArchiveSchema` | admitted major and minor identity                 | `Create` / `Reads`                  |
+|  [02]   | archive crossing  | `ArchiveIo`     | independently checked version and dictionary legs | `Write` / `Read`                    |
+|  [03]   | custom data       | `TypedUserData` | sealed overrides plus required upgrade            | derive protected members            |
+|  [04]   | roster query      | `DataRoster`    | detached census, presence, and typed payload      | `Census` / `Contains` / `PayloadOf` |
+|  [05]   | roster mutation   | `DataRoster`    | internal attach, removal, and purge               | `Attach` / `Remove` / `Purge`       |
+|  [06]   | custody transfer  | `CustodyMove`   | total copy, harvest, and deposit dispatch         | `Custody.Execute`                   |
+|  [07]   | shared dictionary | `SharedMap`     | lazy host accessor plus exact typed overwrite     | `Ensure` / `Overwrite`              |

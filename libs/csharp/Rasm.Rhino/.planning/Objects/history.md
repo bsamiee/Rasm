@@ -239,7 +239,8 @@ public sealed partial class SlotShape {
 ## [05]-[REGROWN]
 
 - Owner: `RegrowKind<T>` is the typed overload row; `RegrowKinds` is the complete catalogued row table; `Regrown` erases `T` only after `Of<T>` proves the row/payload pair. `LineGrowth`, `ClippingGrowth`, and `RawTextGrowth` carry the only multi-field payloads.
-- Law: replay updates the existing result. Every row delegates to one verified `ReplayHistoryResult.UpdateTo*` overload with the existing object's attributes; no add or replace path exists.
+- Law: replay updates the existing result. Every row delegates to one verified `ReplayHistoryResult.UpdateTo*` overload; no add or replace path exists.
+- Law: attributes are optional by host contract — every `UpdateTo*` overload accepts a null attribute set, so an existing result regrows with its object's live attributes while a result minted by `AppendHistoryResult` carries no existing object and regrows with absent attributes the host defaults.
 - Law: clipping-plane arity collapses onto the plural overload. One viewport is a one-element sequence, and empty viewport rosters are refused at admission.
 - Growth: a host overload adds one `RegrowKind<T>` row; dispatch, replay signatures, and consumers remain unchanged.
 
@@ -250,11 +251,11 @@ public readonly record struct ClippingGrowth(Plane Frame, double U, double V, Se
 public readonly record struct RawTextGrowth(string Text, Plane Frame, double Height, string Font, bool Bold, bool Italic, TextJustification Justification);
 
 public sealed class RegrowKind<T> where T : notnull {
-    private readonly Func<ReplayHistoryResult, T, ObjectAttributes, bool> update;
+    private readonly Func<ReplayHistoryResult, T, ObjectAttributes?, bool> update;
     private readonly Option<Func<T, Op, Fin<T>>> admit;
 
     internal RegrowKind(
-        Func<ReplayHistoryResult, T, ObjectAttributes, bool> update,
+        Func<ReplayHistoryResult, T, ObjectAttributes?, bool> update,
         Option<Func<T, Op, Fin<T>>> admit = default) {
         this.update = update;
         this.admit = admit;
@@ -264,8 +265,8 @@ public sealed class RegrowKind<T> where T : notnull {
         Some: validate => validate(value, key),
         None: () => Fin.Succ(value: value));
 
-    internal Fin<Unit> Apply(ReplayHistoryResult result, T value, ObjectAttributes attributes, Op key) =>
-        key.Catch(() => key.Confirm(success: update(result, value, attributes)));
+    internal Fin<Unit> Apply(ReplayHistoryResult result, T value, Option<ObjectAttributes> attributes, Op key) =>
+        key.Catch(() => key.Confirm(success: update(result, value, attributes.IfNoneUnsafe((ObjectAttributes?)null))));
 }
 
 public static class RegrowKinds {
@@ -321,9 +322,9 @@ public static class RegrowKinds {
 }
 
 public sealed class Regrown {
-    private readonly Func<ReplayHistoryResult, ObjectAttributes, Op, Fin<Unit>> apply;
+    private readonly Func<ReplayHistoryResult, Option<ObjectAttributes>, Op, Fin<Unit>> apply;
 
-    private Regrown(Func<ReplayHistoryResult, ObjectAttributes, Op, Fin<Unit>> apply) => this.apply = apply;
+    private Regrown(Func<ReplayHistoryResult, Option<ObjectAttributes>, Op, Fin<Unit>> apply) => this.apply = apply;
 
     public static Fin<Regrown> Of<T>(RegrowKind<T> kind, T value, Op? key = null) where T : notnull {
         Op op = key.OrDefault();
@@ -337,7 +338,7 @@ public sealed class Regrown {
                    key: rail));
     }
 
-    internal Fin<Unit> Apply(ReplayHistoryResult result, ObjectAttributes attributes, Op op) =>
+    internal Fin<Unit> Apply(ReplayHistoryResult result, Option<ObjectAttributes> attributes, Op op) =>
         apply(result, attributes, op);
 }
 ```
@@ -347,7 +348,7 @@ public sealed class Regrown {
 - Owner: `ReplayProgram` admits an expected history version, an optional result-roster preparation fold, and one per-result regrow function. Preparation may call `AppendHistoryResult` or `UpdateResultArray`; traversal snapshots `Results` only after preparation succeeds.
 - Law: the seam contract is strict `bool`. `true` means every prepared result updated; version mismatch or any fault returns `false`. Faults log before returning because the host converts a thrown override into an opaque zero and exposes no cancel outcome.
 - Law: the program lands on the policy row — `CommandPolicy.Replay` carries `program.Delegate`, so the command page's sealed `ReplayHistory` override routes here with zero adapter code and a replay-free command keeps the absent row.
-- Law: result growth precedes regrowth. Preparation settles the roster once, then the driver indexes that settled array; mutation during per-result traversal has no path.
+- Law: result growth precedes regrowth. Preparation settles the roster once, then the driver indexes that settled array; mutation during per-result traversal has no path, and an appended result rides the same traversal with absent attributes because it owns no existing object yet.
 - Boundary: every `ObjRef`, result, and reader lives only inside the callback — the host constructs `ReplayHistoryData` in a `using` scope and disposes it the moment the override returns, so nothing recovered here survives outward.
 
 ```csharp signature
@@ -400,8 +401,8 @@ public sealed class ReplayProgram {
                          .Map(static (result, index) => (Result: result, Index: index))
                          .TraverseM(row =>
                              from shape in op.Catch(() => program.regrow(active, row.Result, row.Index))
-                             from existing in Optional(row.Result.ExistingObject).ToFin(Fail: op.MissingContext())
-                             from __ in shape.Apply(result: row.Result, attributes: existing.Attributes, op: op)
+                             let attributes = Optional(row.Result.ExistingObject).Map(static held => held.Attributes)
+                             from __ in shape.Apply(result: row.Result, attributes: attributes, op: op)
                              select unit).As()
                      select true
                select replayed;
@@ -541,7 +542,7 @@ public static class Chronicle {
                            from result in view.Read(document: ctx.Document, target: target, op: ctx.Op)
                            select result,
                        census: static (ctx, _) => ctx.Op.Catch(() =>
-                           Fin.Succ(value: (WebAnswer)new WebAnswer.Count(Records: ctx.Document.Objects.HistoryRecordCount))),
+                           Fin.Succ(value: (WebAnswer)new WebAnswer.Count(Records: ctx.Document.Objects.HistoryRecordCount)))),
                    key: op,
                    needs: [SessionNeed.Read])
                select answer;
@@ -608,13 +609,13 @@ public static class Chronicle {
 
 ## [08]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]           | [OWNER]          | [FORM]                                                  | [ENTRY]                              |
-| :-----: | :------------------ | :--------------- | :------------------------------------------------------- | :----------------------------------- |
-|  [01]   | slot payloads       | `SlotValue`      | one closed union, total write onto the native record     | `HistoryScript` slot rows            |
-|  [02]   | record authoring    | `HistoryScript`  | single-use leased mint keyed to the owning command       | `Mint(owner)` / carrier threading    |
-|  [03]   | slot recovery       | `SlotShape`      | typed reader rows mirroring the write vocabulary         | `Recover(data, key)`                 |
-|  [04]   | geometry regrowth   | `RegrowKind<T>`  | typed rows own catalogued `UpdateTo*` dispatch            | `Regrown.Of(kind, value)`           |
-|  [05]   | replay body         | `ReplayProgram`  | strict-`bool` compiled delegate on the policy row        | `CommandPolicy.Replay = Delegate`    |
-|  [06]   | linkage mutation    | `BondOp`         | undo-recorded attach, detach, and survival                | `Chronicle.Bind`                    |
-|  [07]   | dependency topology | `HistoryWeb`     | reachable QuikGraph closure, order, and cycle rows        | `Chronicle.Ask`                     |
-|  [08]   | process governance  | `HistoryConduct` | catalogued `HistorySettings` switches as read/write rows | `Chronicle.Conduct`                  |
+| [INDEX] | [CONCERN]           | [OWNER]          | [FORM]                                                   | [ENTRY]                           |
+| :-----: | :------------------ | :--------------- | :------------------------------------------------------- | :-------------------------------- |
+|  [01]   | slot payloads       | `SlotValue`      | one closed union, total write onto the native record     | `HistoryScript` slot rows         |
+|  [02]   | record authoring    | `HistoryScript`  | single-use leased mint keyed to the owning command       | `Mint(owner)` / carrier threading |
+|  [03]   | slot recovery       | `SlotShape`      | typed reader rows mirroring the write vocabulary         | `Recover(data, key)`              |
+|  [04]   | geometry regrowth   | `RegrowKind<T>`  | typed rows own catalogued `UpdateTo*` dispatch           | `Regrown.Of(kind, value)`         |
+|  [05]   | replay body         | `ReplayProgram`  | strict-`bool` compiled delegate on the policy row        | `CommandPolicy.Replay = Delegate` |
+|  [06]   | linkage mutation    | `BondOp`         | undo-recorded attach, detach, and survival               | `Chronicle.Bind`                  |
+|  [07]   | dependency topology | `HistoryWeb`     | reachable QuikGraph closure, order, and cycle rows       | `Chronicle.Ask`                   |
+|  [08]   | process governance  | `HistoryConduct` | catalogued `HistorySettings` switches as read/write rows | `Chronicle.Conduct`               |

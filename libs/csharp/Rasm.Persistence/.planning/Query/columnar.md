@@ -1,12 +1,13 @@
 # [PERSISTENCE_QUERY_COLUMNAR]
 
-Rasm.Persistence runs analytical aggregation, columnar rollup, lakehouse scan, and artifact egress through one in-process DuckDB engine. `ColumnarSession` owns one posture-configured anchor and gives every concurrent operation a `Duplicate()` lane. `Identifier` admits all SQL identifier roles, `StorePath` admits storage locations, and `SecretResidence` distinguishes session and persistent credentials. Parquet and ADBC remain distinct boundaries over the shared Arrow model.
+Rasm.Persistence runs analytical aggregation, columnar rollup, lakehouse scan, and artifact egress through one in-process DuckDB engine. `ColumnarSession` owns one posture-configured anchor and gives every concurrent operation a `Duplicate()` lane. `Identifier` admits all SQL identifier roles, `StorePath` admits storage locations, and `SecretResidence` distinguishes session and persistent credentials. Parquet and ADBC remain distinct boundaries over the shared Arrow model. Beyond the in-process engine, this page owns the two residences the provisioning axis map assigns it — the in-PG TimescaleDB series tier turning assessment and sensor results into queryable temporal data, and the ClickHouse fleet-scale read row consuming what the `Version/egress` sink lands.
 
 ## [01]-[INDEX]
 
 - [01]-[COLUMNAR_LANE]: the posture-configured DuckDB anchor session, the `INSTALL`/`LOAD` extension-profile bootstrap, the parameterized query and streaming drain, the typed bulk appender, the read-only `ATTACH` mount, the `CREATE SECRET` credential rail, the ADBC Arrow bridge, and the closed fault rail.
 - [02]-[ARTIFACT_EGRESS]: the engine-mediated `COPY (SELECT) TO` artifact rail over the closed `Format`/`Codec`/`Collision`/`ArtifactClass` vocabularies, the footer-metadata stamp and admission read, and the `read_parquet` generation scan.
 - [03]-[FLAT_TABLE_EGRESS]: the co-transactional `Ara3D.BimOpenSchema` `FlatTableProjection`, the in-corpus eleven-table `.duckdb` write, the async Parquet daemon materialization, the native `ParquetSharp.Arrow` codec lane — read and PME-encrypted write — the columnar query rides, and the metadata-only Delta-log publication versioning each generation to its AS-OF cut.
+- [04]-[SERIES_AND_SCALEOUT]: the beyond-engine residences — the `SeriesKind`-declared TimescaleDB hypertable tier (provisioning SQL rows under the SELECT/CALL emission law, binary-COPY ingest, continuous-aggregate and time-weighted reads, in-database retention and columnstore policy) and the ClickHouse fleet-scale read row over the `Version/egress` `ClickHouse` sink's landed table.
 
 ## [02]-[COLUMNAR_LANE]
 
@@ -657,3 +658,175 @@ public static class FlatTableEgress {
 |  [05]   | encrypted extract    | PME `Option` policy on `WriteParquetFrames` | `CryptoFactory` × the admitted KMS trio; never a sibling writer |
 |  [06]   | lakehouse            | `PublishDelta` metadata-only commit         | `AddAction` registration; `TransactionVersion` = the AS-OF cut  |
 |  [07]   | path admission       | `StorePath` on both Parquet codec legs      | read/write/encryption consume ONE admitted path value          |
+
+## [05]-[SERIES_AND_SCALEOUT]
+
+- Owner: `SeriesKind` the `[SmartEnum<string>]` temporal-lane axis — one row per series family carrying its hypertable identity, chunk interval, rollup bucket, retention bound, and columnstore age as policy columns from which the WHOLE provisioning SQL set derives; `SeriesPoint` the ingest row keyed by the series content key (an `assessment` point keys by the Compute `(subgraph·route·policy)` input key — the SAME identity the `Query/cache` `ArtifactKind.Assessment` row carries, so the heavy source artifact and its queryable temporal projection share one origin); `SeriesFault` the closed `FaultBand.Series` band; `SeriesLane` the static surface owning provisioning-SQL derivation, binary-COPY ingest, and the bucketed and time-weighted reads; `ScaleoutRead` the ClickHouse fleet read row consuming the table the `Version/egress` `EgressSink.ClickHouse` case lands.
+- Cases: `SeriesKind.Assessment` (hourly/sub-hourly discipline-assessment series — energy, thermal, daylight — 1-day chunks, 1-hour rollup bucket, 365-day retention, 7-day columnstore age) and `SeriesKind.Sensor` (BMS/operational telemetry — 1-day chunks, 15-minute bucket, 90-day retention, 2-day columnstore age); `SeriesFault` is `IngestRefused | Unprovisioned | FleetRefused` (`8481`-`8483`).
+- Entry: `public static Seq<string> Provision(SeriesKind kind)` derives the ordered idempotent SQL rows the reviewed-migration artifact carries — table DDL, `SELECT create_hypertable(...)`, the columnstore `ALTER TABLE ... SET`, `CALL add_columnstore_policy(...)`, `SELECT add_retention_policy(...)`, the continuous-aggregate view plus `SELECT add_continuous_aggregate_policy(...)` — every optional argument `=>`-named and every step `if_not_exists`-idempotent; `public static IO<Fin<ulong>> Ingest(NpgsqlDataSource store, SeriesKind kind, Seq<SeriesPoint> points, ProjectionContext frame)` streams the points through one binary-COPY importer whose success branch alone calls `CompleteAsync`; `public static IO<Fin<double>> Weighted(NpgsqlDataSource store, SeriesKind kind, UInt128 series, Instant from, Instant until)` runs the toolkit time-weighted read over the raw chunks and `public static IO<Fin<Seq<SeriesBucket>>> Bucketed(...)` the pre-bucketed continuous-aggregate read — the table name a closed-vocabulary row literal, only VALUES binding as parameters; `public static IO<Fin<(Seq<T> Rows, QueryStats Stats)>> ScaleoutRead.Fleet<T>(ClickHouseClient fleet, string sql, HashMap<string, object> binds, Func<DbDataReader, T> shape)` is the billion-row read leg.
+- Auto: provisioning is DERIVED, never hand-spelled per environment — the emission law splits SELECT functions (`create_hypertable`, `add_retention_policy`, `add_continuous_aggregate_policy`) from CALL procedures (`add_columnstore_policy`) so a mis-verbed row is unrepresentable from the derivation, and the rows ride the same reviewed-migration rail every `Store/provisioning#SERVER_EXTENSIONS` admission rides, gated on the verdict holding the `timescaledb` lane (`Unprovisioned` when absent); refresh, retention, and compression jobs run on TimescaleDB's OWN bgworker scheduler — the AppHost schedule port never schedules a database-internal job — and the provisioning verification fold reads `timescaledb_information.job_stats` for refresh-lag/drop-count/compression-ratio proof rows, so a non-firing policy surfaces as a stale `last_successful_finish`, never a silent gap; the time-weighted read is the honest algebra for IRREGULAR simulation timesteps — `average(time_weight('linear', at, value))` weighs each sample by its holding interval where a naive `avg` over-counts dense bursts — and the dashboard tile read rides the pre-bucketed continuous aggregate, never a raw-chunk re-scan; the fleet read binds named parameters through the driver's `{name:Type}` substitution and lands the `QueryStats` throughput receipt (`ReadRows`/`ElapsedNs` off the `X-ClickHouse-Summary` header) on every read, with `ClickHouseServerException` folding `FleetRefused` on its numeric `ErrorCode`, never a raw `HttpRequestException`.
+- Receipt: a provisioning derivation rides `store.columnar.series.provision` carrying the kind and the row count; an ingest rides `store.columnar.series.ingest` carrying the staged count; a fleet read rides `store.columnar.fleet` carrying the `QueryStats` rows and elapsed figures.
+- Packages: Npgsql (`NpgsqlDataSource.OpenConnectionAsync`/`NpgsqlConnection.BeginBinaryImportAsync`/`NpgsqlBinaryImporter.StartRowAsync`/`WriteAsync`/`CompleteAsync` — the COPY kernel; `NpgsqlDbType`), timescaledb + timescaledb_toolkit (`create_hypertable`/`by_range`/`add_retention_policy`/`add_columnstore_policy`/`add_continuous_aggregate_policy`/`time_bucket`/`time_weight`/`average`/`rollup` — server-side SQL per `api-timescaledb`/`api-timescaledb-toolkit`), ClickHouse.Driver (`IClickHouseClient.ExecuteReaderAsync`/`QueryStats`/`ClickHouseServerException` — the fleet read leg; the write leg is `Version/egress`'s), NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
+- Growth: a new series family is one `SeriesKind` row deriving its whole provisioning set; a new rollup grain is one bucket column value; a new fleet question is one composed read over the standing client, never a second client or a per-question service; zero new surface — a per-environment hand-spelled policy script, an AppHost-scheduled refresh job, a naive `avg` over irregular timesteps, a second ClickHouse write path beside the egress sink, or a transaction-scoped ClickHouse write (the backend has none) is the deleted form because the policy set derives from the row, the bgworker owns cadence, and the sink owns landing.
+- Boundary: the series tier is a RELATIONAL residence beside `element_identity` — never an artifact-catalog class: the heavy source artifact (an eplusout.sql, an FEA result set) stays the `Query/cache` `ArtifactKind.Assessment` content-keyed row under `RetentionClass.Cache`, and this hypertable is its queryable temporal PROJECTION whose chunks TimescaleDB's own `add_retention_policy` drops in-database (re-derivable by re-ingest from the retained artifact — cost, never correctness), so the `Version/retention#SWEEP_AND_GC` executor never deletes series chunks and a `RetentionClass` row for them is the rejected double-governor; the Compute `AssessmentSink` emits the typed points this lane ingests (the `ARCHITECTURE.md [02]-[SEAMS]` `Compute → Version` assessment edge widened from opaque content-keyed bytes to a typed series), and the same `SeriesPoint` shape serves BMS/sensor streams under the `Sensor` row; the ClickHouse leg is READ-side only — the `Version/egress` `ClickHouse` sink owns landing under `insert_deduplication_token` dedup, this row consumes at fleet scale (who changed what across hundreds of models, org-wide element churn), the two meeting at the table and never re-authoring each other's schema; ClickHouse is never a second system of record and carries no transaction, so every fleet read is an eventually-consistent analytical view whose staleness the egress cursor bounds.
+
+```csharp signature
+using ClickHouse.Driver;
+using ClickHouse.Driver.ADO;
+using Npgsql;
+using NpgsqlTypes;
+
+namespace Rasm.Persistence.Query;
+
+// --- [TYPES] ------------------------------------------------------------------------------
+// One row per series family; the WHOLE TimescaleDB provisioning set derives from these columns.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class SeriesKind {
+    public static readonly SeriesKind Assessment = new("assessment", "assessment_series", "1 day", "1 hour", "365 days", "7 days");
+    public static readonly SeriesKind Sensor     = new("sensor", "sensor_series", "1 day", "15 minutes", "90 days", "2 days");
+
+    public string Table { get; }
+    public string Chunk { get; }
+    public string Bucket { get; }
+    public string DropAfter { get; }
+    public string ColumnstoreAfter { get; }
+    private SeriesKind(string key, string table, string chunk, string bucket, string dropAfter, string columnstoreAfter) : this(key) =>
+        (Table, Chunk, Bucket, DropAfter, ColumnstoreAfter) = (table, chunk, bucket, dropAfter, columnstoreAfter);
+}
+
+// The ingest row: `Series` is the content-key identity the source artifact already carries
+// (the assessment `(subgraph·route·policy)` key), `At` the sample instant, `Value` the measure.
+public readonly record struct SeriesPoint(UInt128 Series, Instant At, double Value);
+
+// --- [ERRORS] -----------------------------------------------------------------------------
+[Union]
+public abstract partial record SeriesFault : Expected, IValidationError<SeriesFault> {
+    private SeriesFault() : base() { }
+    public sealed record IngestRefused(string SqlState, string Detail) : SeriesFault;
+    public sealed record Unprovisioned(string Lane) : SeriesFault;
+    public sealed record FleetRefused(int ErrorCode, string Detail) : SeriesFault;
+    public sealed record ReadRefused(string SqlState, string Detail) : SeriesFault;
+
+    public override int Code => FaultBand.Series + Switch(
+        ingestRefused: static _ => 1,
+        unprovisioned: static _ => 2,
+        fleetRefused:  static _ => 3,
+        readRefused:   static _ => 4);
+
+    public override string Message => Switch(
+        ingestRefused: static c => $"<series-ingest:{c.SqlState}:{c.Detail}>",
+        unprovisioned: static c => $"<series-unprovisioned:{c.Lane}>",
+        fleetRefused:  static c => $"<series-fleet:{c.ErrorCode}:{c.Detail}>",
+        readRefused:   static c => $"<series-read:{c.SqlState}:{c.Detail}>");
+
+    public override string Category => Switch(
+        ingestRefused: static _ => "Ingest",
+        unprovisioned: static _ => "Provision",
+        fleetRefused:  static _ => "Fleet",
+        readRefused:   static _ => "Read");
+
+    public static SeriesFault Create(string message) => new IngestRefused("<wire>", message);
+}
+
+// --- [OPERATIONS] -------------------------------------------------------------------------
+public static class SeriesLane {
+    // The derived provisioning set: SELECT functions vs CALL procedures per the emission law,
+    // every optional argument `=>`-named, every step idempotent. The rows ride the migration artifact.
+    public static Seq<string> Provision(SeriesKind kind) => [
+        $"CREATE TABLE IF NOT EXISTS {kind.Table} (series_key bytea NOT NULL, at timestamptz NOT NULL, value double precision NOT NULL)",
+        $"SELECT create_hypertable('{kind.Table}', by_range('at', INTERVAL '{kind.Chunk}'), if_not_exists => TRUE)",
+        $"ALTER TABLE {kind.Table} SET (timescaledb.enable_columnstore = true, timescaledb.segmentby = 'series_key', timescaledb.orderby = 'at')",
+        $"CALL add_columnstore_policy('{kind.Table}', after => INTERVAL '{kind.ColumnstoreAfter}', if_not_exists => TRUE)",
+        $"SELECT add_retention_policy('{kind.Table}', drop_after => INTERVAL '{kind.DropAfter}', if_not_exists => TRUE)",
+        $"CREATE MATERIALIZED VIEW IF NOT EXISTS {kind.Table}_rollup WITH (timescaledb.continuous) AS SELECT series_key, time_bucket(INTERVAL '{kind.Bucket}', at) AS bucket, avg(value) AS mean, min(value) AS low, max(value) AS high, count(*) AS samples FROM {kind.Table} GROUP BY series_key, bucket WITH NO DATA",
+        $"SELECT add_continuous_aggregate_policy('{kind.Table}_rollup', start_offset => INTERVAL '3 days', end_offset => INTERVAL '{kind.Bucket}', schedule_interval => INTERVAL '{kind.Bucket}', if_not_exists => TRUE)",
+    ];
+
+    // Binary COPY is the ingest lane: Complete commits, disposal without it discards — the
+    // exception path therefore discards rather than half-writes, and the retry unit is the whole COPY.
+    public static IO<Fin<ulong>> Ingest(NpgsqlDataSource store, SeriesKind kind, Seq<SeriesPoint> points, ProjectionContext frame) =>
+        IO.liftAsync(async () => {
+            await using NpgsqlConnection lane = await store.OpenConnectionAsync().ConfigureAwait(false);
+            NpgsqlBinaryImporter importer = await lane.BeginBinaryImportAsync($"COPY {kind.Table} (series_key, at, value) FROM STDIN (FORMAT BINARY)").ConfigureAwait(false);
+            try {
+                foreach (SeriesPoint point in points) {
+                    await importer.StartRowAsync().ConfigureAwait(false);
+                    byte[] series = new byte[16];
+                    BinaryPrimitives.WriteUInt128BigEndian(series, point.Series);
+                    await importer.WriteAsync(series, NpgsqlDbType.Bytea).ConfigureAwait(false);
+                    await importer.WriteAsync(point.At, NpgsqlDbType.TimestampTz).ConfigureAwait(false);
+                    await importer.WriteAsync(point.Value, NpgsqlDbType.Double).ConfigureAwait(false);
+                }
+                ulong staged = await importer.CompleteAsync().ConfigureAwait(false);
+                await importer.DisposeAsync().ConfigureAwait(false);
+                return Fin<ulong>.Succ(staged);
+            }
+            catch (PostgresException wire) {
+                await importer.DisposeAsync().ConfigureAwait(false);
+                return Fin<ulong>.Fail(new SeriesFault.IngestRefused(wire.SqlState, wire.MessageText));
+            }
+        });
+
+    // The toolkit time-weighted read over raw chunks: each sample weighs by its holding interval,
+    // the honest mean for irregular simulation timesteps a naive avg over-counts. The table name is a
+    // closed-vocabulary row literal composed into the text; only VALUES bind as parameters.
+    public static IO<Fin<double>> Weighted(NpgsqlDataSource store, SeriesKind kind, UInt128 series, Instant from, Instant until) =>
+        Rows(store, $"SELECT average(time_weight('linear', at, value)) FROM {kind.Table} WHERE series_key = @series AND at >= @from AND at < @until", series, from, until,
+            static reader => reader.GetDouble(0))
+        .Map(read => read.Map(static values => values.Head.IfNone(0d)));
+
+    public static IO<Fin<Seq<SeriesBucket>>> Bucketed(NpgsqlDataSource store, SeriesKind kind, UInt128 series, Instant from, Instant until) =>
+        Rows(store, $"SELECT bucket, mean, low, high, samples FROM {kind.Table}_rollup WHERE series_key = @series AND bucket >= @from AND bucket < @until ORDER BY bucket", series, from, until,
+            static reader => new SeriesBucket(reader.GetFieldValue<Instant>(0), reader.GetDouble(1), reader.GetDouble(2), reader.GetDouble(3), reader.GetInt64(4)));
+
+    static IO<Fin<Seq<T>>> Rows<T>(NpgsqlDataSource store, string sql, UInt128 series, Instant from, Instant until, Func<NpgsqlDataReader, T> shape) =>
+        IO.liftAsync(async () => {
+            await using NpgsqlCommand command = store.CreateCommand(sql);
+            _ = command.Parameters.AddWithValue("series", SeriesKey(series));
+            _ = command.Parameters.AddWithValue("from", from);
+            _ = command.Parameters.AddWithValue("until", until);
+            try {
+                await using NpgsqlDataReader reader = await command.ExecuteReaderAsync().ConfigureAwait(false);
+                List<T> rows = [];
+                while (await reader.ReadAsync().ConfigureAwait(false)) rows.Add(shape(reader));
+                return Fin<Seq<T>>.Succ(toSeq(rows));
+            }
+            catch (PostgresException wire) { return Fin<Seq<T>>.Fail(new SeriesFault.ReadRefused(wire.SqlState, wire.MessageText)); }
+        });
+
+    static byte[] SeriesKey(UInt128 series) {
+        byte[] bytes = new byte[16];
+        BinaryPrimitives.WriteUInt128BigEndian(bytes, series);
+        return bytes;
+    }
+}
+
+public readonly record struct SeriesBucket(Instant Bucket, double Mean, double Low, double High, long Samples);
+
+public static class ScaleoutRead {
+    // The fleet-scale read leg over the table the Version/egress ClickHouse sink lands; QueryStats is
+    // the throughput receipt and ClickHouseServerException folds typed on its numeric ErrorCode.
+    public static IO<Fin<(Seq<T> Rows, QueryStats Stats)>> Fleet<T>(ClickHouseClient fleet, string sql, HashMap<string, object> binds, Func<System.Data.Common.DbDataReader, T> shape) =>
+        IO.liftAsync(async () => {
+            await using ClickHouseConnection lane = fleet.CreateConnection();
+            await lane.OpenAsync().ConfigureAwait(false);
+            await using ClickHouseCommand command = lane.CreateCommand(sql);
+            binds.Iter(pair => { _ = command.Parameters.AddWithValue(pair.Key, pair.Value); });
+            await using System.Data.Common.DbDataReader reader = await command.ExecuteReaderAsync().ConfigureAwait(false);
+            List<T> rows = [];
+            while (await reader.ReadAsync().ConfigureAwait(false)) rows.Add(shape(reader));
+            return Fin<(Seq<T>, QueryStats)>.Succ((toSeq(rows), command.QueryStats!));
+        }) | @catch<IO, Fin<(Seq<T>, QueryStats)>>(static e => e.Exception.Map(static x => x is ClickHouseServerException).IfNone(false),
+            e => IO.pure(Fin<(Seq<T>, QueryStats)>.Fail(new SeriesFault.FleetRefused(((ClickHouseServerException)e.ToException()).ErrorCode, e.Message))));
+}
+```
+
+| [INDEX] | [POLICY]           | [VALUE]                                            | [BINDING]                                                      |
+| :-----: | :----------------- | :-------------------------------------------------- | :-------------------------------------------------------------- |
+|  [01]   | series provisioning | derived from the `SeriesKind` row                  | SELECT/CALL emission law; migration-carried, verdict-gated     |
+|  [02]   | policy cadence     | TimescaleDB bgworker jobs                           | never AppHost-scheduled; `job_stats` is the proof row          |
+|  [03]   | irregular timesteps | `average(time_weight('linear', …))`                | a naive `avg` over-counts dense bursts                         |
+|  [04]   | series retention   | in-database `add_retention_policy`                  | projection of a retained artifact; never a `RetentionClass` row |
+|  [05]   | fleet leg          | ClickHouse READ row + `QueryStats` receipt          | the egress sink owns landing; never a second SoR               |
+|  [06]   | series identity    | the source artifact's content key                   | one origin with `ArtifactKind.Assessment`; never a second mint |

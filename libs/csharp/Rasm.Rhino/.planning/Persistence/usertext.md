@@ -119,7 +119,7 @@ public abstract partial record TextEdit {
             deleteCase: static (context, edit) => context.Op.Catch(() => Fin.Succ(
                 value: Op.Side(() => _ = context.Delete(context.Target, edit.Name)))),
             clearCase: static (context, _) => context.Op.Catch(() => Fin.Succ(
-                value: Op.Side(() => context.Clear(context.Target))));
+                value: Op.Side(() => context.Clear(context.Target)))));
 }
 ```
 
@@ -451,13 +451,13 @@ public static partial class Texts {
 
 ## [05]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN] | [OWNER] | [FORM] | [ENTRY] |
-| :-----: | :-------- | :------ | :----- | :------ |
-| [01] | document address | `DocumentTextTarget` | flat or sectioned store | `TextProgram.Document` |
-| [02] | object address | `ObjectTextTarget` | table target plus attribute-or-geometry side | `TextProgram.Objects` |
-| [03] | edit vocabulary | `TextEdit` | generated set, delete, and clear behavior | `Set` / `Delete` / `Clear` |
-| [04] | mutation rail | `TextProgram` | document undo or canonical table transaction | `Texts.Commit` |
-| [05] | document read | `DocumentTextSnapshot` | full flat, sectioned, and count state | `Texts.Read` |
-| [06] | object read | `ObjectTextSnapshot` | independent attribute and geometry maps per object | `Texts.Read` |
-| [07] | wildcard search | `TextSearch` | host flags plus object-type or object-query filter | `Texts.Read` |
-| [08] | observation | `DocumentStream` | existing user-string event family | seam owner only |
+| [INDEX] | [CONCERN]        | [OWNER]                | [FORM]                                             | [ENTRY]                    |
+| :-----: | :--------------- | :--------------------- | :------------------------------------------------- | :------------------------- |
+|  [01]   | document address | `DocumentTextTarget`   | flat or sectioned store                            | `TextProgram.Document`     |
+|  [02]   | object address   | `ObjectTextTarget`     | table target plus attribute-or-geometry side       | `TextProgram.Objects`      |
+|  [03]   | edit vocabulary  | `TextEdit`             | generated set, delete, and clear behavior          | `Set` / `Delete` / `Clear` |
+|  [04]   | mutation rail    | `TextProgram`          | document undo or canonical table transaction       | `Texts.Commit`             |
+|  [05]   | document read    | `DocumentTextSnapshot` | full flat, sectioned, and count state              | `Texts.Read`               |
+|  [06]   | object read      | `ObjectTextSnapshot`   | independent attribute and geometry maps per object | `Texts.Read`               |
+|  [07]   | wildcard search  | `TextSearch`           | host flags plus object-type or object-query filter | `Texts.Read`               |
+|  [08]   | observation      | `DocumentStream`       | existing user-string event family                  | seam owner only            |

@@ -2,13 +2,14 @@
 
 Compile-and-reuse terminal of the symbolic CAS arm: a simplified `SymbolicExpr` lowers once to a native delegate through the engine's typed `Compile<TIn1..TIn8, TOut>(vars)` IL-compiling surface (arities one through eight instantiate `double` and lower through the LINQ-expression protocol) with the interpreter `Compile(params Variable[]) → FastExpression` absorbing every arity past eight, carried by the `CompiledExpr` value keyed on the canonical-NF `XxHash128` content key `Symbolic/expression#SYMBOLIC_EXPR` mints, and reused through a `LoweringCache` read-through over the one model-lane `HybridCache` (`Model/inference#RESULT_CACHE` `CacheLane.ModelResult`, never a second instance). Owned here: the `CompiledExpr` carrier, the `CompileArity` `[SmartEnum<string>]` that selects and owns the arity-exact compile-and-invoke behavior (one delegate-backed row per arity, the variadic row retaining `Complex` until the real-result gate), the `LoweringCache` L1-only read-through with its `LoweringSlot` carrier and `CompiledKey` derivation composing the `Runtime/codecs#CONTENT_ADDRESSING` `XxHash128` law, and the cross-lane `SymbolicJacobian` that differentiates a formula by each free design symbol, compiles each partial, and packs the partials WITH the design point into a `SymbolicTape` whose `SymbolicAdjoint.Chain` answers the same two-argument reverse-mode contract `Tensor/dispatch#EQUIVALENCE_INTEROP` `SensitivityLaw.Chain` answers — the design point baked into the tape exactly as the geometry primal `MeshAdjointSnapshot` is baked into `GeometryTape`. Symbolic gradients enter as the additive `DesignVariable.Symbolic` arm the optimizer admits — its lowering yielding a `SymbolicTape`, its adjoint routing `SymbolicAdjoint.Chain` — never a standalone `GradientSource` and never a parallel `(Seq<double>, double)` path (that pair is the `Surrogate.Predict` RETURN shape, never the gradient contract).
 
-Lowering is the gate the `Symbolic/dimensional#DIMENSION_PROOF` pre-numeric admission runs strictly before: a formula compiles and registers a Jacobian only after `DimensionProof` admits, so a dimension-inconsistent expression never reaches a `CompiledExpr` slot, the optimizer oracle, or the integrator seed. `SymbolicTape.ActiveIndices` maps free-symbol partials back onto the full design vector; inactive symbols and a constant formula produce exact zero gradient coordinates rather than shortening the vector or forwarding the scalar cotangent as a false identity. Host-local, no TS_PROJECTION cluster: the `CompiledExpr` delegate is an interior value, and the only cross-surface fact is the `SymbolicExpr.ContentKey` crossing by reference to the `Rasm.Persistence/Query/cache#MODEL_RESULT_INDEX` cost-catalog/QTO consumers, keyed by its OWN content identity, never a fabricated `ModelResultKey`. Compiled delegates are ALC-safe yet not durably serializable, so the cache entry is L1-only by construction — cross-process reuse is deterministic re-lowering off the content-addressed key, never a serialized delegate — and a compiled delegate roots its load context, so ALC teardown drives the `Evict`/`Purge` invalidation surface rather than leaking the context through a live L1 reference. An in-proc symbolic-regression fit is the rejected form: offline formula discovery is the Python branch's, and compile-and-cache plus the analytic-Jacobian lowering over an already-admitted expression is all this owner holds.
+Lowering is the gate the `Symbolic/dimensional#DIMENSION_PROOF` pre-numeric admission runs strictly before: a formula compiles and registers a Jacobian only after `DimensionProof` admits, so a dimension-inconsistent expression never reaches a `CompiledExpr` slot, the optimizer oracle, or the integrator seed. `SymbolicTape.ActiveIndices` maps free-symbol partials back onto the full design vector; inactive symbols and a constant formula produce exact zero gradient coordinates rather than shortening the vector or forwarding the scalar cotangent as a false identity. Host-local, no TS_PROJECTION cluster: the `CompiledExpr` delegate is an interior value, and the only cross-surface fact is the `SymbolicExpr.ContentKey` crossing by reference to the `Rasm.Persistence/Query/cache#MODEL_RESULT_INDEX` cost-catalog/QTO consumers, keyed by its OWN content identity, never a fabricated `ModelResultKey`. Compiled delegates are ALC-safe yet not durably serializable, so the cache entry is L1-only by construction — cross-process reuse is deterministic re-lowering off the content-addressed key, never a serialized delegate — and a compiled delegate roots its load context, so ALC teardown drives the `Evict`/`Purge` invalidation surface rather than leaking the context through a live L1 reference. An in-proc symbolic-regression fit is the rejected form: offline formula discovery is the Python branch's, and compile-and-cache, the analytic-Jacobian lowering, and the enclosure/column evaluation modalities over an already-admitted expression are all this owner holds.
 
 ## [01]-[INDEX]
 
 - [01]-[LOWERING]: `CompiledExpr` delegate carrier; `CompileArity` delegate-backed arity owner (compile + invoke in one row); the typed `Compile<>`/interpreter `FastExpression` lowering.
 - [02]-[LOWERING_CACHE]: `LoweringCache` L1-only read-through over `CacheLane.ModelResult`; `LoweringSlot` `[ImmutableObject]` carrier; `CompiledKey` content-key derivation.
 - [03]-[SYMBOLIC_JACOBIAN]: `SymbolicJacobian` partial-derivative lowering; `SymbolicTape` (design point baked in) / `SymbolicAdjoint` two-argument transpose `Chain`.
+- [04]-[ENCLOSURE_AND_COLUMNS]: `Interval`/`EnclosureFold` verified range enclosure over a box domain with the `IntervalVerdict` constraint pre-gate; `ColumnProgram` tensor-lane column evaluation running one formula over N design points in SIMD passes.
 
 ## [02]-[LOWERING]
 
@@ -302,7 +303,188 @@ public static class SymbolicAdjoint {
 }
 ```
 
-## [05]-[RESEARCH]
+## [05]-[ENCLOSURE_AND_COLUMNS]
+
+- Owner: `Interval` the inf-sup carrier whose every operation rounds outward through `Math.BitDecrement`/`Math.BitIncrement`, so the returned bounds are a GUARANTEED enclosure under double arithmetic, never a sampled estimate; `EnclosureFold` the `Entity` tree fold evaluating a formula over a box domain in interval arithmetic; `IntervalVerdict` `[Union]` the three-way constraint pre-gate a `g(x) ≤ 0` question answers over an entire box in one evaluation; `ColumnProgram` the register program lowering one formula onto `TensorPrimitives` span kernels so N design points evaluate as columns; `ColumnStep` its one instruction row. Both modalities key on the same canonical-NF `SymbolicExpr.ContentKey` the scalar lowering keys on.
+- Cases: `IntervalVerdict` cases `ProvenSatisfied` (upper bound ≤ 0 — every point of the box satisfies), `ProvenViolated` (lower bound > 0 — no point can), `Indeterminate(Interval)` (the enclosure straddles zero — the box splits or the exact engine answers); `ColumnStep` kinds `Variable` (column bind) · `Constant` (broadcast fill) · `Unary` · `Binary` over the verified kernel set `Add`/`Subtract`/`Multiply`/`Divide`/`Pow`/`Abs`/`Log`/`Negate`.
+- Entry: `EnclosureFold.Enclose(SymbolicExpr, Seq<string> symbolOrder, ImmutableArray<Interval> box)` folds the tree over the catalog-verified node records — `Sumf`/`Minusf`/`Mulf`/`Divf`/`Powf`/`Absf`/`Signumf`/`Logf`, `Variable`, the numeric leaves — and declines any other node typed, so the enclosure never silently widens to `(−∞, +∞)` on a node it cannot bound; `Certify(...)` projects the enclosure onto `IntervalVerdict`. `ColumnProgram.Lower(SymbolicExpr, Seq<string> symbolOrder)` compiles the same node set into a `Seq<ColumnStep>` register program; `Evaluate(ReadOnlyMemory<double>[] columns)` runs it over one pooled register file in a handful of SIMD passes — a 10⁴-point DOE grid pays tens of span kernels instead of 10⁴ delegate dispatches; a formula outside the lowered node set declines typed and the caller loops the scalar `CompiledExpr.Invoke` as the honest fallback.
+- Receipt: none of its own — a branch-and-prune consumer counts discarded boxes on its own receipt, and the column sweep rides the sweep's `ComputeReceipt.Sweep`; an enclosure or lowering decline rides the `ComputeFault.NonDifferentiable` 2215 arm exactly as a compile decline does.
+- Packages: AngouriMath (the positional node records, `IUnaryNode.NodeChild`, `IBinaryNode.NodeFirstChild`/`NodeSecondChild`), System.Numerics.Tensors (`TensorPrimitives.Add`/`Subtract`/`Multiply`/`Divide`/`Pow`/`Abs`/`Log`/`Negate` span kernels), CommunityToolkit.HighPerformance (`MemoryOwner<double>` register file), LanguageExt.Core (`Fin`, `Seq`), BCL inbox (`Math.BitDecrement`/`BitIncrement`).
+- Growth: a new bounded node family (the trig records, once their monotonicity split lands) is one arm on BOTH folds — the interval bound and the column kernel land together or the node stays declined; a tighter enclosure (affine arithmetic, mean-value forms) is a policy row on `EnclosureFold`, never a sibling evaluator; a new column kernel is one `ColumnStep` row binding its verified `TensorPrimitives` member.
+- Boundary: the pre-gate serves `Solver/satisfy#RULE_SATISFACTION` — a rule whose enclosure proves over the declared bounds never spends the Z3 timeout, and `Indeterminate` falls through to the exact check, so the gate is a filter, never a verdict authority; `Solver/optimizer` box screening discards `ProvenViolated` regions without oracle calls. Interval division by a zero-straddling denominator and `Logf` over a non-positive interval decline typed rather than returning an infinite enclosure that certifies nothing. The column program is an evaluation plan over already-admitted values — it re-validates nothing, and the register file is pooled and returned deterministically.
+
+```csharp signature
+// --- [TYPES] -----------------------------------------------------------------------------
+// Outward rounding after every operation keeps the enclosure sound under double arithmetic.
+public readonly record struct Interval(double Lo, double Hi) {
+    public static Interval Of(double lo, double hi) => new(Math.BitDecrement(lo), Math.BitIncrement(hi));
+    public static Interval Point(double value) => Of(value, value);
+
+    public bool Valid => double.IsFinite(Lo) && double.IsFinite(Hi) && Lo <= Hi;
+    public bool Contains(double value) => value >= Lo && value <= Hi;
+
+    public static Interval operator +(Interval a, Interval b) => Of(a.Lo + b.Lo, a.Hi + b.Hi);
+    public static Interval operator -(Interval a, Interval b) => Of(a.Lo - b.Hi, a.Hi - b.Lo);
+    public static Interval operator -(Interval a) => new(-a.Hi, -a.Lo);
+
+    public static Interval operator *(Interval a, Interval b) {
+        ReadOnlySpan<double> products = [a.Lo * b.Lo, a.Lo * b.Hi, a.Hi * b.Lo, a.Hi * b.Hi];
+        return Of(TensorPrimitives.Min(products), TensorPrimitives.Max(products));
+    }
+
+    public Interval Abs() => Lo >= 0.0 ? this : Hi <= 0.0 ? -this : Of(0.0, Math.Max(-Lo, Hi));
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record IntervalVerdict {
+    private IntervalVerdict() { }
+    public sealed record ProvenSatisfied(Interval Range) : IntervalVerdict;
+    public sealed record ProvenViolated(Interval Range) : IntervalVerdict;
+    public sealed record Indeterminate(Interval Range) : IntervalVerdict;
+}
+
+public readonly record struct ColumnStep(int Target, int Left, int Right, TensorOpFamily Op, double Scalar, ColumnStepKind Kind);
+
+[SmartEnum<string>]
+public sealed partial class ColumnStepKind {
+    public static readonly ColumnStepKind Variable = new("variable");
+    public static readonly ColumnStepKind Constant = new("constant");
+    public static readonly ColumnStepKind Unary = new("unary");
+    public static readonly ColumnStepKind Binary = new("binary");
+}
+
+// --- [OPERATIONS] ------------------------------------------------------------------------
+public static class EnclosureFold {
+    public static Fin<Interval> Enclose(SymbolicExpr source, Seq<string> symbolOrder, ImmutableArray<Interval> box) =>
+        source.Entity is null || symbolOrder.Count != box.Length || !box.All(static i => i.Valid)
+            ? Fin.Fail<Interval>(new ComputeFault.SymbolUndefined("<enclosure-box-invalid>"))
+            : Descend(source.Entity, toSeq(symbolOrder).Zip(toSeq(box)).ToMap());
+
+    // Constraint pre-gate over g(x) <= 0: a proven verdict answers the whole box in one evaluation.
+    public static Fin<IntervalVerdict> Certify(SymbolicExpr constraint, Seq<string> symbolOrder, ImmutableArray<Interval> box) =>
+        Enclose(constraint, symbolOrder, box).Map(range => (IntervalVerdict)(
+            range.Hi <= 0.0 ? new IntervalVerdict.ProvenSatisfied(range)
+            : range.Lo > 0.0 ? new IntervalVerdict.ProvenViolated(range)
+            : new IntervalVerdict.Indeterminate(range)));
+
+    static Fin<Interval> Descend(Entity node, Map<string, Interval> bindings) => node switch {
+        Entity.Variable v => bindings.Find(v.Name).ToFin(new ComputeFault.SymbolUndefined($"<enclosure-unbound:{v.Name}>")),
+        Entity.Number n => NumberBox.Project(n).Map(Interval.Point),
+        Entity.Sumf s => from a in Descend(s.Augend, bindings) from b in Descend(s.Addend, bindings) select a + b,
+        Entity.Minusf m => from a in Descend(m.Subtrahend, bindings) from b in Descend(m.Minuend, bindings) select a - b,
+        Entity.Mulf m => from a in Descend(m.Multiplier, bindings) from b in Descend(m.Multiplicand, bindings) select a * b,
+        Entity.Divf d =>
+            from a in Descend(d.Dividend, bindings)
+            from b in Descend(d.Divisor, bindings)
+            from q in b.Contains(0.0)
+                ? Fin.Fail<Interval>(new ComputeFault.NonDifferentiable("<enclosure-zero-straddling-divisor>"))
+                : Fin.Succ(a * Interval.Of(1.0 / b.Hi, 1.0 / b.Lo))
+            select q,
+        Entity.Powf p =>
+            from a in Descend(p.Base, bindings)
+            from e in Descend(p.Exponent, bindings)
+            from r in Power(a, e)
+            select r,
+        Entity.Absf a => Descend(a.Argument, bindings).Map(static i => i.Abs()),
+        Entity.Signumf s => Descend(s.Argument, bindings).Map(static i =>
+            i.Lo > 0.0 ? Interval.Point(1.0) : i.Hi < 0.0 ? Interval.Point(-1.0) : Interval.Of(-1.0, 1.0)),
+        Entity.Logf l =>
+            from b in Descend(l.Base, bindings)
+            from x in Descend(l.Antilogarithm, bindings)
+            from r in x.Lo > 0.0 && b.Lo > 1.0
+                ? Fin.Succ(Interval.Of(Math.Log(x.Lo, b.Hi), Math.Log(x.Hi, b.Lo)))
+                : Fin.Fail<Interval>(new ComputeFault.NonDifferentiable("<enclosure-log-domain>"))
+            select r,
+        _ => Fin.Fail<Interval>(new ComputeFault.NonDifferentiable($"<enclosure-node:{node.GetType().Name}>")),
+    };
+
+    // Integer exponents split by parity and base sign; a non-integer exponent demands a positive base.
+    static Fin<Interval> Power(Interval baseRange, Interval exponent) =>
+        exponent.Lo == exponent.Hi && double.IsInteger(exponent.Lo)
+            ? Fin.Succ(IntegerPower(baseRange, (int)exponent.Lo))
+            : baseRange.Lo > 0.0
+                ? Fin.Succ(Interval.Of(
+                    Math.Min(Math.Pow(baseRange.Lo, exponent.Lo), Math.Pow(baseRange.Lo, exponent.Hi)),
+                    Math.Max(Math.Pow(baseRange.Hi, exponent.Lo), Math.Pow(baseRange.Hi, exponent.Hi))))
+                : Fin.Fail<Interval>(new ComputeFault.NonDifferentiable("<enclosure-pow-domain>"));
+
+    static Interval IntegerPower(Interval a, int n) =>
+        n == 0 ? Interval.Point(1.0)
+        : n < 0 ? IntegerPower(a, -n) switch { var p => Interval.Of(1.0 / p.Hi, 1.0 / p.Lo) }
+        : (n & 1) == 0 && a.Contains(0.0) ? Interval.Of(0.0, Math.Max(Math.Pow(a.Lo, n), Math.Pow(a.Hi, n)))
+        : Interval.Of(Math.Min(Math.Pow(a.Lo, n), Math.Pow(a.Hi, n)), Math.Max(Math.Pow(a.Lo, n), Math.Pow(a.Hi, n)));
+}
+
+// --- [COMPOSITION] -----------------------------------------------------------------------
+public sealed record ColumnProgram(UInt128 ContentKey, Seq<string> SymbolOrder, Seq<ColumnStep> Steps, int Registers) {
+    public static Fin<ColumnProgram> Lower(SymbolicExpr source, Seq<string> symbolOrder) =>
+        source.Entity is null || symbolOrder.Exists(string.IsNullOrWhiteSpace) || symbolOrder.Distinct().Count != symbolOrder.Count
+            ? Fin.Fail<ColumnProgram>(new ComputeFault.SymbolUndefined("<column-lowering-invalid>"))
+            : Emit(source.Entity, symbolOrder, Seq<ColumnStep>(), symbolOrder.Count)
+                .Map(plan => new ColumnProgram(source.ContentKey, symbolOrder, plan.Steps, plan.Next));
+
+    // One pooled register file; each step is one span kernel over all N points — the point loop is inside the kernel.
+    public Fin<ReadOnlyMemory<double>> Evaluate(params ReadOnlyMemory<double>[] columns) {
+        if (columns.Length != SymbolOrder.Count || columns.Length == 0 || !columns.All(c => c.Length == columns[0].Length)) {
+            return Fin.Fail<ReadOnlyMemory<double>>(new ComputeFault.SymbolUndefined("<column-arity-or-length>"));
+        }
+        int n = columns[0].Length;
+        using MemoryOwner<double> file = MemoryOwner<double>.Allocate(Registers * n, AllocationMode.Clear);
+        for (int c = 0; c < columns.Length; c++) { columns[c].Span.CopyTo(file.Span.Slice(c * n, n)); }
+        foreach (ColumnStep step in Steps) {
+            Span<double> target = file.Span.Slice(step.Target * n, n);
+            ReadOnlySpan<double> left = file.Span.Slice(step.Left * n, n);
+            ReadOnlySpan<double> right = file.Span.Slice(step.Right * n, n);
+            if (step.Kind == ColumnStepKind.Variable) { left.CopyTo(target); continue; }
+            if (step.Kind == ColumnStepKind.Constant) { target.Fill(step.Scalar); continue; }
+            if (step.Kind == ColumnStepKind.Unary) { UnaryKernel(step.Op, left, target); continue; }
+            if (step.Kind == ColumnStepKind.Binary) { BinaryKernel(step.Op, left, right, target); }
+        }
+        double[] result = file.Span.Slice((Registers - 1) * n, n).ToArray();
+        return TensorPrimitives.IsFiniteAll<double>(result)
+            ? Fin.Succ<ReadOnlyMemory<double>>(result)
+            : Fin.Fail<ReadOnlyMemory<double>>(new ComputeFault.SymbolUndefined("<column-non-finite>"));
+    }
+
+    static void UnaryKernel(TensorOpFamily op, ReadOnlySpan<double> source, Span<double> target) {
+        if (op == TensorOpFamily.Abs) { TensorPrimitives.Abs(source, target); }
+        else if (op == TensorOpFamily.Negate) { TensorPrimitives.Negate(source, target); }
+        else { TensorPrimitives.Log(source, target); }
+    }
+
+    static void BinaryKernel(TensorOpFamily op, ReadOnlySpan<double> left, ReadOnlySpan<double> right, Span<double> target) {
+        if (op == TensorOpFamily.Add) { TensorPrimitives.Add(left, right, target); }
+        else if (op == TensorOpFamily.Subtract) { TensorPrimitives.Subtract(left, right, target); }
+        else if (op == TensorOpFamily.Multiply) { TensorPrimitives.Multiply(left, right, target); }
+        else if (op == TensorOpFamily.Divide) { TensorPrimitives.Divide(left, right, target); }
+        else { TensorPrimitives.Pow(left, right, target); }
+    }
+
+    static Fin<(Seq<ColumnStep> Steps, int Next)> Emit(Entity node, Seq<string> order, Seq<ColumnStep> steps, int next) => node switch {
+        Entity.Variable v => toSeq(Enumerable.Range(0, order.Count)).Find(i => order[i] == v.Name).Match(
+            Some: slot => Fin.Succ((steps.Add(new ColumnStep(next, slot, slot, TensorOpFamily.Add, 0.0, ColumnStepKind.Variable)), next + 1)),
+            None: () => Fin.Fail<(Seq<ColumnStep>, int)>(new ComputeFault.SymbolUndefined($"<column-unbound:{v.Name}>"))),
+        Entity.Number number => NumberBox.Project(number).Map(value =>
+            (steps.Add(new ColumnStep(next, 0, 0, TensorOpFamily.Add, value, ColumnStepKind.Constant)), next + 1)),
+        Entity.Sumf s => Binary(s.Augend, s.Addend, TensorOpFamily.Add, order, steps, next),
+        Entity.Minusf m => Binary(m.Subtrahend, m.Minuend, TensorOpFamily.Subtract, order, steps, next),
+        Entity.Mulf m => Binary(m.Multiplier, m.Multiplicand, TensorOpFamily.Multiply, order, steps, next),
+        Entity.Divf d => Binary(d.Dividend, d.Divisor, TensorOpFamily.Divide, order, steps, next),
+        Entity.Powf p => Binary(p.Base, p.Exponent, TensorOpFamily.Pow, order, steps, next),
+        Entity.Absf a => Unary(a.Argument, TensorOpFamily.Abs, order, steps, next),
+        _ => Fin.Fail<(Seq<ColumnStep>, int)>(new ComputeFault.NonDifferentiable($"<column-node:{node.GetType().Name}>")),
+    };
+
+    static Fin<(Seq<ColumnStep> Steps, int Next)> Binary(Entity left, Entity right, TensorOpFamily op, Seq<string> order, Seq<ColumnStep> steps, int next) =>
+        Emit(left, order, steps, next).Bind(l => Emit(right, order, l.Steps, l.Next)
+            .Map(r => (r.Steps.Add(new ColumnStep(r.Next, l.Next - 1, r.Next - 1, op, 0.0, ColumnStepKind.Binary)), r.Next + 1)));
+
+    static Fin<(Seq<ColumnStep> Steps, int Next)> Unary(Entity argument, TensorOpFamily op, Seq<string> order, Seq<ColumnStep> steps, int next) =>
+        Emit(argument, order, steps, next).Map(a => (a.Steps.Add(new ColumnStep(a.Next, a.Next - 1, a.Next - 1, op, 0.0, ColumnStepKind.Unary)), a.Next + 1));
+}
+```
+
+## [06]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

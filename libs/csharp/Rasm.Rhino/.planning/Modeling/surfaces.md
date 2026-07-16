@@ -94,6 +94,13 @@ public abstract partial record RevolveProfile {
     public sealed record OfCurve(GeometryHandle Value) : RevolveProfile;
     public sealed record OfLine(Line Value) : RevolveProfile;
 }
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record SumExtent {
+    private SumExtent() { }
+    public sealed record ByDirection(Vector3d Direction) : SumExtent;
+    public sealed record ByCurve(GeometryHandle Second) : SumExtent;
+}
 ```
 
 ## [03]-[OPERATION_RAIL]
@@ -101,7 +108,7 @@ public abstract partial record RevolveProfile {
 - Owner: `SurfaceSlot` `[SmartEnum<int>]` — the consequence vocabulary; `SurfaceOp` `[Union]` — the whole verified freeform-construction verb roster; `Surfaces` — the one entry folding any operation spread into one `Built<SurfaceSlot>`.
 - Law: the network error code is evidence — `CreateNetworkSurface` folds its `out int error` into a `Code` fact beside the surface, and the single-set auto-sorted overload rides the same case through an empty v-set, so failure diagnosis never re-runs the fit.
 - Law: geodesic fitting has two modalities on one vocabulary — `GeodesicCurve` answers the fitted `NurbsCurve` as a product, `GeodesicSamples` answers the intermediate uv rows as a `UvRows` fact with no product; both consume the same surface lease and point rows.
-- Law: fit and rebuild are value-semantic constructions — `Refit`, `RebuildGrid`, and `RebuildDirection` run the instance member on the borrowed surface and own the returned rebuild, never mutating the input handle.
+- Law: fit and rebuild are value-semantic constructions — `SurfaceFitLaw` selects tolerance fit, grid rebuild, or directional rebuild inside one `Fit` arm, and each member owns the returned surface without mutating the input handle.
 - Law: compatibility answers pairs — `MakeCompatible` confirms and crosses both reparameterized surfaces with symmetric disposal on a half-crossed failure.
 - Growth: a new freeform constructor is one case with its arm; the spine and every consumer read it with zero new surface.
 
@@ -151,7 +158,7 @@ public abstract partial record SurfaceOp {
     public sealed record SoftEdit(GeometryHandle Surface, Point2d Uv, Vector3d Delta, double ULength, double VLength, bool FixEnds = true) : SurfaceOp;
     public sealed record RollingBall(GeometryHandle First, GeometryHandle Second, double Radius, RollingSeed At) : SurfaceOp;
     public sealed record Tween(GeometryHandle First, GeometryHandle Second, int Count, int Samples) : SurfaceOp;
-    public sealed record Sum(GeometryHandle Profile, Vector3d Direction) : SurfaceOp;
+    public sealed record Sum(GeometryHandle Profile, SumExtent Extent) : SurfaceOp;
     public sealed record BoundedPlane(PlaneFrame Frame, BoundingBox Box) : SurfaceOp;
     public sealed record Revolve(RevolveProfile Profile, Line Axis, Option<(double StartRadians, double EndRadians)> Sweep = default) : SurfaceOp;
     public sealed record Fit(GeometryHandle Surface, SurfaceFitLaw Law) : SurfaceOp;
@@ -209,8 +216,8 @@ public abstract partial record SurfaceOp {
             corners: static (model, edit) => {
                 Op op = Op.Of(name: nameof(Corners));
                 return Single(op, SurfaceSlot.Cornered, () => edit.D.Case switch {
-                    Point3d d => NurbsSurface.CreateFromCorners(c1: edit.A, c2: edit.B, c3: edit.C, c4: d, tolerance: model.Absolute.Value),
-                    _ => NurbsSurface.CreateFromCorners(c1: edit.A, c2: edit.B, c3: edit.C),
+                    Point3d d => NurbsSurface.CreateFromCorners(corner1: edit.A, corner2: edit.B, corner3: edit.C, corner4: d, tolerance: model.Absolute.Value),
+                    _ => NurbsSurface.CreateFromCorners(corner1: edit.A, corner2: edit.B, corner3: edit.C),
                 });
             },
             ruled: static (_, edit) => {
@@ -325,7 +332,12 @@ public abstract partial record SurfaceOp {
             sum: static (_, edit) => {
                 Op op = Op.Of(name: nameof(Sum));
                 return ModelGate.Borrow<Curve, Built<SurfaceSlot>>(handle: edit.Profile, key: op, body: profile =>
-                    Single(op, SurfaceSlot.Summed, () => SumSurface.Create(curve: profile, extrusionDirection: edit.Direction)));
+                    edit.Extent.Switch(
+                        state: (Profile: profile, Op: op),
+                        byDirection: static (ctx, extent) => Single(ctx.Op, SurfaceSlot.Summed, () => SumSurface.Create(
+                            curve: ctx.Profile, extrusionDirection: extent.Direction)),
+                        byCurve: static (ctx, extent) => ModelGate.Borrow<Curve, Built<SurfaceSlot>>(handle: extent.Second, key: ctx.Op,
+                            body: second => Single(ctx.Op, SurfaceSlot.Summed, () => SumSurface.Create(curveA: ctx.Profile, curveB: second)))));
             },
             boundedPlane: static (_, edit) => {
                 Op op = Op.Of(name: nameof(BoundedPlane));
@@ -397,14 +409,14 @@ public static class Surfaces {
 
 ## [04]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]            | [OWNER]          | [FORM]                                           | [ENTRY]                          |
-| :-----: | :------------------- | :--------------- | :------------------------------------------------ | :------------------------------- |
-|  [01]   | network continuity   | `NetContinuity`  | rows whose key is the native code                | `SurfaceOp.Network`              |
-|  [02]   | network diagnostics  | `SurfaceOp`      | `out int error` as a `Code` fact                 | `SurfaceSlot.Networked` facts    |
-|  [03]   | grid fitting         | `GridFit`        | control versus through with closure grants       | `SurfaceOp.Grid`                 |
-|  [04]   | geodesic modalities  | `SurfaceOp`      | fitted curve product or uv-sample evidence       | `GeodesicCurve` / `Samples`      |
-|  [05]   | analytic seeding     | `AnalyticSeed`   | one primitive vocabulary, two representations    | `SurfaceOp.Seed`                 |
-|  [06]   | rolling-ball seeding | `RollingSeed`    | auto, flipped, or uv-seeded as one union         | `SurfaceOp.RollingBall`          |
-|  [07]   | revolve profile      | `RevolveProfile` | leased curve or bare line                        | `SurfaceOp.Revolve`              |
-|  [08]   | fit and rebuild      | `SurfaceFitLaw`  | full value-semantic instance rebuild family      | `SurfaceOp.Fit`                  |
-|  [09]   | surface verbs        | `SurfaceOp`      | one flat `[Union]`, total generated dispatch     | `Surfaces.Build`                 |
+| [INDEX] | [CONCERN]            | [OWNER]          | [FORM]                                        | [ENTRY]                       |
+| :-----: | :------------------- | :--------------- | :-------------------------------------------- | :---------------------------- |
+|  [01]   | network continuity   | `NetContinuity`  | rows whose key is the native code             | `SurfaceOp.Network`           |
+|  [02]   | network diagnostics  | `SurfaceOp`      | `out int error` as a `Code` fact              | `SurfaceSlot.Networked` facts |
+|  [03]   | grid fitting         | `GridFit`        | control versus through with closure grants    | `SurfaceOp.Grid`              |
+|  [04]   | geodesic modalities  | `SurfaceOp`      | fitted curve product or uv-sample evidence    | `GeodesicCurve` / `Samples`   |
+|  [05]   | analytic seeding     | `AnalyticSeed`   | one primitive vocabulary, two representations | `SurfaceOp.Seed`              |
+|  [06]   | rolling-ball seeding | `RollingSeed`    | auto, flipped, or uv-seeded as one union      | `SurfaceOp.RollingBall`       |
+|  [07]   | revolve profile      | `RevolveProfile` | leased curve or bare line                     | `SurfaceOp.Revolve`           |
+|  [08]   | fit and rebuild      | `SurfaceFitLaw`  | full value-semantic instance rebuild family   | `SurfaceOp.Fit`               |
+|  [09]   | surface verbs        | `SurfaceOp`      | one flat `[Union]`, total generated dispatch  | `Surfaces.Build`              |

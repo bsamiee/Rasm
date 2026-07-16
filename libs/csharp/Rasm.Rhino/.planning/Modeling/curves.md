@@ -5,7 +5,7 @@
 ## [01]-[INDEX]
 
 - [02]-[OFFSET_POLICY]: `OffsetFrame`, `SurfaceOffsetLaw`, `RibbonLaw` — the offset discriminants and the ribbon carrier.
-- [03]-[SHAPE_POLICY]: `ExtendLaw`, `ShortenLaw`, `SplitCutter`, `PullTarget`, `ProjectTarget`, `BlendLaw`, `TweenLaw`, `SpiralLaw`, `ParabolaSeed`, `AnalyticCurve`, `CatenaryLaw`, `FitLaw` — the modality vocabularies.
+- [03]-[SHAPE_POLICY]: `CurveEdit`, `ExtendLaw`, `ShortenLaw`, `SplitCutter`, `PullTarget`, `ProjectTarget`, `BlendLaw`, `TweenLaw`, `SpiralLaw`, `ParabolaSeed`, `AnalyticCurve`, `CatenaryLaw`, `FitLaw`, `RailFilletLaw` — the modality vocabularies.
 - [04]-[OPERATION_RAIL]: `CurveSlot`, `CurveOp`, and the `Curves.Build` entry.
 - [05]-[SURFACE_LEDGER]: the page's owner table.
 
@@ -61,13 +61,30 @@ public sealed record RibbonLaw(
 
 ## [03]-[SHAPE_POLICY]
 
-- Owner: the modality vocabularies — `ExtendLaw` fuses the extension side, style, and terminal (length, geometry, point, line, arc, on-surface); `ShortenLaw` fuses domain and end trimming; `SplitCutter` fuses parameter, brep, surface, and plane splitting; `PullTarget`/`ProjectTarget` fuse pull and projection destinations; `BlendLaw` fuses end-to-end and at-parameter blending; `TweenLaw` fuses plain, matched, and sampled tweening; `SpiralLaw`, `ParabolaSeed`, `AnalyticCurve`, and `CatenaryLaw` fuse the construction seed families; `FitLaw` carries the advanced `NurbsCurveFitParameters` surface as one policy value.
+- Owner: the modality vocabularies — `CurveBooleanVerb` admits only the three curve-boolean members; `ExtendLaw` fuses the extension side, style, and terminal (length, geometry, point, line, arc, on-surface); `ShortenLaw` fuses domain and end trimming; `SplitCutter` fuses parameter, brep, surface, and plane splitting; `PullTarget`/`ProjectTarget` fuse pull and projection destinations; `BlendLaw` fuses end-to-end and at-parameter blending; `TweenLaw` fuses plain, matched, and sampled tweening; `SpiralLaw`, `ParabolaSeed`, `AnalyticCurve`, and `CatenaryLaw` fuse the construction seed families; `FitLaw` carries the advanced `NurbsCurveFitParameters` surface as one policy value.
 - Law: the discriminant is the value's shape — every native overload family resolves from the case the caller constructed, so no arm reads a mode flag and no verb family grows a `ByX` sibling.
 - Law: `FitLaw.Rig` is the one site naming `NurbsCurveFitParameters` — tangent matching, kink splitting, the three intensity axes, degree, point count, subd-friendliness, closure, and optimization bake in one member; the fit's maximum-separation line and parameters land as receipt facts beside the fitted curve.
 - Law: catenary construction is one case over four shape terminals — through-point, length, parameter, and apex select the native static, and the apex, parameter, length, and deviation out-channels land as facts on every form.
 
 ```csharp
 // --- [TYPES] ------------------------------------------------------------------------------
+[SmartEnum<int>]
+public sealed partial class CurveBooleanVerb {
+    public static readonly CurveBooleanVerb Union = new(key: 0, requiresSecond: false);
+    public static readonly CurveBooleanVerb Intersection = new(key: 1, requiresSecond: true);
+    public static readonly CurveBooleanVerb Difference = new(key: 2, requiresSecond: true);
+
+    public bool RequiresSecond { get; }
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record CurveEdit {
+    private CurveEdit() { }
+    public sealed record RemoveShort : CurveEdit;
+    public sealed record CloseGap : CurveEdit;
+    public sealed record TrimDomain(Interval Value) : CurveEdit;
+}
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ExtendLaw {
     private ExtendLaw() { }
@@ -195,6 +212,14 @@ public sealed record FitLaw(
             PointCountRange = PointCountRange,
         }));
 }
+
+public sealed record RailFilletLaw(
+    int RailDegree,
+    int ArcDegree,
+    Seq<double> ArcSliders,
+    int BezierSurfaceCount,
+    bool Extend,
+    FilletSurfaceSplitType Split);
 ```
 
 ## [04]-[OPERATION_RAIL]
@@ -234,6 +259,8 @@ public sealed partial class CurveSlot {
     public static readonly CurveSlot Constructed = new(key: 21);
     public static readonly CurveSlot Reconciled = new(key: 22);
     public static readonly CurveSlot Outlined = new(key: 23);
+    public static readonly CurveSlot Trimmed0 = new(key: 24);
+    public static readonly CurveSlot Trimmed1 = new(key: 25);
 }
 
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -248,6 +275,7 @@ public abstract partial record CurveOp {
     public sealed record Rebuild(GeometryHandle Curve, int PointCount, int Degree, bool PreserveTangents) : CurveOp;
     public sealed record Smooth(GeometryHandle Curve, double Factor, bool X, bool Y, bool Z, bool FixBoundaries, SmoothingCoordinateSystem System, Option<Plane> Frame = default) : CurveOp;
     public sealed record Simplify(GeometryHandle Curve, CurveSimplifyOptions Options, Option<CurveEnd> EndOnly = default) : CurveOp;
+    public sealed record Edit(GeometryHandle Curve, CurveEdit Verb) : CurveOp;
     public sealed record NurbsFit(GeometryHandle Curve, Interval Domain, FitLaw Law) : CurveOp;
     public sealed record Extend(GeometryHandle Curve, ExtendLaw Law) : CurveOp;
     public sealed record Shorten(GeometryHandle Curve, ShortenLaw Law) : CurveOp;
@@ -255,7 +283,7 @@ public abstract partial record CurveOp {
     public sealed record Pull(GeometryHandle Curve, PullTarget Target) : CurveOp;
     public sealed record Project(Seq<GeometryHandle> Curves, ProjectTarget Target) : CurveOp;
     public sealed record Join(Seq<GeometryHandle> Curves, bool PreserveDirection = false, bool Simple = false) : CurveOp;
-    public sealed record Boolean(BooleanVerb Verb, Seq<GeometryHandle> First, Seq<GeometryHandle> Second) : CurveOp;
+    public sealed record Boolean(CurveBooleanVerb Verb, Seq<GeometryHandle> First, Seq<GeometryHandle> Second) : CurveOp;
     public sealed record Regions(Seq<GeometryHandle> Curves, Plane Frame, Seq<Point3d> Points, bool Combine) : CurveOp;
     public sealed record Blend(GeometryHandle First, GeometryHandle Second, BlendLaw Law) : CurveOp;
     public sealed record ArcBlend(Point3d Start, Vector3d StartDirection, Point3d End, Vector3d EndDirection, double RatioOrRadius, bool LineArc = false) : CurveOp;
@@ -272,12 +300,17 @@ public abstract partial record CurveOp {
     public sealed record SoftEdit(GeometryHandle Curve, double T, Vector3d Delta, double Length, bool FixEnds = true) : CurveOp;
     public sealed record PeriodicClose(GeometryHandle Curve, bool Smooth = true) : CurveOp;
     public sealed record SubDFriendly(GeometryHandle Curve, Option<(int PointCount, bool PeriodicClosed)> Structure = default) : CurveOp;
+    public sealed record SubDFriendlyPoints(Seq<Point3d> Points, bool Interpolate, bool PeriodicClosed) : CurveOp;
+    public sealed record Compatible(Seq<GeometryHandle> Curves, Point3d Start, Point3d End, int SimplifyMethod, int PointCount) : CurveOp;
     public sealed record Spiral(SpiralLaw Law, Point3d RadiusPoint, double Pitch, double TurnCount, double Radius0, double Radius1) : CurveOp;
     public sealed record Parabola(ParabolaSeed Seed) : CurveOp;
     public sealed record ArcBezier(int Degree, Point3d Center, Point3d Start, Point3d End, double Radius, double TanSlider, double MidSlider) : CurveOp;
     public sealed record Analytic(AnalyticCurve Seed) : CurveOp;
     public sealed record Catenary(Point3d Start, Point3d End, Vector3d AxisDirection, CatenaryLaw Law, bool Smooth, int PointCount) : CurveOp;
     public sealed record MakeEndsMeet(GeometryHandle First, bool AdjustStartFirst, GeometryHandle Second, bool AdjustStartSecond) : CurveOp;
+    public sealed record RailFillet(
+        GeometryHandle Rail, GeometryHandle First, int FirstFace, GeometryHandle Second, int SecondFace,
+        double U, double V, RailFilletLaw Law) : CurveOp;
     public sealed record TextOutlines(string Text, string Font, double Height, int Style, bool CloseLoops, Plane Frame, double SmallCapsScale = 1.0) : CurveOp;
 
     internal Fin<Built<CurveSlot>> Apply(Context domain) =>
@@ -372,6 +405,22 @@ public abstract partial record CurveOp {
                         distanceTolerance: model.Absolute.Value, angleToleranceRadians: model.Angle.Value),
                     _ => curve.Simplify(options: edit.Options,
                         distanceTolerance: model.Absolute.Value, angleToleranceRadians: model.Angle.Value),
+                })),
+            edit: static (model, edit) => Borrowed(edit.Curve, Op.Of(name: nameof(Edit)), (curve, op) =>
+                op.Catch(() => {
+                    Curve working = (Curve)curve.Duplicate();
+                    Fin<Unit> changed = edit.Verb.Switch(
+                        state: (Working: working, Domain: model, Op: op),
+                        removeShort: static ctx => ctx.Op.Confirm(success: ctx.Working.RemoveShortSegments(tolerance: ctx.Domain.Absolute.Value)),
+                        closeGap: static ctx => ctx.Op.Confirm(success: ctx.Working.MakeClosed(tolerance: ctx.Domain.Absolute.Value)),
+                        trimDomain: static (ctx, law) => ctx.Op.Confirm(success: ctx.Working.TrimInterval(domain: law.Value)));
+                    return changed.Bind(_ => ModelGate.Own(built: working, key: op).Map(owned => new Built<CurveSlot>(
+                            Products: Seq(owned),
+                            Evidence: BuildReceipt<CurveSlot>.Of(slot: CurveSlot.Refined, body: new BuildBody.Tally(Count: 1)))))
+                        .MapFail(error => {
+                            working.Dispose();
+                            return error;
+                        });
                 })),
             nurbsFit: static (model, edit) => Borrowed(edit.Curve, Op.Of(name: nameof(NurbsFit)), (curve, op) =>
                 edit.Law.Rig(domain: model, key: op).Bind(parameters => {
@@ -482,7 +531,8 @@ public abstract partial record CurveOp {
                 Op op = Op.Of(name: nameof(Boolean));
                 return ModelGate.BorrowMany<Curve, Built<CurveSlot>>(handles: edit.First, key: op, body: first =>
                     ModelGate.BorrowMany<Curve, Built<CurveSlot>>(handles: edit.Second, key: op, allowEmpty: !edit.Verb.RequiresSecond, body: second =>
-                        edit.Verb.Switch(
+                        from _ in guard(edit.Verb.RequiresSecond == !second.IsEmpty, op.InvalidInput())
+                        from built in edit.Verb.Switch(
                             state: (First: first, Second: second, Tolerance: model.Absolute.Value, Op: op),
                             union: static ctx => ctx.Op.Catch(() => {
                                 Curve[] fused = Curve.CreateBooleanUnion(curves: ctx.First.AsIterable(), tolerance: ctx.Tolerance, indexMap: out int[] map);
@@ -496,8 +546,8 @@ public abstract partial record CurveOp {
                                 : Fin.Fail<Built<CurveSlot>>(error: ctx.Op.InvalidInput()),
                             difference: static ctx => ctx.First.Count == 1
                                 ? Many(ctx.Op, CurveSlot.Booled, () => Curve.CreateBooleanDifference(curveA: ctx.First[0], subtractors: ctx.Second.AsIterable(), tolerance: ctx.Tolerance))
-                                : Fin.Fail<Built<CurveSlot>>(error: ctx.Op.InvalidInput()),
-                            split: static ctx => Fin.Fail<Built<CurveSlot>>(error: ctx.Op.Unsupported(geometryType: typeof(Curve), outputType: typeof(Curve))))));
+                                : Fin.Fail<Built<CurveSlot>>(error: ctx.Op.InvalidInput()))
+                        select built));
             },
             regions: static (model, edit) => {
                 Op op = Op.Of(name: nameof(Regions));
@@ -508,20 +558,28 @@ public abstract partial record CurveOp {
                             : Curve.CreateBooleanRegions(curves: curves.AsIterable(), plane: edit.Frame, points: edit.Points.AsIterable(), combineRegions: edit.Combine, tolerance: model.Absolute.Value);
                         return Optional(acquired).ToFin(Fail: op.InvalidResult()).Bind(live => {
                             using (live) {
-                            Seq<Seq<Curve>> regions = toSeq(Enumerable.Range(start: 0, count: live.RegionCount))
-                                .Map(region => toSeq(live.RegionCurves(regionIndex: region)));
-                            Seq<int> pointRegions = toSeq(Enumerable.Range(start: 0, count: live.PointCount))
-                                .Map(point => live.RegionPointIndex(pointIndex: point));
-                            int offset = 0;
-                            Seq<Seq<int>> groups = regions.Map(region => {
-                                Seq<int> rows = toSeq(Enumerable.Range(start: offset, count: region.Count));
-                                offset += region.Count;
-                                return rows;
-                            });
-                            return ModelGate.OwnMany(built: regions.Bind(static region => region), key: op).Map(owned => new Built<CurveSlot>(
-                                Products: owned,
-                                Evidence: BuildReceipt<CurveSlot>.Of(slot: CurveSlot.Regions, body: new BuildBody.SourceGroups(Groups: groups))
-                                    + BuildReceipt<CurveSlot>.Of(slot: CurveSlot.Regions, body: new BuildBody.SourceMap(Rows: pointRegions))));
+                                Seq<Seq<Curve>> regions = toSeq(Enumerable.Range(start: 0, count: live.RegionCount))
+                                    .Map(region => toSeq(live.RegionCurves(regionIndex: region)));
+                                Seq<int> pointRegions = toSeq(Enumerable.Range(start: 0, count: live.PointCount))
+                                    .Map(point => live.RegionPointIndex(pointIndex: point));
+                                Seq<(int Region, int Boundary, int Segment, int PlanarCurve, Interval Domain, bool Reversed)> segments =
+                                    toSeq(Enumerable.Range(start: 0, count: live.RegionCount)).Bind(region =>
+                                        toSeq(Enumerable.Range(start: 0, count: live.BoundaryCount(region))).Bind(boundary =>
+                                            toSeq(Enumerable.Range(start: 0, count: live.SegmentCount(region, boundary))).Map(segment => {
+                                                int planarCurve = live.SegmentDetails(region, boundary, segment, out Interval domain, out bool reversed);
+                                                return (Region: region, Boundary: boundary, Segment: segment, PlanarCurve: planarCurve, Domain: domain, Reversed: reversed);
+                                            })));
+                                int offset = 0;
+                                Seq<Seq<int>> groups = regions.Map(region => {
+                                    Seq<int> rows = toSeq(Enumerable.Range(start: offset, count: region.Count));
+                                    offset += region.Count;
+                                    return rows;
+                                });
+                                return ModelGate.OwnMany(built: regions.Bind(static region => region), key: op).Map(owned => new Built<CurveSlot>(
+                                    Products: owned,
+                                    Evidence: BuildReceipt<CurveSlot>.Of(slot: CurveSlot.Regions, body: new BuildBody.SourceGroups(Groups: groups))
+                                        + BuildReceipt<CurveSlot>.Of(slot: CurveSlot.Regions, body: new BuildBody.SourceMap(Rows: pointRegions))
+                                        + BuildReceipt<CurveSlot>.Of(slot: CurveSlot.Regions, body: new BuildBody.RegionSegments(Rows: segments))));
                             }
                         });
                     }));
@@ -630,6 +688,19 @@ public abstract partial record CurveOp {
                     (int points, bool periodic) => NurbsCurve.CreateSubDFriendly(curve: curve, pointCount: points, periodicClosedCurve: periodic),
                     _ => NurbsCurve.CreateSubDFriendly(curve: curve),
                 })),
+            subDFriendlyPoints: static (_, edit) => {
+                Op op = Op.Of(name: nameof(SubDFriendlyPoints));
+                return Single(op, CurveSlot.Refined, () => NurbsCurve.CreateSubDFriendly(
+                    points: edit.Points.AsIterable(), interpolatePoints: edit.Interpolate, periodicClosedCurve: edit.PeriodicClosed));
+            },
+            compatible: static (model, edit) => {
+                Op op = Op.Of(name: nameof(Compatible));
+                return ModelGate.BorrowMany<Curve, Built<CurveSlot>>(handles: edit.Curves, key: op, body: curves =>
+                    Many(op, CurveSlot.Refined, () => NurbsCurve.MakeCompatible(
+                        curves: curves.AsIterable(), startPt: edit.Start, endPt: edit.End,
+                        simplifyMethod: edit.SimplifyMethod, numPoints: edit.PointCount,
+                        refitTolerance: model.Absolute.Value, angleTolerance: model.Angle.Value)));
+            },
             spiral: static (_, edit) => {
                 Op op = Op.Of(name: nameof(Spiral));
                 return edit.Law switch {
@@ -731,6 +802,29 @@ public abstract partial record CurveOp {
                                 });
                         })));
             },
+            railFillet: static (model, edit) => {
+                Op op = Op.Of(name: nameof(RailFillet));
+                return ModelGate.Borrow<Curve, Built<CurveSlot>>(handle: edit.Rail, key: op, body: rail =>
+                    ModelGate.Borrow<Brep, Built<CurveSlot>>(handle: edit.First, key: op, body: first =>
+                        ModelGate.Borrow<Brep, Built<CurveSlot>>(handle: edit.Second, key: op, body: second =>
+                            from _ in guard(
+                                edit.FirstFace >= 0 && edit.FirstFace < first.Faces.Count
+                                && edit.SecondFace >= 0 && edit.SecondFace < second.Faces.Count,
+                                op.InvalidInput())
+                            from built in op.Catch(() => {
+                                System.Collections.Generic.List<Brep> fillets = [];
+                                System.Collections.Generic.List<Brep> trimmed0 = [];
+                                System.Collections.Generic.List<Brep> trimmed1 = [];
+                                return op.Confirm(success: rail.FilletSurfaceToRail(
+                                        faceWithCurve: first.Faces[edit.FirstFace], secondFace: second.Faces[edit.SecondFace],
+                                        u1: edit.U, v1: edit.V, railDegree: edit.Law.RailDegree, arcDegree: edit.Law.ArcDegree,
+                                        arcSliders: edit.Law.ArcSliders.AsIterable(), numBezierSrfs: edit.Law.BezierSurfaceCount,
+                                        extend: edit.Law.Extend, split_type: edit.Law.Split, tolerance: model.Absolute.Value,
+                                        out_fillets: fillets, out_breps0: trimmed0, out_breps1: trimmed1, fitResults: out double[] fit))
+                                    .Bind(_ => OwnRailFillet(fillets: fillets, trimmed0: trimmed0, trimmed1: trimmed1, fit: fit, op: op));
+                            })
+                            select built)));
+            },
             textOutlines: static (model, edit) => {
                 Op op = Op.Of(name: nameof(TextOutlines));
                 return
@@ -754,6 +848,30 @@ public abstract partial record CurveOp {
         op.Catch(() => ModelGate.OwnMany(built: run(), key: op).Map(owned => new Built<CurveSlot>(
             Products: owned,
             Evidence: BuildReceipt<CurveSlot>.Of(slot: slot, body: new BuildBody.Tally(Count: owned.Count)))));
+
+    private static Fin<Built<CurveSlot>> OwnRailFillet(
+        System.Collections.Generic.IEnumerable<Brep> fillets,
+        System.Collections.Generic.IEnumerable<Brep> trimmed0,
+        System.Collections.Generic.IEnumerable<Brep> trimmed1,
+        double[] fit,
+        Op op) =>
+        from builtFillets in ModelGate.OwnMany(built: fillets, key: op)
+        from built0 in ModelGate.OwnMany(built: trimmed0, key: op, allowEmpty: true).MapFail(error => {
+            _ = builtFillets.Iter(static handle => handle.Dispose());
+            return error;
+        })
+        from built1 in ModelGate.OwnMany(built: trimmed1, key: op, allowEmpty: true).MapFail(error => {
+            _ = builtFillets.Iter(static handle => handle.Dispose());
+            _ = built0.Iter(static handle => handle.Dispose());
+            return error;
+        })
+        select new Built<CurveSlot>(
+            Products: builtFillets + built0 + built1,
+            Evidence: BuildReceipt<CurveSlot>.Of(slot: CurveSlot.Filleted, body: new BuildBody.Tally(Count: builtFillets.Count))
+                + BuildReceipt<CurveSlot>.Of(slot: CurveSlot.Trimmed0, body: new BuildBody.Tally(Count: built0.Count))
+                + BuildReceipt<CurveSlot>.Of(slot: CurveSlot.Trimmed1, body: new BuildBody.Tally(Count: built1.Count))
+                + toSeq(fit ?? []).Fold(BuildReceipt<CurveSlot>.Empty, (receipt, value) =>
+                    receipt + BuildReceipt<CurveSlot>.Of(slot: CurveSlot.FitEvidence, body: new BuildBody.Measure(Value: value))));
 
     private delegate Curve CatenaryRun(out Point3d apex, out double parameter, out double length, out double deviation);
 
@@ -789,7 +907,9 @@ public static class Curves {
 |  [05]   | extension modality | `ExtendLaw`        | length, geometry, point, line, arc, on-surface      | `CurveOp.Extend`                 |
 |  [06]   | split modality     | `SplitCutter`      | parameters, brep, surface, plane                    | `CurveOp.Split`                  |
 |  [07]   | pull and project   | `PullTarget` / `ProjectTarget` | destinations with loose grants and index maps | `CurveOp.Pull` / `Project` |
-|  [08]   | curve booleans     | `CurveOp`          | verb rows + disposable region carrier at the seam   | `Boolean` / `Regions`            |
+|  [08]   | curve booleans     | `CurveBooleanVerb` / `CurveOp` | three admitted verbs + full disposable region topology | `Boolean` / `Regions` |
 |  [09]   | blend and tween    | `BlendLaw` / `TweenLaw` | end-to-end, at-parameter, matched, sampled     | `CurveOp.Blend` / `Tween`        |
 |  [10]   | construction seeds | `SpiralLaw` / `ParabolaSeed` / `AnalyticCurve` / `CatenaryLaw` | seed unions selecting statics | construction cases |
-|  [11]   | curve verbs        | `CurveOp`          | one flat `[Union]`, total generated dispatch        | `Curves.Build`                   |
+|  [11]   | value-semantic edit | `CurveEdit`       | duplicate then cleanup, close, or interval trim    | `CurveOp.Edit`                   |
+|  [12]   | rail surface fillet | `RailFilletLaw`   | rail and arc structure plus detached fit evidence  | `CurveOp.RailFillet`             |
+|  [13]   | curve verbs        | `CurveOp`          | one flat `[Union]`, total generated dispatch        | `Curves.Build`                   |

@@ -275,13 +275,13 @@ public sealed record LayerScope {
         ? RestoreLayerProperties.None
         : Facets.Count == LayerFacet.Items.Count
             ? RestoreLayerProperties.All
-            : (RestoreLayerProperties)Facets.AsIterable().Fold(0u, static (state, facet) => state | facet.ToValue());
+            : (RestoreLayerProperties)Facets.AsIterable().Fold(0u, static (state, facet) => state | facet.Key);
 }
 ```
 
 ## [04]-[PROGRAM_RAIL]
 
-- Owners: `CPlaneEdit`, `PositionEdit`, and `LayerStateEdit` close only their table's real verbs. `PresetProgram` carries one table-specific edit sequence, undo label, and redraw policy.
+- Owners: `CPlaneEdit`, `PositionEdit`, and `LayerStateEdit` close only their table's real verbs. `PresetProgram` lowers each admitted table-specific edit to one fact arrow at construction, so one carrier owns undo label, redraw policy, and commit for all three tables and a fourth preset table lands as one factory over its own edit union.
 - Cplanes: save-or-replace and delete-by-index-or-name compose the complete table mutation roster.
 - Positions: `PositionRef` resolves name or id once; save and append resolve `TableTarget` inside the session, while restore, update, rename, and delete operate on the resolved id.
 - Layer states: save updates existing names, restore applies one admitted `LayerScope`, viewport ids reject `Guid.Empty`, and import resolves `DocumentPath` as a `.3dm` file.
@@ -483,80 +483,53 @@ public abstract partial record PresetFact : IDetachedDocumentResult {
 
 public sealed record PresetReceipt(Seq<PresetFact> Facts) : IDetachedDocumentResult;
 
-[Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record PresetProgram {
-    private PresetProgram() { }
-    private sealed record CPlanesCase(string Name, RedrawPolicy Redraw, Seq<CPlaneEdit> Edits) : PresetProgram;
-    private sealed record PositionsCase(string Name, RedrawPolicy Redraw, Seq<PositionEdit> Edits) : PresetProgram;
-    private sealed record LayerStatesCase(string Name, RedrawPolicy Redraw, Seq<LayerStateEdit> Edits) : PresetProgram;
+public sealed record PresetProgram {
+    private PresetProgram(string name, RedrawPolicy redraw, Seq<Func<RhinoDoc, Op, Fin<PresetFact>>> edits) =>
+        (Name, Redraw, Edits) = (name, redraw, edits);
+
+    public string Name { get; }
+    public RedrawPolicy Redraw { get; }
+    internal Seq<Func<RhinoDoc, Op, Fin<PresetFact>>> Edits { get; }
 
     public static Fin<PresetProgram> CPlanes(string name, RedrawPolicy redraw, params ReadOnlySpan<CPlaneEdit> edits) =>
-        Create(name, redraw, edits, static (label, policy, program) => new CPlanesCase(Name: label, Redraw: policy, Edits: program));
+        Create(name: name, redraw: redraw, edits: edits, apply: static edit => edit.Apply);
 
     public static Fin<PresetProgram> Positions(string name, RedrawPolicy redraw, params ReadOnlySpan<PositionEdit> edits) =>
-        Create(name, redraw, edits, static (label, policy, program) => new PositionsCase(Name: label, Redraw: policy, Edits: program));
+        Create(name: name, redraw: redraw, edits: edits, apply: static edit => edit.Apply);
 
     public static Fin<PresetProgram> LayerStates(string name, RedrawPolicy redraw, params ReadOnlySpan<LayerStateEdit> edits) =>
-        Create(name, redraw, edits, static (label, policy, program) => new LayerStatesCase(Name: label, Redraw: policy, Edits: program));
+        Create(name: name, redraw: redraw, edits: edits, apply: static edit => edit.Apply);
 
-    internal Fin<PresetReceipt> Commit(DocumentSession session, Op op) =>
-        Switch(
-            (Session: session, Op: op),
-            cPlanesCase: static (context, program) => Commit(
-                context.Session,
-                program.Name,
-                program.Redraw,
-                program.Edits.Map(edit => (Func<RhinoDoc, Fin<PresetFact>>)(document => edit.Apply(document, context.Op))),
-                context.Op),
-            positionsCase: static (context, program) => Commit(
-                context.Session,
-                program.Name,
-                program.Redraw,
-                program.Edits.Map(edit => (Func<RhinoDoc, Fin<PresetFact>>)(document => edit.Apply(document, context.Op))),
-                context.Op),
-            layerStatesCase: static (context, program) => Commit(
-                context.Session,
-                program.Name,
-                program.Redraw,
-                program.Edits.Map(edit => (Func<RhinoDoc, Fin<PresetFact>>)(document => edit.Apply(document, context.Op))),
-                context.Op));
+    internal Fin<PresetReceipt> Commit(DocumentSession session, Op op) {
+        Seq<SessionNeed> needs = Seq(SessionNeed.Mutate, SessionNeed.Undo)
+            + (Redraw.Enabled ? Seq(SessionNeed.Redraw) : Seq<SessionNeed>());
+        return session.Demand(
+            use: document => op.Catch(() => {
+                using UndoBracket undo = UndoBracket.Begin(document: document, name: Name, recordsUndo: true);
+                Fin<PresetReceipt> outcome = guard(undo.Admitted, op.InvalidResult()).ToFin()
+                    .Bind(_ => Edits.TraverseM(apply => apply(document, op)).As())
+                    .Map(static facts => new PresetReceipt(Facts: facts));
+                return undo.Seal(outcome: outcome, stamp: static (receipt, _) => receipt, key: op)
+                    .Bind(receipt => Redraw.Enabled
+                        ? op.Catch(() => Fin.Succ(value: Op.Side(() => document.Views.Redraw(deferred: Redraw.Defers)))).Map(_ => receipt)
+                        : Fin.Succ(value: receipt));
+            }),
+            key: op,
+            needs: needs.ToArray());
+    }
 
-    private static Fin<PresetProgram> Create<TEdit, TCase>(
+    private static Fin<PresetProgram> Create<TEdit>(
         string name,
         RedrawPolicy redraw,
         ReadOnlySpan<TEdit> edits,
-        Func<string, RedrawPolicy, Seq<TEdit>, TCase> build)
-        where TEdit : class
-        where TCase : PresetProgram {
+        Func<TEdit, Func<RhinoDoc, Op, Fin<PresetFact>>> apply)
+        where TEdit : class {
         Op op = Op.Of();
         return from label in op.AcceptText(value: name)
                from policy in Optional(redraw).ToFin(Fail: op.InvalidInput())
                from program in toSeq(edits.ToArray()).TraverseM(edit => Optional(edit).ToFin(Fail: op.InvalidInput())).As()
                from _ in guard(!program.IsEmpty, op.InvalidInput()).ToFin()
-               select (PresetProgram)build(label, policy, program);
-    }
-
-    private static Fin<PresetReceipt> Commit(
-        DocumentSession session,
-        string name,
-        RedrawPolicy redraw,
-        Seq<Func<RhinoDoc, Fin<PresetFact>>> edits,
-        Op op) {
-        Seq<SessionNeed> needs = Seq(SessionNeed.Mutate, SessionNeed.Undo)
-            + (redraw.Enabled ? Seq(SessionNeed.Redraw) : Seq<SessionNeed>());
-        return session.Demand(
-            use: document => op.Catch(() => {
-                using UndoBracket undo = UndoBracket.Begin(document: document, name: name, recordsUndo: true);
-                Fin<PresetReceipt> outcome = guard(undo.Admitted, op.InvalidResult()).ToFin()
-                    .Bind(_ => edits.TraverseM(apply => apply(document)).As())
-                    .Map(static facts => new PresetReceipt(Facts: facts));
-                return undo.Seal(outcome: outcome, stamp: static (receipt, _) => receipt, key: op)
-                    .Bind(receipt => redraw.Enabled
-                        ? op.Catch(() => Fin.Succ(value: Op.Side(() => document.Views.Redraw(deferred: redraw.Defers)))).Map(_ => receipt)
-                        : Fin.Succ(value: receipt));
-            }),
-            key: op,
-            needs: needs.ToArray());
+               select new PresetProgram(name: label, redraw: policy, edits: program.Map(apply));
     }
 }
 
@@ -573,7 +546,7 @@ public static partial class Presets {
 
 ## [05]-[READ_RAIL]
 
-- Cplane snapshot: every indexed preset detaches through `CPlaneModel`.
+- Cplane snapshot: the table enumerates as `IEnumerable<ConstructionPlane>`, and every preset detaches through `CPlaneModel`.
 - Position snapshot: every preset id retains its resolved name and a transform map for every stored object id; `ObjectXform` failure aborts the snapshot.
 - Layer-state snapshot: names are the complete readable host surface because stored property payloads expose no read API.
 
@@ -608,8 +581,8 @@ public static partial class Presets {
                from answer in context.Demand(
                    use: document => op.Catch(() => active.Switch(
                        (Document: document, Op: op),
-                       cPlanes: static (state, _) => toSeq(Enumerable.Range(0, state.Document.NamedConstructionPlanes.Count))
-                           .TraverseM(index => CPlaneModel.Of(state.Document.NamedConstructionPlanes[index], key: state.Op))
+                       cPlanes: static (state, _) => toSeq(state.Document.NamedConstructionPlanes)
+                           .TraverseM(plane => CPlaneModel.Of(source: plane, key: state.Op))
                            .As()
                            .Map(values => (PresetAnswer)new PresetAnswer.CPlanes(Values: values)),
                        positions: static (state, _) => toSeq(state.Document.NamedPositions.Ids)
@@ -646,13 +619,13 @@ public static partial class Presets {
 
 ## [06]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN] | [OWNER] | [FORM] | [ENTRY] |
-| :-----: | :-------- | :------ | :----- | :------ |
-| [01] | grid vocabulary | `CPlaneGrid` | shared host grid product | `Of` / `Apply` / `MintDefaults` |
-| [02] | cplane value | `CPlaneModel` | admitted full cplane | `Create` / `Of` / `Mint` |
-| [03] | layer mask | `LayerScope` | frozen verified facet set | `Create` / `Mask` |
-| [04] | table edits | `CPlaneEdit` / `PositionEdit` / `LayerStateEdit` | closed table-specific unions | `Apply` |
-| [05] | commit rail | `PresetProgram` | undo/redraw program | `Presets.Commit` |
-| [06] | receipt | `PresetReceipt` | ordered closed preset facts | `Facts` |
-| [07] | read rail | `PresetRead` | complete table snapshots | `Presets.Read` |
-| [08] | named views | viewport and table owners | existing vocabulary | seam only |
+| [INDEX] | [CONCERN]       | [OWNER]                                          | [FORM]                       | [ENTRY]                         |
+| :-----: | :-------------- | :----------------------------------------------- | :--------------------------- | :------------------------------ |
+|  [01]   | grid vocabulary | `CPlaneGrid`                                     | shared host grid product     | `Of` / `Apply` / `MintDefaults` |
+|  [02]   | cplane value    | `CPlaneModel`                                    | admitted full cplane         | `Create` / `Of` / `Mint`        |
+|  [03]   | layer mask      | `LayerScope`                                     | frozen verified facet set    | `Create` / `Mask`               |
+|  [04]   | table edits     | `CPlaneEdit` / `PositionEdit` / `LayerStateEdit` | closed table-specific unions | `Apply`                         |
+|  [05]   | commit rail     | `PresetProgram`                                  | undo/redraw program          | `Presets.Commit`                |
+|  [06]   | receipt         | `PresetReceipt`                                  | ordered closed preset facts  | `Facts`                         |
+|  [07]   | read rail       | `PresetRead`                                     | complete table snapshots     | `Presets.Read`                  |
+|  [08]   | named views     | viewport and table owners                        | existing vocabulary          | seam only                       |

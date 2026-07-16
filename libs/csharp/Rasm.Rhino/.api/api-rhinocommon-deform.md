@@ -1,6 +1,6 @@
 # [RASM_RHINO_API_RHINOCOMMON_DEFORM]
 
-This catalog owns the host-fidelity nonlinear deformation and flattening boundary: the `SpaceMorph` abstract engine and its ten concrete `Rhino.Geometry.Morphs` implementations (bend, flow, maelstrom, splop, sporph, stretch, taper, twist, mesh-cage, mesh-morph-mesh), the `MorphControl` interactive deformer, and the `Unroller`/`Squisher`/`MeshUnwrapper` flattening set. A morph deforms any `GeometryBase` in place along a type-agnostic point map, standing beside the geometry catalog's linear `Transform` mutation and the kernel's host-neutral DEC UV-flattening in `Rasm/Processing/flatten`, which own different altitudes and are never re-derived here. Every engine P/Invokes `rhcommon_c` and returns geometry bit-compatible with Rhino's own commands; the flatteners are disposable native resources, and every outcome projects onto the `LanguageExt` rails.
+This catalog owns the host-fidelity nonlinear deformation and flattening boundary: the `SpaceMorph` abstract engine and its concrete `Rhino.Geometry.Morphs` implementations (bend, flow, maelstrom, splop, sporph, stretch, taper, twist, mesh-cage), the `MorphControl` interactive deformer, and the `Unroller`/`Squisher`/`MeshUnwrapper` flattening set. A morph deforms any `GeometryBase` in place along a type-agnostic point map, standing beside the geometry catalog's linear `Transform` mutation and the kernel's host-neutral DEC UV-flattening in `Rasm/Processing/flatten`, which own different altitudes and are never re-derived here. Every engine P/Invokes `rhcommon_c` and returns geometry bit-compatible with Rhino's own commands; the flatteners are disposable native resources, and every outcome projects onto the `LanguageExt` rails.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -29,8 +29,7 @@ This catalog owns the host-fidelity nonlinear deformation and flattening boundar
 |  [08]   | `TaperSpaceMorph`     | morph           | radial taper between two radii along an axis                  |
 |  [09]   | `TwistSpaceMorph`     | morph           | rotate about an axis by a per-length angle                    |
 |  [10]   | `MeshCageMorph`       | morph           | cage-deform geometry from a reference mesh to a target mesh   |
-|  [11]   | `MeshMorphMesh`       | vertex mapper   | maps bare vertex positions through a reference/adjusted pair  |
-|  [12]   | `MorphControl`        | native geometry | interactive curve-to-curve or surface deformer                |
+|  [11]   | `MorphControl`        | native geometry | interactive curve-to-curve or surface deformer                |
 
 [PUBLIC_TYPE_SCOPE]: flattening engines
 - rail: deformation
@@ -65,8 +64,8 @@ This catalog owns the host-fidelity nonlinear deformation and flattening boundar
 - `Rhino.Geometry.Morphs.StretchSpaceMorph(Point3d start, Point3d end, double length)` — stretches along the axis to a length; the `(start, end, Point3d point)` overload stretches to a point.
 - `Rhino.Geometry.Morphs.TaperSpaceMorph(Point3d start, Point3d end, double startRadius, double endRadius, bool bFlat, bool infiniteTaper)` — radial taper along an axis between two radii.
 - `Rhino.Geometry.Morphs.TwistSpaceMorph()` — twists about `TwistAxis : Line` by `TwistAngleRadians : double`, with `InfiniteTwist : bool` extending the twist past the axis ends.
-- `Rhino.Geometry.Morphs.MeshCageMorph(Mesh referenceMesh, Mesh targetMesh)` — cage deformation of arbitrary geometry through a reference/target mesh pair; every morph subclass and the base `SpaceMorph` carry `Dispose()`, `IsValid`, and the abstract `MorphPoint(Point3d)` override, and `IsMorphable(GeometryBase)` is a `SpaceMorph` static.
-- `Rhino.Geometry.Morphs.MeshMorphMesh(Mesh referenceMesh, Mesh meshToMorph)` — NOT a `SpaceMorph`: it maps bare vertex positions through `Apply(Point3d[] vertices, Mesh startMesh, Mesh adjustedMesh) : bool` and carries `Dispose()`; no `Morph(GeometryBase)` exists on it.
+- `Rhino.Geometry.Morphs.MeshCageMorph(Mesh referenceMesh, Mesh targetMesh)` — cage deformation of arbitrary geometry through a reference/target mesh pair; every concrete morph subclass carries `Dispose()` (the `SpaceMorph` base is not `IDisposable`), `IsValid`, and the abstract `MorphPoint(Point3d)` override, and `IsMorphable(GeometryBase)` is a `SpaceMorph` static.
+- `Rhino.Geometry.Morphs.MeshMorphMesh` is `internal` (host-reserved), so vertex-position mapping through a reference/adjusted mesh pair has no accessible surface; `MeshCageMorph` is the sole public mesh-driven deformer.
 
 [MORPH_CONTROL]:
 - `Rhino.Geometry.MorphControl(NurbsCurve originCurve, NurbsCurve targetCurve)` — an interactive deformer driven by an origin-to-target curve pair.
@@ -84,13 +83,13 @@ This catalog owns the host-fidelity nonlinear deformation and flattening boundar
 - `Rhino.Geometry.Squisher.SquishSurface(SquishParameters sp, Surface surface, IEnumerable<GeometryBase> marks, List<GeometryBase> squished_marks_out) : Brep` — stress-relaxes a surface to a flat brep, mapping marks into the caller-owned output list; the no-marks overload drops them.
 - `Rhino.Geometry.Squisher.SquishMesh(SquishParameters sp, Mesh mesh3d, IEnumerable<GeometryBase> marks, List<GeometryBase> squished_marks_out) : Mesh` — flattens a mesh with mark tracking.
 - `Rhino.Geometry.Squisher.SquishCurve(Curve curve) : PolylineCurve` / `SquishTextDot(TextDot textDot) : TextDot` / `SquishPoint(Point3d point, out Point3d squishedPoint) : bool` — per-object mapping into the flattened frame after a squish.
-- `Rhino.Geometry.Squisher.Get2dMesh() : Mesh` / `Get3dMesh() : Mesh` / `GetMesh2dEdges() : Line[]` / `GetMesh3dEdges() : Line[]` / `GetLengthConstrained2dLines() : Line[]` / `GetLengthConstrained3dLines() : Line[]` / `GetAreaConstrainedTrianglesIndices() : MeshFace[]` — the flattened and source triangulations and their length/area constraint diagnostics.
+- `Rhino.Geometry.Squisher.Get2dMesh() : Mesh` / `Get3dMesh() : Mesh` / `GetLengthConstrained2dLines() : Line[]` / `GetLengthConstrained3dLines() : Line[]` / `GetAreaConstrainedTrianglesIndices() : MeshFace[]` — the flattened and source triangulations and their length/area constraint diagnostics; `GetMesh2dEdges()`/`GetMesh3dEdges()` alias `GetLengthConstrained2dLines()`/`GetLengthConstrained3dLines()` and return identical data, so a consumer reads one pair, never both.
 - `Rhino.Geometry.Squisher.Is2dPatternSquished(GeometryBase geometry) : bool` / `SquishBack2dMarks(GeometryBase squishedGeometry, IEnumerable<GeometryBase> marks) : IEnumerable<GeometryBase>` — the static probe and inverse-mapping of flattened marks back to 3d.
 - `Rhino.Geometry.SquishParameters.Default : SquishParameters` — the standing preset; `PreserveTopology : bool`, `SaveMapping : bool`, `BoundaryStretchConstant`/`BoundaryCompressConstant`/`InteriorStretchConstant`/`InteriorCompressConstant : double`, `AbsoluteLimit : double`, and `Algorithm : SquishFlatteningAlgorithm` are the policy knobs.
 - `Rhino.Geometry.SquishParameters.SetDeformation(SquishDeformation deformation, bool bPreserveBoundary, double boundaryStretchConstant, double boundaryCompressConstant, double interiorStretchConstant, double interiorCompressConstant) : void` / `SetSpringConstants(double boundaryBias, double deformationBias) : void` / `GetSpringConstants(out double boundaryBias, out double deformationBias) : bool` — the deformation-mode and spring-bias seams; deformation is set-only with no read-back property, and the carrier is `IDisposable`.
 
 [UNWRAP]:
-- `Rhino.Geometry.MeshUnwrapper(Mesh mesh)` / `MeshUnwrapper(IEnumerable<Mesh> meshes)` — constructs an unwrapper over one or a set of meshes; the instance is `IDisposable` and `SymmetryPlane : Plane` (`get/set`) pins a symmetry constraint.
+- `Rhino.Geometry.MeshUnwrapper(Mesh mesh)` / `MeshUnwrapper(IEnumerable<Mesh> meshes)` — constructs an unwrapper over one or a set of meshes; the instance is `IDisposable` and `SymmetryPlane : Plane` is set-only, pinning a symmetry constraint the unwrap consumes.
 - `Rhino.Geometry.MeshUnwrapper.Unwrap(MeshUnwrapMethod method) : bool` — computes uv coordinates by the chosen unwrap algorithm and writes them onto the mesh texture coordinates.
 
 ## [04]-[IMPLEMENTATION_LAW]

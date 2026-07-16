@@ -4,7 +4,7 @@ Live document-object state belongs to `Rasm.Rhino.Objects`. One `StateAsk` famil
 
 ## [01]-[INDEX]
 
-- [02]-[SNAPSHOT]: `SelectionGrade`, `HighlightState`, and the one-pass `ObjectSnapshot` read product.
+- [02]-[SNAPSHOT]: raw selection evidence, `HighlightState`, and the one-pass `ObjectSnapshot` read product.
 - [03]-[FRAMES]: `FrameAsk`/`FramePose` — object frame, gumball frame, and drag-transform reads.
 - [04]-[REACH_AND_TOUCH]: `Reach`, `Touch`, and the immediate component selection and highlight rail.
 - [05]-[CUTS_AND_PIECES]: `SectionCut`, `ObjectPiece`, and the detached extraction custody.
@@ -13,12 +13,12 @@ Live document-object state belongs to `Rasm.Rhino.Objects`. One `StateAsk` famil
 
 ## [02]-[SNAPSHOT]
 
-- Owner: `SelectionGrade` `[SmartEnum<int>]` closes the catalogued selection return: `None`, `Held`, and `Persistent`. `HighlightState` carries the catalogued whole-object predicate and highlighted-component roster without assigning undocumented meaning to `IsHighlighted(checkSubObjects: true)` integers. `ObjectSnapshot` carries the remaining catalogued scalar state fields directly.
+- Owner: `ObjectSnapshot.Selection` preserves the catalogued `IsSelected(checkSubObjects: true)` integer without assigning undocumented values. `HighlightState` preserves the catalogued `IsHighlighted(checkSubObjects: false)` integer beside the highlighted-component roster. `ObjectSnapshot` carries the remaining catalogued scalar state fields directly.
 - Law: the snapshot reads once per object inside the session grant — every field lands in one pass over the resolved handle, so a consumer never re-enters the document to complete a partial read, and the product is detached the moment `Ask` returns.
-- Law: selection and highlight never share a vocabulary. Selection closes the documented integer grade; highlight reads `IsHighlighted(checkSubObjects: false) > 0` plus `GetHighlightedSubObjects()` and exposes no undocumented integer.
+- Law: selection and highlight never share a vocabulary. Selection preserves the raw host integer plus the separate selected-component roster; highlight preserves its raw host integer plus `GetHighlightedSubObjects()` and assigns no integer meaning.
 - Law: `CommitChanges` never appears — the host member answers `true` only when a staged working copy actually flushed, and this package stages nothing on the live object: attribute writes travel `TableOp.Amend`, mode and visibility travel `TableOp.State`, geometry travels `TableOp.Replace`; the snapshot is the read face of that one-write-path law.
 - Law: history linkage is one snapshot bool — `HistoryBound` carries `HasHistoryRecord()` as presence evidence, and every linkage read or mutation lives on the history page's `Chronicle`.
-- Growth: a new host object fact is one snapshot field read in the same pass; a new native grade is one row on its owning vocabulary.
+- Growth: a new host object fact is one snapshot field read in the same pass; a named native grade enters only after its values verify.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
@@ -32,18 +32,8 @@ using Rhino.UI.Gumball;
 
 namespace Rasm.Rhino.Objects;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-[SmartEnum<int>]
-public sealed partial class SelectionGrade {
-    public static readonly SelectionGrade None = new(key: 0);
-    public static readonly SelectionGrade Held = new(key: 1);
-    public static readonly SelectionGrade Persistent = new(key: 2);
-
-    internal static SelectionGrade Of(int native) => Get(native) ?? None;
-}
-
 // --- [MODELS] -----------------------------------------------------------------------------
-public readonly record struct HighlightState(bool Whole, Seq<ComponentIndex> Components);
+public readonly record struct HighlightState(int Native, Seq<ComponentIndex> Components);
 
 public sealed record ObjectSnapshot(
     Guid Id,
@@ -64,7 +54,7 @@ public sealed record ObjectSnapshot(
     uint Worksession,
     uint ReferenceModel,
     uint DefinitionModel,
-    SelectionGrade Selection,
+    int Selection,
     HighlightState Highlight,
     bool Selectable,
     bool GripsOn,
@@ -94,9 +84,9 @@ public sealed record ObjectSnapshot(
             Worksession: native.WorksessionReferenceSerialNumber,
             ReferenceModel: native.ReferenceModelSerialNumber,
             DefinitionModel: native.InstanceDefinitionModelSerialNumber,
-            Selection: SelectionGrade.Of(native: native.IsSelected(checkSubObjects: true)),
+            Selection: native.IsSelected(checkSubObjects: true),
             Highlight: new HighlightState(
-                Whole: native.IsHighlighted(checkSubObjects: false) > 0,
+                Native: native.IsHighlighted(checkSubObjects: false),
                 Components: toSeq(native.GetHighlightedSubObjects())),
             Selectable: native.IsSelectable(),
             GripsOn: native.GripsOn,
@@ -111,9 +101,9 @@ public sealed record ObjectSnapshot(
 
 ## [03]-[FRAMES]
 
-- Owner: `FrameAsk` `[Union]` — the three frame questions: `Anchor` the object frame under `ObjectFrameFlags`, `Gumball` the gumball frame with the current-alignment grant, `Drag` the in-flight dynamic transform; `FramePose` `[Union]` — one typed pose per question, absence projected where the host answers none.
+- Owner: `FrameAsk` `[Union]` — the three frame questions: `Anchor` the object frame under `RhinoObject.ObjectFrameFlags` (a nested enum, never a top-level `Rhino.DocObjects` type), `Gumball` the gumball frame with the current-alignment grant, `Drag` the in-flight dynamic transform; `FramePose` `[Union]` — one typed pose per question, absence projected where the host answers none.
 - Law: frame reads are object-side only — `RhinoObject.ObjectFrame` reads and the obsolete `RhinoObject.SetObjectFrame` overloads are dead, so every frame write is the attributes page's `Anchor` edit committed through the table rail's `Amend`, and this page never mutates a frame.
-- Law: an unset frame is absence — `ObjectFrameFlags.ReturnUnset` yields an invalid plane the fold projects to `None`, a failed gumball probe projects to `None`, and a drag probe answers `None` outside an active drag; no consumer branches on `Plane.Unset`.
+- Law: an unset frame is absence — `RhinoObject.ObjectFrameFlags.ReturnUnset` yields an invalid plane the fold projects to `None`, a failed gumball probe projects to `None`, and a drag probe answers `None` outside an active drag; no consumer branches on `Plane.Unset`.
 - Law: the gumball pose crosses detached — `GumballFrame` is a host struct whose `Plane`, `ScaleGripDistance`, and `ScaleMode` copy into the pose value, and `GumballScaleMode` rides the pose as a seam discriminant.
 
 ```csharp signature
@@ -121,7 +111,7 @@ public sealed record ObjectSnapshot(
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record FrameAsk {
     private FrameAsk() { }
-    public sealed record Anchor(ObjectFrameFlags Flags = ObjectFrameFlags.Standard) : FrameAsk;
+    public sealed record Anchor(RhinoObject.ObjectFrameFlags Flags = RhinoObject.ObjectFrameFlags.Standard) : FrameAsk;
     public sealed record Gumball(bool CurrentAlignment = false) : FrameAsk;
     public sealed record Drag : FrameAsk;
 
@@ -221,15 +211,19 @@ public abstract partial record Touch {
                     _ = context.Native.UnselectAllSubObjects();
                     return Fin.Succ<TouchResult>(value: new TouchResult.Selected(
                         Id: context.Native.Id,
-                        Grade: SelectionGrade.Of(native: context.Native.IsSelected(checkSubObjects: true))));
+                        Native: context.Native.IsSelected(checkSubObjects: true)));
                 }),
-                var scoped => scoped.Roster.TraverseM(component => context.Op.AcceptValue(
-                        value: context.Native.SelectSubObject(
-                            componentIndex: component, select: touch.On,
-                            syncHighlight: touch.Policy.Highlight, persistentSelect: touch.Policy.Persistent))).As()
+                var scoped => scoped.Roster.TraverseM(component => context.Op.Catch(() => {
+                        _ = context.Native.SelectSubObject(
+                            componentIndex: component,
+                            select: touch.On,
+                            syncHighlight: touch.Policy.Highlight,
+                            persistentSelect: touch.Policy.Persistent);
+                        return Fin.Succ(value: unit);
+                    })).As()
                     .Map(_ => (TouchResult)new TouchResult.Selected(
                         Id: context.Native.Id,
-                        Grade: SelectionGrade.Of(native: context.Native.IsSelected(checkSubObjects: true)))),
+                        Native: context.Native.IsSelected(checkSubObjects: true))),
             },
             highlightCase: static (context, touch) => touch.Scope switch {
                 Reach.Whole => context.Op.Confirm(success: context.Native.Highlight(enable: touch.On))
@@ -250,7 +244,7 @@ public abstract partial record Touch {
             });
 
     private static HighlightState Highlight(RhinoObject native) => new(
-        Whole: native.IsHighlighted(checkSubObjects: false) > 0,
+        Native: native.IsHighlighted(checkSubObjects: false),
         Components: toSeq(native.GetHighlightedSubObjects()));
 }
 
@@ -258,7 +252,7 @@ public abstract partial record Touch {
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record TouchResult {
     private TouchResult() { }
-    public sealed record Selected(Guid Id, SelectionGrade Grade) : TouchResult;
+    public sealed record Selected(Guid Id, int Native) : TouchResult;
     public sealed record Highlighted(Guid Id, HighlightState State) : TouchResult;
 }
 
@@ -537,7 +531,7 @@ public static class Objects {
 
 | [INDEX] | [CONCERN]           | [OWNER]          | [FORM]                                              | [ENTRY]                        |
 | :-----: | :------------------ | :--------------- | :--------------------------------------------------- | :----------------------------- |
-|  [01]   | native grades       | grade vocabularies | selection persistence and highlight scope separated  | snapshot / `TouchResult`       |
+|  [01]   | native evidence     | snapshot/results | raw selection integer and typed highlight scope       | snapshot / `TouchResult`       |
 |  [02]   | object state        | `ObjectSnapshot` | one-pass read, host discriminants at the seam        | `StateAsk.Snapshot`            |
 |  [03]   | frame reads         | `FrameAsk`       | object, gumball, and drag poses as one union         | `StateAsk.Frames`              |
 |  [04]   | component reach     | `Reach`          | whole, part, parts, and every-part as one address    | `Reach.Of` / `Touch` payloads  |

@@ -132,6 +132,7 @@ public abstract partial record SubDEditVerb {
     public sealed record Shell(double Distance, bool Solidify) : SubDEditVerb;
     public sealed record MergeCoplanar : SubDEditVerb;
     public sealed record Pack : SubDEditVerb;
+    public sealed record Flip : SubDEditVerb;
     public sealed record TagVertices(Seq<int> Vertices, SubDVertexTag Tag) : SubDEditVerb;
     public sealed record TagEdges(Seq<int> Edges, SubDEdgeTag Tag) : SubDEditVerb;
     public sealed record MoveComponents(Seq<ComponentIndex> Components, Transform Motion, SubDComponentLocation Location) : SubDEditVerb;
@@ -271,6 +272,7 @@ public abstract partial record SubDOp {
                 uint packed = ctx.Working.PackFaces();
                 return Kept(ctx.Op, ctx.Working, extra: BuildReceipt<SubDSlot>.Of(slot: SubDSlot.Edited, body: new BuildBody.Tally(Count: (int)packed)));
             }),
+            flip: static ctx => ctx.Op.Confirm(success: ctx.Working.Flip()).Bind(_ => Refreshed(ctx.Op, ctx.Working)),
             tagVertices: static (ctx, edit) => ctx.Op.Catch(() => {
                 ctx.Working.Vertices.SetVertexTags(vertexIndices: edit.Vertices.AsIterable(), tag: edit.Tag);
                 return Refreshed(ctx.Op, ctx.Working);
@@ -329,13 +331,13 @@ public static class SubDs {
 
 ## [04]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]            | [OWNER]           | [FORM]                                              | [ENTRY]                    |
-| :-----: | :------------------- | :---------------- | :--------------------------------------------------- | :------------------------- |
-|  [01]   | crease policy        | `SubDCreationLaw` | preset rows or full `SubDCreationOptions` surface   | `SubDOp.FromMesh` / `Rig`  |
-|  [02]   | brep conversion      | `SubDBrepLaw`     | packing + extraordinary-vertex process as one value | `SubDOp.ToBrep` / `Rig`    |
-|  [03]   | primitive seeding    | `SubDSeed`        | four sphere topologies and the capped cylinder      | `SubDOp.Seed`              |
-|  [04]   | sweep modality       | `SubDSweepKind`   | one-rail with roadlike grant versus two-rail        | `SubDOp.FromSweep`         |
-|  [05]   | value-semantic edit  | `SubDEditVerb`    | duplicate-edit-refresh-own verbs                    | `SubDOp.Edit`              |
-|  [06]   | crease authoring     | `SubDEditVerb`    | tag rows + unconditional tag/sector refresh         | `TagVertices` / `TagEdges` |
-|  [07]   | edge extraction      | `SubDOp`          | filtered edge curves as products                    | `SubDOp.EdgeCurves`        |
-|  [08]   | subd verbs           | `SubDOp`          | one flat `[Union]`, total generated dispatch        | `SubDs.Build`              |
+| [INDEX] | [CONCERN]           | [OWNER]           | [FORM]                                              | [ENTRY]                    |
+| :-----: | :------------------ | :---------------- | :-------------------------------------------------- | :------------------------- |
+|  [01]   | crease policy       | `SubDCreationLaw` | preset rows or full `SubDCreationOptions` surface   | `SubDOp.FromMesh` / `Rig`  |
+|  [02]   | brep conversion     | `SubDBrepLaw`     | packing + extraordinary-vertex process as one value | `SubDOp.ToBrep` / `Rig`    |
+|  [03]   | primitive seeding   | `SubDSeed`        | four sphere topologies and the capped cylinder      | `SubDOp.Seed`              |
+|  [04]   | sweep modality      | `SubDSweepKind`   | one-rail with roadlike grant versus two-rail        | `SubDOp.FromSweep`         |
+|  [05]   | value-semantic edit | `SubDEditVerb`    | duplicate-edit-refresh-own verbs                    | `SubDOp.Edit`              |
+|  [06]   | crease authoring    | `SubDEditVerb`    | tag rows + unconditional tag/sector refresh         | `TagVertices` / `TagEdges` |
+|  [07]   | edge extraction     | `SubDOp`          | filtered edge curves as products                    | `SubDOp.EdgeCurves`        |
+|  [08]   | subd verbs          | `SubDOp`          | one flat `[Union]`, total generated dispatch        | `SubDs.Build`              |

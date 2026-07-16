@@ -14,6 +14,7 @@ Dimension rail (`Rasm.Rhino.Annotation`). One `DimensionSpec` union carries ten 
 
 - Owner: `RadialKind` `[SmartEnum<int>]` — radius versus diameter keyed on explicit `AnnotationType` byte values; `OrdinateAxis` `[SmartEnum<int>]` — measured direction keyed on `MeasuredDirection`; `DimFrame` — a dimension plane with horizontal reference defaulting to its x-axis; `DimensionSpec` `[Union]` — ten cases carrying only constructor-consumed payload, with the radial case generating its two host forms.
 - Law: the spec discriminates the host construction form — a caller states measurement intent and never selects among the three style-object `AngularDimension.Create` shapes, the arc-offset constructor, or the two `Centermark.Create` shapes; the duplicate angular overload taking a style id collapses because `ResourceRef` already resolves the style object.
+- Law: the arc-offset case binds its style as parent — every `Create` sets `ParentDimensionStyle` on the minted geometry, so the constructor-built arc form assigns the same member; `SetOverrideDimStyle` demands a nil-id marked override style and refuses a table style, so it never carries base-style binding.
 - Law: `AnnotationType` keys on explicit byte values `0..11` — `Angular3pt = 11` is the three-point angular the vertex case constructs and `Angular = 2` the extension-point form, so the two angular display behaviors stay distinct cases, never one case with a flag.
 - Law: minted geometry is detached — `Mint` answers a `Dimension` no document owns; placement is the rail's `Place` verb inside the shared spine, and a spec never touches a table.
 - Growth: a new host construction form is one case with its arm; `Mint`, the rail, and every consumer read it with zero new surface.
@@ -78,11 +79,11 @@ public abstract partial record DimensionSpec {
                 extpoint1: spec.Ext1, extpoint2: spec.Ext2, dirpoint1: spec.Dir1, dirpoint2: spec.Dir2, dimlinepoint: spec.Line))),
             angularLines: static (context, spec) => context.Op.Catch(() => Fin.Succ<Dimension>(value: AngularDimension.Create(
                 dimStyle: context.Style, line1: spec.SideA, pointOnLine1: spec.OnA, line2: spec.SideB, pointOnLine2: spec.OnB,
-                pointOnArc: spec.OnArc, bSetExtensionPoints: spec.SetExtensionPoints))),
+                pointOnAngularDimensionArc: spec.OnArc, bSetExtensionPoints: spec.SetExtensionPoints))),
             angularArc: static (context, spec) => context.Op.Catch(() => {
                 AngularDimension built = new(arc: spec.Value, offset: spec.Offset);
-                return context.Op.Confirm(success: built.SetOverrideDimStyle(overrideStyle: context.Style))
-                    .Map(_ => (Dimension)built);
+                built.ParentDimensionStyle = context.Style;
+                return Fin.Succ<Dimension>(value: built);
             }),
             radial: static (context, spec) => context.Op.Catch(() => Fin.Succ<Dimension>(value: RadialDimension.Create(
                 dimStyle: context.Style, dimtype: spec.Kind.Host, plane: spec.Frame.Plane,
@@ -291,8 +292,8 @@ public sealed record DimTransaction(string Name, Seq<DimOp> Operations, RedrawPo
 
 ## [05]-[ASK_FAMILY]
 
-- Owner: `DimKindFacts` `[Union]` — the per-kind evidence: the linear aligned discriminant and arrow-tip span, the angular format quartet, the radial diameter discriminant and leader quintet presence, the ordinate axis and kink offsets, the centermark radius; `DimState` — the one-pass dimension read: kind, measured value, user text and formula, style binding, override presence, pose, and the kind facts; `DimSkeleton` — the display resolution: definition points, display lines, display arcs, and the text rectangle; `DimAsk`/`DimAnswer` — the typed request/result pairs including formatted value text and explosion.
-- Law: display resolution is per-kind but one answer — `Get3dPoints` arities differ (six linear, seven angular, four radial, five ordinate), `GetDisplayLines` splits lines-only from the angular lines-plus-arcs form, and `GetTextRectangle` answers the text frame; the skeleton folds all three into one shape so a consumer never learns the arity table.
+- Owner: `DimKindFacts` `[Union]` — the per-kind evidence: the linear aligned discriminant and arrow-tip span, the angular format quartet, the radial diameter discriminant and leader quintet presence, the ordinate axis and kink offsets, the centermark radius; `DimState` — the one-pass dimension read: kind, measured value, user text and field-token text, style binding, override presence, pose, and the kind facts; `DimSkeleton` — the display resolution: definition points, display lines, display arcs, and the text rectangle; `DimAsk`/`DimAnswer` — the typed request/result pairs including formatted value text and explosion.
+- Law: display resolution is per-kind but one answer — `Get3dPoints` arities differ (six linear, seven angular, four radial, five ordinate), `GetDisplayLines` splits lines-only from the angular lines-plus-arcs form, and `GetTextRectangle` answers the text frame on every measuring kind; the skeleton folds all three into one shape so a consumer never learns the arity table, and `Centermark` carries none of the three, so a mark skeleton is a typed refusal.
 - Law: value text is the host formatter — `GetDistanceDisplayText(units, style)` for measuring kinds and `GetAngleDisplayText(style)` for angular, so formatted output honors resolution, suppression, prefix, and suffix without a local re-derivation.
 - Law: explosion detaches — `Explode()` answers constituent curve and text geometry the caller owns; nothing document-bound rides the answer.
 
@@ -346,7 +347,7 @@ public sealed record DimState(
     AnnotationType Kind,
     double NumericValue,
     Option<string> PlainUserText,
-    Option<string> Formula,
+    Option<string> TextWithFields,
     Guid StyleId,
     bool HasPropertyOverrides,
     Point2d TextPosition,
@@ -360,7 +361,7 @@ public sealed record DimSkeleton(
     Seq<Point3d> Points,
     Seq<Line> Lines,
     Seq<Arc> Arcs,
-    Option<Arr<Point3d>> TextBox) : IDetachedDocumentResult;
+    Arr<Point3d> TextBox) : IDetachedDocumentResult;
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -382,7 +383,7 @@ public abstract partial record DimAsk {
                     Kind: dimension.Geometry.AnnotationType,
                     NumericValue: dimension.Geometry.NumericValue,
                     PlainUserText: Optional(dimension.Geometry.PlainUserText).Filter(static text => text.Length > 0),
-                    Formula: Optional(dimension.Geometry.TextFormula).Filter(static formula => formula.Length > 0),
+                    TextWithFields: Optional(dimension.Geometry.PlainTextWithFields).Filter(static text => text.Length > 0),
                     StyleId: dimension.Geometry.DimensionStyleId,
                     HasPropertyOverrides: dimension.Geometry.HasPropertyOverrides,
                     TextPosition: dimension.Geometry.TextPosition,
@@ -440,10 +441,8 @@ public abstract partial record DimAsk {
                 style: geometry.DimensionStyle, scale: scale, lines: out IEnumerable<Line> resolved)
             ? Fin.Succ(value: toSeq(resolved))
             : Fin.Fail<Seq<Line>>(error: key.InvalidResult()))
-        from box in key.Catch(() => geometry.GetTextRectangle(corners: out Point3d[] corners)
-            ? Fin.Succ(value: toArr(corners))
-            : Fin.Fail<Arr<Point3d>>(error: key.InvalidResult()))
-        select new DimSkeleton(Points: points, Lines: lines, Arcs: Seq<Arc>(), TextBox: Some(box));
+        from box in TextBox(geometry.GetTextRectangle, key)
+        select new DimSkeleton(Points: points, Lines: lines, Arcs: Seq<Arc>(), TextBox: box);
 
     private static Fin<DimSkeleton> Angular(AngularDimension geometry, double scale, Op key) =>
         from points in key.Catch(() => geometry.Get3dPoints(
@@ -454,7 +453,8 @@ public abstract partial record DimAsk {
                 style: geometry.DimensionStyle, scale: scale, lines: out Line[] lines, arcs: out Arc[] arcs)
             ? Fin.Succ(value: (Lines: toSeq(lines), Arcs: toSeq(arcs)))
             : Fin.Fail<(Seq<Line> Lines, Seq<Arc> Arcs)>(error: key.InvalidResult()))
-        select new DimSkeleton(Points: points, Lines: display.Lines, Arcs: display.Arcs, TextBox: None);
+        from box in TextBox(geometry.GetTextRectangle, key)
+        select new DimSkeleton(Points: points, Lines: display.Lines, Arcs: display.Arcs, TextBox: box);
 
     private static Fin<DimSkeleton> Radial(RadialDimension geometry, double scale, Op key) =>
         from points in key.Catch(() => geometry.Get3dPoints(out Point3d a, out Point3d b, out Point3d c, out Point3d d)
@@ -464,7 +464,8 @@ public abstract partial record DimAsk {
                 style: geometry.DimensionStyle, scale: scale, lines: out IEnumerable<Line> resolved)
             ? Fin.Succ(value: toSeq(resolved))
             : Fin.Fail<Seq<Line>>(error: key.InvalidResult()))
-        select new DimSkeleton(Points: points, Lines: lines, Arcs: Seq<Arc>(), TextBox: None);
+        from box in TextBox(geometry.GetTextRectangle, key)
+        select new DimSkeleton(Points: points, Lines: lines, Arcs: Seq<Arc>(), TextBox: box);
 
     private static Fin<DimSkeleton> Ordinate(OrdinateDimension geometry, double scale, Op key) =>
         from points in key.Catch(() => geometry.Get3dPoints(
@@ -475,7 +476,15 @@ public abstract partial record DimAsk {
                 style: geometry.DimensionStyle, scale: scale, lines: out IEnumerable<Line> resolved)
             ? Fin.Succ(value: toSeq(resolved))
             : Fin.Fail<Seq<Line>>(error: key.InvalidResult()))
-        select new DimSkeleton(Points: points, Lines: lines, Arcs: Seq<Arc>(), TextBox: None);
+        from box in TextBox(geometry.GetTextRectangle, key)
+        select new DimSkeleton(Points: points, Lines: lines, Arcs: Seq<Arc>(), TextBox: box);
+
+    private delegate bool TextRectProbe(out Point3d[] corners);
+
+    private static Fin<Arr<Point3d>> TextBox(TextRectProbe probe, Op key) =>
+        key.Catch(() => probe(out Point3d[] corners)
+            ? Fin.Succ(value: toArr(corners))
+            : Fin.Fail<Arr<Point3d>>(error: key.InvalidResult()));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]

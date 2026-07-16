@@ -1,6 +1,6 @@
 # [RASM_RHINO_RENDER_KINDS]
 
-Content specializations (`Rasm.Rhino.Render`). Material, texture, and environment read their shared surface from the `RenderContent` owner and add only kind-specific capability here: the material bridge bakes a `RenderMaterial` into a document `Material` lease or borrows its `PhysicallyBasedMaterial` projection; texture-usage slots read through the native `StandardChildSlots` vocabulary; material classification folds the host scent predicates onto one vocabulary; texture configuration captures every public settable property; and environment simulation crosses through a detached, reconstructible `EnvironmentState`. Mint verbs yield owned leases, live handles die inside the demand window, and native enums remain seam values.
+Content specializations (`Rasm.Rhino.Render`). Material, texture, and environment read their shared surface from the `RenderContent` owner and add only kind-specific capability here: the material bridge borrows a baked `Material` or a `PhysicallyBasedMaterial` projection for exactly one window each; texture-usage slots read through the native `StandardChildSlots` vocabulary; material classification folds the host scent predicates onto one vocabulary; texture configuration captures every public settable property; and environment simulation crosses through a detached, reconstructible `EnvironmentState`. Mint verbs yield owned leases, live handles die inside the demand window, and native enums remain seam values.
 
 ## [01]-[INDEX]
 
@@ -11,8 +11,8 @@ Content specializations (`Rasm.Rhino.Render`). Material, texture, and environmen
 
 ## [02]-[MATERIAL_BRIDGE]
 
-- Owner: `MaterialMint` `[Union]` — render-material construction from a document `Material` addressed by table index: `Direct` through `FromMaterial`, `Basic` through `CreateBasicMaterial`, `Imported` through `CreateImportedMaterial` with its reference grant; each resolves the `Material` inside the window and yields an owned `Lease<RenderContent>` for the operation rail to attach. `MaterialBridge` — the two bake directions on one owner: `Bake` projects `ToMaterial(TextureGeneration)` into an owned `Lease<Material>`, and `Pbr<TOut>` borrows the `ConvertToPhysicallyBased` projection for exactly one callback window, disposing the backing material on exit. `SlotUsage` — one detached standard-slot read: occupying texture id, enable, amount, and the resolved child-slot name for a native `StandardChildSlots` value. `MaterialScent` keyless `[SmartEnum]` — the host material-class heuristics as rows with `Plain`/`Textured` predicate columns, folded into a per-material scent census.
-- Law: the PBR route is `ToMaterial`/`ConvertToPhysicallyBased` onto `Rhino.DocObjects.PhysicallyBasedMaterial` — the projection is borrowed, never stored, and no result shape carries a live material.
+- Owner: `MaterialMint` `[Union]` — render-material construction from a document `Material` addressed by table index: `Direct` through `FromMaterial`, `Basic` through `CreateBasicMaterial`, `Imported` through `CreateImportedMaterial` with its reference grant; each resolves the `Material` inside the window and yields an owned `Lease<RenderContent>` for the operation rail to attach. `MaterialBridge` — the two bake directions as symmetric borrow windows: `Bake<TOut>` projects `ToMaterial(TextureGeneration)` for exactly one callback window and disposes the baked `Material` on exit, and `Pbr<TOut>` borrows the `ConvertToPhysicallyBased` projection likewise, disposing the backing material on exit. `SlotUsage` — one detached standard-slot read: occupying texture id, enable, amount, and the resolved child-slot name for a native `StandardChildSlots` value. `MaterialScent` keyless `[SmartEnum]` — the host material-class heuristics as rows with `Plain`/`Textured` predicate columns, folded into the detached `ScentCensus`.
+- Law: the PBR route is `ToMaterial`/`ConvertToPhysicallyBased` onto `Rhino.DocObjects.PhysicallyBasedMaterial` — every baked or projected material is borrowed for one window, never stored, and no result shape carries a live material.
 - Law: `Rhino.Render.PhysicallyBasedMaterial` is whole-class obsolete and never enters the design.
 - Law: slot vocabulary is the native `StandardChildSlots` — the PBR slot roster including its aliasing rows is host truth the seam consumes; a wrapper row per slot is the deleted form, and `SlotFromTextureType`/`TextureTypeFromSlot` answer the type-to-slot correspondence where a consumer needs it.
 - Law: assignment is operation-rail work — `AssignTo` over resolved object references with its sub-face and block choices rides the registry page's `ContentOp.Assign` case, so this page carries no table mutation.
@@ -72,21 +72,28 @@ public sealed partial class MaterialScent {
     [UseDelegateFromConstructor]
     internal partial bool Textured(RenderMaterial material);
 
-    internal static Seq<(MaterialScent Scent, bool Plain, bool Textured)> CensusOf(RenderMaterial material) =>
-        toSeq(Items)
-            .Map(row => (Scent: row, Plain: row.Plain(material: material), Textured: row.Textured(material: material)))
-            .Filter(static row => row.Plain || row.Textured);
+    internal static ScentCensus CensusOf(RenderMaterial material) =>
+        new(Rows: toSeq(Items)
+            .Map(row => new ScentMark(Scent: row, Plain: row.Plain(material: material), Textured: row.Textured(material: material)))
+            .Filter(static row => row.Plain || row.Textured));
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------
-public readonly record struct SlotUsage(RenderMaterial.StandardChildSlots Slot, Option<Guid> Texture, bool On, double Amount, string SlotName);
+public readonly record struct ScentMark(MaterialScent Scent, bool Plain, bool Textured);
+
+public sealed record ScentCensus(Seq<ScentMark> Rows) : IDetachedDocumentResult;
+
+public readonly record struct SlotUsage(
+    RenderMaterial.StandardChildSlots Slot, Option<Guid> Texture, bool On, double Amount, string SlotName) : IDetachedDocumentResult;
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 public static class MaterialBridge {
-    internal static Fin<Lease<Material>> Bake(RenderMaterial material, RenderTexture.TextureGeneration generation, Op key) =>
-        key.Catch(() => Optional(material.ToMaterial(tg: generation))
-            .ToFin(Fail: key.InvalidResult())
-            .Map(static baked => (Lease<Material>)new Lease<Material>.Owned(Value: baked)));
+    internal static Fin<TOut> Bake<TOut>(
+        RenderMaterial material, RenderTexture.TextureGeneration generation, Func<Material, Fin<TOut>> borrow, Op key) =>
+        key.Catch(() => {
+            using Material baked = material.ToMaterial(tg: generation);
+            return Optional(baked).ToFin(Fail: key.InvalidResult()).Bind(active => key.Catch(() => borrow(active)));
+        });
 
     internal static Fin<TOut> Pbr<TOut>(
         RenderMaterial material, RenderTexture.TextureGeneration generation, Func<PhysicallyBasedMaterial, Fin<TOut>> borrow, Op key) =>
@@ -110,7 +117,7 @@ public static class MaterialBridge {
 
 ## [03]-[TEXTURE]
 
-- Owner: `TextureConfig` — every public settable texture property as one total-state record: projection, wrap, the UVW repeat/offset/rotation triple with the repeat and offset locks, mapping channel, environment mapping mode, and preview/display flags; `Of` reads it in one pass, and `Apply` writes every field inside one change bracket. `TextureTraits` — the derived classification read, including the reconstructed local mapping transform. `TextureFacsimile` — the reconstructible `SimulatedTexture` payload: filename, UVW values, channel, projection, filtering, and optional transparency across the kernel color seam. `TextureMint` `[Union]` — the two current bitmap-content admission routes, direct `Bitmap` and detached `SimulatedTexture` state, collapsed behind one leased `Mint` entry. `TextureExport` owns confirmed `SaveAsImage` output.
+- Owner: `TextureConfig` — every public settable texture property as one total-state record: projection, wrap, the UVW repeat/offset/rotation triple with the repeat and offset locks, mapping channel, environment mapping mode, and preview/display flags; `Of` reads it in one pass, and `Apply` writes every field inside one change bracket. `TextureTraits` — the derived classification read: local mapping transform, the internal environment-mapping mode beside the effective one `TextureConfig` writes, texel extent, and the capability predicates. `TextureFacsimile` — the reconstructible `SimulatedTexture` payload: filename, UVW values, channel, projection, filtering, and exact `Color4f` transparency. `TextureMint` `[Union]` — the two current bitmap-content admission routes, direct `Bitmap` and detached `SimulatedTexture` state, collapsed behind one leased `Mint` entry. `TextureExport` owns confirmed `SaveAsImage` output.
 - Law: configuration writes are total state, never a patch — `Apply` re-asserts every field under one `ChangeReason`, so an absent field cannot silently clear and the write is replayable from the record alone.
 - Law: read-only `LocalMappingTransform` and `OriginalFilename` never enter writable state; local mapping reconstructs from the admitted UVW fields, while original filename remains observation-only host provenance.
 - Law: the facsimile is the baked carrier's only crossing — a `SimulatedTexture` lives inside a `using` window, `TextureFacsimile.Of` detaches it, and `Apply` reconstructs every carried field through a fresh doc-aware carrier.
@@ -169,6 +176,7 @@ public sealed record TextureConfig(
 public readonly record struct TextureTraits(
     Option<(int Width, int Height, int Depth)> Texels,
     Transform LocalTransform,
+    TextureEnvironmentMappingMode InternalEnvironmentMode,
     bool HdrCapable,
     bool Linear,
     bool NormalMap,
@@ -177,6 +185,7 @@ public readonly record struct TextureTraits(
         key.Catch(() => Fin.Succ(value: new TextureTraits(
             Texels: Optional(texture.PixelSize2),
             LocalTransform: texture.LocalMappingTransform,
+            InternalEnvironmentMode: texture.GetInternalEnvironmentMappingMode(),
             HdrCapable: texture.IsHdrCapable(),
             Linear: texture.IsLinear(),
             NormalMap: texture.IsNormalMap(),
@@ -255,9 +264,8 @@ public abstract partial record TextureMint {
 public static class TextureExport {
     internal static Fin<Unit> Export(RenderTexture texture, string path, int width, int height, int depth, Op key) =>
         from admitted in key.AcceptText(value: path)
-        from _ in guard(width > 0 && height > 0 && depth > 0, key.InvalidInput()).ToFin()
-        from confirmed in key.Catch(() => key.Confirm(success: texture.SaveAsImage(
-            filename: admitted, width: width, height: height, depth: depth)))
+        from _ in guard(width > 0 && height > 0 && depth > 0, key.InvalidInput())
+        from confirmed in key.Catch(() => key.Confirm(success: texture.SaveAsImage(admitted, width, height, depth)))
         select unit;
 }
 ```
@@ -292,7 +300,8 @@ public sealed record EnvironmentState(
         return key.Catch(() => {
             using SimulatedEnvironment simulated = new();
             (byte r, byte g, byte b, double alpha) = self.Background.ToRgb();
-            simulated.BackgroundColor = System.Drawing.Color.FromArgb((int)(alpha * 255.0), r, g, b);
+            simulated.BackgroundColor = System.Drawing.Color.FromArgb(
+                byte.CreateSaturating(Math.Round(alpha * byte.MaxValue)), r, g, b);
             simulated.BackgroundProjection = self.Projection;
             return self.Image.Match(
                 Some: facsimile => {
@@ -319,8 +328,8 @@ public sealed record EnvironmentState(
 | [INDEX] | [CONCERN]              | [OWNER]            | [FORM]                                                 | [ENTRY]                         |
 | :-----: | :--------------------- | :----------------- | :----------------------------------------------------- | :------------------------------ |
 |  [01]   | material minting       | `MaterialMint`     | one union over the three `From*` routes, leased result | `Mint(document, key)`           |
-|  [02]   | material bake and PBR  | `MaterialBridge`   | leased `ToMaterial`, borrowed PBR projection window    | `Bake` / `Pbr` / `Usage`        |
-|  [03]   | material class         | `MaterialScent`    | rows with `Plain`/`Textured` predicate columns         | `CensusOf(material)`            |
+|  [02]   | material bake and PBR  | `MaterialBridge`   | one borrow window per bake direction                   | `Bake` / `Pbr` / `Usage`        |
+|  [03]   | material class         | `MaterialScent`    | predicate-column rows folded into `ScentCensus`        | `CensusOf(material)`            |
 |  [04]   | texture configuration  | `TextureConfig`    | total public writable state, bracketed write           | `Of` / `Apply(texture, reason)` |
 |  [05]   | texture classification | `TextureTraits`    | derived local transform and capability read            | `Of(texture, key)`              |
 |  [06]   | baked-texture crossing | `TextureFacsimile` | detached, reconstructible simulation payload           | `Of` / `Apply`                  |

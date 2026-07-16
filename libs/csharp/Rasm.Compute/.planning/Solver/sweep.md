@@ -2,7 +2,7 @@
 
 Rasm.Compute solver sweep: one `SweepGrid` design-of-experiments orchestration emitting a queryable `ParetoFront` with a binned global-sensitivity `SensitivityTornado`, beside one `FrameBudget` early-stop governor returning a coarse iterative field within a frame deadline and forking the refinement onto a background lane. Grid construction is the product of two orthogonal axes — a `SweepAxis` `[Union]` per-dimension factor and a `DoeDesign` `[SmartEnum<string>]` whole-grid strategy owning the design matrix — where factorial rows Cartesian-product per-axis levels while space-filling and response-surface rows draw a JOINT design across all dimensions, so a Latin-hypercube or Sobol sweep is one space-filling net, never the per-axis-1-D-then-Cartesian mis-model that defeats the variance reduction it exists to provide.
 
-Per-point evaluation stays contract-uniform with the `Solver/optimizer#OPTIMIZER_LANE` and `Solver/uncertainty#UNCERTAINTY_LANE` lanes over one `DesignPoint`→objective-vector oracle, `IO`-lifted here alone (`IO<Fin<Seq<double>>>`) because the live `ProgressCell` observation and the `FrameBudget` refinement fork compose in `IO` where those synchronous lanes take the bare `Fin<Seq<double>>`. Space-filling rows draw the `Tensor/sampling#OWNED_BUILDS` `LowDiscrepancy` joint d-dimensional sampler under the `Scramble` policy, the sensitivity reductions ride `TensorPrimitives` SIMD folds, and the `ParetoFront` is the optimizer's own artifact crossing to Persistence content-keyed. `ComputeReceipt`, `WorkLane`, `CorrelationId`, `ClockPolicy`, and the `ComparerAccessors.StringOrdinal` accessor from `Solver/discretization#DISCRETIZATION_MESH` arrive settled.
+Per-point evaluation stays contract-uniform with the `Solver/optimizer#OPTIMIZER_LANE` and `Solver/uncertainty#UNCERTAINTY_LANE` lanes over one `DesignPoint`→objective-vector oracle, `IO`-lifted here alone (`IO<Fin<Seq<double>>>`) because the live `ProgressCell` observation and the `FrameBudget` refinement fork compose in `IO` where those synchronous lanes take the bare `Fin<Seq<double>>`. Space-filling rows draw the `Tensor/sampling#OWNED_BUILDS` `LowDiscrepancy` joint d-dimensional sampler under the `Scramble` policy, the sensitivity reductions ride `TensorPrimitives` SIMD folds, and the `ParetoFront` is the optimizer's own artifact crossing to Persistence content-keyed. `SweepLane.Dataset` projects a landed `SweepResult` onto the `DoeDataset` wire shape — the `[GRADUATION]` loop's training leg: C# sweep → `DoeDataset` → Python fit → graduated ONNX over `GraduationEvidence` → `Solver/optimizer` neural-field surrogate — so labeled sweep data feeds the surrogate refresh instead of dying in receipts, over the existing Runtime wire plane with no new transport. `ComputeReceipt`, `WorkLane`, `CorrelationId`, `ClockPolicy`, and the `ComparerAccessors.StringOrdinal` accessor from `Solver/discretization#DISCRETIZATION_MESH` arrive settled.
 
 ## [01]-[INDEX]
 
@@ -10,12 +10,12 @@ Per-point evaluation stays contract-uniform with the `Solver/optimizer#OPTIMIZER
 
 ## [02]-[SWEEP_AND_BUDGET]
 
-- Owner: `SweepAxis` `[Union]` per-dimension factor cases; `DoeDesign` `[SmartEnum<string>]` whole-grid strategy rows; `SensitivityMethod` `[SmartEnum<string>]` global-sensitivity rows; `DoePolicy` the sample/bin/center/axial/fraction/scramble/cardinality policy and sensitivity-objective index; `SweepGrid` the validated axes+objectives+sensitivity+strategy record; `FrameBudget` the early-stop governor; `SensitivityTornado` the quantile-binned per-axis effect ranking; `SweepResult` the front+tornado+counts carrier; `SweepLane` the fan-out fold and admitted progress consumer.
+- Owner: `SweepAxis` `[Union]` per-dimension factor cases; `DoeDesign` `[SmartEnum<string>]` whole-grid strategy rows; `SensitivityMethod` `[SmartEnum<string>]` global-sensitivity rows; `DoePolicy` the sample/bin/center/axial/fraction/scramble/cardinality policy and sensitivity-objective index; `SweepGrid` the validated axes+objectives+sensitivity+strategy record; `FrameBudget` the early-stop governor; `SensitivityTornado` the quantile-binned per-axis effect ranking; `SweepResult` the front+tornado+points+counts carrier; `DoeDataset` the content-keyed training-corpus egress the Python companion trains on; `SweepLane` the fan-out fold, admitted progress consumer, and `Dataset` egress projection.
 - Cases: `SweepAxis` `Linear` · `Logarithmic` · `Enumerated`; `DoeDesign` full-factorial · fractional-factorial · plackett-burman · latin-hypercube · sobol · halton · central-composite · box-behnken (central-composite/box-behnken the two `responseSurface` rows on coded ±1/±α/0 grids, latin-hypercube/sobol/halton the three `spaceFilling` JOINT designs); `SensitivityMethod` one-at-a-time · morris-elementary · sobol-variance.
 - Entry: `public static (Option<ProgressCell> Progress, IO<Fin<SweepResult>> Result) Run(SweepGrid grid, Func<DesignPoint, IO<Fin<Seq<double>>>> evaluate, Func<Seq<ImmutableArray<double>>, Option<(ProgressCell Parent, PhaseSubscription Wiring, Seq<ProgressCell> Points)>> progress, ClockPolicy clocks)` — the scheduler-supplied factory owns admitted progress minting; invalid grids fault before materialization, and an individual point fault tallies incomplete rather than aborting. `Governed` wraps an iterative step and forks refinement onto `budget.Refinement` after a cooperative frame-budget expiry.
 - Auto: `SweepGrid.Design` dispatches the design matrix on the `DoeDesign` row; `Run` fans the design applicatively over the independent `evaluate` oracle, validates each objective vector, folds successes into `ParetoFront`, tallies faults, and projects `SensitivityTornado`; the injected progress bundle advances admitted point cells and disposes its `PhaseSubscription` through `Bracket`.
 - Receipt: `Sweep(long GridPoints, int Completed, int OnFront, int Dominated)` from `Runtime/receipts#RECEIPT_UNION`; `SweepLane.Receipt` projects a `SweepResult` under the correlation — `OnFront` the front size, dominated `Completed − OnFront`, failed `GridPoints − Completed`; the frame-budget early-stop's per-iteration residual rides the iterative solve's own `Solve` receipt (`Solver/contract#SOLVE_CONTRACT`), never a fabricated sweep flag.
-- Packages: System.Numerics.Tensors, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.AppHost (project), Rasm.Persistence (project), BCL inbox
+- Packages: System.Numerics.Tensors, System.IO.Hashing (`XxHash128.HashToUInt128` the `DoeDataset` content key), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.AppHost (project), Rasm.Persistence (project), BCL inbox (`BinaryPrimitives` little-endian value framing)
 - Growth: a new design-of-experiments strategy is one `DoeDesign` row plus its `Materialize`/`Cardinality` arm; a new factor kind is one `SweepAxis` case carrying its `Levels`+`Map` lowering; a new sensitivity analysis is one `SensitivityMethod` row carrying its `Rank` fold; a frame-budget change is one field on `FrameBudget`/`DoePolicy`; zero new surface — a `FactorialSweep`/`LatinHypercubeSweep`/`SobolSweep`/`ResponseSurface` sibling collapses onto the one `DoeDesign` axis, and a per-axis `SweepAxis.LatinHypercube`/`SweepAxis.Sobol` case is rejected because a space-filling design is joint across dimensions, never a per-axis 1-D sequence Cartesian-producted.
 - Boundary: `evaluate` is the single `IO`-lifted solver coupling; space-filling rows draw one joint `LowDiscrepancy` net; `SweepGrid.Validate` rejects invalid axes, aliased fractional generators, unbounded in-memory grids, absent objectives, and invalid sensitivity columns before materialization. Point faults accumulate without aborting independent rows. `SensitivityTornado` bins equal-count coordinate strata before conditional-mean effects. Scheduler composition supplies the admitted `ProgressCell` leaves, parent, and `PhaseSubscription`; sweep advances and disposes them but never mints an `AdmittedIntent`. `Governed` requires cooperative `step` settlement, returns the best field after the budget predicate, and forks refinement through `IO.Fork`.
 
@@ -326,7 +326,15 @@ public sealed record SensitivityTornado(Seq<(string Axis, double Low, double Hig
     }
 }
 
-public sealed record SweepResult(SweepGrid Grid, ParetoFront Front, SensitivityTornado Tornado, int Completed, int Failed, Instant At);
+// Points retains every COMPLETED evaluation — dominated rows are training corpus the front alone would lose.
+public sealed record SweepResult(SweepGrid Grid, ParetoFront Front, SensitivityTornado Tornado, Seq<DesignPoint> Points, int Completed, int Failed, Instant At);
+
+// Surrogate training-data egress: the e13 `DoeDataset` wire shape the Python companion trains on — columnar
+// coordinates and responses in row-major blocks, axis names, design provenance, and a little-endian content key,
+// so every screening campaign is training corpus and the neural-field refresh loop closes without a manual hand-off.
+public sealed record DoeDataset(
+    UInt128 ContentKey, Seq<string> Axes, Seq<string> Objectives, DoeDesign Strategy,
+    int Points, ReadOnlyMemory<double> Coordinates, ReadOnlyMemory<double> Responses, Instant At);
 
 // --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -373,6 +381,39 @@ public static class SweepLane {
             ? Fin.Succ(values)
             : Fin.Fail<Seq<double>>(ComputeFault.Create("<sweep-oracle-shape>")));
 
+    // Completed points only — a faulted evaluation never enters the training corpus; the content key frames axis
+    // names, strategy, and both little-endian value blocks, so an identical campaign re-export reuses its key.
+    public static Fin<DoeDataset> Dataset(SweepResult result, ClockPolicy clocks) {
+        Seq<DesignPoint> points = result.Points;
+        if (points.IsEmpty || points.Exists(p => p.Coordinates.Length != result.Grid.Axes.Count || p.Objectives.Length != result.Grid.Objectives.Count)) {
+            return Fin.Fail<DoeDataset>(ComputeFault.Create("<doe-dataset-shape>"));
+        }
+        int d = result.Grid.Axes.Count, m = result.Grid.Objectives.Count;
+        double[] coordinates = new double[points.Count * d];
+        double[] responses = new double[points.Count * m];
+        for (int row = 0; row < points.Count; row++) {                          // row-major block fill — the columnar wire layout the tabular ingest reads
+            for (int axis = 0; axis < d; axis++) { coordinates[row * d + axis] = points[row].Coordinates[axis]; }
+            for (int objective = 0; objective < m; objective++) { responses[row * m + objective] = points[row].Objectives[objective]; }
+        }
+        ArrayBufferWriter<byte> frame = new();
+        foreach (string label in result.Grid.Axes.Map(static a => a.AxisName) + Seq(result.Grid.Strategy.Key)) {
+            byte[] encoded = Encoding.UTF8.GetBytes(label);
+            Span<byte> slot = frame.GetSpan(4 + encoded.Length);
+            BinaryPrimitives.WriteInt32LittleEndian(slot, encoded.Length);
+            encoded.CopyTo(slot[4..]);
+            frame.Advance(4 + encoded.Length);
+        }
+        Span<byte> values = frame.GetSpan(8 * (coordinates.Length + responses.Length));
+        for (int i = 0; i < coordinates.Length; i++) { BinaryPrimitives.WriteDoubleLittleEndian(values[(8 * i)..], coordinates[i]); }
+        for (int i = 0; i < responses.Length; i++) { BinaryPrimitives.WriteDoubleLittleEndian(values[(8 * (coordinates.Length + i))..], responses[i]); }
+        frame.Advance(8 * (coordinates.Length + responses.Length));
+        return Fin.Succ(new DoeDataset(
+            XxHash128.HashToUInt128(frame.WrittenSpan),
+            result.Grid.Axes.Map(static a => a.AxisName),
+            toSeq(Enumerable.Range(0, m)).Map(static i => $"objective-{i}"),
+            result.Grid.Strategy, points.Count, coordinates, responses, clocks.Now));
+    }
+
     public static ComputeReceipt.Sweep Receipt(SweepResult result, CorrelationId correlation, Duration elapsed) =>
         new(result.Grid.Cardinality, result.Completed, result.Front.Points.Count, Math.Max(0, result.Completed - result.Front.Points.Count)) {
             Correlation = correlation, Lane = WorkLane.Background, Substrate = Substrate.CpuTensor, AllocationClass = AllocationClass.PooledMemory, Elapsed = elapsed,
@@ -384,7 +425,7 @@ public static class SweepLane {
             static (acc, row) => row.Result.Match(
                 Succ: objectives => { DesignPoint point = new(row.Coords, [.. objectives], []); return (acc.Front.Insert(point), acc.Points.Add(point), acc.Failed); },
                 Fail: static _ => (acc.Front, acc.Points, acc.Failed + 1)));
-        return new SweepResult(grid, folded.Front, SensitivityTornado.Of(grid, folded.Points, grid.Policy.SensitivityObjective), folded.Points.Count, folded.Failed, clocks.Now);
+        return new SweepResult(grid, folded.Front, SensitivityTornado.Of(grid, folded.Points, grid.Policy.SensitivityObjective), folded.Points, folded.Points.Count, folded.Failed, clocks.Now);
     }
 
     public static Func<DesignPoint, IO<Fin<Seq<double>>>> Governed(

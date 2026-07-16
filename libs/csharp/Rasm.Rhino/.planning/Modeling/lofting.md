@@ -5,7 +5,7 @@
 ## [01]-[INDEX]
 
 - [02]-[SWEEP_POLICY]: `SweepFrameLaw`, `SweepFit`, `SweepEnds` — the sweep axes as values and the class-engine modality law.
-- [03]-[PATCH_POLICY]: `PatchLaw`, `VariationalLaw`, `LoftFit`, `LoftTangency`, `DevelopableLaw` — the fit and solver policies.
+- [03]-[PATCH_POLICY]: `PatchLaw`, `VariationalLaw`, `LoftFit`, `LoftTangency`, `DevelopableLaw`, `RulingSolve` — the fit and solver policies.
 - [04]-[OPERATION_RAIL]: `LoftSlot`, `LoftOp`, and the `Lofts.Build` entry.
 - [05]-[SURFACE_LEDGER]: the page's owner table.
 
@@ -13,7 +13,7 @@
 
 - Owner: `SweepFrameLaw` `[Union]` — freeform, roadlike top/front/right presets, and an explicit roadlike direction carry the full `SweepOneRail` frame surface; `SweepFit` `[Union]` — `AsIs`, `Rebuild(Points)`, and `Refit(RefitRail)` carry the host's `SweepRebuild` axis while `Context` supplies refit tolerance; `SweepEnds` — optional start and end caps with `Point3d.Unset` spelled once at the seam.
 - Law: parameter-keyed one-rail sweeping routes through `SweepOneRail`; parameterless sweeping routes through the frame-driven static. Engine mode rejects static-only end and segmentation inputs instead of ignoring them.
-- Law: `SweepTwoStations.Engine` carries station rows and the engine-only legacy switch; `Partitioned` carries paired rail parameters for `CreateFromSweepInParts`; absence selects the static two-rail form. Each modality rejects knobs its native cannot consume.
+- Law: `SweepTwoStations.Engine` carries station rows and the engine-only `UseLegacySweeper` host switch; `Partitioned` carries paired rail parameters for `CreateFromSweepInParts`; absence selects the static two-rail form. Each modality rejects knobs its native cannot consume.
 - Growth: a new host sweep knob is one field on the owning case rigged in the arm; a new fit behavior is one `SweepFit` case.
 
 ```csharp
@@ -37,10 +37,10 @@ public abstract partial record SweepFrameLaw {
     internal Unit Rig(SweepOneRail engine) => Switch(
         state: engine,
         freeform: static _ => unit,
-        roadlikeTop: static sweep => fun(() => { sweep.SetToRoadlikeTop(); return unit; })(),
-        roadlikeFront: static sweep => fun(() => { sweep.SetToRoadlikeFront(); return unit; })(),
-        roadlikeRight: static sweep => fun(() => { sweep.SetToRoadlikeRight(); return unit; })(),
-        roadlikeDirection: static (sweep, law) => fun(() => { sweep.SetRoadlikeUpDirection(up: law.Normal); return unit; })());
+        roadlikeTop: static sweep => { sweep.SetToRoadlikeTop(); return unit; },
+        roadlikeFront: static sweep => { sweep.SetToRoadlikeFront(); return unit; },
+        roadlikeRight: static sweep => { sweep.SetToRoadlikeRight(); return unit; },
+        roadlikeDirection: static (sweep, law) => { sweep.SetRoadlikeUpDirection(up: law.Normal); return unit; });
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -79,6 +79,14 @@ public abstract partial record DevelopableLaw {
     public sealed record ByRulings(Seq<Point2d> FixedRulings) : DevelopableLaw;
 }
 
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record RulingSolve {
+    private RulingSolve() { }
+    public sealed record Local(Interval Domain0, Interval Domain1) : RulingSolve;
+    public sealed record MinTwistSecond(Interval Domain1) : RulingSolve;
+    public sealed record MinTwistBoth(Interval Domain0, Interval Domain1) : RulingSolve;
+}
+
 // --- [MODELS] -----------------------------------------------------------------------------
 public readonly record struct SweepEnds(Option<Point3d> Start = default, Option<Point3d> End = default) {
     internal Point3d StartOrUnset => Start.IfNone(Point3d.Unset);
@@ -88,10 +96,10 @@ public readonly record struct SweepEnds(Option<Point3d> Start = default, Option<
 
 ## [03]-[PATCH_POLICY]
 
-- Owner: `PatchLaw` — the direct patch solver's complete policy surface: spans, trim, tangency, point spacing, flexibility, surface pull, and four fixed-edge grants; `VariationalLaw` — the complete `Brep.VariationalPatchSettings` surface with context-rigged tolerances; `LoftTangency` — trim-seeded loft ends as one optional record.
+- Owner: `PatchLaw` — the direct patch solver's complete policy surface: spans, trim, tangency, point spacing, flexibility, surface pull, and four fixed-edge grants; `VariationalLaw` — the complete `Brep.VariationalPatchSettings` surface with context-rigged tolerances; `LoftTangency` — trim-seeded loft ends as one optional record; `RulingSolve` `[Union]` — local, minimum-twist second-parameter, and minimum-twist two-parameter solves.
 - Law: constraint continuity rides the row — a variational edge or interior curve enters as `(Handle, Continuity)` and the arm mints `Brep.CurveConstraint` per row inside the borrow, so the constraint carrier never crosses a case payload.
 - Law: the solver verdict is evidence — `Brep.VariationalPatchResult` folds to `Text` facts for its warning and error channels and `Flag` facts for the `G0Int`/`G0`/`G1`/`G2` continuity verdicts, so a patch that succeeded with degraded continuity is distinguishable from a clean solve without re-running it.
-- Law: an initial surface is leased policy — `VariationalLaw.InitialSurface` and the legacy patch's starting surface are optional handles borrowed only for the solve window.
+- Law: an initial surface is leased policy — `VariationalLaw.InitialSurface` and the direct patch's starting surface are optional handles borrowed only for the solve window.
 
 ```csharp
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -122,14 +130,13 @@ public sealed record VariationalLaw(
     double UVRotation = 0.0,
     int MaxRefinements = 5,
     bool PreserveEdges = false,
-    Option<GeometryHandle> InitialSurface = default,
-    bool MultiThreaded = true) {
+    Option<GeometryHandle> InitialSurface = default) {
     internal Fin<Brep.VariationalPatchSettings> Rig(Context domain, Option<Surface> initial, Op key) =>
         key.Catch(() => Fin.Succ(value: new Brep.VariationalPatchSettings {
             Tolerance = domain.Absolute.Value,
             AngleToleranceRadians = domain.Angle.Value,
             InternalTolerance = domain.Absolute.Value,
-            CurvatureRelativeTolerance = domain.Fractional.Value,
+            CurvatureRelativeTolerance = domain.Fractional,
             CurvatureZeroTolerance = domain.Absolute.Value,
             DegreeU = DegreeU,
             DegreeV = DegreeV,
@@ -197,8 +204,9 @@ public abstract partial record LoftOp {
         Seq<(GeometryHandle Curve, Continuity Continuity)> Edges,
         Seq<(GeometryHandle Curve, Continuity Continuity)> InternalCurves,
         Seq<Point3d> Points, VariationalLaw Law,
-        CancellationToken Cancel = default, Option<IProgress<double>> Progress = default) : LoftOp;
+        bool MultiThreaded = true, CancellationToken Cancel = default, Option<IProgress<double>> Progress = default) : LoftOp;
     public sealed record Developable(GeometryHandle Rail0, GeometryHandle Rail1, DevelopableLaw Law) : LoftOp;
+    public sealed record SolveRuling(GeometryHandle Rail0, GeometryHandle Rail1, Point2d Seed, RulingSolve Law) : LoftOp;
     public sealed record AdjustRulings(GeometryHandle Rail0, GeometryHandle Rail1, Seq<Point2d> Rulings) : LoftOp;
 
     internal Fin<Built<LoftSlot>> Apply(Context domain) =>
@@ -211,7 +219,8 @@ public abstract partial record LoftOp {
                         edit.ShapeParams.Case switch {
                             Seq<double> stations => (
                                 from _ in guard(
-                                    stations.Count == shapes.Count && edit.Ends.Start.IsNone && edit.Ends.End.IsNone && !edit.Segmented,
+                                    stations.Count == shapes.Count && edit.Ends.Start.IsNone && edit.Ends.End.IsNone && !edit.Segmented
+                                    && edit.Fit is not SweepFit.Refit { RefitRail: true },
                                     op.InvalidInput())
                                 from built in op.Catch(() => {
                                     SweepOneRail engine = new() {
@@ -230,6 +239,8 @@ public abstract partial record LoftOp {
                                     });
                                 })
                                 select built),
+                            _ when edit.Segmented && edit.Fit is SweepFit.Refit { RefitRail: true } =>
+                                Fin.Fail<Built<LoftSlot>>(error: op.InvalidInput()),
                             _ => op.Catch(() => {
                                 (SweepFrame frame, Vector3d normal) = edit.Frame.Native;
                                 (SweepRebuild kind, int points, double refit, bool refitRail) = edit.Fit.Native(domain: model);
@@ -254,7 +265,8 @@ public abstract partial record LoftOp {
                                 SweepTwoStations.Engine stations => (
                                     from _ in guard(
                                         stations.Rail1.Count == shapes.Count && stations.Rail2.Count == shapes.Count
-                                        && edit.Ends.Start.IsNone && edit.Ends.End.IsNone,
+                                        && edit.Ends.Start.IsNone && edit.Ends.End.IsNone
+                                        && edit.Fit is not SweepFit.Refit { RefitRail: true },
                                         op.InvalidInput())
                                     from built in op.Catch(() => {
                                         SweepTwoRail engine = new() {
@@ -285,6 +297,8 @@ public abstract partial record LoftOp {
                                         rail1: rail1, rail2: rail2, shapes: shapes.AsIterable(),
                                         rail_params: stations.RailParameters.AsIterable(), closed: edit.Closed, tolerance: model.Absolute.Value)))
                                     select built),
+                                _ when edit.Fit is SweepFit.Refit { RefitRail: true } =>
+                                    Fin.Fail<Built<LoftSlot>>(error: op.InvalidInput()),
                                 _ => op.Catch(() => {
                                     (SweepRebuild kind, int points, double refit, _) = edit.Fit.Native(domain: model);
                                     return Swept(op, () => Brep.CreateFromSweep(
@@ -303,7 +317,8 @@ public abstract partial record LoftOp {
                             ModelGate.Borrow<Brep, Built<LoftSlot>>(handle: tangency.EndOwner, key: op, body: endOwner =>
                                 from _ in guard(
                                     tangency.StartTrim >= 0 && tangency.StartTrim < startOwner.Trims.Count
-                                    && tangency.EndTrim >= 0 && tangency.EndTrim < endOwner.Trims.Count,
+                                    && tangency.EndTrim >= 0 && tangency.EndTrim < endOwner.Trims.Count
+                                    && edit.Fit is LoftFit.AsIs,
                                     op.InvalidInput())
                                 from built in op.Catch(() => Lofted(op, () => Brep.CreateFromLoft(
                                     curves: shapes.AsIterable(), start: edit.Ends.StartOrUnset, end: edit.Ends.EndOrUnset,
@@ -354,7 +369,7 @@ public abstract partial record LoftOp {
                                     internalCurves: interiorCurves.Zip(edit.InternalCurves.Map(static row => row.Continuity))
                                         .Map(static pair => new Brep.CurveConstraint(curve: pair.First, continuity: pair.Second)).AsIterable(),
                                     points: edit.Points.Map(static point => new Brep.PointConstraint(point: point)).AsIterable(),
-                                    settings: settings, multiThreading: edit.Law.MultiThreaded,
+                                    settings: settings, multiThreading: edit.MultiThreaded,
                                     cancelToken: edit.Cancel, progress: edit.Progress.IfNoneUnsafe((IProgress<double>?)null),
                                     results: out Brep.VariationalPatchResult verdict);
                                 return ModelGate.Own(built: patch, key: op).Map(owned => new Built<LoftSlot>(
@@ -386,6 +401,43 @@ public abstract partial record LoftOp {
                         ModelGate.Borrow<NurbsCurve, Built<LoftSlot>>(handle: ctx.Edit.Rail1, key: ctx.Op, body: rail1 =>
                             Developed(ctx.Op, () => Brep.CreateDevelopableLoft(
                                 rail0: rail0, rail1: rail1, fixedRulings: law.FixedRulings.AsIterable())))));
+            },
+            solveRuling: static (_, edit) => {
+                Op op = Op.Of(name: nameof(SolveRuling));
+                return ModelGate.Borrow<NurbsCurve, Built<LoftSlot>>(handle: edit.Rail0, key: op, body: rail0 =>
+                    ModelGate.Borrow<NurbsCurve, Built<LoftSlot>>(handle: edit.Rail1, key: op, body: rail1 =>
+                        edit.Law.Switch(
+                            state: (Rail0: rail0, Rail1: rail1, Seed: edit.Seed, Op: op),
+                            local: static (ctx, law) => ctx.Op.Catch(() => {
+                                double t0 = ctx.Seed.X;
+                                double t1 = ctx.Seed.Y;
+                                int verdict = DevelopableSrf.GetLocalDevopableRuling(
+                                    rail0: ctx.Rail0, t0: ctx.Seed.X, dom0: law.Domain0,
+                                    rail1: ctx.Rail1, t1: ctx.Seed.Y, dom1: law.Domain1,
+                                    t0_out: ref t0, t1_out: ref t1);
+                                return Fin.Succ(value: new Built<LoftSlot>(
+                                    Products: Seq<GeometryHandle>(),
+                                    Evidence: BuildReceipt<LoftSlot>.Of(slot: LoftSlot.Rulings, body: new BuildBody.UvRows(Rows: Seq(new Point2d(t0, t1))))
+                                        + BuildReceipt<LoftSlot>.Of(slot: LoftSlot.Rulings, body: new BuildBody.Code(Value: verdict))));
+                            }),
+                            minTwistSecond: static (ctx, law) => ctx.Op.Catch(() => {
+                                double t1 = ctx.Seed.Y;
+                                double cosine = 0.0;
+                                return ctx.Op.Confirm(success: DevelopableSrf.RulingMinTwist(
+                                        rail0: ctx.Rail0, t0: ctx.Seed.X, rail1: ctx.Rail1, t1: ctx.Seed.Y,
+                                        dom1: law.Domain1, t1_out: ref t1, cos_twist_out: ref cosine))
+                                    .Map(_ => RulingBuilt(t0: ctx.Seed.X, t1: t1, cosine: cosine));
+                            }),
+                            minTwistBoth: static (ctx, law) => ctx.Op.Catch(() => {
+                                double t0 = ctx.Seed.X;
+                                double t1 = ctx.Seed.Y;
+                                double cosine = 0.0;
+                                return ctx.Op.Confirm(success: DevelopableSrf.RulingMinTwist(
+                                        rail0: ctx.Rail0, t0: ctx.Seed.X, dom0: law.Domain0,
+                                        rail1: ctx.Rail1, t1: ctx.Seed.Y, dom1: law.Domain1,
+                                        t0_out: ref t0, t1_out: ref t1, cos_twist_out: ref cosine))
+                                    .Map(_ => RulingBuilt(t0: t0, t1: t1, cosine: cosine));
+                            }))));
             },
             adjustRulings: static (_, edit) => {
                 Op op = Op.Of(name: nameof(AdjustRulings));
@@ -419,6 +471,11 @@ public abstract partial record LoftOp {
         op.Catch(() => ModelGate.OwnMany(built: run(), key: op).Map(owned => new Built<LoftSlot>(
             Products: owned,
             Evidence: BuildReceipt<LoftSlot>.Of(slot: LoftSlot.Developed, body: new BuildBody.Tally(Count: owned.Count)))));
+
+    private static Built<LoftSlot> RulingBuilt(double t0, double t1, double cosine) => new(
+        Products: Seq<GeometryHandle>(),
+        Evidence: BuildReceipt<LoftSlot>.Of(slot: LoftSlot.Rulings, body: new BuildBody.UvRows(Rows: Seq(new Point2d(t0, t1))))
+            + BuildReceipt<LoftSlot>.Of(slot: LoftSlot.Rulings, body: new BuildBody.Measure(Value: cosine)));
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
@@ -438,15 +495,16 @@ public static class Lofts {
 
 ## [05]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]           | [OWNER]          | [FORM]                                                    | [ENTRY]                       |
-| :-----: | :------------------ | :--------------- | :--------------------------------------------------------- | :---------------------------- |
-|  [01]   | sweep frame         | `SweepFrameLaw`  | freeform plus every roadlike preset and direction         | `SweepOne` payload            |
-|  [02]   | sweep fit           | `SweepFit`       | as-is, rebuild, refit as one union                        | `SweepOne` / `SweepTwo`       |
-|  [03]   | sweep modality      | `LoftOp`         | station policy selects static, engine, or partitioned     | `ShapeParams` / `Stations`    |
-|  [04]   | loft fit + tangency | `LoftFit`        | context-rigged native overloads behind one case            | `LoftOp.Loft`                 |
-|  [05]   | legacy patch        | `PatchLaw`       | spans, pull, flexibility, fixed edges as one value        | `LoftOp.Patch`                |
-|  [06]   | variational solver  | `VariationalLaw` | whole `Brep.VariationalPatchSettings` surface as one value | `LoftOp.Variational` / `Rig`  |
-|  [07]   | solver verdict      | `LoftOp`         | warning, error, and G-continuity verdicts as facts        | `LoftSlot.Solved` facts       |
-|  [08]   | developable loft    | `DevelopableLaw` | density or pinned-ruling modality                         | `LoftOp.Developable`          |
-|  [09]   | ruling adjustment   | `LoftOp`         | untwisted uv rows as evidence, no product                 | `LoftOp.AdjustRulings`        |
-|  [10]   | loft verbs          | `LoftOp`         | one flat `[Union]`, total generated dispatch              | `Lofts.Build`                 |
+| [INDEX] | [CONCERN]           | [OWNER]          | [FORM]                                                     | [ENTRY]                      |
+| :-----: | :------------------ | :--------------- | :--------------------------------------------------------- | :--------------------------- |
+|  [01]   | sweep frame         | `SweepFrameLaw`  | freeform plus every roadlike preset and direction          | `SweepOne` payload           |
+|  [02]   | sweep fit           | `SweepFit`       | as-is, rebuild, refit as one union                         | `SweepOne` / `SweepTwo`      |
+|  [03]   | sweep modality      | `LoftOp`         | station policy selects static, engine, or partitioned      | `ShapeParams` / `Stations`   |
+|  [04]   | loft fit + tangency | `LoftFit`        | context-rigged native overloads behind one case            | `LoftOp.Loft`                |
+|  [05]   | direct patch        | `PatchLaw`       | spans, pull, flexibility, fixed edges as one value         | `LoftOp.Patch`               |
+|  [06]   | variational solver  | `VariationalLaw` | whole `Brep.VariationalPatchSettings` surface as one value | `LoftOp.Variational` / `Rig` |
+|  [07]   | solver verdict      | `LoftOp`         | warning, error, and G-continuity verdicts as facts         | `LoftSlot.Solved` facts      |
+|  [08]   | developable loft    | `DevelopableLaw` | density or pinned-ruling modality                          | `LoftOp.Developable`         |
+|  [09]   | ruling solve        | `RulingSolve`    | local or minimum-twist outputs as evidence                 | `LoftOp.SolveRuling`         |
+|  [10]   | ruling adjustment   | `LoftOp`         | untwisted uv rows as evidence, no product                  | `LoftOp.AdjustRulings`       |
+|  [11]   | loft verbs          | `LoftOp`         | one flat `[Union]`, total generated dispatch               | `Lofts.Build`                |

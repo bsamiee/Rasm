@@ -7,7 +7,7 @@
 ## [01]-[INDEX]
 
 - [01]-[RECEIPT_UNION]: the fact union (inline cases plus the `Analysis/assessment` `Assessment` partial), its Strict-resolver round-trip context, and sink-port emission.
-- [02]-[FOLD_PROJECTIONS]: operational views derive as folds over the fact stream.
+- [02]-[FOLD_PROJECTIONS]: operational views derive as folds over the fact stream; content-keyed verdicts re-derive and diff under the determinism tag.
 - [03]-[WIRE_STAMPS]: NodaTime-protobuf bridges own the temporal wire edge.
 - [04]-[BENCHMARK_CLAIMS]: fingerprint-gated claim rows decide performance routes.
 - [05]-[TS_PROJECTION]: receipt payload union and benchmark-claim wire shapes.
@@ -315,12 +315,12 @@ public sealed class ReceiptSurface(ReceiptSinkPort sink, ComputeWireContext wire
 
 ## [03]-[FOLD_PROJECTIONS]
 
-- Owner: `ReceiptFolds` — every operational view is a pure fold over `Seq<ComputeReceipt>`; the fact stream is the single source and no projection accumulates mutably.
-- Entry: `public HashMap<CorrelationId, Seq<ComputeReceipt>> Provenance` — the model-result provenance projection joining every receipt chain by correlation.
-- Auto: per-lane counts, route histograms, hot-path totals, leak indicators, conflict evidence, solver-divergence and twin-anomaly extractions, numeric-provider attribution, residency-gate crossings, and provenance chains derive on read from the identical stream the dashboards consume.
-- Packages: LanguageExt.Core, NodaTime, BCL inbox
-- Growth: a new operational view is one fold member row over the same fact stream, zero new surface.
-- Boundary: leak indicators read `StagingEventKind.StreamDoubleDisposed` and `StreamFinalized`, while `Diagnostics` reads the row's `Diagnostic` column. `DiscardTaxonomy` folds `BufferDiscarded` detail into a reason-keyed count. Execution projections choose only facts carrying their `Option` spine values; process-scoped allocation evidence remains in provenance and diagnostic folds without a fabricated lane or route. Mutable accumulators, per-view repositories, and second fact streams reject.
+- Owner: `ReceiptFolds` — every operational view is a pure fold over `Seq<ComputeReceipt>`; the fact stream is the single source and no projection accumulates mutably. `ReceiptReplay`/`ReplayVerdict` — the certification-grade re-derivation fold: a content-keyed verdict re-derives from its recorded inputs and diffs against the stored payload under the receipt's determinism tag, so a permit-submitted verdict is provable on demand instead of merely cached.
+- Entry: `public HashMap<CorrelationId, Seq<ComputeReceipt>> Provenance` — the model-result provenance projection joining every receipt chain by correlation. `ReceiptReplay.Replay(UInt128 contentKey, ReadOnlyMemory<byte> stored, Option<string> determinismTag, Func<Fin<ReadOnlyMemory<byte>>> rederive)` — the caller composes `rederive` from the settled Persistence contracts (`Version/ledger` `OpLogEntry.Closure` resolves the input manifest, `Query/cache` `ModelResultIndex.Lookup` serves the stored payload) and the verdict states reproducibility as a typed fact.
+- Auto: per-lane counts, route histograms, hot-path totals, leak indicators, conflict evidence, solver-divergence and twin-anomaly extractions, numeric-provider attribution, residency-gate crossings, and provenance chains derive on read from the identical stream the dashboards consume. Replay comparison mode derives from the determinism tag — a bit-deterministic tag demands byte equality, an envelope tag compares the payloads as little-endian double lanes under the relative defect the tag's provider triple licenses — never a caller-chosen comparison the tag contradicts.
+- Packages: LanguageExt.Core, NodaTime, System.Numerics.Tensors (`TensorPrimitives.Distance`/`Norm` the envelope defect), BCL inbox (`BinaryPrimitives` lane decode)
+- Growth: a new operational view is one fold member row over the same fact stream; a new determinism class is one comparison arm on `ReceiptReplay` keyed by its tag grammar; zero new surface.
+- Boundary: leak indicators read `StagingEventKind.StreamDoubleDisposed` and `StreamFinalized`, while `Diagnostics` reads the row's `Diagnostic` column. `DiscardTaxonomy` folds `BufferDiscarded` detail into a reason-keyed count. Execution projections choose only facts carrying their `Option` spine values; process-scoped allocation evidence remains in provenance and diagnostic folds without a fabricated lane or route. Mutable accumulators, per-view repositories, and second fact streams reject. Replay never unfreezes a wire or fabricates inputs — an unresolvable closure, an absent tag where the payload is not byte-comparable, or a non-8-aligned envelope payload lands `Unreplayable` with its reason, never a coerced `Reproduced`.
 
 ```csharp signature
 public static class ReceiptFolds {
@@ -378,6 +378,53 @@ public static class ReceiptFolds {
 
         public HashMap<CorrelationId, Seq<ComputeReceipt>> Provenance =>
             facts.Fold(HashMap<CorrelationId, Seq<ComputeReceipt>>(), static (acc, fact) => acc.AddOrUpdate(fact.Correlation, chain => chain.Add(fact), Seq(fact)));
+    }
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record ReplayVerdict {
+    private ReplayVerdict() { }
+    public sealed record Reproduced(UInt128 ContentKey, string Mode) : ReplayVerdict;
+    public sealed record Diverged(UInt128 ContentKey, string Mode, double Defect) : ReplayVerdict;
+    public sealed record Unreplayable(UInt128 ContentKey, string Reason) : ReplayVerdict;
+}
+
+public static class ReceiptReplay {
+    // Bit-tagged payloads compare byte-exact; envelope tags compare little-endian double lanes under the relative
+    // defect ceiling — the one correctness signal that survives provider divergence, per the factorization receipt law.
+    const string BitTagPrefix = "bit";
+    const double EnvelopeDefectCeiling = 1e-9;
+
+    public static Fin<ReplayVerdict> Replay(UInt128 contentKey, ReadOnlyMemory<byte> stored, Option<string> determinismTag, Func<Fin<ReadOnlyMemory<byte>>> rederive) {
+        ArgumentNullException.ThrowIfNull(rederive);
+        return rederive().Map(fresh => determinismTag.Match(
+            Some: tag => tag.StartsWith(BitTagPrefix, StringComparison.Ordinal)
+                ? Bitwise(contentKey, stored, fresh, tag)
+                : Envelope(contentKey, stored, fresh, tag),
+            None: () => Bitwise(contentKey, stored, fresh, "<untagged-bitwise>")));
+    }
+
+    static ReplayVerdict Bitwise(UInt128 key, ReadOnlyMemory<byte> stored, ReadOnlyMemory<byte> fresh, string tag) =>
+        stored.Span.SequenceEqual(fresh.Span)
+            ? new ReplayVerdict.Reproduced(key, tag)
+            : new ReplayVerdict.Diverged(key, tag, Defect: stored.Length == fresh.Length ? 1.0 : double.PositiveInfinity);
+
+    static ReplayVerdict Envelope(UInt128 key, ReadOnlyMemory<byte> stored, ReadOnlyMemory<byte> fresh, string tag) {
+        if (stored.Length != fresh.Length || stored.Length % 8 != 0 || stored.Length == 0) {
+            return new ReplayVerdict.Unreplayable(key, $"<envelope-shape:{stored.Length}/{fresh.Length}>");
+        }
+        double[] held = Lane(stored.Span);
+        double[] derived = Lane(fresh.Span);
+        double defect = TensorPrimitives.Distance<double>(held, derived) / Math.Max(TensorPrimitives.Norm<double>(held), double.Epsilon);
+        return double.IsFinite(defect) && defect <= EnvelopeDefectCeiling
+            ? new ReplayVerdict.Reproduced(key, tag)
+            : new ReplayVerdict.Diverged(key, tag, defect);
+    }
+
+    static double[] Lane(ReadOnlySpan<byte> payload) {
+        double[] lane = new double[payload.Length / 8];
+        for (int i = 0; i < lane.Length; i++) { lane[i] = BinaryPrimitives.ReadDoubleLittleEndian(payload[(8 * i)..]); }
+        return lane;
     }
 }
 ```

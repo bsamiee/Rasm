@@ -13,11 +13,11 @@ Section properties resolve once upstream — the `VividOrange`-backed `ProfileRe
 
 ## [02]-[FRAME_MODEL]
 
-- Owner: `FrameModel` the analysis idealization (members, combinations, policy);  `MemberLoad` the per-member applied-action `[Union]` (`Point`/`Uniform`/`Trapezoid`); `StructuralCase` the load-case `[SmartEnum<string>]`; `MemberSupport` the 6-DOF restraint at a member end; `LoadCombinationSpec` the factored case map; `StructuralPolicy` the formulation/deflection/station policy carrying the `Formulation` frame `ElementClass` column (`Analysis/assessment` content-keys its `Key`) and the EN 1992 member-scope `StirrupSpacing`/`CotTheta` truss inputs; `StructuralMember` the resolved member (axis, section, strength, family, loads, supports). `SolverBackend`/`StructuralCase`/`MemberSupport`/`LoadCombinationSpec`/`StructuralPolicy` are the seam contract `AssessmentRequest.Structural` carries and `Analysis/assessment` `CanonicalBytes` folds — their field shape is load-bearing across the spine.
+- Owner: `FrameModel` the analysis idealization (members, combinations, policy);  `MemberLoad` the per-member applied-action `[Union]` (`Point`/`Uniform`/`Trapezoid`); `StructuralCase` the load-case `[SmartEnum<string>]`; `MemberSupport` the 6-DOF restraint at a member end; `LoadCombinationSpec` the factored case map; `StructuralPolicy` the formulation/deflection/station policy carrying the `Formulation` frame `ElementClass` column (`Analysis/assessment` content-keys its `Key`) and the EN 1992 member-scope `StirrupSpacing`/`CotTheta` truss inputs; `StructuralMember` the resolved member (axis, section, strength, family, loads, supports); `WindExposureClass`/`OccupancyClass` the ASCE 7 exposure-profile and live-load vocabularies; `SiteActionPolicy` the per-engagement wind/snow/occupancy code-parameter record; `ActionDerivation` the load-takedown table minting live/wind/snow `MemberLoad` actions from member geometry plus the site policy. `SolverBackend`/`StructuralCase`/`MemberSupport`/`LoadCombinationSpec`/`StructuralPolicy` are the seam contract `AssessmentRequest.Structural` carries and `Analysis/assessment` `CanonicalBytes` folds — their field shape is load-bearing across the spine.
 - Entry: `static Fin<FrameModel> Project(ElementGraph graph, AssessmentRequest.Structural request, GeometrySource geometry)` — folds the request `Targets` member `Node.Object`s into the idealization, reading each member's `StructuralReads.AxisOf` (the analytical line resolved one-hop by content key through the seam `GeometrySource` port off `member.Representations.Axis`), `graph.PropertiesOf(id).Mechanical` (the seam strength read), `graph.SectionOf` (the seam Op-free M7 accessor reading the baked `ProfileSet` section directly — the seam owns the section read, so the runner never re-derives a discipline-local section accessor), `StructuralReads.SupportsOf`, and `StructuralReads.LoadsOf`, `Fin<T>` aborting onto `ComputeFault.AssessmentInputMissing` when a member lacks a section, a strength, or an axis.
-- Auto: self-weight derives per member from `Section.Area.Si × Mechanical.Density.Si × StandardGravity` as a global-down `Uniform` force-per-length in the `Dead` case; the request's projected `MemberLoad`s supply the live/wind/snow/seismic actions; `LoadCombinationSpec` factors the cases per code (ASCE 7 / EN 1990) so a combination is data the backend reads, never a re-modelled load set; the member's `MaterialFamily` is `Classify`-derived from the strength for the FE material model and validated against the route's `DesignCode.Family` at `Check`.
+- Auto: self-weight derives per member from `Section.Area.Si × Mechanical.Density.Si × StandardGravity` as a global-down `Uniform` force-per-length in the `Dead` case; the request's projected `MemberLoad`s supply the applied live/wind/snow/seismic actions, and where a variant carries none `ActionDerivation.Derive` mints them from tributary geometry plus one `SiteActionPolicy` — ASCE 7 velocity pressure `qz = 0.613·Kz·Kzt·Kd·V²` at the member's mean height for wind, `pf = 0.7·Ce·Ct·Is·pg` with the slope factor for roof snow, the `OccupancyClass` row for floor live — so a generated design screens without a human load engineer per variant, exactly the derivation precedent the seismic `DesignSpectrum` rows set; `LoadCombinationSpec` factors the cases per code (ASCE 7 / EN 1990) so a combination is data the backend reads, never a re-modelled load set; the member's `MaterialFamily` is `Classify`-derived from the strength for the FE material model and validated against the route's `DesignCode.Family` at `Check`.
 - Packages: LanguageExt.Core (`Fin`/`Seq`/`Option`/`Map`), Thinktecture.Runtime.Extensions (`[Union]`/`[SmartEnum]`), Rasm.Element (project — `ElementGraph`, `Node`, `NodeId`, the seam-owned host-neutral `Vector3` coordinate the `AxisCurve` carries and the load vectors reuse, `AxisCurve`, `GeometrySource` the analytical-line resolution port, `RepresentationContentHash`, `SectionProperties`, `MaterialPropertySet`, `Relationship`, `PropertyName`, `PropertyValue`, `MeasureValue`), BCL inbox (`FrozenDictionary`).
-- Growth: a new applied-action kind is one `MemberLoad` case (both backends widen their total load `Switch`); a new restraint is data on `MemberSupport`; a new combination basis is one `LoadCombinationSpec` row — the idealization widens by data, the backends and checks re-read it.
+- Growth: a new applied-action kind is one `MemberLoad` case (both backends widen their total load `Switch`); a new restraint is data on `MemberSupport`; a new combination basis is one `LoadCombinationSpec` row; a new exposure or occupancy is one `WindExposureClass`/`OccupancyClass` row, a new derived action family (EN 1991 wind/snow rows, drift surcharge, partition allowance) one weighted arm on `ActionDerivation.Derive` reading its `SiteActionPolicy` columns — the idealization widens by data, the backends and checks re-read it.
 - Boundary: the section is the M7-resolved seam `SectionProperties` read once off the `ProfileSet` composition (the `VividOrange` `ProfileRef`→section resolution happens once in the `Rasm.Materials` projector, so this runner never re-resolves a profile and Compute admits no VividOrange); `SectionProperties` carries the both-axis shear areas `AvY`/`AvZ` and both-axis radii, so the per-axis shear check reads its own area. Strength is the seam `Mechanical.YieldStrength`/`UltimateStrength`/`YoungsModulus`/`ShearModulus`/`Density`/`PoissonsRatio` (the seam field is `PoissonsRatio`, never `PoissonRatio`) off the member's associated material; the analytical line is the seam `AxisCurve` (`Start`/`End`/`Up`) content-keyed under `member.Representations.Axis`, never inlined on the node, resolved one-hop through the seam `GeometrySource` port (coplanarity a `StructuralReads` `AxisCurve` fold, length the member's own `Vector3.Distance`). Supports and loads traverse the projected `IfcRelConnectsStructuralMember`/`IfcRelConnectsStructuralActivity` neutral `Generic` edges by wire-name (the Bim projector stamping the 6-DOF restraint, applied components, end discriminant, and load kind), so the runner reads the idealization fully baked, never re-reading IFC; a member with no section/strength/axis rails the typed input fault.
 
 ```csharp signature
@@ -41,6 +41,34 @@ public sealed partial class StructuralCase {
     public static readonly StructuralCase Snow    = new("snow");
     public static readonly StructuralCase Wind    = new("wind");
     public static readonly StructuralCase Seismic = new("seismic");
+}
+
+// Wind exposure rows carry the ASCE 7 power-law profile constants (Table 26.11-1); Kz derives per member height,
+// never a stored per-member coefficient.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class WindExposureClass {
+    public static readonly WindExposureClass B = new("b", alpha: 7.0, gradientHeightM: 365.76);
+    public static readonly WindExposureClass C = new("c", alpha: 9.5, gradientHeightM: 274.32);
+    public static readonly WindExposureClass D = new("d", alpha: 11.5, gradientHeightM: 213.36);
+
+    public double Alpha { get; }
+    public double GradientHeightM { get; }
+
+    public double Kz(double heightM) => 2.01 * Math.Pow(Math.Max(heightM, 4.6) / GradientHeightM, 2.0 / Alpha);
+}
+
+// Occupancy rows carry the ASCE 7 Table 4.3-1 uniformly distributed live load in SI; a new occupancy is one row.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class OccupancyClass {
+    public static readonly OccupancyClass Residential = new("residential", liveLoadPa: 1_920.0);
+    public static readonly OccupancyClass Office      = new("office",      liveLoadPa: 2_400.0);
+    public static readonly OccupancyClass Assembly    = new("assembly",    liveLoadPa: 4_790.0);
+    public static readonly OccupancyClass Storage     = new("storage",     liveLoadPa: 6_000.0);
+    public static readonly OccupancyClass Roof        = new("roof",        liveLoadPa: 960.0);
+
+    public double LiveLoadPa { get; }
 }
 
 // --- [CONSTANTS] ---------------------------------------------------------------------------
@@ -105,7 +133,60 @@ public sealed record FrameModel(Seq<StructuralMember> Members, Seq<LoadCombinati
     public bool Planar => Members.IsEmpty || Members.ForAll(m => m.Axis.Coplanar(Members.Head.Axis.Start.Z));
 }
 
+// Site action policy: the code parameters a load takedown reads — basic wind speed, exposure, topographic and
+// directionality factors, the net pressure coefficient, ground snow with its exposure/thermal/importance chain,
+// and the governing occupancy. One policy per engagement; per-variant geometry supplies the rest.
+public sealed record SiteActionPolicy(
+    double BasicWindSpeedMPerS, WindExposureClass Exposure, double Kzt, double Kd, double GcpNet,
+    double GroundSnowPa, double Ce, double Ct, double SnowImportance, double RoofSlopeFactor,
+    OccupancyClass Occupancy) {
+    public static readonly SiteActionPolicy Canonical = new(
+        BasicWindSpeedMPerS: 51.0, WindExposureClass.C, Kzt: 1.0, Kd: 0.85, GcpNet: 0.8,
+        GroundSnowPa: 1_000.0, Ce: 1.0, Ct: 1.0, SnowImportance: 1.0, RoofSlopeFactor: 1.0,
+        OccupancyClass.Office);
+
+    public bool Invalid => BasicWindSpeedMPerS <= 0.0 || Kzt <= 0.0 || Kd <= 0.0 || GcpNet <= 0.0
+        || GroundSnowPa < 0.0 || Ce <= 0.0 || Ct <= 0.0 || SnowImportance <= 0.0 || RoofSlopeFactor is <= 0.0 or > 1.0
+        || !double.IsFinite(BasicWindSpeedMPerS) || !double.IsFinite(GroundSnowPa);
+
+    // ASCE 7 velocity pressure qz = 0.613·Kz·Kzt·Kd·V² (SI, Pa) at the member's mean height.
+    public double VelocityPressurePa(double heightM) =>
+        0.613 * Exposure.Kz(heightM) * Kzt * Kd * BasicWindSpeedMPerS * BasicWindSpeedMPerS;
+
+    // ASCE 7 flat-roof snow pf = 0.7·Ce·Ct·Is·pg, sloped through the slope shape factor Cs.
+    public double RoofSnowPa => 0.7 * Ce * Ct * SnowImportance * GroundSnowPa * RoofSlopeFactor;
+}
+
 // --- [OPERATIONS] --------------------------------------------------------------------------
+// Load takedown as a derivation table: geometry plus one site policy mint the live/wind/snow Uniform actions the
+// seam would otherwise demand hand-computed upstream per variant — the same derivation precedent the seismic
+// DesignSpectrum rows set for their case. Tributary width is the member's load-collection strip; a horizontal
+// member takes the gravity actions (live on floor members, snow on roof members), every member takes the wind
+// pressure over its exposed strip at its mean height.
+public static class ActionDerivation {
+    const double HorizontalCosine = 0.9;                 // |cos| floor above which a member axis reads as gravity-collecting
+
+    public static Fin<Seq<MemberLoad>> Derive(StructuralMember member, double tributaryWidthM, bool roofMember, SiteActionPolicy site) {
+        if (site.Invalid || !double.IsFinite(tributaryWidthM) || tributaryWidthM <= 0.0 || member.Length <= 0.0) {
+            return Fin.Fail<Seq<MemberLoad>>(ComputeFault.Create("<action-derivation-invalid>"));
+        }
+        double meanHeight = 0.5 * (member.Axis.Start.Z + member.Axis.End.Z);
+        double run = Math.Sqrt(Math.Pow(member.Axis.End.X - member.Axis.Start.X, 2.0) + Math.Pow(member.Axis.End.Y - member.Axis.Start.Y, 2.0));
+        bool horizontal = run / member.Length >= HorizontalCosine;
+        double windPerLength = site.VelocityPressurePa(meanHeight) * site.GcpNet * tributaryWidthM;
+        Seq<MemberLoad> actions = Seq<MemberLoad>(new MemberLoad.Uniform(StructuralCase.Wind, new Vector3(windPerLength, 0.0, 0.0)));
+        if (horizontal && !roofMember) {
+            actions = actions.Add(new MemberLoad.Uniform(StructuralCase.Live, new Vector3(0.0, 0.0, -site.Occupancy.LiveLoadPa * tributaryWidthM)));
+        }
+        if (horizontal && roofMember) {
+            actions = actions
+                .Add(new MemberLoad.Uniform(StructuralCase.Live, new Vector3(0.0, 0.0, -OccupancyClass.Roof.LiveLoadPa * tributaryWidthM)))
+                .Add(new MemberLoad.Uniform(StructuralCase.Snow, new Vector3(0.0, 0.0, -site.RoofSnowPa * tributaryWidthM)));
+        }
+        return Fin.Succ(actions);
+    }
+}
+
 public static partial class StructuralAnalysis {
     public static Fin<FrameModel> Project(ElementGraph graph, AssessmentRequest.Structural request, GeometrySource geometry) =>
         request.Targets.Fold(

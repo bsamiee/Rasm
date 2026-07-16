@@ -12,7 +12,7 @@ Typed archive values and detached dictionary custody (`Rasm.Rhino.Persistence`).
 
 - Owner: `ArchiveValue` is one archive-item identity, independent of the host overload selected to encode it.
 - Admission: `Create` and `Decode` resolve one codec row from the payload runtime type; unsupported values fail before entering `ArchiveMap`.
-- Custody: every reference-bearing row freezes its payload during admission; nested dictionaries recurse, geometry duplicates, arrays copy, and opaque carriers round-trip through the host's deep-copying `Set` path.
+- Custody: host `Set` stores the caller's reference verbatim and `TryGetValue` returns the stored reference, so every reference-bearing row freezes on both crossings — capture copies the caller's payload and write copies into the minted native. Nested dictionaries recurse, geometry duplicates, arrays copy per crossing, and `MeshingParameters`/`ObjRef` freeze through their host copy constructors because neither implements `ICloneable`.
 - Dispatch: `Write` resolves the stored payload row and invokes its exact typed `Set` overload. No indexer setter, reflective copy helper, or silent default arm participates.
 - Growth: a new host kind extends the codec matrix with one scalar, sequence, or carrier row; archive consumers remain unchanged.
 
@@ -128,16 +128,16 @@ internal static class ArchiveCodecs {
             capture: static (v, op) => ArchiveMap.Detach(source: v, key: op),
             write: static (d, k, v, op) => v.Mint(key: op).Bind(minted => op.Confirm(success: d.Set(k, minted)))),
         new Codec<MeshingParameters, MeshingParameters>(
-            capture: static (v, op) => CopyCarrier(value: v, set: static (d, k, x) => d.Set(k, x), op: op),
-            write: static (d, k, v, op) => op.Confirm(success: d.Set(k, v))),
+            capture: static (v, op) => op.Catch(() => Fin.Succ(value: new MeshingParameters(source: v))),
+            write: static (d, k, v, op) => op.Confirm(success: d.Set(k, new MeshingParameters(source: v)))),
         new Codec<GeometryBase, GeometryBase>(
             capture: static (v, op) => op.Catch(() => Fin.Succ(value: v.Duplicate())),
-            write: static (d, k, v, op) => op.Confirm(success: d.Set(k, v)),
+            write: static (d, k, v, op) => op.Confirm(success: d.Set(k, v.Duplicate())),
             nativeSubtypes: true,
             storedSubtypes: true),
         new Codec<ObjRef, ObjRef>(
-            capture: static (v, op) => CopyCarrier(value: v, set: static (d, k, x) => d.Set(k, x), op: op),
-            write: static (d, k, v, op) => op.Confirm(success: d.Set(k, v))),
+            capture: static (v, op) => op.Catch(() => Fin.Succ(value: new ObjRef(other: v))),
+            write: static (d, k, v, op) => op.Confirm(success: d.Set(k, new ObjRef(other: v)))),
         Sequence<bool>(static (d, k, v) => d.Set(k, v)),
         Sequence<byte>(static (d, k, v) => d.Set(k, v)),
         Sequence<sbyte>(static (d, k, v) => d.Set(k, v)),
@@ -149,10 +149,10 @@ internal static class ArchiveCodecs {
         Sequence<string>(static (d, k, v) => d.Set(k, v)),
         new Codec<GeometryBase[], GeometryBase[]>(
             capture: static (v, op) => op.Catch(() => Fin.Succ(value: v.Map(static x => x.Duplicate()).ToArray())),
-            write: static (d, k, v, op) => op.Confirm(success: d.Set(k, v.AsEnumerable()))),
+            write: static (d, k, v, op) => op.Confirm(success: d.Set(k, v.Map(static x => x.Duplicate())))),
         new Codec<ObjRef[], ObjRef[]>(
-            capture: static (v, op) => CopyCarrier(value: v, set: static (d, k, x) => d.Set(k, x.AsEnumerable()), op: op),
-            write: static (d, k, v, op) => op.Confirm(success: d.Set(k, v.AsEnumerable())))
+            capture: static (v, op) => op.Catch(() => Fin.Succ(value: v.Map(static x => new ObjRef(other: x)).ToArray())),
+            write: static (d, k, v, op) => op.Confirm(success: d.Set(k, v.Map(static x => new ObjRef(other: x)))))
     ];
 
     internal static Fin<object> Capture(object source, Op op) =>
@@ -172,18 +172,8 @@ internal static class ArchiveCodecs {
 
     private static IArchiveCodec Sequence<T>(Func<ArchivableDictionary, string, IEnumerable<T>, bool> set) =>
         new Codec<T[], T[]>(
-            capture: static (value, _) => Fin.Succ(value: [.. value]),
-            write: (dictionary, name, value, op) => op.Confirm(success: set(dictionary, name, value)));
-
-    private static Fin<T> CopyCarrier<T>(T value, Func<ArchivableDictionary, string, T, bool> set, Op op) =>
-        op.Catch(() => {
-            ArchivableDictionary scratch = new();
-            return set(scratch, nameof(value), value)
-                && scratch.TryGetValue(nameof(value), out object copied)
-                && copied is T detached
-                    ? Fin.Succ(value: detached)
-                    : Fin.Fail<T>(error: op.InvalidResult(detail: typeof(T).Name));
-        });
+            capture: static (value, _) => Fin.Succ<T[]>(value: [.. value]),
+            write: (dictionary, name, value, op) => op.Confirm(success: set(dictionary, name, [.. value])));
 
     private static Fin<IArchiveCodec> ResolveNative(Type type, Op op) =>
         toSeq(Rows).Find(codec => codec.AcceptsNative(type)).ToFin(
@@ -198,7 +188,7 @@ internal static class ArchiveCodecs {
 ## [03]-[ARCHIVE_MAP]
 
 - Owner: `ArchiveMap` combines schema identity and immutable typed entries; private initialization blocks invalid names and entry keys.
-- Crossing: `Detach` reads every key through `TryGetValue` and aborts on the first unsupported or unreadable item. `Mint` creates a fresh native and aborts on the first rejected write.
+- Crossing: `Detach` reads every key through `TryGetValue`, captures the host `ChangeSerialNumber` as `Change` evidence for staleness probes against a later detach, and aborts on the first unsupported or unreadable item. `Mint` creates a fresh native and aborts on the first rejected write.
 - Algebra: `Find`, `With`, `Without`, and `Merge` operate only on already-admitted `ArchiveValue` instances.
 - Enum projection: host enum helpers encode invariant names as strings, so `WithEnum` and `EnumOf` remain generic text projections instead of new value cases.
 - Seam: session acquisition, user-data archives, and snapshot participation compose `Detach` and `Mint`; none receives a caller-mutable native dictionary.
@@ -212,6 +202,7 @@ public sealed record ArchiveMap : IDetachedDocumentResult {
     public HashMap<string, ArchiveValue> Entries { get; private init; }
     public int Version { get; private init; }
     public string Name { get; private init; }
+    public uint Change { get; private init; }
     public int Count => Entries.Count;
 
     public static Fin<ArchiveMap> Create(
@@ -248,12 +239,11 @@ public sealed record ArchiveMap : IDetachedDocumentResult {
 
     public Fin<T> EnumOf<T>(Option<string> name = default, Op? key = null) where T : struct, Enum {
         Op op = key.OrDefault();
-        return from held in Find(name: name.IfNone(typeof(T).Name)).ToFin(Fail: op.MissingContext())
-               from text in held.As<string>(key: op)
-               from parsed in Enum.TryParse(value: text, ignoreCase: true, result: out T value)
-                   ? Fin.Succ(value: value)
-                   : Fin.Fail<T>(error: op.InvalidResult(detail: text))
-               select parsed;
+        return Find(name: name.IfNone(typeof(T).Name)).ToFin(Fail: op.MissingContext())
+            .Bind(held => held.As<string>(key: op))
+            .Bind(text => Enum.TryParse(value: text, ignoreCase: true, result: out T value)
+                ? Fin.Succ(value: value)
+                : Fin.Fail<T>(error: op.InvalidResult(detail: text)));
     }
 
     public static Fin<ArchiveMap> Detach(ArchivableDictionary source, Op? key = null) {
@@ -271,7 +261,7 @@ public sealed record ArchiveMap : IDetachedDocumentResult {
                    version: live.Version,
                    name: live.Name ?? string.Empty,
                    key: op)
-               select map;
+               select map with { Change = live.ChangeSerialNumber };
     }
 
     public Fin<ArchivableDictionary> Mint(Op? key = null) {
@@ -289,10 +279,10 @@ public sealed record ArchiveMap : IDetachedDocumentResult {
 
 ## [04]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN] | [OWNER] | [FORM] | [ENTRY] |
-| :-----: | :-------- | :------ | :----- | :------ |
-| [01] | archive item | `ArchiveValue` | one invariant-bearing payload | `Create` / `As` |
-| [02] | host matrix | `ArchiveCodecs` | generated scalar and sequence rows plus carrier policies | `Capture` / `Write` |
-| [03] | detached store | `ArchiveMap` | schema identity plus immutable entries | `Detach` / `Mint` |
-| [04] | entry algebra | `ArchiveMap` | immutable lookup, replacement, removal, and overlay | `Find` / `With` / `Without` / `Merge` |
-| [05] | enum text | `ArchiveMap` | generic invariant-name projection | `WithEnum<T>` / `EnumOf<T>` |
+| [INDEX] | [CONCERN]      | [OWNER]         | [FORM]                                                   | [ENTRY]                               |
+| :-----: | :------------- | :-------------- | :------------------------------------------------------- | :------------------------------------ |
+|  [01]   | archive item   | `ArchiveValue`  | one invariant-bearing payload                            | `Create` / `As`                       |
+|  [02]   | host matrix    | `ArchiveCodecs` | generated scalar and sequence rows plus carrier policies | `Capture` / `Write`                   |
+|  [03]   | detached store | `ArchiveMap`    | schema identity, change evidence, immutable entries      | `Detach` / `Mint`                     |
+|  [04]   | entry algebra  | `ArchiveMap`    | immutable lookup, replacement, removal, and overlay      | `Find` / `With` / `Without` / `Merge` |
+|  [05]   | enum text      | `ArchiveMap`    | generic invariant-name projection                        | `WithEnum<T>` / `EnumOf<T>`           |

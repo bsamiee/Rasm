@@ -78,7 +78,7 @@ public sealed record MeshLaw(
         GridAmplification = GridAmplification,
         Tolerance = domain.Absolute.Value,
         MinimumTolerance = domain.Absolute.Value,
-        RelativeTolerance = domain.Fractional.Value,
+        RelativeTolerance = domain.Fractional,
         MinimumEdgeLength = MinimumEdgeLength,
         MaximumEdgeLength = MaximumEdgeLength,
         RefineAngle = domain.Angle.Value,
@@ -289,6 +289,7 @@ public abstract partial record MeshEdit {
     public sealed record Orient(bool VertexNormals, bool FaceNormals, bool FaceOrientation, bool NgonBoundaries) : MeshEdit;
     public sealed record Compact : MeshEdit;
     public sealed record ExtractNonManifold(bool Selective) : MeshEdit;
+    public sealed record EdgeSoften(double SofteningRadius, bool Chamfer, bool Faceted, bool Force, double AngleThreshold) : MeshEdit;
 }
 
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -383,6 +384,7 @@ public abstract partial record MeshOp {
                             Mesh mesh when !edit.FaceBlocks.IsEmpty => Single(op, MeshSlot.Remeshed, () => mesh.QuadRemesh(
                                 faceBlocks: edit.FaceBlocks.AsIterable(), parameters: parameters, guideCurves: guides.AsIterable(),
                                 progress: edit.Progress.IfNoneUnsafe((IProgress<int>?)null), cancelToken: edit.Cancel)),
+                            Mesh when edit.Progress.IsSome || edit.Cancel.CanBeCanceled => Fin.Fail<Built<MeshSlot>>(error: op.InvalidInput()),
                             Mesh mesh => Single(op, MeshSlot.Remeshed, () => mesh.QuadRemesh(
                                 parameters: parameters, guideCurves: guides.AsIterable())),
                             _ => Fin.Fail<Built<MeshSlot>>(error: op.Unsupported(geometryType: source.GetType(), outputType: typeof(Mesh))),
@@ -393,19 +395,27 @@ public abstract partial record MeshOp {
                 Op op = Op.Of(name: nameof(Wrap));
                 return ModelGate.BorrowMany<GeometryBase, Built<MeshSlot>>(handles: edit.Sources, key: op, body: sources =>
                     from parameters in edit.Law.Rig(key: op)
-                    from built in op.Catch(() => sources.ForAll(static value => value is Mesh)
-                        ? Single(op, MeshSlot.Wrapped, () => Mesh.ShrinkWrap(
-                            meshes: sources.Map(static value => (Mesh)value).AsIterable(), parameters: parameters, token: edit.Cancel))
-                        : sources.Count == 1 && sources[0] is PointCloud cloud
-                            ? Single(op, MeshSlot.Wrapped, () => Mesh.ShrinkWrap(pointCloud: cloud, parameters: parameters, token: edit.Cancel))
-                            : edit.Fidelity.Case switch {
-                                MeshFidelity fidelity => fidelity.Rig(domain: model, key: op).Bind(meshing => {
-                                    using MeshingParameters live = meshing;
-                                    return Single(op, MeshSlot.Wrapped, () => Mesh.ShrinkWrap(
-                                        geometryBases: sources.AsIterable(), parameters: parameters, meshingParameters: live, token: edit.Cancel));
-                                }),
-                                _ => Fin.Fail<Built<MeshSlot>>(error: op.MissingContext()),
-                            })
+                    from built in op.Catch(() => {
+                        if (sources.ForAll(static value => value is Mesh)) {
+                            return edit.Fidelity.IsSome
+                                ? Fin.Fail<Built<MeshSlot>>(error: op.InvalidInput())
+                                : Single(op, MeshSlot.Wrapped, () => Mesh.ShrinkWrap(
+                                    meshes: sources.Map(static value => (Mesh)value).AsIterable(), parameters: parameters, token: edit.Cancel));
+                        }
+                        if (sources.Count == 1 && sources[0] is PointCloud cloud) {
+                            return edit.Fidelity.IsSome
+                                ? Fin.Fail<Built<MeshSlot>>(error: op.InvalidInput())
+                                : Single(op, MeshSlot.Wrapped, () => Mesh.ShrinkWrap(pointCloud: cloud, parameters: parameters, token: edit.Cancel));
+                        }
+                        return edit.Fidelity.Case switch {
+                            MeshFidelity fidelity => fidelity.Rig(domain: model, key: op).Bind(meshing => {
+                                using MeshingParameters live = meshing;
+                                return Single(op, MeshSlot.Wrapped, () => Mesh.ShrinkWrap(
+                                    geometryBases: sources.AsIterable(), parameters: parameters, meshingParameters: live, token: edit.Cancel));
+                            }),
+                            _ => Fin.Fail<Built<MeshSlot>>(error: op.MissingContext()),
+                        };
+                    })
                     select built);
             },
             curvePipe: static (_, edit) => {
@@ -427,7 +437,9 @@ public abstract partial record MeshOp {
                                 _ => Mesh.CreateExtrusion(profile: curve, direction: edit.Direction, parameters: live),
                             });
                         })),
-                        _ => Single(op, MeshSlot.Extruded, () => Mesh.CreateExtrusion(profile: curve, direction: edit.Direction)),
+                        _ => edit.Bounds.IsSome
+                            ? Fin.Fail<Built<MeshSlot>>(error: op.InvalidInput())
+                            : Single(op, MeshSlot.Extruded, () => Mesh.CreateExtrusion(profile: curve, direction: edit.Direction)),
                     });
             },
             isosurface: static (_, edit) => {
@@ -530,7 +542,8 @@ public abstract partial record MeshOp {
                 Op op = Op.Of(name: nameof(Boolean));
                 return ModelGate.BorrowMany<Mesh, Built<MeshSlot>>(handles: edit.First, key: op, body: first =>
                     ModelGate.BorrowMany<Mesh, Built<MeshSlot>>(handles: edit.Second, key: op, allowEmpty: !edit.Verb.RequiresSecond, body: second =>
-                        op.Catch(() => {
+                        from _ in guard(edit.Verb.RequiresSecond == !second.IsEmpty, op.InvalidInput())
+                        from built in op.Catch(() => {
                             MeshBooleanOptions options = new() {
                                 Tolerance = model.MeshIntersectionTolerance,
                                 CancellationToken = edit.Cancel,
@@ -549,7 +562,8 @@ public abstract partial record MeshOp {
                                     + BuildReceipt<MeshSlot>.Of(slot: MeshSlot.Booled, body: new BuildBody.Code(Value: (int)verdict))
                                     + BuildReceipt<MeshSlot>.Of(slot: MeshSlot.Booled, body: new BuildBody.SourceGroups(
                                         Groups: toSeq(map ?? []).Map(static rows => toSeq(rows))))));
-                        })));
+                        })
+                        select built));
             },
             split: static (model, edit) => {
                 Op op = Op.Of(name: nameof(Split));
@@ -728,7 +742,16 @@ public abstract partial record MeshOp {
                 from remainder in ModelGate.Own(built: ctx.Working, key: ctx.Op).MapFail(error => { extracted.Dispose(); return error; })
                 select new Built<MeshSlot>(
                     Products: Seq(extracted, remainder),
-                    Evidence: BuildReceipt<MeshSlot>.Of(slot: MeshSlot.Edited, body: new BuildBody.Tally(Count: 2)))));
+                    Evidence: BuildReceipt<MeshSlot>.Of(slot: MeshSlot.Edited, body: new BuildBody.Tally(Count: 2)))),
+            edgeSoften: static (ctx, edit) => ctx.Op.Catch(() =>
+                ModelGate.Own(built: ctx.Working.WithEdgeSoftening(
+                        softeningRadius: edit.SofteningRadius, chamfer: edit.Chamfer, faceted: edit.Faceted,
+                        force: edit.Force, angleThreshold: edit.AngleThreshold), key: ctx.Op).Map(owned => {
+                    ctx.Working.Dispose();
+                    return new Built<MeshSlot>(
+                        Products: Seq(owned),
+                        Evidence: BuildReceipt<MeshSlot>.Of(slot: MeshSlot.Edited, body: new BuildBody.Tally(Count: 1)));
+                })));
 
     private static Fin<Built<MeshSlot>> Kept(Op op, Mesh working) =>
         ModelGate.Own(built: working, key: op).Map(owned => new Built<MeshSlot>(
@@ -768,17 +791,17 @@ public static class Meshes {
 
 ## [05]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]           | [OWNER]         | [FORM]                                               | [ENTRY]                     |
-| :-----: | :------------------ | :-------------- | :---------------------------------------------------- | :-------------------------- |
-|  [01]   | mesher fidelity     | `MeshFidelity`  | preset rows, density scalar, or full custom law      | `Rig(domain, key)`          |
-|  [02]   | mesher parameters   | `MeshLaw`       | whole `MeshingParameters` surface as one value       | `MeshFidelity.Custom`       |
-|  [03]   | quad remeshing      | `QuadLaw`       | whole `QuadRemeshParameters` surface as one value    | `MeshOp.QuadRemesh` / `Rig` |
-|  [04]   | shrink wrapping     | `WrapLaw`       | whole `ShrinkWrapParameters` surface as one value    | `MeshOp.Wrap` / `Rig`       |
-|  [05]   | decimation          | `ReduceLaw`     | whole `ReduceMeshParameters` with locked components  | `MeshEdit.Reduce` / `Rig`   |
-|  [06]   | refined subdivision | `SubdivideLaw`  | Loop, Catmull-Clark, and mid-edge as one union       | `MeshOp.Refine`             |
-|  [07]   | primitive seeding   | `MeshSeed`      | nine tessellation constructors as one union          | `MeshOp.Seed`               |
-|  [08]   | boolean verdicts    | `MeshOp`        | terminal `Result` code + `int[][]` map as facts      | `MeshSlot.Booled` facts     |
-|  [09]   | split modality      | `MeshSplitter`  | plane, meshes, disjoint, non-manifold, projected     | `MeshOp.Split`              |
-|  [10]   | value-semantic edit | `MeshEdit`      | duplicate-edit-own verbs with count evidence         | `MeshOp.Edit`               |
-|  [11]   | component extrusion | `ExtrudeLaw`    | `MeshExtruder` column set as one value               | `MeshOp.Extrude`            |
-|  [12]   | mesh verbs          | `MeshOp`        | one flat `[Union]`, total generated dispatch         | `Meshes.Build`              |
+| [INDEX] | [CONCERN]           | [OWNER]        | [FORM]                                              | [ENTRY]                     |
+| :-----: | :------------------ | :------------- | :-------------------------------------------------- | :-------------------------- |
+|  [01]   | mesher fidelity     | `MeshFidelity` | preset rows, density scalar, or full custom law     | `Rig(domain, key)`          |
+|  [02]   | mesher parameters   | `MeshLaw`      | whole `MeshingParameters` surface as one value      | `MeshFidelity.Custom`       |
+|  [03]   | quad remeshing      | `QuadLaw`      | whole `QuadRemeshParameters` surface as one value   | `MeshOp.QuadRemesh` / `Rig` |
+|  [04]   | shrink wrapping     | `WrapLaw`      | whole `ShrinkWrapParameters` surface as one value   | `MeshOp.Wrap` / `Rig`       |
+|  [05]   | decimation          | `ReduceLaw`    | whole `ReduceMeshParameters` with locked components | `MeshEdit.Reduce` / `Rig`   |
+|  [06]   | refined subdivision | `SubdivideLaw` | Loop, Catmull-Clark, and mid-edge as one union      | `MeshOp.Refine`             |
+|  [07]   | primitive seeding   | `MeshSeed`     | nine tessellation constructors as one union         | `MeshOp.Seed`               |
+|  [08]   | boolean verdicts    | `MeshOp`       | terminal `Result` code + `int[][]` map as facts     | `MeshSlot.Booled` facts     |
+|  [09]   | split modality      | `MeshSplitter` | plane, meshes, disjoint, non-manifold, projected    | `MeshOp.Split`              |
+|  [10]   | value-semantic edit | `MeshEdit`     | duplicate-edit-own verbs with count evidence        | `MeshOp.Edit`               |
+|  [11]   | component extrusion | `ExtrudeLaw`   | `MeshExtruder` column set as one value              | `MeshOp.Extrude`            |
+|  [12]   | mesh verbs          | `MeshOp`       | one flat `[Union]`, total generated dispatch        | `Meshes.Build`              |

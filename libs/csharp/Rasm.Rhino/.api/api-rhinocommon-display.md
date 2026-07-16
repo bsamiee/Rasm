@@ -1,6 +1,6 @@
 # [RASM_RHINO_API_RHINOCOMMON_DISPLAY]
 
-The `Rhino.Display` boundary owns everything between document geometry and pixels: the view/viewport/camera pose surface, the two frame-phase participation shapes (`DisplayConduit` subclassing and `DisplayPipeline` event subscription), the direct per-frame draw families and their push/pop render-state stacks, the retained `CustomDisplay` and `VisualAnalysisMode` overlays, the display-mode and display-attribute vocabulary, and the `ViewCapture` bitmap/SVG/print egress. The host resolves against the current WIP `RhinoCommon` assembly; every drawn primitive consumes a `Rhino.Geometry` carrier (`api-rhinocommon-geometry.md`) under the active viewport, and the pipeline's overlay phases are the surface the interactive getter feedback of `api-rhinocommon-commands.md` and the realtime framebuffer of `api-rhinocommon-render.md` both draw into.
+`Rhino.Display` owns everything between document geometry and pixels: the view/viewport/camera pose surface, the two frame-phase participation shapes (`DisplayConduit` subclassing and `DisplayPipeline` event subscription), the direct per-frame draw families and their push/pop render-state stacks, the retained `CustomDisplay` and `VisualAnalysisMode` overlays, the display-mode and display-attribute vocabulary, and the `ViewCapture` bitmap/SVG/print egress. Every symbol resolves against the current WIP `RhinoCommon` assembly, and every drawn primitive consumes a `Rhino.Geometry` carrier (`api-rhinocommon-geometry.md`) under the active viewport, and the pipeline's overlay phases are the surface the interactive getter feedback of `api-rhinocommon-commands.md` and the realtime framebuffer of `api-rhinocommon-render.md` both draw into.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -115,7 +115,7 @@ The `Rhino.Display` boundary owns everything between document geometry and pixel
 
 Each render-state push unwinds through its matched `Pop*` operation.
 
-The static events admit frame-phase participation without a conduit subclass.
+Static events admit frame-phase participation without a conduit subclass.
 
 | [INDEX] | [SURFACE]                                                                      | [CALL_SHAPE]  | [CAPABILITY]                 |
 | :-----: | :----------------------------------------------------------------------------- | :------------ | :--------------------------- |
@@ -206,52 +206,53 @@ The static events admit frame-phase participation without a conduit subclass.
 [ENTRYPOINT_SCOPE]: camera pose, frustum, depth, and gesture families
 - rail: host-boundary display
 
-`PopViewProjection`/`NextViewProjection`/`PreviousViewProjection`/`PopConstructionPlane` return `false` at the stack boundary or when the popped projection equals the current one — a benign no-op, never an error. `ViewportInfo.GetXform` returns `Transform.Unset` on failure where `RhinoViewport.GetTransform` returns `Identity`, so `GetXform` is the rail-detectable transform read. `ChangeToTwoPointPerspectiveProjection` orders `(targetDistance, up, lensLength)`.
+Bare members below live on `RhinoViewport`; `ViewportInfo`, `ViewInfo`, and `Rhino.ApplicationSettings.ViewSettings` rows carry their owner. `PopViewProjection`/`NextViewProjection`/`PreviousViewProjection`/`PopConstructionPlane` return `false` at the stack boundary or when the popped projection equals the current one — a benign no-op, never an error. `ViewportInfo.GetXform` returns `Transform.Unset` on failure where `RhinoViewport.GetTransform` returns `Identity`, so `GetXform` is the rail-detectable transform read. `ChangeToPerspectiveProjection` orders `(targetDistance, symmetricFrustum, lensLength)`; `ChangeToTwoPointPerspectiveProjection` orders `(targetDistance, up, lensLength)`; `SetProjection`'s tail is `(viewName, updateConstructionPlane)`; `GetFramePlaneCorners(depth)` returns the quad ordered bottom-left, bottom-right, top-left, top-right.
 
-| [INDEX] | [SURFACE]                                                                                                      | [CALL_SHAPE]  | [CAPABILITY]                                         |
-| :-----: | :------------------------------------------------------------------------------------------------------------- | :------------ | :--------------------------------------------------- |
-|  [01]   | `RhinoViewport.GetCameraFrame(out Plane frame)`                                                                | camera read   | pose frame, `bool`                                   |
-|  [02]   | `RhinoViewport.CameraTarget` / `CameraUp`                                                                      | camera state  | target and up vectors                                |
-|  [03]   | `RhinoViewport.SetCameraLocations(Point3d targetLocation, Point3d cameraLocation)`                             | camera set    | atomic target+location, `void`                       |
-|  [04]   | `RhinoViewport.SetCameraDirection(Vector3d, bool updateTargetLocation)`                                        | camera set    | direction write, `void`                              |
-|  [05]   | `RhinoViewport.GetDepth(Point3d point, out double distance)`                                                   | depth read    | single-point depth                                   |
-|  [06]   | `RhinoViewport.GetDepth(BoundingBox bbox, out double nearDistance, out double farDistance)`                    | depth read    | box near/far pair                                    |
-|  [07]   | `RhinoViewport.GetDepth(Sphere sphere, out double nearDistance, out double farDistance)`                       | depth read    | sphere near/far pair                                 |
-|  [08]   | `RhinoViewport.IsVisible(Point3d)` / `IsVisible(BoundingBox)`                                                  | visibility    | frustum containment probes                           |
-|  [09]   | `RhinoViewport.GetFrustum(out double left, right, bottom, top, nearDistance, farDistance)`                     | frustum read  | six-plane read, `bool`                               |
-|  [10]   | `RhinoViewport.FrustumAspect` / `GetFrustumBoundingBox()`                                                      | frustum read  | aspect and frustum bounds                            |
-|  [11]   | `RhinoViewport.GetFrustumLine(double screenX, double screenY, out Line worldLine)`                             | frustum read  | screen-point world ray                               |
-|  [12]   | `RhinoViewport.GetWorldToScreenScale(Point3d pointInFrustum, out double pixelsPerUnit)`                        | frustum read  | pixels-per-unit scale                                |
-|  [13]   | `RhinoViewport.GetConstructionPlane()`                                                                         | cplane read   | live construction plane                              |
-|  [14]   | `RhinoViewport.SetConstructionPlane(ConstructionPlane)`                                                        | cplane write  | non-stack cplane set, `void`                         |
-|  [15]   | `RhinoViewport.PushConstructionPlane(ConstructionPlane)` / `PopConstructionPlane()`                            | cplane stack  | push `void`, pop benign `bool`                       |
-|  [16]   | `RhinoViewport.PushViewProjection()`                                                                           | view stack    | projection push, `void`                              |
-|  [17]   | `RhinoViewport.PopViewProjection()` / `NextViewProjection()` / `PreviousViewProjection()`                      | view stack    | benign-`false` stack moves                           |
-|  [18]   | `RhinoViewport.KeyboardRotate(bool leftRight, double angleRadians)`                                            | gesture       | keyboard rotate, `bool`                              |
-|  [19]   | `RhinoViewport.KeyboardDolly(bool leftRight, double amount)`                                                   | gesture       | keyboard dolly, `bool`                               |
-|  [20]   | `RhinoViewport.KeyboardDollyInOut(double amount)`                                                              | gesture       | keyboard in/out dolly, `bool`                        |
-|  [21]   | `RhinoViewport.MouseRotateAroundTarget(Point mousePreviousPoint, Point mouseCurrentPoint)`                     | gesture       | drag orbit, `bool`                                   |
-|  [22]   | `RhinoViewport.MouseRotateCamera` / `MouseTilt` / `MouseMagnify`                                               | gesture       | drag rotate/tilt/magnify                             |
-|  [23]   | `RhinoViewport.MouseInOutDolly` / `MouseDollyZoom` / `MouseLateralDolly`                                       | gesture       | drag dolly family                                    |
-|  [24]   | `RhinoViewport.LockedProjection`                                                                               | projection    | mutable projection lock                              |
-|  [25]   | `RhinoViewport.ChangeToParallelProjection(bool symmetricFrustum)`                                              | projection    | parallel change, `bool`                              |
-|  [26]   | `RhinoViewport.ChangeToPerspectiveProjection(double targetDistance, bool symmetricFrustum, double lensLength)` | projection    | perspective change                                   |
-|  [27]   | `RhinoViewport.ChangeToTwoPointPerspectiveProjection(double targetDistance, Vector3d up, double lensLength)`   | projection    | two-point change                                     |
-|  [28]   | `RhinoViewport.ChangeToParallelReflectedProjection()`                                                          | projection    | reflected change, `bool`                             |
-|  [29]   | `RhinoViewport.SetProjection(DefinedViewportProjection, string viewName, bool updateConstructionPlane)`        | projection    | defined preset, `bool`                               |
-|  [30]   | `RhinoViewport.ZoomBoundingBox(BoundingBox box)`                                                               | framing       | subject framing, `bool`                              |
-|  [31]   | `RhinoViewport.ChangeCounter`                                                                                  | staleness     | `uint` mutation serial                               |
-|  [32]   | `ViewportInfo.GetFramePlaneCorners(double depth)`                                                              | snapshot read | quad: bottom-left, bottom-right, top-left, top-right |
-|  [33]   | `ViewportInfo.CalculateCameraUpDirection(Point3d location, Vector3d direction, double angle)`                  | snapshot read | static up derivation                                 |
-|  [34]   | `ViewportInfo.GetXform(CoordinateSystem sourceSystem, CoordinateSystem destinationSystem)`                     | snapshot read | Unset-on-failure transform                           |
-|  [35]   | `ViewInfo.FocalBlurMode`                                                                                       | dof state     | `ViewInfoFocalBlurModes` row                         |
-|  [36]   | `ViewInfo.FocalBlurDistance` / `FocalBlurAperture` / `FocalBlurJitter`                                         | dof state     | focal-blur scalars                                   |
-|  [37]   | `ViewInfo.FocalBlurSampleCount`                                                                                | dof state     | `uint` sample count                                  |
-|  [38]   | `Rhino.ApplicationSettings.ViewSettings.DefinedViewSetCPlane`                                                  | restore scope | static defined-view cplane flag                      |
-|  [39]   | `Rhino.ApplicationSettings.ViewSettings.DefinedViewSetProjection`                                              | restore scope | static defined-view projection flag                  |
-|  [40]   | `Rhino.ApplicationSettings.ViewSettings.DefinedViewSetClippingPlanes`                                          | restore scope | static defined-view clipping flag                    |
-|  [41]   | `Rhino.ApplicationSettings.ViewSettings.DefinedViewSetDisplayMode`                                             | restore scope | static defined-view mode flag                        |
-|  [42]   | `RhinoViewport.IsParallelProjection` / `IsPerspectiveProjection` / `IsTwoPointPerspectiveProjection`           | camera read   | `bool` read predicates; no reflected read exists     |
+| [INDEX] | [SURFACE]                                                                    | [CALL_SHAPE]  | [CAPABILITY]                        |
+| :-----: | :--------------------------------------------------------------------------- | :------------ | :---------------------------------- |
+|  [01]   | `GetCameraFrame(out Plane frame)`                                            | camera read   | pose frame, `bool`                  |
+|  [02]   | `CameraTarget` / `CameraUp`                                                  | camera state  | target and up vectors               |
+|  [03]   | `SetCameraLocations(Point3d targetLocation, Point3d cameraLocation)`         | camera set    | atomic target+location, `void`      |
+|  [04]   | `SetCameraDirection(Vector3d, bool updateTargetLocation)`                    | camera set    | direction write, `void`             |
+|  [05]   | `GetDepth(Point3d point, out double distance)`                               | depth read    | single-point depth                  |
+|  [06]   | `GetDepth(BoundingBox, out double nearDistance, out double farDistance)`     | depth read    | box near/far pair                   |
+|  [07]   | `GetDepth(Sphere, out double nearDistance, out double farDistance)`          | depth read    | sphere near/far pair                |
+|  [08]   | `IsVisible(Point3d)` / `IsVisible(BoundingBox)`                              | visibility    | frustum containment probes          |
+|  [09]   | `GetFrustum(out double left, right, bottom, top, nearDistance, farDistance)` | frustum read  | six-plane read, `bool`              |
+|  [10]   | `FrustumAspect` / `GetFrustumBoundingBox()`                                  | frustum read  | aspect and frustum bounds           |
+|  [11]   | `GetFrustumLine(double screenX, double screenY, out Line worldLine)`         | frustum read  | screen-point world ray              |
+|  [12]   | `GetWorldToScreenScale(Point3d pointInFrustum, out double pixelsPerUnit)`    | frustum read  | pixels-per-unit scale               |
+|  [13]   | `GetConstructionPlane()`                                                     | cplane read   | live construction plane             |
+|  [14]   | `SetConstructionPlane(ConstructionPlane)`                                    | cplane write  | non-stack cplane set, `void`        |
+|  [15]   | `PushConstructionPlane(ConstructionPlane)` / `PopConstructionPlane()`        | cplane stack  | push `void`, pop benign `bool`      |
+|  [16]   | `PushViewProjection()`                                                       | view stack    | projection push, `void`             |
+|  [17]   | `PopViewProjection()` / `NextViewProjection()` / `PreviousViewProjection()`  | view stack    | benign-`false` stack moves          |
+|  [18]   | `KeyboardRotate(bool leftRight, double angleRadians)`                        | gesture       | keyboard rotate, `bool`             |
+|  [19]   | `KeyboardDolly(bool leftRight, double amount)`                               | gesture       | keyboard dolly, `bool`              |
+|  [20]   | `KeyboardDollyInOut(double amount)`                                          | gesture       | keyboard in/out dolly, `bool`       |
+|  [21]   | `MouseRotateAroundTarget(Point mousePreviousPoint, Point mouseCurrentPoint)` | gesture       | drag orbit, `bool`                  |
+|  [22]   | `MouseRotateCamera` / `MouseTilt` / `MouseMagnify`                           | gesture       | drag rotate/tilt/magnify            |
+|  [23]   | `MouseInOutDolly` / `MouseDollyZoom` / `MouseLateralDolly`                   | gesture       | drag dolly family                   |
+|  [24]   | `LockedProjection`                                                           | projection    | mutable projection lock             |
+|  [25]   | `ChangeToParallelProjection(bool symmetricFrustum)`                          | projection    | parallel change, `bool`             |
+|  [26]   | `ChangeToPerspectiveProjection(double, bool, double)`                        | projection    | perspective change                  |
+|  [27]   | `ChangeToTwoPointPerspectiveProjection(double, Vector3d, double)`            | projection    | two-point change                    |
+|  [28]   | `ChangeToParallelReflectedProjection()`                                      | projection    | reflected change, `bool`            |
+|  [29]   | `SetProjection(DefinedViewportProjection, string, bool)`                     | projection    | defined preset, `bool`              |
+|  [30]   | `ZoomBoundingBox(BoundingBox box)`                                           | framing       | subject framing, `bool`             |
+|  [31]   | `ChangeCounter`                                                              | staleness     | `uint` mutation serial              |
+|  [32]   | `ViewportInfo.GetFramePlaneCorners(double depth)`                            | snapshot read | host-ordered corner quad            |
+|  [33]   | `ViewportInfo.CalculateCameraUpDirection(Point3d, Vector3d, double)`         | snapshot read | static up derivation                |
+|  [34]   | `ViewportInfo.GetXform(CoordinateSystem, CoordinateSystem)`                  | snapshot read | Unset-on-failure transform          |
+|  [35]   | `ViewInfo.FocalBlurMode`                                                     | dof state     | `ViewInfoFocalBlurModes` row        |
+|  [36]   | `ViewInfo.FocalBlurDistance` / `FocalBlurAperture` / `FocalBlurJitter`       | dof state     | focal-blur scalars                  |
+|  [37]   | `ViewInfo.FocalBlurSampleCount`                                              | dof state     | `uint` sample count                 |
+|  [38]   | `Rhino.ApplicationSettings.ViewSettings.DefinedViewSetCPlane`                | restore scope | static defined-view cplane flag     |
+|  [39]   | `Rhino.ApplicationSettings.ViewSettings.DefinedViewSetProjection`            | restore scope | static defined-view projection flag |
+|  [40]   | `Rhino.ApplicationSettings.ViewSettings.DefinedViewSetClippingPlanes`        | restore scope | static defined-view clipping flag   |
+|  [41]   | `Rhino.ApplicationSettings.ViewSettings.DefinedViewSetDisplayMode`           | restore scope | static defined-view mode flag       |
+|  [42]   | `IsParallelProjection` / `IsPerspectiveProjection`                           | camera read   | `bool` projection-class reads       |
+|  [43]   | `IsTwoPointPerspectiveProjection`                                            | camera read   | two-point read; reflected has none  |
 
 `ViewInfo` lives in `Rhino.DocObjects`; `ViewTypeFilter` (`Model`/`Page`/`ModelStyleViews`/`All`/`None`) lives in `Rhino.Display` and feeds `ViewTable.GetViewList`.
 
@@ -439,9 +440,9 @@ Beyond the method rows below, the attribute model is property families written b
 ## [04]-[IMPLEMENTATION_LAW]
 
 [DISPLAY_TOPOLOGY]:
-- Frame participation has two shapes with one phase order: subclass `DisplayConduit` and override the phases, or subscribe the mirror `DisplayPipeline` static events — the boundary picks subclassing when it owns per-instance state (filters, cached geometry) and events for a stateless tap. The ordered phases (`ObjectCulling` → `CalculateBoundingBox` → `PreDrawObjects`/`PreDrawObject` → object walk → `PostDrawObjects` → `DrawForeground` → `DrawOverlay`) are the same for both.
+- Frame participation has two shapes with one phase order: subclass `DisplayConduit` and override the phases, or subscribe the mirror `DisplayPipeline` static events — the boundary picks subclassing when it owns per-instance state (filters, cached geometry) and events for a stateless tap. Phase order (`ObjectCulling` → `CalculateBoundingBox` → `PreDrawObjects`/`PreDrawObject` → object walk → `PostDrawObjects` → `DrawForeground` → `DrawOverlay`) is identical for both.
 - Direct draws run only inside a phase against the phase's `DisplayPipeline`; a draw family consumes a `Rhino.Geometry` carrier plus a `DisplayMaterial`/`Color`/`DisplayPen`, and any transform or depth/cull override wraps the draw in a matched `Push*`/`Pop*` pair so the pipeline state unwinds exactly.
-- A conduit-free overlay is `CustomDisplay` (document-lifetime, `IDisposable`); a per-object false-color surface is a registered `VisualAnalysisMode`; a per-frame interactive overlay is a bound conduit. The three never overlap — retained accumulation, registered analysis, and live participation are distinct owners.
+- A conduit-free overlay is `CustomDisplay` (document-lifetime, `IDisposable`); a per-object false-color surface is a registered `VisualAnalysisMode`; a per-frame interactive overlay is a bound conduit. Retained accumulation, registered analysis, and live participation are distinct owners that never overlap.
 - Pass state (`IsInViewCapture`, `IsPrinting`, `IsDynamicDisplay`, `RenderPass`, `NestLevel`, `DpiScale`) is read, never assumed: a draw that differs between interactive, capture, and print frames branches on the flags rather than duplicating conduits.
 
 [CAPTURE_TOPOLOGY]:
@@ -455,7 +456,7 @@ Beyond the method rows below, the attribute model is property families written b
 - `api-macos-native.md`: sprite-cloud and dynamic-display animation pace off the host `CADisplayLink` frame clock rather than a wall timer, and perceptual color blending of `Color4f`/`IsoDrawEffect` band colors composes the Rasm kernel color rail, never a host-side channel-average.
 
 [LOCAL_ADMISSION]:
-- The `Rhino.Display` types are host handles trapped and mapped at the boundary; a `DisplayPipeline`, `RhinoViewport`, or `ViewCaptureSettings` never appears in a domain signature — the domain sees a `Fin<A>`, a bounded owner, or a canonical shape.
+- `Rhino.Display` types are host handles trapped and mapped at the boundary; a `DisplayPipeline`, `RhinoViewport`, or `ViewCaptureSettings` never appears in a domain signature — the domain sees a `Fin<A>`, a bounded owner, or a canonical shape.
 - A conduit or `CustomDisplay` is the single retained owner for its overlay concern; a second parallel conduit drawing the same overlay is the collapsed form.
 
 [RAIL_LAW]:

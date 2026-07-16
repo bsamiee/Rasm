@@ -12,9 +12,9 @@ RDK content (`Rasm.Rhino.Render`) resolves one `ContentRef` address, routes all 
 
 ## [02]-[KIND_AND_REASON]
 
-- Owner: `ContentKind` `[SmartEnum<int>]` — the material/environment/texture axis whose key IS the native `RenderContentKind` value and whose columns are each kind's document table behavior: attach, detach, find, change-scope open/close, and roster; the three `public sealed` host tables share the internal `IRenderContentTable<T>` shape, so one vocabulary row per kind replaces three parallel table wrappers. `ChangeReason` `[SmartEnum<int>]` — the host `RenderContent.ChangeContexts` roster as named rows carrying the native value; `Of` recovers the row from a delivered native context so event projection stays total. `ChangeScope` — the internal write bracket: `BeginChange(reason)` opens, the body runs trapped, `EndChange` closes on every exit.
+- Owner: `ContentKind` `[SmartEnum<int>]` — the material/environment/texture axis whose key IS the native `RenderContentKind` value and whose columns are each kind's consumed document-table behavior: attach, detach, change-scope open/close, and roster; unified lookup remains `ContentRef.Resolve`, so no decorative per-table find column survives. `ChangeReason` `[SmartEnum<int>]` — the host `RenderContent.ChangeContexts` roster as named rows whose key IS the native value, so `Native` derives from the key and `Of` recovers a delivered native context through keyed lookup, total over the host roster. `ChangeScope` — the internal write bracket: `BeginChange(reason)` opens, the body runs trapped, `EndChange` closes on every exit.
 - Law: kind is derived, never asked — `ContentKind.Of(RenderContent)` classifies by the subclass the instance already is, so no consumer re-tests `is RenderMaterial` beside the vocabulary, and a fourth content kind is one row with its table columns.
-- Law: every direct field, parameter, texture, rename, or child-slot write rides `ChangeScope.Write` with a named `ChangeReason`; host-owned table, assignment, replacement, grouping, and export verbs retain their own change semantics.
+- Law: every direct field, parameter, parameter-binding, texture, rename, or child-slot write rides `ChangeScope.Write` with a named `ChangeReason`; host-owned table, assignment, replacement, grouping, and export verbs retain their own change semantics.
 - Law: `ContentKind` columns are the only site naming `RenderMaterials`/`RenderEnvironments`/`RenderTextures`; every content operation reaches a table through its kind row.
 - Growth: a new change context is one `ChangeReason` row; a new content kind is one `ContentKind` row whose columns close its table behavior.
 
@@ -35,7 +35,6 @@ public sealed partial class ContentKind {
         key: (int)RenderContentKind.Material,
         attach: static (document, content) => content is RenderMaterial value && document.RenderMaterials.Add(value),
         detach: static (document, content) => content is RenderMaterial value && document.RenderMaterials.Remove(value),
-        find: static (document, id) => Optional((RenderContent)document.RenderMaterials.Find(id: id)),
         open: static (document, reason) => document.RenderMaterials.BeginChange(reason),
         close: static document => document.RenderMaterials.EndChange(),
         roster: static document => toSeq(document.RenderMaterials).Map(static content => (RenderContent)content));
@@ -43,7 +42,6 @@ public sealed partial class ContentKind {
         key: (int)RenderContentKind.Environment,
         attach: static (document, content) => content is RenderEnvironment value && document.RenderEnvironments.Add(value),
         detach: static (document, content) => content is RenderEnvironment value && document.RenderEnvironments.Remove(value),
-        find: static (document, id) => Optional((RenderContent)document.RenderEnvironments.Find(id: id)),
         open: static (document, reason) => document.RenderEnvironments.BeginChange(reason),
         close: static document => document.RenderEnvironments.EndChange(),
         roster: static document => toSeq(document.RenderEnvironments).Map(static content => (RenderContent)content));
@@ -51,7 +49,6 @@ public sealed partial class ContentKind {
         key: (int)RenderContentKind.Texture,
         attach: static (document, content) => content is RenderTexture value && document.RenderTextures.Add(value),
         detach: static (document, content) => content is RenderTexture value && document.RenderTextures.Remove(value),
-        find: static (document, id) => Optional((RenderContent)document.RenderTextures.Find(id: id)),
         open: static (document, reason) => document.RenderTextures.BeginChange(reason),
         close: static document => document.RenderTextures.EndChange(),
         roster: static document => toSeq(document.RenderTextures).Map(static content => (RenderContent)content));
@@ -61,9 +58,6 @@ public sealed partial class ContentKind {
 
     [UseDelegateFromConstructor]
     internal partial bool Detach(RhinoDoc document, RenderContent content);
-
-    [UseDelegateFromConstructor]
-    internal partial Option<RenderContent> Find(RhinoDoc document, Guid id);
 
     [UseDelegateFromConstructor]
     internal partial void Open(RhinoDoc document, RenderContent.ChangeContexts reason);
@@ -85,21 +79,23 @@ public sealed partial class ContentKind {
 
 [SmartEnum<int>]
 public sealed partial class ChangeReason {
-    public static readonly ChangeReason Ui = new(key: 0, native: RenderContent.ChangeContexts.UI);
-    public static readonly ChangeReason Drop = new(key: 1, native: RenderContent.ChangeContexts.Drop);
-    public static readonly ChangeReason Program = new(key: 2, native: RenderContent.ChangeContexts.Program);
-    public static readonly ChangeReason Ignore = new(key: 3, native: RenderContent.ChangeContexts.Ignore);
-    public static readonly ChangeReason Tree = new(key: 4, native: RenderContent.ChangeContexts.Tree);
-    public static readonly ChangeReason Undo = new(key: 5, native: RenderContent.ChangeContexts.Undo);
-    public static readonly ChangeReason FieldInit = new(key: 6, native: RenderContent.ChangeContexts.FieldInit);
-    public static readonly ChangeReason Serialize = new(key: 7, native: RenderContent.ChangeContexts.Serialize);
-    public static readonly ChangeReason RealTimeUi = new(key: 8, native: RenderContent.ChangeContexts.RealTimeUI);
-    public static readonly ChangeReason Script = new(key: 9, native: RenderContent.ChangeContexts.Script);
+    public static readonly ChangeReason Ui = new(key: (int)RenderContent.ChangeContexts.UI);
+    public static readonly ChangeReason Drop = new(key: (int)RenderContent.ChangeContexts.Drop);
+    public static readonly ChangeReason Program = new(key: (int)RenderContent.ChangeContexts.Program);
+    public static readonly ChangeReason Ignore = new(key: (int)RenderContent.ChangeContexts.Ignore);
+    public static readonly ChangeReason Tree = new(key: (int)RenderContent.ChangeContexts.Tree);
+    public static readonly ChangeReason Undo = new(key: (int)RenderContent.ChangeContexts.Undo);
+    public static readonly ChangeReason FieldInit = new(key: (int)RenderContent.ChangeContexts.FieldInit);
+    public static readonly ChangeReason Serialize = new(key: (int)RenderContent.ChangeContexts.Serialize);
+    public static readonly ChangeReason RealTimeUi = new(key: (int)RenderContent.ChangeContexts.RealTimeUI);
+    public static readonly ChangeReason Script = new(key: (int)RenderContent.ChangeContexts.Script);
 
-    internal RenderContent.ChangeContexts Native { get; }
+    internal RenderContent.ChangeContexts Native => (RenderContent.ChangeContexts)Key;
 
     internal static Fin<ChangeReason> Of(RenderContent.ChangeContexts native, Op key) =>
-        toSeq(Items).Find(row => row.Native == native).ToFin(key.InvalidResult(detail: native.ToString()));
+        TryGet((int)native, out ChangeReason? row)
+            ? Fin.Succ(value: row!)
+            : Fin.Fail<ChangeReason>(error: key.InvalidResult(detail: native.ToString()));
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
@@ -138,11 +134,10 @@ public abstract partial record ContentRef {
 
     public static Fin<ContentRef> Of(Guid root, params ReadOnlySpan<string> path) {
         Op op = Op.Of(name: nameof(ContentRef));
-        return from _ in guard(root != Guid.Empty, op.InvalidInput()).ToFin()
+        return from _ in guard(root != Guid.Empty, op.InvalidInput())
                from slots in toSeq(path.ToArray()).TraverseM(slot => op.AcceptText(value: slot)).As()
-               from address in guard(!slots.IsEmpty, op.InvalidInput()).ToFin()
-                   .Map(_ => (ContentRef)new AtSlot(Root: root, Path: slots))
-               select address;
+               from __ in guard(!slots.IsEmpty, op.InvalidInput())
+               select (ContentRef)new AtSlot(Root: root, Path: slots);
     }
 
     internal Fin<RenderContent> Resolve(RhinoDoc document, Op key) =>
@@ -161,15 +156,19 @@ public abstract partial record ContentRef {
 
 ## [04]-[SNAPSHOT_AND_HASH]
 
-- Owner: `SlotState` carries one occupied child-slot fact. `ContentSnapshot` carries detached identity, metadata, ownership serials, native discriminants, state predicates, tree position, slot roster, and usage. `HashProbe` admits whole or exclusion-aware host hash reads, including the `LinearWorkflow` overload.
+- Owner: `SlotState` carries one occupied child-slot fact. `ContentSnapshot` carries detached identity, metadata, ownership serials, native discriminants, state predicates, tree position, slot roster, and usage. `HashProbe` admits whole or exclusion-aware host hash reads; `HashWitness` detaches the read value beside the posture that produced it.
 - Law: `RenderContentStyles`, `ProxyTypes`, and `LengthUnit` stop at `ContentSnapshot`; downstream branches consume named snapshot predicates instead of decoding host masks again.
 - Law: `ContentSnapshot.Of` walks `FirstChild`/`NextSibling` once and reads `ChildSlotOn`/`ChildSlotAmount` during that visit.
 - Law: `HashProbe.Whole` reads `RenderHash`; every other probe calls `RenderHashExclude`, whose parameter roster is joined with the host-documented semicolon delimiter. Content migration remains `MatchData` on the operation rail.
-- Growth: a content fact is one `ContentSnapshot` field read; an exclusion posture enters through `HashProbe.Excluding`.
+- Law: the `DocumentWorkflow` posture selects the `LinearWorkflow` hash overload, and the consuming read resolves the document's own workflow inside its demand window — a live `LinearWorkflow` never crosses into a probe value.
+- Growth: a content fact is one `ContentSnapshot` field read; an exclusion posture enters through `HashProbe.Excluding`, a workflow correction through `with { DocumentWorkflow = true }`.
 
 ```csharp signature
 // --- [MODELS] -------------------------------------------------------------------------------
 public readonly record struct SlotState(string Name, string DisplayName, Guid Child, bool On, double Amount);
+
+public readonly record struct HashWitness(
+    CrcRenderHashFlags Flags, Seq<string> Excluded, bool DocumentWorkflow, uint Value) : IDetachedDocumentResult;
 
 public sealed record HashProbe {
     private HashProbe(CrcRenderHashFlags flags, Seq<string> excludedParameters) =>
@@ -181,6 +180,7 @@ public sealed record HashProbe {
 
     public CrcRenderHashFlags Flags { get; }
     public Seq<string> ExcludedParameters { get; }
+    public bool DocumentWorkflow { get; init; }
 
     public static Fin<HashProbe> Excluding(CrcRenderHashFlags flags, params ReadOnlySpan<string> parameters) {
         Op op = Op.Of(name: nameof(HashProbe));
@@ -330,5 +330,5 @@ public abstract partial record ContentIo {
 |  [03]   | write bracket      | `ChangeScope`     | begin/body/end on every exit                         | `Write(content, reason, ...)` |
 |  [04]   | content address    | `ContentRef`      | one union: id, slot path                             | `Of` / `Resolve`              |
 |  [05]   | content state      | `ContentSnapshot` | one-pass identity and topology read                  | `Of(content, key)`            |
-|  [06]   | render-hash read   | `HashProbe`       | admitted exclusions and workflow-corrected overload  | `Excluding` / `Read`          |
+|  [06]   | render-hash read   | `HashProbe`       | admitted exclusions, workflow posture, `HashWitness` | `Excluding` / `Read`          |
 |  [07]   | serialized ingress | `ContentIo`       | admitted XML/file mint leased until custody transfer | `Xml` / `Archive` / `Mint`    |
