@@ -2,7 +2,7 @@
 
 Rasm.Compute model session capsule: one shared `InferenceSession` per policy-complete `ResidentKey`, its EP-context warm-start generalized into a device-keyed fleet-shared compiled context under ONE `ContextKey` derivation, a shared-device-allocator lease map, and the lifecycle, warmup, and drain rows that materialize as `ComputeReceipt.Warmup`/`Drain` facts at the sink edge. `ModelSessions` serializes the OrtEnv boot behind one `Gate`, holds every `Resident` with its `ExecutionProvider`, representative warm shape, and warm-start `ArtifactIndexRow` so the sweep re-warms and reports without re-opening, and admits every EP-context and compiled-context blob through the single `AdmitContext` owner into the Persistence blob lane.
 
-`SessionPolicy`, `ResidentKey`, and the `ModelSessions` capsule own the `Boot`/`Lease`/`Open`/`SharedAllocator`/`Warmup`/`Unload`/`Drain`/`DrainRow`/`SweepRow`/`Compile` fold. Session and allocator surfaces ride `Microsoft.ML.OnnxRuntime`, the `Boot` thread pool the `Runtime/scheduling#CPU_BUDGET` `CpuBudget` record, the drain and warmup rows the AppHost `DrainParticipantPort`/`ScheduleEntry`/`CorrelationId`/`ClockPolicy` surfaces, the resident and context fingerprints the `Model/identity#MODEL_IDENTITY` `ModelFingerprint.Of` projection; `ModelIdentity` with its `Slot` input dims (`Model/identity#MODEL_IDENTITY`), `ExecutionProvider`/`ModelPrecision` (`Model/providers#EP_AXIS`), `CustomOps.Register` (`Model/extension#EXTENSION_OPS`), the `ComputeReceipt`/`ReceiptScope`/`ReceiptSurface` rail (`Runtime/receipts#RECEIPT_UNION`), and `NodaTime` `Instant`/`Duration` arrive settled. A shared-arena lease is the arena the `Tensor/residency#ORT_BRIDGE` `BoundFlow` (via `TensorBridge.Bind`) threads into `CreateAllocatedTensorValue`/`RebindDevice`, and that same loop is the injected `pulse` `Warmup` drives for the representative-shape first run.
+`SessionPolicy`, `ResidentKey`, and the `ModelSessions` capsule own the `Boot`/`Lease`/`Open`/`SharedAllocator`/`Warmup`/`Unload`/`Drain`/`DrainRow`/`SweepRow`/`Compile` fold. Session and allocator surfaces ride `Microsoft.ML.OnnxRuntime`, the `Boot` thread pool the `Runtime/scheduling#CPU_BUDGET` `CpuBudget` record, the drain and warmup rows the AppHost `DrainParticipantPort`/`ScheduleEntry`/`CorrelationId` surfaces with NodaTime `IClock` + BCL `TimeProvider` threaded neutral (the App-owned `ClockPolicy` stays at composition), the resident and context fingerprints the `Model/identity#MODEL_IDENTITY` `ModelFingerprint.Of` projection; `ModelIdentity` with its `Slot` input dims (`Model/identity#MODEL_IDENTITY`), `ExecutionProvider`/`ModelPrecision` (`Model/providers#EP_AXIS`), `CustomOps.Register` (`Model/extension#EXTENSION_OPS`), the `ComputeReceipt`/`ReceiptScope`/`ReceiptSurface` rail (`Runtime/receipts#RECEIPT_UNION`), and `NodaTime` `Instant`/`Duration` arrive settled. A shared-arena lease is the arena the `Tensor/residency#ORT_BRIDGE` `BoundFlow` (via `TensorBridge.Bind`) threads into `CreateAllocatedTensorValue`/`RebindDevice`, and that same loop is the injected `pulse` `Warmup` drives for the representative-shape first run.
 
 ## [01]-[INDEX]
 
@@ -11,12 +11,12 @@ Rasm.Compute model session capsule: one shared `InferenceSession` per policy-com
 ## [02]-[SESSION_CAPSULE]
 
 - Owner: `SessionPolicy` lifecycle record with its `SessionRows` fingerprint projection; `ResidentKey` the policy-complete resident identity (`Checksum` + the `ModelFingerprint.Of` fold over every construction-behavior column); `ModelSessions` capsule owning the `Gate`-serialized OrtEnv boot, the resident-session map (each `Resident` carries `ExecutionProvider`, representative `WarmShape`, warm-start `Option<ArtifactIndexRow>`), the shared-device-allocator lease map, the selected `SessionPlacement` readback, the single `ContextKey` EP-context identity, the single `AdmitContext` EP-context blob owner, and the warmup, idle-eviction, drain, and sweep rows.
-- Entry: `public static Fin<SessionLease> Lease(ModelIdentity model, ReadOnlyMemory<byte> bytes, ExecutionProvider ep, SessionPolicy policy, string artifactDir, ClockPolicy clocks)` aborts on rejected admission; a hit shares the resident with `None` warm-start evidence, an open beside an existing compatible context carries that EP-context row, and `SessionLease.Dispose` stamps release time and decrements the resident hold exactly once. The compatibility probe reads the existing context artifact itself — compat info is embedded at compile — so an incompatible or absent warm-start blob degrades to a fresh session without one.
+- Entry: `public static Fin<SessionLease> Lease(ModelIdentity model, ReadOnlyMemory<byte> bytes, ExecutionProvider ep, SessionPolicy policy, string artifactDir, IClock clock, TimeProvider time)` aborts on rejected admission; a hit shares the resident with `None` warm-start evidence, an open beside an existing compatible context carries that EP-context row, and `SessionLease.Dispose` stamps release time and decrements the resident hold exactly once. The compatibility probe reads the existing context artifact itself — compat info is embedded at compile — so an incompatible or absent warm-start blob degrades to a fresh session without one.
 - Auto: `CustomOpLibrary.Admit` content-keys each native asset before it enters `SessionPolicy`; `Admit` re-hashes the model bytes and every custom-op asset, rejects nonpositive capacity/durations, invalid or duplicate free dimensions and initializers, zero initializer content identities, duplicate custom-op paths, and every initializer that misses the model's exact tensor schema before `Lease` or `Compile` reaches native state. `Options` then folds free dimensions, initializers, execution, memory, profiling, device policy, provider registration, and custom ops once for both open and fleet compile. `ResidentKey.Of(model, ep, policy)` joins checksum with the `ModelFingerprint.Of` fold over every construction-behavior column, including each initializer and custom-op content key, so equal paths or names carrying different bytes cannot alias one resident or compiled context. `DeviceFingerprint` additionally folds the EP, hardware, and provider metadata tables into context and allocator identity. `Placement` zips ordered input names with `GetEpDeviceForInputs` and `GetMemoryInfosForInputs`, zips output names with `GetMemoryInfosForOutputs`, and rejects any native cardinality mismatch before returning provider/memory evidence. `Lease` increments `Resident.Leases` under `Gate`; `SessionLease.Dispose` decrements once through `Interlocked.Exchange`; `Unload` removes only zero-lease residents older than its threshold; `Drain` releases shared allocators only after no resident remains. `Warmup` acquires temporary leases over its snapshot and releases them in `finally`, so a sweep cannot dispose a pulsed session. `Open` consumes the provider compatibility enum into `ep.context_enable` and admits a compiled blob through the single `AdmitContext` owner under the same `ContextKey(ResidentKey, device)` the fleet `Compile` writes. `RepresentativeShape` reads the first dense `SlotShape.Tensor` and maps dynamic dims to `1`; a non-tensor first input falls back to `[1L]`.
 - Receipt: `Warmup` returns `Fin<Seq<(ComputeReceipt.Warmup, Option<ArtifactIndexRow>)>>`, preserving any pulse fault and carrying one checksum, provider, representative shape, and warm-start row per success; `DrainRow` emits one `ComputeReceipt.Drain(Drained, 0, 0)` on `DrainBand.Compute`, where `Drained` is the unloaded-session count and the capsule owns no admission queue. Both carry `ReceiptScope.Execution(Substrate.Onnx, WorkLane.Background, AllocationClass.NativeOrt)` and drain emission crosses the sink-bound `ReceiptSurface` under one `CorrelationId`.
 - Packages: Microsoft.ML.OnnxRuntime, System.IO.Hashing, LanguageExt.Core, NodaTime, Rasm (project, `Domain.ContentHash`), Rasm.AppHost (project), Rasm.Persistence (project), BCL inbox
-- Growth: a lifecycle change is one `SessionPolicy` value; a new construction-behavior column is one `SessionRows` row that automatically re-keys residency and compiled contexts; the warm-start and the fleet compile both admit through the single `AdmitContext` owner over the single `ContextKey` derivation, never a second cache, artifact owner, or filename scheme; the fleet-shared context is one `Compile` member publishing a `ContextKey(ResidentKey, device)`-keyed `ArtifactIndexRow` through the same blob-lane owner, never a second EP-cache; a warmup or drain fact is one existing `ComputeReceipt.Warmup`/`Drain` case through the one `ReceiptSurface`, never a parallel receipt owner; a new warm strategy is the injected `pulse` shape, never a second warm surface; a quantized session is `SessionPolicy.Precision` set to `Int8`/`Int4`, flowing through the existing `Options` rail with residency and context reuse re-keyed by the same `SessionRows` fold, never a quantization-specific owner; a sequential-versus-parallel posture is the `SessionPolicy.Execution` column folded into `options.ExecutionMode`, never a second session owner.
-- Boundary: `ModelSessions` is the `CAPSULE_OWNER`. ORT sessions are thread-safe for concurrent `Run`, so all lanes share one `InferenceSession` per `ResidentKey`; `SessionLease` is the only lifetime handed to a run. `Gate` serializes boot, resident acquire/release/eviction, and shared allocator create/release; immutable maps replace retry-capable `Atom.Swap` mutation, so no capture or native effect can replay. `SessionOptions` is transient and disposes after `InferenceSession` or `OrtModelCompilationOptions` consumes it; `PrePackedWeightsContainer` alone spans sessions. `DisablePerSessionThreads` binds every session to the global pool `Boot` derives from `CpuBudget`. Compiled `ep.context_*` artifacts and profiles land under the blob-lane artifact directory through `ArtifactIndexRow.Admit(kind, key, bytes, classification, at, sourceKey)`; retention derives from `ArtifactKind.Retention`, and each EP context projects under its model checksum. `ContextKey(ResidentKey, device)` is the sole context identity for lookup, compilation, admission, and transport, and it cannot alias sessions whose provider options or construction policy differ. `Placement` closes autoEP selection and I/O memory residency with post-construction evidence. Shared allocators release only after all resident leases drain; `Unload` never disposes a session under an active run.
+- Growth: a lifecycle change is one `SessionPolicy` value; a new construction-behavior column is one `SessionRows` row that automatically re-keys residency and compiled contexts; the warm-start and the fleet compile both admit through the single `AdmitContext` owner over the single `ContextKey` derivation, never a second cache, artifact owner, or filename scheme; the fleet-shared context is one `Compile` member publishing a `ContextKey(ResidentKey, device)`-keyed `ArtifactIndexRow` through the same blob-lane owner, never a second EP-cache; a warmup or drain fact is one existing `ComputeReceipt.Warmup`/`Drain` case through the one `ReceiptSurface`, never a parallel receipt owner; a new warm strategy is the injected `pulse` shape, never a second warm surface; a quantized session is `SessionPolicy.Precision` set to `Int8`/`Int4` OVER settled pre-quantized model bytes — the row is execution posture (`QuantizedGraph` evidence, MatMulNBits accuracy floor, accumulation), never a graph transform, and the quantized graph carries its own checksum identity — flowing through the existing `Options` rail with residency and context reuse re-keyed by the same `SessionRows` fold, never a quantization-specific owner; a sequential-versus-parallel posture is the `SessionPolicy.Execution` column folded into `options.ExecutionMode`, never a second session owner.
+- Boundary: `ModelSessions` is the `CAPSULE_OWNER`. ORT sessions are thread-safe for concurrent `Run`, so all lanes share one `InferenceSession` per `ResidentKey`; `SessionLease` is the only lifetime handed to a run. `Gate` serializes boot, resident acquire/release/eviction, and shared allocator create/release; immutable maps replace retry-capable `Atom.Swap` mutation, so no capture or native effect can replay. `SessionOptions` is transient and disposes after `InferenceSession` or `OrtModelCompilationOptions` consumes it; `PrePackedWeightsContainer` alone spans sessions. `DisablePerSessionThreads` binds every session to the global pool `Boot` derives from `CpuBudget`. Compiled `ep.context_*` artifacts and profiles land WRITE-BLOB-FIRST: the Boot-bound Persistence object-store leg persists the bytes, and only durable residence publishes the `ArtifactIndexRow.Admit(kind, key, bytes, classification, at, sourceKey)` row — an unbound leg or a failed write publishes no row, so a dangling index cannot name unavailable content; retention derives from `ArtifactKind.Retention`, and each EP context projects under its model checksum. `ContextKey(ResidentKey, device)` is the sole context identity for lookup, compilation, admission, and transport, and it cannot alias sessions whose provider options or construction policy differ. `Placement` closes autoEP selection and I/O memory residency with post-construction evidence. Shared allocators release only after all resident leases drain; `Unload` never disposes a session under an active run.
 
 ```csharp signature
 public sealed record SessionPolicy(
@@ -100,12 +100,12 @@ public static class ModelSessions {
 
     public sealed class SessionLease : IDisposable {
         readonly ResidentKey key;
-        readonly ClockPolicy clocks;
+        readonly IClock clock;
         int released;
 
-        internal SessionLease(ResidentKey key, InferenceSession session, Option<ArtifactIndexRow> warmStart, ClockPolicy clocks) {
+        internal SessionLease(ResidentKey key, InferenceSession session, Option<ArtifactIndexRow> warmStart, IClock clock) {
             this.key = key;
-            this.clocks = clocks;
+            this.clock = clock;
             Session = session;
             WarmStart = warmStart;
         }
@@ -114,7 +114,7 @@ public static class ModelSessions {
         public Option<ArtifactIndexRow> WarmStart { get; }
 
         public void Dispose() {
-            if (Interlocked.Exchange(ref released, 1) is 0) { Release(key, clocks.Now); }
+            if (Interlocked.Exchange(ref released, 1) is 0) { Release(key, clock.GetCurrentInstant()); }
         }
     }
 
@@ -127,7 +127,13 @@ public static class ModelSessions {
     static readonly PrePackedWeightsContainer PrePacked = new();
     static readonly Lock Gate = new();
 
-    public static Fin<Unit> Boot(string logId, OrtLoggingLevel severity, CpuBudget budget) {
+    // Blob-lane write leg bound once at Boot from the Persistence object-store composition; AdmitContext writes
+    // the context bytes durable-first through it and publishes the index row only after residence — an unbound
+    // leg publishes nothing, never a dangling index.
+    static Option<Func<ReadOnlyMemory<byte>, Fin<UInt128>>> BlobStore = Option<Func<ReadOnlyMemory<byte>, Fin<UInt128>>>.None;
+
+    public static Fin<Unit> Boot(string logId, OrtLoggingLevel severity, CpuBudget budget, Func<ReadOnlyMemory<byte>, Fin<UInt128>> blobStore) {
+        BlobStore = Some(blobStore);
         if (OrtEnv.IsCreated) { return Fin.Succ(unit); }
         lock (Gate) {
             if (OrtEnv.IsCreated) { return Fin.Succ(unit); }
@@ -139,19 +145,19 @@ public static class ModelSessions {
         }
     }
 
-    public static Fin<SessionLease> Lease(ModelIdentity model, ReadOnlyMemory<byte> bytes, ExecutionProvider ep, SessionPolicy policy, string artifactDir, ClockPolicy clocks) =>
-        Admit(model, bytes, policy).Bind(_ => LeaseAdmitted(model, bytes, ep, policy, artifactDir, clocks));
+    public static Fin<SessionLease> Lease(ModelIdentity model, ReadOnlyMemory<byte> bytes, ExecutionProvider ep, SessionPolicy policy, string artifactDir, IClock clock, TimeProvider time) =>
+        Admit(model, bytes, policy).Bind(_ => LeaseAdmitted(model, bytes, ep, policy, artifactDir, clock, time));
 
-    static Fin<SessionLease> LeaseAdmitted(ModelIdentity model, ReadOnlyMemory<byte> bytes, ExecutionProvider ep, SessionPolicy policy, string artifactDir, ClockPolicy clocks) {
-        Instant now = clocks.Now;
+    static Fin<SessionLease> LeaseAdmitted(ModelIdentity model, ReadOnlyMemory<byte> bytes, ExecutionProvider ep, SessionPolicy policy, string artifactDir, IClock clock, TimeProvider time) {
+        Instant now = clock.GetCurrentInstant();
         ResidentKey key = ResidentKey.Of(model, ep, policy);
         Seq<OrtEpDevice> devices = ep.AutoSelect;
         lock (Gate) {
             if (Residents.Find(key).Case is Resident resident) {
                 Residents = Residents.SetItem(key, resident with { LastUsed = now, Leases = resident.Leases + 1 });
-                return Fin.Succ(new SessionLease(key, resident.Session, Option<ArtifactIndexRow>.None, clocks));
+                return Fin.Succ(new SessionLease(key, resident.Session, Option<ArtifactIndexRow>.None, clock));
             }
-            return Open(key, model, bytes, ep, policy, artifactDir, clocks, devices);
+            return Open(key, model, bytes, ep, policy, artifactDir, clock, time, devices);
         }
     }
 
@@ -185,23 +191,23 @@ public static class ModelSessions {
     public static Fin<Seq<(ComputeReceipt.Warmup Receipt, Option<ArtifactIndexRow> WarmStart)>> Warmup(
         Func<InferenceSession, long[], Fin<Unit>> pulse,
         CorrelationId correlation,
-        ClockPolicy clocks) {
+        IClock clock, TimeProvider time) {
         Seq<(ResidentKey Key, Resident Held, SessionLease Lease)> held;
         lock (Gate) {
             held = Residents.ToSeq().Map(pair => (
                 pair.Item1,
                 pair.Item2,
-                new SessionLease(pair.Item1, pair.Item2.Session, pair.Item2.WarmStart, clocks)));
+                new SessionLease(pair.Item1, pair.Item2.Session, pair.Item2.WarmStart, clock)));
             Residents = held.Fold(Residents, static (state, row) =>
                 state.SetItem(row.Key, row.Held with { Leases = row.Held.Leases + 1 }));
         }
         try {
             return held.TraverseM(row => {
-                long mark = clocks.Mark();
+                long mark = time.GetTimestamp();
                 return pulse(row.Lease.Session, row.Held.WarmShape).Map(_ => (
                     new ComputeReceipt.Warmup($"{row.Key.Checksum:x32}", row.Held.Ep, string.Join('x', row.Held.WarmShape)) {
                         Scope = new ReceiptScope.Execution(
-                            correlation, WorkLane.Background, Substrate.Onnx, AllocationClass.NativeOrt, clocks.Elapsed(mark)),
+                            correlation, WorkLane.Background, Substrate.Onnx, AllocationClass.NativeOrt, time.GetElapsedTime(mark)),
                     },
                     row.Held.WarmStart));
             }).As();
@@ -232,19 +238,19 @@ public static class ModelSessions {
         return drained;
     }
 
-    public static DrainParticipantPort DrainRow(ReceiptSurface receipts, CorrelationId correlation, ClockPolicy clocks) =>
+    public static DrainParticipantPort DrainRow(ReceiptSurface receipts, CorrelationId correlation, IClock clock, TimeProvider time) =>
         new("compute-model-sessions", DrainBand.Compute, Rank: 10, _ =>
-            from mark in IO.lift(clocks.Mark)
+            from mark in IO.lift(time.GetTimestamp)
             from drained in IO.lift(Drain)
             from sent in receipts.Emit(new ComputeReceipt.Drain(drained, 0, 0) {
                 Scope = new ReceiptScope.Execution(
-                    correlation, WorkLane.Background, Substrate.Onnx, AllocationClass.NativeOrt, clocks.Elapsed(mark)),
+                    correlation, WorkLane.Background, Substrate.Onnx, AllocationClass.NativeOrt, time.GetElapsedTime(mark)),
             })
             select unit);
 
-    public static ScheduleEntry SweepRow(SessionPolicy policy, ClockPolicy clocks, Func<IO<Unit>> warm) =>
+    public static ScheduleEntry SweepRow(SessionPolicy policy, IClock clock, TimeProvider time, Func<IO<Unit>> warm) =>
         new("compute-model-warmup", new OccurrenceSpec.Every(policy.WarmupSweep), DeadlineClass.Startup, Option<LeasePolicy>.None,
-            () => IO.lift(() => Unload(clocks.Now - policy.IdleUnload)).Bind(_ => warm()));
+            () => IO.lift(() => Unload(clock.GetCurrentInstant() - policy.IdleUnload)).Bind(_ => warm()));
 
     public static string ContextKey(ResidentKey resident, Option<OrtEpDevice> device) =>
         device.Map(DeviceFingerprint).Match(
@@ -279,13 +285,13 @@ public static class ModelSessions {
         }
     }
 
-    static Fin<SessionLease> Open(ResidentKey key, ModelIdentity model, ReadOnlyMemory<byte> bytes, ExecutionProvider ep, SessionPolicy policy, string artifactDir, ClockPolicy clocks, Seq<OrtEpDevice> devices) =>
-        Options(ep, policy, artifactDir, devices).Bind(options => OpenAdmitted(key, model, bytes, ep, policy, artifactDir, clocks, devices, options));
+    static Fin<SessionLease> Open(ResidentKey key, ModelIdentity model, ReadOnlyMemory<byte> bytes, ExecutionProvider ep, SessionPolicy policy, string artifactDir, IClock clock, TimeProvider time, Seq<OrtEpDevice> devices) =>
+        Options(ep, policy, artifactDir, devices).Bind(options => OpenAdmitted(key, model, bytes, ep, policy, artifactDir, clock, time, devices, options));
 
-    static Fin<SessionLease> OpenAdmitted(ResidentKey key, ModelIdentity model, ReadOnlyMemory<byte> bytes, ExecutionProvider ep, SessionPolicy policy, string artifactDir, ClockPolicy clocks, Seq<OrtEpDevice> devices, SessionOptions options) {
+    static Fin<SessionLease> OpenAdmitted(ResidentKey key, ModelIdentity model, ReadOnlyMemory<byte> bytes, ExecutionProvider ep, SessionPolicy policy, string artifactDir, IClock clock, TimeProvider time, Seq<OrtEpDevice> devices, SessionOptions options) {
         using (options) {
             try {
-                Instant now = clocks.Now;
+                Instant now = clock.GetCurrentInstant();
                 string contextKey = ContextKey(key, devices.Head);
                 string contextPath = Path.Combine(artifactDir, contextKey);
                 bool warmCompatible = ep.WarmStartAdmissible(contextPath, devices);
@@ -303,7 +309,7 @@ public static class ModelSessions {
                     .Map(static pair => (pair.Item1, pair.Item2)));
                 Residents = evicted.Fold(next, static (state, row) => state.Remove(row.Key));
                 evicted.Iter(static row => row.Held.Session.Dispose());
-                return Fin.Succ(new SessionLease(key, session, warm, clocks));
+                return Fin.Succ(new SessionLease(key, session, warm, clock));
             }
             catch (OnnxRuntimeException error) { return Fault<SessionLease>(error); }
             catch (IOException error) { return Fault<SessionLease>(error); }
@@ -376,13 +382,16 @@ public static class ModelSessions {
 
     static Option<ArtifactIndexRow> AdmitContext(ResidentKey resident, Option<OrtEpDevice> device, string path, SessionPolicy policy, Instant at) =>
         File.Exists(path)
-            ? Some(ArtifactIndexRow.Admit(
-                ArtifactKind.EpContext,
-                ContextKey(resident, device),
-                File.ReadAllBytes(path),
-                policy.WarmStartClassification,
-                at,
-                Some(resident.Checksum)))
+            ? from store in BlobStore
+              let bytes = (ReadOnlyMemory<byte>)File.ReadAllBytes(path)
+              from _ in store(bytes).ToOption()
+              select ArtifactIndexRow.Admit(
+                  ArtifactKind.EpContext,
+                  ContextKey(resident, device),
+                  bytes,
+                  policy.WarmStartClassification,
+                  at,
+                  Some(resident.Checksum))
             : None;
 
     static long[] RepresentativeShape(ModelIdentity model) =>

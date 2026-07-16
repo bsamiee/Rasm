@@ -98,7 +98,12 @@ public static class AssemblyAggregator {
     // PlyQuantity override the exact quantity), so a per-m² membrane or per-kg steel EPD folds without a forced per-m³ normalization;
     // recycled content weights by ply mass ρ·V (a density-less ply excluded). A missing Environmental case or a per-kg density-less ply rails.
     public static Fin<AssemblyLifecycle> AggregateEnvironmental(MaterialComposition composition, Func<MaterialId, Fin<Seq<MaterialPropertySet>>> resolve, Seq<PlyQuantity> overrides, ElementQuantity geometry) =>
-        PliesByVolume(composition, geometry).Fold(
+        // Vacuous-composition admission shared with the cost fold: an empty LayerSet/ConstituentSet yields zero
+        // plies and would map the untouched Seed onto a fabricated zero-GWP lifecycle — absent plies rail
+        // AssessmentInputMissing, and only a NON-EMPTY zero-impact composition can honestly report zero.
+        PliesByVolume(composition, geometry) is var plies && plies.IsEmpty
+            ? Fin.Fail<AssemblyLifecycle>(Missing("<assembly-environmental-empty>"))
+            : plies.Fold(
             Fin.Succ(CarbonFold.Seed),
             (acc, ply) => acc.Bind(state => resolve(ply.Material).Bind(props =>
                 from env in props.Environmental.ToFin(Missing($"<assembly-ply-missing-environmental:{ply.Material.Value}>"))

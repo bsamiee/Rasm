@@ -2,7 +2,7 @@
 
 Rasm.Compute signal/spectral lane: one `SpectralTransform` `[SmartEnum<string>]` frequency-domain axis whose rows carry transform and inverse delegates, folding to deferred `Transform.Apply` and `Transform.Invert` surfaces. `IO<Fin<T>>` preserves the outer lowering effect and inner domain fault without forcing either inside the numeric lane. Forward and inverse share one surface: `stft` preserves frame phase and overlap-add evidence, while evidence-destroying `spectrogram` and averaged periodograms return typed inverse faults. One `FilterDesign` `[SmartEnum<string>]` axis closes each IIR row's analog prototype into the shared `Bilinear` map, while FIR rows fold to windowed-sinc or equiripple `DenseRoute` least squares.
 
-Vocabulary owned here: `SpectralTransform`/`FilterDesign`/`WindowKind`/`WaveletFamily`, the `SpectralOutput`/`SignalPolicy`/`Spectrogram`/`FilterShape` unions, the admitted `SignalContext`/`FilterContext` interiors, the `Spectrum`/`WaveletDecomposition`/`CrossSpectrum`/`MeasuredMode`/`ModalEstimate`/`FilterCoefficients`/`FilterResponse` carriers, the `FilterSpec` record, and the `Transform` Apply/Invert/Design/Coherence/Modal surface. Per-bin transforms ride `MathNet.Numerics.IntegralTransforms.Fourier` over split `double[]` planes, windowing rides `MathNet.Numerics.Window`, magnitude/phase read `TensorPrimitives.Hypot`/`Atan2`, bin spacing reads `Fourier.FrequencyScale`, FFT overlap-add rides `Tensor/dispatch#KERNEL_DISPATCH` `ComplexZip(TensorOpFamily.Multiply)`, and FIR convolution plus wavelet analysis/synthesis ride `Tensor/factor#KERNEL_LOWERING` `Conv1D`. Equiripple FIR and modal eigen-spectra cross to `Tensor/blas#DENSE_ALGEBRA`; `ComputeFault` and `ComparerAccessors.StringOrdinal` arrive settled; NodaTime `IClock` supplies instants — the App-owned `ClockPolicy` stays at composition. Spectral features feed `Stats/estimator#ESTIMATOR_LANE`; `Coherence` plus the `Modal` frequency-domain decomposition own measured-mode identification, and `MeasuredMode` crosses to `Solver/clash#CLASH_AND_TWIN` as the FE-updating measured end; conditioned signals feed those estimators and the twin.
+Vocabulary owned here: `SpectralTransform`/`FilterDesign`/`WindowKind`/`WaveletFamily`, the `SpectralOutput`/`SignalPolicy`/`Spectrogram`/`FilterShape` unions, the admitted `SignalContext`/`FilterContext` interiors, the `Spectrum`/`WaveletDecomposition`/`CrossSpectrum`/`MeasuredMode`/`ModalEstimate`/`FilterCoefficients`/`FilterResponse` carriers, the `FilterSpec` record, and the `Transform` Apply/Invert/Design/Coherence/Modal surface. Per-bin transforms ride `MathNet.Numerics.IntegralTransforms.Fourier` over split `double[]` planes, windowing rides `MathNet.Numerics.Window`, magnitude/phase read `TensorPrimitives.Hypot`/`Atan2`, bin spacing reads `Fourier.FrequencyScale`, FFT overlap-add rides `Tensor/dispatch#KERNEL_DISPATCH` `ComplexZip(TensorOpFamily.Multiply)`, and FIR convolution plus wavelet analysis/synthesis ride `Tensor/factor#KERNEL_LOWERING` `Conv1D`. Equiripple FIR crosses to `Tensor/blas#DENSE_ALGEBRA`; the per-bin complex Hermitian dominant pair stays page-local under a convergence witness because the dense owner is real-typed; `ComputeFault` and `ComparerAccessors.StringOrdinal` arrive settled; NodaTime `IClock` supplies instants — the App-owned `ClockPolicy` stays at composition. Spectral features feed `Stats/estimator#ESTIMATOR_LANE`; `Coherence` plus the `Modal` frequency-domain decomposition own measured-mode identification, and `MeasuredMode` crosses to `Solver/clash#CLASH_AND_TWIN` as the FE-updating measured end; conditioned signals feed those estimators and the twin.
 
 ## [01]-[INDEX]
 
@@ -597,14 +597,18 @@ public static class Transform {
         return new ModalEstimate(n, bins, binHz, s1, modes, at);
     }
 
-    // 32 Hermitian power iterations resolve the dominant eigenpair of a small NxN PSD matrix without a complex-SVD dependency.
+    // Hermitian power iteration WITH a convergence witness: iterate until the Rayleigh estimate settles
+    // (|λ − λ_prev| ≤ 1e-10·λ) under a hard cap, and a bin that never converges returns 0 so an unwitnessed pair
+    // can never become a picked peak — a fixed-count sweep treating clustered modes as settled evidence is the
+    // deleted form. Stays page-local because the Tensor/blas dense owner is real-typed and this pair is complex
+    // Hermitian; equiripple FIR still crosses to the dense owner.
     private static double Dominant(double[] gre, double[] gim, int bin, int n, Span<double> vre, Span<double> vim) {
         int seed = 0;
         for (int i = 1; i < n; i++) { if (gre[(bin * n + i) * n + i] > gre[(bin * n + seed) * n + seed]) { seed = i; } }
         vre.Clear(); vim.Clear(); vre[seed] = 1.0;
         Span<double> wre = stackalloc double[n], wim = stackalloc double[n];
         double lambda = 0.0;
-        for (int iteration = 0; iteration < 32; iteration++) {
+        for (int iteration = 0; iteration < 512; iteration++) {
             for (int i = 0; i < n; i++) {
                 (wre[i], wim[i]) = (0.0, 0.0);
                 for (int j = 0; j < n; j++) {
@@ -615,10 +619,12 @@ public static class Transform {
             }
             double norm = Math.Sqrt(TensorPrimitives.SumOfSquares<double>(wre) + TensorPrimitives.SumOfSquares<double>(wim));
             if (norm < 1e-300) { return 0.0; }
+            bool settled = Math.Abs(norm - lambda) <= 1e-10 * norm;
             lambda = norm;
             for (int i = 0; i < n; i++) { vre[i] = wre[i] / norm; vim[i] = wim[i] / norm; }
+            if (settled) { return lambda; }
         }
-        return lambda;
+        return 0.0;
     }
 
     // Half-power (−3 dB) bandwidth damping ζ ≈ Δf/(2·f_peak); None when the band never resolves inside the spectrum.

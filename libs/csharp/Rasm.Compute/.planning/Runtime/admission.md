@@ -6,14 +6,14 @@ Discipline lanes own their own typed entry folds — `Solver/contract` `Solve`, 
 
 ## [01]-[INDEX]
 
-- [01]-[INTENT_FAMILY]: six intent cases, one shared `Spec` record, one boundary admission fold.
+- [01]-[INTENT_FAMILY]: seven intent cases, one shared `Spec` record, one boundary admission fold.
 - [02]-[SUBSTRATE_AXIS]: five substrate rows (incl. device-wgpu GPGPU); capability needs, browser exclusion, provider gates, ranks, caps, load as columns.
 - [03]-[DISPATCH_SPINE]: fault band 2200, ordered selection fold, total dispatch, selection receipt.
 
 ## [02]-[INTENT_FAMILY]
 
 - Owner: `ComputeIntent` `[Union]` cases with the nested `Spec` shared-policy record; `AdmittedIntent` the evidence carrier whose private constructor makes `Admit` the only mint — the admission fold lives ON the carrier, so an unadmitted intent structurally cannot reach `Plan`, `Enqueue`, or `DispatchTable.Run`, which all take `AdmittedIntent`.
-- Cases: TensorOp | ModelInfer | RemoteCall | UnitProject | Pipeline | Generate; `Spec` carries deadline row, lane row, allocation row, cache-policy row, payload caps, forced-substrate `Option`, progress-subscription `Option`, and one inseparable `(Allotted, Provenance)` override.
+- Cases: TensorOp | ModelInfer | RemoteCall | UnitProject | SymbolicProject | Pipeline | Generate; `Spec` carries deadline row, lane row, allocation row, cache-policy row, payload caps, forced-substrate `Option`, progress-subscription `Option`, and one inseparable `(Allotted, Provenance)` override.
 - Entry: `public static Fin<AdmittedIntent> AdmittedIntent.Admit(ComputeIntent intent, ComputeIntent.Spec spec, CorrelationId correlation, CancelScope parent, IClock clock, TimeProvider time)` — `Fin<T>` aborts; admission runs exactly once at the boundary and interiors never re-validate; the byte and element caps are independent gates, so `Bounded` accumulates both violations through the `Validation` applicative pair before `ToFin` widens once — a first-fail cap gate that hides the second breach is the rejected form.
 - Auto: the intent digest derives from the operation symbol plus payload bytes and feeds every selection receipt; the admitted `CancelScope` child binds the allotted deadline so expiry rides the linked token.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, System.IO.Hashing, BCL inbox
@@ -32,6 +32,11 @@ public abstract partial record ComputeIntent {
     public sealed record RemoteCall(ComputeEndpoint Endpoint, string Method, ReadOnlyMemory<byte> Payload) : ComputeIntent;
 
     public sealed record UnitProject(QuantityFamily Family, double Value, string Unit, string TargetUnit) : ComputeIntent;
+
+    // Symbolic quantity projection: a unit-bearing FORMULA (not a flat scalar) enters the same intent rail — the
+    // expression, its per-symbol dimension declarations, the numeric bindings, and the target unit — dispatched
+    // onto the Symbolic lane's dimension proof + compiled evaluation + unit projection chain.
+    public sealed record SymbolicProject(SymbolicExpr Formula, Map<string, string> Dimensions, Map<string, double> Bindings, string TargetUnit) : ComputeIntent;
 
     public sealed record Pipeline(Seq<ComputeIntent> Stages) : ComputeIntent;
 
@@ -129,6 +134,7 @@ public sealed record AdmittedIntent {
             modelInfer: static op => Shaped(op.Input.Length, op.Shape),
             remoteCall: static op => Fin.Succ(((long)op.Payload.Length, 0L)),
             unitProject: static _ => Fin.Succ((0L, 1L)),
+            symbolicProject: static op => Fin.Succ((0L, (long)Math.Max(1, op.Bindings.Count))),
             generate: static op => Fin.Succ(((long)Encoding.UTF8.GetByteCount(op.Prompt), 0L)),
             pipeline: static line => line.Stages.IsEmpty
                 ? Fin.Fail<(long, long)>(new ComputeFault.PayloadOverBounds("pipeline:empty"))
@@ -155,6 +161,11 @@ public sealed record AdmittedIntent {
             modelInfer: static op => Seeded(op.Model.ToString("x32", CultureInfo.InvariantCulture), op.Input.Span),
             remoteCall: static op => Seeded(op.Method, op.Payload.Span),
             unitProject: static op => Scalar(op),
+            // Formula identity folds the canonical expression content key, the ordinal-sorted declarations and
+            // bindings, and the target unit — two structurally identical projections share one digest.
+            symbolicProject: static op => Seeded(
+                $"{op.Formula.ContentKey:x32}|{string.Join(',', op.Dimensions.OrderBy(static d => d.Key, StringComparer.Ordinal).Map(static d => $"{d.Key}={d.Value}"))}>{op.TargetUnit}",
+                MemoryMarshal.AsBytes<double>([.. op.Bindings.OrderBy(static b => b.Key, StringComparer.Ordinal).Map(static b => CanonicalForm.Scalar(b.Value))])),
             generate: static op => Seeded(op.Model.ToString("x32", CultureInfo.InvariantCulture), Encoding.UTF8.GetBytes(op.Prompt)),
             pipeline: static line => Combined(line.Stages.Map(Derived)));
 
@@ -324,6 +335,7 @@ public static class SubstrateSelection {
             modelInfer: static _ => Seq(Substrate.Onnx, Substrate.RemoteGrpc),
             remoteCall: static _ => Seq(Substrate.RemoteGrpc),
             unitProject: static _ => Seq(Substrate.CpuTensor),
+            symbolicProject: static _ => Seq(Substrate.CpuTensor),
             generate: static _ => Seq(Substrate.GenAi, Substrate.RemoteGrpc),
             pipeline: static _ => Seq<Substrate>());
 

@@ -31,7 +31,8 @@ Rasm.Persistence/            # refs the Rasm.Element seam + Rasm kernel ONLY; no
 ├── Ingest/                  # File-codec ingress axis
 │   ├── Tabular.cs           # Delimited and spreadsheet source lane
 │   ├── Schedule.cs          # Schedule-file codec and durable task-relation DAG
-│   └── Geospatial.cs        # Geospatial feature source lane
+│   ├── Geospatial.cs        # Geospatial feature source lane
+│   └── Issue.cs             # BCF issue-file codec and issue-cycle reconcile
 └── Store/                   # Durable-home and coordination substrate
     ├── BlobStore.cs         # Content-keyed object store with a write-blob-first seal
     ├── Provisioning.cs      # Verification-first extension tier and provider-binding rows
@@ -90,7 +91,7 @@ flowchart LR
     Rasm e3@-->|"[CONTENT_KEY]: XxHash128"| Element
     Rasm e4@-->|"[CONTENT_KEY]: GeometryHash"| Version
     Bim e5@-->|"[PROJECTION]: BimOpenSchema"| Query
-    Bim e6@-->|"[CONTENT_KEY]: IfcRepHash"| Store
+    Bim e6@-->|"[CONTENT_KEY]: RepresentationContentHash"| Store
     Ingest e7@<-->|"[WIRE]: TaskRelation"| Bim
     Compute e8@-->|"[CONTENT_KEY]: Assessment"| Version
     Compute e9@<-->|"[CONTENT_KEY]: VectorCodebook"| Query
@@ -158,6 +159,7 @@ flowchart LR
     Artifacts e4@-->|"[CONTENT_KEY]: SignedArtifact"| Version
     Data e5@-->|"[CONTENT_KEY]: IcechunkKey"| Version
     Query e6@<-->|"[WIRE]: SubstraitPlan"| Data
+    Query e16@-->|"[WIRE]: FlightTicket"| Data
     Element e7@<-->|"[PORT]: ProjectionContext"| AppHost
     Version e8@<-->|"[PORT]: HlcFrame"| AppHost
     AppHost e9@-->|"[PROJECTION]: ReplayWindow"| Version
@@ -177,7 +179,7 @@ flowchart LR
     class Element,Version,Query,Store primary
     class AppHost,Runtime,Data external
     class AppUi,Core,Artifacts annotation
-    class e1,e2,e3,e4,e5,e6,e15 edgeData
+    class e1,e2,e3,e4,e5,e6,e15,e16 edgeData
     class e7,e8,e11,e12 edgeControl
     class e9,e10,e14 edgeExternal
     class e13 edgeSuccess
@@ -239,7 +241,7 @@ One `IDocumentSession` commits the `GraphDelta` event and the identity row toget
 - Persistence is not a domain service layer, repository framework, ORM wrapper, provider wrapper, or host-boundary package; it is RhinoCommon-free.
 - It depends up on the `Rasm.Element` seam plus the `Rasm` kernel and never references a sibling AEC-domain peer.
 - Marten owns the durable append and the rebuildable read views; the version engine PROJECTS from its events, never a bespoke op-log store beneath it.
-- One transaction owner for identity plus event is the `IDocumentSession`, identity a Marten document in the same session.
+- One transaction owner for identity plus event is the `IDocumentSession` — identity lands as the one compiled-model-derived upsert `IdentityStore.Stamp` queues on the session, never a Marten document and never a second ORM write.
 - Geometry blobs are write-first and reference-after, with no free two-ORM atomicity.
 - Authoritative topology reads bind the inline projection and the in-process QuikGraph view; analytical lanes are async under a watermark.
 - Typed projection records and the seam `ElementGraph` are the only egress; provider failure converts once per rail.
@@ -256,7 +258,7 @@ Deleted patterns the owner regions foreclose:
 - NEVER a second materializer beside `Crdt.Apply`/`GraphDelta.Apply`; the projection, the live merge, and the AS-OF reconstruction fold the one delta.
 - NEVER a second content-hash, identity, CRDT, selection-shape, or geometry-representation owner; each spine concept rides its one owner.
 - NEVER a head-only geometry GC; reachability runs over the full event history, or geometry GC is forbidden in favor of dedup and cold-tiering.
-- NEVER a raw clock, stopwatch, or timer; the injected `ProjectionContext` frame is the only time seam and the HLC the only causal clock.
+- NEVER a raw clock, stopwatch, or timer; the injected `ProjectionContext` frame is the only time seam and the HLC the only causal clock — a deadline or policy value applied at both a provider wire and a domain catalog derives once from one sampled instant threaded through the write path, so even the injected clock is never sampled twice for one policy value.
 - An AppHost `ClockPolicy` parameter on a Persistence signature is the named strata inversion.
 - NEVER hand-written converters, formatters, or migration code beside the generated rails.
 - NEVER a generic receipt abstraction; each sub-domain outcome stays its own typed receipt or fact record.

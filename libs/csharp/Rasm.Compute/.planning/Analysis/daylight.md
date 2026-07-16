@@ -100,7 +100,7 @@ public static class SolarPosition {
 
 - Owner: `PerezBand` `[SmartEnum<string>]` the eight all-weather clearness bands, each carrying the five published `(a, b, c, d, e)` brightening coefficients as row data over the clearness index ε (the published table, never a hardcoded interpolation); `SkyState` the per-hour sky carrier (DNI + DHI, derived ε, resolved `PerezBand`); `WeatherIngress` the `EpwFile` boundary off the `WeatherRef` surface; `DaylightAnalysis` the runner fold.
 - Cases: with weather — per-target `direct-sun-hours` (the `SunPath` sweep × the clash-BVH occlusion ray per above-horizon sample), `shadow-fraction`, `sky-view-factor` (the hemisphere ray fan), `perez-diffuse-irradiance` (the circumsolar + horizon-band + isotropic-dome three-term sum over the resolved band); weather-less — the degrade: the same geometric facts at the design days off the solar kernel over the request's explicit `Site`, the `sky-state` fact stating `"geometry-only"` inline, never a silently-defaulted sky; absent both weather and an explicit site the run rails `AssessmentInputMissing`.
-- Entry: `Run(graph, request, geometry, clocks)` resolves the target points and obstruction scene through the `GeometrySource` port (an unresolvable target rails `AnalysisFailed(Admission, Input)`), reads optional weather through `WeatherIngress.Read` (a present-but-malformed EPW rails typed; an absent EPW selects the geometry-only degrade over the request's explicit `Site`), and mints the fact stream; the governing ratio is the worst target's required/achieved sun-hours (EN 17037 minimum-sunlight, the route row's citation).
+- Entry: `Run(graph, request, geometry, clock)` resolves the target points and obstruction scene through the `GeometrySource` port (an unresolvable target rails `AnalysisFailed(Admission, Input)`), reads optional weather through `WeatherIngress.Read` (a present-but-malformed EPW rails typed; an absent EPW selects the geometry-only degrade over the request's explicit `Site`), and mints the fact stream; the governing ratio is the worst target's required/achieved sun-hours (EN 17037 minimum-sunlight, the route row's citation).
 - Receipt: rides the one `ComputeReceipt.Assessment` case, no daylight-local receipt; the `sky-state` fact (`perez:<band>` or `geometry-only`) makes the degrade auditable off the baked node.
 - Packages: NREL.OpenStudio.macOS-arm64 (the `EpwFile` reader — `latitude()`/`longitude()`/`timeZone()`/`elevation()`, `data()` → `EpwDataPoint.directNormalRadiation()`/`diffuseHorizontalRadiation()` `OptionalDouble` under the SWIG `is_initialized()`-then-`get()` discipline — the energy lane's own pin), Rasm (project — the kernel `Spatial.Apply(SpatialOp.Wire)` node-link wire the staged scene decodes from), Rasm.Element, NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
 - Growth: a new sky model is one band-table swap on the same `SkyState` carrier; a new daylight fact (a window vertical-sky-component) is one fold over the same rays; annual CBDM/glare stays the Python companion's, an in-process Radiance-class loop the rejected form; zero new surface.
@@ -198,7 +198,7 @@ public static class DaylightAnalysis {
     const int HemisphereAzimuths = 72;
     const int HemisphereAltitudes = 18;
 
-    public static Fin<AssessmentResult> Run(ElementGraph graph, AssessmentRequest.Daylight request, GeometrySource geometry, ClockPolicy clocks) =>
+    public static Fin<AssessmentResult> Run(ElementGraph graph, AssessmentRequest.Daylight request, GeometrySource geometry, IClock clock) =>
         from _ in !request.DesignDays.IsEmpty && double.IsFinite(request.RequiredSunHours) && request.RequiredSunHours >= 0.0
             ? Fin.Succ(unit)
             : Fin.Fail<Unit>(new ComputeFault.AssessmentInputMissing("<daylight-policy-invalid>"))
@@ -227,7 +227,7 @@ public static class DaylightAnalysis {
             request.Route,
             perTarget.Bind(static rows => rows) + skyFacts,
             govern,
-            new Provenance("DaylightAnalysis", request.Route.Standard, request.Route.SolverVersion, clocks.Now));
+            new Provenance("DaylightAnalysis", request.Route.Standard, request.Route.SolverVersion, clock.GetCurrentInstant()));
 
     // Per-target fold: the quarter-hour `SunPath` sweep over every design day, `ClashScale.Occluded` per sun sample,
     // (one ray engine — the clash BVH over the decoded kernel wire), the cosine-weighted sky-view hemisphere fan, and
@@ -239,7 +239,7 @@ public static class DaylightAnalysis {
             .Bind(day => SolarPosition.SunPath(site, day.AtMidnight().WithOffset(offset).ToInstant(), Duration.FromHours(SunStepHours), SunSamplesPerDay)
                 .Map(row => (Day: day, row.Sun)))
             .Filter(static row => row.Sun.AboveHorizon)
-            .TraverseM(row => ClashScale.Occluded(scene.Obstructions, scene.Triangles, origin, row.Sun.Direction, scene.SceneDiameter)
+            .TraverseM(row => ClashScale.Occluded(scene.Scene, origin, row.Sun.Direction, scene.SceneDiameter)
                 .Map(occluded => (row.Day, row.Sun, occluded)))
             .As();
         return sweep.Bind(samples => SkyView(scene, origin).Map(skyView => {
@@ -261,7 +261,7 @@ public static class DaylightAnalysis {
                 double alt = Math.PI / 2.0 * (0.5 + i / HemisphereAzimuths) / HemisphereAltitudes;
                 Vector3 ray = new(Math.Cos(alt) * Math.Sin(az), Math.Cos(alt) * Math.Cos(az), Math.Sin(alt));
                 double weight = Math.Sin(alt) * Math.Cos(alt);
-                return ClashScale.Occluded(scene.Obstructions, scene.Triangles, origin, ray, scene.SceneDiameter).Map(occluded => (Weight: weight, Occluded: occluded));
+                return ClashScale.Occluded(scene.Scene, origin, ray, scene.SceneDiameter).Map(occluded => (Weight: weight, Occluded: occluded));
             })
             .As()
             .Map(static rays => rays.Fold((Open: 0.0, Total: 0.0), static (acc, r) => (acc.Open + (r.Occluded ? 0.0 : r.Weight), acc.Total + r.Weight)))
@@ -285,9 +285,9 @@ public static class DaylightAnalysis {
 }
 
 // Resolved scene: target sample points (GeometrySource-resolved footprint centroids, lifted off the plane) and the
-// decoded obstruction BVH + triangle wire the occlusion rays walk; SceneDiameter reads the root AABB off the wire so
+// clash-admitted obstruction scene the occlusion rays walk (one Admit per assessment); SceneDiameter reads the root AABB off the wire so
 // every ray's reach covers the federated scene.
-public sealed record DaylightScene(Seq<NodeId> Targets, Map<NodeId, Vector3> SamplePoints, AccelerationStructure Obstructions, ReadOnlyMemory<float> Triangles, float SceneDiameter) {
+public sealed record DaylightScene(Seq<NodeId> Targets, Map<NodeId, Vector3> SamplePoints, AdmittedScene Scene, float SceneDiameter) {
     const double SampleLiftM = 0.85;    // EN 17037 reference plane height above the resolved footprint
 
     public static Fin<DaylightScene> Of(ElementGraph graph, AssessmentRequest.Daylight request, GeometrySource geometry) =>
@@ -301,12 +301,13 @@ public sealed record DaylightScene(Seq<NodeId> Targets, Map<NodeId, Vector3> Sam
             .Bind(points => {
                 float diameter = Diameter(request.Scene.Index);
                 return request.Scene.Key != UInt128.Zero && !request.Scene.Triangles.IsEmpty && diameter > 0f
-                    ? Fin.Succ(new DaylightScene(
-                        request.Targets,
-                        points.Fold(Map<NodeId, Vector3>(), static (acc, point) => acc.Add(point.Id, point.Point)),
-                        request.Scene.Index,
-                        request.Scene.Triangles,
-                        diameter))
+                    // ONE clash admission per assessment: the scene admits here and every sun/sky ray reads it.
+                    ? AdmittedScene.Of(request.Scene.Index, request.Scene.Triangles, ClashPolicy.Canonical)
+                        .Map(admitted => new DaylightScene(
+                            request.Targets,
+                            points.Fold(Map<NodeId, Vector3>(), static (acc, point) => acc.Add(point.Id, point.Point)),
+                            admitted,
+                            diameter))
                     : Fin.Fail<DaylightScene>(new ComputeFault.AnalysisFailed(SolvePhase.Admission, FailureKind.Input, "<daylight-obstruction-scene-invalid>"));
             });
 

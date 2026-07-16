@@ -160,7 +160,7 @@ public sealed class Ec3Service(HttpClient http, HybridCache cache, JsonSerialize
 ## [03]-[CARBON_RUNNER]
 
 - Owner: `LifecycleAssessment.RunCarbon` the pure-sync EN 15978 embodied-carbon assessment (a graph read, no network); `LifecycleAssessment.EnrichCarbon` the async EC3 ingress that decodes EC3 declarations onto the seam `MaterialPropertySet.Environmental` and returns a graph-enriching `GraphDelta`; the Compute-owned `LifecycleGraphReads.TakeoffOf` base-quantity read; the `CarbonQuery` request input.
-- Entry: `public static Fin<AssessmentResult> RunCarbon(ElementGraph graph, AssessmentRequest.Carbon request, ClockPolicy clocks)` folds `AssemblyAggregator.AggregateEnvironmental` over each target's `MaterialComposition` and baked `TakeoffOf`; `EnrichCarbon` resolves undeclared plies through product search then category statistics and returns a typed `GraphDelta` rail.
+- Entry: `public static Fin<AssessmentResult> RunCarbon(ElementGraph graph, AssessmentRequest.Carbon request, IClock clock)` folds `AssemblyAggregator.AggregateEnvironmental` over each target's `MaterialComposition` and baked `TakeoffOf`; `EnrichCarbon` resolves undeclared plies through product search then category statistics and returns a typed `GraphDelta` rail.
 - Auto: `RunCarbon` resolves each ply's seam properties through one `Func<MaterialId, Fin<Seq<MaterialPropertySet>>>` resolver keyed on the composition's native `MaterialId` (never a graph `NodeId`), and the per-element area + volume through `TakeoffOf`, so a baked and an EC3-resolved declaration fold identically. `EnrichCarbon` enumerates the undeclared ply materials (the `MaterialId` set lacking the `Environmental` case, not the element's directly-associated material), resolves each from EC3 through the fallback ladder, `Normalize`s the `ScopeSet` to per-one-unit of its native basis and tags that `MeasurementBasis`, embeds the carbon-only per-stage GwpTotal row into the full seam `(ImpactCategory × LifecycleStage)` matrix through `CarbonMatrix` (un-declared indicator rows zeroed, the partial-EPD invariant), and accumulates one monoid `GraphDelta` the composition root applies (an unresolvable-basis ply is skipped, not mis-scaled). Assessment stays a pure-sync graph read because every network call lives in the explicit `EnrichCarbon` ingress, never inside the fold.
 - Packages: LanguageExt.Core (`Fin`/`Seq`/`Option`/`Map`), Rasm.Element (project — `ElementGraph`, `MaterialComposition`, `MaterialPropertySet`/`OfEnvironmental`/`PropertyEvidence`, `MaterialPropertyAccess.Environmental`, `ImpactCategory`/`LifecycleStage`, `MeasurementBasis`, `MaterialId`, `NodeId`, `Node.Material`/`Node.QuantitySet`, `Relationship.Assign`/`AssignKind`, `GraphDelta.Put`, `MeasureValue.Of`/`MeasureValue.Si`, `Dimension.VolumeDim`/`Dimension.AreaDim`/`Dimension.MassDim`, `Provenance`), UnitsNet (via `MeasureValue.Of` — the `declared_unit` abbreviation -> SI dimension/scalar coercion the basis tagging rides), Rasm (kernel `Op`), the `Analysis/aggregator` `AssemblyAggregator`/`ElementQuantity`/`PlyQuantity`, the `Ec3Service`, NodaTime (`Instant`), BCL inbox (`ImmutableArray<double>` the seam impact-matrix store the ingress builds).
 - Growth: a new lifecycle module is one seam `LifecycleStage` row (the `StageGwp` vector, the `ScopeSet` banding, and the aggregator fold widen by data); a biogenic-carbon credit or a circularity index is one fact over the same aggregation, never a parallel carbon owner; a richer EC3 selection (lowest-GWP, spec-matched) is one refinement of `Freshest`.
@@ -172,7 +172,7 @@ public static partial class LifecycleAssessment {
     // Pure synchronous assessment folds the aggregator over each target's baked or EC3-enriched
     // composition + base-quantity takeoff; the governing ratio is the whole-life carbon against the design target, or
     // double.NaN -> NotApplicable with no target (never a misleading 0.0-ratio Satisfied) — the energy-runner convention.
-    public static Fin<AssessmentResult> RunCarbon(ElementGraph graph, AssessmentRequest.Carbon request, ClockPolicy clocks) =>
+    public static Fin<AssessmentResult> RunCarbon(ElementGraph graph, AssessmentRequest.Carbon request, IClock clock) =>
         request.Targets.Fold(
             Fin.Succ((Facts: Seq<AssessmentFact>(), Total: 0.0)),
             (acc, id) => acc.Bind(state =>
@@ -187,12 +187,12 @@ public static partial class LifecycleAssessment {
                     Total: state.Total + lifecycle.WholeLifeGwpKgCo2e)))
             .Map(state => AssessmentResult.Of(request.Route, state.Facts,
                 request.Query.TargetKgCo2e > 0.0 ? state.Total / request.Query.TargetKgCo2e : double.NaN,
-                new Provenance("LifecycleAssessment", request.Route.Standard, request.Route.SolverVersion, clocks.Now)));
+                new Provenance("LifecycleAssessment", request.Route.Standard, request.Route.SolverVersion, clock.GetCurrentInstant())));
 
     // Async EC3 ingress resolves each undeclared ply through product EPD then category-statistic fallback,
     // decodes the ScopeSet to the carbon GwpTotal row in the seam matrix, and accumulates the enriching delta the
     // composition root applies before the sync RunCarbon, so a fully-declared model needs no network call.
-    public static async Task<Fin<GraphDelta>> EnrichCarbon(ElementGraph graph, Ec3Service ec3, AssessmentRequest.Carbon request, ClockPolicy clocks, Op key) {
+    public static async Task<Fin<GraphDelta>> EnrichCarbon(ElementGraph graph, Ec3Service ec3, AssessmentRequest.Carbon request, IClock clock, Op key) {
         Fin<GraphDelta> delta = Fin.Succ(GraphDelta.Empty);
         // EC3 ingress boundary: a serial, rate-limited fetch over the token-metered endpoint, each resolved ply accumulated
         // onto the monoid delta. Failure splits by kind: DETERMINISTIC data absence (AssessmentInputMissing — no fresh EPD,
@@ -201,7 +201,7 @@ public static partial class LifecycleAssessment {
         // default would be silent; a TRANSPORT/timeout fault ABORTS the rail, because a partial delta would erase the
         // outage and mask the plies a retry could still resolve.
         foreach (Node.Material material in MissingDeclarations(graph, request.Targets)) {
-            Fin<MaterialPropertySet> resolved = await Resolve(ec3, request.Query, material, clocks.Now, key);
+            Fin<MaterialPropertySet> resolved = await Resolve(ec3, request.Query, material, clock.GetCurrentInstant(), key);
             delta = resolved.Match(
                 Succ: environmental => delta.Map(current => current.Put(material with { Properties = material.Properties.Add(environmental) })),
                 Fail: error => error is ComputeFault.AssessmentInputMissing ? delta : delta.Bind(_ => Fin.Fail<GraphDelta>(error)));
@@ -235,7 +235,12 @@ public static partial class LifecycleAssessment {
             Succ: epds => Freshest(epds, query.Method, now).Match(
                 Some: epd => Task.FromResult(ToEnvironmental(epd, query.Method, key)),
                 None: () => Fallback(ec3, omf, query.Method, key)),
-            Fail: _ => Fallback(ec3, omf, query.Method, key));
+            // Only deterministic DATA ABSENCE degrades to category statistics; a transport or timeout fault is a
+            // retryable outage that aborts the enrichment rail typed — masking it behind a statistics fallback
+            // would return a partial delta after a transient failure, the deleted form.
+            Fail: fault => fault is ComputeFault.EndpointUnreachable || fault is ComputeFault.AnalysisFailed { Kind: var kind } && kind == FailureKind.Timeout
+                ? Task.FromResult(Fin.Fail<MaterialPropertySet>(fault))
+                : Fallback(ec3, omf, query.Method, key));
     }
 
     static async Task<Fin<MaterialPropertySet>> Fallback(Ec3Service ec3, string omf, LciaMethod method, Op key) =>
@@ -357,7 +362,7 @@ public static class LifecycleGraphReads {
 ## [04]-[COST_RUNNER]
 
 - Owner: `LifecycleAssessment.RunCost` the supply/install/lifecycle cost rollup runner.
-- Entry: `public static Fin<AssessmentResult> RunCost(ElementGraph graph, AssessmentRequest.Cost request, ClockPolicy clocks)` folds `AssemblyAggregator.AggregateCost` over each target's `MaterialComposition` and baked `TakeoffOf`, guards currency, and emits `supply-total`/`install-total`/`in-place-total` facts.
+- Entry: `public static Fin<AssessmentResult> RunCost(ElementGraph graph, AssessmentRequest.Cost request, IClock clock)` folds `AssemblyAggregator.AggregateCost` over each target's `MaterialComposition` and baked `TakeoffOf`, guards currency, and emits `supply-total`/`install-total`/`in-place-total` facts.
 - Packages: LanguageExt.Core, Rasm.Element (project — `ElementGraph`, `MaterialComposition`, `MaterialPropertySet.Cost`, `Currency`, `MaterialId`, `NodeId`, `MeasureValue`, `Dimension`, `Provenance`), the `Analysis/aggregator` `AssemblyAggregator`/`ElementQuantity`/`PlyQuantity`, the Compute-owned `TakeoffOf`, BCL inbox.
 - Growth: a maintenance-cost-over-service-life sum or a circularity-cost credit is one fold over the same composition; the cost rail spans all composition cases (a single material or a profile member has a unit supply/install cost); the cost arm is bracketed (`§1`) — the runner stays proportionate (the aggregator fold + the fact emit), the depth reserved for carbon and the physical disciplines.
 - Boundary: this is the embodied MATERIAL-cost takeoff only — construction SCHEDULING, resource-leveling, and 4D cost-loading stay in `Rasm.Bim` (MPXJ), never re-derived here; the `request.Currency` is load-bearing — the aggregated cost is guarded to it (a material priced in a different `Currency` rails, since the fold carries no exchange rate), so the request currency is a real validation target, never a decorative field; the per-ply quantity derives from the seam `Cost.Basis` against the baked `TakeoffOf` (or a `PlyQuantity` override); a material with no `Cost` case rails `AssessmentInputMissing`; the bracketed rollup carries no acceptance budget, so the governing ratio is `double.NaN` → `NotApplicable` (the informational rating, never a `0.0`-ratio `Satisfied` falsely asserting a budget pass) — the same no-target convention the energy and carbon runners hold.
@@ -365,7 +370,7 @@ public static class LifecycleGraphReads {
 ```csharp signature
 // --- [OPERATIONS] --------------------------------------------------------------------------
 public static partial class LifecycleAssessment {
-    public static Fin<AssessmentResult> RunCost(ElementGraph graph, AssessmentRequest.Cost request, ClockPolicy clocks) =>
+    public static Fin<AssessmentResult> RunCost(ElementGraph graph, AssessmentRequest.Cost request, IClock clock) =>
         request.Targets.Fold(
             Fin.Succ(Seq<AssessmentFact>()),
             (acc, id) => acc.Bind(facts =>
@@ -380,7 +385,7 @@ public static partial class LifecycleAssessment {
                 from inPlace in DomainMeasure($"{id.Value}/in-place-total", cost.TotalInPlace, cost.Currency.Key)
                 select facts.Add(supply).Add(install).Add(inPlace)))
             .Map(facts => AssessmentResult.Of(request.Route, facts, double.NaN,
-                new Provenance("LifecycleAssessment", request.Route.Standard, request.Route.SolverVersion, clocks.Now)));
+                new Provenance("LifecycleAssessment", request.Route.Standard, request.Route.SolverVersion, clock.GetCurrentInstant())));
 }
 ```
 

@@ -12,7 +12,7 @@ Streaming abstraction `Microsoft.Extensions.AI.Abstractions` arrives settled (th
 
 - Owner: `GenerationPolicy` is the one search-option and prompt-assembly policy — the behavior-bearing `SearchKey` recognized-key/value-domain axis, `SearchRows`, `GuidanceKind`, text stop rows, prompt-assembly columns, `ToolPolicy`, `DecoderPin`, admitted `ModelData`, and admitted `AdapterAsset` roster. `GenerationInput` is the case-correct per-run payload family and derives its `RunMode`; `GenerationEvent` is the one streamed unit (`Piece` | `ToolInvoked` | `Completed`); `GenerationOutcome` is the one collected result (per-sequence pieces + `GenerationTally`); `AdapterSet` is the LoRA hot-swap registry over `Adapters : SafeHandle`, created against its resident `Model`; `GenerativeRun` owns the process-global `OgaHandle`, `UInt128` content-fingerprint resident map, per-call `GeneratorParams`→`Generator` chain, `Stage` fold, and one `Lease`/`Unload`/`Drain`/`Collect`/`Receipt`.
 - Cases: `GuidanceKind` rows none · json-schema · regex · lark-grammar (the three LLGuidance constrained-decoding types plus the unconstrained row; no native `choice` type exists, so an enumerated choice rides a `json-schema` enum or a `regex` alternation); `SearchKey` rows num_beams · length_penalty · repetition_penalty · top_k · top_p · temperature · do_sample · max_length · min_length · early_stopping; `GenerationInput` cases text · multimodal · streaming-audio · batched; `GenerationEvent` cases Piece · ToolInvoked · Completed.
-- Entry: `Stream(modelDir, policy, input, clocks, token)` leases the fingerprint-keyed resident, stages the payload case, yields incremental `Piece(sequence, index, text)`, surfaces a resolved `ToolInvoked(sequence, tool)`, and closes with `Completed(tally)`; it carries no `ModelIdentity`/`ExecutionProvider` — the provider rides the model's `genai_config.json` or the `DecoderPin` and identity/EP ride the `Receipt`, so a `Stream` re-deriving a provider string from an `ExecutionProvider.Key` is the deleted form. `Collect` runs the drain to `Fin<GenerationOutcome>` and classifies cancellation/native faults; `Receipt` projects the outcome's real tally onto the `Generate` case.
+- Entry: `Stream(modelDir, policy, input, clock, token)` leases the fingerprint-keyed resident, stages the payload case, yields incremental `Piece(sequence, index, text)`, surfaces a resolved `ToolInvoked(sequence, tool)`, and closes with `Completed(tally)`; it carries no `ModelIdentity`/`ExecutionProvider` — the provider rides the model's `genai_config.json` or the `DecoderPin` and identity/EP ride the `Receipt`, so a `Stream` re-deriving a provider string from an `ExecutionProvider.Key` is the deleted form. `Collect` runs the drain to `Fin<GenerationOutcome>` and classifies cancellation/native faults; `Receipt` projects the outcome's real tally onto the `Generate` case.
 - Auto: `Conforms(input)` admits finite `SearchRows` through each delegate-backed `SearchKey.Accepts`, nonblank `RuntimeOptions`, ordered `min_length <= max_length`, nonblank unique stop sequences, case-local assets, content-verified unique adapters, and tools only on guided text runs without competing text stops. `Apply` folds admitted search rows through the numeric/bool `SetSearchOption` overloads; `Echo` reads native values back. `DecoderPin.Apply` clears packaged providers before appending its override, so the pin never becomes an accidental fallback. `Generator.SetRuntimeOption` folds every runtime row after generator construction. Owned in-memory bytes enter through `AddModelData` and retract through `RemoveModelData` after `Model` construction. `Fingerprint` length-frames every model file, adapter content key, decoder option, and in-memory identity into `ContentHash.Of`; path reuse after asset mutation never aliases a resident. Non-copyable `ResidentLease` instances count active streams under `Gate`; `Unload` evicts only idle zero-lease residents. Prompt assembly rides `ApplyChatTemplate` then `Encode`; `StopOracle` reads model EOS ids and withholds the maximal text-stop prefix per sequence so a stop split across token pieces never leaks.
 - Receipt: the `Generate` `ComputeReceipt` case carries model checksum, EP (whose `Precision.Key` rides the `ExecutionProvider` key so a quantized run is receipt-distinct), model type from `Model.GetModelType()`, generated-token count, tokens-per-second from `tally.Tokens / elapsed`, the `GuidanceKind` dimension, the constrained-token count, and the tool-call count — all read from `GenerationOutcome.Tally`, never caller-supplied, so a receipt hardcoding `0, 0` for the constrained/tool slots is structurally impossible; the run rides `Substrate.GenAi` (never the `Onnx` inference row), `WorkLane.Background`, and `AllocationClass.NativeOrt`; `RunMode` and active-adapter ride the `rasm.compute.generate.tokens` instrument tags (`run.mode`, `lora.adapter`) rather than receipt fields, so a `RunMode`/adapter receipt column is a `receipts-and-benchmarks` owner change; the run advances the `Runtime/progress#PROGRESS_CELL` cell to the `Streaming` `ProgressPhase` with the running token count on the `ProgressMark.Segments` slot while the terminal `Generate` receipt carries the token total, so a per-chunk `StreamSegment` receipt is the rejected form (that receipt addresses a content-keyed artifact stream — the windowed-inference `Chunked` run — which a token stream never produces).
 - Packages: Microsoft.ML.OnnxRuntimeGenAI, Microsoft.Extensions.AI.Abstractions, Microsoft.ML.OnnxRuntime, NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm (project, `Domain.ContentHash`), Rasm.AppHost (project), BCL inbox (System.Text.Json, System.Collections.Frozen)
@@ -356,13 +356,13 @@ public static class GenerativeRun {
         public int Leases { get; set; }
     }
 
-    sealed class ResidentLease(UInt128 key, GenerativeResident resident, ClockPolicy clocks) : IDisposable {
+    sealed class ResidentLease(UInt128 key, GenerativeResident resident, IClock clock) : IDisposable {
         int disposed;
 
         public GenerativeResident Resident { get; } = resident;
 
         public void Dispose() {
-            if (Interlocked.Exchange(ref disposed, 1) is 0) { Release(key, clocks.Now); }
+            if (Interlocked.Exchange(ref disposed, 1) is 0) { Release(key, clock.GetCurrentInstant()); }
         }
     }
 
@@ -408,14 +408,14 @@ public static class GenerativeRun {
         preimage.Advance(Encoding.UTF8.GetBytes(value, preimage.GetSpan(bytes)));
     }
 
-    static ResidentLease Lease(string modelDir, GenerationPolicy policy, ClockPolicy clocks) {
-        Instant now = clocks.Now;
+    static ResidentLease Lease(string modelDir, GenerationPolicy policy, IClock clock) {
+        Instant now = clock.GetCurrentInstant();
         UInt128 key = Fingerprint(modelDir, policy);
         lock (Gate) {
             if (Residents.Find(key).Case is GenerativeResident held) {
                 held.LastUsed = now;
                 held.Leases++;
-                return new ResidentLease(key, held, clocks);
+                return new ResidentLease(key, held, clock);
             }
             Config config = policy.OpenConfig(modelDir);
             try {
@@ -430,7 +430,7 @@ public static class GenerativeRun {
                         policy.AdapterPaths.Iter(row => adapterSet.Load(row).ThrowIfFail());
                         GenerativeResident resident = new(config, session, adapterSet, now) { Leases = 1 };
                         Residents = Residents.Add(key, resident);
-                        return new ResidentLease(key, resident, clocks);
+                        return new ResidentLease(key, resident, clock);
                     }
                     catch {
                         adapterSet.Dispose();
@@ -470,10 +470,10 @@ public static class GenerativeRun {
     public static int Drain() => Unload(Instant.MaxValue).Count;
 
     public static async IAsyncEnumerable<GenerationEvent> Stream(
-        string modelDir, GenerationPolicy policy, GenerationInput input, ClockPolicy clocks, [EnumeratorCancellation] CancellationToken token) {
+        string modelDir, GenerationPolicy policy, GenerationInput input, IClock clock, [EnumeratorCancellation] CancellationToken token) {
         _ = Runtime;
         policy.Conforms(input).ThrowIfFail();
-        using ResidentLease lease = Lease(modelDir, policy, clocks);
+        using ResidentLease lease = Lease(modelDir, policy, clock);
         GenerativeResident resident = lease.Resident;
         Model session = resident.Session;
         using GeneratorParams generatorParams = new(session);
@@ -635,11 +635,11 @@ public static class GenerativeRun {
             });
 
     public static async Task<Fin<GenerationOutcome>> Collect(
-        string modelDir, GenerationPolicy policy, GenerationInput input, ClockPolicy clocks, CancelScope scope) {
+        string modelDir, GenerationPolicy policy, GenerationInput input, IClock clock, CancelScope scope) {
         HashMap<int, Seq<string>> map = HashMap<int, Seq<string>>();
         GenerationTally tally = GenerationTally.Empty;
         try {
-            await foreach (GenerationEvent ev in Stream(modelDir, policy, input, clocks, scope.Source.Token)) {
+            await foreach (GenerationEvent ev in Stream(modelDir, policy, input, clock, scope.Source.Token)) {
                 (HashMap<int, Seq<string>> Map, GenerationTally Tally) step = ev.Switch(
                     piece: p => (Map: map.AddOrUpdate(p.Sequence, acc => acc.Add(p.Text), Seq(p.Text)), Tally: tally),
                     toolInvoked: _ => (Map: map, Tally: tally),

@@ -24,10 +24,10 @@ One intent rail admits every execution request once, a substrate axis routes it 
 - [13]-[UNITS](.planning/Symbolic/units.md): Units boundary admitting every unit-bearing input.
 
 [MODEL]:
-- [14]-[IDENTITY](.planning/Model/identity.md): Checksum model identity, the acquisition union, and the schema snapshot.
+- [14]-[IDENTITY](.planning/Model/identity.md): Checksum model identity, the acquisition union, the kind-discriminated schema snapshot, and the graduation drift sentinel.
 - [15]-[SESSIONS](.planning/Model/sessions.md): One shared session per checksum with warm-start.
 - [16]-[PROVIDERS](.planning/Model/providers.md): Execution-provider axis with discovery and quantization posture.
-- [17]-[INFERENCE](.planning/Model/inference.md): Run-mode inference fold and result cache.
+- [17]-[INFERENCE](.planning/Model/inference.md): Run-mode inference fold, cross-request batching gate, and result cache.
 - [18]-[EMBEDDING](.planning/Model/embedding.md): Embedding-and-retrieval owner.
 - [19]-[GENERATIVE](.planning/Model/generative.md): Token-streaming generation with the tool-call arm.
 - [20]-[EXTENSION](.planning/Model/extension.md): Custom-op registration at the string-tensor boundary.
@@ -74,7 +74,6 @@ Compute-domain libraries admitted by this folder; versions centralize in the C# 
 - `MathNet.Numerics.Providers.MKL` — MKL native `LinearProvider` backend.
 - `MathNet.Numerics.Providers.OpenBLAS` — OpenBLAS native `LinearProvider` backend.
 - `CSparse` — managed sparse direct-factor terminal.
-- `csparse-interop` — source-vendored (wo80, BSD-3): ARPACK shift-invert eigensolver and native CHOLMOD/SuperLU/UMFPACK direct rows, fault-at-init.
 - `cslsqp` — source-vendored (oberbichler, ISC): span-based SLSQP the `OptimizerKind.slsqp` row binds.
 - `HyperJet` — hyper-dual scalar AD backing exact gradient and Hessian across the `Sensitivity` family.
 - `TorchSharp` — native ATen dense linear algebra and the iterative `EstimatorKind` autograd fits.

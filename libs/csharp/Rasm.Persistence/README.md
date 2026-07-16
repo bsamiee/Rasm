@@ -35,11 +35,12 @@ It persists the graph over a Marten append substrate, depends up on the `Rasm.El
 - [20]-[TABULAR](.planning/Ingest/tabular.md): Delimited and spreadsheet source lane.
 - [21]-[SCHEDULE](.planning/Ingest/schedule.md): Schedule-file codec and its durable task-relation DAG.
 - [22]-[GEOSPATIAL](.planning/Ingest/geospatial.md): Geospatial feature source lane.
+- [23]-[ISSUE](.planning/Ingest/issue.md): BCF issue-file codec — topics, viewpoints, and comments keyed to durable elements, with the issue-cycle reconcile.
 
 [STORE]:
-- [23]-[BLOBSTORE](.planning/Store/blobstore.md): Content-keyed geometry object store with its write-blob-first seal.
-- [24]-[PROVISIONING](.planning/Store/provisioning.md): Verification-first extension tier and provider-binding rows.
-- [25]-[COORDINATION](.planning/Store/coordination.md): Token-fenced lease store owning budget, CAS, lease, membership, and outbox.
+- [24]-[BLOBSTORE](.planning/Store/blobstore.md): Content-keyed geometry object store with its write-blob-first seal.
+- [25]-[PROVISIONING](.planning/Store/provisioning.md): Verification-first extension tier and provider-binding rows.
+- [26]-[COORDINATION](.planning/Store/coordination.md): Token-fenced lease store owning budget, CAS, lease, membership, and outbox.
 
 ## [02]-[DOMAIN_PACKAGES]
 

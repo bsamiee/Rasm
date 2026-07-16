@@ -269,7 +269,7 @@ public static class CommitGraph {
 - Receipt: a converged merge rides `SyncApplyReceipt`; a tombstone, live-element, compacted-tombstone, and live-presence count fold into the `store.crdt.merge` fact.
 - Packages: NodaTime, LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox — no hasher: every CRDT identity is the `ElementId` order key or the wire owner's `ContentKey`, so a `System.IO.Hashing` row here is the stale admission the algebra never composes.
 - Growth: a new replicated type is one `CrdtField` case plus one `CrdtOp` arm plus one `Merge`/`Apply` arm plus one `Seed` arm the generated total `Switch` forces; zero new surface — a per-type merge service, a second convergence engine, or an op-transform rebase is the deleted form because the join-semilattice subsumes idempotency, commutativity, and reorder tolerance.
-- Boundary: `Merge` is a join-semilattice least-upper-bound so any partition of any permutation of the op multiset applied any number of times converges to identical state — the strict superset of the `Version/ledger#MERGE_LAW` LWW `Adjudicate`, which survives only as the `LwwRegister` arm; the `RgaSequence` carries tombstones so a deleted slot stays stable for later concurrent inserts and `Compact` reclaims only when the quiescence horizon dominates the cell's lamport stamp; the `OrSet` `Merge` is the per-element live-tag union minus the union of both tombstone sets through `Set.Except` (a `Set.Remove(Set)` is the rejected spelling); the `MvRegister` is a causal anti-chain keeping a value iff no other value's context strictly dominates it; the `PnCounter` is two grow-only per-origin maps monotone under merge; the RGA element id is `(Guid Origin, ulong Logical)` and IS the convergent order key, never positional, so the `RgaCell` carries no redundant `Hlc`; the `EphemeralMap` is per-origin-LWW-by-HLC under add-wins liveness — `Compact` is the durable-presence distinction (an entry whose last-beat physical instant precedes the liveness deadline is a peer that stopped beating, so eviction is convergence-correct and idempotent), presence liveness a physical-time horizon distinct from the RGA op-count tombstone-GC horizon, and the `Maintain` op carries BOTH (`Quiescent` for sequence GC, `Liveness` for presence expiry); `Crdt.Merge` reads no wall clock — the `Hlc` cell from the Marten event stamp is the only ordering input, so convergence is deterministic; the `(left, right)` and `(state, op)` tuple `switch`es are total on the diagonal (one arm per CRDT type) and the off-diagonal `_` arm is unreachable by the cell-type-stability invariant — a `(NodeId, Field)` cell is one fixed `CrdtField` arm for its whole lifetime (`Crdt.Seed` — the total generated `CrdtOp.Switch` — materializes a fresh cell's matching empty arm from its FIRST op, and a decoded op whose type disagrees with its cell is contract drift the `CrdtWire.Decode` `CommitFault.DecodeDrift` rail already rejects before this fold), so a cross-type merge is structurally impossible rather than a silent identity-return, and the `_ => left`/`_ => state` arm is the unreachable totality floor, never a soft fallback that hides type drift.
+- Boundary: `Merge` is a join-semilattice least-upper-bound so any partition of any permutation of the op multiset applied any number of times converges to identical state — the strict superset of the `Version/ledger#MERGE_LAW` LWW `Adjudicate`, which survives only as the `LwwRegister` arm; the `RgaSequence` carries tombstones so a deleted slot stays stable for later concurrent inserts and `Compact` reclaims only when the quiescence horizon dominates the cell's lamport stamp; the `OrSet` `Merge` is the per-element live-tag union minus the union of both tombstone sets through `Set.Except` (a `Set.Remove(Set)` is the rejected spelling); the `MvRegister` is a causal anti-chain keeping a value iff no other value's context strictly dominates it; the `PnCounter` is one per-origin map of `(Sequence, Positive, Negative)` running totals monotone under sequence-max merge, so a replayed or reordered `Increment` is absorbed idempotently (a delta-adding fold is the deleted non-idempotent form); the RGA element id is `(Guid Origin, ulong Logical)` and IS the convergent order key, never positional, so the `RgaCell` carries no redundant `Hlc`; the `EphemeralMap` is per-origin-LWW-by-HLC under add-wins liveness — `Compact` is the durable-presence distinction (an entry whose last-beat physical instant precedes the liveness deadline is a peer that stopped beating, so eviction is convergence-correct and idempotent), presence liveness a physical-time horizon distinct from the RGA op-count tombstone-GC horizon, and the `Maintain` op carries BOTH (`Quiescent` for sequence GC, `Liveness` for presence expiry); `Crdt.Merge` reads no wall clock — the `Hlc` cell from the Marten event stamp is the only ordering input, so convergence is deterministic; the `(left, right)` and `(state, op)` tuple `switch`es are total on the diagonal (one arm per CRDT type) and the off-diagonal `_` arm is unreachable by the cell-type-stability invariant — a `(NodeId, Field)` cell is one fixed `CrdtField` arm for its whole lifetime (`Crdt.Seed` — the total generated `CrdtOp.Switch` — materializes a fresh cell's matching empty arm from its FIRST op, and a decoded op whose type disagrees with its cell is contract drift the `CrdtWire.Decode` `CommitFault.DecodeDrift` rail already rejects before this fold), so a cross-type merge is structurally impossible rather than a silent identity-return, and the `_ => left`/`_ => state` arm is the unreachable totality floor, never a soft fallback that hides type drift.
 
 ```csharp signature
 public readonly record struct ElementId(Guid Origin, ulong Logical) : IComparable<ElementId> {
@@ -291,7 +291,10 @@ public abstract partial record CrdtOp {
     public sealed record Write(string Field, ReadOnlyMemory<byte> Value, VersionVector Context, Hlc Cell, Guid Origin) : CrdtOp;
     public sealed record Add(string Field, UInt128 Element, ElementId Tag) : CrdtOp;
     public sealed record Remove(string Field, UInt128 Element, Seq<ElementId> ObservedTags) : CrdtOp;
-    public sealed record Increment(string Field, Guid Origin, long Delta) : CrdtOp;
+    // Per-origin RUNNING TOTALS, not a bare delta: Sequence is the origin's monotone op counter and
+    // Positive/Negative its cumulative sums, so Apply is a max-merge — a replayed or reordered Increment
+    // converges identically (the idempotent join-semilattice law a delta-adding fold cannot satisfy).
+    public sealed record Increment(string Field, Guid Origin, long Sequence, long Positive, long Negative) : CrdtOp;
     public sealed record InsertAfter(string Field, ElementId Predecessor, ElementId Id, ReadOnlyMemory<byte> Value) : CrdtOp;
     public sealed record Delete(string Field, ElementId Id) : CrdtOp;
     public sealed record Maintain(string Field, VersionVector Quiescent, Instant Liveness) : CrdtOp;
@@ -305,7 +308,7 @@ public abstract partial record CrdtField {
     public sealed record LwwRegister(ReadOnlyMemory<byte> Value, Hlc Cell, Guid Origin) : CrdtField;
     public sealed record MvRegister(Seq<(ReadOnlyMemory<byte> Value, VersionVector Context, Hlc Cell)> Values) : CrdtField;
     public sealed record OrSet(HashMap<UInt128, Set<ElementId>> Live, Set<ElementId> Tombstoned) : CrdtField;
-    public sealed record PnCounter(HashMap<Guid, long> Positive, HashMap<Guid, long> Negative) : CrdtField;
+    public sealed record PnCounter(HashMap<Guid, (long Sequence, long Positive, long Negative)> Origins) : CrdtField;
     public sealed record RgaSequence(Seq<RgaCell> Cells) : CrdtField;
     public sealed record EphemeralMap(HashMap<Guid, (ReadOnlyMemory<byte> State, Hlc Cell)> Live) : CrdtField;
 }
@@ -319,7 +322,7 @@ public static class Crdt {
         write: static _ => new CrdtField.MvRegister(Seq<(ReadOnlyMemory<byte> Value, VersionVector Context, Hlc Cell)>()),
         add: static _ => new CrdtField.OrSet(HashMap<UInt128, Set<ElementId>>(), Set<ElementId>()),
         remove: static _ => new CrdtField.OrSet(HashMap<UInt128, Set<ElementId>>(), Set<ElementId>()),
-        increment: static _ => new CrdtField.PnCounter(HashMap<Guid, long>(), HashMap<Guid, long>()),
+        increment: static _ => new CrdtField.PnCounter(HashMap<Guid, (long Sequence, long Positive, long Negative)>()),
         insertAfter: static _ => new CrdtField.RgaSequence(Seq<RgaCell>()),
         delete: static _ => new CrdtField.RgaSequence(Seq<RgaCell>()),
         maintain: static _ => new CrdtField.RgaSequence(Seq<RgaCell>()),
@@ -331,7 +334,7 @@ public static class Crdt {
         (CrdtField.MvRegister l, CrdtField.MvRegister r) => new CrdtField.MvRegister(AntiChain(l.Values + r.Values)),
         (CrdtField.OrSet l, CrdtField.OrSet r) when l.Tombstoned.Union(r.Tombstoned) is var graves =>
             new CrdtField.OrSet(r.Live.Fold(l.Live, static (acc, s) => acc.AddOrUpdate(s.Key, e => e.Union(s.Value), s.Value)).Map((_, tags) => tags.Except(graves)).Filter(static t => t.Count > 0), graves),
-        (CrdtField.PnCounter l, CrdtField.PnCounter r) => new CrdtField.PnCounter(MergeMax(l.Positive, r.Positive), MergeMax(l.Negative, r.Negative)),
+        (CrdtField.PnCounter l, CrdtField.PnCounter r) => new CrdtField.PnCounter(r.Origins.Fold(l.Origins, static (acc, s) => acc.AddOrUpdate(s.Key, held => held.Sequence >= s.Value.Sequence ? held : s.Value, s.Value))),
         (CrdtField.RgaSequence l, CrdtField.RgaSequence r) => new CrdtField.RgaSequence(Weave(l.Cells, r.Cells)),
         (CrdtField.EphemeralMap l, CrdtField.EphemeralMap r) => new CrdtField.EphemeralMap(r.Live.Fold(l.Live, static (acc, s) => acc.AddOrUpdate(s.Key, held => held.Cell.CompareTo(s.Value.Cell) >= 0 ? held : s.Value, s.Value))),
         _ => left,
@@ -342,8 +345,8 @@ public static class Crdt {
         (CrdtField.MvRegister mv, CrdtOp.Write w) => new CrdtField.MvRegister(AntiChain(mv.Values.Filter(h => !w.Context.Dominates(h.Context)).Add((w.Value, w.Context, w.Cell)))),
         (CrdtField.OrSet s, CrdtOp.Add add) => new CrdtField.OrSet(s.Live.AddOrUpdate(add.Element, e => e.Add(add.Tag), Set(add.Tag)), s.Tombstoned),
         (CrdtField.OrSet s, CrdtOp.Remove rem) when toSet(rem.ObservedTags) is var observed => new CrdtField.OrSet(s.Live.AddOrUpdate(rem.Element, e => e.Except(observed), Set<ElementId>()).Filter(static t => t.Count > 0), s.Tombstoned.Union(observed)),
-        (CrdtField.PnCounter c, CrdtOp.Increment inc) when inc.Delta >= 0 => new CrdtField.PnCounter(c.Positive.AddOrUpdate(inc.Origin, h => h + inc.Delta, inc.Delta), c.Negative),
-        (CrdtField.PnCounter c, CrdtOp.Increment dec) => new CrdtField.PnCounter(c.Positive, c.Negative.AddOrUpdate(dec.Origin, h => h - dec.Delta, -dec.Delta)),
+        (CrdtField.PnCounter c, CrdtOp.Increment inc) => new CrdtField.PnCounter(
+            c.Origins.AddOrUpdate(inc.Origin, held => held.Sequence >= inc.Sequence ? held : (inc.Sequence, inc.Positive, inc.Negative), (inc.Sequence, inc.Positive, inc.Negative))),
         (CrdtField.RgaSequence seq, CrdtOp.InsertAfter ins) => new CrdtField.RgaSequence(Weave(seq.Cells, Seq(new RgaCell(ins.Id, ins.After, ins.Value, false)))),
         (CrdtField.RgaSequence seq, CrdtOp.Delete del) => new CrdtField.RgaSequence(seq.Cells.Map(c => c.Id == del.Id ? c with { Tombstone = true } : c)),
         (CrdtField.RgaSequence seq, CrdtOp.Maintain m) => Compact(seq, m.Quiescent, m.Liveness),
@@ -359,11 +362,9 @@ public static class Crdt {
         _ => state,
     };
 
-    public static long Value(CrdtField.PnCounter counter) => counter.Positive.Values.Sum() - counter.Negative.Values.Sum();
+    public static long Value(CrdtField.PnCounter counter) => counter.Origins.Values.Sum(static origin => origin.Positive - origin.Negative);
     public static Seq<ReadOnlyMemory<byte>> Materialize(CrdtField.RgaSequence seq) => seq.Cells.Filter(static c => !c.Tombstone).Map(static c => c.Value);
     public static Seq<(Guid Origin, ReadOnlyMemory<byte> State)> Live(CrdtField.EphemeralMap map) => toSeq(map.Live.Map(static (o, s) => (o, s.State)));
-
-    static HashMap<Guid, long> MergeMax(HashMap<Guid, long> left, HashMap<Guid, long> right) => right.Fold(left, static (acc, s) => acc.AddOrUpdate(s.Key, h => long.Max(h, s.Value), s.Value));
 
     static Seq<(ReadOnlyMemory<byte> Value, VersionVector Context, Hlc Cell)> AntiChain(Seq<(ReadOnlyMemory<byte> Value, VersionVector Context, Hlc Cell)> values) =>
         toSeq(values.Distinct()).Filter(c => !values.Exists(o => !o.Context.Equals(c.Context) && o.Context.Dominates(c.Context)));
@@ -384,20 +385,20 @@ public static class Crdt {
 |  [01]   | LwwRegister  | last-write-wins by (HLC, origin)      | total order on the stamp tuple; superset of `Adjudicate`  |
 |  [02]   | MvRegister   | multi-value concurrent-keep           | causal anti-chain; dominated writes collapse              |
 |  [03]   | OrSet        | add-wins observed-remove set          | per-element tag-set union minus observed removes          |
-|  [04]   | PnCounter    | positive-negative per-origin          | per-origin max of monotone partial counts                 |
+|  [04]   | PnCounter    | per-origin running totals + sequence  | per-origin sequence-max of monotone totals                |
 |  [05]   | RgaSequence  | replicated growable array             | predecessor-keyed weave; `Compact` reclaims at quiescence |
 |  [06]   | EphemeralMap | add-wins observed-remove presence map | per-origin LWW-by-HLC; `Compact` self-expires at liveness |
 
 ## [04]-[CRDT_WIRE]
 
-- Owner: `Hlc` the hybrid-logical-clock stamp the Marten event `Timestamp`, the changefeed projection, the CRDT merge, the commit cell, and the wire all read; `CrdtOpWire` the `[MessagePack.Union]` op encoding the `OpLogEntry.Payload` carries for `column-family=crdt` rows; `CommitFault` the closed `[Union]` fault family deriving from the KERNEL `Rasm.Domain.Expected` in the 8260 band (`DecodeDrift` 8261 · `RewriteAbsent` 8262 · `ParityDrift` 8263 · `OwnerMinted` 8264 — the exact sibling template `SyncFault` 8250 and `RecoveryFault` 8290 realize; a bare `Error.New` integer is the deleted form); `CrdtWire` the static codec owning the byte-canonical content key, the `Encode`/`Decode` pair through the package `PersistenceResolver`, and the `UntrustedData` restore-lane decode; `ParitySlot` the `[SmartEnum<string>]` corpus-leg axis carrying its producer-owner label; `ParityVector` the one frozen-fixture carrier — canonical bytes plus the digest ALWAYS derived through the kernel `ContentHash.Of` at mint (the pin is REAL, never an unstamped design-pin `Option`); `ContentParityCorpus` the static surface minting the Persistence leg of the `ONE_WIRE_FIXTURE_CORPUS` and reconciling a local corpus against the golden one.
+- Owner: `Hlc` the hybrid-logical-clock stamp the Marten event `Timestamp`, the changefeed projection, the CRDT merge, the commit cell, and the wire all read; `CrdtOpWire` the `[MessagePack.Union]` op encoding the `OpLogEntry.Payload` carries for `column-family=crdt` rows; `CommitFault` the closed `[Union]` fault family deriving from the KERNEL `Rasm.Domain.Expected` in the 8260 band (`DecodeDrift` 8261 · `RewriteAbsent` 8262 · `ParityDrift` 8263 · `OwnerMinted` 8264 — the exact sibling template `SyncFault` 8250 and `RecoveryFault` 8290 realize; a bare `Error.New` integer is the deleted form); `CrdtWire` the static codec owning the byte-canonical content key, the `Encode`/`Decode` pair through the package `PersistenceResolver`, and the `UntrustedData` restore-lane decode; `ParitySlot` the `[SmartEnum<string>]` corpus-leg axis carrying its producer-owner label; `ParityVector` the one fixture carrier — canonical bytes plus the digest ALWAYS derived through the kernel `ContentHash.Of` at mint (never an unstamped `Option`); fixture FREEZE status is the kernel registry's (`Spatial/reconciliation#ONE_WIRE_FIXTURE_CORPUS` rows [04]/[08] stay DESIGN-PIN until the one-time harness proof pins concrete inputs and golden bytes — this producer derives vectors, the registry alone declares them frozen); `ContentParityCorpus` the static surface minting the Persistence leg of the `ONE_WIRE_FIXTURE_CORPUS` and reconciling a local corpus against the golden one.
 - Cases: 10 op rows — `set | write | add | remove | increment | insertAfter | delete | maintain | beat | leave`; the `[Key]` sequence IS the wire schema, dense and append-only, a retired key never reassigned; the `beat`/`leave` arms carry the `EphemeralMap` presence delta; the 4 parity slots — `hlc-cell | commit-key | crdt-op | elementset` — name their producer owner, the first three minted from this owner's own writers and the fourth flowing in one-directionally through `ContentParityCorpus.Contribute(ParitySlot.ElementSet, set.Preimage)` — the `Query/lane#ELEMENT_SET_ALGEBRA` owner calls it, handing the `ElementSet.Preimage` distinct-sorted length-framed `NodeId`-packed bytes (the same preimage `ElementSetAlgebra.Receipt` hashes), so the Version owner freezes the foreign byte shape but never reaches back into Query to re-derive it.
 - Entry: `public static UInt128 ContentKey(CrdtOp op)` is the byte-canonical content key over the `None`-compression companion encoding; `public static ReadOnlyMemory<byte> Encode(CrdtOp op)` writes the durable delta under `Lz4BlockArray`; `public static ReadOnlyMemory<byte> EncodeCompanion(CrdtOp op)` writes the same delta under `None` for the Python/TS consumers; `public static Fin<CrdtOp> Decode(ReadOnlyMemory<byte> payload)` reads under `UntrustedData` with the depth and decompressed-size ceilings, a contract rejection failing the typed `CommitFault.DecodeDrift` (8261). `public static HashMap<ParitySlot, ParityVector> Mint(Hlc cell, Seq<UInt128> parents, Seq<UInt128> opKeys, string branch, VersionVector vector, string actor, CommitMessage message, CrdtOp op, params ReadOnlySpan<ParityVector> contributed)` mints the three owner-local parity vectors over this page's own writers (the commit-key leg framing the FULL preimage — branch, vector, actor, message — through the one `CommitGraph.Preimage`) and folds in the `Contribute`d foreign vectors; `public static Fin<ParityVector> Contribute(ParitySlot slot, ReadOnlyMemory<byte> canonical)` is the contribution seam a foreign producer (the `elementset` owner) calls, failing `CommitFault.OwnerMinted` (8264) on an owner-minted slot so the Version owner never re-derives a Query byte shape; `public static Validation<Error, Unit> Reconcile(HashMap<ParitySlot, ParityVector> local, HashMap<ParitySlot, ParityVector> golden)` accumulates every `CommitFault.ParityDrift` (8263) the cross-runtime harness finds against the golden corpus.
 - Auto: `Hlc.Observe` swaps the local cell forward past both the wall clock and the observed remote cell so a received op never rewinds the local logical counter; `CrdtWire.Encode` rides the codec profile so a `CrdtOp` delta crosses as `OpLogEntry.Payload` bytes the snapshot codec already verifies; the wire union and the `CrdtOp` union share one case vocabulary so a new op arm is one wire row plus one `CrdtOp` arm plus one map case; `ContentParityCorpus.Mint` seals each owner-local fixture from the SAME writer the live path runs — the HLC cell from `Hlc.WriteTo`, the commit-key preimage from the ONE `CommitGraph.Preimage` writer (never a re-implemented layout), the CRDT-op companion from `CrdtWire.EncodeCompanion` — so a parity fixture is byte-identical to what the live encode produces and every `ParityVector.Of` mint derives its digest through the kernel `ContentHash.Of` (the one seed-zero discipline; a corpus-local seed constant is the deleted form).
 - Receipt: an encoded delta carries no receipt (the `OpLogEntry` carries the lane codec, content key, and HLC cell); a decode failure folds into `store.crdt.decode` as the typed `CommitFault.DecodeDrift`; a parity drift folds into the `Reconcile` `Validation` as the accumulated `CommitFault.ParityDrift` cross-runtime mismatch set, never a first-mismatch abort.
 - Packages: MessagePack, Thinktecture.Runtime.Extensions.MessagePack, Rasm (`Rasm.Domain` `ContentHash.Of` + `Rasm.Domain.Expected` — the fault-band base), NodaTime, LanguageExt.Core, BCL inbox.
 - Growth: a new op is one `CrdtOpWire` `[MessagePack.Union]` tag plus one `[Key]` member plus one `Map`/`Lift` arm; `Lift` over the owned `CrdtOp` `[Union]` is the generated total `Switch` so a new case breaks the build, while `Map` over the foreign wire union stays a language `switch` whose `_ => throw` is the contract-drift guard; a new parity leg is one `ParitySlot` row carrying its producer label plus one `Mint` or `Contribute` vector, never a second corpus store or a per-fixture golden-bytes constant family; zero new surface.
-- Boundary: this is the flagship `CrdtOpWire` amendment to the one-wire-vocabulary law — `OpLogEntry.Payload` carries a `CrdtOpWire` union for `column-family=crdt` rows, LWW `Adjudicate` survives only as the `set` arm reconstructing `LwwRegister`, and the breaking descriptor change is owned at `AppHost/runtime-ports#WIRE_LAW` with the TS-web and Python companions decoding the amended payload; the `Hlc` is one packed `(Instant Physical, ulong Logical)` whose ordering is `Physical` then `Logical` so two peers compare causality without a wall clock and `WriteTo` emits the canonical 16-byte cell the commit content key and the op content key both hash; the wire `[Key]` sequence obeys the retirement law so contract drift is a build diagnostic through `MessagePackAnalyzer`; the restore lane reads under `UntrustedData` plus the object-graph depth ceiling AND a bounded decompressed-size cap because a synced delta admits a decompression bomb the depth cap alone never catches, the contract rejection surfacing as the typed `CommitFault.DecodeDrift` on the `Fin` rail (the `CommitFault` band derives from the KERNEL `Rasm.Domain.Expected` exactly as `SyncFault`/`RecoveryFault` do — parameterless `: base()`, per-case `Code`/`Message`/`Category` `Switch`, no `[GenerateUnionOps]` — so a recovery reads `error.HasCode(8261)`/`error.IsType<CommitFault.ParityDrift>()`, never a message substring); `ContentKey` hashes the `None`-companion canonical bytes (never the LZ4 at-rest framing) through the kernel `ContentHash.Of` so the op content key is byte-reproducible across the C#, Python, and TS runtimes and is the same seed-zero identity the structural diff and the federation keys consume; `ContentParityCorpus` freezes the `Hlc.WriteTo` 16-byte cell, the canonical commit-key preimage (the one `CommitGraph.Preimage` writer, never a re-implemented layout), and the `CrdtOpWire` `None`-companion encoding, each as one `ParityVector` whose digest `ParityVector.Of` ALWAYS derives through `ContentHash.Of` at mint — the pin is REAL: the fixture set lands byte-identical into the kernel golden corpus (`Spatial/reconciliation#ONE_WIRE_FIXTURE_CORPUS` row [04]), the C# shared-corpus harness asserts this producer emits its fixture byte-for-byte, and `python:runtime/evidence/identity` + `typescript:core/value/contentKey` read the frozen corpus, never a Version-local pin; the `elementset` leg is the `Query/lane#ELEMENT_SET_ALGEBRA` `ElementSetAlgebra.Receipt` distinct-sorted `NodeId`-packed preimage `Contribute`d by THAT owner, and `Contribute` refuses an owner-minted slot (`ParitySlot.MintedHere`) with `CommitFault.OwnerMinted` so the Version owner accepts the foreign byte shape but never reaches back into Query to re-derive it — the dependency stays one-directional; `Reconcile` is the cross-runtime gate the C#-host golden corpus and the Python/TS replicas both fold a local corpus against, accumulating every `CommitFault.ParityDrift` through `Validation` rather than aborting on the first.
+- Boundary: this is the flagship `CrdtOpWire` amendment to the one-wire-vocabulary law — `OpLogEntry.Payload` carries a `CrdtOpWire` union for `column-family=crdt` rows, LWW `Adjudicate` survives only as the `set` arm reconstructing `LwwRegister`, and the breaking descriptor change is owned at `AppHost/runtime-ports#WIRE_LAW` with the TS-web and Python companions decoding the amended payload; the `Hlc` is one packed `(Instant Physical, ulong Logical)` whose ordering is `Physical` then `Logical` so two peers compare causality without a wall clock and `WriteTo` emits the canonical 16-byte cell the commit content key and the op content key both hash; the wire `[Key]` sequence obeys the retirement law so contract drift is a build diagnostic through `MessagePackAnalyzer`; the restore lane reads under `UntrustedData` plus the object-graph depth ceiling AND a bounded decompressed-size cap because a synced delta admits a decompression bomb the depth cap alone never catches, the contract rejection surfacing as the typed `CommitFault.DecodeDrift` on the `Fin` rail (the `CommitFault` band derives from the KERNEL `Rasm.Domain.Expected` exactly as `SyncFault`/`RecoveryFault` do — parameterless `: base()`, per-case `Code`/`Message`/`Category` `Switch`, no `[GenerateUnionOps]` — so a recovery reads `error.HasCode(8261)`/`error.IsType<CommitFault.ParityDrift>()`, never a message substring); `ContentKey` hashes the `None`-companion canonical bytes (never the LZ4 at-rest framing) through the kernel `ContentHash.Of` so the op content key is byte-reproducible across the C#, Python, and TS runtimes and is the same seed-zero identity the structural diff and the federation keys consume; `ContentParityCorpus` freezes the `Hlc.WriteTo` 16-byte cell, the canonical commit-key preimage (the one `CommitGraph.Preimage` writer, never a re-implemented layout), and the `CrdtOpWire` `None`-companion encoding, each as one `ParityVector` whose digest `ParityVector.Of` ALWAYS derives through `ContentHash.Of` at mint — the fixture set lands byte-identical into the kernel golden corpus once the registry pins it (`Spatial/reconciliation#ONE_WIRE_FIXTURE_CORPUS` rows [04]/[08], DESIGN-PIN until the one-time harness proof freezes inputs and golden bytes; the registry is the ONE status authority), the C# shared-corpus harness then asserts this producer emits its fixture byte-for-byte, and `python:runtime/evidence/identity` + `typescript:core/value/contentKey` read the frozen corpus, never a Version-local pin; the `elementset` leg is the `Query/lane#ELEMENT_SET_ALGEBRA` `ElementSetAlgebra.Receipt` distinct-sorted `NodeId`-packed preimage `Contribute`d by THAT owner, and `Contribute` refuses an owner-minted slot (`ParitySlot.MintedHere`) with `CommitFault.OwnerMinted` so the Version owner accepts the foreign byte shape but never reaches back into Query to re-derive it — the dependency stays one-directional; `Reconcile` is the cross-runtime gate the C#-host golden corpus and the Python/TS replicas both fold a local corpus against, accumulating every `CommitFault.ParityDrift` through `Validation` rather than aborting on the first.
 
 ```csharp signature
 public readonly record struct Hlc(Instant Physical, ulong Logical) : IComparable<Hlc> {
@@ -439,7 +440,7 @@ public abstract record CrdtOpWire {
     [MessagePackObject] public sealed record Write([property: Key(0)] string Field, [property: Key(1)] ReadOnlyMemory<byte> Value, [property: Key(2)] (Guid Origin, long Seq)[] Context, [property: Key(3)] long PhysicalTicks, [property: Key(4)] ulong Logical, [property: Key(5)] Guid Origin) : CrdtOpWire;
     [MessagePackObject] public sealed record Add([property: Key(0)] string Field, [property: Key(1)] UInt128 Element, [property: Key(2)] Guid TagOrigin, [property: Key(3)] ulong TagLogical) : CrdtOpWire;
     [MessagePackObject] public sealed record Remove([property: Key(0)] string Field, [property: Key(1)] UInt128 Element, [property: Key(2)] (Guid Origin, ulong Logical)[] ObservedTags) : CrdtOpWire;
-    [MessagePackObject] public sealed record Increment([property: Key(0)] string Field, [property: Key(1)] Guid Origin, [property: Key(2)] long Delta) : CrdtOpWire;
+    [MessagePackObject] public sealed record Increment([property: Key(0)] string Field, [property: Key(1)] Guid Origin, [property: Key(2)] long Sequence, [property: Key(3)] long Positive, [property: Key(4)] long Negative) : CrdtOpWire;
     [MessagePackObject] public sealed record InsertAfter([property: Key(0)] string Field, [property: Key(1)] Guid PredOrigin, [property: Key(2)] ulong PredLogical, [property: Key(3)] Guid IdOrigin, [property: Key(4)] ulong IdLogical, [property: Key(5)] ReadOnlyMemory<byte> Value) : CrdtOpWire;
     [MessagePackObject] public sealed record Delete([property: Key(0)] string Field, [property: Key(1)] Guid IdOrigin, [property: Key(2)] ulong IdLogical) : CrdtOpWire;
     [MessagePackObject] public sealed record Maintain([property: Key(0)] string Field, [property: Key(1)] (Guid Origin, long Seq)[] Quiescent, [property: Key(2)] long LivenessTicks) : CrdtOpWire;
@@ -497,7 +498,7 @@ public static class CrdtWire {
         write: static w => new CrdtOpWire.Write(w.Field, w.Value, [.. w.Context.Slots], w.Cell.Physical.ToUnixTimeTicks(), w.Cell.Logical, w.Origin),
         add: static a => new CrdtOpWire.Add(a.Field, a.Element, a.Tag.Origin, a.Tag.Logical),
         remove: static r => new CrdtOpWire.Remove(r.Field, r.Element, [.. r.ObservedTags.Map(static t => (t.Origin, t.Logical))]),
-        increment: static i => new CrdtOpWire.Increment(i.Field, i.Origin, i.Delta),
+        increment: static i => new CrdtOpWire.Increment(i.Field, i.Origin, i.Sequence, i.Positive, i.Negative),
         insertAfter: static ins => new CrdtOpWire.InsertAfter(ins.Field, ins.Predecessor.Origin, ins.Predecessor.Logical, ins.Id.Origin, ins.Id.Logical, ins.Value),
         delete: static d => new CrdtOpWire.Delete(d.Field, d.Id.Origin, d.Id.Logical),
         maintain: static m => new CrdtOpWire.Maintain(m.Field, [.. m.Quiescent.Slots], m.Liveness.ToUnixTimeTicks()),
@@ -509,7 +510,7 @@ public static class CrdtWire {
         CrdtOpWire.Write w => new CrdtOp.Write(w.Field, w.Value, new VersionVector(toHashMap(w.Context)), new Hlc(Instant.FromUnixTimeTicks(w.PhysicalTicks), w.Logical), w.Origin),
         CrdtOpWire.Add a => new CrdtOp.Add(a.Field, a.Element, new ElementId(a.TagOrigin, a.TagLogical)),
         CrdtOpWire.Remove r => new CrdtOp.Remove(r.Field, r.Element, toSeq(r.ObservedTags).Map(static t => new ElementId(t.Origin, t.Logical))),
-        CrdtOpWire.Increment i => new CrdtOp.Increment(i.Field, i.Origin, i.Delta),
+        CrdtOpWire.Increment i => new CrdtOp.Increment(i.Field, i.Origin, i.Sequence, i.Positive, i.Negative),
         CrdtOpWire.InsertAfter ins => new CrdtOp.InsertAfter(ins.Field, new ElementId(ins.PredOrigin, ins.PredLogical), new ElementId(ins.IdOrigin, ins.IdLogical), ins.Value),
         CrdtOpWire.Delete d => new CrdtOp.Delete(d.Field, new ElementId(d.IdOrigin, d.IdLogical)),
         CrdtOpWire.Maintain m => new CrdtOp.Maintain(m.Field, new VersionVector(toHashMap(m.Quiescent)), Instant.FromUnixTimeTicks(m.LivenessTicks)),
@@ -534,6 +535,7 @@ public sealed partial class ParitySlot {
     public static readonly ParitySlot HlcCell = new("hlc-cell", "csharp:Version/commits#CRDT_WIRE", mintedHere: true);
     public static readonly ParitySlot CommitKey = new("commit-key", "csharp:Version/commits#COMMIT_DAG", mintedHere: true);
     public static readonly ParitySlot CrdtOp = new("crdt-op", "csharp:Version/commits#CRDT_WIRE", mintedHere: true);
+    public static readonly ParitySlot CrdtOpSet = new("crdt-op-set", "csharp:Version/commits#CRDT_ALGEBRA", mintedHere: true);
     public static readonly ParitySlot ElementSet = new("elementset", "csharp:Query/lane#ELEMENT_SET_ALGEBRA", mintedHere: false);
     public string Producer { get; }
     public bool MintedHere { get; }
@@ -541,9 +543,9 @@ public sealed partial class ParitySlot {
 }
 
 // The parity fixture carrier: canonical bytes plus the digest ALWAYS derived through the kernel
-// `ContentHash.Of` at mint — the pin is REAL (the fixture set lands byte-identical into the kernel
-// ONE_WIRE_FIXTURE_CORPUS row [04]); the unstamped-Option design-pin and a corpus-local seed constant
-// are the deleted forms.
+// `ContentHash.Of` at mint; the kernel ONE_WIRE_FIXTURE_CORPUS registry alone declares a fixture frozen
+// (rows [04]/[08] stay DESIGN-PIN until the harness proof) — an unstamped-Option carrier and a corpus-local
+// seed constant are the deleted forms.
 public readonly record struct ParityVector(ParitySlot Slot, ReadOnlyMemory<byte> Canonical, UInt128 Digest) {
     public static ParityVector Of(ParitySlot slot, ReadOnlyMemory<byte> canonical) => new(slot, canonical, ContentHash.Of(canonical.Span));
     public bool Holds(ParityVector pinned) => Slot == pinned.Slot && Digest == pinned.Digest;
@@ -563,6 +565,33 @@ public static class ContentParityCorpus {
     }
 
     public static ParityVector Op(CrdtOp op) => ParityVector.Of(ParitySlot.CrdtOp, CrdtWire.EncodeCompanion(op).ToArray());
+
+    // CRDT_OP_SET producer (kernel corpus row [04]): EVERY delivery permutation of the op set folds to one
+    // converged state, and the vector's canonical bytes are the converged MvRegister anti-chain in Hlc-cell
+    // order — a permutation-dependent fold refutes the algebra and fails the mint instead of pinning a lie.
+    public static Fin<ParityVector> OpSet(Seq<CrdtOp> ops) {
+        if (ops.IsEmpty) { return Fin.Fail<ParityVector>(new CommitFault.ParityDrift(ParitySlot.CrdtOpSet.Key, "<empty-op-set>")); }
+        Seq<byte[]> folds = Permutations(ops).Map(order => Canonical(order.Fold(Crdt.Seed(ops[0]), Crdt.Apply)));
+        return folds.Map(static bytes => ContentHash.Of(bytes)).Distinct().Count() == 1
+            ? Fin.Succ(ParityVector.Of(ParitySlot.CrdtOpSet, folds[0]))
+            : Fin.Fail<ParityVector>(new CommitFault.ParityDrift(ParitySlot.CrdtOpSet.Key, "<divergent-delivery-fold>"));
+    }
+
+    static Seq<Seq<CrdtOp>> Permutations(Seq<CrdtOp> ops) =>
+        ops.Count <= 1
+            ? Seq(ops)
+            : toSeq(Enumerable.Range(0, ops.Count)).Bind(pick => Permutations(ops.RemoveAt(pick)).Map(rest => ops[pick].Cons(rest)));
+
+    static byte[] Canonical(CrdtField state) {
+        ArrayBufferWriter<byte> buffer = new();
+        if (state is CrdtField.MvRegister mv) {
+            foreach ((ReadOnlyMemory<byte> value, VersionVector _, Hlc cell) in mv.Values.OrderBy(static held => held.Cell).ToSeq()) {
+                cell.WriteTo(buffer);
+                buffer.Write(value.Span);
+            }
+        }
+        return buffer.WrittenSpan.ToArray();
+    }
 
     public static Fin<ParityVector> Contribute(ParitySlot slot, ReadOnlyMemory<byte> canonical) =>
         slot.MintedHere

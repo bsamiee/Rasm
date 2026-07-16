@@ -352,7 +352,7 @@ public static class Traversals {
 |  [03]   | absent root          | `Rooted`/`Paired` → `TopologyFault.RootAbsent` | typed fault, never an empty sentinel         |
 |  [04]   | result shape         | `ElementSet`-compatible keys                   | composes with selection algebra              |
 |  [05]   | cycle detection      | one `StronglyConnectedComponents` probe        | shared by `Cycles` and `Order`               |
-|  [06]   | void resolution      | first-class `Resolve` case                     | synchronous correctness owner                |
+|  [06]   | void resolution      | `Neighbors` under `Neighborhood.Openings`      | one polymorphic case, never a Resolve twin   |
 |  [07]   | nearest container    | forest-gated `OfflineLeastCommonAncestor`      | cycles and multiple parents rail             |
 |  [08]   | shortest path        | unit-weight `ShortestPathsDijkstra`            | metric routing belongs to `pgrouting`        |
 |  [09]   | spatial walks        | `Spatial` (`Contain` ∪ `Aggregate`)            | full-tree climb                              |

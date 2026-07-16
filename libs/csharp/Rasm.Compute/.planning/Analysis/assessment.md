@@ -8,7 +8,7 @@ Assess is content-addressed AND lifecycle-aware: a `RerunPolicy.CacheFirst` insp
 
 - [01]-[ROUTE_AXIS]: the `AssessmentRoute` `[SmartEnum<string>]` standard-code rows carrying the seam `Discipline` and the citation, and the `AssessmentVerdict` ratio-banded outcome.
 - [02]-[REQUEST_FAMILY]: the `AssessmentRequest` `[Union]` discipline-input cases, the shared `Targets`/`Route` abstract reads (the seam `Node.Id` idiom) with the `CanonicalBytes` content-key policy fold, and the uniform `AssessmentResult`/`AssessmentFact` fact-stream carrier.
-- [03]-[DISPATCH_WRITEBACK]: the `Analysis.Assess` route-to-runner dispatch returning one `Assessed` with its lifecycle-aware `CacheFirst`, the Failed write-back, the bounded `Transient` retry gate, the `Analysis.Sweep` reconciler over the `JobGraph` (stale-marking, dispatch, supersede close-out, orphan recovery), the `AssessmentSink` `ResultBlob` egress port, the `(input subgraph, route, discipline policy)` content-key composed through the seam `CanonicalWriter`+`ContentAddress`, the `Node.Assessment`+`AssessmentPayload` write-back `GraphDelta` over the neutral `Assign`/`Assessment` edge, the three `ComputeFault` cases (`AnalysisFailed` the typed `(SolvePhase, FailureKind)` carrier in the 2219 slot), and the `ComputeReceipt.Assessment` outcome with its failure/retry/seismic columns.
+- [03]-[DISPATCH_WRITEBACK]: the `Analysis.Assess` route-to-runner dispatch returning one `Assessed` with its lifecycle-aware `CacheFirst`, the Failed write-back, the bounded `Transient` retry gate, the `Analysis.Sweep` reconciler over the `JobGraph` (stale-marking, dispatch, supersede close-out, orphan recovery), the `AssessmentSink` egress port (the `Store` heavy-artifact leg plus the `Series` typed temporal-point leg toward the Persistence `SeriesLane.Ingest`), the `(input subgraph, route, discipline policy)` content-key composed through the seam `CanonicalWriter`+`ContentAddress`, the `Node.Assessment`+`AssessmentPayload` write-back `GraphDelta` over the neutral `Assign`/`Assessment` edge, the three `ComputeFault` cases (`AnalysisFailed` the typed `(SolvePhase, FailureKind)` carrier in the 2219 slot), and the `ComputeReceipt.Assessment` outcome with its failure/retry/seismic columns.
 
 ## [02]-[ROUTE_AXIS]
 
@@ -81,7 +81,7 @@ public sealed partial class AssessmentVerdict {
 - Entry: a runner consumes one `AssessmentRequest` case and returns `Fin<AssessmentResult>`; `AssessmentResult.Of(route, facts, governingRatio, provenance, resultBlob)` derives the `Verdict` from the ratio and `At` from `Provenance` so verdict, facts, and timestamp share one source — `resultBlob` defaults `None` (a closed-form route stores no artifact); a subprocess/solver route stores its EnergyPlus SQLite or FEA result set through the `AssessmentSink` egress port the dispatch threads (the `GeometrySource` ingress dual), landing content-addressed on the Persistence blob lane through `ArtifactIndexRow.Admit` under `ArtifactKind.Assessment`.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.Element (project — `NodeId`, `PropertyName`, `PropertyValue`, `Interpolation`, `MeasureValue`, `Dimension`, `Provenance`, `Discipline`), NodaTime, BCL inbox.
 - Growth: a new discipline is one `AssessmentRequest` case plus one dispatch arm — the generated `Switch` breaks until it exists; a new fact on any discipline is one `AssessmentFact` row in the runner's fold (the factory family already total over the seam `PropertyValue` cases), never a new result type or a structured value flattened to a string; zero new surface.
-- Boundary: arity discriminates on the case payload shape, never a name suffix or mode flag; `Targets` is a seam `NodeId` set so a runner reads only the reachable subgraph and never invents identities; the discipline policy (combinations, climate, weather, query) is the case payload, never an ambient global; `AssessmentFact.Value` is the seam `PropertyValue` union (a `Measure` carries the SI scalar and unit) so a fact is typed and unit-bearing, never a bare double; a utilization/criticality ratio is a dimensionless `Measure`, NEVER a `Bounded` (the seam `Bounded` is the lower/upper/setpoint interval, not a scalar); `Discipline`/`Verdict`/`At` are derived (a stored `At` beside `Provenance.At` is the deleted duplicate); the heavy artifact is referenced by the optional `ResultBlob` content key the runner writes through the threaded `AssessmentSink` (`ArtifactIndexRow.Admit` onto the Persistence blob lane), never an inlined payload — the sink threads ONLY to the artifact-bearing runners (structural, energy, lifecycle) as the `GeometrySource` threads only to the geometry-reading ones, a closed-form-only composition threading `AssessmentSink.None`; the uniform `AssessmentResult` IS the discipline-specific result — specificity lives in the FACTS, not parallel carriers.
+- Boundary: arity discriminates on the case payload shape, never a name suffix or mode flag; `Targets` is a seam `NodeId` set so a runner reads only the reachable subgraph and never invents identities; the discipline policy (combinations, climate, weather, query) is the case payload, never an ambient global; `AssessmentFact.Value` is the seam `PropertyValue` union (a `Measure` carries the SI scalar and unit) so a fact is typed and unit-bearing, never a bare double; a utilization/criticality ratio is a dimensionless `Measure`, NEVER a `Bounded` (the seam `Bounded` is the lower/upper/setpoint interval, not a scalar); `Discipline`/`Verdict`/`At` are derived (a stored `At` beside `Provenance.At` is the deleted duplicate); the heavy artifact is referenced by the optional `ResultBlob` content key the runner writes through the threaded `AssessmentSink` (`ArtifactIndexRow.Admit` onto the Persistence blob lane), never an inlined payload — the sink threads ONLY to the artifact-bearing runners (structural, energy; the closed-form lifecycle runner returns no artifact and takes no sink) as the `GeometrySource` threads only to the geometry-reading ones (structural, energy, circulation, daylight — the roster mirrors the dispatch `Switch` exactly), a closed-form-only composition threading `AssessmentSink.None`; the uniform `AssessmentResult` IS the discipline-specific result — specificity lives in the FACTS, not parallel carriers.
 
 ```csharp signature
 // --- [MODELS] ------------------------------------------------------------------------------
@@ -133,7 +133,7 @@ public abstract partial record AssessmentRequest {
     public abstract Seq<NodeId> Targets { get; }
     public abstract AssessmentRoute Route { get; }
 
-    public sealed record Structural(Seq<NodeId> Targets, AssessmentRoute Route, Seq<LoadCombinationSpec> Combinations, StructuralPolicy Policy, Option<SeismicSpec> Seismic = default) : AssessmentRequest;
+    public sealed record Structural(Seq<NodeId> Targets, AssessmentRoute Route, Seq<LoadCombinationSpec> Combinations, StructuralPolicy Policy, Option<SeismicSpec> Seismic = default, Option<SiteActionPolicy> Site = default) : AssessmentRequest;
     public sealed record Thermal(Seq<NodeId> Targets, AssessmentRoute Route, BoundaryClimate Climate) : AssessmentRequest;
     public sealed record Acoustic(Seq<NodeId> Targets, AssessmentRoute Route, double RequiredRw, Option<double> TargetReverberationS = default) : AssessmentRequest;
     public sealed record Fire(Seq<NodeId> Targets, AssessmentRoute Route, FireExposure Exposure, double RequiredMinutes, double Utilization) : AssessmentRequest;
@@ -144,6 +144,21 @@ public abstract partial record AssessmentRequest {
     public sealed record Daylight(Seq<NodeId> Targets, AssessmentRoute Route, Option<WeatherRef> Weather, double RequiredSunHours, Seq<LocalDate> DesignDays, ObstructionScene Scene, Option<SolarSite> Site = default) : AssessmentRequest;
 
     public Discipline Discipline => Route.Discipline;
+
+    // Case-to-route invariant: the union case and Route.Discipline are ONE classification — Assess proves the
+    // correspondence BEFORE any content-key derivation, so runner dispatch (the case Switch), persisted
+    // discipline, and receipt identity (Route.Discipline) can never split-brain an assessment.
+    public Fin<Unit> AdmitRoute() {
+        Discipline expected = Switch(
+            structural: static _ => Discipline.Structural, thermal: static _ => Discipline.Thermal,
+            acoustic: static _ => Discipline.Acoustic, fire: static _ => Discipline.Fire,
+            energy: static _ => Discipline.Energy, carbon: static _ => Discipline.Carbon,
+            cost: static _ => Discipline.Cost, circulation: static _ => Discipline.Circulation,
+            daylight: static _ => Discipline.Daylight);
+        return expected == Route.Discipline
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(new ComputeFault.AnalysisFailed(SolvePhase.Admission, FailureKind.Input, $"<assessment-route-discipline:{expected.Key}!={Route.Discipline.Key}>"));
+    }
 
     // Discipline-specific policy folds into the content key so a changed load combination, climate,
     // fire requirement, weather file, EnergyPlus version, setpoint/internal-load, LCIA method + per-material OMF, or currency)
@@ -163,6 +178,11 @@ public abstract partial record AssessmentRequest {
             r.Seismic.IfSome(spec => w.String(spec.Spectrum.Key).String(spec.Combination.Key).Double(spec.ParticipationFloor)
                 .String(spec.Policy.SiteClass).Double(spec.Policy.Pga).Double(spec.Policy.SoilFactor).Double(spec.Policy.Behavior).Double(spec.Policy.DampingRatio)
                 .Double(spec.Policy.Tb).Double(spec.Policy.Tc).Double(spec.Policy.Td).Double(spec.Policy.Sds).Double(spec.Policy.Sd1).Double(spec.Policy.T1).Double(spec.Policy.TLong));
+            // Site-derived actions are result-determining input: every SiteActionPolicy column folds so a changed
+            // wind speed, snow load, occupancy, tributary strip, or roof band re-keys the assessment.
+            r.Site.IfSome(site => w.Bool(true).Double(site.BasicWindSpeedMPerS).String(site.Exposure.Key).Double(site.Kzt).Double(site.Kd).Double(site.GcpNet)
+                .Double(site.GroundSnowPa).Double(site.Ce).Double(site.Ct).Double(site.SnowImportance).Double(site.RoofSlopeFactor)
+                .String(site.Occupancy.Key).Double(site.TributaryWidthM).Double(site.RoofBandM));
             w.Ordinal(r.Combinations.Count);
             foreach (LoadCombinationSpec combo in r.Combinations.OrderBy(static c => c.Label, StringComparer.Ordinal)) {
                 w.String(combo.Label).Ordinal(combo.Factors.Count);
@@ -210,8 +230,8 @@ public abstract partial record AssessmentRequest {
 
 ## [04]-[DISPATCH_WRITEBACK]
 
-- Owner: `Analysis` the static entry carrying both rail entries — `Assess` (one request) and `Sweep` (the reconciler); `RerunPolicy` the `[SmartEnum<string>]` cache-and-retry axis (`CacheFirst`/`AllowStale`/`Force`, each row its stale-reading column and bounded `MaxAttempts`/`RetryBackoff`); `Assessed` the one-pass outcome (the `GraphDelta`, the `ComputeReceipt.Assessment`, the `AssessmentDisposition`); `AssessmentDisposition` the disposition vocabulary (`fresh`/`cache-hit`/`stale-read`/`cached-failure`/`retry`/`in-flight`); `AssessmentSink` the `ResultBlob` egress port; the `(subgraph, route, policy)` content-key through the seam `CanonicalWriter`+`ContentAddress`; the write-back `GraphDelta` with its supersede close-out; the three `ComputeFault` cases (`AssessmentInputMissing` 2217, `ToolchainUnresolved` 2218, `AnalysisFailed` 2219 above the Symbolic `2213..2216`); the `ComputeReceipt.Assessment` case with its failure/retry/seismic columns.
-- Entry: `Assess(graph, request, geometry, sink, rerun, correlation, clocks)` content-keys the `(subgraph, route, policy)` and resolves the `Node.Assessment` through the LIFECYCLE dispatch — `Computed` the 412-noop, `Stale` read-or-recompute, `Failed` the cached failure unless the bounded `Transient` gate admits a `retry`, `Queued`/`Running` the in-flight disposition, `Force` always recompute; a recompute routes `Run` through the generated total `Switch`, a success folding `WriteBack` (fresh node + `Assign` edges + supersede close-out) and an `AnalysisFailed` folding `FailedWriteBack` (the typed fault lowered through `Diagnostic.Of` into `AssessmentPayload.Failed` under the same id). `Sweep(graph, requests, geometry, sink, jobs, context, correlation, clocks)` is the reconciler — STALE-MARKING (flip `IsStaleFor`-true `Computed` rows through `Advance`), DISPATCH (every `Dispatchable` row lowers to a `JobNode` run through `JobGraph.Reconcile`, skipping Queued/Running), and ORPHAN RECOVERY (a dead worker's in-flight row → `Advance(Cancelled)` → Pending re-dispatch); `Receipt` mints the `ComputeReceipt.Assessment` in the ONE pass. `GeometrySource`/`AssessmentSink` are the app-wired ingress/egress duals, a closed-form-only composition threading `.None`.
+- Owner: `Analysis` the static entry carrying both rail entries — `Assess` (one request) and `Sweep` (the reconciler); `RerunPolicy` the `[SmartEnum<string>]` cache-and-retry axis (`CacheFirst`/`AllowStale`/`Force`, each row its stale-reading column and bounded `MaxAttempts`/`RetryBackoff`); `Assessed` the one-pass outcome (the `GraphDelta`, the `ComputeReceipt.Assessment`, the `AssessmentDisposition`); `AssessmentDisposition` the disposition vocabulary (`fresh`/`cache-hit`/`stale-read`/`cached-failure`/`retry`/`in-flight`); `AssessmentSink` the two-leg egress port (`Store` the `ResultBlob` heavy bytes, `Series` the typed temporal points the Persistence series lane ingests); the `(subgraph, route, policy)` content-key through the seam `CanonicalWriter`+`ContentAddress`; the write-back `GraphDelta` with its supersede close-out; the three `ComputeFault` cases (`AssessmentInputMissing` 2217, `ToolchainUnresolved` 2218, `AnalysisFailed` 2219 above the Symbolic `2213..2216`); the `ComputeReceipt.Assessment` case with its failure/retry/seismic columns.
+- Entry: `Assess(graph, request, geometry, sink, rerun, correlation, clock)` content-keys the `(subgraph, route, policy)` and resolves the `Node.Assessment` through the LIFECYCLE dispatch — `Computed` the 412-noop, `Stale` read-or-recompute, `Failed` the cached failure unless the bounded `Transient` gate admits a `retry`, `Queued`/`Running` the in-flight disposition, `Force` always recompute; a recompute routes `Run` through the generated total `Switch`, a success folding `WriteBack` (fresh node + `Assign` edges + supersede close-out) and an `AnalysisFailed` folding `FailedWriteBack` (the typed fault lowered through `Diagnostic.Of` into `AssessmentPayload.Failed` under the same id). `Sweep(graph, requests, geometry, sink, jobs, context, correlation, clock)` is the reconciler — STALE-MARKING (flip `IsStaleFor`-true `Computed` rows through `Advance`), DISPATCH (every `Dispatchable` row lowers to a `JobNode` run through `JobGraph.Reconcile`, skipping Queued/Running), and ORPHAN RECOVERY (a dead worker's in-flight row → `Advance(Cancelled)` → Pending re-dispatch); `Receipt` mints the `ComputeReceipt.Assessment` in the ONE pass. `GeometrySource`/`AssessmentSink` are the app-wired ingress/egress duals, a closed-form-only composition threading `.None`.
 - Auto: the content-key composes the seam `CanonicalWriter` — the route `Key`, each present target's `Node.ToCanonicalBytes(Header.Tolerance)` (an absent target contributing its id) in `NodeId`-ordinal order, then the policy through `AssessmentRequest.CanonicalBytes` — hashed through `ContentAddress.Of` over the one kernel `XxHash128` seed-zero rail the geometry hash and snapshot spine already ride, never a second hasher or non-zero seed; the assessment `NodeId` is the seam self-hash `NodeId.Content` over the `(Discipline, Route, InputKey)` projection (the H7 form `ContentAddress.Verify` recomputes, NEVER `NodeId.OfContent(key)` whose stored id `Verify` cannot reproduce), so a re-assessment of an unchanged subgraph addresses the same node and dedups; the verdict rides the `Results` bag as an `Enumerated` and the ratio as a dimensionless `Measure`, both derived so the receipt and stored verdicts cannot diverge.
 - Receipt: the `ComputeReceipt.Assessment` case carries the discipline/route/content/verdict keys, the governing ratio, and the admitted flag PLUS the failure (`Phase`/`FailureKind`/`Transient`), retry (`Attempt`), and seismic (`Participation`/`Combination`) columns — all mirrored 1:1 by the `Runtime/receipts` `AssessmentWire`; a fresh run stamps the measured `Elapsed`, a `CacheFirst` hit a zero `Elapsed` with the verdict re-derived from the cached ratio, a cached-failure hit `failed` on the verdict column beside the cached `Diagnostic`; faults cross the wire through the one `Runtime/wire#FAULT_PROJECTION` `FaultWire` family.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.Element (project — `ElementGraph`, `Node`, `NodeId`/`NodeId.Content`/`NodeId.Rooted`, `GraphDelta`, `Relationship`, `AssignKind`, `AssessmentPayload`/`.Computed`/`.Pending`/`.Failed`/`.Advance`/`.IsStaleFor`, `AnalysisRoute`, `AssessmentOutcome` (the 8-row lifecycle with `Usable`/`Terminal`/`Dispatchable`/`Coherent`/`Next`), `SolvePhase`, `FailureKind`, `Diagnostic`/`Diagnostic.Of`, `Provenance` with its additive `Attempt` ordinal, `GeometrySource`, `PropertyName`, `PropertyValue`, `MeasureValue`, `Dimension`, `CanonicalWriter`, `ContentAddress`), Rasm (kernel — `Op.Of` the WriteBack diagnostic key), BCL inbox — the content hash composes the seam `ContentAddress`, so the page admits no `System.IO.Hashing`.
@@ -256,8 +276,16 @@ public sealed partial class AssessmentDisposition {
 // ArtifactIndexRow.Admit under the ArtifactKind.Assessment row (retention-governed, reusable, never an
 // orphan blob no index owns) and returns the content key the result threads onto AssessmentPayload.ResultBlob.
 // App composition root binds it; a closed-form-only composition threads None and never invokes it.
-public sealed record AssessmentSink(Func<ReadOnlyMemory<byte>, Fin<UInt128>> Store) {
-    public static readonly AssessmentSink None = new(static _ => Fin.Fail<UInt128>(new ComputeFault.AssessmentInputMissing("<assessment-sink-unbound>")));
+// Two egress legs, one port: `Store` lands the heavy artifact bytes content-addressed on the Persistence blob
+// lane, and `Series` emits the typed temporal points a time-resolved runner (energy hourly loads, thermal
+// transients, daylight sweeps) projects toward `Rasm.Persistence/Query/columnar` `SeriesLane.Ingest` — each
+// point's `Series` key IS the assessment content key, so the heavy artifact and its queryable temporal
+// projection share one origin; a closed-form or scalar-only route emits an empty sequence, and a heavy-byte-only
+// sink that strands the series behind an opaque blob is the deleted form.
+public sealed record AssessmentSink(Func<ReadOnlyMemory<byte>, Fin<UInt128>> Store, Func<Seq<(UInt128 Series, Instant At, double Value)>, Fin<Unit>> Series) {
+    public static readonly AssessmentSink None = new(
+        static _ => Fin.Fail<UInt128>(new ComputeFault.AssessmentInputMissing("<assessment-sink-unbound>")),
+        static _ => Fin.Fail<Unit>(new ComputeFault.AssessmentInputMissing("<assessment-sink-unbound>")));
 }
 
 // --- [MODELS] ------------------------------------------------------------------------------
@@ -315,11 +343,12 @@ public static class Analysis {
     // Content-key the (subgraph, route, policy); resolve the content-addressed Node.Assessment through the
     // LIFECYCLE dispatch (never a blanket node-exists hit), else Run -> WriteBack -> Receipt in ONE pass so the
     // run never repeats for the receipt. The returned Assessed.Delta the caller applies (graph.Apply(delta, key)).
-    public static Fin<Assessed> Assess(ElementGraph graph, AssessmentRequest request, GeometrySource geometry, AssessmentSink sink, RerunPolicy rerun, CorrelationId correlation, ClockPolicy clocks) {
+    public static Fin<Assessed> Assess(ElementGraph graph, AssessmentRequest request, GeometrySource geometry, AssessmentSink sink, RerunPolicy rerun, CorrelationId correlation, IClock clock) {
         // A no-target request is the degenerate under-specification: a runner would fold zero members to a 0.0 governing
         // ratio (a Satisfied verdict) and WriteBack would orphan that misleading assessment with no Assign edge — so an
         // empty target set rails the typed fault BEFORE any content-key or dispatch work, never a silently-defaulted pass.
         if (request.Targets.IsEmpty) { return Fin.Fail<Assessed>(new ComputeFault.AssessmentInputMissing($"<assessment-no-targets:{request.Route.Key}>")); }
+        if (request.AdmitRoute().Case is Error mismatch) { return Fin.Fail<Assessed>(mismatch); }
         ContentAddress key = ContentKey(graph, request);
         // Lookup resolves the content-addressed node WriteBack mints — the self-hash of the assessment
         // node's (Discipline, Route, InputKey) canonical projection through NodeId.Content (the H7 form ContentAddress.Verify
@@ -327,8 +356,8 @@ public static class Analysis {
         NodeId nodeId = AssessmentNodeId(request.Route.Discipline, AnalysisRoute.Create(request.Route.Key), key.Value, graph.Header.Tolerance);
         Option<Node.Assessment> cached = rerun == RerunPolicy.Force ? None : graph.Find<Node.Assessment>(nodeId);
         return cached.Match(
-            Some: hit => Cached(graph, request, hit, key, geometry, sink, rerun, correlation, clocks),
-            None: () => Fresh(graph, request, key, geometry, sink, correlation, clocks, attempt: 0, AssessmentDisposition.Fresh));
+            Some: hit => Cached(graph, request, hit, key, geometry, sink, rerun, correlation, clock),
+            None: () => Fresh(graph, request, key, geometry, sink, correlation, clock, attempt: 0, AssessmentDisposition.Fresh));
     }
 
     // Lifecycle dispatch reads cached AssessmentOutcome columns, never a
@@ -336,7 +365,7 @@ public static class Analysis {
     // CacheFirst recomputes it), Failed serves the CACHED failure unless the BOUNDED Transient gate admits a
     // retry, and the in-flight Queued/Running rows return the typed in-flight disposition (never re-dispatched
     // here — the Sweep's orphan reconciliation owns a dead worker's wreckage).
-    static Fin<Assessed> Cached(ElementGraph graph, AssessmentRequest request, Node.Assessment hit, ContentAddress key, GeometrySource geometry, AssessmentSink sink, RerunPolicy rerun, CorrelationId correlation, ClockPolicy clocks) {
+    static Fin<Assessed> Cached(ElementGraph graph, AssessmentRequest request, Node.Assessment hit, ContentAddress key, GeometrySource geometry, AssessmentSink sink, RerunPolicy rerun, CorrelationId correlation, IClock clock) {
         AssessmentOutcome outcome = hit.Payload.Outcome;
         if (outcome == AssessmentOutcome.Computed) {
             return CacheReceipt(hit, key, correlation).Map(receipt => new Assessed(GraphDelta.Empty, receipt, AssessmentDisposition.CacheHit));
@@ -344,14 +373,14 @@ public static class Analysis {
         if (outcome == AssessmentOutcome.Stale) {
             return rerun.ReadsStale
                 ? CacheReceipt(hit, key, correlation).Map(receipt => new Assessed(GraphDelta.Empty, receipt, AssessmentDisposition.StaleRead))
-                : Fresh(graph, request, key, geometry, sink, correlation, clocks, hit.Payload.Provenance.Attempt, AssessmentDisposition.Fresh);
+                : Fresh(graph, request, key, geometry, sink, correlation, clock, hit.Payload.Provenance.Attempt, AssessmentDisposition.Fresh);
         }
         if (outcome == AssessmentOutcome.Failed || outcome == AssessmentOutcome.Cancelled) {
             bool transient = hit.Payload.Diagnostic.Map(static d => d.Kind.Transient).IfNone(false);
             bool underCap = hit.Payload.Provenance.Attempt < rerun.MaxAttempts;
-            bool pastBackoff = clocks.Now - hit.Payload.Provenance.At >= rerun.RetryBackoff;
+            bool pastBackoff = clock.GetCurrentInstant() - hit.Payload.Provenance.At >= rerun.RetryBackoff;
             return transient && underCap && pastBackoff
-                ? Fresh(graph, request, key, geometry, sink, correlation, clocks, hit.Payload.Provenance.Attempt + 1, AssessmentDisposition.Retry)
+                ? Fresh(graph, request, key, geometry, sink, correlation, clock, hit.Payload.Provenance.Attempt + 1, AssessmentDisposition.Retry)
                 : Fin.Succ(new Assessed(GraphDelta.Empty, FailureReceipt(hit, key, correlation), AssessmentDisposition.CachedFailure));
         }
         // Queued/Running: Dispatchable=false — the typed in-flight verdict, the outcome key on the receipt column.
@@ -363,13 +392,13 @@ public static class Analysis {
     // through the seam Diagnostic.Of into AssessmentPayload.Failed persisting the Failed node under the SAME
     // content-keyed id, so the deterministic failure caches; every OTHER fault (admission/infrastructure —
     // AssessmentInputMissing, ToolchainUnresolved, cancellation) stays rail-only and never caches.
-    static Fin<Assessed> Fresh(ElementGraph graph, AssessmentRequest request, ContentAddress key, GeometrySource geometry, AssessmentSink sink, CorrelationId correlation, ClockPolicy clocks, int attempt, AssessmentDisposition disposition) {
-        Instant started = clocks.Now;
-        return Run(graph, request, geometry, sink, clocks)
+    static Fin<Assessed> Fresh(ElementGraph graph, AssessmentRequest request, ContentAddress key, GeometrySource geometry, AssessmentSink sink, CorrelationId correlation, IClock clock, int attempt, AssessmentDisposition disposition) {
+        Instant started = clock.GetCurrentInstant();
+        return Run(graph, request, geometry, sink, clock)
             .Bind(result => WriteBack(graph, request, result, key, graph.Header.Tolerance).Map(delta => new Assessed(
-                delta, Receipt(result, key, correlation, clocks.Now - started) with { Attempt = attempt }, disposition)))
+                delta, Receipt(result, key, correlation, clock.GetCurrentInstant() - started) with { Attempt = attempt }, disposition)))
             .BindFail(error => error is ComputeFault.AnalysisFailed failed
-                ? FailedWriteBack(graph, request, failed, key, attempt, correlation, clocks)
+                ? FailedWriteBack(graph, request, failed, key, attempt, correlation, clock)
                 : Fin.Fail<Assessed>(error));
     }
 
@@ -378,10 +407,10 @@ public static class Analysis {
     // first-class cached fact the next Assess serves; the receipt carries verdict `failed` beside the
     // Phase/FailureKind/Transient columns and the attempt ordinal (the seam Provenance.Attempt audit column,
     // content-key-inert by the CanonicalBytes triple-only projection).
-    static Fin<Assessed> FailedWriteBack(ElementGraph graph, AssessmentRequest request, ComputeFault.AnalysisFailed failed, ContentAddress key, int attempt, CorrelationId correlation, ClockPolicy clocks) {
+    static Fin<Assessed> FailedWriteBack(ElementGraph graph, AssessmentRequest request, ComputeFault.AnalysisFailed failed, ContentAddress key, int attempt, CorrelationId correlation, IClock clock) {
         AnalysisRoute route = AnalysisRoute.Create(request.Route.Key);
         NodeId nodeId = AssessmentNodeId(request.Route.Discipline, route, key.Value, graph.Header.Tolerance);
-        Provenance provenance = new("rasm.compute", request.Route.Key, request.Route.SolverVersion, clocks.Now, Attempt: attempt);
+        Provenance provenance = new("rasm.compute", request.Route.Key, request.Route.SolverVersion, clock.GetCurrentInstant(), Attempt: attempt);
         return Diagnostic.Of(failed.Phase, failed.Kind, failed.Detail, Op.Of(), failed.Code)
             .Map(diagnostic => AssessmentPayload.Failed(request.Route.Discipline, route, key.Value, diagnostic, provenance, DependsOnOf(graph, request)))
             .Bind(payload => Supersede(graph, request.Route, nodeId, GraphDelta.Empty.Put(new Node.Assessment(nodeId, payload)))
@@ -390,7 +419,7 @@ public static class Analysis {
             .Map(delta => new Assessed(
                 delta,
                 new ComputeReceipt.Assessment(request.Route.Discipline.Key, request.Route.Key, key.Value, "failed", double.NaN, Admitted: false) {
-                    Correlation = correlation, Lane = WorkLane.Background, Substrate = Substrate.CpuTensor, AllocationClass = AllocationClass.PooledMemory, Elapsed = Duration.Zero,
+                    Scope = new ReceiptScope.Execution(correlation, WorkLane.Background, Substrate.CpuTensor, AllocationClass.PooledMemory, Duration.Zero),
                     Phase = Some(failed.Phase.Key), FailureKind = Some(failed.Kind.Key), Transient = failed.Kind.Transient, Attempt = attempt,
                 },
                 AssessmentDisposition.Fresh));
@@ -417,29 +446,41 @@ public static class Analysis {
         writer.String(request.Route.Key).String(request.Route.SolverVersion).Ordinal(request.Targets.Count);
         foreach (NodeId id in request.Targets.OrderBy(static t => t.Value, StringComparer.Ordinal)) {
             graph.Find(id).Match(
-                Some: node => writer.Bool(true).Raw(node.ToCanonicalBytes(graph.Header.Tolerance).Span),
+                Some: node => {
+                    writer.Bool(true).Raw(node.ToCanonicalBytes(graph.Header.Tolerance).Span);
+                    // Runner-consumed input closure includes the target's INCIDENT EDGES — a support or applied-load
+                    // Relationship.Generic is assessed input the structural runner reads through EdgesAt, so a
+                    // changed support or load re-keys instead of false-hitting the prior Computed node; edges order
+                    // by their canonical bytes for a deterministic fold.
+                    Seq<ReadOnlyMemory<byte>> edges = toSeq(graph.EdgesAt(id))
+                        .Map(edge => edge.ToCanonicalBytes(graph.Header.Tolerance))
+                        .OrderBy(static bytes => Convert.ToHexString(bytes.Span), StringComparer.Ordinal).ToSeq();
+                    writer.Ordinal(edges.Count);
+                    foreach (ReadOnlyMemory<byte> edge in edges) { writer.Raw(edge.Span); }
+                },
                 None: () => writer.Bool(false).String(id.Value));
         }
         request.CanonicalBytes(writer);
         return ContentAddress.Of(writer.ToBytes().Span);
     }
 
-    // GeometrySource resolves seam content keys to analytical shapes through the app-wired object-store
-    // byte-stream) threads ONLY to the runners that read analytical geometry — Structural pulls the member AxisCurve and
-    // Energy the bounding-surface FootprintPolygon by `member.Representations.Axis`/`.FootPrint`; the closed-form physics,
-    // carbon, and cost runners read no geometry, so they take no port (a uniform-signature pass-through of an unread
-    // resource would be ceremony). A closed-form-only composition threads GeometrySource.None at the Assess call site.
-    static Fin<AssessmentResult> Run(ElementGraph graph, AssessmentRequest request, GeometrySource geometry, AssessmentSink sink, ClockPolicy clocks) =>
+    // GeometrySource resolves seam content keys to analytical shapes through the app-wired object-store byte-stream
+    // and threads ONLY to the runners that read analytical geometry — Structural (member AxisCurve), Energy
+    // (bounding-surface FootprintPolygon), Circulation (space footprints), and Daylight (target footprints), the
+    // exact geometry-consuming arms of this Switch; the closed-form physics, carbon, and cost runners read no
+    // geometry, so they take no port (a uniform-signature pass-through of an unread resource would be ceremony).
+    // A closed-form-only composition threads GeometrySource.None at the Assess call site.
+    static Fin<AssessmentResult> Run(ElementGraph graph, AssessmentRequest request, GeometrySource geometry, AssessmentSink sink, IClock clock) =>
         request.Switch(
-            structural: r => StructuralAnalysis.Run(graph, r, geometry, sink, clocks),
-            thermal:    r => BuildingPhysics.RunThermal(graph, r, clocks),
-            acoustic:   r => BuildingPhysics.RunAcoustic(graph, r, clocks),
-            fire:       r => BuildingPhysics.RunFire(graph, r, clocks),
-            energy:     r => EnergySimulation.Run(graph, r, geometry, sink, clocks),
-            carbon:     r => LifecycleAssessment.RunCarbon(graph, r, clocks),
-            cost:       r => LifecycleAssessment.RunCost(graph, r, clocks),
-            circulation: r => CirculationAnalysis.Run(graph, r, geometry, clocks),
-            daylight:   r => DaylightAnalysis.Run(graph, r, geometry, clocks));
+            structural: r => StructuralAnalysis.Run(graph, r, geometry, sink, clock),
+            thermal:    r => BuildingPhysics.RunThermal(graph, r, clock),
+            acoustic:   r => BuildingPhysics.RunAcoustic(graph, r, clock),
+            fire:       r => BuildingPhysics.RunFire(graph, r, clock),
+            energy:     r => EnergySimulation.Run(graph, r, geometry, sink, clock),
+            carbon:     r => LifecycleAssessment.RunCarbon(graph, r, clock),
+            cost:       r => LifecycleAssessment.RunCost(graph, r, clock),
+            circulation: r => CirculationAnalysis.Run(graph, r, geometry, clock),
+            daylight:   r => DaylightAnalysis.Run(graph, r, geometry, clock));
 
     // Build the seam Node.Assessment from the uniform fact stream plus the derived verdict (an Enumerated chosen+allowed
     // set) and governing ratio (a dimensionless Measure), then attach it to every target through the neutral Assign edge
@@ -507,7 +548,7 @@ public static class Analysis {
 
     static ComputeReceipt.Assessment Receipt(AssessmentResult result, ContentAddress key, CorrelationId correlation, Duration elapsed) =>
         new(result.Discipline.Key, result.Route.Key, key.Value, result.Verdict.Key, result.GoverningRatio, Admitted: !result.Verdict.Critical) {
-            Correlation = correlation, Lane = WorkLane.Background, Substrate = Substrate.CpuTensor, AllocationClass = AllocationClass.PooledMemory, Elapsed = elapsed,
+            Scope = new ReceiptScope.Execution(correlation, WorkLane.Background, Substrate.CpuTensor, AllocationClass.PooledMemory, elapsed),
         };
 
     // CacheFirst hit re-derives the 412-noop verdict from the cached governing ratio
@@ -520,7 +561,7 @@ public static class Analysis {
             .Map(ratio => {
                 AssessmentVerdict verdict = AssessmentVerdict.FromRatio(ratio);
                 return new ComputeReceipt.Assessment(hit.Payload.Discipline.Key, hit.Payload.Route.Value, key.Value, verdict.Key, ratio, Admitted: !verdict.Critical) {
-                    Correlation = correlation, Lane = WorkLane.Background, Substrate = Substrate.CpuTensor, AllocationClass = AllocationClass.PooledMemory, Elapsed = Duration.Zero,
+                    Scope = new ReceiptScope.Execution(correlation, WorkLane.Background, Substrate.CpuTensor, AllocationClass.PooledMemory, Duration.Zero),
                 };
             });
 
@@ -529,7 +570,7 @@ public static class Analysis {
     // first-class fact with zero re-run.
     static ComputeReceipt.Assessment FailureReceipt(Node.Assessment hit, ContentAddress key, CorrelationId correlation) =>
         new(hit.Payload.Discipline.Key, hit.Payload.Route.Value, key.Value, hit.Payload.Outcome.Key, double.NaN, Admitted: false) {
-            Correlation = correlation, Lane = WorkLane.Background, Substrate = Substrate.CpuTensor, AllocationClass = AllocationClass.PooledMemory, Elapsed = Duration.Zero,
+            Scope = new ReceiptScope.Execution(correlation, WorkLane.Background, Substrate.CpuTensor, AllocationClass.PooledMemory, Duration.Zero),
             Phase = hit.Payload.Diagnostic.Map(static d => d.Phase.Key),
             FailureKind = hit.Payload.Diagnostic.Map(static d => d.Kind.Key),
             Transient = hit.Payload.Diagnostic.Map(static d => d.Kind.Transient).IfNone(false),
@@ -540,7 +581,7 @@ public static class Analysis {
     // neither served nor re-dispatched here; the outcome key rides the verdict column.
     static ComputeReceipt.Assessment InFlightReceipt(Node.Assessment hit, ContentAddress key, CorrelationId correlation) =>
         new(hit.Payload.Discipline.Key, hit.Payload.Route.Value, key.Value, hit.Payload.Outcome.Key, double.NaN, Admitted: false) {
-            Correlation = correlation, Lane = WorkLane.Background, Substrate = Substrate.CpuTensor, AllocationClass = AllocationClass.PooledMemory, Elapsed = Duration.Zero,
+            Scope = new ReceiptScope.Execution(correlation, WorkLane.Background, Substrate.CpuTensor, AllocationClass.PooledMemory, Duration.Zero),
         };
 
     // --- [SWEEP] -----------------------------------------------------------------------------
@@ -556,7 +597,7 @@ public static class Analysis {
     // runner an Assess closure) and the set runs through the JobGraph.Reconcile content-key engine under
     // fair-share; Queued/Running rows are structurally skipped (Dispatchable=false). JobState and
     // AssessmentOutcome stay ORTHOGONAL — mapped at this boundary only.
-    public static Fin<Swept> Sweep(ElementGraph graph, Seq<AssessmentRequest> requests, GeometrySource geometry, AssessmentSink sink, JobGraph jobs, SweepContext context, CorrelationId correlation, ClockPolicy clocks) {
+    public static Fin<Swept> Sweep(ElementGraph graph, Seq<AssessmentRequest> requests, GeometrySource geometry, AssessmentSink sink, JobGraph jobs, SweepContext context, CorrelationId correlation, IClock clock) {
         Seq<(AssessmentRequest Request, ContentAddress Key, NodeId NodeId)> keyed = requests.Map(request => {
             ContentAddress key = ContentKey(graph, request);
             return (request, key, AssessmentNodeId(request.Route.Discipline, AnalysisRoute.Create(request.Route.Key), key.Value, graph.Header.Tolerance));
@@ -588,7 +629,7 @@ public static class Analysis {
                     Speculative: false, Preemptible: true, FairShareWeight: 1, AcceleratorAffinity: None,
                     MemoryBudgetBytes: context.MemoryBudgetBytes, InputBytes: ContentBytes(entry.Key)));
                 return context.RunJobs(jobs, nodes, dispatchable.Map(entry =>
-                        fun(() => Assess(graph, entry.Request, geometry, sink, RerunPolicy.Force, correlation, clocks))))
+                        fun(() => Assess(graph, entry.Request, geometry, sink, RerunPolicy.Force, correlation, clock))))
                     .Map(dispatched => new Swept(closed.Reconciliation, dispatched, closed.Stale, closed.Orphaned, superseded));
             }));
     }

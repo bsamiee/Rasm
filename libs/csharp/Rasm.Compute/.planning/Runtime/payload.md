@@ -1,4 +1,4 @@
-# [COMPUTE_RESIDENCY]
+# [COMPUTE_PAYLOAD]
 
 Rasm.Compute streaming-residency lane: the content-keyed GPU-ready payload codec a web viewer streams cell-by-cell. Four encode arms ride one `ResidencyKind` axis — meshlet-cluster partitions an octree-leaf `ImportedGeometry` into cone-cullable clusters, quantized-vertex exponent-filters and level-compresses a leaf for a low-VRAM tile, point-splat decimates a reality-capture point set, and gaussian-splat octahedral/quaternion/exponent-filters a companion-decoded `SplatScan`. One `Encode` fold over the safe `Meshopt` span surface owns every arm, so a per-kind encoder sibling is the collapsed form. This lane produces payload bytes and the self-describing `StreamSpan` bufferView layout only, never a manifest or a scene-graph.
 
@@ -230,7 +230,7 @@ public static class Residency {
     }
 
     static bool SplatShapeValid(SplatScan scan) {
-        if (scan.SplatCount is <= 0 or > int.MaxValue || scan.HarmonicDegree is < 0 or > 46339) { return false; }
+        if (scan.SplatCount is <= 0 or > int.MaxValue || scan.HarmonicDegree is < 0 or > 3) { return false; }    // wire law: harmonic_degree is the SH band 0-3, byte-mirrored from GaussianSplatScan
         long degreeWidth = (long)scan.HarmonicDegree + 1;
         long width = degreeWidth * degreeWidth * 3;
         return scan.Positions.Length / 3 >= scan.SplatCount

@@ -154,19 +154,35 @@ public sealed partial class RetentionClass {
         (Lane, Loss, Scheme, Ceiling, Schedule) = (lane, loss, scheme, ceiling, schedule);
 }
 
+// The storage lane's own conditional-write verdict: `Stored` fresh bytes, `Replaced` a prior name+epoch version
+// (the loser's disposal is the lane receipt's, committed in the same conditional write), `Deduped` a resident
+// content key (no bytes moved) — the admission fact reads the COMMITTED outcome, never a pre-write prediction.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record LaneOutcome {
+    private LaneOutcome() { }
+    public sealed record Stored(long Bytes) : LaneOutcome;
+    public sealed record Replaced(long Bytes, ulong PriorEpoch) : LaneOutcome;
+    public sealed record Deduped : LaneOutcome;
+
+    public long Committed => this.Map(stored: static s => s.Bytes, replaced: static r => r.Bytes, deduped: static _ => 0L);
+}
+
 public static class RetentionCatalog {
     // The one admission fold, all four stages IN the fold: classify-check (an UNRANKED stamp fails `Unstamped` fail-closed
     // BEFORE the ceiling compare — absence of a seam rank is not clearance; a ranked-but-exceeding stamp fails `CeilingBreach`),
     // identity-derive (the `cls.Scheme.Identity` mint — the scheme row consumes the ingredients it needs: content-keyed passes
     // the content address through, name-plus-epoch mints off `name`+`epoch`; a caller-preminted key beside a prose-only derive
-    // stage is the deleted split-brain), race-admit (a content-keyed class dedups a resident key to a zero-byte fact, a
-    // name-plus-epoch class versions-replaces), lane-write. The artifact's CURRENT `StorageTier` rides the fact so the sweep's
-    // cold-tiering verdict reads it.
-    public static Fin<RetentionFact> Admit(RetentionClass cls, ContentAddress contentKey, string name, ulong epoch, DataClassification stamp, long bytes, StorageTier tier, Func<ContentAddress, bool> resident, ProjectionContext frame) {
-        if (!RetentionCeiling.Ranked(stamp)) { return Fin<RetentionFact>.Fail(new RetentionFault.Unstamped(contentKey)); }
-        if (!RetentionCeiling.Admits(stamp, cls.Ceiling)) { return Fin<RetentionFact>.Fail(new RetentionFault.CeilingBreach(stamp, cls.Ceiling)); }
+    // stage is the deleted split-brain), race-admit (a content-keyed class dedups a resident key to a Deduped fact with no
+    // write; a name-plus-epoch class drives the lane's conditional write whose receipt names replace-or-fresh and disposes
+    // the race loser store-side), lane-write (the injected `write` leg IS the declared StorageLane's conditional write —
+    // an Admit that only predicts is the deleted form). The artifact's CURRENT `StorageTier` rides the fact.
+    public static IO<Fin<RetentionFact>> Admit(RetentionClass cls, ContentAddress contentKey, string name, ulong epoch, DataClassification stamp, StorageTier tier, Func<ContentAddress, bool> resident, Func<ContentAddress, IO<Fin<LaneOutcome>>> write, ProjectionContext frame) {
+        if (!RetentionCeiling.Ranked(stamp)) { return IO.pure(Fin<RetentionFact>.Fail(new RetentionFault.Unstamped(contentKey))); }
+        if (!RetentionCeiling.Admits(stamp, cls.Ceiling)) { return IO.pure(Fin<RetentionFact>.Fail(new RetentionFault.CeilingBreach(stamp, cls.Ceiling))); }
         ContentAddress key = cls.Scheme.Identity(contentKey, name, epoch);
-        return Fin<RetentionFact>.Succ(new RetentionFact(cls, key, cls.Scheme.Dedups && resident(key) ? 0L : bytes, tier, frame.Now()));
+        return cls.Scheme.Dedups && resident(key)
+            ? IO.pure(Fin<RetentionFact>.Succ(new RetentionFact(cls, key, 0L, tier, frame.Now())))
+            : write(key).Map(outcome => outcome.Map(committed => new RetentionFact(cls, key, committed.Committed, tier, frame.Now())));
     }
 }
 ```

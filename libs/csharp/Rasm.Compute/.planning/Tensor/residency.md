@@ -37,24 +37,25 @@ public sealed partial class OrtResidency {
 // --- [MODELS] ------------------------------------------------------------------------------
 public readonly record struct CopyPoint(OrtResidency Gate, long Bytes, string Device, Instant At, CorrelationId Correlation) {
     public ComputeReceipt.Copy Receipt(WorkLane lane, Duration elapsed) =>
-        new(Gate, Bytes, Device) { Correlation = Correlation, Lane = lane, Substrate = Substrate.Onnx, AllocationClass = AllocationClass.NativeOrt, Elapsed = elapsed };
+        new(Gate, Bytes, Device) { Scope = new ReceiptScope.Execution(Correlation, lane, Substrate.Onnx, AllocationClass.NativeOrt, elapsed) };
 }
 
+// Shared ORT allocators are ModelSessions-owned: `ModelSessions.SharedAllocator` mints and maps the per-(device,
+// memory) arena and its drain lifecycle releases it — a residency-local `CreateSharedAllocator` would mint a second
+// unmapped arena the drain never releases, the deleted double-owner form.
 public readonly record struct DeviceMemory(OrtEpDevice Device, OrtDeviceMemoryType MemoryType, OrtAllocatorType AllocatorType) {
     public OrtMemoryInfo Info => Device.GetMemoryInfo(MemoryType);
 
     public Fin<OrtAllocator> Shared() =>
-        Try.lift(() => OrtEnv.Instance().CreateSharedAllocator(Device, MemoryType, AllocatorType, allocatorOptions: null))
+        Try.lift(() => ModelSessions.SharedAllocator(Device, MemoryType))
             .Run().MapFail(static error => TensorFault.Symbol("allocator-rejected", error.Message));
 
     public Fin<(OrtAllocator Allocator, OrtValue Sink)> Allocate(TensorDtype row, long[] shape) {
-        OrtAllocator? allocator = null;
         try {
-            allocator = OrtEnv.Instance().CreateSharedAllocator(Device, MemoryType, AllocatorType, allocatorOptions: null);
+            OrtAllocator allocator = ModelSessions.SharedAllocator(Device, MemoryType);
             return Fin.Succ((allocator, OrtValue.CreateAllocatedTensorValue(allocator, row.Element, shape)));
         }
         catch (Exception ex) {
-            allocator?.Dispose();
             return TensorFault.Fail<(OrtAllocator, OrtValue)>("allocator-rejected", row.Key, ex.Message);
         }
     }
@@ -141,8 +142,8 @@ public static class TensorBridge {
         catch (Exception ex) { return TensorFault.Fail<Unit>("egress-rejected", row.Key, ex.Message); }
     }
 
-    public static CopyPoint Stamp(OrtValue value, OrtResidency gate, ClockPolicy clocks, CorrelationId correlation) =>
-        new(gate, value.GetTensorSizeInBytes(), value.GetTensorMemoryInfo().Name, clocks.Now, correlation);
+    public static CopyPoint Stamp(OrtValue value, OrtResidency gate, IClock clock, CorrelationId correlation) =>
+        new(gate, value.GetTensorSizeInBytes(), value.GetTensorMemoryInfo().Name, clock.GetCurrentInstant(), correlation);
 
     public static (Seq<string> Inputs, Seq<string> Outputs) Residency(InferenceSession session) {
         using IDisposableReadOnlyCollection<OrtMemoryInfo> inputs = session.GetMemoryInfosForInputs();

@@ -22,10 +22,10 @@ Rasm.Compute/
 │   ├── Lowering.cs        # Content-keyed compiled-expression cache and the analytic-Jacobian arm
 │   └── Units.cs           # Units boundary admitting unit-bearing input
 ├── Model/                 # ONNX model identity, sessions, inference, and generative runs
-│   ├── Identity.cs        # Checksum identity, acquisition union, and schema snapshot
+│   ├── Identity.cs        # Checksum identity, acquisition union, schema snapshot, and drift sentinel
 │   ├── Sessions.cs        # One shared session per checksum with warm-start
 │   ├── Providers.cs       # Execution-provider axis with discovery and quantization posture
-│   ├── Inference.cs       # Run-mode inference fold and result cache
+│   ├── Inference.cs       # Run-mode inference fold, batching gate, and result cache
 │   ├── Embedding.cs       # Embedding-and-retrieval owner
 │   ├── Generative.cs      # Token-streaming generation with the tool-call arm
 │   └── Extension.cs       # Custom-op registration at the string-tensor boundary
@@ -247,9 +247,8 @@ config:
 flowchart LR
     accTitle: Rasm.Compute measured execution spine
     accDescr: Typed intent admits once at the boundary, substrate selection folds over row data and lands a receipt, bounded lanes enqueue work, total dispatch routes to the tensor, model, or remote lane, every outcome materializes as a compute receipt at the sink port, and progress cells deliver cadence-gated marks to observers.
-    ComputeIntent(["ComputeIntent"]) e1@-->|Admit| IntentAdmission["IntentAdmission"]
-    IntentAdmission e2@--> AdmittedIntent["AdmittedIntent"]
-    IntentAdmission e3@-.->|Fin fail| ComputeFault["ComputeFault"]
+    ComputeIntent(["ComputeIntent"]) e1@-->|Admit| AdmittedIntent["AdmittedIntent.Admit"]
+    AdmittedIntent e3@-.->|Fin fail| ComputeFault["ComputeFault"]
     AdmittedIntent e4@-->|Plan| SubstrateSelection["SubstrateSelection"]
     SubstrateSelection e5@--> SelectionReceipt["SelectionReceipt"]
     SubstrateSelection e6@-.->|Fin fail| ComputeFault
@@ -273,10 +272,10 @@ flowchart LR
     classDef edgeControl stroke:#FF79C6,color:#F8F8F2
     class ComputeIntent,Observers boundary
     class ComputeFault error
-    class IntentAdmission,AdmittedIntent,SubstrateSelection,SelectionReceipt,LaneRuntime,DispatchTable,TensorOps,ModelSessions,WireChannels,ComputeReceipt,ReceiptSinkPort primary
+    class AdmittedIntent,SubstrateSelection,SelectionReceipt,LaneRuntime,DispatchTable,TensorOps,ModelSessions,WireChannels,ComputeReceipt,ReceiptSinkPort primary
     class e3,e6 edgeError
     class e5,e13,e14,e15,e16 edgeSuccess
-    class e1,e2,e4,e7,e8,e9,e10,e11,e12,e17,e18 edgeControl
+    class e1,e4,e7,e8,e9,e10,e11,e12,e17,e18 edgeControl
 ```
 
 Spine admits once, selects substrate over row data, enqueues on bounded lanes, dispatches to the tensor, model, or remote lane, and lands every outcome on a `ComputeReceipt` case at the sink while admission and selection failures fall to `ComputeFault` and `ProgressCell` streams cadence-gated marks. Per-stage guards, conditioning, and rails each lane composes live on the owning implementation pages.
@@ -295,6 +294,7 @@ Seam graph carries which owner exchanges which shape; the load-bearing cross-bou
 - `EnergyRoute` converges local and cloud runs on the one `SqlFile` fold.
 - Closed-form ISO/EN folds and the multi-ply `AssemblyAggregator` live in `Analysis`; single-material folds stay seam-owned, composed here.
 - Design codes ride the `DesignCode`×`LimitState` capacity table.
+- `Analysis/daylight` consumes the kernel `Spatial.Apply(SpatialOp.Wire)` decoded scene as the app-staged `ObstructionScene` request payload — its content key folds the assessment content key so a re-shaded site re-keys — and site evidence is the EPW header or the request's explicit `SolarSite`, never a fabricated site.
 
 ## [05]-[OWNER_LAW]
 

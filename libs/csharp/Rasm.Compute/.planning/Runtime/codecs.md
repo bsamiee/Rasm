@@ -115,10 +115,13 @@ public abstract partial record FieldResidence {
         predicted: static p => p.Bound);
 }
 
+// ChunkShape is a GATE, never an inherited decoration: a pinned shape admits only an artifact laid out exactly
+// so (re-chunking is not this codec's operation), an empty shape inherits the artifact layout, and disagreement
+// is the one typed disposition — a policy column the encode silently ignores is the deleted form.
 public sealed record FieldCodecPolicy(int[] ChunkShape, FieldResidence Residence, bool Compress) {
-    public static readonly FieldCodecPolicy Lossless = new(ChunkShape: [64, 64, 64], new FieldResidence.Exact(), Compress: true);
-    public static readonly FieldCodecPolicy Bounded = new(ChunkShape: [64, 64, 64], new FieldResidence.Quantized(Bits: 12, Bound: 1e-3), Compress: true);
-    public static readonly FieldCodecPolicy Residual = new(ChunkShape: [64, 64, 64], new FieldResidence.Predicted(Bits: 12, Bound: 1e-3), Compress: true);
+    public static readonly FieldCodecPolicy Lossless = new(ChunkShape: [], new FieldResidence.Exact(), Compress: true);
+    public static readonly FieldCodecPolicy Bounded = new(ChunkShape: [], new FieldResidence.Quantized(Bits: 12, Bound: 1e-3), Compress: true);
+    public static readonly FieldCodecPolicy Residual = new(ChunkShape: [], new FieldResidence.Predicted(Bits: 12, Bound: 1e-3), Compress: true);
 }
 
 public sealed record ResidualPredictor(
@@ -233,9 +236,13 @@ public static class FieldCodec {
         bool shape = field.Components > 0 && field.Count >= 0L && field.ChunkShape.Length > 0 && field.ChunkShape.All(static extent => extent > 0)
             && field.GridChunks.Length == field.ChunkShape.Length && field.GridChunks.All(static extent => extent > 0)
             && chunkElements is > 0 and <= int.MaxValue && gridCount == field.ChunkCount && field.Chunks.Length % sizeof(float) == 0;
-        return residence && shape
+        // A pinned policy shape GOVERNS: the artifact's layout must equal it exactly; an empty policy shape inherits.
+        bool layout = policy.ChunkShape.Length == 0 || policy.ChunkShape.AsSpan().SequenceEqual(field.ChunkShape);
+        return residence && shape && layout
             ? Fin.Succ((field, policy))
-            : Fin.Fail<(FieldArtifact, FieldCodecPolicy)>(new ComputeFault.ModelRejected($"<field-codec-shape:{field.Components}:{field.ChunkCount}:{chunkElements}:{gridCount}:{policy.Residence}>"));
+            : Fin.Fail<(FieldArtifact, FieldCodecPolicy)>(new ComputeFault.ModelRejected(layout
+                ? $"<field-codec-shape:{field.Components}:{field.ChunkCount}:{chunkElements}:{gridCount}:{policy.Residence}>"
+                : $"<field-codec-chunk-shape:[{string.Join(',', policy.ChunkShape)}]!=[{string.Join(',', field.ChunkShape)}]>"));
     }
 
     static ComputeArtifact Packed(FieldArtifact encoded, string formatKey, FieldCodecPolicy policy, Instant at) {
@@ -761,29 +768,36 @@ public sealed record TileSet(TileNode Root, double GeometricErrorRoot, int MaxDe
         return [(minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2, (maxX - minX) / 2, 0, 0, 0, (maxY - minY) / 2, 0, 0, 0, (maxZ - minZ) / 2];
     }
 
+    // Triangle vertices resolve through ImportedGeometry.Indices — the landed topology owner — so an indexed
+    // shared-vertex mesh partitions its REAL corners; a triangle-soup ordinal (`triangle * 9`) addressing is
+    // the deleted form that mis-partitions any mesh whose index buffer is not the identity.
     static Seq<ImportedGeometry> Split(ImportedGeometry geometry, float[] bounds) {
         (float cx, float cy, float cz) = (bounds[0], bounds[1], bounds[2]);
         return Range(0, geometry.TriangleCount)
-            .GroupBy(tri => Octant(geometry.Vertices.Span, tri, cx, cy, cz))
+            .GroupBy(tri => Octant(geometry.Vertices.Span, geometry.Indices.Span, tri, cx, cy, cz))
             .Map(group => Tessellate(geometry, group.ToSeq()))
             .ToSeq();
     }
 
-    static int Octant(ReadOnlySpan<float> verts, int triangle, float cx, float cy, float cz) {
-        int v = triangle * 9;
+    static int Octant(ReadOnlySpan<float> verts, ReadOnlySpan<long> indices, int triangle, float cx, float cy, float cz) {
+        int v = (int)indices[triangle * 3] * 3;
         return (verts[v] >= cx ? 1 : 0) | (verts[v + 1] >= cy ? 2 : 0) | (verts[v + 2] >= cz ? 4 : 0);
     }
 
     static ImportedGeometry Tessellate(ImportedGeometry geometry, Seq<int> triangles) {
         ReadOnlySpan<float> srcV = geometry.Vertices.Span;
         ReadOnlySpan<float> srcN = geometry.Normals.Span;
+        ReadOnlySpan<long> srcI = geometry.Indices.Span;
         float[] vertices = new float[triangles.Count * 9];
         float[] normals = new float[triangles.Count * 9];
         long[] indices = new long[triangles.Count * 3];
         int slot = 0;
         foreach (int tri in triangles) {
-            srcV.Slice(tri * 9, 9).CopyTo(vertices.AsSpan(slot * 9));
-            srcN.Slice(tri * 9, 9).CopyTo(normals.AsSpan(slot * 9));
+            for (int corner = 0; corner < 3; corner++) {
+                int vertex = (int)srcI[tri * 3 + corner] * 3;
+                srcV.Slice(vertex, 3).CopyTo(vertices.AsSpan(slot * 9 + corner * 3));
+                srcN.Slice(vertex, 3).CopyTo(normals.AsSpan(slot * 9 + corner * 3));
+            }
             (indices[slot * 3], indices[slot * 3 + 1], indices[slot * 3 + 2]) = (slot * 3, slot * 3 + 1, slot * 3 + 2);
             slot++;
         }
@@ -801,10 +815,20 @@ public static class TilePartition {
     // Emits this page's OWNED product — the tileset.json manifest over the octree — and the LeafContent references
     // it names; the leaf BODIES (b3dm/glTF carrying EXT_structural_metadata/EXT_mesh_features) are the Bim cross-package product, never here.
     public static Fin<TilesetExport> ExportTiles(ImportedGeometry geometry, Func<UInt128, Option<TileMetadata>> metadata, TessellationPolicy policy, IClock clock) =>
-        geometry.VertexCount <= 0 || geometry.TriangleCount <= 0 || geometry.Vertices.Length < geometry.VertexCount * 3
-            ? Fin.Fail<TilesetExport>(new ComputeFault.PayloadOverBounds($"<tileset-geometry:{geometry.VertexCount}:{geometry.TriangleCount}:{geometry.Vertices.Length}>"))
+        geometry.VertexCount <= 0 || geometry.TriangleCount <= 0
+            || geometry.Vertices.Length < geometry.VertexCount * 3
+            || geometry.Normals.Length < geometry.VertexCount * 3
+            || geometry.Indices.Length < geometry.TriangleCount * 3
+            || IndexOutOfRange(geometry)
+            ? Fin.Fail<TilesetExport>(new ComputeFault.PayloadOverBounds($"<tileset-geometry:{geometry.VertexCount}:{geometry.TriangleCount}:{geometry.Vertices.Length}:{geometry.Indices.Length}>"))
             : Fin.Succ(TileSet.Build(geometry, metadata, policy, clock))
                 .Bind(tiles => Tileset(tiles, clock).Map(manifest => new TilesetExport(manifest, Leaves(tiles.Root))));
+
+    static bool IndexOutOfRange(ImportedGeometry geometry) {
+        ReadOnlySpan<long> indices = geometry.Indices.Span[..(geometry.TriangleCount * 3)];
+        foreach (long index in indices) { if (index < 0 || index >= geometry.VertexCount) { return true; } }
+        return false;
+    }
 
     // tileset.json: refine REPLACE, box bounding volumes off each node's Aabb, geometricError halving per level,
     // leaf content URIs {contentKey:x32}.glb the AppUi/web consumer resolves against the Persistence index.

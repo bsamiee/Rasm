@@ -308,6 +308,11 @@ public static class GeoSource {
         select done.Map(_ => (GeoYield)new GeoYield.Written(features.Count));
 
     static Validation<GeoIngestFault, Unit> Payload(GeoSpec spec, Seq<GeoPayload> features) {
+        // ONE validity policy for ingest AND egress: every feature passes the strict Geometry.IsValid gate before
+        // any writer runs, so invalid topology can never serialize — the shared fold that keeps the no-repair
+        // byte-identity posture honest on the egress side too.
+        Seq<GeoPayload> invalid = features.Filter(static feature => !feature.Shape.IsValid);
+        if (!invalid.IsEmpty) { return new GeoIngestFault.GeometryInvalid(invalid[0].Shape.GeometryType); }
         Seq<GeoPayload> unadmitted = features.Filter(feature => !spec.Crs.Admits(feature.Shape.SRID));
         if (!unadmitted.IsEmpty) { return new GeoIngestFault.CrsUnsupported(unadmitted[0].Shape.SRID); }
         if (!spec.Format.CarriesProperties && features.Exists(static feature => !feature.Properties.IsEmpty)) {

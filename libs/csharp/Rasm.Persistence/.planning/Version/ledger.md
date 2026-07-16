@@ -326,10 +326,15 @@ public readonly record struct SyncApplyReceipt(long Batch, long Applied, long Sk
 // `Cursor`/`Acked` are the two per-peer cursor SPACES — `Cursor` our read position in the PEER's feed (what
 // `Pull` resumes from), `Acked` the peer's confirmed position in OUR feed (what `Pending` reads) — one slot
 // carrying both is the deleted collapse whose bidirectional exchange skips or re-pulls remote entries.
+// Local durable legs bind the `Store/provisioning#ENGINE_OPERATIONS` `KvFloor`: `Spool`/`Unspool` the
+// RocksDB (`KvEngine.Lsm`) disconnected-peer pending-op buffer the session drains on reconnect, and
+// `LocalHas` the LMDB (`KvEngine.Mmap`) content-address membership probe — a session whose pending rows
+// live only in memory loses the disconnected buffer on process exit, the deleted form.
 public sealed record SyncSession(
     ProjectionContext Frame, ReceiptSinkPort Sink, Guid StoreId, ulong SchemaFingerprint, SyncCursor Cursor, SyncCursor Acked, CancellationToken Token,
     Func<UInt128, bool> Holds, Func<OpLogEntry, Option<OpLogEntry>> Held, Func<OpLogEntry, IO<Unit>> Commit, Func<OpLogEntry, IO<Unit>> Truncate, Func<OpLogEntry, IO<Unit>> Converge,
     Func<SyncCursor, Seq<OpLogEntry>> Pending, Func<long> QueueDepth, Func<UInt128, IO<OpLogEntry>> Fetch,
+    Func<Seq<OpLogEntry>, IO<Unit>> Spool, Func<IO<Seq<OpLogEntry>>> Unspool, Func<UInt128, IO<bool>> LocalHas,
     Func<string, SyncCursor, IO<(ulong SchemaFingerprint, Seq<OpLogEntry> Entries, SyncCursor Cursor)>> Pull,
     Func<string, Seq<OpLogEntry>, IO<SyncCursor>> Push, Func<string, Seq<UInt128>, IO<Seq<UInt128>>> HasObjects,
     Func<string, Seq<OpLogEntry>, IO<(UInt128 RootContentKey, long ConvertedReferences)>> SpeckleSend,

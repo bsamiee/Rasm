@@ -945,7 +945,7 @@ Per axis, the owning page(s), the provider seed rows (deployment/policy DATA), a
 
 - [01]-[RELATIONAL_SOR_SPINE]: `Store/provisioning` + `Element/graph`; postgres-18 (SINGULAR); the one event store · materializer · identity · changefeed, unchallengeable.
 - [02]-[OBJECT_STORE]: `Store/blobstore`; s3 · azure-blob · gcs · minio · presigned-grant (`GrantMinter`); the presigned row reaches domain-cloud planes no credentialed row can.
-- [03]-[EGRESS_SINK]: `Version/egress`; webhook · nats · kafka · rabbitmq · pulsar · wire-native · redis-stream; consumer-group ack + `Acknowledged` trim, the zero-broker-install stream row.
+- [03]-[EGRESS_SINK]: `Version/egress`; webhook · nats · kafka · rabbitmq · pulsar · wire-native · redis-stream · clickhouse; redis-stream persists on the awaited `StreamAdd` id under producer `StreamIdempotentId` (downstream consumer-group acks never govern the outbox cursor), clickhouse on the awaited `InsertBinaryAsync` under `insert_deduplication_token` — the zero-broker-install stream row and the warehouse leg.
 - [04]-[read-lane/analytic engine]: `Query/columnar`; duckdb-in-process · pg_duckdb-in-PG · clickhouse-scaleout; distributed merge-tree MPP at cluster scale, never a second SoR.
 - [05]-[LAKEHOUSE_INTERCHANGE]: `Query/columnar`; ducklake (extension, forward) · delta; the Delta transaction-log wire for external-warehouse interop, a format not an engine.
 - [06]-[VECTOR_SEARCH]: `Query/retrieval`; pgvector-in-PG · pgvectorscale-diskann · pq-adc-in-process · qdrant-scaleout; billion-scale sharded ANN over the in-PG ceiling, `CqlVector` embedding-next-to-row only.

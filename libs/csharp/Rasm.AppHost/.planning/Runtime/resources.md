@@ -40,7 +40,11 @@ public sealed partial class CacheLane {
 
     public HybridCacheEntryOptions Entry => new() { Expiration = Ttl.Allotted.ToTimeSpan(), LocalCacheExpiration = L1Ttl.Allotted.ToTimeSpan(), Flags = Flags };
 
-    public string Scoped(string key) => $"{Key}:{key}";
+    // Tenant-partitioned by construction: every lane key folds the ambient tenant, so equal caller keys under
+    // distinct tenants never collide at L1 or L2 — the Persistence `Query/cache#L2_CONTRIBUTION` `CachePartition`
+    // digest reads this SAME `(lane, tenant, key)` identity, and a lane-plus-key-only derivation is the deleted
+    // cross-tenant collision form.
+    public string Scoped(string key) => $"{Key}:{TenantContext.Current.TenantId.Value:x32}:{key}";
 }
 ```
 

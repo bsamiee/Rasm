@@ -247,16 +247,19 @@ public static class Orchestrator {
                     : IO.pure(unit),
                 Fail: _ => IO.pure(unit)));
 
-    // The signal-resume entry: a signal PERSISTS the channel payload as a seam signal row (SignalPut riding
-    // the coordination op-union) so the wake decision survives crash, resume, and peer handoff, loads the
-    // suspended instance fresh from the store (so a signal arriving on a peer node resumes the latest committed
-    // state, never an in-memory promise), and re-drives from the suspended cursor — the waiting Await step now
-    // finds its durable channel row present and commits; a failed persist rails ResumeBroken, never a dropped wake.
+    // The signal-resume entry: the suspended instance loads FIRST (so a signal arriving on a peer node reads
+    // the latest committed state AND its decoded fence generation), the channel payload persists as a seam
+    // signal row under that generation (SignalPut riding the token-required coordination op-union case — a
+    // stale lease rejects store-side as LeaseFenced), and the re-drive runs from the suspended cursor — the
+    // waiting Await step now finds its durable channel row present and commits; a failed load or persist rails
+    // ResumeBroken, never a dropped wake.
     public static IO<WorkflowInstance> Signal(OrchestrationRuntime runtime, string instanceId, string channel, JsonElement payload) =>
-        from persisted in IO.lift(() => runtime.Store.SignalPut(instanceId, channel, payload))
-        from loaded in IO.lift(() => persisted.Bind(_ => runtime.Store.Load(instanceId)))
+        from loaded in IO.lift(() => runtime.Store.Load(instanceId))
         from resumed in loaded.Match(
-            Succ: instance => Drive(runtime, instance),
+            Succ: instance => IO.lift(() => runtime.Store.SignalPut(instanceId, channel, instance.Fence.Value, payload))
+                .Bind(persisted => persisted.Match(
+                    Succ: _ => Drive(runtime, instance),
+                    Fail: _ => IO.fail<WorkflowInstance>(new OrchestrationFault.ResumeBroken(instanceId)))),
             Fail: fault => IO.fail<WorkflowInstance>(new OrchestrationFault.ResumeBroken(instanceId)))
         select resumed;
 
@@ -318,7 +321,7 @@ stateDiagram-v2
 ## [04]-[STEP_STATE_SEAM]
 
 - Owner: `StepStateRow` the PROJECTED durable row of wire-stable primitives; `StepStateCodec` the encode/decode pair between the workflow records and the row; `StepStateSeam` the decode-only Persistence PORT adapter riding the coordination op-union — never an AppHost owner and never an AppHost type crossing down.
-- Entry: `Commit(WorkflowInstance instance, Option<WorkflowStep> step)` projects the instance and the committed step onto one `StepStateRow` (header-only when no step exists) and drives the store's `StepStateCas` under the decoded token — the store's row-CAS predicate is the authoritative fence, a lower token rejecting store-side as the decoded `LeaseFenced` fault surfacing here as `FenceStale`; `Load(string instanceId)` reads the store's `StepStateLoad` rows and DECODES them back through `StepStateCodec.Decode` into a `WorkflowInstance` whose steps rehydrate from bytes; `InFlight(TenantContext tenant)` and `Expired(Instant now)` ride the coordination op-union READ cases (`StepStateInFlight`, `ExpiredScan`) — the crash-resume flagship's ingress, never an AppHost-side table scan; `SignalPut(string instanceId, string channel, JsonElement payload)` persists one signal row and `SignalOf(string instanceId, string channel)` reads it back — the signal WRITE/READ op-union cases (`SignalPut`, `SignalLoad`) under the same tenant fence, so the waiting step's wake-or-fault decision reads durable state after crash, resume, or peer handoff, never a process-local map.
+- Entry: `Commit(WorkflowInstance instance, Option<WorkflowStep> step)` projects the instance and the committed step onto one `StepStateRow` (header-only when no step exists) and drives the store's `StepStateCas` under the decoded token — the store's row-CAS predicate is the authoritative fence, a lower token rejecting store-side as the decoded `LeaseFenced` fault surfacing here as `FenceStale`; `Load(string instanceId)` reads the store's `StepStateLoad` rows and DECODES them back through `StepStateCodec.Decode` into a `WorkflowInstance` whose steps rehydrate from bytes; `InFlight(TenantContext tenant)` and `Expired(Instant now)` ride the coordination op-union READ cases (`StepStateInFlight`, `ExpiredScan`) — the crash-resume flagship's ingress, never an AppHost-side table scan; `SignalPut(string instanceId, string channel, ulong fence, JsonElement payload)` persists one signal row under the instance's decoded lease generation (the coordination `SignalPut` case is token-required; a stale generation surfaces as the decoded `LeaseFenced` fault) and `SignalOf(string instanceId, string channel)` reads it back — the signal WRITE/READ op-union cases (`SignalPut`, `SignalLoad`) under the same tenant fence, so the waiting step's wake-or-fault decision reads durable state after crash, resume, or peer handoff, never a process-local map.
 - Auto: the row carries ONLY wire-stable primitives — instance id, workflow id, status key, cursor, step ordinal + status key, the serialized `StepKind` payload (descriptor + serialized arguments for an activity, fire instant for a timer, channel for a signal, schedule key for a job), the attempt ordinal, the chain head hex + sequence, the decoded token generation, and the tenant id — never a `WorkflowInstance`/`WorkflowStep` record and never a live closure; `Begin` persists the full plan as pending rows in one batch so rehydration reconstructs the entire instance; the durable row commits same-transaction with the transactional outbox when the step also publishes a domain event, so a step commit and its event enqueue ride one transaction boundary (`SEAM_OUTBOX_AND_WORKFLOW_PERSISTENCE_TABLE`).
 - Packages: LanguageExt.Core, NodaTime, BCL inbox
 - Growth: one durable step column is one field on the projected row plus its codec arms; a new read shape is one coordination op-union READ case decoded here; zero new surface.
@@ -373,7 +376,10 @@ public sealed record StepStateSeam(
     Func<string, Fin<Seq<StepStateRow>>> Rehydrate,
     Func<TenantContext, Fin<Seq<string>>> InFlight,
     Func<Instant, Fin<Seq<(string InstanceId, ulong LastFence)>>> Expired,
-    Func<string, string, JsonElement, Fin<Unit>> SignalPut,
+    // Signal writes carry the instance-held FENCE GENERATION: the coordination SignalPut case is a
+    // token-required write whose store-side CAS refuses a stale lease — a token-less signal seam would have
+    // to fabricate authority outside the decoded lease, the deleted form.
+    Func<string, string, ulong, JsonElement, Fin<Unit>> SignalPut,
     Func<string, string, Fin<Option<JsonElement>>> SignalOf) {
     public Fin<Unit> Commit(WorkflowInstance instance, Option<WorkflowStep> step) =>
         Persist(StepStateCodec.Project(instance, step))

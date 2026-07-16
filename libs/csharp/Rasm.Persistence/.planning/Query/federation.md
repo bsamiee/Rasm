@@ -595,6 +595,9 @@ public sealed class FederationFlight(FederationPorts ports, SourceKind source, A
     }
 
     public override async Task DoGet(FlightTicket ticket, FlightServerRecordBatchStreamWriter responseStream, ServerCallContext context) {
+        // Exact-width admission BEFORE the fixed-width decode: FlightTicket is an opaque caller-controlled token,
+        // so a non-16-byte payload terminates through the declared gRPC fault boundary, never a decode throw.
+        if (ticket.Ticket.Length != 16) { throw new RpcException(new Status(StatusCode.InvalidArgument, $"<flight-ticket-width:{ticket.Ticket.Length}!=16>")); }
         UInt128 key = BinaryPrimitives.ReadUInt128BigEndian(ticket.Ticket.Span);
         await hold.Value.Find(key).Match(
             Some: async result => { foreach (RecordBatch batch in Batches(result)) { await responseStream.WriteAsync(batch).ConfigureAwait(false); } },

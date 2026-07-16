@@ -33,9 +33,6 @@ using Rhino.Render;
 
 namespace Rasm.Rhino.Render;
 
-// --- [MODELS] -------------------------------------------------------------------------------
-public readonly record struct SettingsReceipt(int Applied, uint UndoRecord = 0u) : IDetachedDocumentResult;
-
 // --- [TYPES] --------------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SettingsSource : IDisposable {
@@ -471,6 +468,8 @@ public static class SunSolver {
 
 ```csharp signature
 // --- [MODELS] -------------------------------------------------------------------------------
+public readonly record struct SettingsReceipt(int Applied, uint UndoRecord = 0u) : IDetachedDocumentResult;
+
 public sealed record RenderState(
     RenderConfig Config,
     GroundPlaneState Ground,

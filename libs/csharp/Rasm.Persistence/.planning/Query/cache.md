@@ -381,7 +381,10 @@ public abstract partial record InvalidationMode {
 // --- [OPERATIONS] -------------------------------------------------------------------------
 
 public static class CachePartition {
-    // `frame.Tenant` supplies the injected tenant; no ambient tenant context exists.
+    // `frame.Tenant` supplies the injected tenant; no ambient tenant context exists. CacheL2Store derives every
+    // durable row key through THIS scope, and the AppHost `CacheLane.Scoped` folds the same tenant into the L1/L2
+    // logical key — one tenant-partition law at both seam endpoints, so an equal content key under two tenants
+    // yields two cache identities everywhere.
     public static string Scoped(CacheTier tier, UInt128 tenant, UInt128 content) {
         Span<byte> partition = stackalloc byte[16];
         BinaryPrimitives.WriteUInt128BigEndian(partition, tenant);

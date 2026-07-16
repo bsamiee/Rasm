@@ -10,7 +10,7 @@ The `datafusion` Substrait interchange is BIDIRECTIONAL — outbound `Serde.seri
 
 ## [02]-[QUERY]
 
-- Owner: `QueryEngine` — the one relational query owner discriminating by the `QuerySpec` tagged-union axis, the single discriminant. `QuerySpec` cases: `Sql`/`Rel`/`Agnostic`/`Ir` in-process, `Remote` over the ADBC/ConnectorX/Flight SQL `RemoteOp` sub-axis, `Streaming` the daft runner, and `Federated` the in-process `datafusion` `SessionContext` over `register_object_store`-backed stores and Arrow-capsule-registered frames, carrying EITHER the outbound plan-minting `sql` OR the inbound Persistence-authored Substrait `plan` bytes — the two directions of the one `ARCH`-declared `⇄` seam on one case, the minted-or-received bytes stamped onto the result table's schema metadata so the plan rides the wire and keys the receipt.
+- Owner: `QueryEngine` — the one relational query owner discriminating by the `QuerySpec` tagged-union axis, the single discriminant. `QuerySpec` cases: `Sql`/`Rel`/`Agnostic`/`Ir` in-process, `Remote` over the ADBC/ConnectorX/Flight SQL `RemoteOp` sub-axis, `Streaming` the daft runner, `Flight` the `csharp:Rasm.Persistence/Query/federation` FLIGHT_RESULT_PLANE ticket consumer (SubstraitPlan command bytes -> `GetFlightInfo` -> `DoGet(FlightTicket)`), and `Federated` the in-process `datafusion` `SessionContext` over `register_object_store`-backed stores and Arrow-capsule-registered frames, carrying EITHER the outbound plan-minting `sql` OR the inbound Persistence-authored Substrait `plan` bytes — the two directions of the one `ARCH`-declared `⇄` seam on one case, the minted-or-received bytes stamped onto the result table's schema metadata so the plan rides the wire and keys the receipt.
 - Entry: `QueryEngine.of` admits the bound Arrow/relation inputs; the awaitable `run` folds the `QuerySpec` through `match`/`case` closed by `assert_never`, returning `RuntimeRail[pa.Table]`. In-process `Sql`/`Rel`/`Agnostic`/`Ir` arms ride `_local` — one `async_boundary` offloading the blocking materialization off the event loop through `anyio.to_thread.run_sync`, the broad `Exception` default deliberate because `duckdb.Error`, `ibis.IbisError`, narwhals, and pyarrow are disjoint exception roots with no shared base, so a narrowed catch lets one arm's taxonomy escape the fence. Remote and streaming arms delegate to `guarded(RetryClass.REMOTE_DB)`/`guarded(RetryClass.STREAMING)`, whose `_adbc_transient` hook (ADBC `OperationalError` on `status_code` `TIMEOUT`/`IO`) and `DaftTransientError` tuple retry a genuine transport-transient under runtime backoff — never `RetryClass.RPC`/`WIRE`, whose `_named` COMPAS qualnames and `(ConnectionError,)` intra-mesh tuple catch no ADBC `OperationalError` (which subclasses `DatabaseError`, never `ConnectionError`) or daft Rust fault. Every connection is request-scoped: the DuckDB `Sql`/`Rel` connection rides the shared `columnar#SCAN` `DuckDbSession().connect()` bracket, the `_ir` backend releases through `try`/`finally` `backend.disconnect()` closing the native `backend.con` the Substrait round-trip drives, and the remote drivers ride `with dbapi.connect(...)`.
 - Receipt: `receipt_of` folds one total `_provenance` match over the `QuerySpec` axis into the shared `columnar#SCAN` `QueryReceipt.railed` — source, `predicate_count` (the lower owner's exported `parse_one().find_all(*_PREDICATE_NODES)` fold, applied not re-spelled, so scan and query share the application not only the node tuple), and `lineage_edges` (the column-level source→derived edges `sqlglot.lineage.lineage` traces per qualified output column, walked to source-column leaves through `_leaves` so an unqualified projection resolves to its real physical source, extracted on every SQL-carrying arm and `()` on the relational/agnostic arms). The content key derives off the canonical Arrow bytes through the railed `ContentIdentity.of` — EXCEPT the `Federated` arm, whose identity IS the Substrait plan bytes riding the result table's schema metadata: `ContentIdentity.of("query.plan", wire)` keys the receipt so the `Rasm.Persistence` reuse ledger gains a recompute-dedupe key, the received and minted bytes keying identically because retention-never-re-serialization is the channel law. `_provenance` is one total fold yielding `(source, predicate_count, lineage_edges)` together, never two parallel spec walks.
 - Packages: `duckdb`/`sqlglot` (the parse/qualify/optimize/lineage plane), `narwhals`, `ibis`, `adbc_driver_manager`/`adbc_driver_flightsql` (the DBAPI transport and the `DatabaseOptions`/`StatementOptions`/`ConnectionOptions`-keyed `db_kwargs`/`conn_kwargs` knobs), `connectorx` (the read-parallel accelerator over ADBC's serial pull), `daft` (the out-of-core/distributed runner), `datafusion` (the federation `Serde`/`Consumer` Substrait executor — `duckdb-substrait` owns the DuckDB half, `pyarrow.substrait` DECLINED), `obstore` (`from_url` object-store federation), `anyio` (the worker-pool offload), `beartype` (`@beartype(conf=FAULT_CONF)` on `of`/`run`), `columnar#SCAN` (the shared `DuckDbSession`/`DuckDbExtension`/`QueryReceipt`/`predicate_count` substrate), runtime (`RuntimeRail`/`ContentIdentity`/`async_boundary`/`guarded`/`RetryClass`).
@@ -255,7 +255,7 @@ class StreamingPlan(Struct, frozen=True):
 
 @tagged_union(frozen=True)
 class QuerySpec:
-    tag: Literal["sql", "rel", "agnostic", "ir", "remote", "streaming", "federated"] = tag()
+    tag: Literal["sql", "rel", "agnostic", "ir", "remote", "streaming", "federated", "flight"] = tag()
     sql: tuple[str, SqlGate | None] = case()
     rel: tuple[str | None, tuple[str, ...], tuple[str, ...]] = case()
     agnostic: tuple[tuple[str, ...], tuple[Predicate, ...], tuple[str, ...], tuple[AggExpr, ...]] = case()
@@ -263,6 +263,10 @@ class QuerySpec:
     remote: tuple[str, str, RemoteDriver, RemoteOp, Transport] = case()
     streaming: tuple[StreamingPlan, Runner, str | None] = case()
     federated: tuple[str | None, bytes | None, tuple[tuple[str, str, str | None], ...]] = case()
+    # csharp:Rasm.Persistence/Query/federation FLIGHT_RESULT_PLANE consumer: SubstraitPlan command bytes submit
+    # through GetFlightInfo, the returned ReplayKey FlightTicket redeems through DoGet — the producer plans and
+    # holds, this side only executes the ticket round-trip; `federated` stays the in-process datafusion executor.
+    flight: tuple[bytes, str] = case()
 
     @staticmethod
     def Sql(text: str, gate: SqlGate | None = None) -> "QuerySpec":
@@ -291,6 +295,10 @@ class QuerySpec:
     @staticmethod
     def Streaming(plan: StreamingPlan, runner: Runner = Runner.NATIVE, cluster: str | None = None) -> "QuerySpec":
         return QuerySpec(streaming=(plan, runner, cluster))
+
+    @staticmethod
+    def Flight(plan: bytes, dsn: str) -> "QuerySpec":
+        return QuerySpec(flight=(plan, dsn))
 
     @staticmethod
     def Federated(
@@ -337,6 +345,8 @@ class QueryEngine(Struct, frozen=True):
                 )
             case QuerySpec(tag="federated", federated=(sql, plan, stores)):
                 return await self._local("federated", lambda: _federated(sql, plan, stores, self.inputs))
+            case QuerySpec(tag="flight", flight=(plan, dsn)):
+                return await guarded(RetryClass.REMOTE_DB, anyio.to_thread.run_sync, _flight_ticket, plan, dsn, subject="query.flight")
             case unreachable:
                 assert_never(unreachable)
 
@@ -472,6 +482,16 @@ def _connectorx(sql: str, dsn: str, op: RemoteOp, transport: Transport, frames: 
         partition_num=transport.partition_num if isinstance(queries, str) and transport.partition_on else None,
     )
     return result.read_all() if op is RemoteOp.STREAM else result
+
+
+def _flight_ticket(plan: bytes, dsn: str) -> pa.Table:
+    """FederationFlight ticket round-trip: the plan bytes ride a command FlightDescriptor into GetFlightInfo and
+    the returned ticket (the producer's ReplayKey) redeems through DoGet as zero-copy record batches."""
+    import pyarrow.flight as flight  # noqa: PLC0415
+
+    client = flight.FlightClient(dsn)
+    info = client.get_flight_info(flight.FlightDescriptor.for_command(plan))
+    return client.do_get(info.endpoints[0].ticket).read_all()
 
 
 def _flightsql(sql: str, dsn: str, op: RemoteOp, transport: Transport, frames: Frames) -> pa.Table:

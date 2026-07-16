@@ -12,8 +12,8 @@ Ownership is ONE `Context` per `Runtime/scheduling#JOB_GRAPH` sweep worker — t
 
 - Owner: `ComplianceRule` carries one named `Entity.Statement`, citation, element-grounding rows, and a hypothesis discriminant; `RuleLowering` walks the same positional nodes as `Symbolic/dimensional#DIMENSION_PROOF`, including Boolean equivalence through `Context.MkIff`; `SatisfyVerdict` `[Union]` carries the three outcomes; `RuleSatisfaction` asserts base rules, opens one `Solver.Push` frame for hypotheses, checks once, projects the witness/core, then `Pop`s the frame.
 - Cases: `Satisfiable` carries every declared free variable as `WitnessValue.Rational` or exact Z3 text; `Unsatisfiable` carries tracked `name`/`name@element` literals; `Unknown` carries `(SolvePhase, FailureKind, Reason)` without coercion.
-- Entry: `Check` validates names, unique tracking identities, finite ordered bounds, grounding coverage, free-variable coverage, and timeout conversion before minting one bracketed `Context`. Every asserted CAS variable resolves through a declared bound or grounding binding; the lowering never silently mints an untracked symbol.
-- Receipt: the verdict surfaces on the carrying discipline's `AssessmentResult`: `rule:<name>` flags, rational witnesses as ratio facts, non-rational witnesses as exact text, the raw unsat core, or the typed unknown reason; no satisfy-local receipt exists.
+- Entry: `Check` validates names, unique tracking identities, finite ordered bounds, grounding coverage, free-variable coverage, and timeout conversion, then consumes the `Pregate` interval decision — a `ProvenViolated` rule settles `Unsatisfiable` and an all-`ProvenSatisfied` roster settles `Satisfiable` at the box midpoint before any native allocation; only `Indeterminate` mints the bracketed `Context`. Every asserted CAS variable resolves through a declared bound or grounding binding; the lowering never silently mints an untracked symbol.
+- Receipt: the verdict surfaces on the carrying discipline's `AssessmentResult`: `rule:<name>` flags, rational witnesses as ratio facts, non-rational witnesses as exact text, the raw unsat core, or the typed unknown triple (`satisfy-unknown-phase`/`satisfy-unknown-kind`/`satisfy-unknown` — the `SolvePhase`/`FailureKind` evidence stays typed at the assessment boundary, never a bare reason string); no satisfy-local receipt exists.
 - Packages: Microsoft.Z3 (the `Context` AST factory/arena and `AssertAndTrack`/`Check`/`Model`/`UnsatCore`/`Mk*` term surface — MIT; arm64 native Forge-provisioned, fault-at-init), AngouriMath (the `Entity.Statement` rule source, the one lowering algebra), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox.
 - Growth: a new rule is one `ComplianceRule` DATA row; a new element population under an existing rule is one `RuleGrounding` row (the template quantifies, never a per-element rule copy); a new lowered node family is one `RuleLowering` arm (the walk breaks typed on an unmapped node, never silently); a new verdict projection is one field on the verdict case; an OPTIMIZING rule query (maximize slack, Z3 soft assertions with weights) is the recorded `Optimize` growth row on this SAME owner and engine — never a second exact rail beside `Solver/optimizer`'s CP-SAT/MILP; zero new surface.
 - Boundary: Z3 VERIFIES-AND-EXPLAINS, CP-SAT OPTIMIZES — a rule-consistency question with an unsat-core explanation lands here, a design-space search on `Solver/optimizer`'s cp-sat/milp rows, and cross-wiring either engine onto the other is rejected; the lowering source is the CAS, so the `Symbolic/dimensional#DIMENSION_PROOF` gate proves a rule's unit-consistency BEFORE it asserts and a stringly rule DSL beside the CAS is rejected; a cached global `Context` is rejected because Z3 contexts are not thread-safe across workers; `UNKNOWN` stays honest — the NRA/NIA fragment is undecidable in general, so the policy timeout and `ReasonUnknown` surface as the typed shortfall, never a coerced SAT/UNSAT nor a managed fallback SMT when the Forge-provisioned native is absent; the `Symbolic/lowering#ENCLOSURE_AND_COLUMNS` `EnclosureFold.Certify` interval pre-gate answers a rule whose enclosure proves over the declared bounds BEFORE the Z3 context is minted — `ProvenSatisfied`/`ProvenViolated` short-circuit the check, `Indeterminate` falls through to the exact engine, and the gate is a filter over the same admitted `SymbolicExpr`, never a second verdict authority.
@@ -51,6 +51,43 @@ public abstract partial record SatisfyVerdict {
 public static class RuleSatisfaction {
     public static Fin<SatisfyVerdict> Check(Seq<ComplianceRule> rules, Map<string, (double Lower, double Upper)> bounds, SatisfyPolicy policy) =>
         from _ in Admit(rules, bounds, policy)
+        from verdict in Pregate(rules, bounds).Match(
+            Some: Fin.Succ,
+            None: () => CheckExact(rules, bounds, policy))
+        select verdict;
+
+    // Interval pre-gate over the SAME admitted rule set: each ungrounded comparison rule adapts to g(x) ≤ 0 and
+    // certifies through EnclosureFold.Certify over the declared box BEFORE any native allocation — one
+    // ProvenViolated rule settles Unsatisfiable, an all-ProvenSatisfied roster settles Satisfiable at the box
+    // midpoint (every box point satisfies, so the midpoint is a genuine witness), and any Indeterminate,
+    // grounded, or non-comparison rule sends the whole set to the exact engine. Filter, never verdict authority.
+    static Option<SatisfyVerdict> Pregate(Seq<ComplianceRule> rules, Map<string, (double Lower, double Upper)> bounds) {
+        Seq<string> order = toSeq(bounds.Keys);
+        ImmutableArray<Interval> box = [.. order.Map(name => Interval.Of(bounds[name].Lower, bounds[name].Upper))];
+        Seq<(ComplianceRule Rule, IntervalVerdict Verdict)> certified = rules.Map(rule =>
+            rule.Grounding.IsEmpty
+                ? Gform(rule.Constraint).Match(
+                    Some: g => (rule, EnclosureFold.Certify(g, order, box).IfFail(_ => new IntervalVerdict.Indeterminate(Interval.Of(double.MinValue, double.MaxValue)))),
+                    None: () => (rule, (IntervalVerdict)new IntervalVerdict.Indeterminate(Interval.Of(double.MinValue, double.MaxValue))))
+                : (rule, new IntervalVerdict.Indeterminate(Interval.Of(double.MinValue, double.MaxValue))));
+        return certified.Find(static pair => pair.Verdict is IntervalVerdict.ProvenViolated).Match(
+            Some: violated => Some((SatisfyVerdict)new SatisfyVerdict.Unsatisfiable(Seq(violated.Rule.Name))),
+            None: () => certified.ForAll(static pair => pair.Verdict is IntervalVerdict.ProvenSatisfied)
+                ? Some((SatisfyVerdict)new SatisfyVerdict.Satisfiable(
+                    order.Fold(Map<string, WitnessValue>(), (acc, name) => acc.Add(name, new WitnessValue.Rational((bounds[name].Lower + bounds[name].Upper) * 0.5)))))
+                : Option<SatisfyVerdict>.None);
+    }
+
+    // A comparison statement adapts to the g(x) ≤ 0 enclosure form; any other statement shape is exact-rail-only.
+    static Option<SymbolicExpr> Gform(SymbolicExpr constraint) => constraint.Entity switch {
+        Entity.LessOrEqualf le => Some(SymbolicExpr.Of(le.Left - le.Right)),
+        Entity.Lessf lt => Some(SymbolicExpr.Of(lt.Left - lt.Right)),
+        Entity.GreaterOrEqualf ge => Some(SymbolicExpr.Of(ge.Right - ge.Left)),
+        Entity.Greaterf gt => Some(SymbolicExpr.Of(gt.Right - gt.Left)),
+        _ => Option<SymbolicExpr>.None,
+    };
+
+    static Fin<SatisfyVerdict> CheckExact(Seq<ComplianceRule> rules, Map<string, (double Lower, double Upper)> bounds, SatisfyPolicy policy) =>
         from verdict in Try.lift(() => {
             using Microsoft.Z3.Context context = new();
             using Microsoft.Z3.Solver solver = context.MkSolver();
@@ -137,7 +174,10 @@ public static class RuleSatisfaction {
             unsatisfiable: unsat => FinSucc(
                 rules.Map(rule => AssessmentFact.Flag($"rule:{rule.Name}", !unsat.ViolatedRules.Exists(literal => literal == rule.Name || literal.StartsWith($"{rule.Name}@", StringComparison.Ordinal))))
                     + Seq(AssessmentFact.Text("unsat-core", string.Join(",", unsat.ViolatedRules)))),
-            unknown: static unknown => FinSucc(Seq(AssessmentFact.Text("satisfy-unknown", unknown.Reason))));
+            unknown: static unknown => FinSucc(Seq(
+                AssessmentFact.Text("satisfy-unknown-phase", unknown.Phase.Key),
+                AssessmentFact.Text("satisfy-unknown-kind", unknown.Kind.Key),
+                AssessmentFact.Text("satisfy-unknown", unknown.Reason))));
 
     static Fin<AssessmentFact> WitnessFact(string name, WitnessValue value) =>
         value.Switch(

@@ -23,15 +23,19 @@ Rasm.Compute model execution-provider axis: `ExecutionProvider` rows span every 
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ModelPrecision {
-    public static readonly ModelPrecision Full = new("full", lowPrecisionAccumulation: false, bfloat16FastMath: false, accuracyLevel: Option<int>.None, negativeTtl: Duration.FromMinutes(15));
-    public static readonly ModelPrecision Fp16 = new("fp16", lowPrecisionAccumulation: true, bfloat16FastMath: false, accuracyLevel: Option<int>.None, negativeTtl: Duration.FromMinutes(10));
-    public static readonly ModelPrecision Bf16 = new("bf16", lowPrecisionAccumulation: true, bfloat16FastMath: true, accuracyLevel: Option<int>.None, negativeTtl: Duration.FromMinutes(10));
-    public static readonly ModelPrecision Int8 = new("int8", lowPrecisionAccumulation: true, bfloat16FastMath: false, accuracyLevel: 4, negativeTtl: Duration.FromMinutes(5));
-    public static readonly ModelPrecision Int4 = new("int4", lowPrecisionAccumulation: true, bfloat16FastMath: false, accuracyLevel: 4, negativeTtl: Duration.FromMinutes(2));
+    // A precision row is EXECUTION POSTURE, never a graph transform: Int8/Int4 demand settled pre-quantized model
+    // bytes (the quantized graph is its own checksum identity) and select the MatMulNBits accuracy floor plus the
+    // accumulation posture; `QuantizedGraph` is the admission evidence session `Options` gates on.
+    public static readonly ModelPrecision Full = new("full", lowPrecisionAccumulation: false, bfloat16FastMath: false, accuracyLevel: Option<int>.None, quantizedGraph: false, negativeTtl: Duration.FromMinutes(15));
+    public static readonly ModelPrecision Fp16 = new("fp16", lowPrecisionAccumulation: true, bfloat16FastMath: false, accuracyLevel: Option<int>.None, quantizedGraph: false, negativeTtl: Duration.FromMinutes(10));
+    public static readonly ModelPrecision Bf16 = new("bf16", lowPrecisionAccumulation: true, bfloat16FastMath: true, accuracyLevel: Option<int>.None, quantizedGraph: false, negativeTtl: Duration.FromMinutes(10));
+    public static readonly ModelPrecision Int8 = new("int8", lowPrecisionAccumulation: true, bfloat16FastMath: false, accuracyLevel: 4, quantizedGraph: true, negativeTtl: Duration.FromMinutes(5));
+    public static readonly ModelPrecision Int4 = new("int4", lowPrecisionAccumulation: true, bfloat16FastMath: false, accuracyLevel: 4, quantizedGraph: true, negativeTtl: Duration.FromMinutes(2));
 
     public bool LowPrecisionAccumulation { get; }
     public bool Bfloat16FastMath { get; }
     public Option<int> AccuracyLevel { get; }
+    public bool QuantizedGraph { get; }
     public Duration NegativeTtl { get; }
 
     public FrozenDictionary<string, string> QdqKeys =>

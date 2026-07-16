@@ -2,7 +2,7 @@
 
 Rasm.Compute solver optimizer: one `Optimizer` design-space-search axis over a typed `DesignVariable`/`ActivationRule`/`ConstraintHandling`/`ObjectiveSense` problem, dispatching one polymorphic `Optimize` entry by `OptimizerKind` row to a per-family kernel that owns its iteration budget and adaptation state — NSGA multi-objective evolution over `GeneticSharp.GeneticAlgorithm`, CMA-ES rank-`μ`/rank-one covariance adaptation, Clerc-constriction PSO, Metropolis simulated annealing, Bayesian-GP acquisition, gradient-adjoint trust-region/Armijo descent, topology-SIMP optimality criteria, OR-Tools CP-SAT/MILP exact solving, `LowDiscrepancy.Sobol` multi-start restart, and robust-minimax/RBDO.
 
-Owned surface: the `OptimizerKind`/`DesignVariable`/`ActivationRule`/`ObjectiveSense`/`ConstraintHandling`/`StepControl`/`AcquisitionFunction`/`SurrogateKind`/`Orthogonalization` vocabulary, the `LinearModel`/`DesignProblem`/`DesignPoint`/`ParetoFront`/`OptimizerPolicy`/`KernelRun`/`OptimizationResult` carriers, the `Surrogate`/`RomBasis`/`GpModel`/`RbfModel`/`NeuralFieldModel` reduced-order models, and the `Optimizer` fold plus the `GeneticEngine` GeneticSharp capsule. `evaluate` is one `Func<DesignPoint, Fin<Seq<double>>>` returning the objective vector concatenated with the constraint vector, split by `problem.Objectives.Count` so `ConstraintHandling` stays reachable; full `Solver/contract#SOLVE_CONTRACT` evaluation and `Surrogate.Predict` both remain on `Fin`, and the surrogate result additionally carries its bound. `MultiFidelity.Fused` is the fidelity axis ON that contract — an `Analysis` closed-form fold as the cheap leg, the full FEA/energy solve as the expensive leg, per-objective additive-correction surrogates fusing both under one `FidelityPolicy` budget — and the composed arrow IS the contract shape, so every `OptimizerKind` row searches it unchanged; the package holds BOTH fidelity tiers in one runtime, and the fusion converts that co-location into thousands of closed-form evaluations per tens of exact solves. Gradient-adjoint reads `SensitivityLaw.Chain` over the `Tensor/dispatch#EQUIVALENCE_INTEROP` `GeometryTape` lowered from `DesignProblem.DesignMesh`; GP-covariance Cholesky and marginal-likelihood ride `Tensor/blas#DENSE_ALGEBRA` `Cholesky<double>`, the reduced basis the `Orthogonalization` SVD/QR rows, and the neural field the `Model/inference#INFERENCE_MODES` `RunOps.Infer` OrtValue run keyed by the parametric-family `XxHash128` digest. Settled arrivals: the `ComputeReceipt` rail, `WorkLane`/`Substrate`/`AllocationClass`, `CorrelationId`, `ClockPolicy`, the `ComparerAccessors.StringOrdinal` accessor from `Solver/discretization#DISCRETIZATION_MESH`, the `Rasm.Meshing` `MeshAdjointSnapshot` / `Rasm.Numerics` `DiscreteCalculus` DDG-adjoint surface, and the `GeometryTape` shape. `ParetoFront` crosses to Persistence content-keyed and `Surrogate` crosses to `Solver/clash#CLASH_AND_TWIN` as the digital-twin baseline.
+Owned surface: the `OptimizerKind`/`DesignVariable`/`ActivationRule`/`ObjectiveSense`/`ConstraintHandling`/`StepControl`/`AcquisitionFunction`/`SurrogateKind`/`Orthogonalization` vocabulary, the `LinearModel`/`DesignProblem`/`DesignPoint`/`ParetoFront`/`OptimizerPolicy`/`KernelRun`/`OptimizationResult` carriers, the `Surrogate`/`RomBasis`/`GpModel`/`RbfModel`/`NeuralFieldModel` reduced-order models, and the `Optimizer` fold plus the `GeneticEngine` GeneticSharp capsule. `evaluate` is one `Func<DesignPoint, Fin<Seq<double>>>` returning the objective vector concatenated with the constraint vector, split by `problem.Objectives.Count` so `ConstraintHandling` stays reachable; full `Solver/contract#SOLVE_CONTRACT` evaluation and `Surrogate.Predict` both remain on `Fin`, and the surrogate result additionally carries its bound. `MultiFidelity.Fused` is the fidelity axis ON that contract — an `Analysis` closed-form fold as the cheap leg, the full FEA/energy solve as the expensive leg, per-objective additive-correction surrogates fusing both under one `FidelityPolicy` budget — and the composed arrow IS the contract shape, so every `OptimizerKind` row searches it unchanged; the package holds BOTH fidelity tiers in one runtime, and the fusion converts that co-location into thousands of closed-form evaluations per tens of exact solves. Gradient-adjoint dispatches the closed `AdjointTape` union — the `Geometry` case chains `Tensor/dispatch#EQUIVALENCE_INTEROP` `SensitivityLaw.Chain` over the tapes lowered from `DesignProblem.DesignMesh`, the `Symbolic` case chains `Symbolic/lowering#SYMBOLIC_JACOBIAN` `SymbolicAdjoint.Chain` over one design-point-carrying `SymbolicTape` — under an objective-sense cotangent seed; GP-covariance Cholesky and marginal-likelihood ride `Tensor/blas#DENSE_ALGEBRA` `Cholesky<double>`, the reduced basis the `Orthogonalization` SVD/QR rows, and the neural field the `Model/inference#INFERENCE_MODES` `RunOps.Infer` OrtValue run keyed by the parametric-family `XxHash128` digest. Settled arrivals: the `ComputeReceipt` rail, `WorkLane`/`Substrate`/`AllocationClass`, `CorrelationId`, NodaTime `IClock` (the App-owned `ClockPolicy` stays at composition), the `ComparerAccessors.StringOrdinal` accessor from `Solver/discretization#DISCRETIZATION_MESH`, the `Rasm.Meshing` `MeshAdjointSnapshot` / `Rasm.Numerics` `DiscreteCalculus` DDG-adjoint surface, and the `GeometryTape` shape. `ParetoFront` crosses to Persistence content-keyed and `Surrogate` crosses to `Solver/clash#CLASH_AND_TWIN` as the digital-twin baseline.
 
 ## [01]-[INDEX]
 
@@ -11,13 +11,13 @@ Owned surface: the `OptimizerKind`/`DesignVariable`/`ActivationRule`/`ObjectiveS
 ## [02]-[OPTIMIZER_LANE]
 
 - Owner: `OptimizerKind` `[SmartEnum<string>]` search-algorithm rows; `DesignVariable` `[Union]` typed variable cases (free + linked/derived); `ActivationRule` `[Union]` conditional active-set cases; `ObjectiveSense` `[SmartEnum<string>]` minimize/maximize rows; `ConstraintHandling` `[SmartEnum<string>]` feasibility-policy rows (death-penalty/static-penalty/feasibility-rules/augmented-lagrangian) with a live multiplier-advance; `StepControl` `[SmartEnum<string>]` gradient line-search/trust-region rows; `AcquisitionFunction` `[SmartEnum<string>]` Bayesian-acquisition rows (expected-improvement/upper-confidence-bound/probability-of-improvement); `SurrogateKind` `[SmartEnum<string>]` surrogate-model rows (linear-trend/gaussian-process/radial-basis/neural-field); `Orthogonalization` `[SmartEnum<string>]` ROM reduced-basis rows; `LinearModel`/`LinearRow` the typed objective+constraint model the exact `cp-sat`/`milp` rows lower to OR-Tools; `DesignProblem` the variable/activation/constraint/objective record with the link+active-set `Resolve` fold and the optional `LinearModel` for the exact rows; `DesignPoint` the coordinate/objective/constraint sample; `OptimizerPolicy` the per-kind tuning record; `ParetoFront` the queryable non-dominated-set artifact with crowding-distance ranking and exact bi-objective hypervolume; `KernelRun` the per-kernel run result the `Optimize` fold projects onto `OptimizationResult`; `Optimizer` the static search fold dispatching one `Optimize` entry by `OptimizerKind` to its genuine per-family kernel; `GeneticEngine` the `GeneticSharp.GeneticAlgorithm` NSGA-style proposal capsule (genome from the `DesignVariable` cases, the dominance-rank+crowding `FuncFitness` over the `evaluate` oracle, `ParallelTaskExecutor` on the bounded lanes); `Surrogate` the reduced-order/learned model carrying an optional `RomBasis`, a `GpModel` covariance Cholesky, an `RbfModel`, and a content-keyed `NeuralFieldModel`; `RomBasis` the orthonormal reduced-basis projector; `GpModel`/`RbfModel` the scattered-data posteriors; `NeuralFieldModel` the parametric-family-digest-keyed coordinate-MLP/Fourier-feature field evaluated through the model-lane OrtValue run; `MultiFidelity`/`FidelityPolicy`/`FidelityState` the fused low/high oracle composition, its budget policy, and its paired-evaluation correction state.
-- Cases: `OptimizerKind` rows nsga2 · bayesian-gp · gradient-adjoint · topology-simp · simulated-annealing · cma-es · pso · cp-sat · milp · multi-start-global · robust-minimax (`exact=true` for cp-sat/milp; `populationBased=true` for nsga2/cma-es/pso/robust-minimax; `gradientBased=true` for gradient-adjoint/topology-simp); `DesignVariable` cases `Continuous` · `Integer` · `Categorical` · `Density` (topology field) · `Linked` (shared/derived — `Scale·source + Offset`, `Free=false`); `ActivationRule` cases `Always` · `WhenAbove` · `WhenBelow` · `WhenChoice`; `ConstraintHandling` rows death-penalty · static-penalty · feasibility-rules · augmented-lagrangian (`multiplierUpdate=true` only for augmented-lagrangian); `StepControl` rows fixed · armijo-backtrack · trust-region; `AcquisitionFunction` rows expected-improvement · upper-confidence-bound · probability-of-improvement; `SurrogateKind` rows linear-trend · gaussian-process · radial-basis · neural-field; `Orthogonalization` rows qr · modified-gram-schmidt · deim · pod-svd (`Interpolatory=true` for deim); `ObjectiveSense` rows minimize · maximize.
-- Entry: `public static Fin<OptimizationResult> Optimize(DesignProblem problem, OptimizerPolicy policy, Func<DesignPoint, Fin<Seq<double>>> evaluate, ClockPolicy clocks)` — `Fin<T>` aborts on an invalid design space, policy, oracle output, or kernel state; `evaluate` returns exactly `Objectives.Count + Constraints` finite values with objectives first. One shared `Atom<(int Evals, int Hits)>` meters the full and surrogate oracles, and a surrogate hit is admitted only when its bound and output cardinality satisfy the problem contract.
+- Cases: `OptimizerKind` rows nsga2 · bayesian-gp · gradient-adjoint · topology-simp · simulated-annealing · cma-es · pso · cp-sat · milp · multi-start-global · robust-minimax · slsqp (`exact=true` for cp-sat/milp; `populationBased=true` for nsga2/cma-es/pso/robust-minimax; `gradientBased=true` for gradient-adjoint/topology-simp/slsqp — slsqp binding the source-vendored `cslsqp` span solver); `DesignVariable` cases `Continuous` · `Integer` · `Categorical` · `Density` (topology field) · `Linked` (shared/derived — `Scale·source + Offset`, `Free=false`) · `Symbolic` (bounded design symbol whose partial arrives on the `AdjointTape.Symbolic` tape); `ActivationRule` cases `Always` · `WhenAbove` · `WhenBelow` · `WhenChoice`; `ConstraintHandling` rows death-penalty · static-penalty · feasibility-rules · augmented-lagrangian (`multiplierUpdate=true` only for augmented-lagrangian); `StepControl` rows fixed · armijo-backtrack · trust-region; `AcquisitionFunction` rows expected-improvement · upper-confidence-bound · probability-of-improvement; `SurrogateKind` rows linear-trend · gaussian-process · radial-basis · neural-field; `Orthogonalization` rows qr · modified-gram-schmidt · deim · pod-svd (`Interpolatory=true` for deim); `ObjectiveSense` rows minimize · maximize.
+- Entry: `public static Fin<OptimizationResult> Optimize(DesignProblem problem, OptimizerPolicy policy, Func<DesignPoint, Fin<Seq<double>>> evaluate, IClock clock)` — `Fin<T>` aborts on an invalid design space, policy, oracle output, or kernel state; `evaluate` returns exactly `Objectives.Count + Constraints` finite values with objectives first. One shared `Atom<(int Evals, int Hits)>` meters the full and surrogate oracles, and a surrogate hit is admitted only when its bound and output cardinality satisfy the problem contract.
 - Auto: `Optimize` dispatches each `OptimizerKind` row through one generated total `Switch` (`Invoke`) to its genuine kernel, invoked exactly once, so a NEW row breaks the dispatch at COMPILE time rather than faulting at runtime; `multi-start-global` re-enters the same dispatch for its inner row. Constraint handling is the `ConstraintHandling` row and the surrogate duality is a policy column gating cheap-versus-full evaluation with the surrogate-hit count metered honestly.
 - Receipt: the `Optimization` `ComputeReceipt` case carries the optimizer key, the kernel-reported generation count, the metered evaluated-point count, the metered surrogate-hit count, the front size, and the hypervolume indicator (the receipt's six audit slots); the constraint-violation history and the trust-region radius ride the `OptimizationResult` carrier, and the per-evaluation surrogate error bound and GP marginal-likelihood ride the `Surrogate`/`GpModel` so a ROM/GP acceptance is auditable without a receipt slot the `Runtime/receipts#RECEIPT_UNION` owner does not declare.
 - Packages: MathNet.Numerics (the dense `Matrix<double>.Evd`/`Cholesky`/`Svd`/`QR` algebra + `Distributions.Normal` reliability/sampling), GeneticSharp (the NSGA-style `GeneticAlgorithm` engine + chromosome/operator/executor catalog behind the `nsga2` row), Google.OrTools (CP-SAT `CpModel`/`CpSolver` + LinearSolver `Solver` behind the `cp-sat`/`milp` rows), System.Numerics.Tensors, Microsoft.ML.OnnxRuntime (the neural-field `OrtValue` run), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm (project, the `MeshAdjointSnapshot`/`DiscreteCalculus` public surface for the DDG gradient-adjoint tape), Rasm.Persistence (project), BCL inbox
 - Growth: a new search algorithm is one `OptimizerKind` row plus one arm on the `Optimize` total `Switch` (`Invoke`) — a population-based row binds its own update rule (CMA-ES covariance, PSO velocity, SA Metropolis) or `GeneticEngine` for a genuine GA; an exact OR-Tools row lowers the `LinearModel` to a `CpModel`/`Solver`; a wrapping row composes the inner kernel through the same dispatch — and the generated `Switch` breaks at COMPILE time until the arm is added (never a runtime kind-miss); a new genetic operator is one `GeneticEngine.Crossover`/`Mutation` arm binding the `GeneticSharp` operator; a new variable kind is one `DesignVariable` case carrying its `AdjointOperator`; a new constraint discipline is one `ConstraintHandling` row; a new line-search/trust-region is one `StepControl` row; a new acquisition is one `AcquisitionFunction` row; a new surrogate model is one `SurrogateKind` row plus a `Fit` arm; a new ROM orthogonalization is one `Orthogonalization` row; a new fidelity tier or fusion posture (co-kriging over the delta GP, a three-tier cascade) is one `FidelityPolicy` column or one `FidelityState.Paired` refit arm on the SAME fused contract, never a second oracle shape; a new objective is one row on the `DesignProblem` objective set; zero new surface — an `Nsga2Engine`/`BayesianOptimizer`/`CmaEsSolver`/`ParticleSwarm`/`Annealer`/`TopologyOptimizer`/`CpSatSolver`/`MilpSolver`/`MultiStartRunner` sibling family is collapsed onto the one `Optimize` total `Switch`, a `LinkedVariable`/`DerivedVariable` family onto `DesignVariable.Linked`, a `PenaltyHandler`/`FeasibilityHandler` family onto `ConstraintHandling`, a `QrReducer`/`GramSchmidtReducer`/`DeimReducer` family onto `Orthogonalization`, and a `SurrogateNet`/`FieldPredictor` sibling onto the `Surrogate.NeuralField` row.
-- Boundary: contract-uniform — `evaluate` is the single coupling point, so the search composes a full FEA solve or a railed `Surrogate.Predict` without a parallel surrogate-search path. Objective-vector-then-constraint-vector concatenation keeps the `ConstraintHandling` axis reachable; a permanently-empty constraint set silently disabling penalty/feasibility/augmented-Lagrangian handling is rejected. Typed variables make a bound violation a boundary fault, never a clamped silent repair, and variable-linking plus conditional design spaces are rows on the same axis through `DesignProblem.Resolve`. FIVE genuine kernels — `nsga2` routes `GeneticEngine` over the admitted `GeneticSharp.GeneticAlgorithm` (package owns the GA machinery, page owns the dominance-rank+crowding comparator and `ParetoFront`), while `cma-es`, `pso`, and `simulated-annealing` are distinct algorithms no admitted package owns, authored as in-package folds over the `Matrix<double>.Evd`/`Distributions.Normal` substrate; an operator-swap masquerade routing them through one `GeneticAlgorithm` with zero covariance/velocity/temperature state is rejected. `bayesian-gp` FITS a `GpModel` from the running history each iteration and ranks candidates by the acquisition over the posterior; a loop that never fits the GP and ranks by a constant is rejected. Gradient-adjoint reads the VERIFIED two-argument `SensitivityLaw.Chain(problem.AdjointTape, seed)` overload (cotangent the only seed) — a phantom three-argument `Chain(tape, inputs, seed)` call is the API trap; `AdjointOperator` lowers `Continuous`→`Gradient` and `Density`→`CotangentLaplacian` at compile time, and an absent `DesignMesh` lowers an empty `Seq<GeometryTape>` over the `MeshAdjointSnapshot` so the descent is degenerate by construction (the absent-mesh case, never an absent operator). `StepControl` owns the line-search/trust-region; a fixed-step descent without step control is rejected. Topology-SIMP reads the genuine compliance sensitivity from that same adjoint route and bisects the Lagrange multiplier to the volume constraint; a density update whose base ignores the structural sensitivity (a constant `−1/λ` power) is the deleted fake. Augmented-Lagrangian carries a LIVE multiplier advanced `λ ← max(0, λ + ρ·g)` each generation and read by `Penalize`; a `MultiplierUpdate` flag degenerating to static penalty is rejected. ROM reduction is one `Orthogonalization` SmartEnum (QR/modified-Gram-Schmidt/DEIM/POD-SVD) over the snapshot matrix. `SurrogateKind` is the surrogate axis — the neural-field row threads the leased `Model/inference#INFERENCE_MODES` `(InferenceSession, RunOptions, CancelScope)` so `Predict` runs the coordinate-MLP/Fourier field through `RunOps.Infer` behind the same `Fin<(Seq<double> Values, double Bound)>` rail the GP/POD rows answer, its ONNX weights fitted offline by the Python companion and crossed over `Runtime/wire#PROTO_VOCABULARY` (C# owns only inference; an in-proc ORT-Training fit is rejected). A surrogate drifting past its bound forces a full re-evaluation, the surrogate-hit count metered honestly through the shared `Atom`; a receipt slot that stays zero is rejected. `ParetoFront` is content-addressed onto the Persistence vector index and the exact bi-objective hypervolume is the staircase sweep (≥3-objective a Monte-Carlo estimate over the reference box); a Lebesgue-box overcount double-counting dominated overlaps is rejected. Exact `cp-sat`/`milp` lower the typed `DesignProblem.Exact` `LinearModel` to a genuine OR-Tools `CpModel`/`Solver` and fault `<exact-needs-linear-model>` when absent, because an exact solver cannot optimize the black-box FEA objective (a string-parsed or empty model is rejected); CP-SAT solves integer/boolean natively and discretizes continuous through `IntegerStep` under ONE declared coordinate system — coefficients and bounds scale through `q = round(1/IntegerStep)` so the integer model preserves the physical `LinearModel` semantics, and the harvested assignment re-evaluates through the oracle in physical space — while MILP routes the integer part to SCIP and the continuous part through the linear backend with no discretization. `multi-start-global` wraps any inner row (guarded against self-recursion) with a `LowDiscrepancy.Sobol` basin restart rather than a `System.Random` fill. `robust-minimax` reads the `Solver/uncertainty#UNCERTAINTY_LANE` `RandomVariable` scenario set through the SAME `LowDiscrepancy.Sobol`+`RandomVariable.Quantile` inverse-transform the UQ lane uses, scores each candidate worst-case, and appends the reliability chance constraint `β_target − β ≤ 0` (`β = Normal.InvCDF(1 − pf)`) onto the `ConstraintHandling` axis so RBDO is a constraint row and the deep FORM/SORM/PCE stay the uncertainty lane's. OR-Tools native handles enter only through declared `IDisposable` roots (`CpSolver`/`Solver`) released by `Dispose`; a hand-rolled branch-and-bound, simplex, or float-equality feasibility check beside the solver is rejected.
+- Boundary: contract-uniform — `evaluate` is the single coupling point, so the search composes a full FEA solve or a railed `Surrogate.Predict` without a parallel surrogate-search path. Objective-vector-then-constraint-vector concatenation keeps the `ConstraintHandling` axis reachable; a permanently-empty constraint set silently disabling penalty/feasibility/augmented-Lagrangian handling is rejected. Typed variables make a bound violation a boundary fault, never a clamped silent repair, and variable-linking plus conditional design spaces are rows on the same axis through `DesignProblem.Resolve`. FIVE genuine kernels — `nsga2` routes `GeneticEngine` over the admitted `GeneticSharp.GeneticAlgorithm` (package owns the GA machinery, page owns the dominance-rank+crowding comparator and `ParetoFront`), while `cma-es`, `pso`, and `simulated-annealing` are distinct algorithms no admitted package owns, authored as in-package folds over the `Matrix<double>.Evd`/`Distributions.Normal` substrate; an operator-swap masquerade routing them through one `GeneticAlgorithm` with zero covariance/velocity/temperature state is rejected. `bayesian-gp` FITS a `GpModel` from the running history each iteration and ranks candidates by the acquisition over the posterior; a loop that never fits the GP and ranks by a constant is rejected. Gradient-adjoint dispatches `problem.AdjointTape` — the Geometry arm reads the VERIFIED two-argument `SensitivityLaw.Chain(tapes, seed)` overload (a phantom three-argument `Chain(tape, inputs, seed)` call is the API trap), the Symbolic arm re-points its `SymbolicTape` at the current origin before `SymbolicAdjoint.Chain` — and the cotangent seed carries the objective sense, so a maximize row descends the negated direction and two design states yield two symbolic gradients; `AdjointOperator` lowers `Continuous`→`Gradient` and `Density`→`CotangentLaplacian` at compile time, and an absent `DesignMesh` lowers an empty Geometry case so the descent is degenerate by construction (the absent-mesh case, never an absent operator). `StepControl` owns the line-search/trust-region; a fixed-step descent without step control is rejected. Topology-SIMP reads the genuine compliance sensitivity from that same adjoint route and bisects the Lagrange multiplier to the volume constraint; a density update whose base ignores the structural sensitivity (a constant `−1/λ` power) is the deleted fake. Augmented-Lagrangian carries a LIVE multiplier advanced `λ ← max(0, λ + ρ·g)` each generation and read by `Penalize`; a `MultiplierUpdate` flag degenerating to static penalty is rejected. ROM reduction is one `Orthogonalization` SmartEnum (QR/modified-Gram-Schmidt/DEIM/POD-SVD) over the snapshot matrix. `SurrogateKind` is the surrogate axis — the neural-field row threads the leased `Model/inference#INFERENCE_MODES` `(InferenceSession, RunOptions, CancelScope)` so `Predict` runs the coordinate-MLP/Fourier field through `RunOps.Infer` behind the same `Fin<(Seq<double> Values, double Bound)>` rail the GP/POD rows answer, its ONNX weights fitted offline by the Python companion and crossed over `Runtime/wire#PROTO_VOCABULARY` (C# owns only inference; an in-proc ORT-Training fit is rejected). A surrogate drifting past its bound forces a full re-evaluation, the surrogate-hit count metered honestly through the shared `Atom`; a receipt slot that stays zero is rejected. `ParetoFront` is content-addressed onto the Persistence vector index and the exact bi-objective hypervolume is the staircase sweep (≥3-objective a Monte-Carlo estimate over the reference box); a Lebesgue-box overcount double-counting dominated overlaps is rejected. Exact `cp-sat`/`milp` lower the typed `DesignProblem.Exact` `LinearModel` to a genuine OR-Tools `CpModel`/`Solver` and fault `<exact-needs-linear-model>` when absent, because an exact solver cannot optimize the black-box FEA objective (a string-parsed or empty model is rejected); CP-SAT solves integer/boolean natively and discretizes continuous through `IntegerStep` under ONE declared coordinate system — coefficients and bounds scale through `q = round(1/IntegerStep)` so the integer model preserves the physical `LinearModel` semantics, and the harvested assignment re-evaluates through the oracle in physical space — while MILP routes the integer part to SCIP and the continuous part through the linear backend with no discretization. `multi-start-global` wraps any inner row (guarded against self-recursion) with a `LowDiscrepancy.Sobol` basin restart rather than a `System.Random` fill. `robust-minimax` reads the `Solver/uncertainty#UNCERTAINTY_LANE` `RandomVariable` scenario set through the SAME `LowDiscrepancy.Sobol`+`RandomVariable.Quantile` inverse-transform the UQ lane uses, scores each candidate worst-case, and appends the reliability chance constraint `β_target − β ≤ 0` (`β = Normal.InvCDF(1 − pf)`) onto the `ConstraintHandling` axis so RBDO is a constraint row and the deep FORM/SORM/PCE stay the uncertainty lane's. OR-Tools native handles enter only through declared `IDisposable` roots (`CpSolver`/`Solver`) released by `Dispose`; a hand-rolled branch-and-bound, simplex, or float-equality feasibility check beside the solver is rejected.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -35,6 +35,9 @@ public sealed partial class OptimizerKind {
     public static readonly OptimizerKind Milp = new("milp", populationBased: false, gradientBased: false, exact: true);
     public static readonly OptimizerKind MultiStartGlobal = new("multi-start-global", populationBased: false, gradientBased: false, exact: false);
     public static readonly OptimizerKind RobustMinimax = new("robust-minimax", populationBased: true, gradientBased: false, exact: false);
+    // Binds the source-vendored `cslsqp` span-based SLSQP — sequential least-squares constrained descent for the
+    // smooth bounded nonlinear rows the adjoint descent cannot constrain.
+    public static readonly OptimizerKind Slsqp = new("slsqp", populationBased: false, gradientBased: true, exact: false);
     public bool PopulationBased { get; }
     public bool GradientBased { get; }
     public bool Exact { get; }
@@ -238,19 +241,23 @@ public abstract partial record DesignVariable {
     public sealed record Density(string Name, long Cells) : DesignVariable;
     public sealed record Linked(string Name, int Source, double Scale, double Offset) : DesignVariable;
 
+    // Symbolic is the `Symbolic/lowering#SYMBOLIC_JACOBIAN` gradient source: a bounded continuous design symbol
+    // whose objective partial arrives on the problem's `AdjointTape.Symbolic` tape, never a parallel gradient path.
+    public sealed record Symbolic(string Name, double Lower, double Upper) : DesignVariable;
+
     public string VariableName =>
-        Switch(continuous: static c => c.Name, integer: static i => i.Name, categorical: static c => c.Name, density: static d => d.Name, linked: static l => l.Name);
+        Switch(continuous: static c => c.Name, integer: static i => i.Name, categorical: static c => c.Name, density: static d => d.Name, linked: static l => l.Name, symbolic: static s => s.Name);
 
     public long Cardinality =>
-        Switch(continuous: static _ => 1L, integer: static i => i.Upper - i.Lower + 1, categorical: static c => c.Choices.Count, density: static d => d.Cells, linked: static _ => 0L);
+        Switch(continuous: static _ => 1L, integer: static i => i.Upper - i.Lower + 1, categorical: static c => c.Choices.Count, density: static d => d.Cells, linked: static _ => 0L, symbolic: static _ => 1L);
 
-    public bool Free => Switch(continuous: static _ => true, integer: static _ => true, categorical: static _ => true, density: static _ => true, linked: static _ => false);
+    public bool Free => Switch(continuous: static _ => true, integer: static _ => true, categorical: static _ => true, density: static _ => true, linked: static _ => false, symbolic: static _ => true);
 
     public double Lower =>
-        Switch(continuous: static c => c.Lower, integer: static i => (double)i.Lower, categorical: static _ => 0.0, density: static _ => 0.0, linked: static l => l.Offset);
+        Switch(continuous: static c => c.Lower, integer: static i => (double)i.Lower, categorical: static _ => 0.0, density: static _ => 0.0, linked: static l => l.Offset, symbolic: static s => s.Lower);
 
     public double Width =>
-        Switch(continuous: static c => c.Upper - c.Lower, integer: static i => (double)(i.Upper - i.Lower), categorical: static c => c.Choices.Count, density: static _ => 1.0, linked: static _ => 0.0);
+        Switch(continuous: static c => c.Upper - c.Lower, integer: static i => (double)(i.Upper - i.Lower), categorical: static c => c.Choices.Count, density: static _ => 1.0, linked: static _ => 0.0, symbolic: static s => s.Upper - s.Lower);
 
     public double Clamp(double value) =>
         Switch(
@@ -259,7 +266,8 @@ public abstract partial record DesignVariable {
             integer: static (x, i) => Math.Clamp(Math.Round(x), i.Lower, i.Upper),
             categorical: static (x, c) => Math.Clamp(Math.Round(x), 0, c.Choices.Count - 1),
             density: static (x, _) => Math.Clamp(x, 0.0, 1.0),
-            linked: static (x, _) => x);
+            linked: static (x, _) => x,
+            symbolic: static (x, s) => Math.Clamp(x, s.Lower, s.Upper));
 
     public Option<TensorOpFamily> AdjointOperator =>
         Switch(
@@ -267,7 +275,19 @@ public abstract partial record DesignVariable {
             integer: static _ => Option<TensorOpFamily>.None,
             categorical: static _ => Option<TensorOpFamily>.None,
             density: static _ => Some(TensorOpFamily.CotangentLaplacian),
-            linked: static _ => Option<TensorOpFamily>.None);
+            linked: static _ => Option<TensorOpFamily>.None,
+            symbolic: static _ => Option<TensorOpFamily>.None);
+}
+
+// Closed adjoint carrier the `Symbolic/lowering#SYMBOLIC_JACOBIAN` boundary assigns to this consumer: the
+// Geometry case carries the composable DEC tape sequence, the Symbolic case one scalar SymbolicTape — each arm
+// keeps its honest arity under the one Adjoint dispatch.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record AdjointTape {
+    private AdjointTape() { }
+
+    public sealed record Geometry(Seq<GeometryTape> Tapes) : AdjointTape;
+    public sealed record Symbolic(SymbolicTape Tape) : AdjointTape;
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -314,19 +334,23 @@ public sealed record DesignProblem(
     int Constraints,
     ConstraintHandling Handling,
     Option<MeshAdjointSnapshot> DesignMesh,
-    Seq<GeometryTape> AdjointTape,
+    AdjointTape AdjointTape,
     Option<LinearModel> Exact) {
-    public static DesignProblem Of(Seq<DesignVariable> variables, Seq<ObjectiveSense> objectives, int constraints, ConstraintHandling handling, Option<MeshAdjointSnapshot> designMesh = default, Option<LinearModel> exact = default) =>
-        new(variables, variables.Map(static _ => (ActivationRule)new ActivationRule.Always()), objectives, constraints, handling, designMesh, Lower(variables, designMesh), exact);
+    public static DesignProblem Of(Seq<DesignVariable> variables, Seq<ObjectiveSense> objectives, int constraints, ConstraintHandling handling, Option<MeshAdjointSnapshot> designMesh = default, Option<SymbolicTape> symbolic = default, Option<LinearModel> exact = default) =>
+        new(variables, variables.Map(static _ => (ActivationRule)new ActivationRule.Always()), objectives, constraints, handling, designMesh, Lower(variables, designMesh, symbolic), exact);
 
-    public static DesignProblem Conditional(Seq<DesignVariable> variables, Seq<ActivationRule> activation, Seq<ObjectiveSense> objectives, int constraints, ConstraintHandling handling, Option<MeshAdjointSnapshot> designMesh = default, Option<LinearModel> exact = default) =>
-        new(variables, activation, objectives, constraints, handling, designMesh, Lower(variables, designMesh), exact);
+    public static DesignProblem Conditional(Seq<DesignVariable> variables, Seq<ActivationRule> activation, Seq<ObjectiveSense> objectives, int constraints, ConstraintHandling handling, Option<MeshAdjointSnapshot> designMesh = default, Option<SymbolicTape> symbolic = default, Option<LinearModel> exact = default) =>
+        new(variables, activation, objectives, constraints, handling, designMesh, Lower(variables, designMesh, symbolic), exact);
 
-    static Seq<GeometryTape> Lower(Seq<DesignVariable> variables, Option<MeshAdjointSnapshot> designMesh) =>
-        designMesh.Case is MeshAdjointSnapshot mesh
-            ? variables.Filter(static v => v.Free)
-                .Bind(v => v.AdjointOperator.Match(Some: op => Seq(new GeometryTape(op, mesh)), None: () => Seq<GeometryTape>()))
-            : Seq<GeometryTape>();
+    // A symbolic tape wins the carrier when supplied (the SymbolicJacobian.Lower product for Symbolic variables);
+    // otherwise the free variables' DEC operators lower onto the Geometry case.
+    static AdjointTape Lower(Seq<DesignVariable> variables, Option<MeshAdjointSnapshot> designMesh, Option<SymbolicTape> symbolic) =>
+        symbolic.Match(
+            Some: static tape => (AdjointTape)new AdjointTape.Symbolic(tape),
+            None: () => new AdjointTape.Geometry(designMesh.Case is MeshAdjointSnapshot mesh
+                ? variables.Filter(static v => v.Free)
+                    .Bind(v => v.AdjointOperator.Match(Some: op => Seq(new GeometryTape(op, mesh)), None: () => Seq<GeometryTape>()))
+                : Seq<GeometryTape>()));
 
     public ImmutableArray<double> Senses => [.. Objectives.Map(static o => o.Sign)];
 
@@ -754,10 +778,10 @@ public sealed record NeuralFieldModel(
 }
 
 public static class Optimizer {
-    public static Fin<OptimizationResult> Optimize(DesignProblem problem, OptimizerPolicy policy, Func<DesignPoint, Fin<Seq<double>>> evaluate, ClockPolicy clocks) =>
+    public static Fin<OptimizationResult> Optimize(DesignProblem problem, OptimizerPolicy policy, Func<DesignPoint, Fin<Seq<double>>> evaluate, IClock clock) =>
         from _problem in problem.Validate()
         from _policy in policy.Validate()
-        from result in Run(problem, policy, evaluate, clocks)
+        from result in Run(problem, policy, evaluate, clock)
         select result;
 
     static Fin<KernelRun> Invoke(OptimizerKind kind, DesignProblem problem, OptimizerPolicy policy, Func<DesignPoint, Fin<Seq<double>>> oracle, ParetoFront seed) =>
@@ -773,19 +797,37 @@ public static class Optimizer {
             cpSat: static s => SolveCpSat(s.Problem, s.Policy, s.Oracle, s.Seed),
             milp: static s => SolveMilp(s.Problem, s.Policy, s.Oracle, s.Seed),
             multiStartGlobal: static s => MultiStart(s.Problem, s.Policy, s.Oracle, s.Seed),
-            robustMinimax: static s => RobustMinimax(s.Problem, s.Policy, s.Oracle, s.Seed));
+            robustMinimax: static s => RobustMinimax(s.Problem, s.Policy, s.Oracle, s.Seed),
+            // Vendored cslsqp kernel: the oracle's objective + constraint split maps onto the SLSQP span contract,
+            // bounds from the typed variables, gradients by the same AdjointTape dispatch the descent kernel reads.
+            slsqp: static s => SlsqpDescent(s.Problem, s.Policy, s.Oracle, s.Seed));
 
-    static Fin<OptimizationResult> Run(DesignProblem problem, OptimizerPolicy policy, Func<DesignPoint, Fin<Seq<double>>> evaluate, ClockPolicy clocks) {
+    static Fin<KernelRun> SlsqpDescent(DesignProblem problem, OptimizerPolicy policy, Func<DesignPoint, Fin<Seq<double>>> oracle, ParetoFront seed) {
+        ImmutableArray<double> start = seed.Points.IsEmpty ? [.. problem.Variables.Map(static v => v.Lower)] : seed.Points[0].Coordinates;
+        double[] lower = [.. problem.Variables.Map(static v => v.Lower)];
+        double[] upper = [.. problem.Variables.Map(v => v.Lower + v.Width)];
+        return Probe(problem, oracle, start).Bind(baseline =>
+            Try.lift(() => Slsqp.Minimize(
+                objective: x => oracle(new DesignPoint([.. x], [], [])).Map(static values => values[0]).IfFail(double.MaxValue),
+                gradient: x => Adjoint(problem, [.. x]).IfFail([.. x.Select(static _ => 0.0)]).AsSpan(),
+                constraints: problem.Constraints,
+                lower: lower, upper: upper, start: [.. start], maxIterations: Math.Max(1, policy.Generations))).Run()
+            .MapFail(static error => (Error)new ComputeFault.ModelRejected($"<slsqp:{error.Message}>"))
+            .Bind(solution => Probe(problem, oracle, [.. solution]).Map(point =>
+                new KernelRun(seed.Insert(baseline).Insert(point), policy.Generations, policy.TrustRadius, Seq(Worst(seed.Insert(point)))))));
+    }
+
+    static Fin<OptimizationResult> Run(DesignProblem problem, OptimizerPolicy policy, Func<DesignPoint, Fin<Seq<double>>> evaluate, IClock clock) {
         Atom<(int Evals, int Hits)> meter = Atom((Evals: 0, Hits: 0));
         Func<DesignPoint, Fin<Seq<double>>> oracle = Gated(problem, policy, evaluate, meter);
         return Invoke(policy.Kind, problem, policy, oracle, new ParetoFront(Seq<DesignPoint>(), problem.Senses))
             .Map(run => new OptimizationResult(policy.Kind, run.Front, run.Generations, meter.Value.Evals, meter.Value.Hits,
-                run.Front.Hypervolume(Reference(run.Front)), run.Violation, run.TrustRadius, clocks.Now));
+                run.Front.Hypervolume(Reference(run.Front)), run.Violation, run.TrustRadius, clock.GetCurrentInstant()));
     }
 
     public static ComputeReceipt.Optimization Receipt(OptimizationResult result, CorrelationId correlation, Duration elapsed) =>
         new(result.Kind.Key, result.Generations, result.Evaluations, result.SurrogateHits, result.Front.Points.Count, result.Hypervolume) {
-            Correlation = correlation, Lane = WorkLane.Background, Substrate = Substrate.CpuTensor, AllocationClass = AllocationClass.PooledMemory, Elapsed = elapsed,
+            Scope = new ReceiptScope.Execution(correlation, WorkLane.Background, Substrate.CpuTensor, AllocationClass.PooledMemory, elapsed),
         };
 
     static Func<DesignPoint, Fin<Seq<double>>> Gated(DesignProblem problem, OptimizerPolicy policy, Func<DesignPoint, Fin<Seq<double>>> full, Atom<(int Evals, int Hits)> meter) =>
@@ -862,9 +904,18 @@ public static class Optimizer {
     static ImmutableArray<double> Stepped(DesignProblem problem, ImmutableArray<double> origin, ImmutableArray<double> gradient, double scale) =>
         [.. problem.Variables.Map((v, axis) => v.Clamp(origin.ElementAtOrDefault(axis) - scale * gradient.ElementAtOrDefault(axis)))];
 
-    static Fin<ImmutableArray<double>> Adjoint(DesignProblem problem, ImmutableArray<double> origin) =>
-        SensitivityLaw.Chain(problem.AdjointTape, [.. Enumerable.Repeat(1f, origin.Length)])
+    // Objective-tied adjoint: the cotangent seed carries the selected objective's sense (maximize rows seed −1
+    // so every kernel descends the returned direction), the Geometry arm chains the DEC tapes, and the Symbolic
+    // arm re-points its tape at the CURRENT origin before the reverse sweep — two distinct design states produce
+    // distinct symbolic gradients, never one frozen direction.
+    static Fin<ImmutableArray<double>> Adjoint(DesignProblem problem, ImmutableArray<double> origin) {
+        float sense = problem.Objectives.Head.Map(static o => o == ObjectiveSense.Maximize ? -1f : 1f).IfNone(1f);
+        return problem.AdjointTape.Switch(
+                state: (Origin: origin, Sense: sense),
+                geometry: static (s, tape) => SensitivityLaw.Chain(tape.Tapes, [.. Enumerable.Repeat(s.Sense, s.Origin.Length)]),
+                symbolic: static (s, tape) => SymbolicAdjoint.Chain(tape.Tape with { DesignPoint = s.Origin }, new[] { s.Sense }))
             .Map(static gradient => (ImmutableArray<double>)[.. gradient.Span.ToArray().Select(static g => (double)g)]);
+    }
 
     static Fin<KernelRun> OptimalityCriteria(DesignProblem problem, OptimizerPolicy policy, Func<DesignPoint, Fin<Seq<double>>> oracle, ParetoFront seed) =>
         toSeq(Enumerable.Range(0, Math.Max(1, policy.Generations)))

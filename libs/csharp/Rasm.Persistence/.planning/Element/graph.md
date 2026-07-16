@@ -484,7 +484,7 @@ public sealed partial class FaultBand {
     public static readonly FaultBand Graph        = new(8300, "Element/graph#GraphFault (registry host; 8303 = folded-txn conflict)");
     public static readonly FaultBand Codec        = new(8310, "Element/codec#CodecFault (legal 831x-833x stride)");
     public static readonly FaultBand Identity     = new(8340, "Element/identity#IdentityFault (Element/authority composes, no own band)");
-    public static readonly FaultBand Columnar     = new(8350, "Query/columnar#ColumnarFault (whole decade 8350-8356)");
+    public static readonly FaultBand Columnar     = new(8350, "Query/columnar#ColumnarFault (offsets 0-9: 8350-8359)");
     public static readonly FaultBand Cypher       = new(8360, "Query/cypher#CypherFault (renamed off the GraphFault simple-name collision)");
     public static readonly FaultBand Topology     = new(8370, "Query/topology#TopologyFault");
     public static readonly FaultBand Server       = new(8380, "Store/provisioning#ServerFault (re-banded off 835x)");
@@ -494,7 +494,7 @@ public sealed partial class FaultBand {
     public static readonly FaultBand Federation   = new(8420, "Query/federation#FederationFault");
     public static readonly FaultBand Coordination = new(8430, "Store/coordination#CoordinationFault");
     public static readonly FaultBand GeoIngest    = new(8440, "Ingest/geospatial#GeoIngestFault");
-    public static readonly FaultBand WideColumn   = new(8450, "Query/cache#WideColumnFault");
+    public static readonly FaultBand WideColumn   = new(8450, "Query/cache#CacheFault at 8450 + WideColumnFault 8451-8458");
     public static readonly FaultBand Selection    = new(8460, "Query/lane#SelectionFault");
     public static readonly FaultBand Issue        = new(8470, "Ingest/issue#IssueFault");
     public static readonly FaultBand Series       = new(8480, "Query/columnar#SeriesFault (the temporal/scale-out residences beside the 835x engine decade)");

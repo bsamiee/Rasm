@@ -307,7 +307,7 @@ public static class SymbolicAdjoint {
 
 - Owner: `Interval` the inf-sup carrier whose every operation rounds outward through `Math.BitDecrement`/`Math.BitIncrement`, so the returned bounds are a GUARANTEED enclosure under double arithmetic, never a sampled estimate; `EnclosureFold` the `Entity` tree fold evaluating a formula over a box domain in interval arithmetic; `IntervalVerdict` `[Union]` the three-way constraint pre-gate a `g(x) ≤ 0` question answers over an entire box in one evaluation; `ColumnProgram` the register program lowering one formula onto `TensorPrimitives` span kernels so N design points evaluate as columns; `ColumnStep` its one instruction row. Both modalities key on the same canonical-NF `SymbolicExpr.ContentKey` the scalar lowering keys on.
 - Cases: `IntervalVerdict` cases `ProvenSatisfied` (upper bound ≤ 0 — every point of the box satisfies), `ProvenViolated` (lower bound > 0 — no point can), `Indeterminate(Interval)` (the enclosure straddles zero — the box splits or the exact engine answers); `ColumnStep` kinds `Variable` (column bind) · `Constant` (broadcast fill) · `Unary` · `Binary` over the verified kernel set `Add`/`Subtract`/`Multiply`/`Divide`/`Pow`/`Abs`/`Log`/`Negate`.
-- Entry: `EnclosureFold.Enclose(SymbolicExpr, Seq<string> symbolOrder, ImmutableArray<Interval> box)` folds the tree over the catalog-verified node records — `Sumf`/`Minusf`/`Mulf`/`Divf`/`Powf`/`Absf`/`Signumf`/`Logf`, `Variable`, the numeric leaves — and declines any other node typed, so the enclosure never silently widens to `(−∞, +∞)` on a node it cannot bound; `Certify(...)` projects the enclosure onto `IntervalVerdict`. `ColumnProgram.Lower(SymbolicExpr, Seq<string> symbolOrder)` compiles the same node set into a `Seq<ColumnStep>` register program; `Evaluate(ReadOnlyMemory<double>[] columns)` runs it over one pooled register file in a handful of SIMD passes — a 10⁴-point DOE grid pays tens of span kernels instead of 10⁴ delegate dispatches; a formula outside the lowered node set declines typed and the caller loops the scalar `CompiledExpr.Invoke` as the honest fallback.
+- Entry: `EnclosureFold.Enclose(SymbolicExpr, Seq<string> symbolOrder, ImmutableArray<Interval> box)` folds the tree over the catalog-verified node records — `Sumf`/`Minusf`/`Mulf`/`Divf`/`Powf`/`Absf`/`Signumf`/`Logf`, `Variable`, the numeric leaves — and declines any other node typed, so the enclosure never silently widens to `(−∞, +∞)` on a node it cannot bound; `Certify(...)` projects the enclosure onto `IntervalVerdict`. `ColumnProgram.Lower(SymbolicExpr, Seq<string> symbolOrder)` compiles the enclosure node set minus `Signumf` (no verified `TensorPrimitives` sign kernel exists, so the sign node declines typed to the scalar fallback) into a `Seq<ColumnStep>` register program — `Logf` lowers as `Log(x)/Log(b)` and a `-1` multiplier lowers as the `Negate` kernel; `Evaluate(ReadOnlyMemory<double>[] columns)` runs it over one pooled register file in a handful of SIMD passes — a 10⁴-point DOE grid pays tens of span kernels instead of 10⁴ delegate dispatches; a formula outside the lowered node set declines typed and the caller loops the scalar `CompiledExpr.Invoke` as the honest fallback.
 - Receipt: none of its own — a branch-and-prune consumer counts discarded boxes on its own receipt, and the column sweep rides the sweep's `ComputeReceipt.Sweep`; an enclosure or lowering decline rides the `ComputeFault.NonDifferentiable` 2215 arm exactly as a compile decline does.
 - Packages: AngouriMath (the positional node records, `IUnaryNode.NodeChild`, `IBinaryNode.NodeFirstChild`/`NodeSecondChild`), System.Numerics.Tensors (`TensorPrimitives.Add`/`Subtract`/`Multiply`/`Divide`/`Pow`/`Abs`/`Log`/`Negate` span kernels), CommunityToolkit.HighPerformance (`MemoryOwner<double>` register file), LanguageExt.Core (`Fin`, `Seq`), BCL inbox (`Math.BitDecrement`/`BitIncrement`).
 - Growth: a new bounded node family (the trig records, once their monotonicity split lands) is one arm on BOTH folds — the interval bound and the column kernel land together or the node stays declined; a tighter enclosure (affine arithmetic, mean-value forms) is a policy row on `EnclosureFold`, never a sibling evaluator; a new column kernel is one `ColumnStep` row binding its verified `TensorPrimitives` member.
@@ -318,7 +318,10 @@ public static class SymbolicAdjoint {
 // Outward rounding after every operation keeps the enclosure sound under double arithmetic.
 public readonly record struct Interval(double Lo, double Hi) {
     public static Interval Of(double lo, double hi) => new(Math.BitDecrement(lo), Math.BitIncrement(hi));
-    public static Interval Point(double value) => Of(value, value);
+
+    // A leaf constant is exactly representable — no outward expansion, so an exact integer exponent stays
+    // detectable by the integer-power law; rounding applies after OPERATIONS, never on the leaf itself.
+    public static Interval Point(double value) => new(value, value);
 
     public bool Valid => double.IsFinite(Lo) && double.IsFinite(Hi) && Lo <= Hi;
     public bool Contains(double value) => value >= Lo && value <= Hi;
@@ -388,24 +391,31 @@ public static class EnclosureFold {
         Entity.Absf a => Descend(a.Argument, bindings).Map(static i => i.Abs()),
         Entity.Signumf s => Descend(s.Argument, bindings).Map(static i =>
             i.Lo > 0.0 ? Interval.Point(1.0) : i.Hi < 0.0 ? Interval.Point(-1.0) : Interval.Of(-1.0, 1.0)),
+        // log_b(x) is monotone in each argument with the b-direction sign flipping at x = 1, so the enclosure
+        // is the four-corner min/max — a crossed endpoint pairing returns Lo > Hi on sub-unit arguments.
         Entity.Logf l =>
             from b in Descend(l.Base, bindings)
             from x in Descend(l.Antilogarithm, bindings)
-            from r in x.Lo > 0.0 && b.Lo > 1.0
-                ? Fin.Succ(Interval.Of(Math.Log(x.Lo, b.Hi), Math.Log(x.Hi, b.Lo)))
+            from r in x.Lo > 0.0 && b.Lo > 0.0 && (b.Hi < 1.0 || b.Lo > 1.0)
+                ? Fin.Succ(Corners(x, b, Math.Log))
                 : Fin.Fail<Interval>(new ComputeFault.NonDifferentiable("<enclosure-log-domain>"))
             select r,
         _ => Fin.Fail<Interval>(new ComputeFault.NonDifferentiable($"<enclosure-node:{node.GetType().Name}>")),
     };
+
+    // A positive-base bivariate map is monotone in each argument for the other fixed, so its extrema over a
+    // box sit on the four corners; partial corner pairings under-enclose whenever a monotonicity direction flips.
+    static Interval Corners(Interval x, Interval y, Func<double, double, double> f) {
+        double a = f(x.Lo, y.Lo), b = f(x.Lo, y.Hi), c = f(x.Hi, y.Lo), d = f(x.Hi, y.Hi);
+        return Interval.Of(Math.Min(Math.Min(a, b), Math.Min(c, d)), Math.Max(Math.Max(a, b), Math.Max(c, d)));
+    }
 
     // Integer exponents split by parity and base sign; a non-integer exponent demands a positive base.
     static Fin<Interval> Power(Interval baseRange, Interval exponent) =>
         exponent.Lo == exponent.Hi && double.IsInteger(exponent.Lo)
             ? Fin.Succ(IntegerPower(baseRange, (int)exponent.Lo))
             : baseRange.Lo > 0.0
-                ? Fin.Succ(Interval.Of(
-                    Math.Min(Math.Pow(baseRange.Lo, exponent.Lo), Math.Pow(baseRange.Lo, exponent.Hi)),
-                    Math.Max(Math.Pow(baseRange.Hi, exponent.Lo), Math.Pow(baseRange.Hi, exponent.Hi))))
+                ? Fin.Succ(Corners(baseRange, exponent, Math.Pow))
                 : Fin.Fail<Interval>(new ComputeFault.NonDifferentiable("<enclosure-pow-domain>"));
 
     static Interval IntegerPower(Interval a, int n) =>
@@ -468,12 +478,25 @@ public sealed record ColumnProgram(UInt128 ContentKey, Seq<string> SymbolOrder, 
             (steps.Add(new ColumnStep(next, 0, 0, TensorOpFamily.Add, value, ColumnStepKind.Constant)), next + 1)),
         Entity.Sumf s => Binary(s.Augend, s.Addend, TensorOpFamily.Add, order, steps, next),
         Entity.Minusf m => Binary(m.Subtrahend, m.Minuend, TensorOpFamily.Subtract, order, steps, next),
+        Entity.Mulf m when IsNegOne(m.Multiplier) => Unary(m.Multiplicand, TensorOpFamily.Negate, order, steps, next),
         Entity.Mulf m => Binary(m.Multiplier, m.Multiplicand, TensorOpFamily.Multiply, order, steps, next),
         Entity.Divf d => Binary(d.Dividend, d.Divisor, TensorOpFamily.Divide, order, steps, next),
         Entity.Powf p => Binary(p.Base, p.Exponent, TensorOpFamily.Pow, order, steps, next),
         Entity.Absf a => Unary(a.Argument, TensorOpFamily.Abs, order, steps, next),
+        // log_b(x) lowers as Log(x)/Log(b) — two unary Log registers and one Divide, all verified kernels.
+        Entity.Logf l =>
+            Emit(l.Antilogarithm, order, steps, next).Bind(x => {
+                Seq<ColumnStep> logX = x.Steps.Add(new ColumnStep(x.Next, x.Next - 1, x.Next - 1, TensorOpFamily.Log, 0.0, ColumnStepKind.Unary));
+                return Emit(l.Base, order, logX, x.Next + 1).Map(b => {
+                    Seq<ColumnStep> logB = b.Steps.Add(new ColumnStep(b.Next, b.Next - 1, b.Next - 1, TensorOpFamily.Log, 0.0, ColumnStepKind.Unary));
+                    return (logB.Add(new ColumnStep(b.Next + 1, x.Next, b.Next, TensorOpFamily.Divide, 0.0, ColumnStepKind.Binary)), b.Next + 2);
+                });
+            }),
         _ => Fin.Fail<(Seq<ColumnStep>, int)>(new ComputeFault.NonDifferentiable($"<column-node:{node.GetType().Name}>")),
     };
+
+    static bool IsNegOne(Entity node) =>
+        node is Entity.Number number && NumberBox.Project(number).Map(static value => value == -1.0).IfFail(false);
 
     static Fin<(Seq<ColumnStep> Steps, int Next)> Binary(Entity left, Entity right, TensorOpFamily op, Seq<string> order, Seq<ColumnStep> steps, int next) =>
         Emit(left, order, steps, next).Bind(l => Emit(right, order, l.Steps, l.Next)

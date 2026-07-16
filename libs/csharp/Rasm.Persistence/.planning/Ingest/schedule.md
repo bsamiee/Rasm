@@ -265,7 +265,7 @@ public readonly record struct ResourceAvailabilityRow(
     Option<LocalDateTime> From, Option<LocalDateTime> To, Option<double> Units);
 
 public readonly record struct ResourceRow(
-    int Key, string Name, Option<string> Group, Option<ResourceKind> Kind, Option<double> MaxUnits,
+    int Key, string Name, Option<string> Group, Option<ResourceKind> Kind,
     Option<double> PeakUnits, Seq<ResourceAvailabilityRow> Availability,
     Option<int> Calendar, Option<double> Cost, Option<double> ActualCost, Option<double> OvertimeCost);
 
@@ -514,7 +514,7 @@ public static class ProjectRows {
                 DependencyKind.Of(r.Type), ScheduleSpan.From(r.Lag)))).ToSeq(),
             toSeq(file.Calendars).Map(Calendar),
             toSeq(file.Resources).Map(static r => new ResourceRow(
-                r.UniqueID ?? 0, r.Name ?? "", Optional(r.Group), ResourceKind.Of(r.Type), Optional(r.MaxUnits),
+                r.UniqueID ?? 0, r.Name ?? "", Optional(r.Group), ResourceKind.Of(r.Type),
                 Optional(r.PeakUnits), toSeq(r.Availability).Map(a => new ResourceAvailabilityRow(
                     Local(a.Range.Start), Local(a.Range.End), Optional(a.Units))),
                 Optional(r.Calendar?.UniqueID), Optional(r.Cost), Optional(r.ActualCost), Optional(r.OvertimeCost))),

@@ -11,7 +11,7 @@ The axis spans the narwhals lazy set — `POLARS`/`PANDAS`/`PYARROW`/`MODIN` eag
 
 ## [02]-[INTEROP]
 
-- Owner: `FrameInterop` — the one translation owner over `narwhals`, discriminating a `Backend` `StrEnum` whose value IS the `narwhals.Implementation` member value, so `Backend.implementation` resolves through `Implementation.from_backend` and the axis carries no `ARROW`-named drift (narwhals names `PYARROW`, value `'pyarrow'`). `narwhals.from_native` is the one intake; the lowering target is one `_BACKEND` row. `FieldShape` is declared here and `resolve` is its structural-breach fold the `contract#ADMISSION` gate reads. `InteropReceipt` is the typed hop receipt satisfying `ReceiptContributor`.
+- Owner: `DoeDataset` — the `csharp:Rasm.Compute/Solver/sweep` training-corpus wire admission (`ContentKey`/`Axes`/`Objectives`/`Strategy`/`Points`/row-major `Coordinates`/`Responses`/`At`), its `frame` fold the graduation loop's fit ingress keyed by the wire's own content key. `FrameInterop` — the one translation owner over `narwhals`, discriminating a `Backend` `StrEnum` whose value IS the `narwhals.Implementation` member value, so `Backend.implementation` resolves through `Implementation.from_backend` and the axis carries no `ARROW`-named drift (narwhals names `PYARROW`, value `'pyarrow'`). `narwhals.from_native` is the one intake; the lowering target is one `_BACKEND` row. `FieldShape` is declared here and `resolve` is its structural-breach fold the `contract#ADMISSION` gate reads. `InteropReceipt` is the typed hop receipt satisfying `ReceiptContributor`.
 - Cases: `Backend` is the closed axis; `_BACKEND` pairs each row with its `_Lowering` — the `lower` head and the `eager` flag — so admission level and lowering head are two columns on one row, never parallel switch arms.
   - The lazy-scan reader is deliberately NOT a column: a backend admits many formats, so a per-engine reader name is incoherent — `columnar#SCAN` resolves its reader off `DatasetKind`, a disjoint axis this owner never duplicates.
   - The `eager` column is read on BOTH source and target for distinct concerns: the SOURCE flag selects `_admit`'s `from_native(eager_only=)` intake, the TARGET flag selects the frame the lowering head receives.
@@ -20,7 +20,7 @@ The axis spans the narwhals lazy set — `POLARS`/`PANDAS`/`PYARROW`/`MODIN` eag
 - Entry: `translate` lifts through `_admit`, lowers once into one `_Lowered` carry, and binds `ContentIdentity.of` over the lowered frame's canonical Arrow bytes into a `RuntimeRail[FrameTranslation]` — the lowering wrapped in one `boundary(...)` so a terminal raise lifts to `BoundaryFault` exactly once and the key threads through `.bind`/`.map`, never a second fault fence. `schema_of` reads the agnostic `nw.Schema` through `collect_schema()` and the per-column null count through `null_count().item(0, name)` — never a `.to_native()[name][0]` subscript that breaks on a `pyarrow.Table` — so nullability is the observed mask, not a dtype-kind inference. `namespace` resolves through `Implementation.to_native_namespace`. `c_stream` lowers to a `pyarrow.Table` through `_eager(self._admit(frame)).to_arrow()` before `ArrowCStream.of` — the one `__arrow_c_stream__`-exporter every backend reaches — never the raw native frame a `pandas`/`modin` source does not reliably export. No hop carries a `stamina` retry: a `to_*`/`to_native` projection is a pure in-memory transform, not a transient-I/O hop.
 - Receipt: `translate` keys one `InteropReceipt` by `ContentIdentity.of("interop", lowered.ipc)` over the canonical Arrow IPC bytes — the `nanoarrow.ArrayStream(...).read_all().serialize()` path shared with the `CARRIER` owner and the `gridded/ragged#RAGGED` `arrow`-sink — carrying source/target backend and row/column counts, never a path-string key. The `ArrowCStream` carrier is interchange-only and NEVER a key byte source: a consume-once capsule is not a deterministic byte stream, so IPC serialization is the sole canonical byte path.
 - Growth: a new backend is one `Backend` row naming its `Implementation` member plus one `_BACKEND` `(lower, eager)` row (`PYSPARK`/`SQLFRAME` land this way); a new interchange protocol is one method; a new admission level is one `eager` value; a new structural attribute is one `FieldShape` column read once by `schema_of`; a new receipt slot is one `InteropReceipt` field; zero new surface.
-- Boundary: no compute (the numeric and labelled-array ownership stays in `compute`), no durable store, no query rail (`tabular/query#QUERY` owns the relational plane), no lazy-scan execution (`columnar#SCAN` owns the `register_io_source` pushdown); `narwhals` owns only the frame-translation hop and the schema fold. Rejected forms: a per-backend `PolarsAdapter`/`PandasAdapter` trio or `isinstance` dispatch where one `_BACKEND` row owns lowering; a `FieldShape` re-declared on a consumer page where this minter owns it; a second `collect_schema()` path beside `schema_of`.
+- Boundary: no compute (the numeric and labelled-array ownership stays in `compute`), no durable store, no query rail (`tabular/query#QUERY` owns the relational plane), no lazy-scan execution (`columnar#SCAN` owns the `register_io_source` pushdown); `narwhals` owns only the frame-translation hop and the schema fold; `DoeDataset` is the WIRE ADMISSION only — the fit itself is the `compute` companion's and the graduated ONNX crosses back over `GraduationEvidence`, never a training loop here. Rejected forms: a per-backend `PolarsAdapter`/`PandasAdapter` trio or `isinstance` dispatch where one `_BACKEND` row owns lowering; a `FieldShape` re-declared on a consumer page where this minter owns it; a second `collect_schema()` path beside `schema_of`.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -128,6 +128,37 @@ _BACKEND: Final[Map[Backend, _Lowering]] = Map.of_seq([
 ])
 
 # --- [SERVICES] -------------------------------------------------------------------------
+
+
+# csharp:Rasm.Compute/Solver/sweep DoeDataset wire — the graduation loop's training leg (C# sweep -> DoeDataset ->
+# Python fit -> graduated ONNX -> neural-field surrogate). Coordinates are row-major (points x axes) and
+# Responses row-major (points x objectives); admission is exact-extent, and the frame keys by the wire's OWN
+# content key so the fit's provenance joins the C# receipt spine — never a re-hash.
+class DoeDataset(Struct, frozen=True):
+    content_key: str
+    axes: tuple[str, ...]
+    objectives: tuple[str, ...]
+    strategy: str
+    points: int
+    coordinates: tuple[float, ...]
+    responses: tuple[float, ...]
+    at: str
+
+    def frame(self) -> RuntimeRail["Any"]:
+        """One Arrow training table: axis columns then objective columns, rows the design points."""
+
+        def build() -> Any:
+            import pyarrow as pa  # noqa: PLC0415
+
+            if len(self.coordinates) != self.points * len(self.axes) or len(self.responses) != self.points * len(self.objectives):
+                msg = f"<doe-extent:{len(self.coordinates)}x{len(self.responses)}!={self.points}x{len(self.axes)}x{len(self.objectives)}>"
+                raise ValueError(msg)
+            columns = {
+                axis: pa.array(self.coordinates[index :: len(self.axes)]) for index, axis in enumerate(self.axes)
+            } | {objective: pa.array(self.responses[index :: len(self.objectives)]) for index, objective in enumerate(self.objectives)}
+            return pa.table(columns)
+
+        return boundary(f"interop.doe.{self.content_key}", build)
 
 
 class FrameInterop(Struct, frozen=True):

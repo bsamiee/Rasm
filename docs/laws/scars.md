@@ -4,6 +4,8 @@ Regression-proven laws with no other owner. Each row is standing law; the trigge
 
 ## [01]-[ROWS]
 
-| [INDEX] | [LAW]                                                                | [TRIGGER]                                                    |
-| :-----: | :------------------------------------------------------------------- | :----------------------------------------------------------- |
-|  [01]   | a tool-manifest row deletes only with search-proof of zero consumers | deletion surfaces only at the consumer's next call, silently |
+| [INDEX] | [LAW]                                                                  | [TRIGGER]                                                   |
+| :-----: | :--------------------------------------------------------------------- | :---------------------------------------------------------- |
+|  [01]   | a retired surface drains only on corpus-wide proof of zero occurrences | a stale spelling beyond the finding set resurfaces silently |
+
+Row [01] spans every retired-surface kind — a tool-manifest row, a renamed member, a deleted flat property, a strata-banned parameter type; an anchor or finding list is navigation, never the drain boundary.

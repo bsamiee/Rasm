@@ -12,9 +12,9 @@ Variance-reduced draws ride `LowDiscrepancy` through inverse transform; the Mont
 
 - Owner: `UncertaintyMethod` `[SmartEnum<string>]` propagation-strategy rows carrying a `UqStrategy` driver discriminant and a `SampleDesign` matrix column; `RandomVariable` `[Union]` input-distribution cases each lowering to an inverse-transform `Quantile`, a closed-form `Mean`, a `Standardize` map, a `PolynomialBasis` Wiener-Askey label, and a `RecurrenceCoefficients` orthonormal-polynomial row; `RecurrenceCoefficients` the one orthonormal three-term-recurrence owner (the four Askey closed forms plus the discretized-Stieltjes arbitrary-PCE construction); `UncertaintyResult` the distribution-valued response carrier (moments through kurtosis + quantiles + first/total Sobol + Morris interaction + `pf` + `β` + the physical MPP); `Uncertainty` the static `UqStrategy`-dispatched (total `Switch`) `Propagate` fold driving the `Solver/optimizer#OPTIMIZER_LANE` `evaluate` oracle.
 - Cases: `SampleDesign` pseudo-random · space-filling · stratified · conditional-levels · Saltelli-AB-AB · Morris-trajectory · analytic; `UncertaintyMethod` monte-carlo · latin-hypercube-mc · polynomial-chaos · first-order-reliability · second-order-reliability · subset-simulation · sobol-saltelli · morris; `PolynomialBasis` hermite · legendre · laguerre · jacobi · arbitrary; `RandomVariable` normal · log-normal · uniform · gamma · exponential · Weibull · Gumbel · beta · triangular · empirical.
-- Entry: `public static Fin<UncertaintyResult> Propagate(Seq<RandomVariable> inputs, UncertaintyPolicy policy, Func<DesignPoint, Fin<Seq<double>>> evaluate, ClockPolicy clocks)` validates every input distribution, unique names, policy bounds, method/design compatibility, response component, and correlation matrix before dispatch. `Component` faults a short or non-finite response vector; no first-component or zero fallback exists.
+- Entry: `public static Fin<UncertaintyResult> Propagate(Seq<RandomVariable> inputs, UncertaintyPolicy policy, Func<DesignPoint, Fin<Seq<double>>> evaluate, IClock clock)` validates every input distribution, unique names, policy bounds, method/design compatibility, response component, and correlation matrix before dispatch. `Component` faults a short or non-finite response vector; no first-component or zero fallback exists.
 - Auto: `Propagate` builds the optional Gaussian-copula `Transform` (identity when absent) and dispatches the `UqStrategy` driver off the `UncertaintyMethod.Strategy` row — the matrix-sampling driver draws the `LowDiscrepancy.Sobol` unit matrix, shapes it per `SampleDesign` (space-filling, LHS-stratified, the Saltelli `(2+d)·N` A/B/AB block, or the Morris `(d+1)·r` trajectory grid), maps each unit row through the copula and the per-axis `Quantile`, evaluates, and reduces to the moment fold plus the Saltelli/Morris indices or the composed `SensitivityTornado` first-order; the spectral-fit driver fits the orthonormal Vandermonde over the per-input `RecurrenceCoefficients` through thin-QR (sparse-QR for a large basis) and reads mean/variance/Sobol closed-form from the coefficient masses; the reliability-search driver runs HLRF to the standard-normal MPP scoring `β`/`pf`/importance-factors, the SORM row adding the Breitung curvature correction; the subset driver conditions successive populations on intermediate thresholds through the Au-Beck sampler so a `pf~10⁻⁶` rare event resolves in `O(N·log pf)` evaluations. State threads as one immutable fold accumulator, never a per-method mutable loop.
-- Receipt: `Receipt` projects moment-bearing results onto the `Uncertainty` `ComputeReceipt` case with method key, realized sample/evaluation count, response mean and variance, quantiles, total-effect indices, `pf`, and `β`; absent moments remain a typed failure rather than `NaN`. Reliability-only evidence, first-order indices, skewness/kurtosis, Morris interaction σ, and the physical MPP ride the content-keyed `UncertaintyResult` body.
+- Receipt: `Receipt` projects the full `UncertaintyResult` onto the widened `Uncertainty` `ComputeReceipt` case — method key, realized sample/evaluation count, nullable mean/variance/skewness/kurtosis (a method that does not estimate a moment carries `null`, never `NaN` or a fabricated failure), quantiles, first-order and total-effect Sobol indices, Morris interaction σ, the physical MPP, `pf`, and `β` — under `ReceiptScope.Execution`.
 - Packages: MathNet.Numerics, HyperJet (the exact-AD FORM/SORM gradient/Hessian leg via `SensitivityLaw`), System.Numerics.Tensors, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.Persistence (project), BCL inbox
 - Growth: a new propagation strategy is one `UncertaintyMethod` row binding its `UqStrategy` driver and `SampleDesign`; a new input distribution is one `RandomVariable` case lowering to its `Quantile`/`Mean`/`Standardize`/`Basis`/`Recurrence` — an Askey-family input binds a closed-form `RecurrenceCoefficients` constructor, a non-Askey input falls to the one `Stieltjes` construction with zero new surface; a new response statistic is one field on `UncertaintyResult` plus one slot on the `Uncertainty` receipt; a `MonteCarloRunner`/`LatinHypercubeSampler`/`PceFitter`/`FormSolver`/`SormSolver`/`SaltelliSobol`/`MorrisScreening`/`SubsetSimulator` sibling family is collapsed onto one `UqStrategy`-dispatched (total `Switch`) `Uncertainty` fold, a `MomentsResult`/`ReliabilityResult`/`SensitivityResult` result trio onto the one `UncertaintyResult` carrier, a `NormalVariable`/`WeibullVariable`/`EmpiricalVariable` class family onto the one `RandomVariable` union, and a `HermiteBasis`/`LegendreBasis`/`LaguerreBasis`/`JacobiBasis` polynomial-evaluator family onto the one `RecurrenceCoefficients` orthonormal recurrence.
 - Boundary: `evaluate` is the single solver coupling. Monte Carlo uses one seeded pseudo-random matrix; variance-reduced designs use the owned `LowDiscrepancy` generator; subset simulation uses one seeded conditional chain. Correlation admission requires a finite symmetric unit-diagonal positive-definite matrix and rejects PCE/Saltelli/Morris until a generalized correlated-sensitivity estimator exists. FORM faults a degenerate gradient or iteration-cap miss. SORM counts curvature evaluations and faults invalid Breitung curvature domains instead of dropping factors. Subset simulation faults a level-cap miss. Reliability-only results carry absent moments as `None`, not `NaN` sentinels.
@@ -354,22 +354,23 @@ public static class Uncertainty {
     }
 
     public static Fin<UncertaintyResult> Propagate(
-        Seq<RandomVariable> inputs, UncertaintyPolicy policy, Func<DesignPoint, Fin<Seq<double>>> evaluate, ClockPolicy clocks) =>
+        Seq<RandomVariable> inputs, UncertaintyPolicy policy, Func<DesignPoint, Fin<Seq<double>>> evaluate, IClock clock) =>
         from _ in policy.Validate(inputs)
         from transform in Copula(inputs.Count, policy)
         from result in policy.Method.Strategy.Switch(
-            state: (Inputs: inputs, Policy: policy, Transform: transform, Evaluate: evaluate, Clocks: clocks),
-            matrixSampling: static s => SampleAndReduce(s.Inputs, s.Policy, s.Transform, s.Evaluate, s.Clocks),
-            spectralFit: static s => Spectral(s.Inputs, s.Policy, s.Transform, s.Evaluate, s.Clocks),
-            reliabilitySearch: static s => Reliability(s.Inputs, s.Policy, s.Transform, s.Evaluate, s.Clocks),
-            subset: static s => Subset(s.Inputs, s.Policy, s.Transform, s.Evaluate, s.Clocks))
+            state: (Inputs: inputs, Policy: policy, Transform: transform, Evaluate: evaluate, Clock: clock),
+            matrixSampling: static s => SampleAndReduce(s.Inputs, s.Policy, s.Transform, s.Evaluate, s.Clock),
+            spectralFit: static s => Spectral(s.Inputs, s.Policy, s.Transform, s.Evaluate, s.Clock),
+            reliabilitySearch: static s => Reliability(s.Inputs, s.Policy, s.Transform, s.Evaluate, s.Clock),
+            subset: static s => Subset(s.Inputs, s.Policy, s.Transform, s.Evaluate, s.Clock))
         select result;
 
-    public static Fin<ComputeReceipt.Uncertainty> Receipt(UncertaintyResult result, CorrelationId correlation, Duration elapsed) =>
-        from mean in result.Mean.ToFin(ComputeFault.Create("<uncertainty-receipt-mean-absent>"))
-        from variance in result.Variance.ToFin(ComputeFault.Create("<uncertainty-receipt-variance-absent>"))
-        select new ComputeReceipt.Uncertainty(result.Method.Key, result.Samples, mean, variance, result.Quantiles, result.SobolTotal, result.FailureProbability, result.ReliabilityIndex) {
-            Correlation = correlation, Lane = WorkLane.Background, Substrate = Substrate.CpuTensor, AllocationClass = AllocationClass.PooledMemory, Elapsed = elapsed,
+    public static ComputeReceipt.Uncertainty Receipt(UncertaintyResult result, CorrelationId correlation, Duration elapsed) =>
+        new(result.Method.Key, result.Samples,
+            result.Mean.ToNullable(), result.Variance.ToNullable(), result.Skewness.ToNullable(), result.Kurtosis.ToNullable(),
+            result.Quantiles, result.SobolFirst, result.SobolTotal, result.Interaction, result.MostProbablePoint,
+            result.FailureProbability, result.ReliabilityIndex) {
+            Scope = new ReceiptScope.Execution(correlation, WorkLane.Background, Substrate.CpuTensor, AllocationClass.PooledMemory, elapsed),
         };
 
     static Fin<Transform> Copula(int dim, UncertaintyPolicy policy) =>
@@ -394,9 +395,9 @@ public static class Uncertainty {
 
     // --- [MATRIX_SAMPLING] ------------------------------------------------------------
 
-    static Fin<UncertaintyResult> SampleAndReduce(Seq<RandomVariable> inputs, UncertaintyPolicy policy, Transform transform, Func<DesignPoint, Fin<Seq<double>>> evaluate, ClockPolicy clocks) =>
+    static Fin<UncertaintyResult> SampleAndReduce(Seq<RandomVariable> inputs, UncertaintyPolicy policy, Transform transform, Func<DesignPoint, Fin<Seq<double>>> evaluate, IClock clock) =>
         Design(inputs, policy, transform)
-            .Bind(design => Sample(design, policy, evaluate).Map(responses => Reduce(inputs, policy, design, responses, clocks)));
+            .Bind(design => Sample(design, policy, evaluate).Map(responses => Reduce(inputs, policy, design, responses, clock)));
 
     static Fin<Seq<ImmutableArray<double>>> Design(Seq<RandomVariable> inputs, UncertaintyPolicy policy, Transform transform) {
         int count = Math.Max(2, policy.Samples), dim = inputs.Count;
@@ -432,7 +433,7 @@ public static class Uncertainty {
         design.Fold(Fin.Succ(Seq<Seq<double>>()), (acc, coordinates) =>
             acc.Bind(responses => evaluate(new DesignPoint(coordinates, [], [])).Bind(values => Component(values, policy).Map(_ => responses.Add(values)))));
 
-    static UncertaintyResult Reduce(Seq<RandomVariable> inputs, UncertaintyPolicy policy, Seq<ImmutableArray<double>> design, Seq<Seq<double>> responses, ClockPolicy clocks) {
+    static UncertaintyResult Reduce(Seq<RandomVariable> inputs, UncertaintyPolicy policy, Seq<ImmutableArray<double>> design, Seq<Seq<double>> responses, IClock clock) {
         double[] qoi = [.. responses.Map(values => values[policy.LimitStateObjective])];
         double mean = Statistics.Mean(qoi), variance = Statistics.Variance(qoi);
         double skewness = qoi.Length > 2 ? Statistics.Skewness(qoi) : 0.0;
@@ -444,7 +445,7 @@ public static class Uncertainty {
             : (SobolBinned(inputs, design, qoi), Seq<double>(), Seq<double>());
         double pf = qoi.Length == 0 ? 0.0 : (double)qoi.Count(value => value > policy.LimitStateThreshold) / qoi.Length;
         double beta = pf is > 0.0 and < 1.0 ? -Normal.InvCDF(0.0, 1.0, pf) : pf <= 0.0 ? double.PositiveInfinity : double.NegativeInfinity;
-        return new UncertaintyResult(policy.Method, qoi.Length, Some(mean), Some(variance), Some(skewness), Some(kurtosis), quantiles, first, total, interaction, Seq<double>(), pf, beta, clocks.Now);
+        return new UncertaintyResult(policy.Method, qoi.Length, Some(mean), Some(variance), Some(skewness), Some(kurtosis), quantiles, first, total, interaction, Seq<double>(), pf, beta, clock.GetCurrentInstant());
     }
 
     static Seq<double[]> Saltelli(Seq<double[]> draws, int count, int dim) {
@@ -533,11 +534,11 @@ public static class Uncertainty {
 
     // --- [SPECTRAL_FIT] ---------------------------------------------------------------
 
-    static Fin<UncertaintyResult> Spectral(Seq<RandomVariable> inputs, UncertaintyPolicy policy, Transform transform, Func<DesignPoint, Fin<Seq<double>>> evaluate, ClockPolicy clocks) =>
+    static Fin<UncertaintyResult> Spectral(Seq<RandomVariable> inputs, UncertaintyPolicy policy, Transform transform, Func<DesignPoint, Fin<Seq<double>>> evaluate, IClock clock) =>
         Design(inputs, policy, transform)
-            .Bind(design => Sample(design, policy, evaluate).Bind(responses => Fit(inputs, policy, design, responses, clocks)));
+            .Bind(design => Sample(design, policy, evaluate).Bind(responses => Fit(inputs, policy, design, responses, clock)));
 
-    static Fin<UncertaintyResult> Fit(Seq<RandomVariable> inputs, UncertaintyPolicy policy, Seq<ImmutableArray<double>> design, Seq<Seq<double>> responses, ClockPolicy clocks) {
+    static Fin<UncertaintyResult> Fit(Seq<RandomVariable> inputs, UncertaintyPolicy policy, Seq<ImmutableArray<double>> design, Seq<Seq<double>> responses, IClock clock) {
         double[] qoi = [.. responses.Map(values => values[policy.LimitStateObjective])];
         Seq<int[]> multiIndices = MultiIndexSet(inputs.Count, policy.PceOrder, policy.HyperbolicTruncation);
         if (qoi.Length < multiIndices.Count) { return Fin.Fail<UncertaintyResult>(ComputeFault.Create($"<uncertainty-pce-underdetermined:{qoi.Length}<{multiIndices.Count}>")); }
@@ -548,7 +549,7 @@ public static class Uncertainty {
         Fin<Vector<double>> coefficients = policy.HyperbolicTruncation && multiIndices.Count > policy.SparseBasisThreshold
             ? SparseFit(vandermonde, qoi)
             : DenseRoute.Solve(new FactorRoute.Orthonormal(QRMethod.Thin, Modified: false), vandermonde, rhs, TolerancePolicy.Derive(vandermonde, rhs));
-        return coefficients.Map(c => ReadSpectral(inputs, policy, multiIndices, qoi, c, clocks));
+        return coefficients.Map(c => ReadSpectral(inputs, policy, multiIndices, qoi, c, clock));
     }
 
     static Fin<Vector<double>> SparseFit(Matrix<double> vandermonde, double[] qoi) {
@@ -567,7 +568,7 @@ public static class Uncertainty {
             .Map(static solution => Vector<double>.Build.DenseOfArray(solution));
     }
 
-    static UncertaintyResult ReadSpectral(Seq<RandomVariable> inputs, UncertaintyPolicy policy, Seq<int[]> multiIndices, double[] qoi, Vector<double> coefficients, ClockPolicy clocks) {
+    static UncertaintyResult ReadSpectral(Seq<RandomVariable> inputs, UncertaintyPolicy policy, Seq<int[]> multiIndices, double[] qoi, Vector<double> coefficients, IClock clock) {
         double mean = coefficients[0], variance = 0.0;
         for (int k = 1; k < coefficients.Count; k++) { variance += coefficients[k] * coefficients[k]; }
         double[] first = new double[inputs.Count], total = new double[inputs.Count];
@@ -588,7 +589,7 @@ public static class Uncertainty {
         double skewness = qoi.Length > 2 ? Statistics.Skewness(qoi) : 0.0;
         double kurtosis = qoi.Length > 3 ? Statistics.Kurtosis(qoi) : 0.0;
         return new UncertaintyResult(policy.Method, qoi.Length, Some(mean), Some(variance), Some(skewness), Some(kurtosis), quantiles,
-            toSeq(first.Select(m => m * inverse)), toSeq(total.Select(m => m * inverse)), Seq<double>(), Seq<double>(), pf, beta, clocks.Now);
+            toSeq(first.Select(m => m * inverse)), toSeq(total.Select(m => m * inverse)), Seq<double>(), Seq<double>(), pf, beta, clock.GetCurrentInstant());
     }
 
     static Seq<int[]> MultiIndexSet(int dim, int order, bool hyperbolic) {
@@ -610,7 +611,7 @@ public static class Uncertainty {
     sealed record MppState(double[] U, double[] Alpha, double[] Grad, double Beta, double FailureProbability, int Evaluations);
     sealed record HlrfAcc(double[] U, double GHere, double[] Grad, double G0, bool Converged, int Evals);
 
-    static Fin<UncertaintyResult> Reliability(Seq<RandomVariable> inputs, UncertaintyPolicy policy, Transform transform, Func<DesignPoint, Fin<Seq<double>>> evaluate, ClockPolicy clocks) {
+    static Fin<UncertaintyResult> Reliability(Seq<RandomVariable> inputs, UncertaintyPolicy policy, Transform transform, Func<DesignPoint, Fin<Seq<double>>> evaluate, IClock clock) {
         LimitState g = policy.SmoothLimitState.Match(
             Some: static smooth => smooth.Switch(
                 dynamic: static source => (LimitState)new LimitState.Smooth(source.Evaluate),
@@ -619,7 +620,7 @@ public static class Uncertainty {
                 .Bind(values => Component(values, policy).Map(value => policy.LimitStateThreshold - value))));
         return Hlrf(inputs.Count, policy, g).Bind(mpp =>
             (policy.Method == UncertaintyMethod.SecondOrderReliability ? Breitung(mpp, policy, g) : Fin.Succ((FailureProbability: mpp.FailureProbability, Evals: 0)))
-                .Map(result => Assemble(inputs, policy, transform, mpp with { Evaluations = mpp.Evaluations + result.Evals }, result.FailureProbability, clocks)));
+                .Map(result => Assemble(inputs, policy, transform, mpp with { Evaluations = mpp.Evaluations + result.Evals }, result.FailureProbability, clock)));
     }
 
     [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -675,10 +676,10 @@ public static class Uncertainty {
             : Fin.Fail<(Matrix<double>, int)>(ComputeFault.Create("<limit-state-span-curvature-nonfinite>"));
     }
 
-    static UncertaintyResult Assemble(Seq<RandomVariable> inputs, UncertaintyPolicy policy, Transform transform, MppState mpp, double pf, ClockPolicy clocks) {
+    static UncertaintyResult Assemble(Seq<RandomVariable> inputs, UncertaintyPolicy policy, Transform transform, MppState mpp, double pf, IClock clock) {
         double beta = pf is > 0.0 and < 1.0 ? -Normal.InvCDF(0.0, 1.0, pf) : mpp.Beta;
         return new UncertaintyResult(policy.Method, mpp.Evaluations, None, None, None, None,
-            Seq<double>(), Seq<double>(), toSeq(mpp.Alpha.Select(static a => a * a)), Seq<double>(), toSeq(transform.FromU(inputs, mpp.U)), pf, beta, clocks.Now);
+            Seq<double>(), Seq<double>(), toSeq(mpp.Alpha.Select(static a => a * a)), Seq<double>(), toSeq(transform.FromU(inputs, mpp.U)), pf, beta, clock.GetCurrentInstant());
     }
 
     static Fin<MppState> Hlrf(int dim, UncertaintyPolicy policy, LimitState g) =>
@@ -784,7 +785,7 @@ public static class Uncertainty {
 
     sealed record SubsetAcc(Seq<(double[] U, double Lsf)> Population, double Probability, bool Done, int Evaluations);
 
-    static Fin<UncertaintyResult> Subset(Seq<RandomVariable> inputs, UncertaintyPolicy policy, Transform transform, Func<DesignPoint, Fin<Seq<double>>> evaluate, ClockPolicy clocks) {
+    static Fin<UncertaintyResult> Subset(Seq<RandomVariable> inputs, UncertaintyPolicy policy, Transform transform, Func<DesignPoint, Fin<Seq<double>>> evaluate, IClock clock) {
         int dim = inputs.Count, n = Math.Max(4, policy.Samples);
         double p0 = Math.Clamp(policy.SubsetLevelProbability, 0.01, 0.5);
         int keep = Math.Max(1, (int)Math.Round(p0 * n));
@@ -795,7 +796,7 @@ public static class Uncertainty {
             toSeq(Enumerable.Range(0, policy.SubsetMaxLevels)).Fold(Fin.Succ(new SubsetAcc(initial, 1.0, false, n)),
                 (acc, _) => acc.Bind(state => state.Done ? Fin.Succ(state) : Advance(state, dim, n, keep, p0, rng, lsf)))
             .Bind(state => state.Done
-                ? Fin.Succ(SubsetResult(policy, state, clocks))
+                ? Fin.Succ(SubsetResult(policy, state, clock))
                 : Fin.Fail<UncertaintyResult>(ComputeFault.Create("<uncertainty-subset-level-cap>"))));
     }
 
@@ -843,13 +844,13 @@ public static class Uncertainty {
     static double[] StandardNormal(int dim, Random rng) =>
         [.. Enumerable.Range(0, dim).Select(_ => Normal.InvCDF(0.0, 1.0, Math.Clamp(rng.NextDouble(), 1e-12, 1.0 - 1e-12)))];
 
-    static UncertaintyResult SubsetResult(UncertaintyPolicy policy, SubsetAcc state, ClockPolicy clocks) {
+    static UncertaintyResult SubsetResult(UncertaintyPolicy policy, SubsetAcc state, IClock clock) {
         double[] lsf = [.. state.Population.Map(static p => p.Lsf)];
         double finalFraction = lsf.Length == 0 ? 0.0 : (double)lsf.Count(static value => value <= 0.0) / lsf.Length;
         double pf = Math.Clamp(state.Probability * finalFraction, 0.0, 1.0);
         double beta = pf is > 0.0 and < 1.0 ? -Normal.InvCDF(0.0, 1.0, pf) : pf <= 0.0 ? double.PositiveInfinity : double.NegativeInfinity;
         return new UncertaintyResult(policy.Method, state.Evaluations, None, None, None, None,
-            Seq<double>(), Seq<double>(), Seq<double>(), Seq<double>(), Seq<double>(), pf, beta, clocks.Now);
+            Seq<double>(), Seq<double>(), Seq<double>(), Seq<double>(), Seq<double>(), pf, beta, clock.GetCurrentInstant());
     }
 }
 ```

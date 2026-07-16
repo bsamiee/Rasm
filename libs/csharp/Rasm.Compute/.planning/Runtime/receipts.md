@@ -15,7 +15,7 @@
 ## [02]-[RECEIPT_UNION]
 
 - Owner: `ReceiptScope`, `SelectionDecision`, `SelectionMode`, `ComputeReceipt`, `ComputeWireContext`, `ReceiptSurface` — the scope and selection evidence families, fact union, strict serializer context, and sink-bound emission-plus-telemetry surface.
-- Cases: selection · tensor-run · model-load · warmup · model-run · remote-call · stream-segment · allocation · copy · cache · unit-projection · backpressure · drain · conflict · factorization · generate · discretization · solve · optimization · sweep · clash · twin · uncertainty · fit · assessment (the last declared as a partial on this owner by `Analysis/assessment`)
+- Cases: selection · tensor-run · model-load · warmup · model-run · remote-call · stream-segment · allocation · copy · cache · unit-projection · backpressure · drain · conflict · factorization · generate · embedding · discretization · solve · coupling · optimization · sweep · clash · twin · uncertainty · fit · assessment (the last declared as a partial on this owner by `Analysis/assessment`)
 - Entry: `public IO<ReceiptEnvelope> ReceiptSurface.Emit(ComputeReceipt fact)` — the surface binds sink and serializer aspects once at composition; `IO` carries the sink effect and returns the envelope evidence.
 - Auto: wire kind derives from the polymorphic metadata pinned on the union; the HLC stamp and `SkewBound` derive inside `Send`, and ambient `TenantContext.Current` threads into `Send` so the envelope `Tenant` field partitions evidence by the AppHost tenancy primitive; instrument rows register once at composition through `TelemetryContributorPort`, and `TelemetrySource.Compute` mints the activity spine so receipt correlation joins the OTel rail with zero call-site ceremony.
 - Receipt: union cases materialize at the sink edge only; hot-path capsules upstream stay allocation-free.
@@ -79,8 +79,10 @@ public abstract partial record SelectionMode {
 [JsonDerivedType(typeof(Conflict), "conflict")]
 [JsonDerivedType(typeof(Factorization), "factorization")]
 [JsonDerivedType(typeof(Generate), "generate")]
+[JsonDerivedType(typeof(Embedding), "embedding")]
 [JsonDerivedType(typeof(Discretization), "discretization")]
 [JsonDerivedType(typeof(Solve), "solve")]
+[JsonDerivedType(typeof(Coupling), "coupling")]
 [JsonDerivedType(typeof(Optimization), "optimization")]
 [JsonDerivedType(typeof(Sweep), "sweep")]
 [JsonDerivedType(typeof(Clash), "clash")]
@@ -196,9 +198,13 @@ public abstract partial record ComputeReceipt : ISpanFormattable, IUtf8SpanForma
 
     public sealed record Generate(string ModelChecksum, ExecutionProvider Ep, string ModelType, int Tokens, double TokensPerSecond, GuidanceKind GuidanceKind, int ConstrainedTokens, int ToolCalls) : ComputeReceipt;
 
+    public sealed record Embedding(string ModelChecksum, string Encoding, int Dimension, long ByteLength) : ComputeReceipt;
+
     public sealed record Discretization(string Algorithm, string Element, long Nodes, long Elements, int BoundaryLayers, int RefineLevel, double WorstQuality, string Metric) : ComputeReceipt;
 
     public sealed record Solve(string Physics, string Method, long Dofs, int Iterations, double Residual, bool Converged) : ComputeReceipt;
+
+    public sealed record Coupling(string Scheme, int Fields, int Transfers, int Rounds, double CouplingResidual, bool Converged) : ComputeReceipt;
 
     public sealed record Optimization(string Optimizer, int Generations, int Evaluations, int SurrogateHits, int FrontSize, double Hypervolume) : ComputeReceipt;
 
@@ -317,7 +323,7 @@ public sealed class ReceiptSurface(ReceiptSinkPort sink, ComputeWireContext wire
 
 - Owner: `ReceiptFolds` — every operational view is a pure fold over `Seq<ComputeReceipt>`; the fact stream is the single source and no projection accumulates mutably. `ReceiptReplay`/`ReplayVerdict` — the certification-grade re-derivation fold: a content-keyed verdict re-derives from its recorded inputs and diffs against the stored payload under the receipt's determinism tag, so a permit-submitted verdict is provable on demand instead of merely cached.
 - Entry: `public HashMap<CorrelationId, Seq<ComputeReceipt>> Provenance` — the model-result provenance projection joining every receipt chain by correlation. `ReceiptReplay.Replay(UInt128 contentKey, ReadOnlyMemory<byte> stored, Option<string> determinismTag, Func<Fin<ReadOnlyMemory<byte>>> rederive)` — the caller composes `rederive` from the settled Persistence contracts (`Version/ledger` `OpLogEntry.Closure` resolves the input manifest, `Query/cache` `ModelResultIndex.Lookup` serves the stored payload) and the verdict states reproducibility as a typed fact.
-- Auto: per-lane counts, route histograms, hot-path totals, leak indicators, conflict evidence, solver-divergence and twin-anomaly extractions, numeric-provider attribution, residency-gate crossings, and provenance chains derive on read from the identical stream the dashboards consume. Replay comparison mode derives from the determinism tag — a bit-deterministic tag demands byte equality, an envelope tag compares the payloads as little-endian double lanes under the relative defect the tag's provider triple licenses — never a caller-chosen comparison the tag contradicts.
+- Auto: per-lane counts, route histograms, hot-path totals, leak indicators, conflict evidence, solver-divergence and twin-anomaly extractions, numeric-provider attribution, residency-gate crossings, and provenance chains derive on read from the identical stream the dashboards consume. Replay comparison mode derives from the CLOSED determinism-tag grammar — a `bit*` tag demands byte equality, an `envelope*`/`device-wgpu*` tag compares the payloads as little-endian double lanes under the relative defect the tag's provider triple licenses, and an unrecognized tag, an absent tag, or a failed re-derivation lands `Unreplayable` with its reason — never a caller-chosen comparison the tag contradicts and never a fabricated bitwise class.
 - Packages: LanguageExt.Core, NodaTime, System.Numerics.Tensors (`TensorPrimitives.Distance`/`Norm` the envelope defect), BCL inbox (`BinaryPrimitives` lane decode)
 - Growth: a new operational view is one fold member row over the same fact stream; a new determinism class is one comparison arm on `ReceiptReplay` keyed by its tag grammar; zero new surface.
 - Boundary: leak indicators read `StagingEventKind.StreamDoubleDisposed` and `StreamFinalized`, while `Diagnostics` reads the row's `Diagnostic` column. `DiscardTaxonomy` folds `BufferDiscarded` detail into a reason-keyed count. Execution projections choose only facts carrying their `Option` spine values; process-scoped allocation evidence remains in provenance and diagnostic folds without a fabricated lane or route. Mutable accumulators, per-view repositories, and second fact streams reject. Replay never unfreezes a wire or fabricates inputs — an unresolvable closure, an absent tag where the payload is not byte-comparable, or a non-8-aligned envelope payload lands `Unreplayable` with its reason, never a coerced `Reproduced`.
@@ -390,18 +396,25 @@ public abstract partial record ReplayVerdict {
 }
 
 public static class ReceiptReplay {
-    // Bit-tagged payloads compare byte-exact; envelope tags compare little-endian double lanes under the relative
-    // defect ceiling — the one correctness signal that survives provider divergence, per the factorization receipt law.
+    // Closed tag grammar: `bit*` compares byte-exact, `envelope*` and `device-wgpu*` compare little-endian double
+    // lanes under the relative defect ceiling the tag's provider triple licenses. An unrecognized or absent tag is
+    // Unreplayable with its reason, and a failed re-derivation is Unreplayable, never a failed rail or a coerced
+    // comparison class the receipt never declared.
     const string BitTagPrefix = "bit";
+    const string EnvelopeTagPrefix = "envelope";
+    const string DeviceTagPrefix = "device-wgpu";
     const double EnvelopeDefectCeiling = 1e-9;
 
-    public static Fin<ReplayVerdict> Replay(UInt128 contentKey, ReadOnlyMemory<byte> stored, Option<string> determinismTag, Func<Fin<ReadOnlyMemory<byte>>> rederive) {
+    public static ReplayVerdict Replay(UInt128 contentKey, ReadOnlyMemory<byte> stored, Option<string> determinismTag, Func<Fin<ReadOnlyMemory<byte>>> rederive) {
         ArgumentNullException.ThrowIfNull(rederive);
-        return rederive().Map(fresh => determinismTag.Match(
-            Some: tag => tag.StartsWith(BitTagPrefix, StringComparison.Ordinal)
-                ? Bitwise(contentKey, stored, fresh, tag)
-                : Envelope(contentKey, stored, fresh, tag),
-            None: () => Bitwise(contentKey, stored, fresh, "<untagged-bitwise>")));
+        return rederive().Match(
+            Fail: error => (ReplayVerdict)new ReplayVerdict.Unreplayable(contentKey, $"<rederive:{error.Message}>"),
+            Succ: fresh => determinismTag.Match(
+                Some: tag => tag.StartsWith(BitTagPrefix, StringComparison.Ordinal) ? Bitwise(contentKey, stored, fresh, tag)
+                    : tag.StartsWith(EnvelopeTagPrefix, StringComparison.Ordinal) || tag.StartsWith(DeviceTagPrefix, StringComparison.Ordinal)
+                        ? Envelope(contentKey, stored, fresh, tag)
+                        : new ReplayVerdict.Unreplayable(contentKey, $"<unrecognized-tag:{tag}>"),
+                None: () => new ReplayVerdict.Unreplayable(contentKey, "<untagged>")));
     }
 
     static ReplayVerdict Bitwise(UInt128 key, ReadOnlyMemory<byte> stored, ReadOnlyMemory<byte> fresh, string tag) =>
@@ -486,7 +499,7 @@ public static class WireStamps {
 ## [05]-[BENCHMARK_CLAIMS]
 
 - Owner: `BenchmarkInput`, `BenchmarkClaim`, `HostFingerprint` — the admitted tensor-shape/stride/density class, measured claim row, and effective-host identity that gates it; a claim is data, never prose.
-- Entry: `public Option<BenchmarkRow> Claim(Seq<BenchmarkRow> rows)` — `Option` carries fingerprint admission; `None` is the fall-through to the static cost rank on the substrate row.
+- Entry: `public Option<BenchmarkRow> Claim(ModelResultIndex index, Seq<BenchmarkRow> rows)` — delegates fingerprint and recency admission to the Persistence `ModelResultIndex.Claim` owner (its horizon and clock are closed inside the index; no call shape can omit or replace them); `None` is the fall-through to the static cost rank on the substrate row.
 - Auto: `BenchmarkInput.Admit` validates payload size, dtype, shape, strides, batch, and density, derives rank and contiguity, and classifies the payload band. `Key` includes the full input class, route, provider, and tolerance class. `Persist` projects the claim onto the persisted row; `Stale` compares the full effective fingerprint, including container-limited processors. `Sweep` registers the equivalence cadence row on `WorkLane.Benchmark`.
 - Receipt: every sweep run emits `TensorRun`/`ModelRun` receipts beside the persisted row; artifacts — chrome-trace profiles, BenchmarkDotNet exports, EP-context caches — land as `ArtifactIndexRow` paths on the blob lane and ride the `Artifacts` rows on the claim.
 - Packages: BenchmarkDotNet, NodaTime, LanguageExt.Core, Rasm.AppHost (project), Rasm.Persistence (project), BCL inbox
@@ -498,7 +511,7 @@ public sealed record HostFingerprint(string Os, string Arch, int Processors, Fro
     public static HostFingerprint Current(FrozenDictionary<string, string> stamps, CpuBudget budget) =>
         new(RuntimeInformation.OSDescription, RuntimeInformation.ProcessArchitecture.ToString(), budget.Total, stamps);
 
-    public Option<BenchmarkRow> Claim(Seq<BenchmarkRow> rows) => BenchmarkRow.Claim(rows, ToString());
+    public Option<BenchmarkRow> Claim(ModelResultIndex index, Seq<BenchmarkRow> rows) => index.Claim(rows, ToString());
 
     public string StampLine() =>
         string.Join(',', Stamps.OrderBy(static pair => pair.Key, StringComparer.Ordinal).Select(static pair => $"{pair.Key}={pair.Value}"));
@@ -671,7 +684,7 @@ public sealed record BenchmarkClaim {
 
     public string Key() => string.Create(CultureInfo.InvariantCulture, $"{Input.Key()}|{Substrate.Key}|{Family}|{Route}|{Provider}|{ToleranceClass}");
 
-    public BenchmarkRow Persist() => new(Key(), Route, Median, P95, AllocatedBytes, Fingerprint.ToString(), BenchmarkRow.BenchmarkRowClass, At);
+    public BenchmarkRow Persist() => new(Key(), Route, Median, P95, AllocatedBytes, Fingerprint.ToString(), At);
 
     public bool Stale(HostFingerprint current) => !StringComparer.Ordinal.Equals(Fingerprint.ToString(), current.ToString());
 }
@@ -731,9 +744,13 @@ interface FactorizationWire extends ComputeReceiptSpineWire { kind: "factorizati
 
 interface GenerateWire extends ComputeReceiptSpineWire { kind: "generate"; modelChecksum: string; ep: string; modelType: string; tokens: number; tokensPerSecond: number; guidanceKind: string; constrainedTokens: number; toolCalls: number; }
 
+interface EmbeddingWire extends ComputeReceiptSpineWire { kind: "embedding"; modelChecksum: string; encoding: string; dimension: number; byteLength: string; }
+
 interface DiscretizationWire extends ComputeReceiptSpineWire { kind: "discretization"; algorithm: string; element: string; nodes: string; elements: string; boundaryLayers: number; refineLevel: number; worstQuality: number; metric: string; }
 
 interface SolveWire extends ComputeReceiptSpineWire { kind: "solve"; physics: string; method: string; dofs: string; iterations: number; residual: number; converged: boolean; }
+
+interface CouplingWire extends ComputeReceiptSpineWire { kind: "coupling"; scheme: string; fields: number; transfers: number; rounds: number; couplingResidual: number; converged: boolean; }
 
 interface OptimizationWire extends ComputeReceiptSpineWire { kind: "optimization"; optimizer: string; generations: number; evaluations: number; surrogateHits: number; frontSize: number; hypervolume: number; }
 
@@ -751,8 +768,8 @@ interface AssessmentWire extends ComputeReceiptSpineWire { kind: "assessment"; d
 
 type ComputeReceiptWire =
   | SelectionWire | TensorRunWire | ModelLoadWire | WarmupWire | ModelRunWire | RemoteCallWire | StreamSegmentWire
-  | AllocationWire | CopyWire | CacheWire | UnitProjectionWire | BackpressureWire | DrainWire | ConflictWire | FactorizationWire | GenerateWire
-  | DiscretizationWire | SolveWire | OptimizationWire | SweepWire | ClashWire | TwinWire | UncertaintyWire | FitWire | AssessmentWire;
+  | AllocationWire | CopyWire | CacheWire | UnitProjectionWire | BackpressureWire | DrainWire | ConflictWire | FactorizationWire | GenerateWire | EmbeddingWire
+  | DiscretizationWire | SolveWire | CouplingWire | OptimizationWire | SweepWire | ClashWire | TwinWire | UncertaintyWire | FitWire | AssessmentWire;
 
 type ComputeReceiptEnvelopeWire = ReceiptEnvelopeWire<ComputeReceiptWire>;
 

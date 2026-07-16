@@ -139,14 +139,15 @@ public sealed record FrameModel(Seq<StructuralMember> Members, Seq<LoadCombinati
 public sealed record SiteActionPolicy(
     double BasicWindSpeedMPerS, WindExposureClass Exposure, double Kzt, double Kd, double GcpNet,
     double GroundSnowPa, double Ce, double Ct, double SnowImportance, double RoofSlopeFactor,
-    OccupancyClass Occupancy) {
+    OccupancyClass Occupancy, double TributaryWidthM, double RoofBandM) {
     public static readonly SiteActionPolicy Canonical = new(
         BasicWindSpeedMPerS: 51.0, WindExposureClass.C, Kzt: 1.0, Kd: 0.85, GcpNet: 0.8,
         GroundSnowPa: 1_000.0, Ce: 1.0, Ct: 1.0, SnowImportance: 1.0, RoofSlopeFactor: 1.0,
-        OccupancyClass.Office);
+        OccupancyClass.Office, TributaryWidthM: 3.0, RoofBandM: 0.5);
 
     public bool Invalid => BasicWindSpeedMPerS <= 0.0 || Kzt <= 0.0 || Kd <= 0.0 || GcpNet <= 0.0
         || GroundSnowPa < 0.0 || Ce <= 0.0 || Ct <= 0.0 || SnowImportance <= 0.0 || RoofSlopeFactor is <= 0.0 or > 1.0
+        || TributaryWidthM <= 0.0 || RoofBandM < 0.0 || !double.IsFinite(TributaryWidthM) || !double.IsFinite(RoofBandM)
         || !double.IsFinite(BasicWindSpeedMPerS) || !double.IsFinite(GroundSnowPa);
 
     // ASCE 7 velocity pressure qz = 0.613·Kz·Kzt·Kd·V² (SI, Pa) at the member's mean height.
@@ -207,7 +208,24 @@ public static partial class StructuralAnalysis {
                     new Vector3(0d, 0d, -(section.Area.Si * strength.Density.Si * StandardGravity)))
                 select members.Add(new StructuralMember(
                     id, axis, section, strength, directional, family, graph.LoadsOf(id).Add(selfWeight), graph.SupportsOf(id)))))
+            .Bind(members => DeriveAbsent(members, request))
             .Map(members => new FrameModel(members, request.Combinations, request.Policy, graph.Header.Tolerance));
+
+    // Variant screening without a load engineer: a member whose graph carries NO applied action (self-weight is
+    // this projector's own mint, never evidence of loading) takes the ActionDerivation live/wind/snow set under
+    // the request's SiteActionPolicy — roof membership reads the model's top band, tributary width the policy's
+    // strip — while explicit projected actions stay authoritative and derivation never runs beside them; an
+    // absent Site leaves the empty set honest instead of fabricating code actions from an undeclared site.
+    static Fin<Seq<StructuralMember>> DeriveAbsent(Seq<StructuralMember> members, AssessmentRequest.Structural request) =>
+        request.Site.Match(
+            None: () => Fin.Succ(members),
+            Some: site => {
+                double top = members.Map(static m => Math.Max(m.Axis.Start.Z, m.Axis.End.Z)).Max();
+                return members.TraverseM(member => member.Loads.Count > 1
+                    ? Fin.Succ(member)
+                    : ActionDerivation.Derive(member, site.TributaryWidthM, top - Math.Max(member.Axis.Start.Z, member.Axis.End.Z) <= site.RoofBandM, site)
+                        .Map(derived => member with { Loads = member.Loads + derived })).As();
+            });
 
     static Error MissingInput(NodeId id, string what) =>
         new ComputeFault.AssessmentInputMissing($"<member-missing-{what}:{id.Value}>");
@@ -294,7 +312,7 @@ public static class StructuralReads {
 ## [03]-[FRAME_BACKEND]
 
 - Owner: the `Solve` owned-spine route — `FrameModel` lowers onto the `Solver/contract#SOLVE_CONTRACT` `SolveLane` over the `Solver/discretization#DISCRETIZATION_MESH` frame `ElementClass` rows (`beam2-euler`/`beam2-timoshenko`, the `StructuralPolicy.Formulation` column), so the structural lane assembles and factors through the same CSparse owner the continuum lane holds, the owned rows carrying end releases by static condensation, rigid-end offsets by eccentricity transform, and semi-rigid end springs as row behavior; `SectionDemand` the per-combination internal-force envelope; `MemberResponse` the demand-plus-deflection carrier every limit state reads; `FrameLowering` the model→mesh projection (shared joints merged by tolerance-quantized coordinate, per-member `FrameMember` section/release/offset rows off the seam `SectionProperties` and the declared supports, per-member `(E, ν)` on `MaterialField.PerCell`, member loads lowered to fixed-end equivalent nodal actions); `StationRecovery` the per-member station fold off the solved displacement field.
-- Entry: `static Fin<FrozenDictionary<NodeId, MemberResponse>> Solve(FrameModel model, ClockPolicy clocks)` — lowers the model once, then per `LoadCombinationSpec` scales the case actions, solves through `SolveLane.Solve` (the frame arm scattering each member's closed-form 12-DOF block), recovers the worst-station `SectionDemand` plus the worst-station transverse deflection per member, and envelopes across combinations; `Fin<T>` lowers a singular/ill-conditioned factorization onto the typed `ComputeFault.AnalysisFailed(SolvePhase.Solve, FailureKind.Numeric, …)` — deterministic, cached by the spine, never re-run blind — and a member missing its section or support set onto `AnalysisFailed(SolvePhase.Admission, FailureKind.Input, …)`.
+- Entry: `static Fin<FrozenDictionary<NodeId, MemberResponse>> Solve(FrameModel model, IClock clock)` — lowers the model once, then per `LoadCombinationSpec` scales the case actions, solves through `SolveLane.Solve` (the frame arm scattering each member's closed-form 12-DOF block), recovers the worst-station `SectionDemand` plus the worst-station transverse deflection per member, and envelopes across combinations; `Fin<T>` lowers a singular/ill-conditioned factorization onto the typed `ComputeFault.AnalysisFailed(SolvePhase.Solve, FailureKind.Numeric, …)` — deterministic, cached by the spine, never re-run blind — and a member missing its section or support set onto `AnalysisFailed(SolvePhase.Admission, FailureKind.Input, …)`.
 - Auto: joints merge by tolerance-quantized coordinate (never fragile exact-float `Vector3` equality); each `MemberSupport` lowers to the `BoundaryCondition.Dirichlet` 6-DOF constraint set on its endpoint-resolved shared joint; each `MemberLoad` case lowers through a TOTAL `Switch` to its fixed-end equivalent nodal actions (Point by the closed-form ab²/L² pair, Uniform by wL/2 + wL²/12, Trapezoid by the exact linear-varying closed form — never a flattened uniform average) landing as `Neumann` rows on the member-end DOFs; per-station recovery reads the solved field back through each member's local frame — end displacements gathered and rotated local, local end forces `f = k_l·u_l − f_fixed`, station N/V/M by statics from the end forces plus the span-load particular terms (exact for the three load kinds), station transverse deflection by the Hermite end-displacement interpolation plus the span-load particular deflection — so the `Deflection` limit state is a REAL displacement check, never a 0.0 sentinel.
 - Packages: CSparse (shared `SparseCholesky`/`SparseLDL`/`SparseLU`/`SparseQR` family via `Tensor/factor#SPARSE_SOLVE`, selected by `Solver/contract` policy), Rasm.Element (project — `SectionProperties`), LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox.
 - Growth: a new frame formulation is one `ElementClass` frame row (the `Formulation` policy column selects it); a new end condition is a column on `FrameMember` the discretization closed form reads; a new load kind is one `MemberLoad` case plus one fixed-end arm on the total `Switch`; the response envelope is one `MemberResponse` shape the checks read regardless of formulation — a re-admitted external FE backend beside the owned spine is the rejected duplicate-mechanism form, and a `Bfe3DAnalyzer`/`Fealite2DAnalyzer` sibling family stays deleted.
@@ -324,7 +342,7 @@ public readonly record struct MemberResponse(SectionDemand Demand, double MaxDef
 public static partial class StructuralAnalysis {
     // Owned frame solve lowers once, solves per combination, and recovers per
     // station, envelope across combinations — the one spine entry, never a parallel FE engine.
-    public static Fin<FrozenDictionary<NodeId, MemberResponse>> Solve(FrameModel model, ClockPolicy clocks) =>
+    public static Fin<FrozenDictionary<NodeId, MemberResponse>> Solve(FrameModel model, IClock clock) =>
         model.Members.IsEmpty
             ? Fin.Succ(FrozenDictionary<NodeId, MemberResponse>.Empty)
             : FrameLowering.Lower(model).Bind(lowered =>
@@ -332,7 +350,7 @@ public static partial class StructuralAnalysis {
                     Fin.Succ(model.Members.Map(static m => (m.Id, Response: MemberResponse.Zero)).ToFrozenDictionary(static p => p.Id, static p => p.Response)),
                     (acc, combo) => acc.Bind(envelope =>
                         lowered.Problem(combo).Bind(problem =>
-                            SolveLane.Solve(problem, lowered.Mesh, SolvePolicy.CanonicalStatic, clocks)
+                            SolveLane.Solve(problem, lowered.Mesh, SolvePolicy.CanonicalStatic, clock)
                                 .MapFail(fault => fault is ComputeFault.ModelRejected reject
                                     ? new ComputeFault.AnalysisFailed(SolvePhase.Solve, FailureKind.Numeric, $"<frame-singular:{combo.Label}:{reject.Message}>")
                                     : fault)
@@ -360,6 +378,7 @@ public static partial class StructuralAnalysis {
                         mesh,
                         [.. model.Members.Map(static m => new FrameMember(
                             m.Section.Area.Si, m.Section.Iyy.Si, m.Section.Izz.Si, m.Section.J.Si,
+                            UpX: m.Axis.Up.X, UpY: m.Axis.Up.Y, UpZ: m.Axis.Up.Z,
                             SpringYi: SpringAt(m, atStart: true, axisY: true), SpringZi: SpringAt(m, atStart: true, axisY: false),
                             SpringYj: SpringAt(m, atStart: false, axisY: true), SpringZj: SpringAt(m, atStart: false, axisY: false),
                             ShearAreaY: m.Section.AvY.Si, ShearAreaZ: m.Section.AvZ.Si))],
@@ -411,11 +430,52 @@ public static partial class StructuralAnalysis {
                     ? LoadCondition(m, model.JointTolerance, jointOf, load, factor)
                     : None));
 
+        // Loads resolve in the MEMBER LOCAL frame: the Topology.Triad (x̂ along axis, ẑ from the AxisCurve Up, ŷ = ẑ×x̂)
+        // projects every applied vector into axial + BOTH transverse planes — the z-plane pair (uz, ry) bending about ŷ,
+        // the y-plane pair (uy, rz) bending about ẑ — each plane taking its own fixed-end set, a Point force splitting
+        // its axial component by station, and a Point moment contributing its torsional (x̂) component on rx plus the
+        // concentrated-moment fixed-end pair per bending plane; no admitted force or moment component vanishes.
         static Option<BoundaryCondition> LoadCondition(StructuralMember member, double jointTolerance, Func<(long, long, long), long> jointOf, MemberLoad load, double factor) {
             long i = jointOf(Quantized(member.Axis.Start, jointTolerance)), j = jointOf(Quantized(member.Axis.End, jointTolerance));
-            double[] endForces = Scaled(FixedEnd(load, member.Length).EndForces, factor);
+            double[] triad = LocalTriad(member);
+            double Ax(Vector3 v) => v.X * triad[0] + v.Y * triad[1] + v.Z * triad[2];
+            double Ly(Vector3 v) => v.X * triad[3] + v.Y * triad[4] + v.Z * triad[5];
+            double Lz(Vector3 v) => v.X * triad[6] + v.Y * triad[7] + v.Z * triad[8];
+            double length = member.Length;
+            double[] z = FixedEnd(load, length, Lz).EndForces;
+            double[] y = FixedEnd(load, length, Ly).EndForces;
+            double[] flux = new double[12];
+            flux[2] += z[0]; flux[4] += z[1]; flux[8] += z[2]; flux[10] += z[3];
+            flux[1] += y[0]; flux[5] += y[1]; flux[7] += y[2]; flux[11] += y[3];
+            switch (load) {
+                case MemberLoad.Point point: {
+                    double axial = Ax(point.Force);
+                    flux[0] += axial * (1.0 - point.Station); flux[6] += axial * point.Station;
+                    double torque = Ax(point.Moment);
+                    flux[3] += torque * (1.0 - point.Station); flux[9] += torque * point.Station;
+                    double a = point.Station * length, b = length - a, l2 = length * length;
+                    // Concentrated end-moment pair per bending plane: V = ∓6·M₀·ab/L³, Mi = M₀·b(2a−b)/L², Mj = M₀·a(2b−a)/L².
+                    foreach ((double m0, int shear, int mi, int mj) in Seq((Ly(point.Moment), 2, 4, 10), (Lz(point.Moment), 1, 5, 11))) {
+                        flux[shear] += -6.0 * m0 * a * b / (l2 * length); flux[shear + 6] += 6.0 * m0 * a * b / (l2 * length);
+                        flux[mi] += m0 * b * (2.0 * a - b) / l2; flux[mj] += m0 * a * (2.0 * b - a) / l2;
+                    }
+                    break;
+                }
+                case MemberLoad.Uniform uniform: { double w = Ax(uniform.ForcePerLength) * length; flux[0] += w / 2.0; flux[6] += w / 2.0; break; }
+                case MemberLoad.Trapezoid trapezoid: { double w = (Ax(trapezoid.Start) + Ax(trapezoid.End)) / 2.0 * length; flux[0] += w / 2.0; flux[6] += w / 2.0; break; }
+                default: break;
+            }
             return Some<BoundaryCondition>(new BoundaryCondition.Neumann(
-                [i * 6 + 2, i * 6 + 4, j * 6 + 2, j * 6 + 4], endForces));
+                [i * 6 + 0, i * 6 + 1, i * 6 + 2, i * 6 + 3, i * 6 + 4, i * 6 + 5, j * 6 + 0, j * 6 + 1, j * 6 + 2, j * 6 + 3, j * 6 + 4, j * 6 + 5],
+                Scaled(flux, factor)));
+        }
+
+        internal static double[] LocalTriad(StructuralMember member) {
+            Span<double> r = stackalloc double[9];
+            Topology.Triad(
+                member.Axis.End.X - member.Axis.Start.X, member.Axis.End.Y - member.Axis.Start.Y, member.Axis.End.Z - member.Axis.Start.Z,
+                member.Axis.Up.X, member.Axis.Up.Y, member.Axis.Up.Z, r);
+            return r.ToArray();
         }
 
         internal static StructuralCase CaseArm(MemberLoad load) => load.Switch(
@@ -429,13 +489,15 @@ public static partial class StructuralAnalysis {
 
         // Fixed-end equivalent nodal actions per MemberLoad case — the TOTAL Switch: Point by the ab²/L² closed-form
         // pair, Uniform by (wL/2, wL²/12), Trapezoid by the exact linear-varying form (w1 the start, w2 the end
-        // intensity); a flattened trapezoid-to-uniform average is the deleted form. EndForces packs the transverse
-        // end shears and end moments [Vi, Mi, Vj, Mj]; the particular arrows carry the span-load interior moment and
+        // intensity); a flattened trapezoid-to-uniform average is the deleted form. The `local` projector selects the
+        // member-local transverse component (Lz for the z-plane, Ly for the y-plane) so ONE closed form serves both
+        // bending planes — a hard-coded global Force.Z read is the deleted form. EndForces packs the transverse end
+        // shears and end moments [Vi, Mi, Vj, Mj]; the particular arrows carry the span-load interior moment and
         // deflection terms the station recovery adds to the end-force statics — exact for the three load kinds.
-        public static (double[] EndForces, Func<double, double> ParticularMoment, Func<double, double> ParticularDeflection) FixedEnd(MemberLoad load, double length) =>
+        public static (double[] EndForces, Func<double, double> ParticularMoment, Func<double, double> ParticularDeflection) FixedEnd(MemberLoad load, double length, Func<Vector3, double> local) =>
             load.Switch(
                 point: p => {
-                    double magnitude = p.Force.Z, a = p.Station * length, b = length - a, l2 = length * length;
+                    double magnitude = local(p.Force), a = p.Station * length, b = length - a, l2 = length * length;
                     double mi = magnitude * a * b * b / l2, mj = -magnitude * a * a * b / l2;
                     double vi = magnitude * b * b * (length + 2.0 * a) / (l2 * length);
                     return (new[] { vi, mi, magnitude - vi, mj },
@@ -443,13 +505,13 @@ public static partial class StructuralAnalysis {
                         (Func<double, double>)(x => x < a ? 0.0 : magnitude * Math.Pow(x - a, 3) / 6.0));
                 },
                 uniform: u => {
-                    double w = u.ForcePerLength.Z, l2 = length * length;
+                    double w = local(u.ForcePerLength), l2 = length * length;
                     return (new[] { w * length / 2.0, w * l2 / 12.0, w * length / 2.0, -w * l2 / 12.0 },
                         (Func<double, double>)(x => -w * x * x / 2.0),
                         (Func<double, double>)(x => w * Math.Pow(x, 4) / 24.0));
                 },
                 trapezoid: t => {
-                    double w1 = t.Start.Z, w2 = t.End.Z, l2 = length * length;
+                    double w1 = local(t.Start), w2 = local(t.End), l2 = length * length;
                     double vi = length * (7.0 * w1 + 3.0 * w2) / 20.0, vj = length * (3.0 * w1 + 7.0 * w2) / 20.0;
                     double mi = l2 * (w1 / 20.0 + w2 / 30.0), mj = -l2 * (w1 / 30.0 + w2 / 20.0);
                     return (new[] { vi, mi, vj, mj },
@@ -483,38 +545,58 @@ public static partial class StructuralAnalysis {
             model.Members.Map(member => {
                 (long i, long j) = lowered.EndJoints(member);
                 double length = member.Length;
-                // 6-DOF per joint: [ux, uy, uz, rx, ry, rz] — the transverse local pair (uz, ry) drives the Hermite
-                // deflection; axial and torsion read the end differentials directly.
+                // 6-DOF per joint: [ux, uy, uz, rx, ry, rz] — end displacement AND rotation vectors rotate into the
+                // SAME member-local triad the stiffness was rotated with (LocalTriad), so both transverse pairs —
+                // (uz, ry) bending about ŷ over Iyy and (uy, rz) bending about ẑ over Izz — recover in the local
+                // frame; global component reads on a rolled member are the deleted form.
                 ReadOnlySpan<double> u = field.Span;
-                double uzI = At(u, i, 2), ryI = At(u, i, 4), uzJ = At(u, j, 2), ryJ = At(u, j, 4);
-                double axial = (At(u, j, 0) - At(u, i, 0)) / Math.Max(length, StructuralAnalysis.Eps) * member.Strength.YoungsModulus.Si * member.Section.Area.Si;
-                double torsion = (At(u, j, 3) - At(u, i, 3)) / Math.Max(length, StructuralAnalysis.Eps) * member.Strength.ShearModulus.Si * member.Section.J.Si;
+                double[] r = FrameLowering.LocalTriad(member);
+                double[] li = Localized(u, i, r), lj = Localized(u, j, r);
+                double axial = (lj[0] - li[0]) / Math.Max(length, StructuralAnalysis.Eps) * member.Strength.YoungsModulus.Si * member.Section.Area.Si;
+                double torsion = (lj[3] - li[3]) / Math.Max(length, StructuralAnalysis.Eps) * member.Strength.ShearModulus.Si * member.Section.J.Si;
+                double[] triad = r;
+                Func<Vector3, double> ly = v => v.X * triad[3] + v.Y * triad[4] + v.Z * triad[5];
+                Func<Vector3, double> lz = v => v.X * triad[6] + v.Y * triad[7] + v.Z * triad[8];
                 Seq<MemberLoad> loads = member.Loads.Filter(load => combo.Factors.ContainsKey(FrameLowering.CaseArm(load)));
-                Seq<(double Factor, (double[] EndForces, Func<double, double> ParticularMoment, Func<double, double> ParticularDeflection) Action)> actions = loads.Map(load =>
-                    (Factor(combo, load), FrameLowering.FixedEnd(load, length)));
-                double startShear = actions.Fold(0.0, static (acc, action) => acc + action.Factor * action.Action.EndForces[0]);
-                double startMoment = actions.Fold(0.0, static (acc, action) => acc + action.Factor * action.Action.EndForces[1]);
+                var zActions = loads.Map(load => (Factor: Factor(combo, load), Action: FrameLowering.FixedEnd(load, length, lz)));
+                var yActions = loads.Map(load => (Factor: Factor(combo, load), Action: FrameLowering.FixedEnd(load, length, ly)));
                 SectionDemand demand = SectionDemand.Zero;
                 double worstDeflection = 0.0;
-                // Exact fixed-end decomposition uses M(x) = EI·v_h''(x), with the Hermite homogeneous term the joint
-                // displacements drive — the SEISMIC route's whole bending signal) + the fixed-end particular chain
-                // (end reactions + span-load integral); V(x) mirrors with the constant EI·v_h''' term.
-                double ei = member.Strength.YoungsModulus.Si * member.Section.Iyy.Si;
+                // Exact fixed-end decomposition per plane: M(x) = EI·v_h''(x) from the Hermite homogeneous term the
+                // local joint displacements drive, plus the fixed-end particular chain; V(x) mirrors with EI·v_h'''.
+                double eiY = member.Strength.YoungsModulus.Si * member.Section.Iyy.Si;
+                double eiZ = member.Strength.YoungsModulus.Si * member.Section.Izz.Si;
+                double zStartShear = zActions.Fold(0.0, static (acc, action) => acc + action.Factor * action.Action.EndForces[0]);
+                double zStartMoment = zActions.Fold(0.0, static (acc, action) => acc + action.Factor * action.Action.EndForces[1]);
+                double yStartShear = yActions.Fold(0.0, static (acc, action) => acc + action.Factor * action.Action.EndForces[0]);
+                double yStartMoment = yActions.Fold(0.0, static (acc, action) => acc + action.Factor * action.Action.EndForces[1]);
                 for (int s = 0; s < model.Policy.StationCount; s++) {
                     double x = length * s / Math.Max(model.Policy.StationCount - 1, 1);
                     double xi = x / Math.Max(length, StructuralAnalysis.Eps);
-                    double homogeneousMoment = ei * HermiteCurvature(uzI, ryI, uzJ, ryJ, xi, length);
-                    double homogeneousShear = ei * HermiteJerk(uzI, ryI, uzJ, ryJ, length);
-                    double shear = homogeneousShear + startShear;
-                    double moment = homogeneousMoment + startMoment + startShear * x
-                        + actions.Fold(0.0, (acc, action) => acc + action.Factor * action.Action.ParticularMoment(x));
-                    double hermite = Hermite(uzI, ryI, uzJ, ryJ, xi, length)
-                        + actions.Fold(0.0, (acc, action) => acc + action.Factor * action.Action.ParticularDeflection(x) / Math.Max(ei, StructuralAnalysis.Eps));
-                    demand = demand.Max(new SectionDemand(axial, shear, 0.0, moment, 0.0, torsion));
-                    worstDeflection = Math.Max(worstDeflection, Math.Abs(hermite));
+                    double vz = eiY * HermiteJerk(li[2], li[4], lj[2], lj[4], length) + zStartShear;
+                    double my = eiY * HermiteCurvature(li[2], li[4], lj[2], lj[4], xi, length) + zStartMoment + zStartShear * x
+                        + zActions.Fold(0.0, (acc, action) => acc + action.Factor * action.Action.ParticularMoment(x));
+                    double vy = eiZ * HermiteJerk(li[1], li[5], lj[1], lj[5], length) + yStartShear;
+                    double mz = eiZ * HermiteCurvature(li[1], li[5], lj[1], lj[5], xi, length) + yStartMoment + yStartShear * x
+                        + yActions.Fold(0.0, (acc, action) => acc + action.Factor * action.Action.ParticularMoment(x));
+                    double zDeflection = Hermite(li[2], li[4], lj[2], lj[4], xi, length)
+                        + zActions.Fold(0.0, (acc, action) => acc + action.Factor * action.Action.ParticularDeflection(x) / Math.Max(eiY, StructuralAnalysis.Eps));
+                    double yDeflection = Hermite(li[1], li[5], lj[1], lj[5], xi, length)
+                        + yActions.Fold(0.0, (acc, action) => acc + action.Factor * action.Action.ParticularDeflection(x) / Math.Max(eiZ, StructuralAnalysis.Eps));
+                    demand = demand.Max(new SectionDemand(axial, vy, vz, my, mz, torsion));
+                    worstDeflection = Math.Max(worstDeflection, Math.Sqrt(zDeflection * zDeflection + yDeflection * yDeflection));
                 }
                 return (member.Id, demand, worstDeflection);
             });
+
+        // Joint DOF vector rotated local: translations and rotations each map through the triad rows.
+        static double[] Localized(ReadOnlySpan<double> field, long joint, double[] r) {
+            double[] g = [At(field, joint, 0), At(field, joint, 1), At(field, joint, 2), At(field, joint, 3), At(field, joint, 4), At(field, joint, 5)];
+            return [
+                r[0] * g[0] + r[1] * g[1] + r[2] * g[2], r[3] * g[0] + r[4] * g[1] + r[5] * g[2], r[6] * g[0] + r[7] * g[1] + r[8] * g[2],
+                r[0] * g[3] + r[1] * g[4] + r[2] * g[5], r[3] * g[3] + r[4] * g[4] + r[5] * g[5], r[6] * g[3] + r[7] * g[4] + r[8] * g[5],
+            ];
+        }
 
         static double At(ReadOnlySpan<double> field, long joint, int dof) =>
             field[checked((int)(joint * 6 + dof))];
@@ -545,7 +627,7 @@ public static partial class StructuralAnalysis {
 
 - Owner: `MaterialFamily` the constitutive family; `SafetyFormat` the ASD/LRFD/limit-state axis; `DesignCode` `[SmartEnum<string>]` the standard rows carrying the `MaterialFamily`, the `SafetyFormat`, the resistance/partial factors, and the interaction delegate; `LimitState` `[SmartEnum<string>]` the check rows carrying the demand-component selector and the `Applies(MaterialFamily)` predicate; `CapacityContext` the section+isotropic-strength+optional-orthotropic-stiffness+geometry+code bundle every capacity reads (its `ShearModulusSi` reading the realized seam `Orthotropic.ShearModulus` when the member carries the directional case, the derived isotropic `Mechanical` shear otherwise); the `Capacities` `(DesignCode, LimitState)` frozen table of REAL delegates; `SectionCapacity`/`MemberCheck` the carriers; `StructuralAnalysis.Run` the governing-utilization entry.
 - Cases: `DesignCode` rows `aisc360`/`en1993`/`en1992`/`nds`/`en1995`/`aci318`/`tms402`/`aisi-s100` — every structural family carries BOTH its US and its Eurocode row (steel `aisc360`+`en1993`, concrete `aci318`+`en1992`, timber `nds`+`en1995`), so a member is assessable under either jurisdiction through the SAME table, never a US-only or EN-only family; `LimitState` rows `axial-tension`/`axial-compression`/`flexure-major`/`flexure-minor`/`shear-major`/`shear-minor`/`combined`/`deflection` (shear split per axis so the major-axis demand `|Vy|` checks against `AvY` and the minor-axis `|Vz|` against `AvZ`, never one shear area for both) — the capacity is a `(code, state)` cell in the frozen table, each cell the GOVERNING formula for THAT code's material model (AISC E3 `Fcr`, EN 1993 `χ` buckling curve, AISC F2 `Mn` with `Lp`/`Lr` LTB, EN 1993 `χLT`, ACI/EN plain-concrete `Mcr`/`φPn`, NDS `CP`/`CL` adjusted reference values, EN 1995 `k_c`/`k_crit` over the `E0,05` 5%-fractile modulus, TMS slenderness-reduced `Fa`, AISI gross-section bound), the per-cell slenderness/compactness branches the rule count; lateral-torsional buckling is FOLDED into the flexure-major `Mn`/`Mₕ` (one capacity, never a duplicate state); an absent cell is not-applicable (capacity `+∞`, ratio `0`).
-- Entry: `public static Fin<AssessmentResult> Run(ElementGraph graph, AssessmentRequest.Structural request, GeometrySource geometry, AssessmentSink sink, ClockPolicy clocks)` — a request whose route discipline is the seam `Seismic` row dispatches the `[04]` response-spectrum chain (`RunSeismic`, gated on the request's `SeismicSpec`); otherwise `Project` reads the idealization, `Solve` recovers the `MemberResponse` envelope, `Check` folds each member through every applicable `LimitState` computing `utilization = demand / capacity` (the `Combined` arm the code interaction, the `Deflection` arm the FE deflection against `StructuralPolicy.DeflectionLimitRatio × span`), and the governing (max-utilization) member yields the `AssessmentResult` fact stream (`max-utilization`, `governing-member`, `governing-limit-state`, per-check ratios) — the verdict the spine DERIVES from the governing ratio.
+- Entry: `public static Fin<AssessmentResult> Run(ElementGraph graph, AssessmentRequest.Structural request, GeometrySource geometry, AssessmentSink sink, IClock clock)` — a request whose route discipline is the seam `Seismic` row dispatches the `[04]` response-spectrum chain (`RunSeismic`, gated on the request's `SeismicSpec`); otherwise `Project` reads the idealization, `Solve` recovers the `MemberResponse` envelope, `Check` folds each member through every applicable `LimitState` computing `utilization = demand / capacity` (the `Combined` arm the code interaction, the `Deflection` arm the FE deflection against `StructuralPolicy.DeflectionLimitRatio × span`), and the governing (max-utilization) member yields the `AssessmentResult` fact stream (`max-utilization`, `governing-member`, `governing-limit-state`, per-check ratios) — the verdict the spine DERIVES from the governing ratio.
 - Auto: the column capacity reads the `EffectiveLengthFactor × UnbracedLength / RadiusOfGyrationMinor` slenderness (AISC `Fcr`, EN `χ`); the flexure-major capacity reads `Lb` against `Lp` and the elastic LTB moment (EN `χLT`); the deflection check reads `MemberResponse.MaxDeflection`; the combined axial+flexure interaction folds the enveloped demand per the `DesignCode.Interaction` delegate (AISC 360 H1.1 and EN 1993-1-1 §6.3.3 for steel, the EN 1995-1-1 §6.3.2(3) squared-axial + linear-bending form with the `k_m = 0.7` minor-axis factor for timber, the linear sum for the rest), `Combined` applying to steel/cold-formed/timber.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.Element (project — `SectionProperties`, `MaterialPropertySet` (the isotropic `Mechanical` AND the realized directional `Orthotropic` case), `NodeId`, `Provenance`, the `graph.PropertiesOf(member).Orthotropic` ergonomic read), NodaTime (`Instant`), BCL inbox (`FrozenDictionary`).
 - Growth: a new design code is one `DesignCode` row plus its `(code, state)` cells in the table; a new limit state is one `LimitState` row plus its column of cells; a new material family is one `MaterialFamily` row plus its codes' cells — the check fold re-reads the table, never a new check method per code.
@@ -843,16 +925,16 @@ public static partial class StructuralAnalysis {
     static double ConcreteVc(double fc) => 0.17 * Math.Sqrt(Math.Max(fc / 1e6, 0.0)) * 1e6;   // concrete shear stress, Pa
 
     // --- [GOVERNING] ---------------------------------------------------------------------
-    public static Fin<AssessmentResult> Run(ElementGraph graph, AssessmentRequest.Structural request, GeometrySource geometry, AssessmentSink sink, ClockPolicy clocks) =>
+    public static Fin<AssessmentResult> Run(ElementGraph graph, AssessmentRequest.Structural request, GeometrySource geometry, AssessmentSink sink, IClock clock) =>
         request.Seismic.Match(
-            Some: spec => RunSeismic(graph, request, spec, geometry, sink, clocks),
-            None: () => RunStatic(graph, request, geometry, sink, clocks));
+            Some: spec => RunSeismic(graph, request, spec, geometry, sink, clock),
+            None: () => RunStatic(graph, request, geometry, sink, clock));
 
-    static Fin<AssessmentResult> RunStatic(ElementGraph graph, AssessmentRequest.Structural request, GeometrySource geometry, AssessmentSink sink, ClockPolicy clocks) =>
+    static Fin<AssessmentResult> RunStatic(ElementGraph graph, AssessmentRequest.Structural request, GeometrySource geometry, AssessmentSink sink, IClock clock) =>
         from code   in DesignCode.For(request.Route)
         from model  in Project(graph, request, geometry)
         from _      in Validate(model, code)
-        from resp   in Solve(model, clocks)
+        from resp   in Solve(model, clock)
         from blob   in sink.Store(Artifact(resp, graph.Header.Tolerance))
         let checks   = model.Members.Bind(m => Check(m, resp[m.Id], code, model.Policy))
         let govern   = toSeq(checks.OrderByDescending(static c => c.Utilization)).Head
@@ -865,7 +947,7 @@ public static partial class StructuralAnalysis {
                     govern.Map(static g => AssessmentFact.Reference("governing-member", g.Member)).IfNone(AssessmentFact.Text("governing-member", "none")),
                     AssessmentFact.Text("governing-limit-state", govern.Map(static g => g.State.Key).IfNone("none"))),
             govern.Map(static g => g.Utilization).IfNone(0.0),
-            new Provenance("StructuralAnalysis", request.Route.Standard, request.Route.SolverVersion, clocks.Now),
+            new Provenance("StructuralAnalysis", request.Route.Standard, request.Route.SolverVersion, clock.GetCurrentInstant()),
             Some(blob));
 
     static Fin<Unit> Validate(FrameModel model, DesignCode code) =>
@@ -905,7 +987,7 @@ public static partial class StructuralAnalysis {
 ## [05]-[SEISMIC_ROUTE]
 
 - Owner: `DesignSpectrum` `[SmartEnum<string>]` the code design-spectrum rows — EN 1998-1 Type 1, EN 1998-1 Type 2, ASCE 7 — each row carrying its piecewise pseudo-acceleration ordinate as delegate row data over the `SpectrumPolicy` parameters (site class, PGA/mapped accelerations, behavior factor q / response-modification R, damping correction), NEVER a hardcoded curve; `SpectrumPolicy` the parameter record; `ModalCombination` `[SmartEnum<string>]` the modal-combination axis (`srss` · `cqc` — CQC the closely-spaced-mode default, its cross-modal correlation the Der Kiureghian closed form over the damping ratio); `SeismicSpec` the request extension carrying the spectrum row, its policy, the combination row, and the participation floor; `RunSeismic` the route fold over the sparse modal.
-- Entry: `static Fin<AssessmentResult> RunSeismic(ElementGraph graph, AssessmentRequest.Structural request, SeismicSpec spec, GeometrySource geometry, AssessmentSink sink, ClockPolicy clocks)` — the chain is fully named: `FrameLowering.Lower` builds the same mesh the static route uses, `SolveLane.Solve` under `SolvePolicy.CanonicalModalSparse` (the `arpack-shift-invert` row) recovers `(φ, λ)` and the modal participation factors off the owned lumped-mass field, the 90% modal-mass-participation floor gates TYPED — an achieved fraction below `spec.ParticipationFloor` is `ComputeFault.AnalysisFailed(SolvePhase.Solve, FailureKind.Numeric, "<modal-mass-shortfall:…>")` naming the achieved fraction, never a silent truncation — the per-mode spectral demand reads `Sa(T_i)` off the `DesignSpectrum` row, the modal responses combine through the `ModalCombination` row, and the combined demands check through the SAME `(DesignCode, LimitState)` capacity table; the achieved participation and the combination key land as the `Participation`/`Combination` columns on `ComputeReceipt.Assessment`/`AssessmentWire`.
+- Entry: `static Fin<AssessmentResult> RunSeismic(ElementGraph graph, AssessmentRequest.Structural request, SeismicSpec spec, GeometrySource geometry, AssessmentSink sink, IClock clock)` — the chain is fully named: `FrameLowering.Lower` builds the same mesh the static route uses, `SolveLane.Solve` under `SolvePolicy.CanonicalModalSparse` (the `arpack-shift-invert` row) recovers `(φ, λ)` and the modal participation factors off the owned lumped-mass field, the 90% modal-mass-participation floor gates TYPED — an achieved fraction below `spec.ParticipationFloor` is `ComputeFault.AnalysisFailed(SolvePhase.Solve, FailureKind.Numeric, "<modal-mass-shortfall:…>")` naming the achieved fraction, never a silent truncation — the per-mode spectral demand reads `Sa(T_i)` off the `DesignSpectrum` row, the modal responses combine through the `ModalCombination` row, and the combined demands check through the SAME `(DesignCode, LimitState)` capacity table; the achieved participation and the combination key land as the `Participation`/`Combination` columns on `ComputeReceipt.Assessment`/`AssessmentWire`.
 - Packages: the route composes `Solver/contract` (`SolveLane`, `SolvePolicy.CanonicalModalSparse`), `Solver/discretization` (the frame rows), Thinktecture.Runtime.Extensions, LanguageExt.Core — zero new packages (the seam `Discipline.Seismic` row and `StructuralCase.Seismic` already exist).
 - Growth: a new code spectrum is one `DesignSpectrum` row carrying its ordinate delegate; a new combination rule is one `ModalCombination` row; a site-class table refinement is `SpectrumPolicy` data; zero new surface — a `SeismicAnalyzer` sibling runner is the rejected form (this is a structural ROUTE over the existing spine).
 - Boundary: the sparse modal is the `arpack-shift-invert` `SolveMethod` row at building DOF — dense EVD stays the small-DOF terminal and a hand-rolled Lanczos is the deleted form; the spectrum is POLICY DATA (the codes the seam `Seismic` row itself names) and a hardcoded curve, a per-code method ladder, or a spectrum baked into the runner is the deleted form; CQC is the closely-spaced default because SRSS under-combines correlated modes — the choice is a ROW the receipt records, never a silent internal pick; the participation floor is a typed `(Solve, Numeric)` shortfall (deterministic — it caches as a Failed node under the lifecycle-spine law and never re-runs blind).
@@ -978,12 +1060,12 @@ public static partial class StructuralAnalysis {
     // fraction, per-mode Sa(T_i) demand off the spectrum row, modal responses combined through the
     // ModalCombination row, the combined demands checked through the SAME capacity table — a fully-named
     // chain, never a new runner.
-    static Fin<AssessmentResult> RunSeismic(ElementGraph graph, AssessmentRequest.Structural request, SeismicSpec spec, GeometrySource geometry, AssessmentSink sink, ClockPolicy clocks) =>
+    static Fin<AssessmentResult> RunSeismic(ElementGraph graph, AssessmentRequest.Structural request, SeismicSpec spec, GeometrySource geometry, AssessmentSink sink, IClock clock) =>
         from code  in DesignCode.For(request.Route)
         from model in Project(graph, request, geometry)
         from lowered in FrameLowering.Lower(model)
         from problem in lowered.Problem(LoadCombinationSpec.SeismicUnit)
-        from modal in SolveLane.Solve(problem, lowered.Mesh, SolvePolicy.CanonicalModalSparse, clocks)
+        from modal in SolveLane.Solve(problem, lowered.Mesh, SolvePolicy.CanonicalModalSparse, clock)
         from gate  in Participation(modal, spec)
         let periods = modal.EigenValues.Map(static values => toSeq(values.ToArray()).Map(static w2 => 2.0 * Math.PI / Math.Sqrt(Math.Max(w2, 1e-12)))).IfNone(Seq<double>())
         let demands = SpectralDemands(model, lowered, modal, spec, periods)
@@ -998,7 +1080,7 @@ public static partial class StructuralAnalysis {
                     participation,
                     AssessmentFact.Text("modal-combination", spec.Combination.Key)),
             govern.Map(static g => g.Utilization).IfNone(0.0),
-            new Provenance("StructuralAnalysis", request.Route.Standard, request.Route.SolverVersion, clocks.Now),
+            new Provenance("StructuralAnalysis", request.Route.Standard, request.Route.SolverVersion, clock.GetCurrentInstant()),
             Some(blob));
 
     // Typed participation floor compares ΣΓ² over recovered modes against SolveResult.TotalMass — the real

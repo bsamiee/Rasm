@@ -114,6 +114,15 @@ public abstract partial record MergeConflict {
     // seven-arm Map that repeats `ColumnFamily.Crdt` six times.
     public ColumnFamily Family => this is TopologyBreak ? ColumnFamily.Geometry : ColumnFamily.Crdt;
 
+    // The conflicted AXIS the merged script excludes — a per-(key, axis) mask, so one content conflict never
+    // suppresses a clean move/reorder/retype on the same node; DeleteUpdate and ContainmentCycle poison the
+    // WHOLE key (None = every axis) because no orthogonal edit survives a contested existence or a cycle.
+    public Option<string> ConflictAxis => this.Map(
+        parallelEdit: static _ => Some("content"), deleteUpdate: static _ => Option<string>.None,
+        moveMove: static _ => Some("parent"), reorderReorder: static _ => Some("ordinal"),
+        typeChange: static _ => Some("role"), topologyBreak: static _ => Some("content"),
+        containmentCycle: static _ => Option<string>.None);
+
     // The two-sided (Hlc, actor) evidence both sides stamp — derived through the generated Map so the seven
     // near-identical Receipt arms collapse to ONE Project expression; the single-author ContainmentCycle (the
     // cycle is detected on one side) reuses its own cell/actor for both held and incoming, the only case where
@@ -209,11 +218,14 @@ public static class StructuralMerge {
             .Bind(key => Conflicts(key, ourEdits.Find(key).IfNone(HashMap<string, EditOp>()), theirEdits.Find(key).IfNone(HashMap<string, EditOp>()), stampOurs(key), stampTheirs(key)))
             .Append(Cycles(ourEdits, oursByKey, ByOurs: true, stampOurs))
             .Append(Cycles(theirEdits, theirsByKey, ByOurs: false, stampTheirs)));
-        HashSet<NodeId> conflicted = conflicts.Map(static c => c.Subject).ToHashSet();
-        // Every edit on a key neither side conflicts on, PLUS both orthogonal ops where the sides edit one key on
-        // non-overlapping axes — ours' axes first, then theirs' axes ours did not touch (last-write-wins per axis).
-        Seq<EditOp> merged = toSeq(ourEdits.Filter((key, _) => !conflicted.Contains(key)).Map(static (_, axes) => axes.Values).Values.Bind(static ops => ops)
-            .Append(theirEdits.Filter((key, _) => !conflicted.Contains(key)).Map((key, axes) => axes.Filter((axis, _) => !ourEdits.Find(key).Map(a => a.ContainsKey(axis)).IfNone(false)).Values).Values.Bind(static ops => ops)));
+        // Exclusion is PER (key, axis): a node with one conflicting axis retains every clean orthogonal edit —
+        // only DeleteUpdate/ContainmentCycle (ConflictAxis None) poison the whole key. Ours' clean axes first,
+        // then theirs' axes ours did not touch (last-write-wins per axis).
+        HashSet<NodeId> poisoned = conflicts.Filter(static c => c.ConflictAxis.IsNone).Map(static c => c.Subject).ToHashSet();
+        HashSet<(NodeId Key, string Axis)> conflictedAxes = conflicts.Bind(c => c.ConflictAxis.Map(axis => (c.Subject, axis)).ToSeq()).ToHashSet();
+        bool Excluded(NodeId key, string axis) => poisoned.Contains(key) || conflictedAxes.Contains((key, axis));
+        Seq<EditOp> merged = toSeq(ourEdits.Map((key, axes) => toSeq(axes.Filter((axis, _) => !Excluded(key, axis)).Values)).Values.Bind(static ops => ops)
+            .Append(theirEdits.Map((key, axes) => toSeq(axes.Filter((axis, _) => !Excluded(key, axis) && !ourEdits.Find(key).Map(a => a.ContainsKey(axis)).IfNone(false)).Values)).Values.Bind(static ops => ops)));
         return new MergeOutcome(merged, conflicts, Tally(merged, conflicts));
     }
 

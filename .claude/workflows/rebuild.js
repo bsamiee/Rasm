@@ -36,6 +36,7 @@ const STALL = 300000;
 const DRAIN_ROUNDS = 4; // terminal drain fixpoint cap; the progress gate (no shrinkage -> stop) is the real bound
 const CODEX_STALL = 7500000; // wrapper stall sits ABOVE the client MCP ceiling (fleet codex.toolTimeoutSec = 7200s): the client aborts a wedged call first; this guards only a dead wrapper
 const BATCH_MAX = 8; // unit-segment + batch-packing ceiling; per-segment maps + census legwork carry the navigation, so a writer holds a full dense batch
+const BATCH_LOC = 3400; // size ceiling beside the count ceiling: a batch's pages must also fit one review context window with room to edit — page tonnage, not page count, is what overflows a lane
 const FINDER_PAGES = 8; // landed pages per close-phase finder
 const CODEX = true; // recon lanes ride the codex wrapper — the call-site rows carry each lane's model tier; false restores native lanes
 
@@ -99,10 +100,10 @@ const PLAN_SCHEMA = {
             items: {
                 type: 'object',
                 additionalProperties: false,
-                required: ['page', 'kind'],
-                properties: { page: S, kind: { type: 'string', enum: ['new', 'rebuild'] } },
+                required: ['page', 'kind', 'lines'],
+                properties: { page: S, kind: { type: 'string', enum: ['new', 'rebuild'] }, lines: { type: 'integer' } },
             },
-        }, // ARRAY ORDER IS DEPENDENCY + COHESION ORDER — the engine never re-sorts
+        }, // ARRAY ORDER IS DEPENDENCY + COHESION ORDER — the engine never re-sorts; `lines` feeds the size-aware packer
         unresolved: { type: 'array', items: S },
     },
 };
@@ -759,12 +760,15 @@ const codexPrompt = (label, task, schema, o) => {
             JSON.stringify(root) +
             (o.codexEffort ? ', config={"model_reasoning_effort":"' + o.codexEffort + '"}' : '') +
             ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
-            'VERBATIM. If the call errors with a TIMEOUT or idle abort, the codex session CONTINUES server-side' +
+            'VERBATIM. If the call errors with a TIMEOUT or idle abort, the server aborts the codex turn — edits already ' +
+            'landed on disk stay landed, but the final message and report are gone' +
             (o.writes
-                ? ' and writes its own report — do NOT re-dispatch (a retry mints a duplicate concurrent writer on the same ' +
-                  'files): poll `jq -e . <report path>` with Bash every 120s for up to 40 minutes; the report appearing IS ' +
-                  'completion — proceed to step (4) from its content. Only a NON-timeout error retries the identical call ONCE.'
-                : ' but its product is lost to this wrapper — retry the identical call ONCE, as with any other error.') +
+                ? ': check the report ONCE with `jq -e . <report path>`; if present, proceed to step (4) from its content; if ' +
+                  'absent, skip step (3) and return ok=false through step (4) with the error text plus "report absent" — ' +
+                  'NEVER re-dispatch (a duplicate concurrent writer races the landed edits); the orchestrator owns recovery. ' +
+                  'Only a NON-timeout error retries the identical call ONCE.'
+                : '. A TIMEOUT means the lane was over-scoped — return ok=false through step (4), never an identical retry; ' +
+                  'a NON-timeout error retries the identical call ONCE.') +
             ' If the retry errors, skip step (3) and return the error through step (4).',
         'LANE LAW:\n\n' + laneLaw(schema, o),
         'TASK:\n\n' +
@@ -849,8 +853,36 @@ const chunk = (arr, n) => {
     for (let i = 0; i < arr.length; i += n) o.push(arr.slice(i, i + n));
     return o;
 };
-// Even split: ceil(n/max) batches of near-equal size — no runt tail heavying batch 0 and starving the last.
-const evenChunk = (arr, max) => chunk(arr, Math.ceil(arr.length / (Math.ceil(arr.length / max) || 1)));
+// Dual-ceiling split: segment count from BOTH ceilings (page count AND page tonnage), then near-even LOC fill in
+// order — no runt tail, and no segment whose pages alone overflow a review lane's context window.
+const sizeChunk = (pages) => {
+    const loc = (ps) => ps.reduce((a, s) => a + s.lines, 0);
+    const k = Math.max(Math.ceil(pages.length / BATCH_MAX), Math.ceil(loc(pages) / BATCH_LOC), 1);
+    if (k === 1) return [pages];
+    const target = loc(pages) / k;
+    const out = [];
+    let cur = [];
+    let acc = 0;
+    for (let i = 0; i < pages.length; i++) {
+        const p = pages[i];
+        // Boundary BEFORE the page when the segment sits nearer target without it — the overshooting page starts
+        // the next segment instead of heaping onto this one; guards keep every later segment fillable.
+        const splitBefore =
+            cur.length > 0 &&
+            out.length < k - 1 &&
+            pages.length - i >= k - out.length - 1 &&
+            (cur.length >= BATCH_MAX || Math.abs(acc - target) <= Math.abs(acc + p.lines - target));
+        if (splitBefore) {
+            out.push(cur);
+            cur = [];
+            acc = 0;
+        }
+        cur.push(p);
+        acc += p.lines;
+    }
+    if (cur.length) out.push(cur);
+    return out;
+};
 const pkgOf = (p) => p.split('/.planning/')[0]; // package = the write-partition key (index docs live at its root)
 const subOf = (p) => {
     // Sub-folder = the map/batch granularity unit: one mapper pair and one batch-ownership seam per `.planning/<sub>`; root-level pages pool as '_root'.
@@ -863,12 +895,13 @@ const scratchBase = (pkg, i) => SCRATCH + '/' + fileTag(pkg.split('/').pop() + '
 const dossierPath = (lensLabel) => SCRATCH + '/' + fileTag(lensLabel) + '-dossier.md';
 const normalizePages = (pl) => {
     // Preserves plan emission order (dependency + cohesion order); dedupe by page, first wins.
+    // `lines` feeds the size-aware packer; a `new` page (0 on disk) packs at a typical authored weight.
     const seen = new Set();
     const out = [];
     for (const p of (pl && pl.pages) || []) {
         if (!p || !p.page || seen.has(p.page)) continue;
         seen.add(p.page);
-        out.push({ page: p.page, kind: p.kind === 'new' ? 'new' : 'rebuild' });
+        out.push({ page: p.page, kind: p.kind === 'new' ? 'new' : 'rebuild', lines: Math.max(p.lines | 0, 500) });
     }
     return out;
 };
@@ -1042,8 +1075,9 @@ const RIPPLE_LAW =
     'the target package lands as a fully-specified IDEAS row via `indexRows`, never a vague note.';
 
 const CURRENT_STATE =
-    'CURRENT STATE — sibling batches land work concurrently with yours. Before any edit, re-read the CURRENT on-disk state of ' +
-    'your pages AND every sibling page they compose or ripple into; landed sibling work is picked up as found, never assumed ' +
+    'CURRENT STATE — sibling batches land work concurrently with yours. Your own pass already reads each target page fresh ' +
+    'from CURRENT disk; before an edit whose correctness depends on a sibling page, re-open the specific SPAN of that sibling ' +
+    'it composes or ripples into — never a whole-file re-read; landed sibling work is picked up as found, never assumed ' +
     'from the dossier snapshot (dossiers ground verified `.api` extracts, never sibling page state). A seam counterpart a ' +
     'sibling landed is COMPOSED, not re-derived; a conflict resolves to the stronger form, never a revert.';
 
@@ -1089,9 +1123,9 @@ const EVIDENCE_LAW =
     'proving resolution. NEVER write add/replace/implement/promote/delete as instruction — the writer owns the design, you the ' +
     'constraint boundary. `claimKey` is identical for the same defect regardless of lane or wording. `severity` binds to ' +
     'consequence (blocker = run-blocking, major = corpus correctness, minor = local cleanup), never prose confidence. OUTPUT ' +
-    'BOUNDS: an ordinary scope yields 3-8 retained findings; 0 only when the second hostile pass returns empty, `summary` then ' +
-    'naming the probes that produced nothing; never manufacture a finding to fill the range, never delete a confirmed one to ' +
-    'stay inside it. COVERAGE is part of the product: `requested` = assigned scope, `read` = actually full-read, ' +
+    'BOUNDS: the finding count follows the territory, never a target — a typical page yields 0-2 retained findings and a clean ' +
+    'page yields none; 0 across the whole scope only when the second hostile pass returns empty, `summary` then naming the ' +
+    'probes that produced nothing; never manufacture a finding to fill a count, never delete a confirmed one to trim one. COVERAGE is part of the product: `requested` = assigned scope, `read` = actually full-read, ' +
     '`skipped`/`unverified` = not reached or unconfirmed — an honest skip beats a silent one.';
 
 const HARVEST_LAW =
@@ -1229,7 +1263,9 @@ const planPrompt = () =>
             'mis-scoped or renamed target is reported in `unresolved`; a deliberately page-less target skips silently). Return ' +
             '`packages` (one entry per owning package: {name, root, planning, api}). PAGES: expand each target — a ROOT to ' +
             'every design page under its planning tree, a SUB-FOLDER to every page under it, a FILE to itself; union + dedup; ' +
-            'exclude IDEAS.md/TASKLOG.md/README.md/ARCHITECTURE.md.',
+            'exclude IDEAS.md/TASKLOG.md/README.md/ARCHITECTURE.md. Each page row carries `lines` = its real line count ' +
+            '(one `wc -l` sweep over the listing; 0 for a `new` page absent on disk) — the engine packs batches by tonnage, ' +
+            'so a guessed count corrupts the packing.',
         'SCOPE LAW — the owning-package charter (ARCHITECTURE.md + README.md + IDEAS.md) owns scope: every existing design ' +
             'page under the targets enters as `rebuild`; a page the charter demands but disk lacks enters as `new`; a ' +
             'charter-settled page is SKIPPED, never re-litigated.',
@@ -1442,7 +1478,8 @@ const CRIT_READ = (L, pkg, dossiers, roster, unmapped, pack) =>
     pkg +
     '/.api/`) open only at the member blocks your pages cite or compose; a disputed spelling resolves via ' +
     L.verify +
-    '. OUT OF SCOPE: instruction files (CLAUDE.md, AGENTS.md, `.claude/` config), the repo-root README, and any strata or ' +
+    '. OUT OF SCOPE: instruction files (CLAUDE.md, AGENTS.md, `.claude/` config), skill bundles including `docgen` (the ' +
+    'PROSE block above carries the standards route), the repo-root README, and any strata or ' +
     'topology hunt — the law above is complete, and a name this brief states is never searched for on disk.';
 
 const critiquePrompt = (L, batch, dossiers, ideate, scopes, roster, unmapped, nav, reg, pack) =>
@@ -1689,9 +1726,12 @@ const fixerPrompt = (langs, roster, unmapped, rows, backlog, failed, pages, orph
             'application on non-index files, symbol propagation, spelling repairs) fan to scoped delegates carrying the precise ' +
             'file+anchor+replacement spec — zero judgment left, zero corpus re-reading needed, and you spot-check each landing. ' +
             '(c) DISJOINT CLUSTERS — when the verified work list is large and partitions into disjoint-file clusters of ' +
-            'judgment work, at most two full-context writer delegates take whole clusters: each receives its cluster rows plus ' +
+            'judgment work, full-context writer delegates take whole clusters: each receives its cluster rows plus ' +
             'the artifact paths it needs, composes its language doctrine in full before writing (a writer without the doctrine ' +
-            'read never writes), and holds a write scope disjoint from yours and each other. The owning-package index docs, ' +
+            'read never writes), and holds a write scope disjoint from yours and each other. A work list spanning multiple ' +
+            'packages partitions at the package boundary by DEFAULT — dispatch one delegate per package (cap four, remainder ' +
+            'packages pooled onto the nearest-language delegate) the moment the list is read, not after your own pass stalls; ' +
+            'rows crossing a package boundary, and every collapse or rename, stay YOURS. The owning-package index docs, ' +
             'IDEAS.md, and the central manifests never delegate. A delegated row counts resolved ONLY after you verify its ' +
             'edits on current disk; a delegate that landed nothing returns the row to your own hands in the same round — a ' +
             'row parked in `remaining` on unverified delegate work is a fabricated blocker. Write delegates ride the Agent ' +
@@ -1839,13 +1879,14 @@ if (!PAGES.length) {
 // Static run topology — the unit split, batch packing, and cross-batch scope ledger derive from page paths
 // alone, before any lane runs, so every package chain launches against the full SCOPES map.
 const PKGS = [...new Set(PAGES.map((p) => pkgOf(p.page)))];
-// An oversize sub-folder splits into ceiling-bounded SEGMENTS here, once — map lanes and batches both consume the segmented
-// units, so every batch's dossiers cover exactly its pages and the mapper fan scales with the writer fan on any folder size.
+// An oversize sub-folder splits into SEGMENTS under the dual ceiling (page count AND LOC tonnage) here, once — map lanes and
+// batches both consume the segmented units, so every batch's dossiers cover exactly its pages, the mapper fan scales with the
+// writer fan, and no unit's pages alone can overflow a downstream review lane's context window.
 const UNITS = PKGS.flatMap((pkg) => {
     const pkgPages = PAGES.filter((p) => pkgOf(p.page) === pkg);
     return [...new Set(pkgPages.map((p) => subOf(p.page)))].flatMap((sub) => {
         const pages = pkgPages.filter((p) => subOf(p.page) === sub);
-        const segs = pages.length > BATCH_MAX ? evenChunk(pages, BATCH_MAX) : [pages];
+        const segs = sizeChunk(pages);
         return segs.map((seg, i) => {
             const name = sub + (segs.length > 1 ? '.' + (i + 1) : '');
             return { pkg, sub, name, key: pkg + '|' + name, tag: pkg.split('/').pop() + '.' + name, pages: seg };
@@ -1859,14 +1900,18 @@ const packBatches = (units, max) => {
     const out = [];
     let cur = [];
     let n = 0;
+    let l = 0;
     for (const u of units) {
-        if (cur.length && n + u.pages.length > max) {
+        const ul = u.pages.reduce((a, p) => a + p.lines, 0);
+        if (cur.length && (n + u.pages.length > max || l + ul > BATCH_LOC)) {
             out.push(cur);
             cur = [];
             n = 0;
+            l = 0;
         }
         cur.push(u);
         n += u.pages.length;
+        l += ul;
     }
     if (cur.length) out.push(cur);
     return out;
@@ -2048,9 +2093,14 @@ const runBatch = async (b) => {
     // never the ambition worklist; ambition realization is the implement's rung 4 and the redteam's mandate (G).
     const packR = LAWPACK[L.key] ? await LAWPACK[L.key] : null;
     const pack = packR && packR.ok ? lawPackPath(L.key) : '';
+    // Critique nav trims to {files, seams}: deltas/deferred are the implement's own edits the audit re-derives from disk.
+    const critNav = (() => {
+        const n = navOf([fix]);
+        return { files: n.files, seams: n.seams };
+    })();
     const crit = await slot(() =>
         recon(
-            (reg) => critiquePrompt(L, batch, dossiers, { fix: ideate.fix, idea: '' }, SCOPES, roster, unmapped, navOf([fix]), reg, pack),
+            (reg) => critiquePrompt(L, batch, dossiers, { fix: ideate.fix, idea: '' }, SCOPES, roster, unmapped, critNav, reg, pack),
             ropts(
                 'crit:' + tag,
                 'Build',

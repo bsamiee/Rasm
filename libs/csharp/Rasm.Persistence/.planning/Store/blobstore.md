@@ -775,9 +775,13 @@ public static class ObjectIo {
                 keys.Add(BlobName.OfName(item.Key));
             return toSeq(keys);
         }),
-        Issue: (demand, _) => Bound("minio", KeyOf(demand.Request), async () => (ObjectGrant)new ObjectGrant.SignedUrl(new Uri(demand.Request is GrantRequest.Write
-            ? await r.Client.PresignedPutObjectAsync(new PresignedPutObjectArgs().WithBucket(r.Bucket).WithObject(KeyOf(demand.Request).Name(r.Tenant)).WithExpiry((int)demand.Lifetime.TotalSeconds)).ConfigureAwait(false)
-            : await r.Client.PresignedGetObjectAsync(new PresignedGetObjectArgs().WithBucket(r.Bucket).WithObject(KeyOf(demand.Request).Name(r.Tenant)).WithExpiry((int)demand.Lifetime.TotalSeconds)).ConfigureAwait(false)))));
+        // Minio presigns GET and PUT only (the catalog carries no presigned-DELETE member), so an Erase demand is
+        // the typed Denied refusal — a GET grant answering a DELETE demand authorized the wrong verb, the deleted form.
+        Issue: (demand, _) => demand.Request is GrantRequest.Erase
+            ? IO.fail<ObjectGrant>(new RemoteStoreFault.Denied(KeyOf(demand.Request), "minio", "presigned-delete-unsupported"))
+            : Bound("minio", KeyOf(demand.Request), async () => (ObjectGrant)new ObjectGrant.SignedUrl(new Uri(demand.Request is GrantRequest.Write
+                ? await r.Client.PresignedPutObjectAsync(new PresignedPutObjectArgs().WithBucket(r.Bucket).WithObject(KeyOf(demand.Request).Name(r.Tenant)).WithExpiry((int)demand.Lifetime.TotalSeconds)).ConfigureAwait(false)
+                : await r.Client.PresignedGetObjectAsync(new PresignedGetObjectArgs().WithBucket(r.Bucket).WithObject(KeyOf(demand.Request).Name(r.Tenant)).WithExpiry((int)demand.Lifetime.TotalSeconds)).ConfigureAwait(false)))));
 
     // Presigned-grant: the leg holds NO credential — the client-side credential never exists, which is the
     // reach no credentialed row has. Every transfer op mints an `ObjectGrant` per operation through the case's

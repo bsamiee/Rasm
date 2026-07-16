@@ -311,7 +311,7 @@ public static partial class EnergySimulation {
 ## [04]-[SIMULATION_RUN]
 
 - Owner: `EnergySimulation.Run` the one energy entry dispatching the `EnergyRoute` row; `RunLocal` the subprocess arm; `RunSubprocess` the EnergyPlus subprocess; `ReadResults`/`EndUseFacts`/`ValidityFacts`/`GoverningEui`/`Slug`/`Lower`/`Vertices` the `SqlFile` result read shared by both routes; the scratch run-directory lifetime.
-- Entry: `static Fin<AssessmentResult> RunLocal(ElementGraph graph, AssessmentRequest.Energy request, GeometrySource geometry, AssessmentSink sink, ClockPolicy clocks)` resolves the binary through `EnergyToolchain.Resolve`, builds the OSM model and IDF, runs the subprocess over the scratch directory, reads `eplusout.sql` through `SqlFile`, and emits the site/source totals, the `eui`/`source-eui` pair (positive conditioned area only), the `end-use:<category>` family, and the `hours-simulated` validity fact, bracketing the scratch directory and every native handle.
+- Entry: `static Fin<AssessmentResult> RunLocal(ElementGraph graph, AssessmentRequest.Energy request, GeometrySource geometry, AssessmentSink sink, IClock clock)` resolves the binary through `EnergyToolchain.Resolve`, builds the OSM model and IDF, runs the subprocess over the scratch directory, reads `eplusout.sql` through `SqlFile`, and emits the site/source totals, the `eui`/`source-eui` pair (positive conditioned area only), the `end-use:<category>` family, and the `hours-simulated` validity fact, bracketing the scratch directory and every native handle.
 - Auto: the subprocess is `energyplus -w <weather> -d <outdir> -r <idf>`; a non-zero exit rails `ComputeFault.AnalysisFailed` with the stderr tail. Per-end-use breakdown folds the structured `SqlFile.endUses()` summary — one all-fuel sum per `EndUseCategoryType` over the static `EndUses.fuelTypes()`/`categories()` vectors (each handle bracketed, the SWIG marshaling exemption), the `Water` fuel (m³ consumption) the one excluded column — so a gas- or district-heated building reports its real heating end use and the lighting/equipment/fan/pump loads a whole-building EUI carries. EUI divides energy by conditioned floor area and is emitted only over a positive area, so a zero-area set carries no intensity fact and the verdict bands `NotApplicable` rather than a fabricated 0.0-EUI Satisfied. A `hours-simulated` fact carries `SqlFile.hoursSimulated()` as a `Duration` so a downstream verdict rejects a partial-year run; the setpoint-not-met hours have no `SqlFile` accessor and no generic SQL exec, a growth axis a SQLite reader opens. Every measure is SI-native `MeasureValue.OfSi` with the GJ→J coercion riding `UnitsNet.Energy` once; the verdict converts the SI EUI back to kWh·m⁻²·a⁻¹ against the policy target, projecting `double.NaN` when no target is carried.
 - Receipt: the `Assessment` `ComputeReceipt` case carries the energy discipline/route/content-key plus elapsed wall time; translator warnings and an undetermined version probe fold in as soft facts, while construction or reported-version failures rail before simulation.
 - Packages: Microsoft.Data.Sqlite (the read-only tabular reader for the setpoint-not-met rows the SWIG `SqlFile` exposes no accessor for; folder admission on this first compose, the central pin held), NREL.OpenStudio.macOS-arm64 (the `SqlFile` totals + structured `EndUses` fold + `hoursSimulated` + the static run-context helpers), UnitsNet (the GJ→J / J→kWh / hours→s coercions), LanguageExt.Core, NodaTime, Rasm.Element (project — `ElementGraph`, `Dimension`, `MeasureValue`, `PropertyValue`, `NodeId`), BCL inbox.
@@ -320,7 +320,7 @@ public static partial class EnergySimulation {
 ```csharp signature
 // --- [OPERATIONS] --------------------------------------------------------------------------
 public static partial class EnergySimulation {
-    static Fin<AssessmentResult> RunLocal(ElementGraph graph, AssessmentRequest.Energy request, GeometrySource geometry, AssessmentSink sink, ClockPolicy clocks) {
+    static Fin<AssessmentResult> RunLocal(ElementGraph graph, AssessmentRequest.Energy request, GeometrySource geometry, AssessmentSink sink, IClock clock) {
         // Native and subprocess boundary rails onto Fin: a SWIG ctor, model mutation, Process.Start over a bad binary,
         // or a corrupt SqlFile throws a SystemException the entry owes the caller as AnalysisFailed, never an escape. Scratch
         // creation is inside the bracket and cleanup is best-effort, so a delete fault never masks the run's Fin result.
@@ -341,7 +341,7 @@ public static partial class EnergySimulation {
                    select AssessmentResult.Of(request.Route,
                        facts + tabular + build.TranslatorLog + versionFacts,
                        GoverningEui(facts, request.Policy),
-                       new Provenance("EnergySimulation", request.Route.Standard, $"EnergyPlus {request.Policy.Toolchain.ExpectedVersion}", clocks.Now),
+                       new Provenance("EnergySimulation", request.Route.Standard, $"EnergyPlus {request.Policy.Toolchain.ExpectedVersion}", clock.GetCurrentInstant()),
                        Some(blob));
         }
         catch (Exception ex) when (ex is SystemException or ApplicationException) {
@@ -611,16 +611,16 @@ public abstract partial record EnergyRoute {
 // --- [OPERATIONS] --------------------------------------------------------------------------
 public static partial class EnergySimulation {
     // One entry, provider rows: the generated Switch makes a new provider a compile-broken case, never a knob.
-    public static Fin<AssessmentResult> Run(ElementGraph graph, AssessmentRequest.Energy request, GeometrySource geometry, AssessmentSink sink, ClockPolicy clocks) =>
+    public static Fin<AssessmentResult> Run(ElementGraph graph, AssessmentRequest.Energy request, GeometrySource geometry, AssessmentSink sink, IClock clock) =>
         request.Policy.Route.Switch(
-            subprocess: _ => RunLocal(graph, request, geometry, sink, clocks),
-            cloud:      c => RunCloud(graph, request, c, sink, clocks));
+            subprocess: _ => RunLocal(graph, request, geometry, sink, clock),
+            cloud:      c => RunCloud(graph, request, c, sink, clock));
 
     // Submit -> watch -> pull -> the same ReadResults fold. The async orchestration is one blocking boundary kernel
     // (Exemption: sidecar HTTP + filesystem) bracketed with the scratch directory; auth is composition-root input.
     // Classification is exception-typed: an ApiException/HTTP transport fault is EndpointUnreachable; every other raise,
     // a failed terminal, or a missing SQL asset is AnalysisFailed — a descriptor defect is never misreported as unreachable.
-    static Fin<AssessmentResult> RunCloud(ElementGraph graph, AssessmentRequest.Energy request, EnergyRoute.Cloud route, AssessmentSink sink, ClockPolicy clocks) {
+    static Fin<AssessmentResult> RunCloud(ElementGraph graph, AssessmentRequest.Energy request, EnergyRoute.Cloud route, AssessmentSink sink, IClock clock) {
         string scratch = "";
         try {
             scratch = Directory.CreateTempSubdirectory("rasm-pollination-").FullName;
@@ -633,7 +633,7 @@ public static partial class EnergySimulation {
                     .Bind(facts => TabularFacts(sqlPath)
                         .Bind(tabular => sink.Store(File.ReadAllBytes(sqlPath))
                             .Map(blob => AssessmentResult.Of(request.Route, facts + tabular, GoverningEui(facts, request.Policy),
-                                new Provenance("EnergySimulation", request.Route.Standard, $"Pollination {route.Owner}/{route.Project}", clocks.Now),
+                                new Provenance("EnergySimulation", request.Route.Standard, $"Pollination {route.Owner}/{route.Project}", clock.GetCurrentInstant()),
                                 Some(blob))))));
         }
         finally { if (scratch.Length > 0) { try { Directory.Delete(scratch, recursive: true); } catch (IOException) { } } }

@@ -1,6 +1,6 @@
 # [COMPUTE_DISCRETIZATION]
 
-Rasm.Compute solver discretization: one volumetric `MeshKernel` owner generating tet/hex/boundary-layer meshes from a boundary `BoundaryShell` through real Delaunay/octree/sweep/inflation cores with adaptive h/p/hp refinement, one `ElementClass` `[SmartEnum<string>]` element-topology axis carrying its reference-node table, its monomial polynomial space, and a `ShapeFamily` discriminant that drives one isoparametric `Sample` so twelve continuum element types collapse onto a Vandermonde coefficient mechanism plus an explicit serendipity arm and a rational pyramid arm — and the owned Frame family (`beam2-euler`/`beam2-timoshenko`, the 2-node 12-DOF member rows whose `Member` closed form carries end releases by static condensation, rigid-end offsets by eccentricity transform, and semi-rigid end springs by exact in-series condensation — the owned replacement for the retired BFE/FEALiTE frame backends, exceeding their consumed set), one closed `MeshMetric` Verdict quality vocabulary read once per element over the real edge/face topology, and one `FieldSpace` over `FieldStation` rows as the solve-native scalar/vector/tensor representation. This page owns the `ComparerAccessors.StringOrdinal` accessor, the `Monomial`/`ShapeSample`/`Aabb` value types, the `ElementClass`/`MeshAlgorithm`/`MeshMetric`/`FieldStation` vocabulary, the `QuadratureRule` owned-build Gauss tables, the `BoundaryShell`/`MeshPolicy`/`DiscreteMesh`/`FieldSpace` carriers, and the `MeshKernel` generation+refinement fold; raw element-node memory projects through `TensorMarshal.CreateReadOnlyTensorSpan` without an owner copy, and assembly emits `SparseCompressedRowMatrixStorage<double>` through `Tensor/factor`, metric reductions ride `Tensor/dispatch` `TensorPrimitives` folds, MathNet `Matrix<double>.Inverse` factors the one-time per-class Vandermonde, every Delaunay SIGN DECISION routes the kernel exact-predicate floor through the coordinate-level `Predicate.Orient3D`/`Predicate.InSphere` cores (`Rasm/Numerics/predicates` — raw double tuples, so no kernel value type enters a lane signature; the hand-rolled Bowyer-Watson TOPOLOGY stays owned, only the sign path is the kernel's), and the `ComputeReceipt` rail, `WorkLane`/`Substrate`/`AllocationClass`, `CorrelationId`, and `ClockPolicy` arrive settled. `DiscreteMesh` and `FieldSpace` cross to `Solver/contract` as the assembly substrate, and surface-mesh boundary triangulation is the host `Mesh.CreateFromBrep`→`Rasm.Meshing` `MeshSpace.Of(Mesh, Context)` wire flattened to the `BoundaryShell` triangle soup, composed never re-derived.
+Rasm.Compute solver discretization: one volumetric `MeshKernel` owner generating tet/hex/boundary-layer meshes from a boundary `BoundaryShell` through real Delaunay/octree/sweep/inflation cores with adaptive h/p/hp refinement, one `ElementClass` `[SmartEnum<string>]` element-topology axis carrying its reference-node table, its monomial polynomial space, and a `ShapeFamily` discriminant that drives one isoparametric `Sample` so twelve continuum element types collapse onto a Vandermonde coefficient mechanism plus an explicit serendipity arm and a rational pyramid arm — and the owned Frame family (`beam2-euler`/`beam2-timoshenko`, the 2-node 12-DOF member rows whose `Member` closed form carries end releases by static condensation, rigid-end offsets by eccentricity transform, and semi-rigid end springs by exact in-series condensation — the owned replacement for the retired BFE/FEALiTE frame backends, exceeding their consumed set), one closed `MeshMetric` Verdict quality vocabulary read once per element over the real edge/face topology, and one `FieldSpace` over `FieldStation` rows as the solve-native scalar/vector/tensor representation. This page owns the `ComparerAccessors.StringOrdinal` accessor, the `Monomial`/`ShapeSample`/`Aabb` value types, the `ElementClass`/`MeshAlgorithm`/`MeshMetric`/`FieldStation` vocabulary, the `QuadratureRule` owned-build Gauss tables, the `BoundaryShell`/`MeshPolicy`/`DiscreteMesh`/`FieldSpace` carriers, and the `MeshKernel` generation+refinement fold; raw element-node memory projects through `TensorMarshal.CreateReadOnlyTensorSpan` without an owner copy, and assembly emits `SparseCompressedRowMatrixStorage<double>` through `Tensor/factor`, metric reductions ride `Tensor/dispatch` `TensorPrimitives` folds, MathNet `Matrix<double>.Inverse` factors the one-time per-class Vandermonde, every Delaunay SIGN DECISION routes the kernel exact-predicate floor through the coordinate-level `Predicate.Orient3D`/`Predicate.InSphere` cores (`Rasm/Numerics/predicates` — raw double tuples, so no kernel value type enters a lane signature; the hand-rolled Bowyer-Watson TOPOLOGY stays owned, only the sign path is the kernel's), and the `ComputeReceipt` rail, `WorkLane`/`Substrate`/`AllocationClass`, `CorrelationId`, and NodaTime `IClock` arrive settled (the App-owned `ClockPolicy` stays at composition). `DiscreteMesh` and `FieldSpace` cross to `Solver/contract` as the assembly substrate, and surface-mesh boundary triangulation is the host `Mesh.CreateFromBrep`→`Rasm.Meshing` `MeshSpace.Of(Mesh, Context)` wire flattened to the `BoundaryShell` triangle soup, composed never re-derived.
 
 ## [01]-[INDEX]
 
@@ -10,8 +10,8 @@ Rasm.Compute solver discretization: one volumetric `MeshKernel` owner generating
 
 - Owner: `ComparerAccessors.StringOrdinal` accessor; `ElementClass` `[SmartEnum<string>]` element-topology rows carrying a `ShapeFamily` discriminant, the reference-node natural-coordinate table, the `Monomial` polynomial-space basis, the corner/edge/face topology tables, and the quadrature rule, all driving one isoparametric `Sample` returning shape values, physical gradients, and the Jacobian determinant; `MeshAlgorithm` `[SmartEnum<string>]` generation-strategy rows carrying a `MeshStrategy` core selector, a `PointSource` interior-seed column, and a conforming flag; `MeshMetric` `[SmartEnum<string>]` closed Verdict quality vocabulary (scaled-Jacobian, aspect-ratio, skewness, min-dihedral, condition) reading the real corner/edge/face topology; `FieldStation` `[SmartEnum<string>]` nodal/integration-point/cell/boundary rows carrying their count derivation; `MeshKernel` static surface generating a `DiscreteMesh` from a boundary `BoundaryShell` then refining it adaptively; `DiscreteMesh` the conforming/non-conforming volumetric mesh carrier; `FieldSpace` the integration-point/nodal scalar/vector/tensor field the solve writes; `QuadratureRule` the owned-build Gauss table the element class indexes; `BoundaryShell` the boundary-triangulation carrier with the ray-cast inclusion test; `Aabb`/`Monomial`/`ShapeSample` the value types.
 - Cases: `ElementClass` rows tet4 · tet10 · hex8 · hex20 · hex27 · wedge6 · wedge18 · pyramid5 · tri3 · tri6 · quad4 · quad8 · beam2-euler · beam2-timoshenko over four `ShapeFamily` arms (Polynomial via the Vandermonde monomial mechanism, Reduced via the explicit serendipity corner/midside formulas, Pyramid via the rational apex basis, Frame via the closed-form 12-DOF `Member` stiffness the solve contract scatters — releases/offsets/semi-rigid springs as row behavior, the `Shear` column selecting the Timoshenko Φ terms); `MeshAlgorithm` rows delaunay · frontal-delaunay · advancing-front · octree · sweep · boundary-layer over four `MeshStrategy` cores (Delaunay/Octree/Sweep/Inflation) and four `PointSource` seeds (boundary/lattice/frontal/front); `MeshMetric` rows scaled-jacobian · aspect-ratio · skewness · min-dihedral · condition; `FieldStation` rows nodal · integration-point · cell · boundary; `FieldSpace` rank rows scalar · vector · tensor over `FieldStation` positions.
-- Entry: `public static Fin<DiscreteMesh> Discretize(BoundaryShell boundary, MeshPolicy policy, ClockPolicy clocks)` — `BoundaryShell.Validate` rejects malformed buffers, invalid indices, degenerate triangles, open edges, and inconsistent winding before generation; `MeshPolicy.Validate` rejects incoherent strategy/element and numeric policy values; `Fin<T>` then aborts on generation failure or an element failing the metric's directional quality threshold through `MeshMetric.Admits`; `Refine(DiscreteMesh, MeshPolicy, ReadOnlySpan<double> cellError, ClockPolicy)` re-meshes the Dörfler-marked cell set by the keyless `RefineKind` `H` (red subdivision), `P` (order elevation), or `Hp` (graded) axis returning the adapted mesh and the carried error estimator; `Quality(DiscreteMesh, MeshMetric)` reads the per-element metric once; `ElementClass.Sample((double, double, double) natural, ReadOnlySpan<double> nodalXyz)` is the isoparametric evaluation the assembly consumes and `ShapeGrad` is its gradient projection.
-- Auto: `Discretize` routes the `MeshStrategy` core by the algorithm row — a closed manifold solid routes the Bowyer-Watson `Delaunay` tetrahedralization over the boundary surface nodes plus the `PointSource` interior seeds, a feature-graded fill routes the `Octree` hex recursion, a sweepable prism routes `Sweep` extrusion of the boundary cross-section, and a viscous wall routes the `Inflation` wall-normal anisotropic graded hex; every core filters cells by the `BoundaryShell.Encloses` ray-cast and packs the conforming `DiscreteMesh`; `Sample` evaluates the `ShapeFamily` arm — Polynomial reads the lazily-memoized per-class Vandermonde coefficient matrix `(N_i = Σ_m C[m,i]·P_m(ξ))` and its monomial derivatives, Reduced reads the explicit serendipity corner/midside formulas, Pyramid the rational apex basis — then maps reference derivatives through the inline `dim×dim` Jacobian inverse to physical `∂N/∂x` and the determinant; `Refine` reads the per-cell error estimator and marks the cells whose estimator exceeds the policy fraction by the Dörfler bulk criterion, then either red-subdivides (h) the marked set expanded to its edge-conforming closure — any cell sharing a split edge joins the set to a fixpoint unless the mortar column carries the hanging node — or globally order-elevates (p) the element order — the marked set drives the hp routing decision while a uniform-order mesh elevates wholesale — through the shared edge-midpoint map so the interior stays conforming and a hanging node rides the mortar column only when the policy sets it; `Quality` folds the requested `MeshMetric` over the element set through the element class's `Metric` delegate, never a per-call recompute.
+- Entry: `public static Fin<DiscreteMesh> Discretize(BoundaryShell boundary, MeshPolicy policy, IClock clock)` — `BoundaryShell.Validate` rejects malformed buffers, invalid indices, degenerate triangles, open edges, and inconsistent winding before generation; `MeshPolicy.Validate` rejects incoherent strategy/element and numeric policy values; `Fin<T>` then aborts on generation failure or an element failing the metric's directional quality threshold through `MeshMetric.Admits`; `Refine(DiscreteMesh, MeshPolicy, ReadOnlySpan<double> cellError, IClock)` re-meshes the Dörfler-marked cell set by the keyless `RefineKind` `H` (red subdivision), `P` (order elevation), or `Hp` (graded) axis returning the adapted mesh and the carried error estimator; `Quality(DiscreteMesh, MeshMetric)` reads the per-element metric once; `ElementClass.Sample((double, double, double) natural, ReadOnlySpan<double> nodalXyz)` is the isoparametric evaluation the assembly consumes and `ShapeGrad` is its gradient projection.
+- Auto: `Discretize` routes the `MeshStrategy` core by the algorithm row — a closed manifold solid routes the Bowyer-Watson `Delaunay` tetrahedralization over the boundary surface nodes plus the `PointSource` interior seeds, a feature-graded fill routes the `Octree` hex recursion, a sweepable prism routes `Sweep` extrusion of an `Encloses`-filtered XY lattice section along Z (the section is the rasterized in-boundary lattice at the target edge length, never a recovered boundary polygon), and a floor-walled domain routes `Inflation` Z-graded hex layers growing from the low-Z wall under first-layer thickness × growth ratio (grading is global-Z, never per-facet wall-normal); every core filters cells by the `BoundaryShell.Encloses` ray-cast and packs the conforming `DiscreteMesh`; `Sample` evaluates the `ShapeFamily` arm — Polynomial reads the lazily-memoized per-class Vandermonde coefficient matrix `(N_i = Σ_m C[m,i]·P_m(ξ))` and its monomial derivatives, Reduced reads the explicit serendipity corner/midside formulas, Pyramid the rational apex basis — then maps reference derivatives through the inline `dim×dim` Jacobian inverse to physical `∂N/∂x` and the determinant; `Refine` reads the per-cell error estimator and marks the cells whose estimator exceeds the policy fraction by the Dörfler bulk criterion, then either red-subdivides (h) the marked set expanded to its edge-conforming closure — any cell sharing a split edge joins the set to a fixpoint unless the mortar column carries the hanging node — or globally order-elevates (p) the element order — the marked set drives the hp routing decision while a uniform-order mesh elevates wholesale — through the shared edge-midpoint map so the interior stays conforming and a hanging node rides the mortar column only when the policy sets it; `Quality` folds the requested `MeshMetric` over the element set through the element class's `Metric` delegate, never a per-call recompute.
 - Receipt: the `Discretization` `ComputeReceipt` case carries the algorithm key, element-class key, node and element counts, the boundary-layer count, the worst-element quality scalar, the chosen metric key, and elapsed; `Refine` stamps the refinement level, the marked-cell count, the marking fraction, and the post-refine error estimator on the same case so an adaptive sweep is one receipt chain by correlation.
 - Packages: Rasm (project), MathNet.Numerics, CommunityToolkit.HighPerformance, System.Numerics.Tensors, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: a new element topology is one `ElementClass` row carrying its `ShapeFamily`, reference-node table, monomial space, and corner/edge/face tables; a new generation strategy is one `MeshAlgorithm` row carrying its `MeshStrategy`/`PointSource` columns plus its core; a new quality measure is one `MeshMetric` row carrying its per-element delegate; a new field rank is one `FieldSpace` rank row; a new Gauss order is one `QuadratureRule` entry; zero new surface.
@@ -43,6 +43,9 @@ public sealed partial class MeshStrategy {
     public partial MeshBuild Fill(BoundaryShell boundary, MeshPolicy policy);
 }
 
+// PointSource rows are SEEDING-DENSITY gradations of the ONE Bowyer-Watson fill — `Frontal` densifies to
+// 0.75× spacing and `Front` grades by ratio; neither row evolves a front, queues local features, or recovers
+// boundary facets, and the MeshAlgorithm rows binding them state exactly that.
 [SmartEnum]
 public sealed partial class PointSource {
     public static readonly PointSource Boundary = new(static (target, _) => target);
@@ -229,7 +232,7 @@ public sealed partial class ElementClass {
         Topology.SemiRigid(k, member, e, length);
         Topology.CondenseReleases(k, member.ReleaseMask);
         Topology.Eccentric(k, member.OffsetI, member.OffsetJ);
-        Topology.RotateFrame(k, dx, dy, dz, local);
+        Topology.RotateFrame(k, dx, dy, dz, member.UpX, member.UpY, member.UpZ, local);
         return Fin.Succ(unit);
     }
 
@@ -382,6 +385,9 @@ public sealed partial class MeshMetric {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class MeshAlgorithm {
+    // `frontal-delaunay` and `advancing-front` are density presets over the one Delaunay core — front-quality
+    // seeding, honest about carrying no front-evolution machinery; a true cavity-scheduled front is a new
+    // MeshStrategy core, never a rename of these rows.
     public static readonly MeshAlgorithm Delaunay = new("delaunay", conforming: true, MeshStrategy.Delaunay, PointSource.Lattice);
     public static readonly MeshAlgorithm FrontalDelaunay = new("frontal-delaunay", conforming: true, MeshStrategy.Delaunay, PointSource.Frontal);
     public static readonly MeshAlgorithm AdvancingFront = new("advancing-front", conforming: true, MeshStrategy.Delaunay, PointSource.Front);
@@ -490,8 +496,12 @@ public sealed record BoundaryShell(ReadOnlyMemory<float> Vertices, ReadOnlyMemor
     }
 }
 
+// Up carries the member roll — the AxisCurve's own orientation vector — so the local triad is (x̂ along axis,
+// ẑ the up projected orthogonal to x̂, ŷ = ẑ×x̂); a roll derived from the global direction alone cannot represent
+// an arbitrarily rotated section and is the deleted form.
 public sealed record FrameMember(
     double Area, double Iy, double Iz, double J,
+    double UpX = 0.0, double UpY = 0.0, double UpZ = 1.0,
     int ReleaseMask = 0,
     double OffsetI = 0.0, double OffsetJ = 0.0,
     double SpringYi = double.PositiveInfinity, double SpringZi = double.PositiveInfinity,
@@ -501,7 +511,7 @@ public sealed record FrameMember(
         Span<byte> scratch = stackalloc byte[8];
         void Write(double v) { BinaryPrimitives.WriteDoubleLittleEndian(scratch, v); sink.Write(scratch); }
         BinaryPrimitives.WriteInt32LittleEndian(scratch, ReleaseMask); sink.Write(scratch[..4]);
-        Write(Area); Write(Iy); Write(Iz); Write(J); Write(OffsetI); Write(OffsetJ);
+        Write(Area); Write(Iy); Write(Iz); Write(J); Write(UpX); Write(UpY); Write(UpZ); Write(OffsetI); Write(OffsetJ);
         Write(SpringYi); Write(SpringZi); Write(SpringYj); Write(SpringZj); Write(ShearAreaY); Write(ShearAreaZ);
     }
 }
@@ -594,17 +604,17 @@ public sealed record DiscreteMesh(
 // --- [OPERATIONS] -----------------------------------------------------------------------
 
 public static class MeshKernel {
-    public static Fin<DiscreteMesh> Discretize(BoundaryShell boundary, MeshPolicy policy, ClockPolicy clocks) =>
+    public static Fin<DiscreteMesh> Discretize(BoundaryShell boundary, MeshPolicy policy, IClock clock) =>
         from boundaryValid in boundary.Validate()
         from policyValid in policy.Validate()
         from built in Try.lift(() => Generate(boundary, policy)).Run()
             .MapFail(static error => (Error)new ComputeFault.ModelRejected($"<mesh-generation-failed:{error.Message}>"))
         from admitted in policy.Metric.Admits(built.Quality, policy.QualityFloor)
-            ? Fin.Succ(Pack(built, policy, refineLevel: 0, None, clocks.Now))
+            ? Fin.Succ(Pack(built, policy, refineLevel: 0, None, clock.GetCurrentInstant()))
             : Fin.Fail<DiscreteMesh>(new ComputeFault.ModelRejected($"<mesh-quality-rejected:{policy.Element.Key}:q={built.Quality:e3}>"))
         select admitted;
 
-    public static Fin<DiscreteMesh> Refine(DiscreteMesh mesh, MeshPolicy policy, ReadOnlySpan<double> cellError, ClockPolicy clocks) {
+    public static Fin<DiscreteMesh> Refine(DiscreteMesh mesh, MeshPolicy policy, ReadOnlySpan<double> cellError, IClock clock) {
         if (mesh.RefineLevel >= policy.MaxRefineLevel) { return Fin.Succ(mesh); }
         if (cellError.Length != mesh.ElementCount) {
             return Fin.Fail<DiscreteMesh>(new ComputeFault.ModelRejected($"<refine-estimator-cardinality:{cellError.Length}!={mesh.ElementCount}>"));
@@ -626,7 +636,7 @@ public static class MeshKernel {
         bool refined = built.ElementCount > mesh.ElementCount || built.NodeCount > mesh.NodeCount;
         if (!refined) { return Fin.Succ(mesh); }
         return policy.Metric.Admits(built.Quality, policy.QualityFloor)
-            ? Fin.Succ(Pack(built, policy, mesh.RefineLevel + 1, Some(threshold), clocks.Now))
+            ? Fin.Succ(Pack(built, policy, mesh.RefineLevel + 1, Some(threshold), clock.GetCurrentInstant()))
             : Fin.Fail<DiscreteMesh>(new ComputeFault.ModelRejected($"<refine-inverted:{built.Element.Key}>"));
     }
 
@@ -638,7 +648,7 @@ public static class MeshKernel {
 
     public static ComputeReceipt.Discretization Receipt(DiscreteMesh mesh, CorrelationId correlation, Duration elapsed) =>
         new(mesh.Algorithm.Key, mesh.Element.Key, mesh.NodeCount, mesh.ElementCount, mesh.BoundaryLayers, mesh.RefineLevel, mesh.WorstQuality, mesh.Metric.Key) {
-            Correlation = correlation, Lane = WorkLane.Background, Substrate = Substrate.CpuTensor, AllocationClass = AllocationClass.PooledMemory, Elapsed = elapsed,
+            Scope = new ReceiptScope.Execution(correlation, WorkLane.Background, Substrate.CpuTensor, AllocationClass.PooledMemory, elapsed),
         };
 
     static MeshBuild Generate(BoundaryShell boundary, MeshPolicy policy) => policy.Algorithm.Strategy.Fill(boundary, policy);
@@ -1158,13 +1168,32 @@ public static class Topology {
         Congruence(k, e);
     }
 
-    public static void RotateFrame(Span<double> k, double dx, double dy, double dz, Span<double> global) {
+    // Local triad from axis + member Up: x̂ along the axis, ẑ = normalize(up − (up·x̂)x̂) carrying the section
+    // roll, ŷ = ẑ×x̂ — a near-parallel up degenerates to the global-Z (or global-Y for verticals) fallback so the
+    // triad stays orthonormal; the same triad is EXPOSED through Triad so load resolution and station recovery
+    // read the member-local frame the stiffness was rotated with, never global components.
+    public static void Triad(double dx, double dy, double dz, double upX, double upY, double upZ, Span<double> r) {
         double l = Math.Sqrt(dx * dx + dy * dy + dz * dz);
         double cx = dx / l, cy = dy / l, cz = dz / l;
+        double dot = upX * cx + upY * cy + upZ * cz;
+        double zx = upX - dot * cx, zy = upY - dot * cy, zz = upZ - dot * cz;
+        double zn = Math.Sqrt(zx * zx + zy * zy + zz * zz);
+        if (zn < 1e-9) {
+            (zx, zy, zz) = Math.Abs(cz) < 0.9 ? (0.0, 0.0, 1.0) : (0.0, 1.0, 0.0);
+            dot = zx * cx + zy * cy + zz * cz;
+            (zx, zy, zz) = (zx - dot * cx, zy - dot * cy, zz - dot * cz);
+            zn = Math.Sqrt(zx * zx + zy * zy + zz * zz);
+        }
+        (zx, zy, zz) = (zx / zn, zy / zn, zz / zn);
+        double yx = zy * cz - zz * cy, yy = zz * cx - zx * cz, yz = zx * cy - zy * cx;
+        r[0] = cx; r[1] = cy; r[2] = cz;
+        r[3] = yx; r[4] = yy; r[5] = yz;
+        r[6] = zx; r[7] = zy; r[8] = zz;
+    }
+
+    public static void RotateFrame(Span<double> k, double dx, double dy, double dz, double upX, double upY, double upZ, Span<double> global) {
         Span<double> r = stackalloc double[9];
-        double d = Math.Sqrt(cx * cx + cy * cy);
-        if (d < 1e-9) { r[0] = 0; r[1] = 0; r[2] = cz; r[3] = 0; r[4] = 1; r[5] = 0; r[6] = -cz; r[7] = 0; r[8] = 0; }
-        else { r[0] = cx; r[1] = cy; r[2] = cz; r[3] = -cy / d; r[4] = cx / d; r[5] = 0; r[6] = -cx * cz / d; r[7] = -cy * cz / d; r[8] = d; }
+        Triad(dx, dy, dz, upX, upY, upZ, r);
         Span<double> t = stackalloc double[144];
         for (int b = 0; b < 4; b++)
             for (int i = 0; i < 3; i++)

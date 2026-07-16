@@ -12,9 +12,9 @@ Dense/sparse factorization and iterative solve ride `Tensor/blas#DENSE_ALGEBRA`/
 
 - Owner: `PhysicsKind` `[SmartEnum<string>]` carries symmetry, lifecycle, `MaterialForm`, and `OperatorForm`; `PhysicsPayload` `[Union]` carries continuum, mixed-flow, radiosity, energy-network, Helmholtz, and eddy-current data; `BoundaryCondition` `[Union]` and `ConstraintMethod` own DOF constraints; `SolveMethod` `[SmartEnum<string>]` carries numeric or continuation lowering; `TimeIntegrator`, `CouplingScheme`, and `RecoveryAction` own their rows; `MaterialField` `[Union]` carries uniform or per-cell coefficients; `SolveProblem` binds every discriminant and payload; `SolveLane` and `CoupledLane` own execution.
 - Cases: `PhysicsKind` fea-static · fea-modal · fea-transient · fea-buckling · cfd-incompressible · thermal-steady · thermal-transient · daylight-radiosity · energy-balance · acoustic-helmholtz · electromagnetic-eddy; `BoundaryCondition` `Dirichlet` · `Neumann` · `Robin` · `Periodic` · `Contact`; `ConstraintMethod` elimination · penalty · lagrange; `SolveMethod` direct-lu · direct-cholesky · bicgstab · gpbicg · tfqmr · mlk-bicgstab · arc-length · dense-evd; `TimeIntegrator` backward-euler · newmark-beta · generalized-alpha · central-difference; `CouplingScheme` one-way · two-way · staggered; `RecoveryAction` refine-mesh · relax · reorder-dofs · switch-method · restart.
-- Entry: `public static Fin<SolveResult> Solve(SolveProblem problem, DiscreteMesh mesh, SolvePolicy policy, ClockPolicy clocks)` — `Fin<T>` aborts on an ill-posed BC set or a non-convergent run past the cap; a modal row returns eigenpairs through the verified dense `Evd` route, a buckling row the load factors over the geometric-stiffness pencil, a transient row marches the `TimeIntegrator` over the step set reusing one factorization, a nonlinear row (or any problem carrying a `Solver/constitutive` law) drives a modified Newton-Raphson line-searching the nonlinear internal-force residual, and every other row the field over the `FieldSpace`; `SolveAdaptive(…, RecoveryPolicy recovery, …)` walks the `RecoveryAction` ladder on a `Fin.Fail`; `CoupledLane.Couple(CoupledProblem coupling, Seq<DiscreteMesh> meshes, …)` solves the coupled field set under Aitken-relaxed staggering.
+- Entry: `public static Fin<SolveResult> Solve(SolveProblem problem, DiscreteMesh mesh, SolvePolicy policy, IClock clock)` — `Fin<T>` aborts on an ill-posed BC set or a non-convergent run past the cap; a modal row returns eigenpairs through the verified dense `Evd` route, a buckling row the load factors over the geometric-stiffness pencil, a transient row marches the `TimeIntegrator` over the step set reusing one factorization, a nonlinear row (any problem carrying a `Solver/constitutive` law or a `Contact` condition) drives a Newton-Raphson whose per-iteration operator is the consistent tangent assembled from the SAME trial state, line-searching the internal-force residual over a committed per-(cell, gauss) `MaterialState` ledger — trial evolutions read the committed rows, probes discard theirs, and only a converged step commits its trial ledger and contact multipliers — and every other row the field over the `FieldSpace`; `SolveAdaptive(…, RecoveryPolicy recovery, …)` walks the `RecoveryAction` ladder on a `Fin.Fail`; `CoupledLane.Couple(CoupledProblem coupling, Seq<DiscreteMesh> meshes, …)` solves the coupled field set under Aitken-relaxed staggering.
 - Auto: `Solve` folds elasticity/diffusion as `Bᵀ·D·B`, mixed incompressible flow as velocity-gradient/pressure coupling plus advective transport, Helmholtz as stiffness minus wave-number mass, and eddy current as doubled-real curl-curl plus conductivity coupling. `Radiosity` lowers `I − diag(ρ)F`, and `EnergyNetwork` lowers its conductance matrix. Second-order structural transients use Newmark/generalized-α/central difference; thermal, flow, and energy rows use a factored first-order capacity march. `ArcLength` enforces the Crisfield displacement/load constraint through predictor-corrector iterations across limit points.
-- Receipt: the `Solve` `ComputeReceipt` case carries the physics/method/constraint keys, DOF count, iteration count, final residual, converged flag, and elapsed; the modal row stamps the recovered eigenvalue count and modal participation factors, the transient rows the integrator key and step count, the nonlinear rows the Newton iteration count and load-step list, and the iterative rows ride the `rasm.compute.solve.residual` histogram; the `Coupling` case carries the scheme key, field/transfer/round counts, Aitken factor history, final coupling residual, and converged flag; the `RecoveryReceipt` carries the physics key and the ordered `(action, post-recovery residual)` step list plus the recovered flag.
+- Receipt: the `Solve` `ComputeReceipt` case carries the physics/method/constraint keys, DOF count, iteration count, final residual, converged flag, and elapsed; the modal row stamps the recovered eigenvalue count and modal participation factors, the transient rows the integrator key and step count, the nonlinear rows the Newton iteration count and load-step list, and the iterative rows ride the `rasm.compute.solve.residual` histogram; the `Coupling` case carries the scheme key, field/transfer/round counts, final coupling residual, and converged flag (the Aitken factor history rides `CoupledResult.History`); the `RecoveryReceipt` carries the physics key and the ordered `(action, post-recovery residual)` step list plus the recovered flag.
 - Packages: MathNet.Numerics, CSparse, Rasm (project — the kernel `ContentHash.Of` identity entry), Rasm.Element (project — the seam `MaterialPropertySet.Mechanical` elasticity read), System.Numerics.Tensors, CommunityToolkit.HighPerformance, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.Persistence (project), BCL inbox
 - Growth: a new physics domain is one `PhysicsKind` row plus one `PhysicsPayload` case only when its operator data differs; a new BC is one `BoundaryCondition` case; a new constraint application is one `ConstraintMethod` row; a new numeric or continuation method is one `SolveMethod` row carrying its lowering and policy; a new material assignment is one `MaterialField` case; a new time scheme is one `TimeIntegrator` row; a new coupling discipline is one `CouplingScheme` row plus a `FieldTransfer`. `CfdSolver`/`ThermalSolver`/`FeaSolver`, `NewmarkSolver`/`GeneralizedAlphaSolver`, `ArcLengthSolver`, and `FsiCoupler`/`ThermalStructuralCoupler` siblings collapse onto `SolveLane`/`TimeIntegrator`/`CoupledLane`.
 - Boundary: one `Solve` owns every physics, boundary-condition, element, payload, and time-scheme combination. `PhysicsKind.Operator` must match the `PhysicsPayload` case, and admission rejects cardinality, range, or coefficient failures before assembly. `SparseOps.Ingest` consumes assembled COO data, `SparseOps.Factor`/`FactoredOp.Solve`/`SolveIterative` own sparse solution, and `DenseOps.Decompose` owns modal reduction. `ConstraintMethod` mutates both operator and right-hand side. `SolveProblem.ContentKey` hashes the full mesh, payload, conditions, members, and constitutive law. `CoupledLane` transfers fields under Aitken Δ² relaxation, and `SolveAdaptive` records each recovery rung.
@@ -198,7 +198,11 @@ public abstract partial record BoundaryCondition {
     public sealed record Neumann(long[] Faces, double[] Flux) : BoundaryCondition;
     public sealed record Robin(long[] Faces, double Coefficient, double Ambient) : BoundaryCondition;
     public sealed record Periodic(long[] Master, long[] Slave) : BoundaryCondition;
-    public sealed record Contact(long[] Slave, long[] Master, double Gap, double Penalty) : BoundaryCondition;
+    // Contact carries the constitutive-owned ContactConstraint discriminant beside its dof pairing — the gap,
+    // regularization, and mortar weights live on the constraint, and enforcement is the ONE
+    // ContactEnforcement.Enforce fold consumed per nonlinear residual evaluation; a contract-local constant
+    // penalty force is the deleted split-brain form.
+    public sealed record Contact(ContactConstraint Constraint, long[] Slave, long[] Master, double Penalty) : BoundaryCondition;
 
     public Fin<Unit> Validate(int dofs) =>
         Switch(
@@ -215,7 +219,7 @@ public abstract partial record BoundaryCondition {
             periodic: static (n, bc) => bc.Master.Length == bc.Slave.Length && bc.Master.Length > 0 && InRange(bc.Master, n) && InRange(bc.Slave, n)
                 ? Fin.Succ(unit)
                 : Fin.Fail<Unit>(new ComputeFault.ModelRejected("<boundary-periodic-shape>")),
-            contact: static (n, bc) => bc.Master.Length == bc.Slave.Length && bc.Master.Length > 0 && InRange(bc.Master, n) && InRange(bc.Slave, n) && double.IsFinite(bc.Gap) && double.IsFinite(bc.Penalty) && bc.Penalty > 0.0
+            contact: static (n, bc) => bc.Master.Length == bc.Slave.Length && bc.Master.Length > 0 && InRange(bc.Master, n) && InRange(bc.Slave, n) && double.IsFinite(bc.Penalty) && bc.Penalty > 0.0
                 ? Fin.Succ(unit)
                 : Fin.Fail<Unit>(new ComputeFault.ModelRejected("<boundary-contact-shape>")));
 
@@ -275,14 +279,10 @@ public abstract partial record BoundaryCondition {
                 }
                 return s.System with { Operator = Rebuilt(s.System.Operator, values), Constrained = fixedDofs };
             },
-            contact: static (s, bc) => {
-                double[] rhs = (double[])s.System.Rhs.Clone();
-                double force = bc.Penalty * Math.Max(0.0, bc.Gap);
-                int pairs = Math.Min(bc.Slave.Length, bc.Master.Length);
-                for (int i = 0; i < bc.Slave.Length; i++) { rhs[bc.Slave[i]] += force; }
-                for (int i = 0; i < pairs; i++) { rhs[bc.Master[i]] -= force; }
-                return s.System with { Rhs = rhs };
-            });
+            // Contact contributes NOTHING to the linear system: it is nonlinear-only, enforced per residual
+            // evaluation through the constitutive ContactEnforcement owner with current kinematics and the
+            // step's committed multipliers — a precomputed constant force is the deleted form.
+            contact: static (s, _) => s.System);
 
     Fin<ConstrainedSystem> ApplyBordered(ConstrainedSystem system) =>
         Switch(
@@ -329,7 +329,7 @@ public abstract partial record BoundaryCondition {
             neumann: static (w, bc) => Digest(w, (byte)'n', bc.Faces, bc.Flux),
             robin: static (w, bc) => Digest(w, (byte)'r', bc.Faces, [bc.Coefficient, bc.Ambient]),
             periodic: static (w, bc) => Digest(w, (byte)'p', [.. bc.Master, .. bc.Slave], []),
-            contact: static (w, bc) => Digest(w, (byte)'c', [.. bc.Slave, .. bc.Master], [bc.Gap, bc.Penalty]));
+            contact: static (w, bc) => Digest(w, (byte)'c', [.. bc.Slave, .. bc.Master], [bc.Constraint.Parameters().Gap, bc.Constraint.Parameters().Regularization, bc.Penalty]));
 
     static void Digest(ArrayBufferWriter<byte> sink, byte tag, long[] ids, double[] values) {
         Span<byte> scratch = stackalloc byte[8];
@@ -652,62 +652,64 @@ public static class SolveLane {
     static SolveKind Routed(SolveProblem problem, SolveMethod method) =>
         method == SolveMethod.ArcLength ? SolveKind.Nonlinear
         : problem.Material.IsSome ? SolveKind.Nonlinear
+        // Contact is nonlinear-only: its enforcement lives in the residual, never the linear system.
+        : problem.Conditions.Exists(static bc => bc is BoundaryCondition.Contact) ? SolveKind.Nonlinear
         : problem.Physics.Eigen ? SolveKind.Eigen
         : problem.Physics.Transient ? SolveKind.Transient
         : problem.Physics.Nonlinear ? SolveKind.Nonlinear
         : method.Iterative ? SolveKind.Iterative
         : SolveKind.Direct;
 
-    public static Fin<SolveResult> Solve(SolveProblem problem, DiscreteMesh mesh, SolvePolicy policy, ClockPolicy clocks) =>
+    public static Fin<SolveResult> Solve(SolveProblem problem, DiscreteMesh mesh, SolvePolicy policy, IClock clock) =>
         from policyValid in policy.Validate(problem)
         from operatorCsr in Assemble(problem, mesh, policy)
         from system in Constrained(operatorCsr, problem.Conditions, policy)
         from result in Routed(problem, policy.Method).Switch(
-            state: (System: system, Mesh: mesh, Problem: problem, Policy: policy, At: clocks.Now, Clocks: clocks),
+            state: (System: system, Mesh: mesh, Problem: problem, Policy: policy, At: clock.GetCurrentInstant(), Clock: clock),
             direct: static state => Direct(state.System, state.Problem, state.Policy, state.At),
             iterative: static state => Iterative(state.System, state.Problem, state.Policy, state.At),
-            nonlinear: static state => Newton(state.System, state.Mesh, state.Problem, state.Policy, state.Clocks),
+            nonlinear: static state => Newton(state.System, state.Mesh, state.Problem, state.Policy, state.Clock),
             transient: static state => March(state.System, state.Mesh, state.Problem, state.Policy, state.At),
-            eigen: static state => Modal(state.System, state.Mesh, state.Problem, state.Policy, state.Clocks))
+            eigen: static state => Modal(state.System, state.Mesh, state.Problem, state.Policy, state.Clock))
         select result;
 
-    public static (Fin<SolveResult> Result, RecoveryReceipt Trace) SolveAdaptive(SolveProblem problem, DiscreteMesh mesh, SolvePolicy policy, RecoveryPolicy recovery, ClockPolicy clocks) {
+    public static (Fin<SolveResult> Result, RecoveryReceipt Trace) SolveAdaptive(SolveProblem problem, DiscreteMesh mesh, SolvePolicy policy, RecoveryPolicy recovery, IClock clock) {
         (Fin<SolveResult> Result, SolveProblem Problem, DiscreteMesh Mesh, SolvePolicy Policy, Seq<(string Action, double Residual)> Steps) final = recovery.Ladder.Fold(
-            (Result: Solve(problem, mesh, policy, clocks), Problem: problem, Mesh: mesh, Policy: policy, Steps: Seq<(string Action, double Residual)>()),
+            (Result: Solve(problem, mesh, policy, clock), Problem: problem, Mesh: mesh, Policy: policy, Steps: Seq<(string Action, double Residual)>()),
             (state, action) => {
                 if (state.Result.IsSucc) { return state; }
-                return Recover(action, state.Problem, state.Mesh, state.Policy, recovery, clocks).Match(
+                return Recover(action, state.Problem, state.Mesh, state.Policy, recovery, clock).Match(
                     Succ: next => {
-                        Fin<SolveResult> attempt = Solve(next.Problem, next.Mesh, next.Policy, clocks);
+                        Fin<SolveResult> attempt = Solve(next.Problem, next.Mesh, next.Policy, clock);
                         return (attempt, next.Problem, next.Mesh, next.Policy, state.Steps.Add((action.Key, Residual(attempt))));
                     },
                     Fail: fault => (Fin.Fail<SolveResult>(fault), state.Problem, state.Mesh, state.Policy, state.Steps.Add((action.Key, double.PositiveInfinity))));
             });
-        return (final.Result, new RecoveryReceipt(problem.Physics.Key, final.Steps, final.Result.IsSucc, clocks.Now));
+        return (final.Result, new RecoveryReceipt(problem.Physics.Key, final.Steps, final.Result.IsSucc, clock.GetCurrentInstant()));
     }
 
-    static Fin<(SolveProblem Problem, DiscreteMesh Mesh, SolvePolicy Policy)> Recover(RecoveryAction action, SolveProblem problem, DiscreteMesh mesh, SolvePolicy policy, RecoveryPolicy recovery, ClockPolicy clocks) =>
+    static Fin<(SolveProblem Problem, DiscreteMesh Mesh, SolvePolicy Policy)> Recover(RecoveryAction action, SolveProblem problem, DiscreteMesh mesh, SolvePolicy policy, RecoveryPolicy recovery, IClock clock) =>
         action.Switch(
-            state: (Problem: problem, Mesh: mesh, Policy: policy, Recovery: recovery, Clocks: clocks),
-            refineMesh: static s => MeshKernel.Refine(s.Mesh, s.Recovery.MeshPolicy, RefinementError(s.Mesh), s.Clocks)
+            state: (Problem: problem, Mesh: mesh, Policy: policy, Recovery: recovery, Clock: clock),
+            refineMesh: static s => MeshKernel.Refine(s.Mesh, s.Recovery.MeshPolicy, RefinementError(s.Mesh), s.Clock)
                 .Map(refined => (s.Problem with { Element = refined.Element }, refined, s.Policy)),
             relax: static s => Fin.Succ((s.Problem, s.Mesh, s.Policy with { Tolerance = s.Policy.Tolerance * s.Recovery.RelaxFactor, MaxIterations = (int)(s.Policy.MaxIterations * s.Recovery.IterationGrowth) })),
-            reorderDofs: static s => Reordered(s.Problem, s.Mesh, s.Policy, s.Clocks),
+            reorderDofs: static s => Reordered(s.Problem, s.Mesh, s.Policy, s.Clock),
             switchMethod: static s => Fin.Succ((s.Problem, s.Mesh, s.Policy with { Method = s.Recovery.Fallback })),
             restart: static s => Fin.Succ((s.Problem, s.Mesh, s.Policy with { Method = s.Recovery.Fallback, MaxIterations = s.Policy.MaxIterations * 2 })));
 
-    static Fin<(SolveProblem Problem, DiscreteMesh Mesh, SolvePolicy Policy)> Reordered(SolveProblem problem, DiscreteMesh mesh, SolvePolicy policy, ClockPolicy clocks) {
+    static Fin<(SolveProblem Problem, DiscreteMesh Mesh, SolvePolicy Policy)> Reordered(SolveProblem problem, DiscreteMesh mesh, SolvePolicy policy, IClock clock) {
         int dof = problem.Dof, nodes = checked((int)mesh.NodeCount);
         return Triplets(mesh, problem, policy).Map(t => {
                 CoordinateStorage<double> coords = new(nodes, nodes, t.Vals.Length);
                 for (int entry = 0; entry < t.Vals.Length; entry++) { coords.At(t.Rows[entry] / dof, t.Cols[entry] / dof, t.Vals[entry]); }
                 CompressedColumnStorage<double> csc = CompressedColumnStorage<double>.OfIndexed(coords, inplace: false);
                 int[] permutation = AMD.Generate(csc, ColumnOrdering.MinimumDegreeAtPlusA);
-                return (problem, Renumbered(mesh, permutation, clocks), policy);
+                return (problem, Renumbered(mesh, permutation, clock), policy);
             });
     }
 
-    static DiscreteMesh Renumbered(DiscreteMesh mesh, int[] permutation, ClockPolicy clocks) {
+    static DiscreteMesh Renumbered(DiscreteMesh mesh, int[] permutation, IClock clock) {
         int nodes = checked((int)mesh.NodeCount);
         if (permutation.Length < nodes) { return mesh; }
         int[] inverse = new int[nodes];
@@ -723,7 +725,7 @@ public static class SolveLane {
         ReadOnlySpan<long> conn = mesh.Indices;
         Span<long> freshConn = renumberedConn;
         for (int entry = 0; entry < conn.Length; entry++) { freshConn[entry] = inverse[(int)conn[entry]]; }
-        return mesh with { Nodes = reordered.AsMemory(), Connectivity = renumberedConn.AsMemory(), At = clocks.Now };
+        return mesh with { Nodes = reordered.AsMemory(), Connectivity = renumberedConn.AsMemory(), At = clock.GetCurrentInstant() };
     }
 
     static double[] RefinementError(DiscreteMesh mesh) {
@@ -736,7 +738,7 @@ public static class SolveLane {
 
     public static ComputeReceipt.Solve Receipt(SolveResult result, CorrelationId correlation, Duration elapsed) =>
         new(result.Problem.Physics.Key, result.Method.Key, result.Dofs, result.Iterations, result.Residual, result.Converged) {
-            Correlation = correlation, Lane = WorkLane.Background, Substrate = Substrate.CpuTensor, AllocationClass = AllocationClass.PooledMemory, Elapsed = elapsed,
+            Scope = new ReceiptScope.Execution(correlation, WorkLane.Background, Substrate.CpuTensor, AllocationClass.PooledMemory, elapsed),
         };
 
     static Fin<SparseCompressedRowMatrixStorage<double>> Assemble(SolveProblem problem, DiscreteMesh mesh, SolvePolicy policy) {
@@ -1058,39 +1060,56 @@ public static class SolveLane {
         return Fin.Succ(new SolveResult(problem, policy.Method, marched.Curr.AsMemory(), None, None, None, n, policy.TimeSteps, 1, 0.0, true, at));
     }
 
-    static Fin<SolveResult> Newton(ConstrainedSystem system, DiscreteMesh mesh, SolveProblem problem, SolvePolicy policy, ClockPolicy clocks) =>
+    static Fin<SolveResult> Newton(ConstrainedSystem system, DiscreteMesh mesh, SolveProblem problem, SolvePolicy policy, IClock clock) =>
         policy.Continuation.Match(
-            Some: continuation => ArcLength(system, mesh, problem, policy, continuation, clocks),
-            None: () => NewtonLoad(system, mesh, problem, policy, clocks));
+            Some: continuation => ArcLength(system, mesh, problem, policy, continuation, clock),
+            None: () => NewtonLoad(system, mesh, problem, policy, clock));
 
-    static Fin<SolveResult> NewtonLoad(ConstrainedSystem system, DiscreteMesh mesh, SolveProblem problem, SolvePolicy policy, ClockPolicy clocks) {
+    // Committed material history: one MaterialState row per (cell, gauss point). Residual evaluations evolve
+    // TRIAL rows from the committed ledger — line-search probes and rejected iterations never advance history —
+    // and only a converged load/arc step commits its trial ledger, so plasticity, damage, and consolidation stay
+    // path-dependent across steps instead of re-minting Pristine per evaluation.
+    static MaterialState[] Pristine(DiscreteMesh mesh, SolveProblem problem, ConstitutiveModel model) {
+        int components = model is ConstitutiveModel.Hyperelastic ? 9 : problem.Physics.StrainDim;
+        return [.. Enumerable.Range(0, mesh.ElementCount * mesh.Element.Quadrature.Points.Length).Select(_ => MaterialState.Pristine(components))];
+    }
+
+    static Fin<SolveResult> NewtonLoad(ConstrainedSystem system, DiscreteMesh mesh, SolveProblem problem, SolvePolicy policy, IClock clock) {
         SparseMatrix tangent = new(system.Operator);
+        MaterialState[] committed = problem.Material.Match(Some: law => Pristine(mesh, problem, law.Model), None: static () => []);
         double scale = Math.Max(1.0, TensorPrimitives.Norm<double>(system.Rhs));
         return toSeq(Enumerable.Range(0, policy.NewtonIterations))
-            .Fold(Fin.Succ((Field: new double[system.Rhs.Length], Residual: double.MaxValue, Step: 0, Converged: false)),
+            .Fold(Fin.Succ((Field: new double[system.Rhs.Length], Residual: double.MaxValue, Step: 0, Converged: false, Committed: committed, Multipliers: Seq<double[]>())),
                 (acc, _) => acc.Bind(state => state.Converged
                     ? Fin.Succ(state)
-                    : InternalForce(mesh, problem, tangent, state.Field, clocks).Bind(internalForce => {
-                        double[] residual = Residual(system.Rhs, internalForce);
+                    : InternalForce(mesh, problem, tangent, state.Field, state.Committed, state.Multipliers, clock).Bind(evaluation => {
+                        double[] residual = Residual(system.Rhs, evaluation.InternalForce);
                         double norm = TensorPrimitives.Norm<double>(residual);
                         return norm <= policy.Tolerance * scale
-                            ? Fin.Succ((state.Field, norm, state.Step, true))
+                            // Converged: the last trial ledger and contact multipliers COMMIT — the accepted step
+                            // advances history once.
+                            ? Fin.Succ((state.Field, norm, state.Step, true, evaluation.Trial, evaluation.ContactMultipliers))
                             : policy.Method.Krylov.ToFin(ComputeFault.Create($"<solve-method-not-iterative:{policy.Method.Key}>"))
-                                .Bind(krylov => SparseOps.SolveIterative(system.Operator, krylov, residual, Iteration(policy)))
-                                .Bind(run => ArmijoLineSearch(mesh, problem, tangent, system.Rhs, state.Field, run.Field, norm, clocks).Map(alpha => {
+                                // Consistent tangent from the SAME trial state governs the Newton operator.
+                                .Bind(krylov => SparseOps.SolveIterative(evaluation.Tangent, krylov, residual, Iteration(policy)))
+                                .Bind(run => ArmijoLineSearch(mesh, problem, tangent, system.Rhs, state.Field, run.Field, norm, state.Committed, state.Multipliers, clock).Map(alpha => {
                                     double[] updated = new double[state.Field.Length];
                                     TensorPrimitives.MultiplyAdd(run.Field, alpha, state.Field, updated);
-                                    return (updated, norm, state.Step + 1, false);
+                                    return (updated, norm, state.Step + 1, false, state.Committed, state.Multipliers);
                                 }));
                     })))
             .Bind(state => state.Converged
-                ? Fin.Succ(new SolveResult(problem, policy.Method, state.Field.AsMemory(), None, None, None, system.Rhs.Length, state.Step, state.Step, state.Residual, true, clocks.Now))
+                ? Fin.Succ(new SolveResult(problem, policy.Method, state.Field.AsMemory(), None, None, None, system.Rhs.Length, state.Step, state.Step, state.Residual, true, clock.GetCurrentInstant()))
                 : Fin.Fail<SolveResult>(new ComputeFault.ModelRejected($"<solve-newton-cap:{policy.NewtonIterations}:residual={state.Residual:e3}>")));
     }
 
-    static Fin<SolveResult> ArcLength(ConstrainedSystem system, DiscreteMesh mesh, SolveProblem problem, SolvePolicy policy, ArcLengthPolicy path, ClockPolicy clocks) {
+    static Fin<SolveResult> ArcLength(ConstrainedSystem system, DiscreteMesh mesh, SolveProblem problem, SolvePolicy policy, ArcLengthPolicy path, IClock clock) {
         IterationPolicy iteration = Iteration(policy);
         SparseMatrix tangent = new(system.Operator);
+        MaterialState[] pristine = problem.Material.Match(Some: law => Pristine(mesh, problem, law.Model), None: static () => []);
+        // Modified-Newton arc-length: the corrector's linear solves keep the initial-stiffness operator while the
+        // residual reads the committed ledger per step — a converged outer step COMMITS its trial ledger, so the
+        // load path is genuinely history-dependent across steps.
         Func<double[], Fin<double[]>> solve = rhs => policy.Method.Krylov
             .ToFin(ComputeFault.Create("<arc-length-inner-method>"))
             .Bind(krylov => SparseOps.SolveIterative(system.Operator, krylov, rhs, iteration))
@@ -1099,7 +1118,7 @@ public static class SolveLane {
                 : Fin.Fail<double[]>(new ComputeFault.ModelRejected($"<arc-length-linear-diverged:{run.Residual:e3}>")));
         return toSeq(Enumerable.Range(0, path.Steps))
             .Fold(
-                Fin.Succ((Field: new double[system.Rhs.Length], Load: 0.0, Direction: new double[system.Rhs.Length], Iterations: 0, Residual: double.MaxValue)),
+                Fin.Succ((Field: new double[system.Rhs.Length], Load: 0.0, Direction: new double[system.Rhs.Length], Iterations: 0, Residual: double.MaxValue, Committed: pristine, Multipliers: Seq<double[]>())),
                 (outer, _) => outer.Bind(state => solve(system.Rhs).Bind(loadDirection => {
                     double orientation = TensorPrimitives.Dot(loadDirection, state.Direction) < 0.0 ? -1.0 : 1.0;
                     double loadIncrement = orientation * path.Radius / Math.Sqrt(TensorPrimitives.SumOfSquares<double>(loadDirection) + path.LoadScale * path.LoadScale);
@@ -1108,27 +1127,27 @@ public static class SolveLane {
                     double[] predicted = new double[state.Field.Length];
                     TensorPrimitives.MultiplyAdd(loadDirection, loadIncrement, state.Field, predicted);
                     return toSeq(Enumerable.Range(0, policy.NewtonIterations))
-                        .Fold(Fin.Succ((Field: predicted, Load: state.Load + loadIncrement, Converged: false, Residual: double.MaxValue, Iterations: 0)),
+                        .Fold(Fin.Succ((Field: predicted, Load: state.Load + loadIncrement, Converged: false, Residual: double.MaxValue, Iterations: 0, Trial: state.Committed, TrialMultipliers: state.Multipliers)),
                             (inner, _) => inner.Bind(point => point.Converged
                                 ? Fin.Succ(point)
-                                : InternalForce(mesh, problem, tangent, point.Field, clocks).Bind(internalForce => {
+                                : InternalForce(mesh, problem, tangent, point.Field, state.Committed, state.Multipliers, clock).Bind(evaluation => {
                                     double[] forcing = new double[system.Rhs.Length];
                                     TensorPrimitives.Multiply(system.Rhs, point.Load, forcing);
-                                    double[] residual = Residual(forcing, internalForce);
+                                    double[] residual = Residual(forcing, evaluation.InternalForce);
                                     double norm = TensorPrimitives.Norm<double>(residual);
                                     if (norm <= path.ResidualTolerance * Math.Max(1.0, TensorPrimitives.Norm<double>(forcing))) {
-                                        return Fin.Succ((point.Field, point.Load, true, norm, point.Iterations));
+                                        return Fin.Succ((point.Field, point.Load, true, norm, point.Iterations, evaluation.Trial, evaluation.ContactMultipliers));
                                     }
                                     return from correction in solve(residual)
                                            from response in solve(system.Rhs)
                                            from corrected in ArcCorrect(point.Field, point.Load, origin, originLoad, correction, response, path)
-                                           select (corrected.Field, corrected.Load, false, norm, point.Iterations + 1);
+                                           select (corrected.Field, corrected.Load, false, norm, point.Iterations + 1, state.Committed, state.Multipliers);
                                 })))
                         .Bind(point => point.Converged
-                            ? Fin.Succ((point.Field, point.Load, ArcDirection(point.Field, origin), state.Iterations + point.Iterations, point.Residual))
-                            : Fin.Fail<(double[], double, double[], int, double)>(new ComputeFault.ModelRejected($"<arc-length-corrector-cap:{policy.NewtonIterations}:residual={point.Residual:e3}>")));
+                            ? Fin.Succ((point.Field, point.Load, ArcDirection(point.Field, origin), state.Iterations + point.Iterations, point.Residual, point.Trial, point.TrialMultipliers))
+                            : Fin.Fail<(double[], double, double[], int, double, MaterialState[], Seq<double[]>)>(new ComputeFault.ModelRejected($"<arc-length-corrector-cap:{policy.NewtonIterations}:residual={point.Residual:e3}>")));
                 })))
-            .Map(state => new SolveResult(problem, policy.Method, state.Field.AsMemory(), None, None, None, system.Rhs.Length, state.Iterations, state.Iterations, state.Residual, true, clocks.Now));
+            .Map(state => new SolveResult(problem, policy.Method, state.Field.AsMemory(), None, None, None, system.Rhs.Length, state.Iterations, state.Iterations, state.Residual, true, clock.GetCurrentInstant()));
     }
 
     static Fin<(double[] Field, double Load)> ArcCorrect(double[] field, double load, double[] origin, double originLoad, double[] correction, double[] response, ArcLengthPolicy path) {
@@ -1157,19 +1176,61 @@ public static class SolveLane {
         return residual;
     }
 
-    static Fin<double[]> InternalForce(DiscreteMesh mesh, SolveProblem problem, SparseMatrix tangent, double[] field, ClockPolicy clocks) =>
-        problem.Material.Match(
-            Some: law => Constitutive(mesh, problem, law.Model, law.Law, field, clocks),
-            None: () => Fin.Succ(tangent.Multiply(Vector<double>.Build.DenseOfArray(field)).AsArray()));
+    // One residual evaluation: internal force, TRIAL state ledger, TRIAL contact multipliers, and the consistent
+    // tangent assembled from the same trial state. The elastic path passes the committed ledger through unchanged
+    // and keeps the elastic operator; contact augments every path through the ONE constitutive enforcement owner.
+    sealed record ResidualEvaluation(double[] InternalForce, MaterialState[] Trial, Seq<double[]> ContactMultipliers, SparseCompressedRowMatrixStorage<double> Tangent);
 
-    static Fin<double[]> Constitutive(DiscreteMesh mesh, SolveProblem problem, ConstitutiveModel model, MaterialParameters law, double[] field, ClockPolicy clocks) {
+    static Fin<ResidualEvaluation> InternalForce(DiscreteMesh mesh, SolveProblem problem, SparseMatrix elastic, double[] field, MaterialState[] committed, Seq<double[]> multipliers, IClock clock) =>
+        problem.Material.Match(
+            Some: law => Constitutive(mesh, problem, law.Model, law.Law, field, committed, elastic, clock),
+            None: () => Fin.Succ(new ResidualEvaluation(
+                elastic.Multiply(Vector<double>.Build.DenseOfArray(field)).AsArray(),
+                committed,
+                Seq<double[]>(),
+                (SparseCompressedRowMatrixStorage<double>)elastic.Storage)))
+        .Bind(evaluation => ContactAugment(problem, field, evaluation, multipliers, clock));
+
+    // Contact enforcement per residual evaluation: current kinematics and the step's committed multipliers hand
+    // to ContactEnforcement.Enforce; the returned per-pair force scatters ± at the slave/master dofs and the
+    // advanced multipliers ride the evaluation as TRIAL — a converged step commits them (the augmented-Lagrangian
+    // outer update), a probe discards them.
+    static Fin<ResidualEvaluation> ContactAugment(SolveProblem problem, double[] field, ResidualEvaluation evaluation, Seq<double[]> multipliers, IClock clock) {
+        Seq<BoundaryCondition.Contact> contacts = problem.Conditions.Choose(static bc => bc is BoundaryCondition.Contact contact ? Some(contact) : None);
+        if (contacts.IsEmpty) { return Fin.Succ(evaluation); }
+        double[] force = (double[])evaluation.InternalForce.Clone();
+        Seq<double[]> advanced = Seq<double[]>();
+        for (int c = 0; c < contacts.Count; c++) {
+            BoundaryCondition.Contact contact = contacts[c];
+            Seq<(int Slave, int Master)> pairs = toSeq(contact.Slave.Zip(contact.Master, static (s, m) => ((int)s, (int)m)));
+            double[] lambda = c < multipliers.Count ? multipliers[c] : new double[pairs.Count];
+            Fin<ContactResult> enforced = ContactEnforcement.Enforce(contact.Constraint, field.AsMemory(), lambda.AsMemory(), contact.Penalty, pairs, clock);
+            if (enforced.Case is not ContactResult result) { return enforced.Map(static _ => default(ResidualEvaluation)!); }
+            for (int i = 0; i < pairs.Count; i++) {
+                double f = result.Force.Span[i] * contact.Constraint.Weight(i);
+                force[pairs[i].Slave] += f;
+                force[pairs[i].Master] -= f;
+            }
+            advanced = advanced.Add(result.Multipliers.ToArray());
+        }
+        return Fin.Succ(evaluation with { InternalForce = force, ContactMultipliers = advanced });
+    }
+
+    static Fin<ResidualEvaluation> Constitutive(DiscreteMesh mesh, SolveProblem problem, ConstitutiveModel model, MaterialParameters law, double[] field, MaterialState[] committed, SparseMatrix elastic, IClock clock) {
         int per = mesh.Element.Nodes, dof = problem.Dof, block = per * dof;
+        int gaussCount = mesh.Element.Quadrature.Points.Length;
         bool finiteStrain = model is ConstitutiveModel.Hyperelastic;
         int components = finiteStrain ? 9 : problem.Physics.StrainDim;
         double[] global = new double[field.Length];
+        MaterialState[] trial = (MaterialState[])committed.Clone();
+        // Consistent tangent reuses the elastic operator's CSR pattern (same connectivity, same sparsity);
+        // values re-assemble as Σ w·Bᵀ·D·B from each trial state's exact per-point tangent.
+        SparseCompressedRowMatrixStorage<double> tangent = (SparseCompressedRowMatrixStorage<double>)new SparseMatrix((SparseCompressedRowMatrixStorage<double>)elastic.Storage).Storage;
+        Array.Clear(tangent.Values);
         ReadOnlySpan<long> conn = mesh.Indices;
         for (int cell = 0; cell < mesh.ElementCount; cell++) {
             ReadOnlySpan<double> xyz = mesh.NodalXyz(cell);
+            int point = 0;
             foreach ((double X, double Y, double Z, double Weight) gauss in mesh.Element.Quadrature.Points) {
                 ShapeSample sample = mesh.Element.Sample((gauss.X, gauss.Y, gauss.Z), xyz);
                 double weight = gauss.Weight * Math.Abs(sample.DetJ);
@@ -1185,23 +1246,39 @@ public static class SolveLane {
                     for (int j = 0; j < block; j++) { e += b[r * block + j] * field[(int)conn[cell * per + j / dof] * dof + j % dof]; }
                     gaussStrain[r] = e + (finiteStrain && r is 0 or 4 or 8 ? 1.0 : 0.0);
                 }
-                Fin<ConstitutiveResult> update = StressUpdate.Stress(model, gaussStrain.AsMemory(), MaterialState.Pristine(components), law, clocks);
+                Fin<ConstitutiveResult> update = StressUpdate.Stress(model, gaussStrain.AsMemory(), trial[cell * gaussCount + point], law, clock);
                 Fin<Unit> accumulated = update.Map(result => {
+                    trial[cell * gaussCount + point] = result.State;
                     ReadOnlySpan<double> stress = result.Stress.Span;
+                    ReadOnlySpan<double> d = result.Tangent.Span;
                     for (int i = 0; i < block; i++) {
                         double f = 0.0;
                         for (int r = 0; r < components; r++) { f += b[r * block + i] * (r < stress.Length ? stress[r] : 0.0); }
                         global[(int)conn[cell * per + i / dof] * dof + i % dof] += weight * f;
+                        int rowDof = (int)conn[cell * per + i / dof] * dof + i % dof;
+                        for (int j = 0; j < block; j++) {
+                            double k = 0.0;
+                            for (int r = 0; r < components; r++)
+                                for (int s = 0; s < components; s++) { k += b[r * block + i] * d[r * components + s] * b[s * block + j]; }
+                            AddAt(tangent, rowDof, (int)conn[cell * per + j / dof] * dof + j % dof, weight * k);
+                        }
                     }
                     return unit;
                 });
-                if (accumulated.IsFail) { return accumulated.Map(static _ => Array.Empty<double>()); }
+                if (accumulated.IsFail) { return accumulated.Map(static _ => default(ResidualEvaluation)!); }
+                point++;
             }
         }
-        return Fin.Succ(global);
+        return Fin.Succ(new ResidualEvaluation(global, trial, tangent));
     }
 
-    static Fin<double> ArmijoLineSearch(DiscreteMesh mesh, SolveProblem problem, SparseMatrix tangent, double[] forcing, double[] field, double[] direction, double baseline, ClockPolicy clocks) =>
+    // Pattern-preserving scatter: the CSR row slice binary-searches the column; connectivity guarantees presence.
+    static void AddAt(SparseCompressedRowMatrixStorage<double> csr, int row, int column, double value) {
+        int index = Array.BinarySearch(csr.ColumnIndices, csr.RowPointers[row], csr.RowPointers[row + 1] - csr.RowPointers[row], column);
+        if (index >= 0) { csr.Values[index] += value; }
+    }
+
+    static Fin<double> ArmijoLineSearch(DiscreteMesh mesh, SolveProblem problem, SparseMatrix tangent, double[] forcing, double[] field, double[] direction, double baseline, MaterialState[] committed, Seq<double[]> multipliers, IClock clock) =>
         toSeq(Enumerable.Range(0, 8)).Fold(
             Fin.Succ((Alpha: 1.0, Accepted: false)),
             (acc, _) => acc.Bind(state => state.Accepted
@@ -1209,18 +1286,19 @@ public static class SolveLane {
                 : Fin.Succ(state).Bind(current => {
                     double[] trial = new double[field.Length];
                     TensorPrimitives.MultiplyAdd(direction, current.Alpha, field, trial);
-                    return InternalForce(mesh, problem, tangent, trial, clocks)
-                        .Map(force => TensorPrimitives.Norm<double>(Residual(forcing, force)))
+                    // Probes evolve trial state from the SAME committed ledger and discard it — a probe never commits.
+                    return InternalForce(mesh, problem, tangent, trial, committed, multipliers, clock)
+                        .Map(evaluation => TensorPrimitives.Norm<double>(Residual(forcing, evaluation.InternalForce)))
                         .Map(norm => norm <= (1.0 - 1e-4 * current.Alpha) * baseline ? (current.Alpha, true) : (current.Alpha * 0.5, false));
                 })))
         .Bind(state => state.Accepted
             ? Fin.Succ(state.Alpha)
             : Fin.Fail<double>(new ComputeFault.ModelRejected($"<solve-line-search-cap:residual={baseline:e3}>")));
 
-    static Fin<SolveResult> Modal(ConstrainedSystem system, DiscreteMesh mesh, SolveProblem problem, SolvePolicy policy, ClockPolicy clocks) =>
+    static Fin<SolveResult> Modal(ConstrainedSystem system, DiscreteMesh mesh, SolveProblem problem, SolvePolicy policy, IClock clock) =>
         problem.Physics == PhysicsKind.FeaBuckling
-            ? Buckle(system, mesh, problem, policy, clocks)
-            : Vibration(system, mesh, problem, policy, clocks.Now);
+            ? Buckle(system, mesh, problem, policy, clock)
+            : Vibration(system, mesh, problem, policy, clock.GetCurrentInstant());
 
     static Fin<SolveResult> Vibration(ConstrainedSystem system, DiscreteMesh mesh, SolveProblem problem, SolvePolicy policy, Instant at) {
         double[] mass = Lumped(mesh, problem.Dof);
@@ -1229,7 +1307,7 @@ public static class SolveLane {
             .Map(pairs => new SolveResult(problem, policy.Method, pairs.Vectors, Some(pairs.Values), Some(pairs.Participation), Some(mass.Sum()), system.Rhs.Length, 1, 1, 0.0, true, at));
     }
 
-    static Fin<SolveResult> Buckle(ConstrainedSystem system, DiscreteMesh mesh, SolveProblem problem, SolvePolicy policy, ClockPolicy clocks) =>
+    static Fin<SolveResult> Buckle(ConstrainedSystem system, DiscreteMesh mesh, SolveProblem problem, SolvePolicy policy, IClock clock) =>
         Prestress(system, policy).Bind(prestress =>
             Try.lift(() => {
                 int n = system.Operator.RowCount;
@@ -1241,7 +1319,7 @@ public static class SolveLane {
             }).Run().MapFail(static e => (Error)new ComputeFault.ModelRejected($"<buckle-non-spd:{e.Message}>"))
             .Bind(reduction => DenseOps.Decompose(reduction.Reduced, FactorizationKind.Evd)
                 .Bind(factorization => BucklingPairs(factorization, policy.EigenPairs, reduction.Linv.Transpose()))
-                .Map(pairs => new SolveResult(problem, policy.Method, pairs.Vectors, Some(pairs.Values), None, None, system.Rhs.Length, 1, 1, 0.0, true, clocks.Now))));
+                .Map(pairs => new SolveResult(problem, policy.Method, pairs.Vectors, Some(pairs.Values), None, None, system.Rhs.Length, 1, 1, 0.0, true, clock.GetCurrentInstant()))));
 
     static Fin<double[]> Prestress(ConstrainedSystem system, SolvePolicy policy) =>
         SparseOps.Factor(system.Operator, FactorKind.Lu, ColumnOrdering.MinimumDegreeAtPlusA, 1.0, 0.0)
@@ -1368,38 +1446,38 @@ public sealed record CoupledProblem(Seq<SolveProblem> Fields, Seq<FieldTransfer>
 public sealed record CoupledResult(Seq<SolveResult> Fields, int Rounds, double CouplingResidual, Seq<double> AitkenHistory, bool Converged, Instant At);
 
 public static class CoupledLane {
-    public static Fin<CoupledResult> Couple(CoupledProblem coupling, Seq<DiscreteMesh> meshes, SolvePolicy policy, ClockPolicy clocks) =>
+    public static Fin<CoupledResult> Couple(CoupledProblem coupling, Seq<DiscreteMesh> meshes, SolvePolicy policy, IClock clock) =>
         !coupling.WellPosed
             ? Fin.Fail<CoupledResult>(ComputeFault.Create($"<coupling-ill-posed:fields={coupling.Fields.Count}>"))
             : coupling.Policy.Scheme.Iterates
-                ? Iterate(coupling, meshes, policy, clocks)
-                : OneShot(coupling, meshes, policy, clocks);
+                ? Iterate(coupling, meshes, policy, clock)
+                : OneShot(coupling, meshes, policy, clock);
 
     public static ComputeReceipt.Coupling Receipt(CoupledProblem coupling, CoupledResult result, CorrelationId correlation, Duration elapsed) =>
         new(coupling.Policy.Scheme.Key, coupling.Fields.Count, coupling.Transfers.Count, result.Rounds, result.CouplingResidual, result.Converged) {
-            Correlation = correlation, Lane = WorkLane.Background, Substrate = Substrate.CpuTensor, AllocationClass = AllocationClass.PooledMemory, Elapsed = elapsed,
+            Scope = new ReceiptScope.Execution(correlation, WorkLane.Background, Substrate.CpuTensor, AllocationClass.PooledMemory, elapsed),
         };
 
-    static Fin<CoupledResult> OneShot(CoupledProblem coupling, Seq<DiscreteMesh> meshes, SolvePolicy policy, ClockPolicy clocks) =>
-        SolveRound(coupling, meshes, policy, Seq<SolveResult>(), clocks)
-            .Map(fields => new CoupledResult(fields, 1, 0.0, Seq<double>(), true, clocks.Now));
+    static Fin<CoupledResult> OneShot(CoupledProblem coupling, Seq<DiscreteMesh> meshes, SolvePolicy policy, IClock clock) =>
+        SolveRound(coupling, meshes, policy, Seq<SolveResult>(), clock)
+            .Map(fields => new CoupledResult(fields, 1, 0.0, Seq<double>(), true, clock.GetCurrentInstant()));
 
-    static Fin<CoupledResult> Iterate(CoupledProblem coupling, Seq<DiscreteMesh> meshes, SolvePolicy policy, ClockPolicy clocks) =>
+    static Fin<CoupledResult> Iterate(CoupledProblem coupling, Seq<DiscreteMesh> meshes, SolvePolicy policy, IClock clock) =>
         toSeq(Enumerable.Range(0, coupling.Policy.MaxRounds))
-            .Fold(SolveRound(coupling, meshes, policy, Seq<SolveResult>(), clocks).Map(fields => (Fields: fields, Round: 1, Residual: double.MaxValue, Omega: coupling.Policy.Relaxation, PriorDelta: Seq<double>(), History: Seq<double>(), Converged: false)),
+            .Fold(SolveRound(coupling, meshes, policy, Seq<SolveResult>(), clock).Map(fields => (Fields: fields, Round: 1, Residual: double.MaxValue, Omega: coupling.Policy.Relaxation, PriorDelta: Seq<double>(), History: Seq<double>(), Converged: false)),
                 (acc, _) => acc.Bind(state => state.Converged
                     ? Fin.Succ(state)
-                    : SolveRound(coupling, meshes, policy, state.Fields, clocks).Map(next => {
+                    : SolveRound(coupling, meshes, policy, state.Fields, clock).Map(next => {
                         Seq<double> delta = Delta(state.Fields, next);
                         double residual = Math.Sqrt(delta.Sum(d => d * d));
                         double omega = coupling.Policy.Aitken ? Aitken(state.Omega, state.PriorDelta, delta) : coupling.Policy.Relaxation;
                         return (Relax(state.Fields, next, omega), state.Round + 1, residual, omega, delta, state.History.Add(omega), residual <= coupling.Policy.Tolerance);
                     })))
             .Bind(state => state.Converged
-                ? Fin.Succ(new CoupledResult(state.Fields, state.Round, state.Residual, state.History, true, clocks.Now))
+                ? Fin.Succ(new CoupledResult(state.Fields, state.Round, state.Residual, state.History, true, clock.GetCurrentInstant()))
                 : Fin.Fail<CoupledResult>(new ComputeFault.ModelRejected($"<coupling-round-cap:{coupling.Policy.MaxRounds}:residual={state.Residual:e3}>")));
 
-    static Fin<Seq<SolveResult>> SolveRound(CoupledProblem coupling, Seq<DiscreteMesh> meshes, SolvePolicy policy, Seq<SolveResult> prior, ClockPolicy clocks) =>
+    static Fin<Seq<SolveResult>> SolveRound(CoupledProblem coupling, Seq<DiscreteMesh> meshes, SolvePolicy policy, Seq<SolveResult> prior, IClock clock) =>
         toSeq(Enumerable.Range(0, coupling.Fields.Count)).Fold(Fin.Succ(Seq<SolveResult>()), (acc, index) =>
             acc.Bind(solved => {
                 SolveProblem field = coupling.Fields[index];
@@ -1408,7 +1486,7 @@ public static class CoupledLane {
                     .Filter(t => t.To == index && (t.From < solved.Count || t.From < prior.Count))
                     .Map(t => t.Lower(t.From < solved.Count ? solved[t.From].Field : prior[t.From].Field));
                 SolveProblem stamped = field with { Conditions = field.Conditions + injected };
-                return SolveLane.Solve(stamped, meshes[index], policy, clocks).Map(result => solved.Add(result));
+                return SolveLane.Solve(stamped, meshes[index], policy, clock).Map(result => solved.Add(result));
             }));
 
     static Seq<double> Delta(Seq<SolveResult> previous, Seq<SolveResult> current) =>

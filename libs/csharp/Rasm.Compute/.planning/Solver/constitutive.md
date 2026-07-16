@@ -12,7 +12,7 @@ Stress is `∂W/∂ε` and the algorithmic tangent is `∂²W/∂ε²` through t
 
 - Owner: `ConstitutiveModel` `[Union]` carries one per-Gauss-point energy/state fold; `PlasticPotential` parameterizes `J2`, `DruckerPrager`, `SmoothedMohrCoulomb`, and `ModifiedCamClay` as seed data over one invariant generator; `HyperelasticLaw` parameterizes invariant-polynomial energies; `ContactConstraint` `[Union]` reuses optimizer multiplier advancement; `StressUpdate` returns `∂W/∂ε`, `∂²W/∂ε²`, and evolved state; `MaterialState` carries plastic strain, isotropic and volumetric hardening, preconsolidation pressure, pore pressure, damage, and Prony history.
 - Cases: `ConstitutiveModel` `Plastic(PlasticPotential, Regularization)` · `Hyperelastic(HyperelasticLaw)` · `Viscoelastic(PronyTerms, TimeStep)` · `Damage(Exponent)`; `ContactConstraint` `NodeToSurface(Gap, Regularization)` · `Mortar(Gap, Regularization, Weights)` — the mortar case carries per-pair segment-integration weights scaling each gap, the pointwise case the unit weight, so the two disciplines differ structurally rather than by name. `SoilParameters` supplies friction/dilation, cohesion, critical-state slope, compression/swell indices, preconsolidation pressure, and pore pressure to the pressure-dependent potential.
-- Entry: `public static Fin<ConstitutiveResult> Stress(ConstitutiveModel model, ReadOnlyMemory<double> strain, MaterialState state, MaterialParameters parameters, ClockPolicy clocks)` returns the updated stress, exact per-point tangent, and evolved state; `Fin<T>` rejects non-finite or dimensionally invalid state, parameter, strain, deformation-gradient, and energy-domain inputs. `public static Fin<ContactResult> Enforce(ContactConstraint contact, ReadOnlyMemory<double> displacement, ReadOnlyMemory<double> multipliers, double penalty, Seq<(int Slave, int Master)> broadPhasePairs, ClockPolicy clocks)` returns the normal contact force, stiffness, and updated multipliers over the supplied broad-phase pairs.
+- Entry: `public static Fin<ConstitutiveResult> Stress(ConstitutiveModel model, ReadOnlyMemory<double> strain, MaterialState state, MaterialParameters parameters, IClock clock)` returns the updated stress, exact per-point tangent, and evolved state; `Fin<T>` rejects non-finite or dimensionally invalid state, parameter, strain, deformation-gradient, and energy-domain inputs. `public static Fin<ContactResult> Enforce(ContactConstraint contact, ReadOnlyMemory<double> displacement, ReadOnlyMemory<double> multipliers, double penalty, Seq<(int Slave, int Master)> broadPhasePairs, IClock clock)` returns the normal contact force, stiffness, and updated multipliers over the supplied broad-phase pairs.
 - Auto: `Stress` seeds the active strain/deformation-gradient vector with `DDScalar.Variables(..., order: 2)`, evaluates one `ConstitutiveModel.Energy`, and projects `GetGradient`/`GetHessian`; J2 uses the same smooth positive-part return multiplier in the differentiated incremental potential and state evolution, hyperelastic rows require a nine-component deformation gradient and positive determinant, viscoelastic rows evolve one history vector per admitted Prony term over their carried `TimeStep`, and damage scales the elastic energy by live state. `Enforce` regularizes the normal gap potential, reads its composed sensitivity, and advances multipliers through `ConstraintHandling.AugmentedLagrangian.Advance`.
 - Receipt: the `Solve` `ComputeReceipt` case carries the physics key extended with the constitutive-model key, the integration-point count, the return-map iteration count (plastic), the consistent-tangent condition, and the converged flag; the contact path stamps the active-set size, penetration residual, and multiplier-update count, so a nonlinear-material or contact run is auditable on the same `Solve` receipt — never a parallel constitutive receipt.
 - Packages: HyperJet, System.Numerics.Tensors, MathNet.Numerics, CommunityToolkit.HighPerformance, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.Persistence (project), BCL inbox
@@ -232,7 +232,7 @@ public abstract partial record ContactConstraint {
 }
 
 public static class StressUpdate {
-    public static Fin<ConstitutiveResult> Stress(ConstitutiveModel model, ReadOnlyMemory<double> strain, MaterialState state, MaterialParameters parameters, ClockPolicy clocks) =>
+    public static Fin<ConstitutiveResult> Stress(ConstitutiveModel model, ReadOnlyMemory<double> strain, MaterialState state, MaterialParameters parameters, IClock clock) =>
         from valid in Validate(model, strain, state, parameters)
         from verdict in ReturnMapVerdict(model, strain, state, parameters)
         from result in Try.lift(() => {
@@ -242,7 +242,7 @@ public static class StressUpdate {
             Matrix<double> hessian = energy.GetHessian();
             return new ConstitutiveResult(
                 gradient.AsArray().AsMemory(), hessian.ToRowMajorArray().AsMemory(),
-                Evolve(model, state, strain, parameters, verdict.DGamma), verdict.Iterations, Converged: true, clocks.Now);
+                Evolve(model, state, strain, parameters, verdict.DGamma), verdict.Iterations, Converged: true, clock.GetCurrentInstant());
         }).Run().MapFail(static error => (Error)new ComputeFault.ModelRejected($"<constitutive-energy-domain:{error.Message}>"))
         select result;
 
@@ -361,7 +361,7 @@ public static class StressUpdate {
 }
 
 public static class ContactEnforcement {
-    public static Fin<ContactResult> Enforce(ContactConstraint contact, ReadOnlyMemory<double> displacement, ReadOnlyMemory<double> multipliers, double penalty, Seq<(int Slave, int Master)> broadPhasePairs, ClockPolicy clocks) {
+    public static Fin<ContactResult> Enforce(ContactConstraint contact, ReadOnlyMemory<double> displacement, ReadOnlyMemory<double> multipliers, double penalty, Seq<(int Slave, int Master)> broadPhasePairs, IClock clock) {
         if (displacement.IsEmpty || !TensorPrimitives.IsFiniteAll<double>(displacement.Span) || broadPhasePairs.IsEmpty || broadPhasePairs.Exists(pair => pair.Slave < 0 || pair.Master < 0 || pair.Slave >= displacement.Length || pair.Master >= displacement.Length)) {
             return Fin.Fail<ContactResult>(new ComputeFault.ModelRejected("<contact-kinematics>"));
         }
@@ -378,7 +378,7 @@ public static class ContactEnforcement {
             DDScalar potential = contact.Potential(DDScalar.Variables(gap, order: 2), penalty);
             return new ContactResult(
                 potential.GetGradient().AsArray().AsMemory(), potential.GetHessian().ToRowMajorArray().AsMemory(),
-                updated.AsMemory(), gap.Count(static value => value > 0.0), Penetration(gap), clocks.Now);
+                updated.AsMemory(), gap.Count(static value => value > 0.0), Penetration(gap), clock.GetCurrentInstant());
         }).Run().MapFail(static error => (Error)new ComputeFault.ModelRejected($"<contact-potential-domain:{error.Message}>"));
     }
 

@@ -125,13 +125,17 @@ public readonly record struct RecoveryContext(
     Seq<SnapshotCatalogRow> Checkpoints, ulong SchemaFingerprint, ulong Epoch);
 
 // The recovery receipt on the kernel validity floor ([C]): `IsValid` is ONE `ValidityClaim.All` fold —
-// non-negative measured lags plus the objective bit — never a hand-rolled `&&` chain.
+// non-negative measured lags plus the objective bit — never a hand-rolled `&&` chain. `BackupDuration` is the
+// backup leg's own elapsed span; `MeasuredRto` is minted ONLY by the PointInTimeRestore choreography (fence
+// through re-attestation to the verified receipt) — a backup duration standing in for the recovery-time
+// objective is the deleted conflation, so the backup mint carries `MeasuredRto: None`.
 public readonly record struct RecoveryFact(
-    RecoveryRoute Route, RecoveryPoint Point, Duration MeasuredRpo, Duration MeasuredRto,
+    RecoveryRoute Route, RecoveryPoint Point, Duration MeasuredRpo, Duration BackupDuration, Option<Duration> MeasuredRto,
     bool MeetsObjective, Instant At, Guid Correlation) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.Of(MeasuredRpo >= Duration.Zero),
-        ValidityClaim.Of(MeasuredRto >= Duration.Zero),
+        ValidityClaim.Of(BackupDuration >= Duration.Zero),
+        ValidityClaim.Of(MeasuredRto.Map(static rto => rto >= Duration.Zero).IfNone(true)),
         ValidityClaim.Of(MeetsObjective));
 }
 
@@ -150,17 +154,17 @@ public static class RecoveryRoutes {
             pgPitr: static s => PgPitr(s.ctx, s.frame),
             objectReplica: static s => ObjectReplica(s.ctx, s.frame),
             snapshotArchive: static s => SnapshotFloor(s.ctx, s.frame))
-        let rto = frame.Elapsed(mark)
-        let fact = new RecoveryFact(route, leg.Point, leg.Rpo, rto, (leg.Rpo <= objective.Rpo) && (rto <= objective.Rto), frame.Now(), frame.Correlation)
+        let backup = frame.Elapsed(mark)
+        // Backup gauges RPO only: the measured span is the BACKUP leg's, distinct by construction from the
+        // recovery-time objective — MeasuredRto mints in PointInTimeRestore where the restore choreography is
+        // actually timed against RecoveryObjective.Rto.
+        let fact = new RecoveryFact(route, leg.Point, leg.Rpo, backup, Option<Duration>.None, leg.Rpo <= objective.Rpo, frame.Now(), frame.Correlation)
         // A CONTINUOUS route's RPO breach is an actionable live-lag fault (`ReplicationLag` on a replica leg, the
         // measured WAL/replication gap); a DISCRETE route's breach is the expected checkpoint-age the next seal
-        // closes, so it records `MeetsObjective: false` in the fact without faulting. The RTO over objective faults
-        // every route alike because a slow backup is never expected.
+        // closes, so it records `MeetsObjective: false` in the fact without faulting.
         from gauged in route.Continuous && (leg.Rpo > objective.Rpo)
             ? IO.fail<RecoveryFact>(new RecoveryFault.ReplicationLag(route.Key, leg.Rpo, objective.Rpo))
-            : rto > objective.Rto
-                ? IO.fail<RecoveryFact>(new RecoveryFault.ObjectiveBreach(route.Key, rto, objective.Rto))
-                : IO.pure(fact)
+            : IO.pure(fact)
         select gauged;
 
     // `pg-pitr`: the coordinate is the live `(Timeline, XLogPos)` `IdentifySystem` yields plus the PER-STREAM Marten
@@ -210,7 +214,9 @@ public static class RecoveryRoutes {
                     Succ: _ => IO.pure((RecoveryPoint.Floor(newest.WrittenAt), frame.Now() - newest.WrittenAt)),
                     Fail: _ => IO.fail<(RecoveryPoint, Duration)>(new RecoveryFault.VerifyFailed("snapshot-archive", newest.Hash, ContentAddress.Of(UInt128.Zero)))))
                 | @catch<IO, (RecoveryPoint, Duration)>(static error => error.IsExceptional, static error => IO.fail<(RecoveryPoint, Duration)>(new RecoveryFault.BackupFailed("snapshot-archive", error.Message))),
-            None: () => IO.pure((RecoveryPoint.Floor(frame.Now()), Duration.Zero)));
+            // No checkpoint means NO recoverable floor: fabricating a present-time RecoveryPoint with zero RPO
+            // would satisfy any objective without one verified byte — the empty inventory is a typed backup fault.
+            None: () => IO.fail<(RecoveryPoint, Duration)>(new RecoveryFault.BackupFailed("snapshot-archive", "<no-checkpoint-inventory>")));
 
     // Shared with `PointInTimeRestore.Verify` — ONE sealed-read spelling for the archive layout, never re-derived.
     internal static byte[] ReadSealed(string root, Guid id) => File.ReadAllBytes(Path.Combine(root, $"{id}{Snapshots.Suffix}"));
@@ -291,15 +297,24 @@ public sealed record RestoreContext(
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class PointInTimeRestore {
-    public static IO<(RestoreLedger Ledger, Fin<RecoveryPoint> Outcome)> Run(RecoveryRoute route, RecoveryContext ctx, RestoreContext restore, ProjectionContext frame) =>
-        toSeq(RestoreStep.Items.OrderBy(static s => s.Rank)).FoldM(
+    // MeasuredRto is minted HERE: the mark brackets the WHOLE choreography — fence, verify, materialize, WAL
+    // replay, projection rebuild, re-attestation — to the verified receipt, and a verified restore slower than
+    // RecoveryObjective.Rto faults ObjectiveBreach so a DR drill fails loudly; the backup leg's duration never
+    // stands in for this measurement.
+    public static IO<(RestoreLedger Ledger, Fin<RecoveryPoint> Outcome, Duration MeasuredRto)> Run(RecoveryRoute route, RecoveryContext ctx, RestoreContext restore, ProjectionContext frame) =>
+        from mark in IO.lift(frame.Mark)
+        from final in toSeq(RestoreStep.Items.OrderBy(static s => s.Rank)).FoldM(
             (Ledger: new RestoreLedger(Seq<StepFact>()), Outcome: Fin<RecoveryPoint>.Succ(restore.Target)),
             (state, step) => state.Outcome.IsFail
                 ? IO.pure(state)
                 : Perform(step, route, ctx, restore).Map(result => result.Match(
                     Succ: evidence => (state.Ledger.With(new StepFact(step, evidence, frame.Now())), state.Outcome),
                     Fail: error => (state.Ledger.With(new StepFact(step, error.Message, frame.Now())), Fin<RecoveryPoint>.Fail(error)))))
-        .Map(static final => (final.Ledger, final.Outcome)).As();
+        let rto = frame.Elapsed(mark)
+        from _ in final.Outcome.IsSucc && rto > restore.Objective.Rto
+            ? IO.fail<Unit>(new RecoveryFault.ObjectiveBreach(route.Key, rto, restore.Objective.Rto))
+            : IO.pure(unit)
+        select (final.Ledger, final.Outcome, rto);
 
     // The per-step dispatch is the GENERATED `RestoreStep.Switch` (compile-time exhaustive over the closed six-row
     // smart-enum, one arm per case) so a new choreography step breaks the build HERE — a `step.Key switch { ... _ => }`

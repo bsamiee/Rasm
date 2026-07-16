@@ -13,7 +13,7 @@ Ingress is honest: targets, spaces, and adjacency arrive off the concrete graph,
 
 - Owner: `EgressGraph` the per-request space-adjacency view (space nodes `NodeId`-keyed, door/corridor edges with clear width and length, exits marked), built once from the concrete `ElementGraph` and discarded with the run — a persistent second graph store is the deleted form; `OccupancyClass` `[SmartEnum<string>]` the occupant-load-factor policy rows (IBC Table 1004.5 / EN vocabulary as data); `EgressPolicy` the request policy record; `CirculationAnalysis` the runner fold; `EgressFinding` the per-space typed finding.
 - Cases: one exit-rooted path family drives travel, common path, dead end, and RSET; `MaxFlow` derives throughput; `SolveMaxFlowWithMinCost` prices the routable occupant flow without turning an over-capacity design into a solver fault; saturated adjacency arcs identify capacity bottlenecks without claiming an uncomputed cut partition.
-- Entry: `Run(graph, request, geometry, clocks)` emits travel, dead-end, common-path, RSET, throughput, feasible distribution cost, width, and saturated-capacity facts; governing includes every acceptance check.
+- Entry: `Run(graph, request, geometry, clock)` emits travel, dead-end, common-path, RSET, throughput, feasible distribution cost, width, and saturated-capacity facts; governing includes every acceptance check.
 - Receipt: the shared assessment receipt carries achieved throughput; saturated arcs land as ONE `saturated-capacity-bottlenecks` `List` fact of typed `Reference` values (per-arc facts under a repeated name would overwrite in the write-back `Results` bag); no circulation-local receipt exists.
 - Packages: QuikGraph (`AdjacencyGraph<TVertex, TEdge>`, `ShortestPathsDijkstra`/`ShortestPathsAStar` → `TryFunc<TVertex, IEnumerable<TEdge>>` accessors, the SCC census — its first Compute consumer), Google.OrTools (`Google.OrTools.Graph` `MaxFlow`/`MinCostFlow` natives — each `IDisposable`, `int` node/arc indices, `long` capacities/costs; CP-SAT/MILP stay `Solver/optimizer`'s), Rasm.Element (`ElementGraph`, `NodeId`), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox.
 - Growth: a new occupancy class is one `OccupancyClass` row; a new egress check is one fold over the same view; a new code edition is the route row's `SolverVersion` bump; zero new surface — a `TravelDistanceAnalyzer`/`ExitCapacityAnalyzer` sibling family the collapsed defect, a managed Edmonds-Karp beside the OrTools push-relabel the rejected reinvention. Seeded runners land one row/route/runner when chartered: MEP network-flow (`Discipline.Water`, the Todini global-gradient algebra over the sparse solver + QuikGraph), geometric room-acoustics (image-source over the clash BVH), and the `StronglyConnectedComponents` wayfinding deepening for multi-storey routes.
@@ -82,7 +82,7 @@ public readonly record struct EgressFinding(NodeId Space, double TravelM, NodeId
 
 // --- [OPERATIONS] --------------------------------------------------------------------------
 public static class CirculationAnalysis {
-    public static Fin<AssessmentResult> Run(ElementGraph graph, AssessmentRequest.Circulation request, GeometrySource geometry, ClockPolicy clocks) =>
+    public static Fin<AssessmentResult> Run(ElementGraph graph, AssessmentRequest.Circulation request, GeometrySource geometry, IClock clock) =>
         from view in EgressView.Of(graph, request, geometry)
         from findings in Travel(view, request.Policy)
         from capacity in Capacity(view, request.Policy)
@@ -109,7 +109,7 @@ public static class CirculationAnalysis {
             request.Route,
             travel + deadEnds + commonPaths + rset + nearestExits + underWidth + exits + bottlenecks,
             govern,
-            new Provenance("CirculationAnalysis", request.Route.Standard, request.Route.SolverVersion, clocks.Now));
+            new Provenance("CirculationAnalysis", request.Route.Standard, request.Route.SolverVersion, clock.GetCurrentInstant()));
 
     // TRAVEL: one Dijkstra accessor PER EXIT root (the view's edges run both directions, so an exit-rooted tree reads
     // space->exit distance); per space the nearest exit wins, the dead-end and common-path folds ride the SAME per-exit
