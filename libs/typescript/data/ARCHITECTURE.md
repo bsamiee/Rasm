@@ -69,19 +69,21 @@ config:
 ---
 flowchart TB
     accTitle: Data interior import strata
-    accDescr: Five interior waves — read and olap over object over journal over the tenancy write path onto a five-mint floor — every import downward, labeled edges naming one sourced type each, and one forbidden upward edge styled red.
+    accDescr: Five interior waves — read and olap over object over journal over the tenant write path onto a five-mint floor — every import downward, labeled edges naming one sourced type each, remote alone reaching the cache lane, sqlite holding a dashed type-only Pg read beside the tenant write path, and one forbidden upward edge styled red.
     subgraph S4["S4 READ"]
         Olap[olap]
         Read["query · batch · search · fold"]
     end
     subgraph S3["S3 OBJECT"]
-        Object["store · stream · file · remote"]
+        Object["store · stream · file"]
+        Remote[remote]
     end
     subgraph S2["S2 JOURNAL"]
         Journal["append · retain · fact"]
     end
-    subgraph S1["S1 WRITE PATH"]
-        Tenant["tenant · sqlite"]
+    subgraph S1["S1 TENANT + SQLITE"]
+        Tenant[tenant]
+        Sqlite[sqlite]
     end
     subgraph S0["S0 FLOOR"]
         Postgres[postgres]
@@ -97,7 +99,7 @@ flowchart TB
     Journal e5@-->|"[IMPORT]: Live"| Live
     Journal e6@--> Capability
     Object e7@-->|"[IMPORT]: Journal"| Journal
-    Object e8@-->|"[IMPORT]: CacheLane"| Cache
+    Remote e8@-->|"[IMPORT]: CacheLane"| Cache
     Object e9@--> Capability
     Read e10@-->|"[IMPORT]: ObjectStore"| Object
     Read e11@-->|"[IMPORT]: Journal"| Journal
@@ -105,14 +107,15 @@ flowchart TB
     Read e13@--> Capability
     Read e14@-->|"[IMPORT]: Snapshot"| Evolve
     Olap e15@-->|"[IMPORT]: ObjectStore"| Object
+    Sqlite e16@-.->|"[TYPE]: Pg"| Postgres
     S0 f1@-->|"forbidden: upward import"| S4
     classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
     classDef recessed fill:#21222C,stroke:#6272A4,color:#F8F8F2
     classDef edgeControl stroke:#FF79C6,color:#F8F8F2
     classDef edgeError stroke:#FF5555,stroke-width:3px,color:#F8F8F2
-    class Read,Olap,Object,Journal,Tenant primary
+    class Read,Olap,Object,Remote,Journal,Tenant,Sqlite primary
     class Postgres,Capability,Cache,Evolve,Live recessed
-    class e1,e2,e3,e4,e5,e6,e7,e8,e9,e10,e11,e12,e13,e14,e15 edgeControl
+    class e1,e2,e3,e4,e5,e6,e7,e8,e9,e10,e11,e12,e13,e14,e15,e16 edgeControl
     class f1 edgeError
 ```
 

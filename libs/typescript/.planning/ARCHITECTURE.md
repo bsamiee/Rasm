@@ -53,7 +53,7 @@ config:
 ---
 flowchart TB
     accTitle: TypeScript branch import strata
-    accDescr: Five import waves — ui and iac over runtime over data over security onto the core foundation — every wave importing downward only, each labeled import naming one sourced surface, ui reaching runtime through its dashed GlbViewport port binding rather than an import, one forbidden upward edge styled red, and core's interior members state, interchange, and observe composing the value floor with interchange composing all three.
+    accDescr: Five import waves — ui and iac over runtime over data over security onto the core foundation — every wave importing downward only, each labeled import naming one sourced surface, iac composing data and core directly, ui reaching runtime through its dashed GlbViewport port binding rather than an import, one forbidden upward edge styled red, and core's interior members state, interchange, and observe composing the value floor with interchange composing all three.
     subgraph W4["W4 APP + DEPLOY"]
         Ui[ui]
         Iac[iac]

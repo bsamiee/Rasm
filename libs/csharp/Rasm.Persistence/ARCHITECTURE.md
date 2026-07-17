@@ -79,7 +79,7 @@ config:
 ---
 flowchart TB
     accTitle: Rasm.Persistence interior strata
-    accDescr: Four stacked strata from the query read lanes through the coupled version-and-store tier and the ingest codecs onto the element system-of-record spine, every consumption edge downward and solid naming one sourced type, and one forbidden upward edge styled red.
+    accDescr: Four stacked strata from the query read lanes through the coupled version-and-store tier and the ingest codecs onto the element system-of-record spine, every consumption edge downward and solid naming one sourced type, one dashed ruled counter-edge carrying the ReadAsOf TimeCut payload upward from Element to Version, and one forbidden upward edge styled red.
     subgraph L3["S3 QUERY"]
         Query[Query]
     end
@@ -99,6 +99,7 @@ flowchart TB
     Version e4@-->|"[IMPORT]: GrantSet"| Element
     Store e5@-->|"[IMPORT]: ContentAddress"| Element
     Ingest e6@-->|"[IMPORT]: ProjectionContext"| Element
+    Element e7@-.->|"[COUNTER]: TimeCut"| Version
     Element f1@-->|"forbidden: spine upward"| L3
     classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
     classDef recessed fill:#21222C,stroke:#6272A4,color:#F8F8F2
@@ -106,7 +107,7 @@ flowchart TB
     classDef edgeError stroke:#FF5555,stroke-width:3px,color:#F8F8F2
     class Query,Version,Store,Ingest primary
     class Element recessed
-    class e1,e2,e3,e4,e5,e6 edgeControl
+    class e1,e2,e3,e4,e5,e6,e7 edgeControl
     class f1 edgeError
 ```
 

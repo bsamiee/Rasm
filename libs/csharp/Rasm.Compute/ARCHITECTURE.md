@@ -70,7 +70,7 @@ Five strata order the seven sub-domains; `Runtime` seats lowest as the vocabular
 - S0 `Runtime` — mints the admit-to-receipt substrate exactly once: `ComputeIntent`, `ComputeReceipt`, `ComputeFault`, `WorkLane`, and the `Substrate` axis; every lane lands here.
 - S1 `Tensor` + `Symbolic` — peers over the substrate: `TensorOps`, `OrtResidency`, and the `LowDiscrepancy` sampler beside `QuantityFamily`, `DimensionMonomial`, and the `CompiledExpr` cache.
 - S2 `Model` + `Stats` — `ModelIdentity`, `ModelSessions`, and the `GraduationEnvelope` admission gate beside the `EstimatorKind` fit axis and the spectral rail.
-- S3 `Solver` — the discretize-solve-optimize-sweep spine: `MeshKernel`, `OptimizerKind`, `SweepLane`, and the `DoeDataset` wire shape over tensors, symbols, surrogates, and estimators.
+- S3 `Solver` — the discretize-solve-optimize-sweep spine: `MeshKernel`, `OptimizerKind`, `SweepLane`, the `ClashScale` collision fold, and the `DoeDataset` wire shape over tensors, symbols, surrogates, and estimators.
 - S4 `Analysis` — the discipline-assessment rail nothing composes: `AssessmentRoute`, `AssemblyAggregator`, and the `SolarPosition` kernel reading the `ElementGraph` upward and writing content-keyed deltas.
 
 ```mermaid
@@ -111,6 +111,7 @@ flowchart TB
         Sweep[SweepLane]
         Mesh[MeshKernel]
         Optimizer[OptimizerKind]
+        Clash[ClashScale]
     end
     subgraph L2["S2 MODEL + STATS"]
         Envelope[GraduationEnvelope]
@@ -127,7 +128,7 @@ flowchart TB
         Lane[WorkLane]
     end
     Assessment e1@-->|"[IMPORT]: ComputeReceipt"| Receipt
-    Daylight e2@-->|"[IMPORT]: ClashScale"| L3
+    Daylight e2@-->|"[IMPORT]: ClashScale"| Clash
     Sweep e3@-->|"[IMPORT]: GraduationEnvelope"| Envelope
     Optimizer e4@-->|"[IMPORT]: CompiledExpr"| Compiled
     Sweep e5@-->|"[IMPORT]: LowDiscrepancy"| Sampling
@@ -140,7 +141,7 @@ flowchart TB
     classDef recessed fill:#21222C,stroke:#6272A4,color:#F8F8F2
     classDef edgeControl stroke:#FF79C6,color:#F8F8F2
     classDef edgeError stroke:#FF5555,stroke-width:3px,color:#F8F8F2
-    class Assessment,Daylight,Mesh,Optimizer,Sweep,Identity,Envelope,Estimator primary
+    class Assessment,Daylight,Mesh,Optimizer,Sweep,Clash,Identity,Envelope,Estimator primary
     class Ops,Sampling,Compiled,Receipt,Lane recessed
     class e1,e2,e3,e4,e5,e6,e7,e8,e9 edgeControl
     class f1 edgeError

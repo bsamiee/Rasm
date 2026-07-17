@@ -85,7 +85,7 @@ config:
 ---
 flowchart TB
     accTitle: Runtime interior import strata
-    accDescr: Four interior waves — serve over the pubsub, otel, browser, and work carriers over the proc substrate onto the net egress floor — every import downward, labeled edges naming one sourced type each, and one forbidden upward edge styled red.
+    accDescr: Four interior waves — serve over the pubsub and otel carriers, with browser and work seated at the same carrier rank parallel to the server plane, over the proc substrate onto the net egress floor — every import downward, labeled edges naming one sourced type each, and one forbidden upward edge styled red.
     subgraph S3["S3 SERVE"]
         Serve["api · route · live · problem · cli"]
     end
@@ -107,6 +107,7 @@ flowchart TB
     Browser e4@-->|"[IMPORT]: Client"| NetFloor
     Work e5@-->|"[IMPORT]: Setting"| Proc
     Work e6@-->|"[IMPORT]: Client"| NetFloor
+    Work e10@-->|"[IMPORT]: Bench"| Proc
     Serve e7@-->|"[IMPORT]: Fanout"| Fanout
     Serve e8@-->|"[IMPORT]: Propagation"| Otel
     Serve e9@-->|"[IMPORT]: Life"| Proc
@@ -118,7 +119,7 @@ flowchart TB
     classDef edgeError stroke:#FF5555,stroke-width:3px,color:#F8F8F2
     class Serve,Work,Fanout,Otel,Browser,Proc primary
     class NetFloor recessed
-    class e1,e2,e3,e4,e5,e6,e7,e8,e9 edgeControl
+    class e1,e2,e3,e4,e5,e6,e7,e8,e9,e10 edgeControl
     class f1 edgeError
 ```
 

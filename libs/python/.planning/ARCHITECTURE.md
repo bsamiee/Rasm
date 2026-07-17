@@ -72,7 +72,7 @@ flowchart TB
     Artifacts e1@-->|"[IMPORT]: GraduationReceipt"| Compute
     Compute e2@-->|"[IMPORT]: FrameAdmission"| Data
     Geometry e3@-->|"[IMPORT]: arrow_bytes"| Data
-    Compute e4@-.->|"[WIRE]: GeometryHandoff"| Geometry
+    Geometry e4@-.->|"[WIRE]: GeometryHandoff"| Compute
     Data e5@--> S0
     Geometry e6@--> S0
     Compute e7@--> S0

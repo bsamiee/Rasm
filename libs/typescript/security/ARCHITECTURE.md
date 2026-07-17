@@ -56,21 +56,25 @@ config:
 ---
 flowchart TB
     accTitle: Security interior import strata
-    accDescr: Three interior waves — ceremonies and the entitlement fold over the verify, secret, and session spine onto the sign and tenant floor — every import downward, labeled edges naming one sourced type each, and one forbidden upward edge styled red.
+    accDescr: Three interior waves — ceremonies and the entitlement fold over the verify, secret, session, and credential spine onto the sign and tenant floor — every import downward, labeled edges naming one sourced type each, and one forbidden upward edge styled red.
     subgraph S2["S2 CEREMONY + DECISION"]
         Ceremony["oauth · webauthn"]
         Claim[claim]
     end
     subgraph S1["S1 SPINE"]
-        Verify["verify · secret"]
-        Session["session · credential"]
+        Verify[verify]
+        Secret[secret]
+        Session[session]
+        Credential[credential]
     end
     subgraph S0["S0 FLOOR"]
         Sign[sign]
         TenantRef[tenant]
     end
     Verify e1@-->|"[IMPORT]: Crypto"| Sign
+    Secret e7@-->|"[IMPORT]: Crypto"| Sign
     Session e2@-->|"[IMPORT]: Jwt"| Sign
+    Credential e8@-->|"[IMPORT]: Crypto"| Sign
     Ceremony e3@-->|"[IMPORT]: Token"| Session
     Ceremony e4@-->|"[IMPORT]: SingleUse"| Sign
     Claim e5@-->|"[IMPORT]: AccessClaims"| Sign
@@ -80,9 +84,9 @@ flowchart TB
     classDef recessed fill:#21222C,stroke:#6272A4,color:#F8F8F2
     classDef edgeControl stroke:#FF79C6,color:#F8F8F2
     classDef edgeError stroke:#FF5555,stroke-width:3px,color:#F8F8F2
-    class Ceremony,Claim,Verify,Session primary
+    class Ceremony,Claim,Verify,Secret,Session,Credential primary
     class Sign,TenantRef recessed
-    class e1,e2,e3,e4,e5,e6 edgeControl
+    class e1,e2,e3,e4,e5,e6,e7,e8 edgeControl
     class f1 edgeError
 ```
 

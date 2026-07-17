@@ -88,7 +88,7 @@ flowchart TB
     Persistence e5@-->|"[IMPORT]: ContentHash"| Rasm
     Compute e6@-->|"[IMPORT]: ElementGraph"| Element
     Compute e7@-->|"[IMPORT]: ContentHash"| Rasm
-    AppUi e8@-->|"[IMPORT]: ContentHash"| L1
+    AppUi e8@-->|"[IMPORT]: ContentHash"| Rasm
     Materials e9@-->|"[IMPORT]: IElementProjection"| Element
     Materials e10@-->|"[IMPORT]: Op"| Rasm
     Bim e11@-->|"[IMPORT]: GraphDelta"| Element
@@ -109,7 +109,7 @@ flowchart TB
 
 ## [03]-[SEAMS]
 
-Every cross-runtime seam is data-bearing: the peer decodes the content-keyed wire without re-minting. Each edge freezes the single load-bearing contract at its partner grain, spelled verbatim from the owning package page; companion wires fold to the package pages, which enumerate the per-shape bytes. Two fences partition by peer runtime. Graduation crosses one seam under two owner spellings: python carries `HandoffAxis`, C# owns the evidence envelope as `GraduationEvidence`.
+Every cross-runtime seam is data-bearing: the peer decodes the content-keyed wire without re-minting. Each edge freezes the single load-bearing contract at its partner grain, spelled verbatim from the owning package page; companion wires fold to the package pages, which enumerate the per-shape bytes. Two fences partition by peer runtime. Graduation crosses one seam: python's `HandoffAxis` names the forward receipt axis, and C# owns the reverse evidence envelope as `GraduationEvidence`, python-spelled `EvidenceBundle`.
 
 ```mermaid
 ---

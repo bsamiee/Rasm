@@ -183,7 +183,7 @@ Every `[CONTENT_KEY]` edge derives one typed identity through the runtime `Conte
 
 ## [03]-[INTERNAL]
 
-- S0 `tabular` — the interchange floor: `interop` (`FrameInterop`/`FieldShape`/`ArrowCStream`) and `columnar` (`arrow_bytes`/`QueryReceipt`/`DuckDbSession`) import nothing from `rasm.data`; `contract` and `profile` compose interop, `query` and `lakehouse` compose columnar, `materialize` closes the apex, and `egress` (`StoreOp`) stands import-free for the strata above.
+- S0 `tabular` — the interchange floor: `interop` (`FrameInterop`/`FieldShape`/`ArrowCStream`) and `columnar` (`arrow_bytes`/`QueryReceipt`/`DuckDbSession`) import nothing from `rasm.data`; `contract` and `profile` compose interop, `query` and `lakehouse` compose columnar, `materialize` closes the apex, and `egress` (`StoreOp`) imports no sibling while serving the strata above.
 - S1 `gridded` + `impact` — gridded rides the interop carrier (`ArrowCStream`) for its ragged Arrow bridge; impact composes the contract, profile, interop, and columnar rows (`FrameAdmission`, `QualityProfile`, `FrameInterop`, `arrow_bytes`).
 - S1 `graph` — import-isolated: composes runtime alone, and its `GraphResult.frame` node table crosses into columnar as wire data over the pyarrow left-outer join, never an import.
 - S2 `spatial` — the apex consumer: composes columnar (`QueryReceipt`), the object egress (`StoreOp`), and gridded's manifest cube (`FieldVirtual`).

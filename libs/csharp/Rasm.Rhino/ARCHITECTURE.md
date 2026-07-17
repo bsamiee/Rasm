@@ -127,7 +127,7 @@ config:
 ---
 flowchart TB
     accTitle: Rasm.Rhino interior strata
-    accDescr: Five stacked strata from the terminal display, exchange, and render composers through the viewport rail and the composite object and host-UI domains onto the single-seam domains and the document spine, every consumption edge downward and solid naming one sourced type, and one forbidden upward edge styled red.
+    accDescr: Five stacked strata from the terminal display, exchange, and render composers through the viewport rail and the composite object and host-UI domains onto the single-seam domains and the document spine, every consumption edge downward and solid naming one sourced type, one dashed ruled counter-edge carrying the ArchiveMap open-options payload upward from the document spine to Persistence, and one forbidden upward edge styled red.
     subgraph L4["S4 TERMINAL COMPOSERS"]
         Modes[ViewportModes]
         Exchanges[Exchanges]
@@ -145,6 +145,7 @@ flowchart TB
         Picks[PickCapture]
         Blocks[CycleGroups]
         Eto[UiThread]
+        Archive[ArchiveMap]
     end
     subgraph L0["S0 DOCUMENT"]
         Session[DocumentSession]
@@ -158,14 +159,15 @@ flowchart TB
     Objects e7@-->|"[IMPORT]: CycleGroups"| Blocks
     HostThread e8@-->|"[IMPORT]: UiThread"| Eto
     Picks e9@-->|"[IMPORT]: DocumentSession"| Session
+    Session e10@-.->|"[COUNTER]: ArchiveMap"| Archive
     Session f1@-->|"forbidden: spine upward"| L4
     classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
     classDef recessed fill:#21222C,stroke:#6272A4,color:#F8F8F2
     classDef edgeControl stroke:#FF79C6,color:#F8F8F2
     classDef edgeError stroke:#FF5555,stroke-width:3px,color:#F8F8F2
     class Modes,Exchanges,Contents,Lease,Capture,Objects,HostThread primary
-    class Picks,Blocks,Eto,Session recessed
-    class e1,e2,e3,e4,e5,e6,e7,e8,e9 edgeControl
+    class Picks,Blocks,Eto,Archive,Session recessed
+    class e1,e2,e3,e4,e5,e6,e7,e8,e9,e10 edgeControl
     class f1 edgeError
 ```
 
