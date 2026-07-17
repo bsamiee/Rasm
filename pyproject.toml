@@ -9,6 +9,7 @@ dependencies = [
     "tblib",                                         # [RUNTIME]: cross-process traceback fidelity for worker faults
     "loky",                                          # [RUNTIME]: warm reusable crash-respawning process pool for the worker fabric
     "pebble",                                        # [RUNTIME]: terminal-deadline worker kill and per-worker task recycling
+    "wasmtime",                                      # [RUNTIME]: in-process WASM guest sandbox for the SANDBOXED worker kind
     "protobuf",                                      # [RUNTIME]: transport wire codec
     "grpcio",                                        # [RUNTIME]: gRPC transport for ServerHost serve paths
     "grpcio-health-checking",                        # [RUNTIME]: gRPC health servicer wired into ServerHost lifecycle
@@ -33,7 +34,7 @@ dependencies = [
     "httpx",                                         # [TRANSPORT]: approved HTTP client surface for typed adapters
     "watchfiles",
     "apscheduler",                                   # [RUNTIME]: cron, interval, and date triggers
-    "asyncssh",
+    "asyncssh",                                      # [RUNTIME]: fleet SSH channel for the remote worker arm and SFTP artifact reads
     "tree-sitter",
     "tree-sitter-python",
     "tree-sitter-typescript",
