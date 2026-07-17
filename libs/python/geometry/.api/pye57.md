@@ -1,6 +1,6 @@
 # [PY_GEOMETRY_API_PYE57]
 
-`pye57` supplies E57 point-cloud file IO over the libe57 (`xerces-c`-backed) C++ core: an `E57` file handle for multi-scan read/write and field-buffer allocation, a `ScanHeader` typed view over the per-scan libe57 structure node (pose, index/intensity/cartesian/spherical bounds, acquisition times, point count), the `COORDINATE_SYSTEMS` enum carrying the Cartesian/spherical field-name maps, and a `convert_spherical_to_cartesian` projection. The scan-ingestion owner composes `E57.read_scan` into a field-keyed `numpy` dict, hands the XYZ block to `laspy`/`open3d`/`pdal` consumers across the wire, and never hand-rolls E57 binary parsing or raw libe57 node manipulation.
+`pye57` supplies E57 point-cloud file IO over the libe57 (`xerces-c`-backed) C++ core: an `E57` file handle for multi-scan read/write and field-buffer allocation, a `ScanHeader` typed view over the per-scan libe57 structure node (pose, index/intensity/cartesian/spherical bounds, acquisition times, point count), the `COORDINATE_SYSTEMS` enum carrying the Cartesian/spherical field-name maps, and a `convert_spherical_to_cartesian` projection. Scan-ingestion owner composes `E57.read_scan` into a field-keyed `numpy` dict, hands the XYZ block to `laspy`/`open3d`/`pdal` consumers across the wire, and never hand-rolls E57 binary parsing or raw libe57 node manipulation.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -40,10 +40,12 @@
 
 ```python signature
 # SUPPORTED_POINT_FIELDS extends [01] + [02] with (field name -> numpy dtype char):
-"intensity": "f",
-"colorRed": "B", "colorGreen": "B", "colorBlue": "B",
-"rowIndex": "H", "columnIndex": "H",
-"cartesianInvalidState": "b", "sphericalInvalidState": "b",
+{
+    "intensity": "f",
+    "colorRed": "B", "colorGreen": "B", "colorBlue": "B",
+    "rowIndex": "H", "columnIndex": "H",
+    "cartesianInvalidState": "b", "sphericalInvalidState": "b",
+}
 ```
 
 ## [03]-[ENTRYPOINTS]
@@ -112,13 +114,13 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [E57_TOPOLOGY]:
-- import: `from pye57 import E57, ScanHeader` at boundary scope only; module-level import is banned by the manifest import policy. The `pye57.libe57` node API is a boundary escape hatch, never threaded into domain code.
-- read axis: `read_scan(index, *, ...)` is the polymorphic intake — coordinate system is auto-detected via `ScanHeader.get_coordinate_system`, requested fields (`intensity`/`colors`/`row_column`) are appended, the invalid-state column masks every field, spherical input is `convert_spherical_to_cartesian`-projected, and `transform=True` applies the scan pose so the dict always exits as global-frame `cartesianX`/`cartesianY`/`cartesianZ` plus the requested extras. `read_scan_raw` is the unconditioned escape for custom field handling — never a parallel reader family.
+- import: `from pye57 import E57, ScanHeader` at boundary scope only; module-level import is banned by the manifest import policy. `pye57.libe57` node API is a boundary escape hatch, never threaded into domain code.
+- read axis: `read_scan(index, *, ...)` is the polymorphic intake — coordinate system auto-detects via `ScanHeader.get_coordinate_system`, requested fields (`intensity`/`colors`/`row_column`) append, the invalid-state column masks every field, spherical input `convert_spherical_to_cartesian`-projects, and `transform=True` applies the scan pose so the dict exits as global-frame `cartesianX`/`cartesianY`/`cartesianZ` plus the requested extras. `read_scan_raw` is the unconditioned escape for custom field handling, never a parallel reader family.
 - buffer axis: `make_buffer`/`make_buffers` size `numpy` arrays from the `SUPPORTED_POINT_FIELDS` dtype-char map and return the `(array, libe57-buffer)` pair the reader/writer consumes; the array dict, not the buffer vector, is the data surface.
 - write axis: `E57(path, 'w')` auto-writes the default header; `write_scan_raw(data, ...)` is the single append entry — pose, index/intensity/color limits, cartesian bounds, acquisition times, and the points prototype are all derived from the present fields and the optional `scan_header`, then streamed in 5M-point chunks. There is no per-field write function family.
 - pose axis: `E57.to_global` is a static quaternion transform (`pyquaternion.Quaternion(rotation).rotation_matrix @ pts + t`); `ScanHeader.rotation` is the 4-element quaternion `(w,x,y,z)`, `rotation_matrix` the derived `(3,3)`. Apply `to_global` to a `read_scan_raw` array to lift sensor-frame points to global frame.
 - evidence: each read captures scan index, point count, coordinate system, present field names, and whether a pose was applied; each write captures scan name, written point count, and bounds as a scan-io receipt.
-- boundary: pye57 owns E57 (`.e57`) intake/egress only. The conditioned XYZ block hands to `open3d`/`small-gicp` registration, LAS/LAZ to `laspy`, generic point-cloud pipelines to `pdal`, mesh exchange to `meshio`/`trimesh`. Raw libe57 node trees never cross into domain code.
+- boundary: pye57 owns E57 (`.e57`) intake/egress only. Conditioned XYZ block hands to `open3d`/`small-gicp` registration, LAS/LAZ to `laspy`, generic point-cloud pipelines to `pdal`, mesh exchange to `meshio`/`trimesh`. Raw libe57 node trees never cross into domain code.
 
 ## [05]-[LOCAL_ADMISSION]
 

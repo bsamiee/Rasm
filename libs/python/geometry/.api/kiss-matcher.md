@@ -1,6 +1,6 @@
 # [PY_GEOMETRY_API_KISS_MATCHER]
 
-`kiss_matcher` supplies the global, initialization-free point-cloud registration path for the scan-processing rail: a `KISSMatcher` estimator that extracts Faster-PFH keypoints, matches correspondences, prunes outliers through ROBIN plus a graduated-non-convexity solver, and returns a `RegistrationSolution` rigid transform without an initial pose. A `KISSMatcherConfig` carries the voxel, normal, FPFH, and noise-bound parameters, and the matcher exposes per-stage timing and inlier counts as the registration receipt. The package owner composes `estimate` (or `match` plus `prune_and_solve`) into the global registration mode that seeds the fine `small_gicp` refinement; it never re-implements the keypoint extraction, the graph-theoretic outlier rejection, or the GNC pose solver.
+`kiss_matcher` supplies the global, initialization-free point-cloud registration path for the scan-processing rail: a `KISSMatcher` estimator that extracts Faster-PFH keypoints, matches correspondences, prunes outliers through ROBIN plus a graduated-non-convexity solver, and returns a `RegistrationSolution` rigid transform without an initial pose. A `KISSMatcherConfig` carries the voxel, normal, FPFH, and noise-bound parameters, and the matcher exposes per-stage timing and inlier counts as the registration receipt. Package owner composes `estimate` (or `match` plus `prune_and_solve`) into the global registration mode that seeds the fine `small_gicp` refinement; it never re-implements the keypoint extraction, the graph-theoretic outlier rejection, or the GNC pose solver.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -73,7 +73,7 @@ Construct the matcher from a voxel size or a `KISSMatcherConfig`, then call `est
 [ENTRYPOINT_SCOPE]: decomposed match and solve
 - rail: global-registration
 
-The pipeline decomposes into a `match` keypoint stage and a `prune_and_solve` or `solve` stage when the matched correspondences are reused. `match` and `prune_and_solve` take `float32` `(3, 1)` sequences (or `float64` `(3, n)` arrays); `solve` takes `float64` `(3, n)` matched arrays directly.
+Pipeline decomposes into a `match` keypoint stage and a `prune_and_solve` or `solve` stage when the matched correspondences are reused. `match` and `prune_and_solve` take `float32` `(3, 1)` sequences (or `float64` `(3, n)` arrays); `solve` takes `float64` `(3, n)` matched arrays directly.
 
 | [INDEX] | [SURFACE]                                                           | [ENTRY_FAMILY] | [CAPABILITY]                               |
 | :-----: | :------------------------------------------------------------------ | :------------- | :----------------------------------------- |
@@ -85,7 +85,7 @@ The pipeline decomposes into a `match` keypoint stage and a `prune_and_solve` or
 [ENTRYPOINT_SCOPE]: stage keypoints, correspondences, and receipts
 - rail: global-registration
 
-These accessors expose the intermediate keypoint clouds, the correspondence index pairs, the inlier counts, and the per-stage timings that form the registration receipt. The keypoint/cloud accessors ([01]-[03]) return `tuple[list[NDArray], list[NDArray]]` (source, target).
+These accessors expose the intermediate keypoint clouds, the correspondence index pairs, the inlier counts, and the per-stage timings that form the registration receipt. Keypoint/cloud accessors ([01]-[03]) return `tuple[list[NDArray], list[NDArray]]` (source, target).
 
 | [INDEX] | [SURFACE]                                                | [ENTRY_FAMILY] | [CAPABILITY]                              |
 | :-----: | :------------------------------------------------------- | :------------- | :---------------------------------------- |
@@ -111,8 +111,8 @@ These accessors expose the intermediate keypoint clouds, the correspondence inde
 - boundary: `kiss_matcher` owns coarse initialization-free global registration; the resulting `RegistrationSolution` transform seeds fine `small_gicp` GICP/VGICP refinement, surface reconstruction and FPFH-free coarse alignment route to `open3d`, and general PLY/scan IO routes to `open3d`/`laspy` rather than this estimator.
 
 [STACKING_LAW]:
-- the scan source is the `laspy` chunked reader: per-chunk `ScaleAwarePointRecord` metric `xyz` buffers feed `estimate`/`match` as `float32` `(3, 1)` sequences (or transposed `float64` `(3, n)` Eigen matrices for the array overloads) — `kiss_matcher` never opens a file, it consumes the numpy buffers the scan-processing reader produces.
-- the output stacks into fine refinement: the `RegistrationSolution.rotation`/`translation` compose into the initial 4x4 pose that `small_gicp` GICP/VGICP refines; this estimator is the coarse arm of the two-stage registration union, never the fine/ICP role (that belongs to `small_gicp`) and never identity-minting (the runtime owns identity).
+- Scan source is the `laspy` chunked reader: per-chunk `ScaleAwarePointRecord` metric `xyz` buffers feed `estimate`/`match` as `float32` `(3, 1)` sequences (or transposed `float64` `(3, n)` Eigen matrices for the array overloads) — `kiss_matcher` never opens a file, it consumes the numpy buffers the scan-processing reader produces.
+- Output stacks into fine refinement: the `RegistrationSolution.rotation`/`translation` compose into the initial 4x4 pose that `small_gicp` GICP/VGICP refines; this estimator is the coarse arm of the two-stage registration union, never the fine/ICP role (that belongs to `small_gicp`) and never identity-minting (the runtime owns identity).
 - both inlier counts and the five stage timings are the typed registration receipt — `get_num_final_inliers`/`get_num_rotation_inliers` gate the fine-refinement decision and the inlier fraction is the convergence evidence, not a discarded log line.
 - offload: a multi-second `estimate` over a large unposed scan pair is CPU-bound with no async mirror, so it hands to the geometry kernel offload lane (the `GEOMETRY_CPU_OFFLOAD` / `GEOMETRY_KERNEL_OFFLOAD_LANE` seam) rather than blocking the boundary; `clear`/`reset`/`reset_solver` recycle the estimator between offloaded runs.
 
@@ -125,4 +125,4 @@ These accessors expose the intermediate keypoint clouds, the correspondence inde
 - Reject: wrapper-renames of `estimate`/`match`/`solve`; a hand-rolled FPFH keypoint extractor, graph-theoretic outlier rejector, or GNC solver where `kiss_matcher` is admitted; an ICP/fine-refinement role that belongs to `small_gicp`; identity minting the runtime owns
 
 [CAPTURE_GAP]:
-- members: verified against the `kiss_matcher_pybind.cpp` `def`/`def_readwrite` binding and the installed cp312 distribution; the `KISSMatcher`/`KISSMatcherConfig`/`RegistrationSolution` classes, the two `match` overloads (`Vector3f` sequence vs `Matrix<double,3,Dynamic>`), the `estimate`/`solve`/`prune_and_solve` entries, the eleven `def_readwrite` config fields (with `enable_noise_bound_clamping` constructor-only), and the stage/receipt accessors resolve against the live pybind11 signatures — no phantom. The internal pybind `__version__` reads `0.3.1` while the distribution is `1.0.2`; the distribution version is authoritative.
+- members: verified against the `kiss_matcher_pybind.cpp` `def`/`def_readwrite` binding and the installed cp312 distribution; the `KISSMatcher`/`KISSMatcherConfig`/`RegistrationSolution` classes, the two `match` overloads (`Vector3f` sequence vs `Matrix<double,3,Dynamic>`), the `estimate`/`solve`/`prune_and_solve` entries, the eleven `def_readwrite` config fields (with `enable_noise_bound_clamping` constructor-only), and the stage/receipt accessors resolve against the live pybind11 signatures — no phantom. Internal pybind `__version__` reads `0.3.1` while the distribution is `1.0.2`; the distribution version is authoritative.

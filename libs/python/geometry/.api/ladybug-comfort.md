@@ -21,7 +21,7 @@
 [PUBLIC_TYPE_SCOPE]: comfort collections (`ladybug_comfort.collection`)
 - rail: energy / comfort
 
-All subclass `collection.base.ComfortCollection`: they take aligned `ladybug-core` `DataCollection`s (or read an `EPW` via `from_epw`) and expose every comfort result as a matching collection. The comfort model is the class; the result is a property, never a parallel method family. Symbols elide the `collection.` prefix; exact result members are rostered in the entrypoints results rows.
+All subclass `collection.base.ComfortCollection`: they take aligned `ladybug-core` `DataCollection`s (or read an `EPW` via `from_epw`) and expose every comfort result as a matching collection. Comfort model is the class; the result is a property, never a parallel method family. Symbols elide the `collection.` prefix; exact result members are rostered in the entrypoints results rows.
 
 | [INDEX] | [SYMBOL]                                                | [TYPE_FAMILY] | [CAPABILITY]                                          |
 | :-----: | :------------------------------------------------------ | :------------ | :---------------------------------------------------- |
@@ -56,7 +56,7 @@ All subclass `collection.base.ComfortCollection`: they take aligned `ladybug-cor
 [ENTRYPOINT_SCOPE]: pointwise comfort model functions
 - rail: energy / comfort
 
-Pure scalar functions (SI/radians in, comfort scalar out) — the heat-balance kernels the collections vectorize. The model is the named function; the standard variant is an argument or a sibling function, never a class. These vectorize cleanly under `numpy` for the spatial map.
+Pure scalar functions (SI/radians in, comfort scalar out) — the heat-balance kernels the collections vectorize. Model is the named function; the standard variant is an argument or a sibling function, never a class. These vectorize cleanly under `numpy` for the spatial map.
 
 | [INDEX] | [SURFACE]                                                             | [CALL_SHAPE]           | [CAPABILITY]                           |
 | :-----: | :-------------------------------------------------------------------- | :--------------------- | :------------------------------------- |
@@ -82,7 +82,7 @@ Pure scalar functions (SI/radians in, comfort scalar out) — the heat-balance k
 [ENTRYPOINT_SCOPE]: comfort-collection construction and results (`collection`)
 - rail: energy / comfort
 
-A `ComfortCollection` takes aligned `ladybug-core` collections (or an `EPW` via `from_epw`) plus an optional `Parameter`, and exposes every result as a `DataCollection`. `from_epw(epw, include_wind=True, include_sun=True, ...)` is the one-call weather-to-comfort path. The MRT feed is `OutdoorSolarCal(location, direct_normal_solar, diffuse_horizontal_solar, horizontal_infrared, surface_temperatures, ...)`.
+A `ComfortCollection` takes aligned `ladybug-core` collections (or an `EPW` via `from_epw`) plus an optional `Parameter`, and exposes every result as a `DataCollection`. `from_epw(epw, include_wind=True, include_sun=True, ...)` is the one-call weather-to-comfort path. MRT feed is `OutdoorSolarCal(location, direct_normal_solar, diffuse_horizontal_solar, horizontal_infrared, surface_temperatures, ...)`.
 
 | [INDEX] | [SURFACE]                                                         | [CALL_SHAPE]            | [CAPABILITY]                         |
 | :-----: | :---------------------------------------------------------------- | :---------------------- | :----------------------------------- |
@@ -101,7 +101,7 @@ A `ComfortCollection` takes aligned `ladybug-core` collections (or an `EPW` via 
 [ENTRYPOINT_SCOPE]: comfort parameters and spatial maps (`parameter`, `map`)
 - rail: energy / comfort
 
-`Parameter` objects round-trip through `from_dict`/`to_dict`/`from_string`. The `map.*` kernels operate over honeybee-radiance MRT/irradiance matrices for the per-sensor comfort map the recipes drive. The `PMVParameter(ppd_comfort_thresh=None, humid_ratio_upper=None, humid_ratio_lower=None, still_air_threshold=None)` and `AdaptiveParameter(ashrae_or_en=None, neutral_offset=None, conditioning=None, ...)` slots default to the 10% PPD / 0.1 m/s still-air standard.
+`Parameter` objects round-trip through `from_dict`/`to_dict`/`from_string`. `map.*` kernels operate over honeybee-radiance MRT/irradiance matrices for the per-sensor comfort map the recipes drive. `PMVParameter(ppd_comfort_thresh=None, humid_ratio_upper=None, humid_ratio_lower=None, still_air_threshold=None)` and `AdaptiveParameter(ashrae_or_en=None, neutral_offset=None, conditioning=None, ...)` slots default to the 10% PPD / 0.1 m/s still-air standard.
 
 | [INDEX] | [SURFACE]                                                                   | [CALL_SHAPE]      | [CAPABILITY]                           |
 | :-----: | :-------------------------------------------------------------------------- | :---------------- | :------------------------------------- |
@@ -116,16 +116,16 @@ A `ComfortCollection` takes aligned `ladybug-core` collections (or an `EPW` via 
 ## [04]-[INTEGRATION_PATTERNS]
 
 [STACK_COMFORT_OVER_CORE]: `ComfortCollection` <-> `ladybug-core` `DataCollection`
-- A `ComfortCollection` is the concrete realization of `ladybug-core`'s `compute_function_aligned` pattern: it takes aligned `DataCollection`s (`air_temperature`, `rel_humidity`, `rad_temperature`, `air_speed`, ...), maps the pointwise model function element-wise across them, and exposes every result as a `DataCollection` with the right `Header` (e.g. `PMV.predicted_mean_vote`, `UTCI.thermal_condition`). The comfort owner builds these from the climate owner's collections directly; `from_epw(epw, include_sun=True)` is the one-call path that internally routes the EPW's solar fields through SolarCal to the `rad_temperature` MRT input. The owner aligns the inputs (`are_collections_aligned`) before construction and lifts misalignment to a typed precondition.
+- A `ComfortCollection` is the concrete realization of `ladybug-core`'s `compute_function_aligned` pattern: it takes aligned `DataCollection`s (`air_temperature`, `rel_humidity`, `rad_temperature`, `air_speed`, ...), maps the pointwise model function element-wise across them, and exposes every result as a `DataCollection` with the right `Header` (e.g. `PMV.predicted_mean_vote`, `UTCI.thermal_condition`). Comfort owner builds these from the climate owner's collections directly; `from_epw(epw, include_sun=True)` is the one-call path that internally routes the EPW's solar fields through SolarCal to the `rad_temperature` MRT input. Owner aligns the inputs (`are_collections_aligned`) before construction and lifts misalignment to a typed precondition.
 
 [STACK_PARAMETER_CONFIG]: `Parameter` <-> `msgspec`/`pydantic` config boundary
 - `PMVParameter`/`UTCIParameter`/`AdaptiveParameter`/`PETParameter`/`SolarCalParameter` carry `from_dict`/`to_dict`/`from_string`, so the comfort owner maps them onto a `msgspec.Struct`/`pydantic` config model — the comfort thresholds, the `ashrae_or_en` standard switch, and the body parameters are the knobs that parameterize a calculation, serialized once at the boundary and threaded into the collection constructor's `comfort_parameter=` slot. This is the same discriminated-config pattern the rest of the band uses; the parameter is data, not a code branch.
 
 [STACK_POINTWISE_NUMPY]: pointwise functions <-> `numpy` vectorization
-- `pmv.predicted_mean_vote`, `utci.universal_thermal_climate_index`, `pet.physiologic_equivalent_temperature`, and the adaptive/index functions are pure scalar kernels; for the spatial comfort map (tens of thousands of sensors x 8760 hours) the owner vectorizes them with `numpy` rather than looping the Python `ComfortCollection`. The `ComfortCollection` is the labeled single-point/time-series boundary form; the `numpy`-vectorized pointwise call is the batch form, and both compute the identical model.
+- `pmv.predicted_mean_vote`, `utci.universal_thermal_climate_index`, `pet.physiologic_equivalent_temperature`, and the adaptive/index functions are pure scalar kernels; for the spatial comfort map (tens of thousands of sensors x 8760 hours) the owner vectorizes them with `numpy` rather than looping the Python `ComfortCollection`. `ComfortCollection` is the labeled single-point/time-series boundary form; the `numpy`-vectorized pointwise call is the batch form, and both compute the identical model.
 
 [STACK_SPATIAL_MAP]: `map.*` <-> honeybee-radiance matrices and the recipe boundary
-- `map.mrt.shortwave_mrt_map`/`longwave_mrt_map` consume honeybee-radiance irradiance/illuminance matrices (`indirect_ill`/`direct_ill`/`ref_ill`) and the `Location` to produce per-sensor MRT; `map.tcp.tcp_total` folds a comfort result into a thermal-comfort-percent map; `map.air.air_map` produces the air-temperature field. These are exactly the kernels the `lbt-recipes` comfort-map recipes (`pmv_comfort_map`, `utci_comfort_map`, `adaptive_comfort_map`) drive — the recipe runs the radiance simulation, then calls these map functions with the simulation matrices and the serialized `Parameter`. The comfort owner exposes the map kernels; the recipe owner orchestrates the simulation-then-map DAG.
+- `map.mrt.shortwave_mrt_map`/`longwave_mrt_map` consume honeybee-radiance irradiance/illuminance matrices (`indirect_ill`/`direct_ill`/`ref_ill`) and the `Location` to produce per-sensor MRT; `map.tcp.tcp_total` folds a comfort result into a thermal-comfort-percent map; `map.air.air_map` produces the air-temperature field. These are exactly the kernels the `lbt-recipes` comfort-map recipes (`pmv_comfort_map`, `utci_comfort_map`, `adaptive_comfort_map`) drive — the recipe runs the radiance simulation, then calls these map functions with the simulation matrices and the serialized `Parameter`. Comfort owner exposes the map kernels; the recipe owner orchestrates the simulation-then-map DAG.
 
 [STACK_THERMAL_CONDITION_DATATYPE]: `thermal_condition` <-> `ladybug.datatype`
 - Every collection's categorical output (`thermal_condition`, `thermal_condition_nine_point`, `pet_category`) is a `DataCollection` whose `Header.data_type` is a `ladybug.datatype.thermalcondition`-family registry entry, so the categorical comfort result flows through the same unit-registry and visualization rail as any climate field — the comfort polygons (`chart.PolygonPMV`/`PolygonUTCI`) render directly over a `ladybug.psychchart.PsychrometricChart`, sharing the climate owner's chart geometry.
@@ -134,12 +134,12 @@ A `ComfortCollection` takes aligned `ladybug-core` collections (or an `EPW` via 
 
 [ENERGY_COMFORT]:
 - import: `import ladybug_comfort` and the submodules at boundary scope only; module-level import is banned by the manifest import policy.
-- model-function axis: `pmv`/`utci`/`pet`/`adaptive`/`solarcal` and the simple indices (`at`/`di`/`hi`/`humidex`/`wbgt`/`wc`/`ts`/`degreetime`/`clo`) are pure scalar functions; the model is the named function and the standard variant is an argument or sibling function (`adaptive_comfort_ashrae55`/`_en15251`/`_conditioned`, with EN-16798 carried by `cooling_effect_en16798`), never a class. The owner vectorizes them with `numpy` for the spatial map.
+- model-function axis: `pmv`/`utci`/`pet`/`adaptive`/`solarcal` and the simple indices (`at`/`di`/`hi`/`humidex`/`wbgt`/`wc`/`ts`/`degreetime`/`clo`) are pure scalar functions; the model is the named function and the standard variant is an argument or sibling function (`adaptive_comfort_ashrae55`/`_en15251`/`_conditioned`, with EN-16798 carried by `cooling_effect_en16798`), never a class. Owner vectorizes them with `numpy` for the spatial map.
 - collection axis: a `ComfortCollection` (`PMV`/`UTCI`/`Adaptive`/`PET`/SolarCal) takes aligned `ladybug-core` `DataCollection`s (or an `EPW` via `from_epw`) plus an optional `Parameter` and exposes every comfort result as a `DataCollection` property; the comfort model is the class, the result is a property, never a parallel result-method family. SolarCal MRT feeds the `rad_temperature` of the thermal models.
 - parameter axis: `PMVParameter`/`UTCIParameter`/`AdaptiveParameter`/`PETParameter`/`SolarCalParameter` carry `from_dict`/`to_dict`/`from_string` and the `is_comfortable`/`thermal_condition` predicates; they are the serializable config threaded into the collection's `comfort_parameter=` slot — the threshold/standard is data, not a code branch.
-- map axis: `map.mrt`/`tcp`/`air`/`utci`/`irr` operate over honeybee-radiance matrices for the per-sensor comfort map; the owner exposes the kernels, the recipe owner orchestrates the simulation-then-map DAG. The categorical output `data_type` is a `ladybug.datatype` registry entry shared with the climate visualization rail.
+- map axis: `map.mrt`/`tcp`/`air`/`utci`/`irr` operate over honeybee-radiance matrices for the per-sensor comfort map; the owner exposes the kernels, the recipe owner orchestrates the simulation-then-map DAG. Categorical output `data_type` is a `ladybug.datatype` registry entry shared with the climate visualization rail.
 - evidence: each comfort calculation captures the model, the calc length, the `Parameter` config, the comfort percentages (`percent_comfortable`/`percentage_people_dissatisfied`/stress bands), and the `thermal_condition` distribution as a comfort receipt.
-- boundary: ladybug-comfort owns the comfort model functions, the `ComfortCollection` calculators, the `Parameter` config objects, the comfort-chart polygons, and the spatial MRT/TCP/air map kernels. The `DataCollection`/`EPW`/`datatype` it consumes are owned by `ladybug-core`; the radiance matrices the map consumes are produced by honeybee-radiance via `lbt-recipes`; recipe orchestration of the comfort-map DAG is `lbt-recipes`; batch numeric vectorization routes to `numpy`.
+- boundary: ladybug-comfort owns the comfort model functions, the `ComfortCollection` calculators, the `Parameter` config objects, the comfort-chart polygons, and the spatial MRT/TCP/air map kernels. `DataCollection`/`EPW`/`datatype` it consumes are owned by `ladybug-core`; the radiance matrices the map consumes are produced by honeybee-radiance via `lbt-recipes`; recipe orchestration of the comfort-map DAG is `lbt-recipes`; batch numeric vectorization routes to `numpy`.
 
 ## [06]-[LOCAL_ADMISSION]
 

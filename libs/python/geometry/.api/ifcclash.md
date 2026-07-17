@@ -100,7 +100,7 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [CLASH_TOPOLOGY]:
-- import: `from ifcclash.ifcclash import Clasher, ClashSettings` function-local at boundary scope under `# noqa: PLC0415`; module-level import is banned by the manifest import policy. The single production module is `ifcclash.ifcclash`.
+- import: `from ifcclash.ifcclash import Clasher, ClashSettings` function-local at boundary scope under `# noqa: PLC0415`; module-level import is banned by the manifest import policy. `ifcclash.ifcclash` is the sole production module.
 - detection modes: `ClashSet.mode` selects `intersection` (geometry overlap), `collision` (touching/penetrating), `clearance` (within `ClashSet.clearance` distance); the mode is the closed `ClashSet` literal, never a per-mode runner family.
 - selector mode: `ClashSource.mode` selects `'a'` = all (whole-model side), `'e'` = by IfcClass selector expression, `'i'` = by IfcGuid; the `'e'` mode consumes the `ClashSource.selector` string the `IfcSelector` gate validated, never a raw caller query.
 - settings: `ClashSettings.output` defaults to `'clashes.json'`; set `logger` to a Python `logging.Logger`.

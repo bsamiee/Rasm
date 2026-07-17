@@ -59,7 +59,7 @@
 [PUBLIC_TYPE_SCOPE]: structured report graph (`ifctester.reporter`)
 - rail: ids-validation output
 
-The `Json`-family `report()` returns a `Results` `TypedDict` read field-by-field, not a stringified blob. Every level carries a `total_<scope>`/`_pass`/`_fail` count triple and a `percent_<scope>_pass` (`int | "N/A"`); every level also carries a `status`; the fields below are the distinctive graph edges.
+`Json`-family `report()` returns a `Results` `TypedDict` read field-by-field, not a stringified blob. Every level carries a `total_<scope>`/`_pass`/`_fail` count triple and a `percent_<scope>_pass` (`int | "N/A"`); every level also carries a `status`; the fields below are the distinctive graph edges.
 
 | [INDEX] | [SYMBOL]               | [TYPE_FAMILY]   | [FIELDS]                                                                                   |
 | :-----: | :--------------------- | :-------------- | :----------------------------------------------------------------------------------------- |
@@ -87,7 +87,7 @@ The `Json`-family `report()` returns a `Results` `TypedDict` read field-by-field
 [ENTRYPOINT_SCOPE]: IDS document I/O (`ifctester.ids`)
 - rail: ids-validation
 
-The `Ids(title="Untitled", copyright=None, version=None, description=None, author=None, date=None, purpose=None, milestone=None)` ctor folds metadata into `Ids.info`.
+`Ids(title="Untitled", copyright=None, version=None, description=None, author=None, date=None, purpose=None, milestone=None)` ctor folds metadata into `Ids.info`.
 
 | [INDEX] | [SURFACE]                                                | [ENTRY_FAMILY] | [RAIL]                                                 |
 | :-----: | :------------------------------------------------------- | :------------- | :----------------------------------------------------- |
@@ -102,7 +102,7 @@ The `Ids(title="Untitled", copyright=None, version=None, description=None, autho
 [ENTRYPOINT_SCOPE]: validation (`ifctester.ids`)
 - rail: ids-validation
 
-The `Specification(name="Unnamed", minOccurs=0, maxOccurs="unbounded", ifcVersion=["IFC2X3","IFC4","IFC4X3_ADD2"], identifier=None, description=None, instructions=None)` ctor holds the applicability/requirement facet lists.
+`Specification(name="Unnamed", minOccurs=0, maxOccurs="unbounded", ifcVersion=["IFC2X3","IFC4","IFC4X3_ADD2"], identifier=None, description=None, instructions=None)` ctor holds the applicability/requirement facet lists.
 
 | [INDEX] | [SURFACE]                                                                    | [ENTRY_FAMILY] | [RAIL]                                 |
 | :-----: | :--------------------------------------------------------------------------- | :------------- | :------------------------------------- |
@@ -113,7 +113,7 @@ The `Specification(name="Unnamed", minOccurs=0, maxOccurs="unbounded", ifcVersio
 |  [05]   | `Specification.get_usage() -> Cardinality` / `set_usage(usage)`              | cardinality    | derive/set `minOccurs`/`maxOccurs`     |
 |  [06]   | `Specification.reset_status() -> None`                                       | mutator        | clear `status` and the entity sets     |
 
-[VALIDATION_RESULT_STATE]: after `Ids.validate`, each `Specification` carries `status: bool | None` (tri-state: `True` pass, `False` fail, `None` skipped/not-applicable — NOT a plain bool), `is_ifc_version: bool | None`, `applicable_entities: list[entity_instance]` (the matched applicability set), `passed_entities: set[entity_instance]`, and `failed_entities: set[entity_instance]`. The consumer reads the entity sets for per-element evidence, not only the spec-level `status`.
+[VALIDATION_RESULT_STATE]: after `Ids.validate`, each `Specification` carries `status: bool | None` (tri-state: `True` pass, `False` fail, `None` skipped/not-applicable — NOT a plain bool), `is_ifc_version: bool | None`, `applicable_entities: list[entity_instance]` (the matched applicability set), `passed_entities: set[entity_instance]`, and `failed_entities: set[entity_instance]`. Consumer reads the entity sets for per-element evidence, not only the spec-level `status`.
 
 [ENTRYPOINT_SCOPE]: facet construction (`ifctester.facet`)
 - rail: ids-validation
@@ -150,16 +150,16 @@ Subclass output is `report()` (no `ids` arg) then `to_string()`/`to_file(filepat
 [IDS_TOPOLOGY]:
 - import: `import ifctester.ids` / `import ifctester.reporter` at boundary scope only; module-level import is banned by the manifest import policy.
 - document axis: `Ids` contains a `specifications: list[Specification]`; each `Specification` holds `applicability: list[Facet]` and `requirements: list[Facet]`; `ids.open`/`from_string` parse via `xmlschema` against the bundled `ids.xsd`, raising `IdsXmlValidationError` (wrapping `XMLSchemaValidationError`) under `validate=True`.
-- validation axis: `Ids.validate` clears the `get_pset`/`get_psets` caches, then for each spec runs `reset_status()` -> `check_ifc_version()` -> `validate()`, mutating the tri-state `status` and the `applicable_entities`/`passed_entities`/`failed_entities` sets in place. The `Facet.filter` predicate is the single matching engine each facet shares; a hand-rolled entity filter is the deleted form.
+- validation axis: `Ids.validate` clears the `get_pset`/`get_psets` caches, then for each spec runs `reset_status()` -> `check_ifc_version()` -> `validate()`, mutating the tri-state `status` and the `applicable_entities`/`passed_entities`/`failed_entities` sets in place. `Facet.filter` predicate is the single matching engine each facet shares; a hand-rolled entity filter is the deleted form.
 - usage axis: `Cardinality` (`"required"`/`"optional"`/`"prohibited"`) maps to `minOccurs`/`maxOccurs` through `get_usage`/`set_usage`; `Restriction.base` (`"string"`/`"decimal"`/`"integer"`/`"boolean"`) controls value coercion.
 - reporter axis: each reporter binds the validated `Ids`, runs `report()` (the `Json` family returning the `Results` graph, `Console`/`Txt` rendering a buffer), then `to_string()`/`to_file(path)`; `Json` subclasses (`Html`/`Ods`/`OdsSummary`/`Bcf`) override `to_file` for their artifact, never the base `write` stub.
 - evidence: each validation captures the per-spec tri-state `status`, the passing/failing entity-set sizes, and the `Results` totals as an IDS receipt.
 - boundary: `ifctester` owns IDS parse/author/validate; a custom IDS XML parser or a manual entity filter duplicating `Facet.filter` is the deleted form; IFC parse stays `ifcopenshell`, clash stays `ifcclash`, BCF clash-issue authoring stays `bcf-client`.
 
 [INTEGRATION_STACK]:
-- The `geometry:ifc/analysis.md#ANALYSIS` `IDS` arm composes `ifctester.ids.open(spec_path)` -> `document.validate(model)` -> folds each `Specification.status` into a `compliance` `AnalysisRow` (`1.0`/`0.0` verdict, `0`/`1` failure count). The tri-state `status is None` (skipped) is distinct from `False` (failed) — the consumer collapses `None` to skip rather than fail; the per-requirement passing fraction sharpens through `failed_entities`/`passed_entities` set sizes, the richer evidence the boolean verdict alone drops.
-- The `Json(ids).report() -> Results` graph STACKS with the graduation evidence ledger: the `Results.percent_checks_pass` and `ResultsSpecification.total_applicable_fail` feed a per-check failing fraction the `AnalysisResult.evidence` fold keys, a sharper residual than the binary spec verdict.
-- The `Bcf` reporter is NOT the clash-issue path: IDS-side BCF export is `Bcf(ids).to_file(path)` of validation failures, while clash-issue authoring composes `ifcclash` + `bcf-client` (`geometry:ifc/analysis.md` `BCF` arm) — the two BCF producers are disjoint and the IDS arm does not author a clash topic.
+- `geometry:ifc/analysis.md#ANALYSIS` `IDS` arm composes `ifctester.ids.open(spec_path)` -> `document.validate(model)` -> folds each `Specification.status` into a `compliance` `AnalysisRow` (`1.0`/`0.0` verdict, `0`/`1` failure count). Tri-state `status is None` (skipped) is distinct from `False` (failed) — the consumer collapses `None` to skip rather than fail; the per-requirement passing fraction sharpens through `failed_entities`/`passed_entities` set sizes, the richer evidence the boolean verdict alone drops.
+- `Json(ids).report() -> Results` graph STACKS with the graduation evidence ledger: the `Results.percent_checks_pass` and `ResultsSpecification.total_applicable_fail` feed a per-check failing fraction the `AnalysisResult.evidence` fold keys, a sharper residual than the binary spec verdict.
+- `Bcf` reporter is NOT the clash-issue path: IDS-side BCF export is `Bcf(ids).to_file(path)` of validation failures, while clash-issue authoring composes `ifcclash` + `bcf-client` (`geometry:ifc/analysis.md` `BCF` arm) — the two BCF producers are disjoint and the IDS arm does not author a clash topic.
 
 ## [05]-[LOCAL_ADMISSION]
 

@@ -18,7 +18,7 @@
 [PUBLIC_TYPE_SCOPE]: patch arguments, recipe base, and doc metadata
 - rail: model-transformation
 
-The `ArgumentsDict` `TypedDict` carries `recipe: str` (required) plus `file: ifcopenshell.file`/`input: str`/`log: str`/`arguments: Sequence[Any]` (all `NotRequired`); `BasePatcher` runs `__init__(file, logger)` -> `patch() -> None` -> `get_output() -> ifcopenshell.file | str | None`.
+`ArgumentsDict` `TypedDict` carries `recipe: str` (required) plus `file: ifcopenshell.file`/`input: str`/`log: str`/`arguments: Sequence[Any]` (all `NotRequired`); `BasePatcher` runs `__init__(file, logger)` -> `patch() -> None` -> `get_output() -> ifcopenshell.file | str | None`.
 
 | [INDEX] | [SYMBOL]        | [PACKAGE_ROLE]   | [CAPABILITY]                                                          |
 | :-----: | :-------------- | :--------------- | :-------------------------------------------------------------------- |
@@ -59,9 +59,9 @@ The `ArgumentsDict` `TypedDict` carries `recipe: str` (required) plus `file: ifc
 - boundary: `ifcpatch` owns named IFC model transformation; ad-hoc `file.create_entity`/`add`/`remove` mutation loops are the deleted form where a recipe owns the transformation; the columnar SQL/CSV product write defers to the data boundary, never a throwaway run sink; IFC parse stays `ifcopenshell`, model diff stays `ifcdiff`, 5D cost stays `ifc5d`.
 
 [INTEGRATION_STACK]:
-- The `geometry:ifc/costing.md#LIFECYCLE` `PATCH` phase composes `ifcpatch.execute({"input": "", "file": model, "recipe": recipe, "arguments": decode(args, type=list[object])})` then `ifcpatch.write(output, path)`, discriminating the output via `isinstance(output, ifcopenshell.file)` to project the patched `.schema` or the non-IFC product type as the `LifecycleRow.of_patch` row — the recipe name is the closed `recipe` key, the `arguments` a parameterized `list[object]`, never an untyped list.
-- The `ExtractElements` recipe STACKS with `geometry:ifc/selector.md#SELECTOR`: its `arguments[0]` is a selector-grammar query, so a sub-model extraction threads the validated `SelectorQuery.filter_string` rather than a raw query, the same gate the analysis and diff owners share.
-- The `Ifc2Sql`/`ExtractPropertiesToSQLite` recipes STACK with the data tier: their non-IFC string/path output is the columnar product `python:data/spatial` owns, so the lifecycle owner reads the product type as a typed row and defers the durable write, never constructing a throwaway `tempfile` the run discards.
+- `geometry:ifc/costing.md#LIFECYCLE` `PATCH` phase composes `ifcpatch.execute({"input": "", "file": model, "recipe": recipe, "arguments": decode(args, type=list[object])})` then `ifcpatch.write(output, path)`, discriminating the output via `isinstance(output, ifcopenshell.file)` to project the patched `.schema` or the non-IFC product type as the `LifecycleRow.of_patch` row — the recipe name is the closed `recipe` key, the `arguments` a parameterized `list[object]`, never an untyped list.
+- `ExtractElements` recipe STACKS with `geometry:ifc/selector.md#SELECTOR`: its `arguments[0]` is a selector-grammar query, so a sub-model extraction threads the validated `SelectorQuery.filter_string` rather than a raw query, the same gate the analysis and diff owners share.
+- `Ifc2Sql`/`ExtractPropertiesToSQLite` recipes STACK with the data tier: their non-IFC string/path output is the columnar product `python:data/spatial` owns, so the lifecycle owner reads the product type as a typed row and defers the durable write, never constructing a throwaway `tempfile` the run discards.
 
 ## [05]-[LOCAL_ADMISSION]
 

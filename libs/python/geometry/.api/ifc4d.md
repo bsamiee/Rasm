@@ -31,7 +31,7 @@ Each parser is a `<Format>2Ifc` class in its own module; the format is the named
 [PUBLIC_TYPE_SCOPE]: parser instance slots
 - rail: 4d-scheduling
 
-The `<Format>2Ifc` parser is configured by assigning instance slots before `execute()`, never positional constructor args; the slots are the parser's mutable input contract.
+Each `<Format>2Ifc` parser configures through instance slots assigned before `execute()`, never positional constructor args; these slots are the parser's mutable input contract.
 
 | [INDEX] | [SLOT]       | [TYPE]                        | [CAPABILITY]                                     |
 | :-----: | :----------- | :---------------------------- | :----------------------------------------------- |

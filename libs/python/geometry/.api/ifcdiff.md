@@ -18,7 +18,7 @@
 [PUBLIC_TYPE_SCOPE]: diff owner and change axis
 - rail: model-diff
 
-The seven `RELATIONSHIP_TYPE` axes — `geometry`, `attributes`, `type`, `property`, `container`, `aggregate`, `classification` — are the closed `Literal` change vocabulary; `change_register` is GlobalId-keyed and disjoint from the `added`/`deleted` sets.
+`RELATIONSHIP_TYPE` axes — `geometry`, `attributes`, `type`, `property`, `container`, `aggregate`, `classification` — form the closed `Literal` change vocabulary; `change_register` is GlobalId-keyed and disjoint from the `added`/`deleted` sets.
 
 | [INDEX] | [SYMBOL]                   | [PACKAGE_ROLE]    | [CAPABILITY]                                                                     |
 | :-----: | :------------------------- | :---------------- | :------------------------------------------------------------------------------- |
@@ -36,7 +36,7 @@ The seven `RELATIONSHIP_TYPE` axes — `geometry`, `attributes`, `type`, `proper
 [ENTRYPOINT_SCOPE]: diff construction, execution, and export
 - rail: model-diff
 
-The `IfcDiff(old, new, relationships=None, is_shallow=True, filter_elements=None)` ctor takes two `ifcopenshell.file` models; `relationships` defaults to `["geometry"]` and `filter_elements` pre-scopes the compared element set. The per-element legs take two `entity_instance`, the representation leg two step ids.
+`IfcDiff(old, new, relationships=None, is_shallow=True, filter_elements=None)` ctor takes two `ifcopenshell.file` models; `relationships` defaults to `["geometry"]` and `filter_elements` pre-scopes the compared element set. Per-element legs take two `entity_instance`, the representation leg two step ids.
 
 | [INDEX] | [SURFACE]                                                     | [CAPABILITY]                                                           |
 | :-----: | :------------------------------------------------------------ | :--------------------------------------------------------------------- |
@@ -48,7 +48,7 @@ The `IfcDiff(old, new, relationships=None, is_shallow=True, filter_elements=None
 |  [06]   | `IfcDiff.diff_representation(old_rep_id, new_rep_id) -> bool` | tessellated representation-shape diff via `ifcopenshell.geom`          |
 |  [07]   | `IfcDiff.get_precision() -> float`                            | model length-precision feeding `DeepDiff` `math_epsilon`               |
 
-The `relationships` argument is the diff-axis selector: passing a subset of `RELATIONSHIP_TYPE` (e.g. `["attributes", "property"]`) skips the costly `ifcopenshell.geom` representation leg the `"geometry"` axis triggers. `diff()` populates the three result surfaces in place; the per-element legs take two `entity_instance`, the representation leg two step ids.
+`relationships` argument selects the diff axis: passing a subset of `RELATIONSHIP_TYPE` (e.g. `["attributes", "property"]`) skips the costly `ifcopenshell.geom` representation leg the `"geometry"` axis triggers. `diff()` populates the three result surfaces in place; the per-element legs take two `entity_instance`, the representation leg two step ids.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -61,9 +61,9 @@ The `relationships` argument is the diff-axis selector: passing a subset of `REL
 - boundary: `ifcdiff` owns IFC model comparison; a hand-rolled `by_type`/attribute-walk diff is the deleted form; model transformation stays `ifcpatch`, 5D cost stays `ifc5d`, IFC parse and tessellation stay `ifcopenshell`, the property-map diff stays `deepdiff`.
 
 [INTEGRATION_STACK]:
-- The `geometry:ifc/costing.md#LIFECYCLE` `DIFF` phase composes `IfcDiff(model, ifcopenshell.open(revision)).diff()` then folds `change_register` items through `DiffChange.of_register`: the marker keys map onto the bounded `DiffChange` enum — `geometry_changed` -> `GEOMETRY`, `properties_changed` -> `PSET`, `type_changed`/`container_changed`/`aggregate_changed`/`classification_changed` -> `RELATIONSHIP`, `attributes_changed` -> `ATTRIBUTE`, with the `added_elements`/`deleted_elements` sets supplying the `ADDED`/`DELETED` rows the `change_register` does not carry.
-- The `filter_elements` selector arg STACKS with `geometry:ifc/selector.md#SELECTOR`: the validated `SelectorQuery.filter_string` re-serializes to the exact grammar `util.selector.filter_elements` consumes, so a revision diff scopes to a discipline subset (`.map(IfcSelector.parse)` -> `filter_string` -> `IfcDiff(..., filter_elements=validated)`) without a second selection engine.
-- The `relationships` axis STACKS with the graduation drift ledger: scoping to `["attributes", "property"]` skips the `ifcopenshell.geom` representation tessellation, so a property-only revision audit avoids the OCC kernel cost while still keying the `drift` evidence fraction the `LifecycleReceipt.evidence` fold reads.
+- `geometry:ifc/costing.md#LIFECYCLE` `DIFF` phase composes `IfcDiff(model, ifcopenshell.open(revision)).diff()` then folds `change_register` items through `DiffChange.of_register`: the marker keys map onto the bounded `DiffChange` enum — `geometry_changed` -> `GEOMETRY`, `properties_changed` -> `PSET`, `type_changed`/`container_changed`/`aggregate_changed`/`classification_changed` -> `RELATIONSHIP`, `attributes_changed` -> `ATTRIBUTE`, with the `added_elements`/`deleted_elements` sets supplying the `ADDED`/`DELETED` rows the `change_register` does not carry.
+- `filter_elements` selector arg STACKS with `geometry:ifc/selector.md#SELECTOR`: the validated `SelectorQuery.filter_string` re-serializes to the exact grammar `util.selector.filter_elements` consumes, so a revision diff scopes to a discipline subset (`.map(IfcSelector.parse)` -> `filter_string` -> `IfcDiff(..., filter_elements=validated)`) without a second selection engine.
+- `relationships` axis STACKS with the graduation drift ledger: scoping to `["attributes", "property"]` skips the `ifcopenshell.geom` representation tessellation, so a property-only revision audit avoids the OCC kernel cost while still keying the `drift` evidence fraction the `LifecycleReceipt.evidence` fold reads.
 
 ## [05]-[LOCAL_ADMISSION]
 

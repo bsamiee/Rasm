@@ -1,6 +1,6 @@
 # [PY_GEOMETRY_API_BCF_CLIENT]
 
-`bcf-client` (import `bcf`) supplies BCF (BIM Collaboration Format) v2/v3 file authoring, reading, and REST API client access for the IFC-analysis rail: a `bcf.bcfxml.load` version-detecting loader, versioned `BcfXml` document roots that own the topic/comment/viewpoint lifecycle, `TopicHandler` and `VisualizationInfoHandler` for issue and viewpoint authoring, and the v3 `BcfClient`/`FoundationClient` REST surface. It stacks directly on `ifcopenshell`: `TopicHandler.add_viewpoint(element)` and `VisualizationInfoHandler.set_selected_elements/set_visible_elements/set_hidden_elements` take `ifcopenshell.entity_instance` products and resolve their IFC GlobalIds into the viewpoint's selection/visibility GUID lists, so the BCF exchange leg authors coordination issues from the same IFC model the `ifc/analysis` clash/IDS run produces. The package owner composes `load` plus the versioned `create_new` factories and the viewpoint handlers into the BCF exchange leg of the IFC-analysis owner; it never hand-rolls BCF zip construction or BCF-XML serialization (the XML round-trip is owned by `xsdata` through the `AbstractXmlParserSerializer` handler).
+`bcf-client` (import `bcf`) supplies BCF (BIM Collaboration Format) v2/v3 file authoring, reading, and REST API client access for the IFC-analysis rail: a `bcf.bcfxml.load` version-detecting loader, versioned `BcfXml` document roots that own the topic/comment/viewpoint lifecycle, `TopicHandler` and `VisualizationInfoHandler` for issue and viewpoint authoring, and the v3 `BcfClient`/`FoundationClient` REST surface. It stacks directly on `ifcopenshell`: `TopicHandler.add_viewpoint(element)` and `VisualizationInfoHandler.set_selected_elements/set_visible_elements/set_hidden_elements` take `ifcopenshell.entity_instance` products and resolve their IFC GlobalIds into the viewpoint's selection/visibility GUID lists, so the BCF exchange leg authors coordination issues from the same IFC model the `ifc/analysis` clash/IDS run produces. Package owner composes `load` plus the versioned `create_new` factories and the viewpoint handlers into the BCF exchange leg of the IFC-analysis owner; it never hand-rolls BCF zip construction or BCF-XML serialization (`xsdata` owns the XML round-trip through the `AbstractXmlParserSerializer` handler).
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -43,7 +43,7 @@
 [PUBLIC_TYPE_SCOPE]: v2 and v3 markup model family
 - rail: bcf-exchange schema
 
-The markup models are `xsdata` dataclasses generated from the BCF XSD. The v3 markup adds `DocumentReference`; both versions share `Topic`/`Comment`/`Markup`/`ViewPoint`/`Header`/`BimSnippet`. `Topic` carries the `title: str`, `guid`, `topic_type`, `topic_status`, `creation_author`, `creation_date`, and `description` fields the issue-authoring rail reads (`TopicHandler.topic.title` is the canonical issue title accessor). Each model resolves as `bcf.v2.model.markup.<Name>` and `bcf.v3.model.markup.<Name>`.
+Markup models are `xsdata` dataclasses generated from the BCF XSD. v3 markup adds `DocumentReference`; both versions share `Topic`/`Comment`/`Markup`/`ViewPoint`/`Header`/`BimSnippet`. `Topic` carries the `title: str`, `guid`, `topic_type`, `topic_status`, `creation_author`, `creation_date`, and `description` fields the issue-authoring rail reads (`TopicHandler.topic.title` is the canonical issue title accessor). Each model resolves as `bcf.v2.model.markup.<Name>` and `bcf.v3.model.markup.<Name>`.
 
 | [INDEX] | [SYMBOL]            | [TYPE_FAMILY]  | [CAPABILITY]                                                    |
 | :-----: | :------------------ | :------------- | :-------------------------------------------------------------- |
@@ -161,7 +161,7 @@ The markup models are `xsdata` dataclasses generated from the BCF XSD. The v3 ma
 ## [04]-[IMPLEMENTATION_LAW]
 
 [BCF_TOPOLOGY]:
-- import: `import bcf` at boundary scope only; module-level import is banned by the manifest import policy. The distribution is `bcf-client`; the top-level package is `bcf`, never `bcfxml`/`bcfapi`.
+- import: `import bcf` at boundary scope only; module-level import is banned by the manifest import policy. Distribution `bcf-client` ships the top-level package `bcf`, never `bcfxml`/`bcfapi`.
 - subpackages: `bcfxml` (version dispatch), `v2` and `v3` (per-schema implementations with `bcfxml`/`model`/`topic`/`visinfo`, plus `document`/`bcfapi` on v3), `agnostic` (version-neutral `extensions`/`model`/`topic`/`visinfo` shared logic), `xml_parser`, `extensions`, `geometry`, `inmemory_zipfile`.
 - version dispatch: `bcf.bcfxml.load` reads the `bcf.version` entry in the zip and returns either `bcf.v2.bcfxml.BcfXml` or `bcf.v3.bcfxml.BcfXml`, raising `ValueError` for any version outside `{2.0, 2.1, 3.0}`; `BcfXml = Union[BcfXml2, BcfXml3]` is a type alias and `BcfXml2`/`BcfXml3` are re-exports — import the versioned classes for explicit typing.
 - v3 additions: `BcfXml.documents` exposes the `DocumentsHandler`; v2 carries `extension_schema` and `extensions` instead.

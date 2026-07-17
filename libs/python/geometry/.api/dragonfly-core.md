@@ -65,7 +65,7 @@
 ## [04]-[TRANSLATION]
 
 [TO_HONEYBEE]: `Model.to_honeybee(object_per_model='Building', shade_distance=None, use_multiplier=True, add_plenum=False, cap=False, solve_ceiling_adjacencies=False, tolerance=None, enforce_adj=True, enforce_solid=True) -> list[honeybee.model.Model]`
-- the core explode: `object_per_model` ∈ `District` (one Honeybee Model) / `Building` / `Story`; `use_multiplier` keeps story multipliers (fast) vs. fully instancing every floor; `add_plenum` auto-generates ceiling/floor plenum rooms. This is where the compact urban graph becomes detailed 3-D Honeybee geometry carrying every registered extension's properties.
+- core explode: `object_per_model` ∈ `District` (one Honeybee Model) / `Building` / `Story`; `use_multiplier` keeps story multipliers (fast) vs. fully instancing every floor; `add_plenum` auto-generates ceiling/floor plenum rooms. This is where the compact urban graph becomes detailed 3-D Honeybee geometry carrying every registered extension's properties.
 
 [GEOJSON_IO]: `Model.from_geojson(geojson_file_path, location=None, point=Point2D(0,0), ...)` imports an urban footprint GeoJSON into a massing model; `Model.to_geojson(location, point=Point2D(0,0), folder=None, tolerance=None)` / `to_geojson_dict(...)` exports it — the URBANopt/GIS feature exchange the energy extension builds on.
 
@@ -78,13 +78,13 @@
 [SUBSTRATE_STACK]: stacking onto the universal Python rails (`libs/python/.api/`)
 - `pydantic` / `msgspec` — `to_dict`/`from_dict` produce/consume dfjson validated by `dragonfly-schema` (a Pydantic schema); validate at the boundary with the schema model, then carry the typed `Model` inward. `msgspec` re-encodes the dfjson dict for the artifact wire.
 - `universal-pathlib` — point `Model.from_file`/`to_dfjson`/`to_geojson` folder args at a `UPath` so massing models round-trip through the artifact store.
-- the model is pure-Python and synchronous; when translating many districts, run `to_honeybee` through `anyio.to_thread.run_sync` per building to keep an async owner responsive.
+- Model is pure-Python and synchronous; when translating many districts, run `to_honeybee` through `anyio.to_thread.run_sync` per building to keep an async owner responsive.
 
 [SIBLING_STACK]: stacking with the geometry folder + cross-folder data (`libs/python/geometry/.api/`, `libs/python/data/.api/`)
-- `ladybug-geometry` — the geometry primitive owner: `Face3D`, `Polygon2D`, `Point2D`/`Point3D`, `Plane` are the inputs to `Room2D.from_polygon`/`from_vertices` and `Building.from_footprint`; all transforms (`move`/`rotate_xy`/`reflect`/`scale`) delegate to it.
-- `honeybee-core` — the translation target: `Model.to_honeybee` emits `honeybee.model.Model` objects, `from_honeybee` re-abstracts them into massing; the detailed building-energy model lives there.
+- `ladybug-geometry` — owns the geometry primitives: `Face3D`, `Polygon2D`, `Point2D`/`Point3D`, `Plane` feed `Room2D.from_polygon`/`from_vertices` and `Building.from_footprint`; all transforms (`move`/`rotate_xy`/`reflect`/`scale`) delegate to it.
+- `honeybee-core` — receives the translation: `Model.to_honeybee` emits `honeybee.model.Model` objects, `from_honeybee` re-abstracts them into massing; the detailed building-energy model lives there.
 - `ladybug-core` — weather/location/units: `Model.to_geojson(location=...)` takes a `ladybug` `Location`; unit systems align through it.
-- `dragonfly-energy` — the energy extension that registers `.properties.energy` onto every object here (see `dragonfly-energy.md`); dragonfly-core defines the `_Properties` hosts (`ModelProperties`, `BuildingProperties`, `StoryProperties`, `Room2DProperties`, `ContextShadeProperties`) it hooks.
+- `dragonfly-energy` — registers `.properties.energy` onto every object here (see `dragonfly-energy.md`); dragonfly-core defines the `_Properties` hosts (`ModelProperties`, `BuildingProperties`, `StoryProperties`, `Room2DProperties`, `ContextShadeProperties`) it hooks.
 - `rhino3dm` — round-trip massing geometry to Rhino via `ladybug-geometry`'s rhino3dm converters, so a Grasshopper/Rhino urban model becomes a dragonfly `Model`.
 - `geopandas` / `shapely` / `pyproj` (data folder, cross-folder) — `Model.from_geojson`/`to_geojson` is the urban footprint exchange; pair with `geopandas` to read a parcel layer and `pyproj` for an accurate projection beyond dragonfly's equirectangular `projection` helpers.
 
