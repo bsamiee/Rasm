@@ -8,6 +8,8 @@ A design corpus is the reviewable surface — markdown planning pages whose embe
 
 - Presume defects until the review finds none. Dense, confident code is the prime suspect: density earns scrutiny proportional to the claims it packs, and a clean-reading page is unproven, not clean.
 - Verify every claim against the real domain — a geometry invariant, a schema contract, a package's actual API — never by ratifying the prose, the naming, or a comment's assertion that the code does what it says. A claim that a member does NOT exist verifies at the same bar as a positive citation: a false absence claim steers every future rebuild into the inferior spelling the owning catalog rejects.
+- Settled corpus law outranks reviewer intuition: a finding contradicting a contract the owning page rules — a factory's declared budget parameters, a ruled composition form, a seam's admission placement, a diagram template's exclusions — is wrong until that page is read and the claim verified against its stated contract; re-litigating a ruled design is a false positive, not caution.
+- Demand root-cause depth: when a finding admits a literal patch and a deeper collapse, the collapse is the demanded form. Proven classes worth hunting: required-field threading dropped by signature migrations, finiteness admission before range checks, identity preimages omitting output-affecting inputs, match/dispatch totality, frozen-payload discipline — mutable defaults, unsorted iteration reaching egress — per-stream timestamp re-basing, resource custody on every exit path, archive and metadata bomb gates, deterministic egress ordering.
 - A reviewer reports and demands, never edits. Every finding carries the file, the anchor, the defect, and the stronger form demanded — precise enough that a fixer agent lands the repair without re-deriving the analysis.
 - Cross-surface coupling is standing duty: `docs/laws/topology.md` maps which surfaces obligate which counterparts, and a diff editing a listed SURFACE without its obligated counterparts in the same change is a finding naming the missing counterpart. `docs/laws/scars.md` and `docs/laws/patterns.md` laws are standing review duty.
 - Suppressions and gate bypasses are the finding, never the mechanics the gates already own: a true positive is architecture pressure to fix the shape, a false positive is rule pressure to refine the rule, and a suppression directive is neither.
@@ -36,6 +38,9 @@ Deliberate house shapes that violate generic best practice — flagging them is 
 - Bracketed uppercase section dividers (`# --- [LABEL] ---`): source structure, not commented-out code.
 - `TODO`/`FIXME` as source comment markers: sanctioned; the ban applies only to durable markdown.
 - `[QUEUED]`/`[ACTIVE]`/`[BLOCKED]` task status and marked RESEARCH items: the planning corpus's closed vocabulary, never process-ledger or hedge findings.
-- `lazy import` at module scope: the Python doctrine's deferred lane, never a misplaced import.
+- `lazy import`/`lazy from` at module scope and `from builtins import frozendict`: py3.15 corpus-floor spellings the Python doctrine legislates, never invalid syntax or a misplaced import.
+- `tuple()` match patterns: class patterns matching any tuple instance — only the literal `()` is empty-only.
+- Typed-field re-validation demands — `isfinite` on a typed int, arity re-checks on a typed frozen field: admission-once law makes the demand the defect.
+- Strata diagrams omitting unsourced members, same-stratum edges, or foreign interior owners: template law resolves nodes by sourcing decision, same-stratum reads as prose, interiors home-side, islands as prose.
 - Specs importing the private-by-design testkit, and magic values in specs: sanctioned.
 - Rhino-rich host capture coexisting with host-neutral semantics: architecture, never duplication.

@@ -83,6 +83,13 @@
             "scope": ["**/*.csproj", "Directory.Packages.props", "**/package.json", "**/pyproject.toml"]
         },
         {
+            "id": "admission-depth",
+            "rule": "Hunt the proven defect classes at root-cause depth: required-field threading dropped by signature migrations, finiteness admission before range checks, identity preimages omitting output-affecting inputs, match/dispatch totality, frozen-payload discipline (mutable defaults, unsorted iteration reaching egress), per-stream timestamp re-basing, resource custody on every exit path, archive and metadata bomb gates, deterministic egress ordering. When a finding admits a literal patch and a deeper collapse, demand the collapse.",
+            "severity": "high",
+            "enabled": true,
+            "scope": ["libs/**", "tools/**"]
+        },
+        {
             "id": "workflow-determinism",
             "rule": "Workflow scripts are deterministic orchestration: schema-typed agent outputs, bounded loops, stage products written to disk with path receipts. Bare promises, unbounded polling, wall-clock branching, and subagents instructed to wait are defects.",
             "severity": "medium",
