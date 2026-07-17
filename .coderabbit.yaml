@@ -241,7 +241,8 @@ knowledge_base:
             - "docs/laws/*.md"
             - "docs/standards/*.md"
             - "docs/stacks/**/*.md"
-            - "libs/.planning/campaign-method.md"
+            - files: "libs/.planning/campaign-method.md"
+              applyTo: "libs/**"
     learnings:
         scope: local
         approval_delay: 0
