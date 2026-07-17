@@ -29,7 +29,7 @@
         "collapsible": true,
         "defaultOpen": false
     },
-    "ignorePatterns": "**/pnpm-lock.yaml\n**/uv.lock\n**/packages.lock.json\n**/goldens/**\n*.verified.*\n*.har",
+    "ignorePatterns": "**/pnpm-lock.yaml\n**/uv.lock\n**/packages.lock.json\n**/goldens/**\n*.verified.*\n*.har\n**/vendor/runtimes/**\n**/vendor/sdk/Lib3MF.cs\n**/node_modules/**\n**/__pycache__/**\n**/.venv/**\n**/.cache/**\n**/.artifacts/**",
     "context": {
         "repos": ["bsamiee/Parametric_Forge", "bsamiee/Maghz"]
     },

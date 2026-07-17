@@ -12,19 +12,19 @@ Repo-wide maintenance law: the coupling topology every cross-surface edit obeys,
 
 ## [02]-[ADMISSION]
 
-| [INDEX] | [FACT_KIND]                  | [OWNER]                             |
-| :-----: | :--------------------------- | :---------------------------------- |
-|  [01]   | Language implementation law  | `docs/stacks/<language>/`           |
-|  [02]   | Design and documentation law | `docs/standards/`                   |
-|  [03]   | Design-phase campaign method | `libs/.planning/campaign-method.md` |
-|  [04]   | Folder-scoped operation      | the folder's `README.md`            |
-|  [05]   | Agent constitution           | `CLAUDE.md` / `AGENTS.md`           |
-|  [06]   | Reviewer behavior            | `.greptile/` + `.coderabbit.yaml`   |
-|  [07]   | Cross-surface edit coupling  | `topology.md`                       |
-|  [08]   | Cross-branch pattern law     | `patterns.md`                       |
-|  [09]   | Paid-for regression trap     | `scars.md`                          |
+| [INDEX] | [FACT_KIND]                  | [OWNER]                                            |
+| :-----: | :--------------------------- | :------------------------------------------------- |
+|  [01]   | Language implementation law  | `docs/stacks/<language>/`                          |
+|  [02]   | Design and documentation law | `docs/standards/`                                  |
+|  [03]   | Design-phase campaign method | `libs/.planning/campaign-method.md`                |
+|  [04]   | Folder-scoped operation      | the folder's `README.md`                           |
+|  [05]   | Agent constitution           | `CLAUDE.md` / `AGENTS.md`                          |
+|  [06]   | Reviewer behavior            | `.coderabbit.yaml` + `.greptile/` + `.macroscope/` |
+|  [07]   | Cross-surface edit coupling  | `topology.md`                                      |
+|  [08]   | Cross-branch pattern law     | `patterns.md`                                      |
+|  [09]   | Paid-for regression trap     | `scars.md`                                         |
 
-Capability extends the owner before it mints a page: harden an existing clause, then extend an existing page inside its owner, then mint a new page — each move proving the prior cannot carry the fact, and a new page lands its `[01]-[PAGES]` row in the same change. A fact owned elsewhere never gains a copy here; the owner keeps it, and a topology row may name it as a counterpart. Admission demands recurrence across independent units or a structural singleton whose blast radius spans folders or branches — a unit-local lesson stays in the run report, and adding nothing is a first-class verdict. A rule a formatter, analyzer, or gate can enforce routes to that gate, never to a doctrine page; a constitution fact lands at its one acting reader, and a reviewer rule mirrors across both configs. Rows are re-proven against the live tree, never archived: a scar moves out the moment a gate or doctrine page absorbs it, and a patterns row that stops binding two branches demotes to the surviving branch's stack page.
+Capability extends the owner before it mints a page: harden an existing clause, then extend an existing page inside its owner, then mint a new page — each move proving the prior cannot carry the fact, and a new page lands its `[01]-[PAGES]` row in the same change. A fact owned elsewhere never gains a copy here; the owner keeps it, and a topology row may name it as a counterpart. Admission demands recurrence across independent units or a structural singleton whose blast radius spans folders or branches — a unit-local lesson stays in the run report, and adding nothing is a first-class verdict. A rule a formatter, analyzer, or gate can enforce routes to that gate, never to a doctrine page; a constitution fact lands at its one acting reader, and a reviewer rule mirrors across all three reviewer configs. Rows are re-proven against the live tree, never archived: a scar moves out the moment a gate or doctrine page absorbs it, and a patterns row that stops binding two branches demotes to the surviving branch's stack page.
 
 ## [03]-[PAGE_SHAPE]
 

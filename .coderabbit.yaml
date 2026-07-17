@@ -41,6 +41,13 @@ reviews:
         - "!**/goldens/**"
         - "!**/*.verified.*"
         - "!**/*.har"
+        - "!**/vendor/runtimes/**"
+        - "!**/vendor/sdk/Lib3MF.cs"
+        - "!**/node_modules/**"
+        - "!**/__pycache__/**"
+        - "!**/.venv/**"
+        - "!**/.cache/**"
+        - "!**/.artifacts/**"
     path_instructions:
         - path: "**"
           instructions: >-

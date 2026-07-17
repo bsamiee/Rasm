@@ -35,7 +35,7 @@ All `libs/` content powers future apps of every kind — in-host on Rhino 9/WIP 
 - Session grounding: `/prime` (`.claude/commands/prime.md`) grounds a planning session — topology, campaign state, planning law — before the objective arrives; this README and `CLAUDE.md` arrive preloaded.
 - Operator proof: `uv run python -m tools.assay self-test` is the first command; one JSON `Envelope` on stdout is the health receipt, and `--rhino` opts the live bridge lane into the smoke.
 - Campaign engines: `ls .claude/workflows/` enumerates the standing roster, each script self-describing through its `meta` block; `rebuild.js` is the hostile rebuild engine over any mix of `libs/` planning targets, and `libs/.planning/campaign-method.md` is the loop those engines execute.
-- Review depth: `.coderabbit.yaml` and `.greptile/` carry the repo's reviewer tone, scope maps, and doctrine-derived guidance; review behavior is tuned there and never duplicated into docs.
+- Review depth: `.coderabbit.yaml`, `.greptile/`, and `.macroscope/` carry the repo's reviewer tone, scope maps, and doctrine-derived guidance; review behavior is tuned there and never duplicated into docs.
 
 ## [04]-[LIBRARY_OWNERS]
 

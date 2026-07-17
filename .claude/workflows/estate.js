@@ -216,15 +216,15 @@ const ADMISSION =
     'the admission changes, nothing else.';
 
 const REVIEWER_LAW =
-    'REVIEWER-CONFIG ENRICHMENT (opportunistic, never a mandated deliverable): .greptile/rules.md + config.json + files.json and .coderabbit.yaml are the ' +
+    'REVIEWER-CONFIG ENRICHMENT (opportunistic, never a mandated deliverable): .greptile/rules.md + config.json + files.json, .coderabbit.yaml, and .macroscope/correctness/ are the ' +
     'standing reviewer doctrine. When your pass surfaces a high-signal implicit pattern those files do not already state — a quality shape, a testkit/infra ' +
     'construction law, test/tool code discipline, a libs/ standards nuance, an agent-framed prose norm, or existing guidance now wrong or weaker than the ' +
     'estate practices — land it there in the same pass: harden or correct the owning instruction where one exists, add a new one only when no owner covers ' +
-    'it, and mirror every ruling across both surfaces (the rules.md section and the matching .coderabbit.yaml path_instructions block move together). ' +
+    'it, and mirror every ruling across all three surfaces (the rules.md section, the matching .coderabbit.yaml path_instructions block, and the owning .macroscope/correctness/ page move together). ' +
     'Admission bar: consistent across the estate, doctrine-derived (docs/stacks/<language>, docs/standards), and invisible to the machine gates — never ' +
     'restate what formatters/gates/analyzers enforce, never duplicate an existing line, never add speculative or one-off rules. Write the guidance as ' +
     'durable law over the finished system: never couched in the planning phase, campaign state, or session narration. yamllint proves .coderabbit.yaml, jq ' +
-    'proves the .greptile JSON files, and rules.md rides the prose gate like any touched .md.';
+    'proves the .greptile JSON files, and rules.md plus every .macroscope/ page ride the prose gate like any touched .md.';
 
 const INFRA_LAW =
     'SHARED-INFRA PRIMACY: the shared test infrastructure is the estate CENTER, never a side item — csharp: tests/csharp/_testkit, _scenariokit, ' +
@@ -483,7 +483,7 @@ const doctrinePrompt = (rows, residuals) =>
     'TOPOLOGY RE-PROOF: re-verify every `docs/laws/topology.md` row whose [SURFACE] this run touched — cull a row whose ' +
     'coupling no longer holds, land a coupling this run proved.\n' +
     'GATE: run `uv run .claude/skills/docgen/scripts/prose_gate.py <every touched .md>` and repair to zero FAILs before ' +
-    'returning; yamllint proves `.coderabbit.yaml` and jq proves the `.greptile` JSON files if you touch them. Return ' +
+    'returning; yamllint proves `.coderabbit.yaml`, jq proves the `.greptile` JSON files, and `.macroscope/` pages ride the same prose gate if you touch them. Return ' +
     'landed/refined/rejected (each rejection with its reason)/files/summary.';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

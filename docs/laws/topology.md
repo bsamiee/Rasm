@@ -7,7 +7,7 @@ Coupling map: editing a `[SURFACE]` obligates its `[OBLIGATED_COUNTERPARTS]` in 
 | [INDEX] | [SURFACE]                             | [OBLIGATED_COUNTERPARTS]                         | [WHY]                                        |
 | :-----: | :------------------------------------ | :----------------------------------------------- | :------------------------------------------- |
 |  [01]   | central manifest dependency row       | folder `README.md` + the `.api/` catalog tiers   | dependency admission is a multi-surface fact |
-|  [02]   | `docs/stacks/<language>/` page        | `.greptile/rules.md`, `.coderabbit.yaml`         | reviewer prose derives from doctrine         |
+|  [02]   | `docs/stacks/<language>/` page        | `.coderabbit.yaml`, `.greptile/`, `.macroscope/` | reviewer prose derives from doctrine         |
 |  [03]   | `libs/.planning/architecture.md` edge | `tests/csharp/_architecture` boundary specs      | strata law lands at both ends                |
 |  [04]   | repo root file census                 | `tests/python/_testkit/test_policy.py` allowlist | root residency is a closed allowlist         |
 |  [05]   | `.claude/skills/` master trees        | sibling-repo skill copies                        | propagation is byte-identical copy           |
