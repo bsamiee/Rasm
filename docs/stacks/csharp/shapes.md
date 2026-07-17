@@ -33,7 +33,7 @@ When a concept matches several signatures, the most specific row wins.
 
 [COLLAPSE_FUNCTIONS]:
 - `CollapseFamily(family)`: keep generated closure only when the owner absorbs admission, identity, dispatch, policy, boundary projection, or stored modality; delete sibling regrowth, nullable payload bags, enum-dictionary pairs, protocol shadows, owner wrappers, and overload-only modality.
-- `MergeSamePayload(cases)`: collapse only passive, non-generic, non-fault cases with identical semantics; preserve marker, behavior, fault, and named-semantic cases.
+- `MergeSamePayload(cases)`: collapse passive, non-generic, non-fault cases with identical semantics, and byte-identical siblings whose name-only distinction an op trait row already derives — one case, the discriminant read from the trait row; preserve marker, behavior, fault, and genuinely named-semantic cases.
 - `ReplaceFlags(capability)`: model combinable capability as vocabulary items in a frozen set; keep behavior in columns, membership as set algebra, and policy as a fold.
 - `UseLanguageEnum(seam)`: permit only foreign wire enum, ABI bit layout, measured-kernel ordinal, or an alias-bearing host roster whose distinct names share one ordinal — a 1:1 owned wrapper cannot preserve the alias identity the host defines as truth, so host mapping members answer that correspondence; re-close at seam conversion.
 
@@ -178,7 +178,7 @@ public static class AxisAlgebra {
 
 [VOCABULARY_DECLARATION]:
 - Law: the declaration list is the vocabulary; `public static readonly` fields fix item membership, dispatch indices, callback order, and metadata identifiers, while static properties and case-typed fields vanish from `Items` and dispatch at warning severity.
-- Law: keyed vocabularies carry two independent orders: `Items` by declaration and comparison by key comparer; one key policy swings lookup, hash, comparison, and operators.
+- Law: keyed vocabularies carry two independent orders: `Items` by declaration and comparison by key comparer; one key policy swings lookup, hash, comparison, and operators, and a key mirroring a host enum ordinal spells `(int)HostEnum.Value`, never a hand-numbered literal the host roster silently outgrows.
 - Law: domain rank is an item column, never a bent comparer; range dispatch needs numeric keys to keep future thresholds total, and a row-to-row correspondence is a `[UseDelegateFromConstructor]` column deferring behind `static () => Row` — never an eager field reference, which captures null before materialization protects it, and never a key string re-looked-up at read time, whose failed lookup silently falls back to the unresolved row.
 - Accept: keyless vocabularies only for behavior rows: items, dispatch, reference identity, no lookup, no conversions, no parsing; wire identity requires declared `[ObjectFactory<TValue>]`.
 
@@ -397,7 +397,7 @@ public abstract partial record Fault : Expected, IValidationError<Fault>, Semigr
 - Law: the admission seam is one generic extension over the generated factory contract — receiver inference binds `TOwner` so a single `Admission` block serves every owner, and the property-pattern projection (`Validate(...) is { } fault ? fault : owned!`) is the one expression admitting raw into the carrier.
 - Law: the shape is null-yield-aware — a non-null-yield contract takes the success-arm `!`, a null-yield owner takes the three-valued projection (fault, absence as `Option<T>`, instance) so blank-yields-null never reaches the interior as `Some(null)`; the carrier algebra each arm lifts into is the rail page's.
 - Boundary: the constraint `IObjectFactory<TOwner,TRaw,Fault>` with `TRaw : notnull, allows ref struct` is the closed-fault counterpart of the surface page's open-`TError` inversion — this seam pins the fault to one family for receiver-inferred reuse, that one opens `TError` for the unbounded owner set.
-- Reject: bridging through `Create`, `TryCreate`, or `IParsable`; framework parsing and downgraded factory forms discard the evidence `Validate` already carries.
+- Reject: bridging through `Create`, `TryCreate`, or `IParsable`; framework parsing and downgraded factory forms discard the evidence `Validate` already carries; a hand-rolled `Validation` tower re-deriving what the generated bridge already discharges — the generated `Validate` is the one admission authority.
 
 ```csharp conceptual
 public static class Admission {

@@ -27,6 +27,9 @@ When a concern matches several rows, the most specific wins; the carrier axis is
 - Law: one concern exposes one entrypoint; a verb family is a `[Union]` with one case per verb under one total dispatch.
 - Law: each sibling's preamble becomes its case constructor and the shared validation becomes the dispatch prologue.
 - Law: full-coverage generated `Switch` is the totality proof; a new case breaks every dispatch site at compile time, never a runtime-silent `_` arm.
+- Law: state-threaded arm arity splits by owner — a `[Union]` arm is the two-parameter `(state, case)` lambda while a `[SmartEnum]` arm takes the state alone — and the leading parameter is named `state` unless `SwitchMapStateParameterName` renames it; a wrong-arity arm re-binds overload resolution away from the threaded form or fails late, so every arm spells its full arity even when a slot is discarded.
+- Law: arms returning sibling case types leave best-common-type inference empty (CS0411); the first arm casts to the union base — or the call spells explicit `Switch` type arguments — and the anchor is load-bearing, never a redundant cast.
+- Law: N sibling surfaces riding one shared rail and re-spelling the same lifecycle machinery — mint, custody hand-off, multi-product harvest, failure release, entry guard — collapse onto the rail owner's generic members, each sibling a one-line composition; hand-maintained congruence invariants become structural inside the one generic builder, and a guard present on some family entries but absent on siblings is the latent defect the absorption fixes.
 - Law: an arm that is unconditionally failing — unreachable by the family's own contract — is never defensive coverage; it proves the case cannot inhabit the dispatch's shared context and splits out as a sibling method on the structural discriminant that justifies it — an extra receiver or an out-of-family result type — with a pre-dispatch `is`-guard extracting the case before the total `Switch` as the tell.
 - Law: a concern whose domain admits an inverse carries both directions on the one owner — admit and project, encode and decode, to-wire and from-wire are paired operations of one surface, and a sibling owner split by direction is the rejected form.
 - Use: `[Union<T1,...>]` ad-hoc when the request is a positional sum of already-defined payloads extracted by `IsTi`/`AsTi`; regular `[Union]` named cases when cases carry distinct fields and `value is CaseName` extracts.
@@ -150,7 +153,7 @@ public static class PolicySurface {
 
 [FORM_SELECTION]:
 - Law: the five value-level forms are selected by where ownership lives — the chooser's ownership signatures are the selection law — and when two forms both fit, the one whose owner already holds the exhaustiveness obligation wins; the two type-level forms are `[07]`'s, selected when dispatch resolves at the type rather than the value.
-- Reject: a frozen table restating a vocabulary's own delegate rows — a duplicate-entry burden with a silent missed-new-item failure; structural dispatch over a closed family, trading compile-time totality for a silent `_`.
+- Reject: a frozen table restating a vocabulary's own delegate rows — a duplicate-entry burden with a silent missed-new-item failure; an allowed-set beside hand-spelled per-member writes — two enumerations of one roster, where one delegate-column table owns both, membership deriving from `ContainsKey` and the writes from a fold over its rows; structural dispatch over a closed family, trading compile-time totality for a silent `_`.
 - Boundary: mixing forms at one site signals an unresolved ownership boundary, except the two valid compositions — a `Switch` arm probing a frozen table is dispatch plus data retrieval; an extension block owns module-to-domain translation while its inner `Switch` owns per-case projection.
 
 [TRAIT_DERIVATION]:
@@ -178,8 +181,8 @@ public static class MarkerBoundary {
         Marker.Validate(raw, null, out var marker) is { } fault
             ? Fin.Fail<int>(fault)
             : Fin.Succ(marker!.Switch(state: input,
-                markA: static (value, _) => value.Score,
-                markB: static (value, _) => value.Score * 2));
+                markA: static value => value.Score,
+                markB: static value => value.Score * 2));
 
     public static ImmutableArray<string> Advertised() => [.. Marker.Items.Select(static item => item.Key)];
     public static Option<Marker> Probe(string key) => Marker.TryGet(key, out var marker) ? Optional(marker) : None;

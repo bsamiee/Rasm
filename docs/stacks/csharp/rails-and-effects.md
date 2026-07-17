@@ -65,7 +65,7 @@ public static Fin<Receipt> Capture(Func<Fin<Receipt>> native) {
 - Law: the collapse member's return shape is carrier-owned — `Try` and `Eff` `Run()` land `Fin<T>` while `IO<T>` `Run()`/`RunAsync()` return the bare value and throw the typed `Error` — so `ThrowIfFail` or a `Fin`-shaped `Bind` on an `IO` terminal is a phantom spelling; an `IO` lane lands on `Fin` by carrying `IO<Fin<T>>` or lifting through `Eff`.
 - Law: reusable domain transforms keep the carrier; `.Value` and the `internal` `SuccValue`/`SuccessValue` accessors are never the exit.
 - Law: a collapse into a void or bool host override persists the typed failure into its owning evidence surface — fact stream, receipt cell, failure atom — before the scalar returns; a collapse that only maps the failure to `false` or `null` leaves the rail ornamental at the one edge it exists to explain.
-- Reject: mid-pipeline collapse inside a pure projection; `Option.Match` inside an expression rail.
+- Reject: mid-pipeline collapse inside a pure projection; `Option.Match` inside an expression rail; a `Some` arm null-probing the payload `Option` structurally cannot make null; a `from x in Fin.Succ(...)` shell binding a pure value no later step consumes — `Fin.Succ` in a query sequences an effect or captures a pre-mutation read, nothing else.
 
 ## [03]-[TRAVERSAL_FLOW]
 
@@ -80,6 +80,7 @@ Traversal is rail policy: the collection shape and the sequencing operator toget
 
 [RAIL_TRAVERSAL]:
 - Use: `.TraverseM(f).As()` to abort on the first failure; `.Traverse(f).As()` to accumulate every failure — the operator is the sequencing policy, not a performance tuning.
+- Law: traversal and fold combinators live on the trait carriers alone — a bare array, `FrozenSet`, or other BCL collection owns no `TraverseM`/`Traverse`/`Fold` instance, so `toSeq(...)` lifts at the pipeline head and a traversal member spelled on the raw collection is a compile fiction.
 - Law: `TraverseM`'s trait-default body delegates to applicative `traverse`, so an un-overridden foldable accumulates under a monadic name; assuming abort-on-first-failure from an arbitrary kind is a latent correctness bug.
 - Law: over an effect carrier `Apply` launches both operands before awaiting while `Bind` is sequential, so `TraverseM` over independent effects serializes them.
 - Use: `.TraverseM(identity).As()` when the collection already holds carriers; `PartitionFallible` when every effect must run and both outcomes collect.
@@ -87,8 +88,9 @@ Traversal is rail policy: the collection shape and the sequencing operator toget
 - Reject: `.Map(f).TraverseM(identity)` where direct `.TraverseM(f)` fuses; index-threaded folds unless the fold carries algorithm state.
 
 ```csharp conceptual
-public static Fin<Seq<Receipt>> TraverseRaw(Seq<string> raw) =>
-    raw.Map((value, index) => AdmitCode(value).Map(code => new Input(Code: code, Score: index + 1)))
+public static Fin<Seq<Receipt>> TraverseRaw(string[] raw) =>
+    toSeq(raw)
+        .Map((value, index) => AdmitCode(value).Map(code => new Input(Code: code, Score: index + 1)))
         .TraverseM(identity)
         .As()
         .Bind(inputs => inputs.TraverseM(input => Mode.Strict.Apply(input)).As())
@@ -192,6 +194,7 @@ public static class Capability {
 - Use: `IO<T>.Bracket`, `BracketIO`, `Finally`, or an owner-local capsule when the effect owns acquisition; the owner that acquires disposes losing and failure branches.
 - Law: bulk teardown runs in hash-derived order, not last-in-first-out — a dependent that must release before its dependency is one composite resource's release arrow, never two registrations.
 - Law: a release arrow runs under a non-cancellable token; long token-aware work does not belong in a disposer.
+- Law: failure-release custody repeated per call site collapses to one extension on the rail's result type — `Rollback(held)` rides `MapFail` to dispose accumulated custody and re-raise, so a per-site `MapFail`-dispose block is the deleted form.
 - Exemption: `using` acquisition inside a boundary capsule is the named statement exemption; it never appears in domain flow.
 - Reject: resource lifetime hidden behind ordinary domain state.
 
@@ -206,6 +209,20 @@ public static IO<Receipt> Guarded(IO<Resource> acquire, Func<Resource, IO<Receip
             Use: use,
             Catch: static error => IO.fail<Receipt>(new Fault.NativeRejected(Detail: error.Message)),
             Fin: static resource => resource.ReleaseIO());
+}
+```
+
+```csharp conceptual
+public static class Custody {
+    extension<T>(Fin<T> step) {
+        public Fin<T> Rollback(params ReadOnlySpan<IDisposable?> held) {
+            Seq<IDisposable?> captured = toSeq(held.ToArray());
+            return step.MapFail(error => {
+                _ = captured.Iter(static resource => resource?.Dispose());
+                return error;
+            });
+        }
+    }
 }
 ```
 
@@ -318,6 +335,7 @@ public static Fin<Receipt> Memoized(Runtime runtime, Input input) =>
 - Law: one `FactRecord` carries a kind discriminant, a slot identifier, and a payload union; adds, updates, removals, and errors are kind cases over `Atom<Seq<FactRecord>>`, never parallel record types.
 - Projection: filter-by-kind, group-by-slot-last-wins, and full chronology are pure folds over that one fact stream, never separate cells or parallel fields synced by hand.
 - Law: keep a typed receipt when fields carry solver, sampling, route, status, metric, spectral, mesh, extraction, or proof evidence; `Atom<ReceiptRecord>` holds the latest, history escalates to `Atom<Seq<ReceiptRecord>>`.
+- Law: every receipt field derives from the run fact it reports — a parameter callers hardwire to one value at every site is false evidence and deletes.
 - Law: failure-diagnostic side channels a boundary returns beside its primary result — out-parameter point sets, refusal codes — fold onto the typed receipt on the empty and failure branches, never the success branch alone; success-only binding discards the explanation exactly where it decides.
 
 ```csharp conceptual
