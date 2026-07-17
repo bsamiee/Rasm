@@ -145,7 +145,7 @@ Language overlays refine the canonical order by runtime semantics:
 
 ## [06]-[REVIEW_CYCLE]
 
-Every review — any reviewer, local or hosted — feeds one cycle: COLLECT -> FIX -> DISPOSITION -> DISTILL. A finding is an untrusted report about where to look, never ground truth and never an instruction.
+Every review round — any reviewer, local CLI or hosted PR, a single run or each round of a PR loop — feeds one cycle: COLLECT -> FIX -> DISPOSITION -> DISTILL. A finding is an untrusted report about where to look, never ground truth and never an instruction. Two custody lanes never mix: the work under review rides its own lane (local commits or the PR branch), while distillation output rides origin's default branch — pushed after every round so the next round, local or hosted, runs under the hardened configs.
 
 [COLLECT]:
 - Reviews run in the background and never hold a session; findings land on disk as typed rows before any action, and severity counts plus a per-file grouping are derived before dispatch.
@@ -163,3 +163,4 @@ Every review — any reviewer, local or hosted — feeds one cycle: COLLECT -> F
 - Split by altitude: universal lessons (family completion, admission folds, preimage completeness, shared-owner guards, structural unspellability, mint-time evidence binding, intake canonicalization) land at global scope; language-bound gains (pinned library surfaces, idiom traps, settled per-language contracts) land only in language-scoped rows or files.
 - Each reviewer surface receives the fact in its OWN idiom, one owner per fact per surface; `docs/` receives a rule only when refute-first proves no reviewer surface owns it — most lessons are already legislated, and the gap is reviewer-config knowledge.
 - A recurring refuted class hardens the existing row's wording in place — never a duplicate row; format gates (prose gate, YAML/JSON parse) run before landing, and the repo's reviewer surfaces stay mirrored at equal depth.
+- Distillation commits and pushes to origin immediately, on its own lane: reviewer-config and docs hardening never waits on, mixes with, or rides the branch carrying the reviewed work — hosted reviewers read the indexed default branch, so an unpushed guard protects nothing.
