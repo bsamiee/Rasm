@@ -345,6 +345,16 @@ const REVIEW_SCHEMA = {
     },
 };
 
+// RT_SCHEMA = REVIEW_SCHEMA + the `armed` attestation: the redteam lists every mandated file it read IN FULL. Telemetry
+// ground: opus truncates enumeration ladders (finished rts touched docs/stacks 1-5 times against a ~15-file mandate and
+// landed a uniform token edit pair); a required attestation makes the arming structurally checkable, never wishful prose.
+const RT_SCHEMA = {
+    type: 'object',
+    additionalProperties: false,
+    required: REVIEW_SCHEMA.required.concat(['armed']),
+    properties: Object.assign({}, REVIEW_SCHEMA.properties, { armed: { type: 'array', items: S } }),
+};
+
 const FINDINGS_SCHEMA = {
     type: 'object',
     additionalProperties: false,
@@ -951,6 +961,7 @@ const mergeReviews = (rs) => {
         beyondMap: uniq(rows.flatMap((r) => r.beyondMap || []), (b) => b.catalog + '|' + b.member),
         indexRows: uniq(rows.flatMap((r) => r.indexRows || []), (r2) => r2.doc + '|' + r2.row),
         harvest: uniq(rows.flatMap((r) => r.harvest || []), (h) => h.claim),
+        armed: [...new Set(rows.flatMap((r) => r.armed || []))],
     };
 };
 
@@ -1275,11 +1286,13 @@ const HUNT =
     'under an invented, implausible input). Verify cited external members against the .api catalogs; never trust page prose ' +
     'about itself.';
 
-const preamble = (L, batch, dossiers, ideate, scopes, roster, unmapped, reg, lbase) =>
+// preamble serves the redteam only (implement carries its own assembly): RT_READ replaces the full-atlas readFirst ladder —
+// named files an opus lane actually executes, enforced by the `armed` attestation.
+const preamble = (L, batch, dossiers, ideate, scopes, roster, unmapped, reg, lbase, pack) =>
     [CONTEXT(L), REG[reg].stance(L), OWN_PASS, BUILD_LAW(L), BODY(L), VERIFY(L), RIPPLE_LAW, CURRENT_STATE, PROSE_COMMENTS(L)]
         .concat(L.mechanics ? [L.mechanics] : [])
         .concat([
-            readFirst(L, pkgOf(batch[0].page), dossiers),
+            RT_READ(L, pkgOf(batch[0].page), dossiers, pack),
             LEDGER(lbase || scratchBase(pkgOf(batch[0].page), batch[0].i || 0), scopes),
             reconBlock(roster, unmapped),
         ])
@@ -1309,6 +1322,15 @@ const planPrompt = () =>
         'EMIT `pages` IN DEPENDENCY + COHESION ORDER — grouped by sub-folder, foundations before consumers, pages sharing an ' +
             'owner, seam, or wire contract ADJACENT within their group (the engine batches contiguous runs of your order, so ' +
             'adjacency keeps coupled pages inside one writer); alphabetical only as the final tiebreak. The engine never re-sorts.',
+        'SCRATCH HYGIENE (before returning): this run\'s scratch dir is `' +
+            SCRATCH +
+            '` — its name derives from the targets, so a prior run over the same targets left artifacts there. When the dir ' +
+            'pre-exists, delete its stale cross-run seam ledgers: `rm -f ' +
+            ROOT_DIR +
+            '/' +
+            SCRATCH +
+            '/*-seams.md` — dossiers and reports are per-lane overwritten by this run, but seam ledgers APPEND, and a stale ' +
+            "row from a dead run poisons this run's cross-batch coordination. Delete nothing else.",
         'TOOLCHAIN WARM-UP (before returning): run `UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api --help` once — ' +
             "it builds the workspace uv cache every downstream lane's member-verification rail rides, so no lane pays the cold " +
             'env stall or misreads it as a broken rail.',
@@ -1500,6 +1522,44 @@ const IMPL_READ = (L, pkg, dossiers, pack) =>
     'any strata or topology hunt beyond the named files — the law above is complete, and a name this brief states is never ' +
     'searched for on disk.';
 
+// Redteam read law — the terminal-review twin of IMPL_READ: every read is a NAMED file, never an enumeration ladder
+// (telemetry: opus executes a named concrete file and silently truncates a "read EVERY page the ls returns" mandate);
+// the `armed` return field is the enforcement — a file not listed there was not read.
+const RT_READ = (L, pkg, dossiers, pack) =>
+    'READ LAW — terminal-review arming, executed BEFORE any judgment; every file below is a NAMED MANDATORY full read, and ' +
+    'your `armed` return field lists the exact paths you read IN FULL — a file absent from `armed` was not read, and an ' +
+    'arming below this named set is a failed pass. ' +
+    '(1) DOCTRINE' +
+    (pack
+        ? ': the audit law pack `' +
+          pack +
+          '` carries every binding checklist section VERBATIM with source anchors — read it IN FULL in large windows FIRST; ' +
+          'a doctrine page at source opens when an attack dimension turns on law outside the pack'
+        : ': `' +
+          L.stack +
+          '/README.md` IN FULL, OWNER_CHOOSER (`shapes.md` [01]), RAIL_CHOOSER + boundary conversion (`rails-and-effects.md` ' +
+          '[01]-[02]), the aspect two-weave sections (`surfaces-and-dispatch.md` AND `rails-and-effects.md`), and the ' +
+          'file-organization law — each at source') +
+    (L.key === 'cs' ? ', plus every `docs/stacks/csharp/domain/` shard the pages touch, chosen through the router README' : '') +
+    '. (2) LAWS: `docs/laws/README.md` + `docs/laws/topology.md` + `docs/laws/patterns.md` IN FULL — a topology row whose ' +
+    '[SURFACE] your edits touch binds its counterparts into this pass; the repo `.editorconfig` error-severity rules for ' +
+    'your language are compile gates. ' +
+    '(3) STRATA: `libs/.planning/architecture.md` and the branch ARCHITECTURE.md [02]-[SEAMS] ledger — mandate (D) judges ' +
+    'against these read at source, never a summary. ' +
+    '(4) `.api`: `ls` BOTH tiers — `' +
+    L.root +
+    '/.api/` AND `' +
+    pkg +
+    '/.api/` — then read EVERY catalog your pages cite or compose IN FULL; a disputed spelling resolves via ' +
+    L.verify +
+    ' (5) CHARTER: the owning-package ARCHITECTURE.md + README.md + IDEAS.md at `' +
+    pkg +
+    '`. (6) GROUNDING' +
+    (dossiers
+        ? ': the dossiers `' + dossiers + '` carry verified extracts — spot-verify every anchor behind an edit.'
+        : ': dossiers absent — derive grounding from the reads above.') +
+    ' OUT OF SCOPE: instruction files (CLAUDE.md, AGENTS.md, `.claude/` config), skill bundles, the repo-root README.';
+
 const implementPrompt = (L, batch, dossiers, ideate, scopes, roster, unmapped, pack, reg) =>
     [CONTEXT(L), REG[reg].stance(L), OWN_PASS, BUILD_LAW(L), BODY(L), VERIFY(L), RIPPLE_LAW, CURRENT_STATE, PROSE_COMMENTS(L)]
         .concat(L.mechanics ? [L.mechanics] : [])
@@ -1624,8 +1684,8 @@ const critiquePrompt = (L, batch, dossiers, ideate, scopes, roster, unmapped, im
         ])
         .join('\n\n');
 
-const redteamPrompt = (L, batch, sibling, half, dossiers, ideate, scopes, roster, unmapped, implReport, crit, lbase) =>
-    preamble(L, batch, dossiers, ideate, scopes, roster, unmapped, 'claude', lbase)
+const redteamPrompt = (L, batch, sibling, half, dossiers, ideate, scopes, roster, unmapped, implReport, crit, lbase, pack) =>
+    preamble(L, batch, dossiers, ideate, scopes, roster, unmapped, 'claude', lbase, pack)
         .concat([
             sibling.length
                 ? 'TWIN HALF — this batch red-teams as TWO concurrent half-scope writers; you are half ' +
@@ -1685,13 +1745,16 @@ const redteamPrompt = (L, batch, sibling, half, dossiers, ideate, scopes, roster
                 ', ' +
                 L.fileOrg +
                 ', both-tier .api maximization, prose + comment hygiene — each judged against CURRENT disk. VERIFY every PRIOR ' +
-                'CLAIMS seam landed BOTH ends; make any missed repair yourself. Return the batched fix-log — `deltas` and ' +
-                '`deferred` exact. ' +
+                'CLAIMS seam landed BOTH ends; make any missed repair yourself. DEPTH FLOOR: every dimension (A)-(G) runs ' +
+                'against EVERY page before any return — a pass that lands a token pair of edits without exhausting the ' +
+                'dimensions has failed; edit count follows what the attack finds (a genuinely clean page after a full attack ' +
+                'is a first-class verdict, a shallow attack is not). Return the batched fix-log — `deltas` and `deferred` ' +
+                'exact, `armed` the exact paths read in full per the READ LAW. ' +
                 HARVEST_LAW,
         ])
         .join('\n\n');
 
-const ideasRealizePrompt = (L, pkg, ideaPath, scopes) =>
+const ideasRealizePrompt = (L, pkg, ideaPath, scopes, pack) =>
     [
         CONTEXT(L),
         REG.claude.stance(L),
@@ -1701,7 +1764,7 @@ const ideasRealizePrompt = (L, pkg, ideaPath, scopes) =>
         RIPPLE_LAW,
         CURRENT_STATE,
         PROSE_COMMENTS(L),
-        readFirst(L, pkg, ''),
+        IMPL_READ(L, pkg, '', pack),
         LEDGER(scratchBase(pkg, 'ideas'), scopes),
         'TASK: IDEAS REALIZATION for `' +
             pkg +
@@ -2224,8 +2287,9 @@ const runBatch = async (b) => {
                         implReport,
                         critR,
                         lbase,
+                        pack,
                     ),
-                    wopts('rt:' + tag + (halves.length > 1 ? '.h' + (hi + 1) : ''), 'Build', 'opus', REVIEW_SCHEMA),
+                    wopts('rt:' + tag + (halves.length > 1 ? '.h' + (hi + 1) : ''), 'Build', 'opus', RT_SCHEMA, { effort: 'xhigh' }),
                 ),
             ).catch(() => null);
         }),
@@ -2257,10 +2321,11 @@ const built = (
                 // defect work; gated entries route to IDEAS.md as cards via indexRows; Close audits the remainder.
                 const ideaPath = (pkgIdeate[pkg] && pkgIdeate[pkg].idea) || '';
                 if (ideaPath && out.some((d) => d.fix && d.fix.ok)) {
+                    const pkR = LAWPACK[Lof(pkg).key] ? await LAWPACK[Lof(pkg).key] : null;
                     const realize = await slot(() =>
                         agent(
-                            ideasRealizePrompt(Lof(pkg), pkg, ideaPath, SCOPES),
-                            wopts('ideas:' + pkg.split('/').pop(), 'Build', 'opus', FIXLOG_SCHEMA),
+                            ideasRealizePrompt(Lof(pkg), pkg, ideaPath, SCOPES, pkR && pkR.ok ? lawPackPath(Lof(pkg).key) : ''),
+                            wopts('ideas:' + pkg.split('/').pop(), 'Build', 'opus', FIXLOG_SCHEMA, { effort: 'xhigh' }),
                         ),
                     );
                     // The realize fixlog rides the rt slot: aggregation reads rows from d.rt only (implement receipts are thin),
