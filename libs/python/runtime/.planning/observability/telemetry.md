@@ -98,14 +98,14 @@ RUNTIME_RESOURCE: Final[Resource] = get_aggregated_resources(
 
 PARENT_SAMPLER: Final[Sampler] = ParentBased(root=ALWAYS_ON)
 
-# the W3C composite the install folds into one `set_global_textmap`; a new wire format is one
+# W3C composite the install folds into one `set_global_textmap`; a new wire format is one
 # row here, never a second propagator install — the C# CORRELATION_SPINE composite at the wire.
 PROPAGATORS: Final[Sequence[TextMapPropagator]] = (TraceContextTextMapPropagator(), W3CBaggagePropagator())
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-# the Map key IS the profile: no `profile` field rides the row (the admission `ProfilePolicy`
+# Map key IS the profile: no `profile` field rides the row (the admission `ProfilePolicy`
 # no-drift law), `InstallReceipt.profile` carrying the resolved key separately.
 class SignalProfile(Struct, frozen=True):
     export_interval_ms: int
@@ -176,10 +176,27 @@ def _meter_provider(endpoint: str, headers: Mapping[str, str] | None, profile: S
 
 
 def _drained(provider: Drainable, signal: Signal) -> Signal:
-    if not provider.force_flush(timeout_millis=int(EXPORT_TIMEOUT_S * 1000)):
-        raise TimeoutError(signal.value)
-    provider.shutdown()
-    return signal
+    # shutdown runs on EVERY exit — a raising or false flush included — so a wedged exporter still releases its
+    # provider before the carrier clears; BOTH legs' failures survive together: a shutdown raise joins the held
+    # flush failure as one ExceptionGroup instead of masking it, so the per-signal deadline classification the
+    # false-flush TimeoutError carries reaches the caller even when the shutdown leg also raises.
+    faults: list[BaseException] = []
+    try:  # Exemption: the flush leg's raise is held, never propagated mid-drain, so the shutdown leg always runs
+        if not provider.force_flush(timeout_millis=int(EXPORT_TIMEOUT_S * 1000)):
+            faults.append(TimeoutError(signal.value))
+    except Exception as flush_fault:
+        faults.append(flush_fault)
+    try:
+        provider.shutdown()
+    except Exception as shutdown_fault:
+        faults.append(shutdown_fault)
+    match faults:
+        case []:
+            return signal
+        case [lone]:
+            raise lone
+        case both:
+            raise ExceptionGroup(f"telemetry.drain.{signal.value}", both)
 
 
 # --- [TABLES] ---------------------------------------------------------------------------
@@ -251,7 +268,6 @@ class Telemetry:
                 cls._receipt = None
                 return Ok(Block.empty())
 ```
-
 
 ## [03]-[RESEARCH]
 

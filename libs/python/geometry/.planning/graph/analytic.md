@@ -1,12 +1,12 @@
 # [PY_GEOMETRY_GRAPH_ANALYTIC]
 
-The tier-0 graph-analytics substrate — the one owner of the reducer-return algebra both graph-analytics producers compose. `AnalyticValue` collapses every reducer return — a `scalar`, a `leaderboard`, a `groups` partition — to one typed carrier owning its own dual projection, and `ranked` is the one polymorphic ranking fold over both provider shapes, discriminating on input shape, never a sibling fold per producing page. This page authors NO analytics, receipts, or graduation — the producing pages own those.
+Tier-0 graph-analytics substrate owning the reducer-return algebra both graph-analytics producers compose. `AnalyticValue` collapses every reducer return — `scalar`, `leaderboard`, `groups` partition — to one typed carrier with its own dual projection, and `ranked` folds both provider shapes through one ranking, discriminating on input shape, never a sibling fold per producing page. Authors no analytics, receipts, or graduation; the producing pages own those.
 
-`graph/features` owns the `networkx` reducer table and `graph/nonmanifold` the `topologicpy` one; both import this vocabulary downward and mint no parallel value family. `graph/algebra` is the compas-numerics sibling minting its own scalar `Census` — it produces COMPAS-JSON handles plus residuals, never a reducer-return analytic, so it composes the graduation spine directly and this substrate not at all.
+`graph/features` owns the `networkx` reducer table, `graph/nonmanifold` the `topologicpy` one; both import this vocabulary downward and mint no parallel value family. `graph/algebra`, the compas-numerics sibling, mints its own scalar `Census` — it produces COMPAS-JSON handles plus residuals, never a reducer-return analytic, so it composes the graduation spine directly and this substrate not at all.
 
 ## [01]-[INDEX]
 
-- [01]-[ANALYTIC]: the `AnalyticValue` union with its dual projections, the polymorphic `ranked` fold, and the `peak_of`/`scalar_of` census projections.
+- [01]-[ANALYTIC]: `AnalyticValue` union with its dual projections, the polymorphic `ranked` fold, and the `peak_of`/`scalar_of` census projections.
 
 ## [02]-[ANALYTIC]
 
@@ -50,8 +50,7 @@ class AnalyticValue:
         return AnalyticValue(groups=partition)
 
     def as_scalar(self) -> float:
-        # the cardinality projection: a scalar carries its value, a board or partition its member
-        # count, so a count-keyed analytic reads one float off the flat facts map.
+        # Cardinality projection: a scalar carries its value, a board or partition its member count, so a count-keyed analytic reads one float off the flat facts map.
         match self:
             case AnalyticValue(tag="scalar", scalar=v):
                 return v
@@ -63,8 +62,8 @@ class AnalyticValue:
                 assert_never(unreachable)
 
     def peak(self) -> float:
-        # the head-magnitude projection where the extremum is the signal: a scalar IS its peak, a
-        # board its top score, a partition its member count — a centrality fact rides its max score.
+        # Head-magnitude projection where extremum is the signal: a scalar IS its peak, a board its top score,
+        # a partition its member count — a centrality fact rides its max score.
         match self:
             case AnalyticValue(tag="scalar", scalar=v):
                 return v
@@ -80,15 +79,16 @@ class AnalyticValue:
 
 
 def ranked(scores: Mapping[int, float] | Sequence[float], cap: int) -> AnalyticValue:
-    # a node-score mapping (networkx centrality dict) and a vertex-ordered score list (topologicpy
-    # centrality) both rank through one sort — the input shape is the discriminant.
+    # Node-score mapping (networkx dict) and vertex-ordered score list (topologicpy) both rank through one sort — input shape is the discriminant.
+    if cap < 0:
+        raise ValueError(f"<negative-cap:{cap}>")  # a negative cap slices tail rows off silently instead of bounding the board; cap=0 stays the empty board
     pairs = scores.items() if isinstance(scores, Mapping) else enumerate(scores)
     board = sorted(pairs, key=lambda pair: pair[1], reverse=True)[:cap]
     return AnalyticValue.Leaderboard(tuple((int(node), float(score)) for node, score in board))
 
 
 def peak_of[K](values: Map[K, AnalyticValue], key: K) -> float:
-    # the census-peak projection: an absent row folds to 0.0 with no None arm, so census fields stay total.
+    # Census-peak projection: an absent row folds to 0.0 with no None arm, so census fields stay total.
     return values.try_find(key).map(lambda value: value.peak()).default_value(0.0)
 
 

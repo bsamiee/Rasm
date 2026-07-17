@@ -12,7 +12,7 @@
 
 - Owner: `DesignProblem` — the provenance of the objective is the discriminant and the optimizer is one surface; `carried` folds the case to its `Objective` total over `match`/`assert_never`, so a new provenance breaks the extractor rather than spawning a parallel dispatch arm.
 - Cases: `Objective` owns TWO shape-keyed projections of one `fn` because the solver and the receipt consume different reductions — `target` feeds `least_squares` the raw residual VECTOR (a pre-reduced `½‖r‖²` scalar collapses the LM Jacobian to a degenerate 1-element solve) while `cost` folds the `(reduced, reported)` receipt pair as the value-and-grad aux, never a re-traced second pass; `Descent.admits` gates an engine override — `Levenberg` requires the `RESIDUAL` route, the scalar minimisers require `SCALAR` — as a typed `Error(BoundaryFault)` on the rail before the wrong solve entry; the `FirstOrder` chain leads `optax.zero_nans()` before `clip_by_global_norm` because a NaN gradient from a diverged inner solve is not boundable by a clip.
-- Entry: the solve runs `throw=False` so a non-`successful` `Solution.result` reaches the receipt as its mapped `SolveStatus` rather than raising; `_design_key` folds each leaf's ordinal and shape plus the iterate-determining `descent`/`restarts`/`seed` policy, so structurally distinct PyTrees or a re-solve under a different engine never collide on the boundary-erasing flatten; the x64-gated descent pins the PROCESS lane with the module-level `_solve_kernel` crossing as spec data — no closure crosses the process lane.
+- Entry: the solve runs `throw=False` so a non-`successful` `Solution.result` reaches the receipt as its mapped `SolveStatus` rather than raising; `_design_key` folds each leaf's ordinal and shape plus the iterate-determining `descent`/`restarts`/`seed` policy, so structurally distinct PyTrees or a re-solve under a different engine never collide on the boundary-erasing flatten; the x64-gated descent declares the HOSTILE trait with the module-level `_solve_kernel` crossing by reference, a closure shipping by value at the crossing owner.
 - Receipt: `_OUTCOME_SLOTS` owns the case payloads so `.facts` is one total strict zip — a slot row that drifts from its payload raises rather than truncating evidence, and never a reflective `getattr(self, self.tag)` whose `object` residual makes the `assert_never` tail a lie; the verdict folds through the receipt-owned shared `status_of`/`verdict` folds, never a page-local `RESULTS` inversion.
 - Packages: `RESULTS.promote` is deliberately unused — it widens a member across `Enumeration` classes and raises on a same-class member, so the multi-start reduction is the `jnp.max` code fold; the numpy floor runs over real arrays only, never a JAX PyTree, and its one-hot perturbation never materializes a dense `np.eye(x0.size)` basis a realistic SIMP density field cannot afford; the quadrature weak-form assembly enters transitively through `solvers/mesh`, never as a direct dependency here.
 - Growth: a new provenance is one `DesignProblem` case plus one `_DEFAULT_DESCENT` row; a new objective shape is one `Shape` member plus its `_objective()`/`target`/`cost`/`_floor_cost` arms, all `assert_never`-closed; a new descent engine is one `Descent` case mapping to its constructor in `Descent.solver`; a new feasibility constraint is one `Feasible` member plus one `_feasible()` row; a new evidence field is one `_OUTCOME_SLOTS` slot plus its case-tuple position with no `contribute` edit; a multi-start ensemble is the seeded `filter_vmap` restart axis already on `solve`.
@@ -33,8 +33,8 @@ from rasm.compute.graduation.handoff import EvidenceScope, evidence_run
 from rasm.compute.solvers.receipt import SolveStatus, status_of, verdict
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import BoundaryFault, RuntimeRail, boundary
-from rasm.runtime.lanes import LanePolicy, Modality
-from rasm.runtime.resilience import RetryClass
+from rasm.runtime.lanes import LanePolicy
+from rasm.runtime.workers import Kernel, KernelTrait
 from rasm.runtime.receipts import Receipt
 
 if TYPE_CHECKING:  # worker annotation carriers only; no package imports at runtime
@@ -87,7 +87,7 @@ class Objective(Struct, frozen=True):
     shape: Shape = Shape.SCALAR
 
     def target(self, y: "PyTree") -> "jax.Array":
-        # the SOLVE input: `least_squares` owns the ½‖r‖² reduction and the Jᵀr Jacobian internally, so `RESIDUAL` feeds the raw vector.
+        # SOLVE input: `least_squares` owns the ½‖r‖² reduction and the Jᵀr Jacobian internally, so `RESIDUAL` feeds the raw vector.
         import jax.numpy as jnp
 
         value = jnp.asarray(self.fn(y))
@@ -100,7 +100,7 @@ class Objective(Struct, frozen=True):
                 assert_never(unreachable)
 
     def cost(self, y: "PyTree") -> "tuple[jax.Array, jax.Array]":
-        # the RECEIPT projection: the differentiated reduction plus the reported scalar as the value-and-grad aux — ∇(½‖r‖²) = Jᵀr
+        # RECEIPT projection: the differentiated reduction plus the reported scalar as the value-and-grad aux — ∇(½‖r‖²) = Jᵀr
         # is the converged-design stationarity gradient on the residual route.
         import jax.numpy as jnp
 
@@ -255,8 +255,8 @@ async def solve(problem: "DesignProblem", lane: LanePolicy, /, *, descent: "Desc
     chosen = descent if descent is not None else _DEFAULT_DESCENT[problem.tag]
 
     async def dispatch() -> "RuntimeRail[OutcomeReceipt]":
-        # worker death rides `retry=RetryClass.OCCT` on the isolation leg only.
-        return (await lane.offload(_solve_kernel, problem, chosen, restarts, seed, modality=Modality.PROCESS, retry=RetryClass.OCCT)).bind(
+        # worker death rides the HOSTILE trait row on the isolation leg only.
+        return (await lane.offload(Kernel.of(_solve_kernel, KernelTrait.HOSTILE), problem, chosen, restarts, seed)).bind(
             lambda rail: rail
         )
 
@@ -276,7 +276,7 @@ def _mismatch(problem: "DesignProblem", descent: "Descent") -> "RuntimeRail[Outc
 
 
 def _backend(problem: "DesignProblem", descent: "Descent", restarts: int, seed: int) -> "RuntimeRail[OutcomeReceipt]":
-    # the railed digest threads into the deferred receipt builder through `Result.map`, so a digest fault rides the one rail.
+    # railed digest threads into the deferred receipt builder through `Result.map`, so a digest fault rides the one rail.
     objective = problem.carried
     railed = _backend_outcome(problem.tag, objective, descent, restarts, seed)
     return _design_key(problem.tag, objective.params, descent, restarts, seed).map(railed)
@@ -315,14 +315,14 @@ def _optimistix(tag: str, objective: "Objective", descent: "Descent", restarts: 
         best = int(jnp.argmin(scored))
         converged = eqx.combine(jax.tree_util.tree_map(lambda leaf: leaf[best], solution.value), static)
         steps = int(jnp.asarray(solution.stats["num_steps"])[best])
-        # the ensemble verdict folds the batched codes by `jnp.max`: `successful = 0`, so `max == 0` iff EVERY start converged —
+        # ensemble verdict folds the batched codes by `jnp.max`: `successful = 0`, so `max == 0` iff EVERY start converged —
         # a partial-failure ensemble surfaces a non-success code rather than masking a diverged start as `SUCCESS`.
     else:
         solution = run(design)
         converged = eqx.combine(solution.value, static)
         steps = int(solution.stats["num_steps"])
 
-    # the converged objective and the L∞ stationarity residual fold from one value-and-grad-with-aux pass; the residual norm rides
+    # converged objective and the L∞ stationarity residual fold from one value-and-grad-with-aux pass; the residual norm rides
     # `optx.max_norm` directly over the gradient PyTree, never a `numpy.asarray` detour.
     (_, reported), gradient = eqx.filter_value_and_grad(objective.cost, has_aux=True)(converged)
     objective_value, residual = float(reported), float(optx.max_norm(gradient))
@@ -331,7 +331,7 @@ def _optimistix(tag: str, objective: "Objective", descent: "Descent", restarts: 
 
 
 def _floor(tag: str, objective: "Objective") -> "Callable[[ContentKey], OutcomeReceipt]":
-    # the floor ravels the general design PyTree through `_ravel` — never `np.asarray(params)`, which silently stacks a tuple of
+    # floor ravels the general design PyTree through `_ravel` — never `np.asarray(params)`, which silently stacks a tuple of
     # equal-shaped leaves into one wrong-rank array and crashes on a ragged PyTree — and restores structure via the captured `unravel`.
     x0, unravel = _ravel(objective.params)
     cost, reported = _floor_cost(objective, unravel)
@@ -343,7 +343,7 @@ def _floor(tag: str, objective: "Objective") -> "Callable[[ContentKey], OutcomeR
 def _floor_cost(
     objective: "Objective", unravel: "Callable[[np.ndarray], PyTree]"
 ) -> "tuple[Callable[[np.ndarray], float], Callable[[np.ndarray], float]]":
-    # the host mirror of `Objective.cost`; `.item()` squeezes a singleton array where a bare `float(value)` crashes on non-0-d output,
+    # host mirror of `Objective.cost`; `.item()` squeezes a singleton array where a bare `float(value)` crashes on non-0-d output,
     # and `raw` runs the flat probe buffer back through `unravel` so `objective.fn` receives the structured design it is typed over.
     def raw(flat: np.ndarray) -> np.ndarray:
         return np.asarray(objective.fn(unravel(flat)), dtype=float)
@@ -374,7 +374,7 @@ def _central_difference_norm(cost: "Callable[[np.ndarray], float]", x0: np.ndarr
 
 
 def _ravel(params: "PyTree") -> "tuple[np.ndarray, Callable[[np.ndarray], PyTree]]":
-    # the pure-numpy host mirror of `jax.flatten_util.ravel_pytree` (which pulls the gated jaxlib package): leaves concatenate in
+    # pure-numpy host mirror of `jax.flatten_util.ravel_pytree` (which pulls the gated jaxlib package): leaves concatenate in
     # deterministic structure order — the SAME order `_design_key` keys over — and `unravel` rebuilds the original container.
     single = not isinstance(params, (tuple, list))
     leaves = [np.ascontiguousarray(np.asarray(leaf, dtype=float)) for leaf in ((params,) if single else params)]
@@ -436,7 +436,7 @@ class DesignProblem:
 
 @functools.cache
 def _objective() -> "Map[Shape, DesignEntry]":
-    # the gated import defers to first call; the lookup resolves only inside the `_optimistix` route the import guard fences.
+    # gated import defers to first call; the lookup resolves only inside the `_optimistix` route the import guard fences.
     import optimistix as optx
 
     return Map.of_seq([(Shape.SCALAR, optx.minimise), (Shape.RESIDUAL, optx.least_squares)])

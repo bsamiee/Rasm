@@ -1,8 +1,8 @@
 # [PY_DATA_STORE]
 
-The dense chunked N-D array store over one `TensorBackend` engine axis: `TensorStore` owns the `zarr` v3 array — chunk grid, three-slot codec pipeline, orthogonal region write — with `ZARR` the pure-Python sync engine and `TENSORSTORE` the async engine opening the IDENTICAL Zarr v3 chunk grid over a native `KvStore` backend. Out-of-core is not a backend but the `cubed` plan over either store, and the versioned and ragged dimensions live on their own `gridded/virtual` and `gridded/ragged` owners, never as backend tags here.
+One dense chunked N-D array store over one `TensorBackend` engine axis: `TensorStore` owns the `zarr` v3 array — chunk grid, three-slot codec pipeline, orthogonal region write — with `ZARR` the pure-Python sync engine and `TENSORSTORE` the async engine opening the IDENTICAL Zarr v3 chunk grid over a native `KvStore` backend. Out-of-core is not a backend but the `cubed` plan over either store, and the versioned and ragged dimensions live on their own `gridded/virtual` and `gridded/ragged` owners, never as backend tags here.
 
-The backend is recovered from the store URL scheme through the `runtime/roots#RESOURCE`-owned `OBJECT_STORE_SCHEMES` vocabulary — config as a domain value carrying its `create`/`write`/`read` behaviour, never an `engine=` flag set and never a parallel store class per engine. `TensorReceipt` and `PlanReceipt` key by one runtime `ContentIdentity`; the plan receipt carries the `allowed_mem` budget beside the measured peak the `cubed` executor records.
+Its backend is recovered from the store URL scheme through the `runtime/roots#RESOURCE`-owned `OBJECT_STORE_SCHEMES` vocabulary — config as a domain value carrying its `create`/`write`/`read` behaviour, never an `engine=` flag set and never a parallel store class per engine. `TensorReceipt` and `PlanReceipt` key by one runtime `ContentIdentity`; the plan receipt carries the `allowed_mem` budget beside the measured peak the `cubed` executor records.
 
 ## [01]-[INDEX]
 
@@ -21,7 +21,6 @@ from collections.abc import Awaitable, Callable, Iterable
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any, Final, Literal, assert_never
 
-import anyio
 import zarr
 import zarr.codecs.numcodecs as nc
 from beartype import beartype
@@ -53,7 +52,7 @@ class TensorChunking(Struct, frozen=True):
 
     @property
     def grid(self) -> ChunkGrid:
-        # the array-level grid: the outer `shards` when sharding, else `chunks` — tensorstore's `chunk_grid` reads this
+        # array-level grid: the outer `shards` when sharding, else `chunks` — tensorstore's `chunk_grid` reads this
         # while the `sharding_indexed` inner `chunk_shape` reads `chunks`.
         return self.shards or self.chunks
 
@@ -71,7 +70,7 @@ _COMPRESSOR: "Final[Map[Compressor, tuple[Callable[..., BytesBytesCodec], str, t
 ])
 
 
-# the serializer slot is the compressor-presence axis ONLY. Sharding is NOT a serializer case: `TensorChunking.shards` is
+# serializer slot is the compressor-presence axis ONLY. Sharding is NOT a serializer case: `TensorChunking.shards` is
 # its sole owner, and the native `create_array(shards=)` wrap keeps the whole inner pipeline, so a sharded store never drops
 # its compressor/filter choice to a hardcoded `ShardingCodec`.
 @tagged_union(frozen=True)
@@ -259,19 +258,20 @@ class TensorStore(Struct, frozen=True):
 
     @classmethod
     @beartype(conf=FAULT_CONF)
-    def create(
+    async def create(
         cls, ref: ResourceRef, shape: Shape, dtype: DType, chunking: TensorChunking, codec: TensorCodec = TensorCodec()
     ) -> "RuntimeRail[TensorStore]":
+        # async on the caller's loop — a per-call `anyio.run` mints a fresh loop and refuses to start inside a running one.
         backend = TensorBackend.for_ref(ref)
 
         async def _open() -> TensorStore:
             await backend.create(ref, shape, dtype, chunking, codec)
             return TensorStore(backend, ref, shape, chunking, dtype, codec)
 
-        return anyio.run(async_boundary, "tensor.create", _open)
+        return await async_boundary("tensor.create", _open)
 
-    def write_region(self, writes: "Write | Iterable[Write]") -> "RuntimeRail[TensorReceipt]":
-        # the `(TensorRegion(), _)` arm keeps a lone pair whole before the `Iterable` arm can shatter it; an empty snapshot
+    async def write_region(self, writes: "Write | Iterable[Write]") -> "RuntimeRail[TensorReceipt]":
+        # `(TensorRegion(), _)` keeps a lone pair whole before the `Iterable` arm can shatter it; an empty snapshot
         # is a typed `Error`, never a `writes[0]` `IndexError` escaping the rail.
         match writes:
             case (TensorRegion(), _) as lone:
@@ -287,14 +287,14 @@ class TensorStore(Struct, frozen=True):
             head = staged[0]
             return await self.backend.write(self.ref, *head) if len(staged) == 1 else await self.backend.write_many(self.ref, staged)
 
-        # the content key folds the `stream` modality over every written region in write order, so a plural snapshot never
+        # content key folds the `stream` modality over every written region in write order, so a plural snapshot never
         # collapses onto the last block; the atomic-vs-sequential disposition is the normalized count, never a flag.
-        return anyio.run(async_boundary, "tensor.write_region", _write).bind(
+        return (await async_boundary("tensor.write_region", _write)).bind(
             lambda stored: ContentIdentity.of("tensor", tuple(block.tobytes() for _, block in staged)).map(lambda key: _receipt(self, stored, key))
         )
 
-    def read_region(self, region: TensorRegion) -> "RuntimeRail[np.ndarray]":
-        return anyio.run(async_boundary, "tensor.read_region", lambda: self.backend.read(self.ref, region))
+    async def read_region(self, region: TensorRegion) -> "RuntimeRail[np.ndarray]":
+        return await async_boundary("tensor.read_region", lambda: self.backend.read(self.ref, region))
 
 
 _ZARR_WRITE: "Final[Map[Indexing, str]]" = Map.of_seq([("orthogonal", "set_orthogonal_selection"), ("vectorized", "set_coordinate_selection")])
@@ -451,7 +451,7 @@ flowchart LR
     Backend -->|cloud| TS["tensorstore.open zarr3 + KvStore + Transaction"]
     Codec["TensorCodec.pipeline / .metadata"] --> Zarr
     Codec --> TS
-    Zarr --> Rail["async_boundary driven by anyio.run"]
+    Zarr --> Rail["async_boundary on the caller's loop"]
     TS --> Rail
     Rail --> Receipt["TensorReceipt ContentIdentity.of"]
 ```
@@ -492,7 +492,7 @@ type Factorization = Literal["matmul", "svd", "qr", "svdvals", "tensordot", "out
 
 
 class PlanBudget(Struct, frozen=True):
-    # the one execution policy `plan` folds into `cubed.Spec`, never three loose scalars the body re-derives;
+    # one execution policy `plan` folds into `cubed.Spec`, never three loose scalars the body re-derives;
     # `reserved_mem=None` is the genuine "calibrate via `measure_reserved_mem`" value, distinct from a budget int.
     allowed_mem: str = "2GB"
     reserved_mem: str | None = None
@@ -501,7 +501,7 @@ class PlanBudget(Struct, frozen=True):
 
 DEFAULT_BUDGET: Final[PlanBudget] = PlanBudget()
 
-# the NaN-aware reductions live at `cubed.<name>` top-level, not the Array-API standard namespace, so the `reduce` arm
+# NaN-aware reductions live at `cubed.<name>` top-level, not the Array-API standard namespace, so the `reduce` arm
 # resolves these off the `cubed` module and the rest off `__array_namespace__()`.
 _NAN_REDUCTIONS: Final[frozenset[Reduction]] = frozenset({"nanmean", "nansum"})
 

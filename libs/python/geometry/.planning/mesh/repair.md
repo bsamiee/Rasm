@@ -2,11 +2,11 @@
 
 Robust mesh algebra: the canonical owner of the `manifold3d.Manifold` 3D boolean kernel and the `trimesh.repair` watertight-conditioning pass — the shared downstream primitive the tessellation, scan-reconstruction, clash-volume, and STEP hops compose. `MeshRepairOp` discriminates two kinds: `Condition` folds a selected `RepairStep` step-set over the supplied `trimesh.Trimesh`, and `Boolean` runs n-ary CSG through `manifold3d.Manifold.batch_boolean`. This owner conditions and combines triangulations in memory and never opens or writes a mesh file — decode/encode is the data `MeshPayload` owner's (`rasm.data.spatial.mesh`) across the `mesh ← data/spatial` seam.
 
-`to_manifold` is this owner's PUBLIC kernel: repair is the chartered `manifold3d` owner, so the one uint32-ceiling `Mesh`/`Mesh64` build lives here and the `mesh/spatial` and `mesh/quality` consumers compose it downward, never a re-spelled per-page build. A conditioned reconstruction graduates on the `reconstructed-mesh` subject and an n-ary CSG result on the `mesh-algebra` subject — geometry-minted `GeometrySubject` members. The CPU-bound kernel rides `LanePolicy.offload` (PEP 734) with the `@receipted(REDACTION)` egress streaming the typed receipt on the `Ok` path.
+`to_manifold` is this owner's PUBLIC kernel: repair is the chartered `manifold3d` owner, so the one uint32-ceiling `Mesh`/`Mesh64` build lives here and the `mesh/spatial` and `mesh/quality` consumers compose it downward, never a re-spelled per-page build. A conditioned reconstruction graduates on the `reconstructed-mesh` subject and an n-ary CSG result on the `mesh-algebra` subject — geometry-minted `GeometrySubject` members. Its CPU-bound kernel rides `LanePolicy.offload` on the `HOSTILE` trait — the `trimesh`/`manifold3d`/`numpy` band imports under no isolated subinterpreter, so the warm process pool is the one substrate that composes and the `trimesh.Trimesh` operands cross the pickle seam whole (numpy-backed, picklable) — and the `@receipted(REDACTION)` egress streams the typed receipt on the `Ok` path.
 
 ## [01]-[INDEX]
 
-- [01]-[MESH]: conditioning and boolean operations under one union over the `trimesh.repair` step table and the `manifold3d` `batch_boolean` kernel, offloaded to the subinterpreter lane, returning `RuntimeRail[MeshResult]`.
+- [01]-[MESH]: conditioning and boolean operations under one union over the `trimesh.repair` step table and the `manifold3d` `batch_boolean` kernel, offloaded to the warm process lane, returning `RuntimeRail[MeshResult]`.
 
 ## [02]-[MESH]
 
@@ -33,6 +33,7 @@ from rasm.geometry.graduation import GeometrySubject
 from rasm.runtime.faults import RuntimeRail
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.receipts import Phase, Receipt, Redaction, receipted
+from rasm.runtime.workers import Kernel, KernelTrait
 
 if TYPE_CHECKING:
     import manifold3d
@@ -61,10 +62,10 @@ class BooleanOp(StrEnum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# the full winding/normal/inversion/hole-fill/weld pass a non-watertight reconstruction needs before the boolean arm
+# full winding/normal/inversion/hole-fill/weld pass a non-watertight reconstruction needs before the boolean arm
 STEPS_WATERTIGHT: Final[Steps] = (RepairStep.FIX_WINDING, RepairStep.FIX_NORMALS, RepairStep.FIX_INVERSION, RepairStep.FILL_HOLES, RepairStep.WELD)
 
-# the orientation-only pass for an already-merged reconstruction whose coincident vertices need no re-weld
+# orientation-only pass for an already-merged reconstruction whose coincident vertices need no re-weld
 STEPS_ORIENT: Final[Steps] = (RepairStep.FIX_WINDING, RepairStep.FIX_NORMALS, RepairStep.FIX_INVERSION, RepairStep.FILL_HOLES)
 
 # keep-all policy: the verdicts and geometry measures are non-secret, so no field classifies.
@@ -163,7 +164,9 @@ _OPTYPES: Final[Map[BooleanOp, str]] = Map.of_seq((
 
 
 async def apply(op: MeshRepairOp, lane: LanePolicy) -> "RuntimeRail[MeshResult]":
-    return (await lane.offload(_dispatch, op)).map(_emit)
+    # HOSTILE is the declared trait: a bare callable would silently lift PURE onto a subinterpreter the native band
+    # never imports under, so the kernel names the warm process pool and its trait-default WORKER death retry.
+    return (await lane.offload(Kernel.of(_dispatch, KernelTrait.HOSTILE), op)).map(_emit)
 
 
 @receipted(REDACTION)
@@ -214,7 +217,7 @@ def _combined(meshes: Meshes, op: BooleanOp) -> MeshResult:
 
     opcode = _OPTYPES.try_find(op).default_with(lambda: _raise(RepairFault(unknown_step=op)))
     solid = manifold3d.Manifold.batch_boolean([to_manifold(m) for m in meshes], getattr(manifold3d.OpType, opcode))
-    status = solid.status()  # the kernel sets status rather than raising; a non-NoError soup rails, never a phantom solid
+    status = solid.status()  # kernel sets status rather than raising; a non-NoError soup rails, never a phantom solid
     _ = status is manifold3d.Error.NoError or _raise(RepairFault(rejected=status.name))
     soup = solid.to_mesh()
     mesh = trimesh.Trimesh(vertices=np.asarray(soup.vert_properties)[:, :3], faces=np.asarray(soup.tri_verts), process=True)

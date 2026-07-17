@@ -2,7 +2,7 @@
 
 `Signal` is the one classical signal-analysis owner: `SignalOp` discriminates the `scipy.signal` stationary rows — zero-phase IIR/FIR filtering, `welch`/`spectrogram` estimation, polyphase resampling, `find_peaks` structure — beside the `pywt` multiresolution rows — decimated/stationary decomposition with optional coefficient-shrink denoise, additive `mra` bands, the CWT scalogram, the frequency-ordered packet tree — on a single `Signal` surface, so a transient or non-stationary mode the Welch estimate averages away is first-class evidence on the same owner, never a per-transform method family. Output is parameterized as tightly as input: `SignalEvidence` discriminates one carrier per evidence shape and the thin `SignalReceipt` holds the union whole. No learned or neural filter enters this owner.
 
-Operands admit through `numerics/array.md#PAYLOAD` for the finite gate and the operand `ContentKey`; every PSD-bearing op reads its dominant band through the reused `SpectralReadout` axis from `analysis/transform.md#TRANSFORM` under that axis's linear-amplitude contract; the resolved receipt is the `ReceiptContributor` the study spine harvests through the `runtime/observability/receipts#RECEIPT` `@receipted` aspect. Both paths ride one numpy floor — scipy 1.17 lists this owner's `scipy.signal` entrypoints as out-of-scope or skip-backend for jax/dask/torch and `pywt` carries no Array-API contract — so every body opens on `np.asarray` over the runtime THREAD band. Receipts key the RESULT: `SignalOp.identity_buffer` folds op tag, payload rows, sample rate, and operand key into one `ContentIdentity.of` derivation, so distinct operations over one operand carry distinct receipt keys.
+Operands admit through `numerics/array.md#PAYLOAD` for the finite gate and the operand `ContentKey`; every PSD-bearing op reads its dominant band through the reused `SpectralReadout` axis from `analysis/transform.md#TRANSFORM` under that axis's linear-amplitude contract; the resolved receipt is the `ReceiptContributor` the study spine harvests through the `runtime/observability/receipts#RECEIPT` `@receipted` aspect. Both paths ride one numpy floor — scipy 1.17 lists this owner's `scipy.signal` entrypoints as out-of-scope or skip-backend for jax/dask/torch and `pywt` carries no Array-API contract — so every body opens on `np.asarray` over the runtime thread band under the `RELEASING` trait. Receipts key the RESULT: `SignalOp.identity_buffer` folds op tag, payload rows, sample rate, and operand key into one `ContentIdentity.of` derivation, so distinct operations over one operand carry distinct receipt keys.
 
 ## [01]-[INDEX]
 
@@ -20,7 +20,7 @@ from collections.abc import Callable, Iterable
 from enum import StrEnum
 from functools import cache
 from math import gcd
-from typing import Final, TYPE_CHECKING, Literal, assert_never
+from typing import TYPE_CHECKING, Literal, assert_never
 
 import numpy as np
 from expression import case, tag, tagged_union
@@ -31,9 +31,10 @@ from rasm.compute.analysis.transform import SpectralReadout
 from rasm.compute.numerics.array import ArrayPayload, ArraySource, FiniteGate
 from rasm.compute.graduation.handoff import EvidenceScope, evidence_run
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.lanes import LanePolicy, Modality
+from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.faults import RuntimeRail, boundary
 from rasm.runtime.receipts import Receipt
+from rasm.runtime.workers import Kernel, KernelTrait
 
 if TYPE_CHECKING:
     # `ModuleType` types the boundary-imported `scipy.signal` handle the Welch projection takes.
@@ -127,7 +128,7 @@ class SignalEvidence:
             case SignalEvidence(tag="peaks", peaks=(count, prominence)):
                 return {"peaks": count, "mean_prominence": prominence}
             case SignalEvidence(tag="multiresolution", multiresolution=(energy, residual, shrink)):
-                # the `ThresholdMode` member IS its `StrEnum` str — riding it whole keeps enum
+                # `ThresholdMode` member IS its `StrEnum` str — riding it whole keeps enum
                 # comparability at the receipt layer; a `.value` projection is the deleted coerce.
                 return {"level_energy": energy, "reconstruction_residual": residual, "shrink": shrink}
             case SignalEvidence(tag="scale", scale=(scale, hz)):
@@ -237,14 +238,14 @@ class SignalOp:
 
 # one row per DecompMode: `_decompose` indexes the (forward, inverse, max-level) triple and runs one forward and one inverse body
 # rather than a mode ternary repeated at decomposition and reconstruction. `@cache` defers the import-banned pywt load to first call.
-# The stationary forward trims via `trim_approx=True` so both axes return the same `[cAn, cDn, …, cD1]` list the shrink and inverse consume.
+# stationary forward trims via `trim_approx=True` so both axes return the same `[cAn, cDn, …, cD1]` list the shrink and inverse consume.
 @cache
 def _wavelet_routes() -> "Map[DecompMode, WaveletRoute]":
     import pywt
 
     # both forward rows share the (x, wavelet, level) positional contract — `level=` is keyword
     # because `wavedec`/`swt` take `mode` at the third positional slot; both inverse rows share
-    # the (coeffs, wavelet) contract so `waverec`/`iswt` pass through bare.
+    # their (coeffs, wavelet) contract so `waverec`/`iswt` pass through bare.
     return Map.of_seq([
         (
             DecompMode.DECIMATED,
@@ -261,7 +262,7 @@ def _wavelet_routes() -> "Map[DecompMode, WaveletRoute]":
 
 
 def _welch_band(sig: "ModuleType", x: "Array", fs: float, readout: SpectralReadout, nperseg: int = 256) -> tuple[float, float]:
-    # the one Welch projection every stationary arm folds through: the `(f, pxx)` PSD power spine square-roots to amplitude for the
+    # one Welch projection every stationary arm folds through: the `(f, pxx)` PSD power spine square-roots to amplitude for the
     # fold per the `SpectralReadout` linear-amplitude contract, while band power stays the Parseval integral `np.sum(pxx) * df`;
     # `min(nperseg, x.size)` keeps a short trace off the `welch` length error.
     f, pxx = sig.welch(x, fs=fs, nperseg=min(nperseg, x.size))
@@ -270,7 +271,7 @@ def _welch_band(sig: "ModuleType", x: "Array", fs: float, readout: SpectralReado
 
 
 def _coeff_energy(coeffs: Iterable[np.ndarray]) -> tuple[float, ...]:
-    # the per-band/per-node/per-scale magnitude-square contraction shared with the wavelet and
+    # per-band/per-node/per-scale magnitude-square contraction shared with the wavelet and
     # packet folds — `einsum("i,i->", ravel(c), ravel(c))` is the energy reduction owner.
     return tuple(float(np.einsum("i,i->", np.ravel(c), np.ravel(c))) for c in coeffs)
 
@@ -281,23 +282,20 @@ def _mad_threshold(detail_finest: np.ndarray, n: int) -> float:
     return sigma * float(np.sqrt(2.0 * np.log(n)))
 
 
-# the family modality row: policy DATA, never a per-page literal, never a compute-minted limiter.
-_MODALITY: Final[Modality] = Modality.THREAD
+def _signal_kernel(samples: object, fs: float, op: SignalOp) -> "RuntimeRail[SignalReceipt]":
+    # module-level so REFERENCE shipping resolves it by import — a closure would pay an eager cloudpickle
+    # round-trip the thread arm never needs.
+    return ArrayPayload.admit(ArraySource.Live(samples), (), FiniteGate.REJECT).bind(
+        lambda payload: ContentIdentity.of(f"signal.{op.tag}", op.identity_buffer(fs, payload.content_key)).bind(
+            lambda result_key: boundary(f"signal.{op.tag}", lambda: _apply(samples, fs, op, result_key))
+        )
+    )
 
 
 async def apply(samples: object, fs: float, op: SignalOp, lane: LanePolicy) -> "RuntimeRail[SignalReceipt]":
-    # the weave owns span, fence, and the `@receipted(REDACTION)` receipt harvest.
-    def kernel() -> RuntimeRail[SignalReceipt]:
-        return ArrayPayload.admit(ArraySource.Live(samples), (), FiniteGate.REJECT).bind(
-            lambda payload: ContentIdentity.of(f"signal.{op.tag}", op.identity_buffer(fs, payload.content_key)).bind(
-                lambda result_key: boundary(f"signal.{op.tag}", lambda: _apply(samples, fs, op, result_key))
-            )
-        )
-
+    # weave owns span, fence, and the `@receipted(REDACTION)` receipt harvest.
     async def dispatch() -> RuntimeRail[SignalReceipt]:
-        # a closure crosses the THREAD band legally — only the process lane demands
-        # module-qualified importables; signal's native work needs no process isolation.
-        return (await lane.offload(kernel, modality=_MODALITY)).bind(lambda rail: rail)
+        return (await lane.offload(Kernel.of(_signal_kernel, KernelTrait.RELEASING), samples, fs, op)).bind(lambda rail: rail)
 
     return await evidence_run(EvidenceScope.SIGNAL, f"signal.{op.tag}", dispatch)
 
@@ -316,7 +314,7 @@ def _apply(samples: object, fs: float, op: SignalOp, key: ContentKey) -> SignalR
             return SignalReceipt.of("filter", xn.size, key, SignalEvidence.Spectral(dominant, power))
         case SignalOp(tag="spectral", spectral=(nperseg, time_frequency, readout)):
             if time_frequency:
-                # the time-summed `np.sum(sxx, axis=-1)` POWER spine square-roots to amplitude for the fold — the comparable
+                # time-summed `np.sum(sxx, axis=-1)` POWER spine square-roots to amplitude for the fold — the comparable
                 # stationary view beside `Scalogram`; the band power stays the power.
                 sf, _, sxx = sig.spectrogram(xn, fs=fs, nperseg=min(nperseg, xn.size))
                 spine = np.sum(sxx, axis=-1)
@@ -328,7 +326,7 @@ def _apply(samples: object, fs: float, op: SignalOp, key: ContentKey) -> SignalR
             mean_prom = float(np.mean(props["prominences"])) if idx.shape[0] else 0.0
             return SignalReceipt.of("peaks", xn.size, key, SignalEvidence.Peaks(int(idx.shape[0]), mean_prom))
         case SignalOp(tag="resample", resample=(target, readout)):
-            # the polyphase up/down are the REDUCED rational ratio, not the raw rates: `gcd`
+            # polyphase up/down are the REDUCED rational ratio, not the raw rates: `gcd`
             # collapses (48000, 44100) to (160, 147) so the polyphase FIR is the minimal filter,
             # never an enormous up=48000/down=44100 kernel scipy would build verbatim.
             g = gcd(int(round(target)), int(round(fs)))
@@ -345,7 +343,7 @@ def _apply(samples: object, fs: float, op: SignalOp, key: ContentKey) -> SignalR
             )
         case SignalOp(tag="scalogram", scalogram=(wavelet, scales, resolution)):
             grid = np.asarray(scales) if scales else np.logspace(0.0, np.log(0.5 * xn.size), resolution, base=np.e)
-            # the FFT-domain CWT, not the direct convolution: the geometric grid is the many-scales
+            # FFT-domain CWT, not the direct convolution: the geometric grid is the many-scales
             # case `method='fft'` reduces from O(scales*n*filter) to one shared frequency-domain pass.
             coefs, freqs = pywt.cwt(xn, grid, wavelet, sampling_period=1.0 / fs, method="fft")
             mag = np.abs(np.asarray(coefs))
@@ -355,9 +353,9 @@ def _apply(samples: object, fs: float, op: SignalOp, key: ContentKey) -> SignalR
             tree = pywt.WaveletPacket(data=xn, wavelet=wavelet, mode="symmetric", maxlevel=maxlevel)
             leaves = tree.get_level(maxlevel, order="freq")
             energy = _coeff_energy(node.data for node in leaves)
-            # the frequency-ordered leaves ARE the band spectrum — each of the `2**maxlevel` nodes owns `[k, k+1) * fs / (2 * count)` —
+            # frequency-ordered leaves ARE the band spectrum — each of the `2**maxlevel` nodes owns `[k, k+1) * fs / (2 * count)` —
             # so the readout folds per-leaf energy (square-rooted to amplitude) over the band centres rather than re-running Welch on
-            # the raw trace, which would report the source band instead of the packet structure; `node_energy` stays energy.
+            # that raw trace, which would report the source band instead of the packet structure; `node_energy` stays energy.
             centres = (np.arange(len(energy)) + 0.5) * (0.5 * fs / len(energy))
             band = readout.fold(centres, np.sqrt(np.asarray(energy)))
             return SignalReceipt.of("packet", xn.size, key, SignalEvidence.Packet(energy, band))

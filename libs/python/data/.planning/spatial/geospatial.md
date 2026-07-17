@@ -1,8 +1,8 @@
 # [PY_DATA_GEOSPATIAL]
 
-The geospatial CLAIMS plane — one third of the spatial triptych, beside the `spatial/query#SPATIAL` in-DB engine and the `spatial/grid#GRID` DGG plane. `VectorGeoClaim` carries CRS/units/axis-order/geometry-family/precision over geopandas/shapely/pyogrio with pyproj backing the axis-order-aware `reproject` prelude and one `VectorOp` in-frame vector-algebra axis; `RasterGeoClaim` carries coverage/band/resampling/nodata/CRS with one `RasterOp` coverage axis spanning the in-memory and streaming/remote/VRT/sample/COG-write rows; `EgressFormat` is one `StrEnum` whose member value IS the OGR driver and whose `write` it carries. STAC claims live on `spatial/catalog#CATALOG` — `StacGeoClaim`/`StacIngest` are re-homed to the STAC-table owner, so this page holds no catalog import.
+Geospatial CLAIMS plane — one third of the spatial triptych, beside the `spatial/query#SPATIAL` in-DB engine and the `spatial/grid#GRID` DGG plane. `VectorGeoClaim` carries CRS/units/axis-order/geometry-family/precision over geopandas/shapely/pyogrio with pyproj backing the axis-order-aware `reproject` prelude and one `VectorOp` in-frame vector-algebra axis; `RasterGeoClaim` carries coverage/band/resampling/nodata/CRS with one `RasterOp` coverage axis spanning the in-memory and streaming/remote/VRT/sample/COG-write rows; `EgressFormat` is one `StrEnum` whose member value IS the OGR driver and whose `write` it carries. STAC claims live on `spatial/catalog#CATALOG` — `StacGeoClaim`/`StacIngest` are re-homed to the STAC-table owner, so this page holds no catalog import.
 
-`RasterGeoClaim.transform` is the provenance affine the `spatial/catalog#ASSETS` `AssetFold` constructs from `proj:transform`. The `GEOARROW` egress is the NATIVE buffer path — `to_arrow(geometry_encoding="geoarrow")` exports zero-copy extension arrays serialized as Arrow IPC, never a parquet byte-roundtrip — and `geoarrow_wire` is the `geoarrow-rust-compute` hand-off sharing the `csharp:Rasm.Compute` GLB wire layout. Every network-bearing read routes its blocking provider call through `guarded(RetryClass.HTTP, anyio.to_thread.run_sync, ...)`; every bundle keys by one runtime `ContentIdentity` folding the shared `tabular/columnar#SCAN` `QueryReceipt`. geopandas/shapely/rasterio ride the Forge scientific source build band, so every operation body binds its provider function-local under `# noqa: PLC0415`, never a subprocess seam.
+`RasterGeoClaim.transform` is the provenance affine the `spatial/catalog#ASSETS` `AssetFold` constructs from `proj:transform`. `GEOARROW` egress is the NATIVE buffer path — `to_arrow(geometry_encoding="geoarrow")` exports zero-copy extension arrays serialized as Arrow IPC, never a parquet byte-roundtrip — and `geoarrow_wire` is the `geoarrow-rust-compute` hand-off sharing the `csharp:Rasm.Compute` GLB wire layout. Every network-bearing read routes its blocking provider call through `guarded(RetryClass.HTTP, on_thread, ...)`, the `THREAD_BAND`-bounded hop; every bundle keys by one runtime `ContentIdentity` folding the shared `tabular/columnar#SCAN` `QueryReceipt`. geopandas/shapely/rasterio ride the Forge scientific source build band, so every operation body binds its provider function-local under `# noqa: PLC0415`, never a subprocess seam.
 
 ## [01]-[INDEX]
 
@@ -13,7 +13,7 @@ The geospatial CLAIMS plane — one third of the spatial triptych, beside the `s
 
 - Owner: `resampling` is the claim-level default an op overrides through `resampling or self.resampling`, never a per-op factory literal.
 - Cases: `Stream` folds each `block_windows` tile straight into one pre-allocated destination slice through `read(out=)`, so peak memory is the decimated destination plus one block — the one measured streaming-IO kernel where the `for` over tiles is the platform-forced boundary exemption. `VectorIngress`'s bare-`.dbf` attribute reads route through the same ESRI Shapefile driver, closing the struck-`csvkit` foreign-decode gap.
-- Entry: every op is an OTel span around a `boundary` fence binding its real provider-fault root (`RasterioError`/`ShapelyError`/`CRSError`/`DataSourceError`), never an un-narrowed `Exception`; the `reproject` prelude normalizes every binary operand onto one CRS with a no-op short-circuit, `to_crs` when the transform has an inverse and `set_crs` for a metadata-only label. The self-opening raster rows enter their own dataset inside one `ExitStack`, so the GDAL handle closes on the boundary exit before the railed receipt derives.
+- Entry: every op is an OTel span around a `boundary` fence binding its real provider-fault root (`RasterioError`/`ShapelyError`/`CRSError`/`DataSourceError`), never an un-narrowed `Exception`; the `reproject` prelude normalizes every binary operand onto one CRS with a no-op short-circuit, `to_crs` when the transform has an inverse and `set_crs` for a metadata-only label. Self-opening raster rows enter their own dataset inside one `ExitStack`, so the GDAL handle closes on the boundary exit before the railed receipt derives.
 - Growth: a new vector or raster operation is one `VectorOp`/`RasterOp` case; a new linear or geodesic verb one `LinearKind`/`GeodesicKind` row; a new constructive op one `ConstructKind` row plus its `_CONSTRUCT` behavior row; a new binary predicate one `JoinPredicate` row; a new resampling mode one `Resampling` literal arm mapped at the edge; a new VSI scheme one `VsiScheme` row; a new egress format one `EgressFormat` member; zero new surface.
 - Boundary: no host mutation, no durable store; no STAC claim or NDJSON-interchange arm on this page — the catalog owner homes them, and the STAC-interchange providers bind only inside it; `WarpedVRT` is GDAL-native streamed reproject, never a second byte-window transport beside the `tabular/egress` `obstore` rail.
 
@@ -28,8 +28,9 @@ from msgspec import Struct
 from opentelemetry import trace
 
 from rasm.data.tabular.columnar import QueryReceipt
-from rasm.runtime.faults import RuntimeRail, boundary
+from rasm.runtime.faults import RuntimeRail, async_boundary, boundary
 from rasm.runtime.identity import ContentIdentity, ContentKey
+from rasm.runtime.lanes import on_thread
 from rasm.runtime.resilience import RetryClass, guarded
 
 if TYPE_CHECKING:
@@ -338,12 +339,15 @@ class VectorGeoClaim(Struct, frozen=True):
     family: GeometryFamily
     precision: int
 
-    def apply(self, op: VectorOp, frame: "GeoDataFrame") -> "RuntimeRail[GeoDataFrame]":
+    async def apply(self, op: VectorOp, frame: "GeoDataFrame") -> "RuntimeRail[GeoDataFrame]":
         from pyproj.exceptions import CRSError  # noqa: PLC0415
         from shapely.errors import ShapelyError  # noqa: PLC0415
 
+        # overlay/join/dissolve walk whole frames — a blocking leg riding the banded thread hop, never the loop.
         with _TRACER.start_as_current_span(f"geo.vector.{op.tag}", attributes={"rasm.geo.crs": self.crs, "rasm.geo.op": op.tag}):
-            return boundary(f"geo.vector.{op.tag}", lambda: self._vector(op, frame), catch=(ShapelyError, CRSError, KeyError, ValueError))
+            return await async_boundary(
+                f"geo.vector.{op.tag}", lambda: on_thread(self._vector, op, frame), catch=(ShapelyError, CRSError, KeyError, ValueError)
+            )
 
     def reproject(self, frame: "GeoDataFrame") -> "GeoDataFrame":
         import pyproj  # noqa: PLC0415
@@ -413,7 +417,7 @@ class VectorGeoClaim(Struct, frozen=True):
             case VectorOp(tag="geodesic", geodesic=kind):
                 import pyproj  # noqa: PLC0415
 
-                # the WGS84 ellipsoid true-earth values a planar CRS transform cannot give; the
+                # WGS84 ellipsoid true-earth values a planar CRS transform cannot give; the
                 # geodesic runs over lon/lat geometry, so the claim CRS prelude has already landed 4326.
                 geod = pyproj.Geod(ellps="WGS84")
                 if kind is GeodesicKind.LINE:
@@ -431,24 +435,25 @@ class RasterGeoClaim(Struct, frozen=True):
     band_count: int
     resampling: Resampling
     nodata: float
-    # the source affine — six coefficients, or empty when unknown; each coverage op REPORTS the transform its
+    # source affine — six coefficients, or empty when unknown; each coverage op REPORTS the transform its
     # operation derives, so this claim slot is provenance, never a stale substitute for the op result.
     transform: tuple[float, ...] = ()
 
-    def apply(self, op: RasterOp, source: "DatasetReader") -> "RuntimeRail[CoverageResult]":
+    async def apply(self, op: RasterOp, source: "DatasetReader") -> "RuntimeRail[CoverageResult]":
         from rasterio.errors import RasterioError  # noqa: PLC0415
 
+        # reproject/mask/warp read full arrays — a blocking leg riding the banded thread hop, never the loop.
         with _TRACER.start_as_current_span(
             f"geo.raster.{op.tag}",
             attributes={"rasm.geo.crs": self.crs, "rasm.geo.op": op.tag, "rasm.geo.bands": self.band_count, "rasm.geo.resampling": self.resampling},
         ):
-            return boundary(f"geo.raster.{op.tag}", lambda: self._raster(op, source), catch=(RasterioError, ValueError)).bind(self._result)
+            railed = await async_boundary(f"geo.raster.{op.tag}", lambda: on_thread(self._raster, op, source), catch=(RasterioError, ValueError))
+            return railed.bind(self._result)
 
     async def apply_remote(self, op: RasterOp, source: "DatasetReader | None" = None) -> "RuntimeRail[CoverageResult]":
-        import anyio  # noqa: PLC0415
-
+        # abandon frees the band slot when an enclosing deadline trips — a wedged /vsicurl read runs out unobserved.
         with _TRACER.start_as_current_span(f"geo.raster.{op.tag}", attributes={"rasm.geo.remote": True, "rasm.geo.op": op.tag}):
-            acquired = await guarded(RetryClass.HTTP, anyio.to_thread.run_sync, lambda: self._remote_read(op, source), subject=f"geo.raster.{op.tag}")
+            acquired = await guarded(RetryClass.HTTP, on_thread, lambda: self._remote_read(op, source), abandon=True, subject=f"geo.raster.{op.tag}")
             return acquired.bind(self._result)
 
     def _remote_read(self, op: RasterOp, source: "DatasetReader | None") -> "_Coverage":
@@ -587,7 +592,7 @@ class RasterGeoClaim(Struct, frozen=True):
         import pyarrow as pa  # noqa: PLC0415
         from msgspec import json as msgjson  # noqa: PLC0415
 
-        # the content key hashes the REAL coverage bytes — the C-contiguous pixel buffer, or the
+        # content keys hash the REAL coverage bytes — the C-contiguous pixel buffer, or the
         # canonical msgspec-JSON row per feature for the object `Vectorize` array (a `repr()` byte
         # source is the folder key-law deleted form) — never a shape-shaped null placeholder.
         array = cover.array
@@ -603,7 +608,7 @@ class RasterGeoClaim(Struct, frozen=True):
 
 
 class VectorIngress(Struct, frozen=True):
-    # the OGR pushdown ingress row: selection lands in the driver scan (`columns`/`where`/`bbox`/
+    # OGR pushdown ingress row: selection lands in the driver scan (`columns`/`where`/`bbox`/
     # `mask`/`sql`), never a post-load filter; `use_arrow=True` rides the GDAL Arrow-capable build.
     path: str
     layer: str | None = None
@@ -652,7 +657,7 @@ def geoarrow_wire(frame: "GeoDataFrame") -> "RuntimeRail[tuple[pa.Table, Bounds]
 
 ## [03]-[COVERAGE]
 
-- Owner: `CoverageCf` — the `rioxarray` CF bridge: `lift` writes the claim CRS and the op-derived affine onto a bare-ndarray coverage through the `.rio` accessor (the CF `grid_mapping` convention, never a hand-copied CRS attribute), and `write_cog` is the LABELLED write — a CF cube lands as a COG without dropping to the bare array, the `odc-stac` coverage cube from `spatial/catalog#ASSETS` round-tripping through the same accessor. The `[02]-[GEO]` `WriteCog` row stays the ndarray-plane egress; each writer owns its carrier, never a second COG writer on either plane.
+- Owner: `CoverageCf` — the `rioxarray` CF bridge: `lift` writes the claim CRS and the op-derived affine onto a bare-ndarray coverage through the `.rio` accessor (the CF `grid_mapping` convention, never a hand-copied CRS attribute), and `write_cog` is the LABELLED write — a CF cube lands as a COG without dropping to the bare array, the `odc-stac` coverage cube from `spatial/catalog#ASSETS` round-tripping through the same accessor. `[02]-[GEO]`s `WriteCog` row stays the ndarray-plane egress; each writer owns its carrier, never a second COG writer on either plane.
 - Growth: a new CF raster verb is one accessor row; a new COG creation knob threads the `to_raster(**profile)` kwargs; zero new surface.
 
 ```python signature

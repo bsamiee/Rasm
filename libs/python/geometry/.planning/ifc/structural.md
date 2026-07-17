@@ -1,23 +1,23 @@
 # [PY_GEOMETRY_IFC_STRUCTURAL]
 
-The cross-section structural-property owner — the section-integral and structural-member verbs the analysis and lifecycle hops drop. `IfcStructural` resolves a closed-form section-property receipt from a profile polygon's ring coordinates by one `numpy` Green's-theorem contour fold over the `MOMENT_KERNELS` weight table (area, first and second area moments, centroid, principal second moments and principal-axis rotation, polar moment, the centroid-relative elastic section moduli, and the thin-walled Bredt torsion constant), then tiers that spine with two gated enrichment layers under one `EnrichmentTier` policy: the `ifcopenshell` layer reading `IfcStructuralAnalysisModel`/`IfcStructuralMember` topology onto the member, and the `sectionproperties` layer meshing the same rings into a triangular FE section for the warping, plastic, and shear receipts no closed-form integral derives. The C# `IfcSemanticModel` projects the spatial hierarchy in-process; this owner adds the numerical section dimension the managed projection does not produce.
+One cross-section structural-property owner — section-integral and structural-member verbs the analysis and lifecycle hops drop. `IfcStructural` resolves a closed-form section-property receipt from a profile polygon's ring coordinates by one `numpy` Green's-theorem contour fold over the `MOMENT_KERNELS` weight table (area, first and second area moments, centroid, principal second moments and principal-axis rotation, polar moment, centroid-relative elastic section moduli, thin-walled Bredt torsion constant), then tiers that spine with two gated enrichment layers under one `EnrichmentTier` policy: the `ifcopenshell` layer reads `IfcStructuralAnalysisModel`/`IfcStructuralMember` topology onto the member, the `sectionproperties` layer meshes the same rings into a triangular FE section for the warping, plastic, and shear receipts no closed-form integral derives. C#'s `IfcSemanticModel` projects the spatial hierarchy in-process; this owner adds the numerical section dimension the managed projection does not produce.
 
-The two enrichments are one `Enrichment` `@tagged_union` on a single `SectionReceipt.enrichment` field — the `entity` case carrying the structural-member GlobalIds, the `warping` case the FE `WarpingEvidence` value object — so a `CORE` receipt carries `Nothing`, never a `None`-slot bag racing the tier. Every profile-bearing query admits through `IfcSelector.filter`/`IfcSelector.parse` from `geometry:ifc/selector.md#SELECTOR` (the one selection engine, the only `filter_elements` caller), a `<selector>#<analysis-model-guid>` split feeding the member rings and the structural-model guid, so a malformed profile selector is a typed `Error(BoundaryFault)` at admission. The whole admission rides the graduation `evidence_run` weave under `EvidenceScope.IFC_SECTION`, so a provider exception, a degenerate ring, and an FE divergence each fold onto one `RuntimeRail[SectionReceipt]`. The receipt graduates as `GeometrySubject.SECTION_PROPERTY` carried by the `STRUCTURAL_SUBJECT` constant — the section-integral evidence class distinct from the compliance and lifecycle members its siblings bind — and `graduates()` returns the local `GeometryHandoff` whose `wire()` projection is the compute crossing. The spine rides the bare runtime (`numpy`) and never depends on either gated layer; the IFC-entity layer rides the `ifcopenshell` worker lane and the warping layer the `sectionproperties` worker lane (native mesh backend `cytriangle`, LGPLv3).
+Both enrichments are one `Enrichment` `@tagged_union` on a single `SectionReceipt.enrichment` field — the `entity` case carrying the structural-member GlobalIds, the `warping` case the FE `WarpingEvidence` value object — so a `CORE` receipt carries `Nothing`, never a `None`-slot bag racing the tier. Every profile-bearing query admits through `IfcSelector.filter`/`IfcSelector.parse` from `geometry:ifc/selector.md#SELECTOR` (the one selection engine, the only `filter_elements` caller), a `<selector>#<analysis-model-guid>` split feeding the member rings and the structural-model guid, so a malformed profile selector is a typed `Error(BoundaryFault)` at admission. Whole admission rides the graduation `evidence_run` weave under `EvidenceScope.IFC_SECTION`, so a provider exception, a degenerate ring, and an FE divergence each fold onto one `RuntimeRail[SectionReceipt]`. Receipt graduates as `GeometrySubject.SECTION_PROPERTY` carried by the `STRUCTURAL_SUBJECT` constant — the section-integral evidence class distinct from the compliance and lifecycle members its siblings bind — and `graduates()` returns the local `GeometryHandoff` whose `wire()` projection is the compute crossing. Spine rides the bare runtime (`numpy`) and never depends on either gated layer; every tier runs caller-floor by charter — the live `ifcopenshell.file` is a pybind11 handle no pickle seam carries and one per-profile FE solve is short-bounded work — with the `ifcopenshell` and `sectionproperties` bands (native mesh backend `cytriangle`, LGPLv3) bound function-local at their tier gates, so a `CORE` run loads neither.
 
 ## [01]-[INDEX]
 
-- [01]-[STRUCTURAL]: the section-integral spine and two gated enrichment tiers under one `EnrichmentTier` owner folding per-tier evidence into one `Enrichment` union, woven through the `evidence_run` graduation weave and emitting the `SECTION_PROPERTY` subject.
+- [01]-[STRUCTURAL]: section-integral spine and two gated enrichment tiers under one `EnrichmentTier` owner folding per-tier evidence into one `Enrichment` union, woven through the `evidence_run` graduation weave, emitting the `SECTION_PROPERTY` subject.
 
 ## [02]-[STRUCTURAL]
 
-- Owner: `IfcStructural` — the boundary capsule over the section-integral spine and the two gated enrichment tiers; the `EnrichmentTier` discriminant and the `Enrichment` evidence shape are the same union, so each tier is one `_dispatch` builder arm, never a sibling per-tier class.
-- Cases: `CORE` folds the closed-form section-integral receipt on the bare runtime interpreter; `IFC_ENTITY` adds the `IfcStructuralAnalysisModel`/`IfcStructuralMember` topology on the `ifcopenshell` worker lane; `WARPING` adds the FE warping/plastic/shear receipts on the `sectionproperties` worker lane. The spine never depends on either gated layer — the upper tiers add evidence only where their interpreter resolves.
-- Entry: `IfcStructural.run` takes an `ifcopenshell.file`, an `EnrichmentTier`, and a `spec` whose meaning the tier fixes — a `<selector>` profile-bearing query for `CORE`/`WARPING` resolving each element's `IfcProfileDef` rings off its material-profile assignment, a `<selector>#<analysis-model-guid>` query for `IFC_ENTITY` joining the members to their structural-analysis model — and returns `RuntimeRail[SectionReceipt]`. Graduation stays the caller's own step on `SectionReceipt.graduates(evidence_key, ceiling)`, mirroring `IfcAnalysis.run`/`IfcLifecycle.run`. The `subjects` field derives from the tier's true subject set — profile-bearing GlobalIds for `CORE`/`WARPING`, structural-member GlobalIds for `IFC_ENTITY`.
-- Auto: `_dispatch` is one `effect.result` builder — it binds the `IfcSelector` admission, the `_first_profile` head, the ring fold, and the spine `_integrate`, then the tier selects the enrichment. `_sample` dispatches the parametric subtypes through `PROFILE_SAMPLERS` (hollow rows ordered ahead of their solid supertypes so the first `is_a` match lands the hollow sampler) and falls through to the `IfcArbitraryClosedProfileDef` CoordList read — both hand the shape-agnostic contour integral the same ring tuple. `_entity` folds the `IsGroupedBy`/`IfcRelAssignsToGroup`-guarded `IfcStructuralMember` set — entity topology only, never re-deriving a section property, since the centroid-relative elastic section moduli are a closed-form spine field every tier carries. `_warping` builds the `pre.Geometry.from_points` region with one closed facet loop per ring plus each void's interior hole marker so the voids are carved boundaries, runs geometric→warping→plastic in the one prerequisite order, and reads `get_area` back to cross-check the `numpy` spine area (the `fe-area` residual); the FE torsion lands on `WarpingEvidence.fe_torsion_constant`, never overwriting the spine's thin-walled `torsion_constant`.
-- Receipt: `SectionReceipt` conforms structurally to `ReceiptContributor` — `contribute` emits one row carrying the tier tag, the section integrals, and the `Enrichment.facts` projection; `graduates` folds the tier-aware `measured` ledger onto `GeometryHandoff.of(STRUCTURAL_SUBJECT, ...)` rather than inlining a ceiling comparison. The `measured` ledger is data-driven by tier — the `ring-closure` residual (polar moment vs principal sum) for every tier, plus the `WARPING` `fe-area` FE-convergence residual — so a degenerate profile or a diverging FE mesh graduates as an `Error(BoundaryFault)`, never a clean section receipt.
+- Owner: `IfcStructural` — boundary capsule over the section-integral spine and two gated enrichment tiers; `EnrichmentTier` discriminant and `Enrichment` evidence shape are the same union, so each tier is one `_dispatch` builder arm, never a sibling per-tier class.
+- Cases: `CORE` folds the closed-form section-integral receipt on the bare runtime interpreter; `IFC_ENTITY` adds the `IfcStructuralAnalysisModel`/`IfcStructuralMember` topology behind its `ifcopenshell` tier gate; `WARPING` adds the FE warping/plastic/shear receipts behind its `sectionproperties` tier gate. Spine never depends on either gated layer — upper tiers add evidence only where their gated package resolves.
+- Entry: `IfcStructural.run` takes an `ifcopenshell.file`, an `EnrichmentTier`, and a `spec` whose meaning the tier fixes — a `<selector>` profile-bearing query for `CORE`/`WARPING` resolving each element's `IfcProfileDef` rings off its material-profile assignment, a `<selector>#<analysis-model-guid>` query for `IFC_ENTITY` joining the members to their structural-analysis model — and returns `RuntimeRail[SectionReceipt]`. Graduation stays the caller's own step on `SectionReceipt.graduates(evidence_key, ceiling)`, mirroring `IfcAnalysis.run`/`IfcLifecycle.run`. `subjects` derives from the tier's true subject set — profile-bearing GlobalIds for `CORE`/`WARPING`, structural-member GlobalIds for `IFC_ENTITY`.
+- Auto: `_dispatch` is one `effect.result` builder — it binds the `IfcSelector` admission, the `_first_profile` head, the ring fold, and the spine `_integrate`, then the tier selects the enrichment. `_sample` dispatches the parametric subtypes through `PROFILE_SAMPLERS` (hollow rows ordered ahead of their solid supertypes so the first `is_a` match lands the hollow sampler) and falls through to the `IfcArbitraryClosedProfileDef` CoordList read — both hand the shape-agnostic contour integral the same ring tuple. `_entity` folds the `IsGroupedBy`/`IfcRelAssignsToGroup`-guarded `IfcStructuralMember` set — entity topology only, never re-deriving a section property, since the centroid-relative elastic section moduli are a closed-form spine field every tier carries. `_warping` builds the `pre.Geometry.from_points` region with one closed facet loop per ring plus each void's interior hole marker so the voids are carved boundaries, runs geometric→warping→plastic in the prerequisite order, and reads `get_area` back to cross-check the `numpy` spine area (the `fe-area` residual); the FE torsion lands on `WarpingEvidence.fe_torsion_constant`, never overwriting the spine's thin-walled `torsion_constant`.
+- Receipt: `SectionReceipt` conforms structurally to `ReceiptContributor` — `contribute` emits one row carrying the tier tag, the section integrals, and the `Enrichment.facts` projection; `graduates` folds the tier-aware `measured` ledger onto `GeometryHandoff.of(STRUCTURAL_SUBJECT, ...)` rather than inlining a ceiling comparison. `measured` ledger is data-driven by tier — the `ring-closure` residual (polar moment vs principal sum) every tier, plus the `WARPING` `fe-area` FE-convergence residual — so a degenerate profile or a diverging FE mesh graduates as an `Error(BoundaryFault)`, never a clean section receipt.
 - Packages: `numpy` (the shoelace contour fold over `MOMENT_KERNELS`, `linalg.eigh` for the major-axis principal solution, the `PROFILE_SAMPLERS` curved-subtype polylines, `argsort` for the `_interior_point` marker); `expression` (the `effect.result` rail, `Block` folds for the member set and facet loops, the `Enrichment` union, `Option` rail lifts); `beartype` (the `ProfileRings` `Is` finiteness refinement at the `_integrate` fence); geometry graduation (`evidence_run`/`GeometryHandoff`/`GeometrySubject`); `geometry:ifc/selector.md#SELECTOR` (`IfcSelector.filter`/`parse` — the only `filter_elements` caller); `ifcopenshell` (`IfcProfileDef`/`IfcStructuralAnalysisModel`/`IfcStructuralMember` attributes over the in-process model, `CORE` reading only the profile); `sectionproperties` (`WARPING` tier only, native mesh backend `cytriangle`, LGPLv3); runtime rails.
 - Growth: a new section integral is one `MOMENT_KERNELS` row plus one `SectionReceipt` field; a new parametric profile subtype is one `PROFILE_SAMPLERS` row plus its ring constructor — the rings stay the universal input and the contour fold stays shape-agnostic, never a per-shape integral family; a new enrichment tier is one `EnrichmentTier` row plus one `Enrichment` case plus one `_dispatch` arm; a new warping/plastic measure is one `WarpingEvidence` field plus one `Section.get_*` accessor; a new selection axis is one `IfcSelector` grammar alternative, never a local query-parse fold; a stricter residual bar is one tighter ceiling row the caller supplies.
-- Boundary: no re-derivation of the C# `IfcSemanticModel` spatial hierarchy (projected in-process); no durable store, Rhino/GH mutation, or mesh/GLB write — the `WARPING` FE section mesh is an in-memory `sectionproperties` artifact consumed for its scalars, never a `mesh/repair.md` payload write. `ifcopenshell`/`sectionproperties` import function-local at the tier-gated boundary per the manifest import policy, so a `CORE` run never loads a gated package. The deterministic `sectionproperties` solve owns no transiency — a retry over it (a `stamina.retry` mint included) is a deleted form. The raw `spec` never threads past admission into `filter_elements` — `IfcSelector` re-serializes the validated query, the one selection engine.
+- Boundary: no re-derivation of the C# `IfcSemanticModel` spatial hierarchy (projected in-process); no durable store, Rhino/GH mutation, or mesh/GLB write — the `WARPING` FE section mesh is an in-memory `sectionproperties` artifact consumed for its scalars, never a `mesh/repair.md` payload write. `ifcopenshell`/`sectionproperties` import function-local at the tier-gated boundary per the manifest import policy, so a `CORE` run never loads a gated package. Deterministic `sectionproperties` solves own no transiency — a retry over it (a `stamina.retry` mint included) is a deleted form. Raw `spec` never threads past admission into `filter_elements` — `IfcSelector` re-serializes the validated query, the one selection engine.
 
 ```python signature
 from collections.abc import Callable
@@ -26,6 +26,7 @@ from typing import TYPE_CHECKING, Annotated, Final, Literal, assert_never
 
 import numpy as np
 from beartype import beartype
+from beartype.door import is_bearable
 from beartype.vale import Is
 from expression import Error, Nothing, Ok, Option, Some, case, tag, tagged_union
 from expression.collections import Block
@@ -56,13 +57,13 @@ type RingTuple = tuple[Ring, tuple[Ring, ...]]
 type _Moment = Callable[[Ring, Ring, Ring, Ring], Ring]
 type _Sampler = Callable[["ifcopenshell.entity_instance"], RingTuple]
 
-# the contract the @beartype(conf=FAULT_CONF) _integrate boundary checks: ≥3 finite vertices; a
+# ring admission contract `_rings` proves with `is_bearable` over outer AND every void: ≥3 finite vertices; a
 # NaN/empty/two-point ring rails through the CLASSIFY `api` row before the fold divides by a zero area.
 type ClosedRing = Annotated[Ring, Is[lambda r: r.ndim == 2 and r.shape[0] >= 3 and bool(np.isfinite(r).all())]]
 
 # --- [CONSTANTS] -----------------------------------------------------------------------
 
-# the SECTION_PROPERTY graduation member; an unlisted subject fails at the boundary under `ty`.
+# SECTION_PROPERTY graduation member; an unlisted subject fails at the boundary under `ty`.
 STRUCTURAL_SUBJECT: Final[GeometrySubject] = GeometrySubject.SECTION_PROPERTY
 
 # polyline fidelity of the curved parametric subtypes — the one tessellation policy a caller may sharpen.
@@ -97,7 +98,7 @@ PROFILE_SAMPLERS: Final[tuple[tuple[str, _Sampler], ...]] = (
 # --- [MODELS] --------------------------------------------------------------------------
 
 
-# the FE payload as one value object, carried only by Enrichment.warping.
+# FE payload as one value object, carried only by Enrichment.warping.
 class WarpingEvidence(Struct, frozen=True, gc=False):
     fe_torsion_constant: float
     fe_area: float
@@ -107,7 +108,7 @@ class WarpingEvidence(Struct, frozen=True, gc=False):
     mesh_elements: int
 
 
-# the tier discriminant and the evidence shape are one union.
+# tier discriminant and evidence shape are one union.
 @tagged_union(frozen=True)
 class Enrichment:
     tag: Literal["entity", "warping"] = tag()
@@ -126,7 +127,7 @@ class Enrichment:
 
 class ProfileRings(Struct, frozen=True, gc=False):
     outer: ClosedRing
-    voids: tuple[Ring, ...]
+    voids: tuple[ClosedRing, ...]
 
     @property
     def signed(self) -> tuple[tuple[Ring, float], ...]:
@@ -155,7 +156,7 @@ class SectionReceipt(Struct, frozen=True, gc=False):
         # relative residuals, so the denominator floors at _EPS, never 1.0.
         ledger = {"ring-closure": abs(self.polar_moment - sum(self.principal_moments)) / max(abs(self.polar_moment), _EPS)}
         match self.enrichment:
-            case Some(Enrichment(tag="warping", warping=fe)):
+            case Option(tag="some", some=Enrichment(tag="warping", warping=fe)):
                 return ledger | {"fe-area": abs(fe.fe_area - self.area) / max(self.area, _EPS)}
             case _:
                 return ledger
@@ -172,7 +173,7 @@ class SectionReceipt(Struct, frozen=True, gc=False):
         return Block.singleton(Receipt.of("rasm.geometry.ifc.structural", ("emitted", STRUCTURAL_SUBJECT, facts)))
 
     def graduates(self, evidence_key: ContentKey, ceiling: dict[str, float]) -> GeometryHandoff:
-        # the carrier's residual-over-ceiling `admitted` verdict gates; wire() is the compute crossing.
+        # carrier's residual-over-ceiling `admitted` verdict gates; wire() is the compute crossing.
         return GeometryHandoff.of(STRUCTURAL_SUBJECT, evidence_key, self.measured, ceiling)
 
 
@@ -223,7 +224,7 @@ class IfcStructural:
         elements = yield from IfcSelector.filter(model, selector)
         subjects = tuple(e.GlobalId for e in elements)
         profile = yield from IfcStructural._first_profile(selector, elements)
-        rings = IfcStructural._rings(profile)
+        rings = yield from IfcStructural._rings(profile)
         spine: SectionReceipt = yield from IfcStructural._integrate(rings, subjects)
         match tier:
             case EnrichmentTier.CORE:
@@ -244,7 +245,7 @@ class IfcStructural:
 
     @staticmethod
     def _entity(model: "ifcopenshell.file", subject: str, model_guid: str) -> "RuntimeRail[Enrichment]":
-        # the is_a("IfcRelAssignsToGroup") guard stops a non-grouping inverse raising on a missing
+        # is_a("IfcRelAssignsToGroup") guards stop a non-grouping inverse raising on a missing
         # RelatedObjects; an empty topology is a typed fault, not a silent ().
         model_node = model.by_guid(model_guid)
         members = Block.of_seq(
@@ -258,7 +259,7 @@ class IfcStructural:
 
     @staticmethod
     def _warping(subject: str, rings: ProfileRings, area: float) -> "RuntimeRail[Enrichment]":
-        # the deterministic cytriangle mesh-and-solve owns no transiency; a mesh failure folds onto the rail through the fence.
+        # deterministic cytriangle mesh-and-solve owns no transiency; a mesh failure folds onto the rail through the fence.
         def solve() -> Enrichment:
             import sectionproperties.analysis as spa  # noqa: PLC0415
             import sectionproperties.pre as spp  # noqa: PLC0415
@@ -287,9 +288,18 @@ class IfcStructural:
         return boundary(f"structural.warping.{subject}", solve)
 
     @staticmethod
-    def _rings(element: "ifcopenshell.entity_instance") -> ProfileRings:
+    def _rings(element: "ifcopenshell.entity_instance") -> "RuntimeRail[ProfileRings]":
+        # one admission fold over EVERY ring — outer and voids alike prove the `ClosedRing` refinement through
+        # `is_bearable` before construction, so an empty, two-point, or non-finite void rails typed here and
+        # `_integrate` stays total over non-degenerate rings; the parametric samplers construct well-formed
+        # rings, so this gate prices only the untrusted CoordList read.
         outer, voids = IfcStructural._sample(IfcStructural._profile(element))
-        return ProfileRings(outer=outer, voids=voids)
+        degenerate = tuple(at for at, ring in enumerate((outer, *voids)) if not is_bearable(ring, ClosedRing))
+        return (
+            Ok(ProfileRings(outer=outer, voids=voids))
+            if not degenerate
+            else Error(BoundaryFault(boundary=(element.is_a(), f"degenerate-ring:{degenerate}")))
+        )
 
     @staticmethod
     def _sample(profile: "ifcopenshell.entity_instance") -> RingTuple:
@@ -310,7 +320,7 @@ class IfcStructural:
 
     @staticmethod
     def _profile(element: "ifcopenshell.entity_instance") -> "ifcopenshell.entity_instance":
-        # the element is its own profile when it is one; else the material-profile chain resolves
+        # an element is its own profile when it is one; else the material-profile chain resolves
         # through a total is_a() match, falling back to the element for the arbitrary-closed read.
         if element.is_a("IfcProfileDef"):
             return element

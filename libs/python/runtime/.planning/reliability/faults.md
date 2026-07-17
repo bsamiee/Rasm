@@ -1,6 +1,6 @@
 # [PY_RUNTIME_FAULTS]
 
-The single fault family and `Result`/`Option` rail for the whole branch: `BoundaryFault` is the one tagged union every package returns through — seven ingress classes plus an `aggregate` case that keeps every member structurally addressable — and `RuntimeRail` is the one `Result[T, BoundaryFault]` carrier every fallible function returns. Domain logic returns `Result`/`Option` and never raises; exceptions convert exactly once at the owning boundary, and interior code receives only the rail. Absence rides the `expression` `Option` directly — no fault-bound alias, since `Option` carries no error slot to bind.
+One fault family and one `Result`/`Option` rail span the whole branch: `BoundaryFault` is the one tagged union every package returns through — seven ingress classes plus an `aggregate` case that keeps every member structurally addressable — and `RuntimeRail` is the one `Result[T, BoundaryFault]` carrier every fallible function returns. Domain logic returns `Result`/`Option` and never raises; exceptions convert exactly once at the owning boundary, and interior code receives only the rail. Absence rides the `expression` `Option` directly — no fault-bound alias, since `Option` carries no error slot to bind.
 
 One fault-lift core backs every application shape — the explicit-thunk `boundary`, the awaitable `async_boundary`, and the `@trapped` decorator — so the sync/async split is one coroutine-detection branch, never a parallel rail. Classification is the ordered data-driven `CLASSIFY` table, and the same conversion is the trace-egress seam: each caught exception is recorded on the active OTel span inside the one fold, the owner never minting, naming, or ending a span — span lifecycle stays with the measured operation. `latched`, the branch's one-shot install latch, and `Scope`/`SCOPES`, the one instrumentation-scope vocabulary every tracer, meter, and service literal mints from, live here because faults is the one tier below every consumer.
 
@@ -10,8 +10,8 @@ One fault-lift core backs every application shape — the explicit-thunk `bounda
 
 ## [02]-[FAULT]
 
-- Owner: `BoundaryFault` and its rail, tables, and cross-cutting tenants per the fence. The traversal split is by shape: `traversed` folds a homogeneous `Block` of already-evaluated rails under one `Disposition`, while `railed` is the bound `effect.result` builder for free-form interleaved binds whose later steps depend on earlier bound values — a variadic short-circuit collector beside them is `traversed(by=ABORT)` re-spelled and never lands.
-- Cases: `wire` is reserved for explicit code-carrying construction where a numeric protocol/status code is the discriminant; a caught codec exception carries no code, so the `CLASSIFY` `msgspec` row lands it in the subject-carrying `boundary` case. A deadline-owning fence constructs `deadline` explicitly with its real budget and tripped-axis `cause`; the `CLASSIFY` `TimeoutError` row, with no budget in hand, defaults `budget` to `0.0` — the budget-unknown floor a consumer reads as unspecified, never a true zero deadline.
+- Owner: `BoundaryFault` and its rail, tables, and cross-cutting tenants per the fence. Traversal splits by shape: `traversed` folds a homogeneous `Block` of already-evaluated rails under one `Disposition`, while `railed` is the bound `effect.result` builder for free-form interleaved binds whose later steps depend on earlier bound values — a variadic short-circuit collector beside them is `traversed(by=ABORT)` re-spelled and never lands.
+- Cases: `config` versus `boundary` splits on who can repair the refusal — `config` carries a caller-repairable construction refusal (a policy value, roster, credential row, or precondition the same inputs deterministically refuse), while `boundary` carries the seam classification of a provider or runtime raise during work (a codec, render, parse, or engine failure a re-issue may clear), so a render-class or draw-class fault rides `boundary=` and a refused composition rides `config=` in every consumer. `wire` is reserved for explicit code-carrying construction where a numeric protocol/status code is the discriminant; a caught codec exception carries no code, so the `CLASSIFY` `msgspec` row lands it in the subject-carrying `boundary` case. A deadline-owning fence constructs `deadline` explicitly with its real budget and tripped-axis `cause`; the `CLASSIFY` `TimeoutError` row, with no budget in hand, defaults `budget` to `0.0` — the budget-unknown floor a consumer reads as unspecified, never a true zero deadline.
 - Entry: the three lift shapes share one `_convert`; `catch` admits a class tuple so an engine boundary narrows over its real multi-class raise surface instead of the `Exception` catch-all, and it never widens past `Exception` — converting the `anyio` cancellation exception into a fault is the forbidden widening, cancellation being scope-owned flow control rather than an ingress class.
 - Auto: `facts` is the one structured egress projection the `observability/receipts#RECEIPT` `rejected` projection spreads whole, so every leaf case carries its own `subject` inline and the receipts owner re-derives nothing.
 - Packages: `expression`, `beartype`, `msgspec`, `anyio`, and `opentelemetry-api` per the fence imports; the OTel dependency is `-api` only — the owner reads the active span and never touches the SDK or a tracer mint.
@@ -38,7 +38,8 @@ from opentelemetry.trace import Status, StatusCode
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type FaultTag = Literal["config", "resource", "deadline", "api", "import_", "wire", "boundary", "aggregate"]
-type ClassifyRow = tuple[type[BaseException] | tuple[type[BaseException], ...], Callable[[str, BaseException], "BoundaryFault"]]
+type ClassifyMarker = type[BaseException] | tuple[type[BaseException], ...] | frozenset[str]
+type ClassifyRow = tuple[ClassifyMarker, Callable[[str, BaseException], "BoundaryFault"]]
 type RuntimeRail[T] = Result[T, "BoundaryFault"]
 type Trapped[**P, T] = Callable[P, RuntimeRail[T]] | Callable[P, Awaitable[RuntimeRail[T]]]
 
@@ -76,8 +77,8 @@ class BoundaryFault:
 
     @staticmethod
     def of(subject: str, cause: BaseException) -> "BoundaryFault":
-        # the catch-all keeps `str(cause)` (the message is its discriminant); CLASSIFY rows keep the type name — their tag IS the type.
-        matched = CLASSIFY.choose(lambda row: Some(row[1](subject, cause)) if isinstance(cause, row[0]) else Nothing)
+        # catch-all keeps `str(cause)` (the message is its discriminant); CLASSIFY rows keep the type name — their tag IS the type.
+        matched = CLASSIFY.choose(lambda row: Some(row[1](subject, cause)) if _hits(row[0], cause) else Nothing)
         return matched.try_head().default_with(lambda: BoundaryFault(boundary=(subject, str(cause) or type(cause).__name__)))
 
     @staticmethod
@@ -123,12 +124,40 @@ class BoundaryFault:
 # --- [TABLES] ---------------------------------------------------------------------------
 
 # row order is load-bearing: `TimeoutError` subclasses `OSError`, so the `deadline` row must precede the `resource` row
-# or the first-match fold coalesces a timeout into `resource`.
+# or the first-match fold coalesces a timeout into `resource`, and the asyncssh terminal rows precede the channel row
+# because `HostKeyNotVerifiable`/`PermissionDenied` SUBCLASS `DisconnectError`. A frozenset row matches by MODULE-QUALIFIED
+# qualname over the MRO — a gated executor's death (loky/pebble pool markers) and a gated SSH channel's death classify with
+# zero provider imports at this BASE tier, and the defining-module anchor keeps an unrelated class re-using a provider's
+# bare name from classifying; a builtin would spell `builtins.<Name>`, but every builtin here rides its own class row.
 CLASSIFY: Final[Block[ClassifyRow]] = Block.of_seq([
     (TimeoutError, lambda subject, cause: BoundaryFault(deadline=(subject, 0.0, str(cause) or type(cause).__name__))),
     ((msgspec.ValidationError, msgspec.DecodeError), lambda subject, cause: BoundaryFault(boundary=(subject, type(cause).__name__))),
     (BeartypeCallHintViolation, lambda subject, cause: BoundaryFault(api=(subject, type(cause).__name__))),
     (ImportError, lambda subject, cause: BoundaryFault(import_=(subject, type(cause).__name__))),
+    (
+        # caller-repairable refusals land `config`: a kernel nesting pools past LOKY_MAX_DEPTH, and the asyncssh trust and
+        # credential rows a re-issue never clears — the fleet counterpart of a bad policy value.
+        frozenset({"loky.process_executor.LokyRecursionError", "asyncssh.misc.HostKeyNotVerifiable", "asyncssh.misc.PermissionDenied"}),
+        lambda subject, cause: BoundaryFault(config=(subject, type(cause).__name__)),
+    ),
+    (
+        # pool deaths: loky mints its own subclass tree while pebble surfaces the STDLIB BrokenProcessPool, so both
+        # spellings ride the row and the interpreter-pool death matches its concurrent.futures home.
+        frozenset({
+            "loky.process_executor.TerminatedWorkerError",
+            "loky.process_executor.BrokenProcessPool",
+            "loky.process_executor.ShutdownExecutorError",
+            "concurrent.futures.process.BrokenProcessPool",
+            "concurrent.futures.interpreter.BrokenInterpreterPool",
+            "pebble.common.types.ProcessExpired",
+        }),
+        lambda subject, cause: BoundaryFault(resource=(subject, type(cause).__name__)),
+    ),
+    (
+        # asyncssh channel deaths — the remote arm's worker-death names, classified at the same bar as the local pools.
+        frozenset({"asyncssh.misc.DisconnectError", "asyncssh.misc.ChannelOpenError"}),
+        lambda subject, cause: BoundaryFault(resource=(subject, type(cause).__name__)),
+    ),
     (
         (
             anyio.BrokenWorkerProcess,
@@ -142,7 +171,7 @@ CLASSIFY: Final[Block[ClassifyRow]] = Block.of_seq([
     ),
 ])
 
-# the one shared domain BeartypeConf: binding it makes every contract violation raise the canonical
+# one shared domain BeartypeConf: binding it makes every contract violation raise the canonical
 # BeartypeCallHintViolation the CLASSIFY `api` row folds onto the rail, so no adapter re-catches inline.
 FAULT_CONF: Final[BeartypeConf] = BeartypeConf(violation_type=BeartypeCallHintViolation)
 
@@ -159,6 +188,17 @@ SCOPES: Final[Map[Scope, str]] = Map.of_seq([
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+def _hits(marker: ClassifyMarker, cause: BaseException) -> bool:
+    match marker:
+        case frozenset() as names:
+            # module-qualified qualname over the MRO — isinstance semantics for a provider class this tier never
+            # imports, the defining-module anchor rejecting an unrelated class that re-uses a provider's bare name;
+            # the resilience `_transient` retry predicate carries the same dotted-spelling convention.
+            return any(f"{klass.__module__}.{klass.__qualname__}" in names for klass in type(cause).__mro__)
+        case classes:
+            return isinstance(cause, classes)
 
 
 def _convert(subject: str, cause: BaseException) -> BoundaryFault:
@@ -221,7 +261,7 @@ def traversed[T](rails: Block[RuntimeRail[T]], *, by: Literal[Disposition.PARTIT
 def traversed[T](
     rails: Block[RuntimeRail[T]], *, by: Disposition = Disposition.ABORT
 ) -> RuntimeRail[Block[T]] | RuntimeRail[tuple[Block[T], Block[BoundaryFault]]]:
-    # the overloads carry the per-disposition output shape so a caller narrows on the `Disposition` literal it passes,
+    # overloads carry the per-disposition output shape so a caller narrows on the `Disposition` literal it passes,
     # never on the runtime union; only `PARTITION` widens the Ok arm to the `(values, faults)` tuple.
     match by:
         case Disposition.ABORT:

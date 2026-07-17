@@ -2,39 +2,43 @@
 
 `Conformance` is the PDF cryptographic-conformance close over the document rail at the exchange boundary — ONE closed `tagged_union` whose `sign`/`stamp`/`augment`/`reserve`/`audit` cases fold a PDF emitted by `document/emit#DOCUMENT` into a PAdES-signed, document-timestamped, LTV-archival, seed-value-reserved, and audited `ConformanceVerdict`, the union owning the dispatch, the async entry, AND every case body directly as a method. `pyhanko` applies PAdES baseline signatures (B-B/B-T/B-LT/B-LTA) through `PdfSigner`; the `stamp` arm a signer-free RFC-3161 `/DocTimeStamp` proof-of-existence via `PdfTimeStamper.timestamp_pdf`; the `augment` arm LTV maintenance via `add_validation_info` + `update_archival_timestamp_chain`; the `reserve` arm a signer-less empty field carrying a `SigSeedValueSpec` seed-value policy (the multi-party prepare stage whose paired FILL arm is `sign`'s `FieldPlacement(reserved)` modality, so a licensed counterparty signs the constrained field rather than minting a second); and the `audit` arm resiliently folds EVERY embedded `/Sig` through `validate_pdf_signature` and EVERY `/DocTimeStamp` through `validate_pdf_timestamp`, a broken signature projected to `Nothing` (counted, never fatal), into one typed `ConformanceVerdict`.
 
-`SignerSource`, the closed signer-credential union (`PemKey`/`Pkcs12Bundle`/`ExternalSig`), reads its tagged case through the `@beartype(conf=FAULT_CONF)`-woven `cms()` projector — `cms` for the CMS/CAdES container PAdES rides, mirroring the `exchange/credential#CREDENTIAL` sibling's `cose()`. `Conformance.close` is `async` over `async_boundary`, offloading the synchronous `pyhanko`/`pikepdf` calls through the thread lane under `RetryClass.OCCT` so the RFC-3161 timestamp and OCSP/CRL network I/O never block the loop, and returns `RuntimeRail[tuple[ContentKey, ConformanceVerdict]]`. `ConformanceVerdict` is the one acyclic value-object edge `core/receipt#RECEIPT`'s `Verdict` case imports — `receipt.py` spreads `verdict.facts()`, never reciprocally importing `ArtifactReceipt`, the consumer minting `ArtifactReceipt.Verdict(key, verdict)`. This PAdES close is orthogonal to the `exchange/credential#CREDENTIAL` C2PA content-authenticity bind — a PDF routes here, a raster/BMFF/audio asset to the c2pa rail.
+`SignerSource`, the closed signer-credential union (`PemKey`/`Pkcs12Bundle`/`ExternalSig`), reads its tagged case through the `@beartype(conf=FAULT_CONF)`-woven `cms()` projector — `cms` for the CMS/CAdES container PAdES rides, mirroring the `exchange/credential#CREDENTIAL` sibling's `cose()` — and the `external` case is the TWO-PHASE HSM/remote lifecycle: `digest_doc_for_signing` prepares the byte-range digest, the `sign_digest` callback hands the DER signed-attributes to the non-exportable key, and `sign_prescribed_attributes` + `fill_with_cms` inject and finalize the TBS document, never precomputed signature bytes through the one-pass path. `close(lane)` is the rich public egress — `RuntimeRail[tuple[ContentKey, bytes, ConformanceVerdict]]`, the produced PDF keyed by `ContentIdentity.key` over its OWN bytes beside the verdict — crossing the caller-threaded `LanePolicy.offload` seam as a `KernelTrait.RELEASING` kernel so the RFC-3161 timestamp and OCSP/CRL network I/O never block the loop, the `@stamina.retry(on=_TRANSIENT)` weave re-attempting only `TimestampRequestError` on the signer-free TSA arms. `ConformanceVerdict` is DECLARED on `core/receipt#RECEIPT` (the shape's consumers all sit on that seam) and imported DOWN here to be minted; `emit(lane)` is the pipeline node whose `_emit` projects the triple onto `ArtifactReceipt.Verdict(key, verdict)`. This PAdES close is orthogonal to the `exchange/credential#CREDENTIAL` C2PA content-authenticity bind — a PDF routes here, a raster/BMFF/audio asset to the c2pa rail.
 
 ## [01]-[INDEX]
 
-- [01]-[CONFORMANCE]: the PDF cryptographic-conformance owner that IS the closed `Conformance` union (`sign`/`stamp`/`augment`/`reserve`/`audit`) over the `SignerSource` credential union, the `Appearance`/`FieldPlacement`/`PadesLevel`/`Digest` policy vocabularies, and the resilient multi-signature audit folding one `ConformanceVerdict` the `core/receipt#RECEIPT` `Verdict` case carries.
+- [01]-[CONFORMANCE]: the PDF cryptographic-conformance owner that IS the closed `Conformance` union (`sign`/`stamp`/`augment`/`reserve`/`audit`) over the `SignerSource` credential union, the `Appearance`/`FieldPlacement`/`PadesLevel`/`Digest` policy vocabularies, and the resilient multi-signature audit folding the `core/receipt#RECEIPT`-declared `ConformanceVerdict`, egressed as the `(ContentKey, bytes, ConformanceVerdict)` triple through `close`.
 
 ## [02]-[CONFORMANCE]
 
-- Owner: `Conformance` is the one close owner AND the closed `tagged_union` over its own `(bytes, spec)` payload — `sign`/`stamp`/`augment`/`reserve`/`audit` by one total `match`, the async `close`/`_produced`/`_run` entry, the shared `_sink` byte-emit fold every producing arm routes through, the shared `_audited` self-audit epilogue every case converges on, every case-body method folded onto the union, never a one-field wrapper over a separate op union nor a free module function. `SignerSource` reads its tagged case through the `@beartype(conf=FAULT_CONF)`-woven `cms()` (a malformed credential lifts onto the fault rail past the thread-offload), never parallel `key_file`/`pfx_file` nullable fields. `Appearance`'s `plan()` folds each invisible/visible case to the `PdfSigner` `stamp_style`, the matching `SigFieldSpec` kwarg, and the text-param dict in ONE `match`, so `_signed` drives the engine once across both modalities. `FieldPlacement` (`new`/`reserved`) is the field-provisioning family `sign` discriminates on — `new` a `NewField` placed at signing, `reserved` the FILL of a `reserve`-created empty seed-value field — so `_signed` targets fresh OR reserved on one drive and the reserve→fill lifecycle closes; the field-creation fields ride the `new` case alone, never dead weight on the fill path. `PadesLevel`'s derived `needs_timestamp`/`embeds_validation`/`archival` carry the LTV chain behavior and its `classify` folds the achieved level; `SignerConstraint`, `DssPolicy`, `Digest`, `SigKind`, `KeyUsage`/`ExtKeyUsage`, `Commitment`, `CertifyPerm`/`DiffMode` project their `pyhanko` counterparts through derived name- or value-correspondence tables, never hand-enumerated parallel maps. `_Tally`/`_Primary` are the one-pass aggregate-fold and primary-identity projection the audit folds the live statuses through. Two `document/tagged`-sourced booleans thread the spec — `structural_conformant` (the `document/tagged#ACCESS` PDF/UA pass) and the SECOND consumed `archival_conformant` (the `document/tagged#ARCHIVE` VALIDATED PDF/A close) — projected beside the self-declared `pdfa_claim`, the archival boolean threaded EXACTLY as the structural one. `pyhanko` owns the CMS/CAdES/PAdES engine, seed-value reservation, DSS/LTV embedding, RFC-3161 chaining, and validation; `pikepdf` owns the page-count and PDF/A·PDF/X claim read. `ConformanceVerdict` is declared here so it is leaf-imported by `core/receipt#RECEIPT` without a reciprocal import.
-- Cases: `sign(pdf, SignSpec)` drives one `PdfSigner(stamp_style=).sign_pdf` over an `IncrementalPdfFileWriter` — the `FieldPlacement` create-or-FILL modality, the `Appearance` seal axis, the optional `Commitment`→`CAdESSignedAttrSpec`, the `signer_key_usage`/`DssPolicy` policies, the `HTTPTimeStamper` over `tsa_url`, the `ValidationContext` for B-LT/B-LTA · `stamp(pdf, StampSpec)` the signer-free RFC-3161 `/DocTimeStamp` via `PdfTimeStamper.timestamp_pdf` · `augment(pdf, AugmentSpec)` LTV maintenance — `add_validation_info` over every `/Sig` index then `update_archival_timestamp_chain` when `tsa_url` is supplied · `reserve(pdf, ReserveSpec)` the signer-free `append_signature_field` placing an empty `SigSeedValueSpec`-constrained field (the `SigSeedValFlags` set derived from populated axes, the optional `SignerConstraint` `/Cert` binding fencing the field to a named future signer) · `audit(pdf, AuditSpec)` the resilient multi-signature pass folding every `/Sig`/`/DocTimeStamp`, censusing the EMPTY fields through `enumerate_sig_fields(filled_status=False)` in the SAME read, projecting one `ConformanceVerdict` — one total `match`, never `is`-probes. `sign`/`augment`/`reserve` self-audit the produced PDF, so every op yields one verdict shape — a `reserve` verdict carries `fields_awaiting=1`, the honest audit of a field awaiting its signer that a paired `sign(placement=reserved)` fill drops to `0`.
-- Auto: `_produced` folds the case through one total `match` binding the produced bytes and its `AuditSpec`, and `_run` self-audits through one shared `_audited` site so every arm converges on one verdict shape. Every producing arm emits through the one `_sink` fold rather than re-spelling the append-only sink ceremony per body. `_signed` drives ONE `PdfSigner` across both `FieldPlacement` modalities — `new` building `new_field_spec` with `existing_fields_only=False`, `reserved` passing `new_field_spec=None` and `existing_fields_only=True` to FILL the reserve-created field, the seal still riding `stamp_style`. `_audited` reads `embedded_signatures` ONCE and splits it through one `Block.partition` on `SigKind.SIGNATURE`, validates each half through the `_resilient[T]` trap composing `catch(exception=SignatureValidationError)` (a broken signature/stamp → `Nothing`, counted never fatal), folds the live statuses in ONE `live.fold(_Tally.step, ...)` accumulating every aggregate in a single traversal (the weakest-link `min` coverage admitting `None` as `UNCLEAR`, the worst-case `max` modification), projects the primary through ONE `_Primary.of` map, reads the DSS behind a `"/DSS" in reader.root` guard, and censuses the EMPTY fields through `enumerate_sig_fields(filled_status=False)` in the same read — never a nine-pass scatter or per-projector `try`/`except`.
-- Receipt: every op produces one `ConformanceVerdict` the `core/receipt#RECEIPT` `ArtifactReceipt.Verdict` case carries as `tuple[ContentKey, ConformanceVerdict]`; `receipt.py` spreads `verdict.facts()` and this owner never reciprocally imports `ArtifactReceipt`, so the value-object edge is the single acyclic leaf edge — the `core/plan#PLAN` planner mints `ArtifactReceipt.Verdict(key, verdict)` from the returned pair. `facts()` derives through `structs.asdict(self)` — one edit site that cannot drift — projecting NATIVE scalars onto the `EventDict` so the `observability/metrics` `MeterProvider` and the log consumer read numbers and booleans, never pre-stringified text. `pdfa_claim` (the self-declared XMP claim, what the file writes about itself) and `archival_conformant` (the validated in-process `pdf_oxide.validate_pdf_a` Rust-oracle verdict the `document/tagged#ARCHIVE` owner PROVES) are distinct evidence carried side by side, so the archival-delivery plane reads a validated close, never a self-assertion.
-- Packages: `pyhanko` (`SimpleSigner.load`/`load_pkcs12`, `ExternalSigner`, `load_certs_from_pemder`, `PdfSigner(...).sign_pdf(existing_fields_only=, appearance_text_params=, output=)` the deepest signing surface driving BOTH new-field placement and the `existing_fields_only=True` FILL of a reserve-created field, `IncrementalPdfFileWriter.write`, `PdfFileReader.embedded_signatures`, `HTTPTimeStamper`, `TimestampRequestError`, `PdfTimeStamper.update_archival_timestamp_chain`/`timestamp_pdf`, `PdfSignatureMetadata`, `append_signature_field`, `enumerate_sig_fields(filled_status=False)` the EMPTY-field census, `SigFieldSpec`, `SigSeedValueSpec`, `SigCertConstraints`/`SigCertKeyUsage`/`SigCertConstraintFlags`, `SigSeedValFlags`, `SigSeedSubFilter.PADES`, `FieldMDPSpec`/`MDPPerm`, `CAdESSignedAttrSpec`/`GenericCommitment.*.asn1`, `DSSContentSettings`/`SigDSSPlacementPreference`, `TextStampStyle`/`QRStampStyle`/`BaseStampStyle`, `add_validation_info`, `validate_pdf_signature`/`validate_pdf_timestamp`, `read_certification_data`, `DocumentSecurityStore.read_dss`, `KeyUsageConstraints`, `SignatureValidationError`, `PdfSignatureStatus`/`DocumentTimestampStatus`/`SignatureCoverageLevel`/`ModificationLevel`, `DEFAULT_DIFF_POLICY`/`NO_CHANGES_DIFF_POLICY`); `pyhanko_certvalidator` (`ValidationContext`, `SimpleCertificateStore.from_certs`); `asn1crypto` (`x509.Certificate.subject.human_friendly`/`issuer.human_friendly`/`serial_number`, `x509.Name.build`/`x509.KeyUsage` building the reserve-arm cert constraints); `pikepdf` (`open` + `pdfa_status`/`pdfx_status`); `msgspec` (`Struct(frozen=True[, gc=False])`, `structs.asdict` deriving `facts()`); `beartype`; `expression` (`tagged_union`, `Block` combinators, `Option`, `extra.result.catch`); `anyio`; stdlib (`functools.reduce`/`operator.or_` folding the flag sets); runtime (`identity`, `faults`, `RetryClass.OCCT`).
-- Growth: a new operation is one `Conformance` case plus one `_run` arm plus one case-body method; a new signer seam one `SignerSource` case plus one `cms()` arm; a new PAdES level one `PadesLevel` row; a new digest, commitment, certification, modification, key-usage, or signature-object kind one `Digest`/`Commitment`/`CertifyPerm`/`DiffMode`/`KeyUsage`/`ExtKeyUsage`/`SigKind` row the derived table picks up by correspondence; a new seed-value constraint one `ReserveSpec` field plus one `_SEED_FLAG` row plus one `SigSeedValueSpec` argument; a new audit aggregate one `_Tally` field plus one `step` term plus one `ConformanceVerdict` field; a new primary-identity fact one `_Primary` field plus one `of` term plus one field, all picked up through `structs.asdict`; a new field-provisioning modality one `FieldPlacement` case plus one `_signed` arm; a new appearance modality one `Appearance` case plus one `plan()` arm; a new upstream conformance verdict one consumed boolean the spec threads plus one `ConformanceVerdict` field, projected exactly as `structural_conformant`/`archival_conformant`; a new subject-DN component one `DnField` row; a new DSS-placement mode one `DssPlacement` row plus one `_DSS_PLACEMENT` entry; a transient network fault widens `_TRANSIENT`; zero new surface.
-- Boundary: no PDF authoring (`document/emit#DOCUMENT`), no font engineering (`typography/font#FONT`), no glyph rendering (`typography/shape#SHAPE`) — the owner closes an already-emitted PDF and prepares its signature fields, never producing document content. Signature-field reservation is in-lane because the `SigSeedValueSpec`/`SigCertConstraints` seed-value policy is a cryptographic field contract `document/emit` cannot express, never generic page authoring. `pyhanko` does NOT enforce PDF/A or PDF/UA structural conformance — it treats them as ordinary PDF — so the structural verdict is authored upstream at `document/tagged#ACCESS` and the `audit` arm CONSUMES that boolean, folding it into `ConformanceVerdict.structural_conformant` rather than claiming a veraPDF-grade verdict no pure-Python validator resolves; the `pdfa_claim`/`pdfx_claim` read from the `pikepdf` XMP are the document's OWN declared claims (an evidence read), never a validated verdict. `typography/font#FONT` `EMBED_AUDIT` supplies the embed-completeness precondition the PDF/A close requires; the `ValidationContext` arrives from `pyhanko_certvalidator` at the boundary, never built here. Archival evidence is not self-declared only — the SECOND consumed `archival_conformant` carries the upstream `pdf_oxide.validate_pdf_a` Rust-oracle VALIDATED close beside the self-asserted `pdfa_claim`, threaded exactly as `structural_conformant`, never a duplicated veraPDF subprocess.
+- Owner: `Conformance` is the one close owner AND the closed `tagged_union` over its own `(bytes, spec)` payload — `sign`/`stamp`/`augment`/`reserve`/`audit` by one total `match`, the async `close`/`_emit` entry, the shared `_sink` byte-emit fold every producing arm routes through, the shared `_audited` self-audit epilogue every case converges on, every case-body method folded onto the union, never a one-field wrapper over a separate op union nor a free module function. `SignerSource` reads its tagged case through the `@beartype(conf=FAULT_CONF)`-woven `cms()` (a malformed credential lifts onto the fault rail past the thread-offload), never parallel `key_file`/`pfx_file` nullable fields; the `external` case carries a `sign_digest: Callable[[bytes], bytes]` digest hand-off plus a `bytes_reserved` CMS placeholder, and `_deferred` drives the prepared-digest lifecycle so the remote signature binds the byte range of the document in hand, never a fixed `signature_value` detached from any digest. `Appearance`'s `plan()` folds each invisible/visible case to the `PdfSigner` `stamp_style`, the matching `SigFieldSpec` kwarg, and the text-param dict in ONE `match`, so `_signed` drives the engine once across both modalities. `FieldPlacement` (`new`/`reserved`) is the field-provisioning family `sign` discriminates on — `new` a `NewField` placed at signing, `reserved` the FILL of a `reserve`-created empty seed-value field — so `_signed` targets fresh OR reserved on one drive and the reserve→fill lifecycle closes; the field-creation fields ride the `new` case alone, never dead weight on the fill path. `PadesLevel`'s derived `needs_timestamp`/`embeds_validation`/`archival` carry the LTV chain behavior and its `classify` folds the achieved level; `SignerConstraint`, `DssPolicy`, `Digest`, `SigKind`, `KeyUsage`/`ExtKeyUsage`, `Commitment`, `CertifyPerm`/`DiffMode` project their `pyhanko` counterparts through derived name- or value-correspondence tables, never hand-enumerated parallel maps. `_Tally`/`_Primary` are the one-pass aggregate-fold and primary-identity projection the audit folds the live statuses through. `SourceConformance` is the one value every case carries for the `document/tagged`-sourced PDF/UA, validated PDF/A, and validated PDF/X verdicts; `_audited` projects its `structural`/`archival`/`prepress` fields beside the self-declared `pdfa_claim`/`pdfx_claim`, never duplicating three booleans across five specs. `pyhanko` owns the CMS/CAdES/PAdES engine, seed-value reservation, DSS/LTV embedding, RFC-3161 chaining, and validation; `pikepdf` owns the page-count and PDF/A·PDF/X claim read. `ConformanceVerdict` is imported from `core/receipt#RECEIPT`, which declares it so the receipt spine carries the case with no producer import.
+- Cases: `sign(pdf, SignSpec)` drives one `PdfSigner(stamp_style=)` over an `IncrementalPdfFileWriter` — the `FieldPlacement` create-or-FILL modality, the `Appearance` seal axis, the optional `Commitment`→`CAdESSignedAttrSpec`, the `signer_key_usage`/`DssPolicy` policies, the `HTTPTimeStamper` over `tsa_url`, the `ValidationContext` for B-LT/B-LTA, the one-pass `sign_pdf` for `pem`/`pkcs12` and the two-phase `_deferred` drive for `external` · `stamp(pdf, StampSpec)` the signer-free RFC-3161 `/DocTimeStamp` via `PdfTimeStamper.timestamp_pdf` under the `_TRANSIENT` retry weave · `augment(pdf, AugmentSpec)` LTV maintenance — `add_validation_info` over every `/Sig` index then `update_archival_timestamp_chain` when `tsa_url` is supplied · `reserve(pdf, ReserveSpec)` the signer-free `append_signature_field` placing an empty `SigSeedValueSpec`-constrained field (the `SigSeedValFlags` set derived from populated axes, the optional `SignerConstraint` `/Cert` binding fencing the field to a named future signer) · `audit(pdf, AuditSpec)` the resilient multi-signature pass folding every `/Sig`/`/DocTimeStamp`, censusing the EMPTY fields through `enumerate_sig_fields(filled_status=False)` in the SAME read, projecting one `ConformanceVerdict` — one total `match`, never `is`-probes. `sign`/`augment`/`reserve` self-audit the produced PDF, so every op yields one verdict shape — a `reserve` verdict carries `fields_awaiting=1`, the honest audit of a field awaiting its signer that a paired `sign(placement=reserved)` fill drops to `0`.
+- Auto: `_produced` folds the case through one total `match` binding the produced bytes and its `AuditSpec`, and `_run` self-audits through one shared `_audited` site so every arm converges on one verdict shape. Every producing arm emits through the one `_sink` fold rather than re-spelling the append-only sink ceremony per body. `_signed` drives ONE `PdfSigner` across both `FieldPlacement` modalities — `new` building `new_field_spec` with `existing_fields_only=False`, `reserved` passing `new_field_spec=None` and `existing_fields_only=True` to FILL the reserve-created field, the seal still riding `stamp_style` — and splits the signer LIFECYCLE once: the `external` case routes the same engine through `_deferred` (`digest_doc_for_signing` → async `signed_attrs` entered once through `anyio.run` → `sign_digest` → `sign_prescribed_attributes` → `fill_with_cms`). `_audited` reads `embedded_signatures` ONCE and splits it through one `Block.partition` on `SigKind.SIGNATURE`, validates each half through the `_resilient[T]` trap composing `catch(exception=SignatureValidationError)` (a broken signature/stamp → `Nothing`, counted never fatal), folds the live statuses in ONE `live.fold(_Tally.step, ...)` accumulating every aggregate in a single traversal (the weakest-link `min` coverage admitting `None` as `UNCLEAR`, the worst-case `max` modification), projects the primary through ONE `_Primary.of` map, reads the DSS behind a `"/DSS" in reader.root` guard, and censuses the EMPTY fields through `enumerate_sig_fields(filled_status=False)` in the same read — never a nine-pass scatter or per-projector `try`/`except`.
+- Receipt: `close(lane)` returns `RuntimeRail[tuple[ContentKey, bytes, ConformanceVerdict]]` — the produced PDF keyed by `ContentIdentity.key` over its own bytes, so a signed close carries a fresh key the persistence store re-derives while a pure `audit` keys the source unchanged; `_emit` projects `ArtifactReceipt.Verdict(key, verdict)`, and `receipt.py` spreads `verdict.facts()` with no reciprocal import because it DECLARES the verdict. `facts()` derives through `structs.asdict(self)` — one edit site that cannot drift — projecting NATIVE scalars onto the `EventDict` so the `observability/metrics` `MeterProvider` and the log consumer read numbers and booleans, never pre-stringified text. `pdfa_claim`/`pdfx_claim` (the self-declared XMP claims, what the file writes about itself) and the validated `archival_conformant`/`prepress_conformant` oracle verdicts are distinct evidence carried side by side, so the archival-delivery plane reads a validated close, never a self-assertion.
+- Packages: `pyhanko` (`SimpleSigner.load`/`load_pkcs12`, `ExternalSigner` + async `signed_attrs`/sync `sign_prescribed_attributes` the two-phase CMS legs, `load_certs_from_pemder`, `PdfSigner(...).sign_pdf(existing_fields_only=, appearance_text_params=, output=)` the one-pass drive, `PdfSigner.digest_doc_for_signing(pdf_out, existing_fields_only=, bytes_reserved=, appearance_text_params=, output=)` → `(PreparedByteRangeDigest, PdfTBSDocument, IO)` + `PreparedByteRangeDigest.document_digest` and `PdfTBSDocument.finish_signing(prepared_digest=, cms_data=, post_sign_instr=, validation_context=)` the two-phase drive whose instruction tail lands the B-LT/B-LTA finalization, `IncrementalPdfFileWriter.write`, `PdfFileReader.embedded_signatures`, `HTTPTimeStamper`, `TimestampRequestError`, `PdfTimeStamper.update_archival_timestamp_chain`/`timestamp_pdf`, `PdfSignatureMetadata`, `append_signature_field`, `enumerate_sig_fields(filled_status=False)` the EMPTY-field census, `SigFieldSpec`, `SigSeedValueSpec`, `SigCertConstraints`/`SigCertKeyUsage`/`SigCertConstraintFlags`, `SigSeedValFlags`, `SigSeedSubFilter.PADES`, `FieldMDPSpec`/`MDPPerm`, `CAdESSignedAttrSpec`/`GenericCommitment.*.asn1`, `DSSContentSettings`/`SigDSSPlacementPreference`, `TextStampStyle`/`QRStampStyle`/`BaseStampStyle`, `add_validation_info`, `validate_pdf_signature`/`validate_pdf_timestamp`, `read_certification_data`, `DocumentSecurityStore.read_dss`, `KeyUsageConstraints`, `SignatureValidationError`, `PdfSignatureStatus`/`DocumentTimestampStatus`/`SignatureCoverageLevel`/`ModificationLevel`, `DEFAULT_DIFF_POLICY`/`NO_CHANGES_DIFF_POLICY`); `pyhanko_certvalidator` (`ValidationContext`, `SimpleCertificateStore.from_certs`); `asn1crypto` (`x509.Certificate.subject.human_friendly`/`issuer.human_friendly`/`serial_number`, `x509.Name.build`/`x509.KeyUsage` building the reserve-arm cert constraints, `CMSAttributes.dump` the DER the external callback signs); `pikepdf` (`open` + `pdfa_status`/`pdfx_status`); `msgspec` (`Struct(frozen=True[, gc=False])`, `msgpack.encode` the `_key` canon); `anyio` (`run` entering the async signed-attribute builder inside the offloaded sync kernel); `beartype`; `stamina` (the `_TRANSIENT` TSA-retry weave); `expression` (`tagged_union`, `Block` combinators, `Option`, `extra.result.catch`); stdlib (`functools.reduce`/`partial`, `operator.or_` folding the flag sets); runtime (`identity.ContentIdentity.key`/`ContentKey`, `faults.FAULT_CONF`/`RuntimeRail`, `lanes.LanePolicy`, `workers.Kernel`/`KernelTrait`); core (`plan.ArtifactWork`/`Admission`, `receipt.ArtifactReceipt`/`ConformanceVerdict`).
+- Growth: a new operation is one `Conformance` case plus one `_produced` arm plus one case-body method; a new signer seam one `SignerSource` case plus one `cms()` arm (a new external hand-off shape one `ExternalSig` field plus one `_deferred` leg); a new PAdES level one `PadesLevel` row; a new digest, commitment, certification, modification, key-usage, or signature-object kind one `Digest`/`Commitment`/`CertifyPerm`/`DiffMode`/`KeyUsage`/`ExtKeyUsage`/`SigKind` row the derived table picks up by correspondence; a new seed-value constraint one `ReserveSpec` field plus one `_SEED_FLAG` row plus one `SigSeedValueSpec` argument; a new audit aggregate one `_Tally` field plus one `step` term plus one `ConformanceVerdict` field on the receipt-owned declaration; a new primary-identity fact one `_Primary` field plus one `of` term plus one field, all picked up through `structs.asdict`; a new field-provisioning modality one `FieldPlacement` case plus one `_signed` arm; a new appearance modality one `Appearance` case plus one `plan()` arm; a new upstream conformance verdict one field on `SourceConformance` plus one receipt-owned verdict field; a new subject-DN component one `DnField` row; a new DSS-placement mode one `DssPlacement` row plus one `_DSS_PLACEMENT` entry; a transient network fault widens `_TRANSIENT`; zero new surface.
+- Boundary: no PDF authoring (`document/emit#DOCUMENT`), no font engineering (`typography/font#FONT`), no glyph rendering (`typography/shape#SHAPE`) — the owner closes an already-emitted PDF and prepares its signature fields, never producing document content. Signature-field reservation is in-lane because the `SigSeedValueSpec`/`SigCertConstraints` seed-value policy is a cryptographic field contract `document/emit` cannot express, never generic page authoring. `pyhanko` does NOT enforce PDF/A, PDF/UA, or PDF/X structural conformance — it treats them as ordinary PDF — so the structural verdict is authored upstream at `document/tagged#ACCESS`, the archival verdict at the same owner's `ARCHIVE` arm (`pdf_oxide.validate_pdf_a`), the prepress verdict at the `pdf_oxide.validate_pdf_x` oracle, and the `audit` arm CONSUMES those booleans, folding them into the verdict rather than claiming a veraPDF-grade verdict no pure-Python validator resolves; the `pdfa_claim`/`pdfx_claim` read from the `pikepdf` XMP are the document's OWN declared claims (an evidence read), never a validated verdict. `typography/font#FONT` `EMBED_AUDIT` supplies the embed-completeness precondition the PDF/A close requires; the `ValidationContext` arrives from `pyhanko_certvalidator` at the boundary, never built here. `ConformanceVerdict` is declared on `core/receipt#RECEIPT` and imported down — this page mints it, never re-declares it, and `delivery/transmittal#TRANSMITTAL` reads it off the receipt seam. `_key`'s input canon covers each arm's full identity-bearing spec — field, level, digest, placement, appearance, certification, commitment, DSS policy, key-usage, seed-value constraint, TSA endpoint, reserved CMS size, and source members beside the payload; signer credentials and live contexts are non-identity (secret/environment) — the produced bytes re-key at `close`.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable
 from enum import StrEnum
-from functools import reduce
+from functools import partial, reduce
 from io import BytesIO
 from operator import or_
+from pathlib import Path
 from typing import Final, Literal, Self, assert_never
 
+import anyio
 import pikepdf
-from anyio import CapacityLimiter, to_thread
+import stamina
+import hashlib
 from asn1crypto import x509
 from beartype import beartype
+from builtins import frozendict
 from expression import Option, case, tag, tagged_union
 from expression.collections import Block, Map
 from expression.extra.result import catch
-from msgspec import Struct, structs
+from msgspec import Struct, msgpack, structs
 from pyhanko.pdf_utils.incremental_writer import IncrementalPdfFileWriter
 from pyhanko.pdf_utils.reader import PdfFileReader
 from pyhanko.sign import ExternalSigner, PdfSignatureMetadata, PdfSigner, PdfTimeStamper, Signer, SimpleSigner, load_certs_from_pemder
@@ -56,7 +60,7 @@ from pyhanko.sign.fields import (
     append_signature_field,
     enumerate_sig_fields,
 )
-from pyhanko.sign.signers.pdf_signer import DSSContentSettings, SigDSSPlacementPreference
+from pyhanko.sign.signers.pdf_signer import DSSContentSettings, PdfTBSDocument, SigDSSPlacementPreference
 from pyhanko.sign.timestamps import HTTPTimeStamper, TimestampRequestError
 from pyhanko.sign.validation import (
     DocumentSecurityStore,
@@ -73,10 +77,12 @@ from pyhanko.stamp import BaseStampStyle, QRPosition, QRStampStyle, TextStampSty
 from pyhanko_certvalidator import ValidationContext
 from pyhanko_certvalidator.registry import SimpleCertificateStore
 
-from rasm.runtime.identity import CANONICAL_POLICY, ContentIdentity, ContentKey
-from rasm.runtime.lanes import LanePolicy, Modality
-from rasm.runtime.resilience import RetryClass
-from rasm.runtime.faults import FAULT_CONF, RuntimeRail, async_boundary
+from rasm.artifacts.core.plan import Admission, ArtifactWork
+from rasm.artifacts.core.receipt import ArtifactReceipt, ConformanceVerdict
+from rasm.runtime.faults import FAULT_CONF, RuntimeRail
+from rasm.runtime.identity import ContentIdentity, ContentKey
+from rasm.runtime.lanes import LanePolicy
+from rasm.runtime.workers import Kernel, KernelTrait
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -100,7 +106,17 @@ class PadesLevel(StrEnum):
 
     @staticmethod
     def classify(ltv: bool, archival_valid: bool, timestamp_valid: bool, /) -> "PadesLevel":
-        return PadesLevel.B_LTA if ltv and archival_valid else PadesLevel.B_LT if ltv else PadesLevel.B_T if timestamp_valid else PadesLevel.B_B
+        # ETSI EN 319 142-1 ladder: every level above B-B requires the trusted signature timestamp, so a
+        # populated DSS with an absent or untrusted timestamp never classifies past B-B.
+        match (timestamp_valid, ltv, archival_valid):
+            case (True, True, True):
+                return PadesLevel.B_LTA
+            case (True, True, False):
+                return PadesLevel.B_LT
+            case (True, False, _):
+                return PadesLevel.B_T
+            case _:
+                return PadesLevel.B_B
 
 
 class Digest(StrEnum):
@@ -188,23 +204,51 @@ _TRANSIENT: Final[tuple[type[Exception], ...]] = (TimestampRequestError,)
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
+def _minted_prints(owner: Struct, files: tuple[str, ...], /) -> None:
+    # credential I/O binds at MINT — one sha256 over each credential file's bytes, landed on the frozen value once —
+    # so the sync `_key` identity read touches no filesystem and a rotated credential re-keys by re-admitting the
+    # spec against the new bytes; a credential fingerprint is a security identity, so the digest is cryptographic,
+    # never a speed hash a collision can forge.
+    structs.force_setattr(owner, "fingerprints", tuple(hashlib.sha256(Path(file).read_bytes()).hexdigest() for file in files))
+
+
 class PemKey(Struct, frozen=True):
     key_file: str
     cert_file: str
     ca_chain: tuple[str, ...] = ()
     passphrase: bytes | None = None
+    fingerprints: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        _minted_prints(self, (self.cert_file, *self.ca_chain))
 
 
 class Pkcs12Bundle(Struct, frozen=True):
     pfx_file: str
     passphrase: bytes | None = None
     ca_chain: tuple[str, ...] = ()
+    fingerprints: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        _minted_prints(self, (self.pfx_file, *self.ca_chain))
 
 
+# two-phase HSM/remote credential: `sign_digest` receives the DER-encoded CMS signed-attributes of THIS
+# document's prepared byte-range digest and returns the raw signature the non-exportable key mints; the
+# placeholder `signer(bytes_reserved)` sizes the reserved CMS region for the prepare pass.
 class ExternalSig(Struct, frozen=True):
     cert_file: str
-    signature_value: bytes
+    sign_digest: Callable[[bytes], bytes]
     ca_chain: tuple[str, ...] = ()
+    bytes_reserved: int = 16384
+    fingerprints: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        _minted_prints(self, (self.cert_file, *self.ca_chain))
+
+    def signer(self, value: bytes | int, /) -> ExternalSigner:
+        chain = load_certs_from_pemder([self.cert_file, *self.ca_chain])
+        return ExternalSigner(signing_cert=chain[0], cert_registry=SimpleCertificateStore.from_certs(chain), signature_value=value)
 
 
 @tagged_union(frozen=True)
@@ -216,18 +260,25 @@ class SignerSource:
 
     @beartype(conf=FAULT_CONF)
     def cms(self) -> Signer:
+        # external arm yields the size-estimation PLACEHOLDER; `_deferred` drives its real lifecycle.
         match self:
             case SignerSource(tag="pem", pem=key):
                 return SimpleSigner.load(key.key_file, key.cert_file, ca_chain_files=list(key.ca_chain) or None, key_passphrase=key.passphrase)
             case SignerSource(tag="pkcs12", pkcs12=bundle):
                 return SimpleSigner.load_pkcs12(bundle.pfx_file, ca_chain_files=list(bundle.ca_chain) or None, passphrase=bundle.passphrase)
             case SignerSource(tag="external", external=ext):
-                chain = load_certs_from_pemder([ext.cert_file, *ext.ca_chain])
-                return ExternalSigner(
-                    signing_cert=chain[0], cert_registry=SimpleCertificateStore.from_certs(chain), signature_value=ext.signature_value
-                )
+                return ext.signer(ext.bytes_reserved)
             case _ as unreachable:
                 assert_never(unreachable)
+
+
+class SourceConformance(Struct, frozen=True, gc=False):
+    structural: bool = False
+    archival: bool = False
+    prepress: bool = False
+
+
+_SOURCE: Final[SourceConformance] = SourceConformance()
 
 
 class AuditSpec(Struct, frozen=True):
@@ -236,11 +287,7 @@ class AuditSpec(Struct, frozen=True):
     diff_mode: DiffMode = DiffMode.DEFAULT
     required_key_usage: tuple[KeyUsage, ...] = ()
     required_extd_key_usage: tuple[ExtKeyUsage, ...] = ()
-    # the two upstream verdicts consumed via the spec (pyhanko treats PDF/A and PDF/UA as ordinary PDF):
-    # `structural_conformant` the `document/tagged#ACCESS` PDF/UA pass, `archival_conformant` the SECOND consumed
-    # boolean — the `document/tagged#ARCHIVE` VALIDATED `pdf_oxide.validate_pdf_a` close, threaded EXACTLY as it.
-    structural_conformant: bool = False
-    archival_conformant: bool = False
+    source: SourceConformance = _SOURCE
 
     def usage(self) -> KeyUsageConstraints | None:
         return (
@@ -250,9 +297,9 @@ class AuditSpec(Struct, frozen=True):
         )
 
 
-# the field-appearance axis: the `invisible` case an `InvisSigSettings` flag set, the `visible` case a
-# `VisibleSeal` whose `qr_position` selects `TextStampStyle` (positioned seal) or `QRStampStyle` (QR encoding
-# the `%(url)s` link). `plan()` folds each case to one stamp style + settings kwarg + text params in ONE match.
+# field-appearance axis: the `invisible` case an `InvisSigSettings` flag set, the `visible` case a
+# `VisibleSeal` whose `qr_position` selects `TextStampStyle` (positioned seal) or `QRStampStyle` (QR encoding the
+# `%(url)s` link). `plan()` folds each case to one stamp style + settings kwarg + text params in ONE match.
 class VisibleSeal(Struct, frozen=True):
     stamp_text: str = "%(signer)s\n%(ts)s"
     text_params: frozendict[str, str] = frozendict()
@@ -262,8 +309,8 @@ class VisibleSeal(Struct, frozen=True):
     scale_with_page_zoom: bool = True
     print_signature: bool = True
     # a `QRPosition` selects the scan-to-verify `QRStampStyle` whose rendered QR encodes the `%(url)s`
-    # `appearance_text_params` field (the machine-verifiable ISO-19650 sealed-delivery link); `None` keeps
-    # the plain `TextStampStyle` positioned seal — the value carries the modality, never a `qr: bool` knob.
+    # `appearance_text_params` field (the machine-verifiable ISO-19650 sealed-delivery link); `None` keeps the
+    # plain `TextStampStyle` positioned seal — the value carries the modality, never a `qr: bool` knob.
     qr_position: QRPosition | None = None
 
     def style(self) -> BaseStampStyle:
@@ -308,9 +355,9 @@ class Appearance:
 _INVISIBLE: Final[Appearance] = Appearance(invisible=InvisSigSettings())
 
 
-# the sign-time DSS/VRI write policy: `include_vri` toggles the per-signature VRI dictionary the
-# `add_validation_info` DSS write emits, `placement` selects where the DSS revision lands relative to
-# the signature and next timestamp — projected to one `DSSContentSettings`, never a bare bool pair.
+# sign-time DSS/VRI write policy: `include_vri` toggles the per-signature VRI dictionary the
+# `add_validation_info` DSS write emits, `placement` selects where the DSS revision lands relative to the
+# signature and next timestamp — projected to one `DSSContentSettings`, never a bare bool pair.
 class DssPolicy(Struct, frozen=True):
     include_vri: bool = True
     placement: DssPlacement = DssPlacement.TOGETHER_WITH_NEXT_TS
@@ -322,7 +369,7 @@ class DssPolicy(Struct, frozen=True):
 _DSS: Final[DssPolicy] = DssPolicy()
 
 
-# the field-provisioning modality `sign` discriminates on: `new` places a fresh field (`existing_fields_only=
+# field-provisioning modality `sign` discriminates on: `new` places a fresh field (`existing_fields_only=
 # False`), `reserved` FILLS the empty seed-value field a prior `reserve` created (`new_field_spec=None`,
 # `existing_fields_only=True`), completing the reserve->fill lifecycle; the field-creation fields ride `new` alone.
 class NewField(Struct, frozen=True):
@@ -358,15 +405,13 @@ class SignSpec(Struct, frozen=True):
     appearance: Appearance = _INVISIBLE
     signer_key_usage: tuple[KeyUsage, ...] = (KeyUsage.NON_REPUDIATION,)
     dss: DssPolicy = _DSS
-    structural_conformant: bool = False
-    archival_conformant: bool = False
+    source: SourceConformance = _SOURCE
 
     def audit(self) -> AuditSpec:
         return AuditSpec(
             signer_context=self.validation_context,
             ts_context=self.validation_context,
-            structural_conformant=self.structural_conformant,
-            archival_conformant=self.archival_conformant,
+            source=self.source,
         )
 
 
@@ -374,31 +419,29 @@ class StampSpec(Struct, frozen=True):
     tsa_url: str
     md_algorithm: Digest = Digest.SHA256
     validation_context: ValidationContext | None = None
-    structural_conformant: bool = False
-    archival_conformant: bool = False
+    source: SourceConformance = _SOURCE
 
     def audit(self) -> AuditSpec:
         return AuditSpec(
-            ts_context=self.validation_context, structural_conformant=self.structural_conformant, archival_conformant=self.archival_conformant
+            ts_context=self.validation_context,
+            source=self.source,
         )
 
 
 class AugmentSpec(Struct, frozen=True):
     validation_context: ValidationContext
     tsa_url: str | None = None
-    structural_conformant: bool = False
-    archival_conformant: bool = False
+    source: SourceConformance = _SOURCE
 
     def audit(self) -> AuditSpec:
         return AuditSpec(
             signer_context=self.validation_context,
             ts_context=self.validation_context,
-            structural_conformant=self.structural_conformant,
-            archival_conformant=self.archival_conformant,
+            source=self.source,
         )
 
 
-# the future-signer identity constraint the `reserve` arm binds into the field's seed-value `/Cert`: only a
+# future-signer identity constraint the `reserve` arm binds into the field's seed-value `/Cert`: only a
 # cert matching the subject DN and the named key-usage bits may fill the field. The subject DN a typed
 # `frozendict[DnField, str]` fed to `x509.Name.build`, never a bare-string DN bag.
 class SignerConstraint(Struct, frozen=True):
@@ -436,14 +479,13 @@ class ReserveSpec(Struct, frozen=True):
     tsa_url: str | None = None
     add_rev_info: bool = False
     signer_constraint: SignerConstraint | None = None
-    structural_conformant: bool = False
-    archival_conformant: bool = False
+    source: SourceConformance = _SOURCE
 
     def audit(self) -> AuditSpec:
-        return AuditSpec(structural_conformant=self.structural_conformant, archival_conformant=self.archival_conformant)
+        return AuditSpec(source=self.source)
 
 
-# the mandatory-flag set the reserved field demands of its future signer, one row per `SigSeedValFlags`
+# mandatory-flag set the reserved field demands of its future signer, one row per `SigSeedValFlags`
 # bit keyed to the `ReserveSpec` field whose presence makes that constraint binding; `reduce(or_)`
 # folds the populated bits, never a parallel flag argument the body re-derives.
 _SEED_FLAG: Final[Map[SigSeedValFlags, Callable[[ReserveSpec], bool]]] = Map.of_seq([
@@ -509,46 +551,7 @@ class _Primary(Struct, frozen=True, gc=False):
         )
 
 
-class ConformanceVerdict(Struct, frozen=True, gc=False):
-    pades_level: str
-    pages: int
-    signatures: int
-    timestamps: int
-    fields_awaiting: int
-    signatures_valid: int
-    signatures_trusted: int
-    signatures_broken: int
-    signature_valid: bool
-    trusted: bool
-    revoked: bool
-    coverage_level: str
-    modification_level: str
-    docmdp_ok: bool
-    seed_value_ok: bool
-    certification_level: str
-    signer_subject: str
-    signer_issuer: str
-    signer_serial: str
-    digest_algorithm: str
-    signature_mechanism: str
-    signed_at: str
-    timestamp_at: str
-    timestamp_valid: bool
-    content_timestamp_valid: bool
-    archival_timestamps_valid: bool
-    qualified: bool
-    ltv_complete: bool
-    dss_certs: int
-    dss_ocsps: int
-    dss_crls: int
-    dss_vri: int
-    structural_conformant: bool
-    archival_conformant: bool
-    pdfa_claim: str
-    pdfx_claim: str
-
-    def facts(self) -> dict[str, object]:
-        return structs.asdict(self)
+# --- [SERVICES] -------------------------------------------------------------------------
 
 
 @tagged_union(frozen=True)
@@ -580,23 +583,103 @@ class Conformance:
     def Audit(cls, pdf: bytes, spec: AuditSpec, /) -> Self:
         return cls(audit=(pdf, spec))
 
-    def emit(self, /) -> ArtifactWork:
-        return ArtifactWork(key=self._key, work=self._emit, parents=(), admission=Admission(keyed=None), cost=1.0)
+    def emit(self, lane: LanePolicy, /, *, parents: tuple[ContentKey, ...] = ()) -> ArtifactWork:
+        return ArtifactWork(key=self._key, work=partial(self._emit, lane), parents=parents, admission=Admission(keyed=None), cost=1.0)
 
     @property
     def _key(self) -> ContentKey:
-        # key-over-INPUT: canonical close request minted PRE-RUN — the signed payload's own address rides the verdict facts.
-        return ContentIdentity.of(f"conformance-{self.tag}", self, policy=CANONICAL_POLICY)
+        # key-over-INPUT minted PRE-RUN so `keyed` admission elides a duplicate; secret signer material and live
+        # contexts are non-identity (secret/environment), while the PUBLIC signer facet, the TSA endpoint (a
+        # different authority mints a different token), and every remaining spec member ride the arm's canon —
+        # two ops differing only in signer, seal, commitment, DSS policy, TSA endpoint, or reserved CMS size
+        # never dedup-elide — and the produced bytes re-key at `close`.
+        return ContentIdentity.key(f"conformance.{self.tag}", msgpack.encode(self._canon()))
 
-    async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
-        # the pyhanko close crosses the thread lane.
-        railed = await async_boundary(f"conformance.{self.tag}", self._closed)
-        return railed.map(lambda verdict: ArtifactReceipt.Verdict(self._key, verdict))
+    def _canon(self) -> tuple[object, ...]:
+        match self:
+            case Conformance(tag="sign", sign=(pdf, spec)):
+                placed = (spec.placement.new.page, spec.placement.new.box or (), spec.placement.new.lock_fields) if spec.placement.tag == "new" else ()
+                seal = (
+                    (visible := spec.appearance.visible).stamp_text,
+                    tuple(sorted(visible.text_params.items())),
+                    visible.border_width,
+                    visible.background_opacity,
+                    visible.qr_position.name if visible.qr_position is not None else "",
+                ) if spec.appearance.tag == "visible" else ()
+                return (
+                    self.tag,
+                    spec.field_name,
+                    spec.pades_level.value,
+                    spec.md_algorithm.value,
+                    (spec.placement.tag, *placed),
+                    (spec.appearance.tag, *seal),
+                    spec.certify.value if spec.certify is not None else "",
+                    spec.commitment.value if spec.commitment is not None else "",
+                    (spec.reason or "", spec.location or "", spec.contact_info or "", spec.name or ""),
+                    tuple(usage.value for usage in spec.signer_key_usage),
+                    (spec.dss.include_vri, spec.dss.placement.value),
+                    spec.tsa_url or "",
+                    self._signer_facet(spec.signer),
+                    structs.astuple(spec.source),
+                    pdf,
+                )
+            case Conformance(tag="stamp", stamp=(pdf, spec)):
+                return (self.tag, spec.md_algorithm.value, spec.tsa_url, structs.astuple(spec.source), pdf)
+            case Conformance(tag="augment", augment=(pdf, spec)):
+                return (self.tag, spec.tsa_url or "", structs.astuple(spec.source), pdf)
+            case Conformance(tag="reserve", reserve=(pdf, spec)):
+                constraint = (
+                    (
+                        tuple(sorted((field.value, value) for field, value in spec.signer_constraint.subject_dn.items())),
+                        tuple(usage.value for usage in spec.signer_constraint.required_key_usage),
+                        tuple(usage.value for usage in spec.signer_constraint.forbidden_key_usage),
+                    )
+                    if spec.signer_constraint is not None
+                    else ()
+                )
+                return (
+                    self.tag,
+                    spec.field_name,
+                    spec.page,
+                    spec.field_box or (),
+                    spec.pades_only,
+                    tuple(digest.value for digest in spec.digest_methods),
+                    spec.timestamp_required,
+                    spec.add_rev_info,
+                    constraint,
+                    structs.astuple(spec.source),
+                    pdf,
+                )
+            case Conformance(tag="audit", audit=(pdf, spec)):
+                usages = (tuple(u.value for u in spec.required_key_usage), tuple(u.value for u in spec.required_extd_key_usage))
+                return (self.tag, spec.diff_mode.value, usages, structs.astuple(spec.source), pdf)
+            case _ as unreachable:
+                assert_never(unreachable)
 
-    async def _closed(self) -> ConformanceVerdict:
-        crossed = await LanePolicy.offload(self._run, modality=Modality.THREAD, retry=RetryClass.OCCT)
-        _payload, verdict = crossed.default_with(_conformance_raise)
-        return verdict
+    @staticmethod
+    def _signer_facet(signer: SignerSource, /) -> tuple[object, ...]:
+        # PUBLIC signer identity — the mint-time content fingerprints of the certificate/bundle and CA chain, never
+        # key bytes or passphrases (the pkcs12 digest is one-way over the sealed bundle, exposing nothing) — read off
+        # the frozen credential so the synchronous key mint performs zero file I/O; a relocated identical credential
+        # keeps its key, a rotated one re-keys at spec re-admission.
+        match signer:
+            case SignerSource(tag="pem", pem=key):
+                return ("pem", *key.fingerprints)
+            case SignerSource(tag="pkcs12", pkcs12=bundle):
+                return ("pkcs12", *bundle.fingerprints)
+            case SignerSource(tag="external", external=ext):
+                return ("external", *ext.fingerprints, ext.bytes_reserved)
+            case _ as unreachable:
+                assert_never(unreachable)
+
+    async def close(self, lane: LanePolicy, /) -> RuntimeRail[tuple[ContentKey, bytes, ConformanceVerdict]]:
+        # pyhanko close and its RFC-3161/OCSP network seam cross the THREAD lane; the produced PDF keys
+        # by its own bytes so a signed close carries a fresh key and a pure audit keys the source unchanged.
+        railed = await lane.offload(Kernel.of(self._run, KernelTrait.RELEASING))
+        return railed.map(lambda pair: (ContentIdentity.key(f"conformance.{self.tag}", pair[0]), pair[0], pair[1]))
+
+    async def _emit(self, lane: LanePolicy, /) -> RuntimeRail[ArtifactReceipt]:
+        return (await self.close(lane)).map(lambda kbv: ArtifactReceipt.Verdict(kbv[0], kbv[2]))
 
     def _run(self) -> tuple[bytes, ConformanceVerdict]:
         produced, audit = self._produced()
@@ -660,15 +743,47 @@ class Conformance:
             case _ as unreachable:
                 assert_never(unreachable)
         engine = PdfSigner(meta, spec.signer.cms(), timestamper=timestamper, stamp_style=plan.stamp, new_field_spec=new_field)
-        return self._sink(
-            lambda sink: engine.sign_pdf(
-                IncrementalPdfFileWriter(BytesIO(pdf)),
-                existing_fields_only=existing_only,
-                appearance_text_params=dict(plan.text_params) or None,
-                output=sink,
-            )
-        )
+        match spec.signer:
+            case SignerSource(tag="external", external=ext):
+                return self._deferred(engine, pdf, ext, spec, existing_only, plan)
+            case SignerSource(tag="pem") | SignerSource(tag="pkcs12"):
+                return self._sink(
+                    lambda sink: engine.sign_pdf(
+                        IncrementalPdfFileWriter(BytesIO(pdf)),
+                        existing_fields_only=existing_only,
+                        appearance_text_params=dict(plan.text_params) or None,
+                        output=sink,
+                    )
+                )
+            case _ as unreachable:
+                assert_never(unreachable)
 
+    def _deferred(self, engine: PdfSigner, pdf: bytes, ext: ExternalSig, spec: SignSpec, existing_only: bool, plan: _SealPlan, /) -> bytes:
+        # two-phase non-exportable-key close: prepare the byte-range digest, sign the DER signed-attributes
+        # externally, then finalize through the TBS document so CMS injection AND the post-sign instruction tail —
+        # the DSS/VRI embed B-LT demands and the chained document timestamp B-LTA demands — both land; a bare
+        # `fill_with_cms` stops at CMS injection and returns an un-finalized PDF for every level above B-B.
+        sink = BytesIO()
+        prep, tbs, output = engine.digest_doc_for_signing(
+            IncrementalPdfFileWriter(BytesIO(pdf)),
+            existing_fields_only=existing_only,
+            bytes_reserved=ext.bytes_reserved,
+            appearance_text_params=dict(plan.text_params) or None,
+            output=sink,
+        )
+        placeholder = ext.signer(ext.bytes_reserved)
+        attrs = anyio.run(partial(placeholder.signed_attrs, prep.document_digest, spec.md_algorithm.value, use_pades=True))
+        sealed = ext.signer(ext.sign_digest(attrs.dump()))
+        PdfTBSDocument.finish_signing(
+            output,
+            prepared_digest=prep,
+            cms_data=sealed.sign_prescribed_attributes(spec.md_algorithm.value, attrs),
+            post_sign_instr=tbs.post_sign_instructions,
+            validation_context=spec.validation_context,
+        )
+        return sink.getvalue()
+
+    @stamina.retry(on=_TRANSIENT, attempts=3)
     def _timestamped(self, pdf: bytes, spec: StampSpec, /) -> bytes:
         return self._sink(
             lambda sink: PdfTimeStamper(HTTPTimeStamper(spec.tsa_url)).timestamp_pdf(
@@ -691,6 +806,7 @@ class Conformance:
         enriched = indices.fold(embedded, pdf)
         return self._refreshed(enriched, spec.tsa_url, spec.validation_context) if spec.tsa_url else enriched
 
+    @stamina.retry(on=_TRANSIENT, attempts=3)
     def _refreshed(self, pdf: bytes, tsa_url: str, context: ValidationContext, /) -> bytes:
         return self._sink(
             lambda sink: PdfTimeStamper(HTTPTimeStamper(tsa_url)).update_archival_timestamp_chain(
@@ -783,16 +899,12 @@ class Conformance:
             dss_ocsps=len(dss.ocsps) if dss is not None else 0,
             dss_crls=len(dss.crls) if dss is not None else 0,
             dss_vri=len(dss.vri_entries) if dss is not None else 0,
-            structural_conformant=spec.structural_conformant,
-            archival_conformant=spec.archival_conformant,
+            structural_conformant=spec.source.structural,
+            archival_conformant=spec.source.archival,
+            prepress_conformant=spec.source.prepress,
             pdfa_claim=pdfa_claim,
             pdfx_claim=pdfx_claim,
         )
-
-
-# --- [COMPOSITION] ----------------------------------------------------------------------
-# every TSA-signing/audit offload threads one explicit thread bound, not the per-loop default — the GIL-releasing
-# pyhanko/pikepdf render and the RFC-3161/OCSP network seam run off the event loop, bounded at the boundary.
 ```
 
 ## [03]-[RESEARCH]

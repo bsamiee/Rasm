@@ -1,8 +1,8 @@
 # [PY_GEOMETRY_ENERGY_SIMULATE]
 
-The simulation egress owner — where an admitted building model becomes engine input, a recipe run, and typed result frames. Three concerns, one owner, strict seams: `translate` is the OpenStudio translation pair — one in-process/subprocess concept, never parallel translators; `simulate` is the recipe BINDING — runtime owns execution, geometry owns which recipe runs with which typed inputs; `results` decodes `eplusout.sql` into SELF-DESCRIBING frames crossing the data seam. The owner re-implements no OSM/IDF object mapping, gbXML writer, luigi scheduler, or SQL schema parse — `honeybee-openstudio`, the runtime recipe owner, and `ladybug`/`honeybee-energy` own those kernels.
+`Simulation` owns the simulation egress — where an admitted building model becomes engine input, a recipe run, and typed result frames. Three concerns, one owner, strict seams: `translate` is the OpenStudio translation pair — one in-process/subprocess concept, never parallel translators; `simulate` is the recipe BINDING — runtime owns execution, geometry owns which recipe runs with which typed inputs; `results` decodes `eplusout.sql` into SELF-DESCRIBING frames crossing the data seam. `honeybee-openstudio`, the runtime recipe owner, and `ladybug`/`honeybee-energy` own every OSM/IDF object mapping, gbXML writer, luigi scheduler, and SQL schema parse.
 
-The frame column discipline is load-bearing: `output`/`unit`/`period`/`zone`/`step`/`value`/`content_key` are THE columns, so a wire consumer attributes and dedupes with no side channel. The physical crossing is content-keyed canonical Arrow bytes composed at the consumer edge through the data `tabular/columnar` public Arrow-bytes fold, never comment-flow and never a new intra-data egress import. Run identity chains: the model's HBJSON `ContentKey` seeds the simulation spec, the runtime recipe key covers the handled inputs, and the frame key covers the crossing bytes — the `Rasm.Persistence` reuse ledger dedupes at every tier, and the artifacts chart/table suites consume the same frames downstream. AGPL posture unchanged: function-local boundary imports, document bytes across the wire; evidence graduates under `GeometrySubject.BUILDING_ENERGY`.
+Frame column discipline is load-bearing: `output`/`unit`/`period`/`zone`/`step`/`value`/`content_key` are THE columns, so a wire consumer attributes and dedupes with no side channel. Physical crossing is content-keyed canonical Arrow bytes composed at the consumer edge through the data `tabular/columnar` public Arrow-bytes fold, never comment-flow and never a new intra-data egress import. Run identity chains: the model's HBJSON `ContentKey` seeds the simulation spec, the runtime recipe key covers the handled inputs, and the frame key covers the crossing bytes — the `Rasm.Persistence` reuse ledger dedupes at every tier, and the artifacts chart/table suites consume the same frames downstream. AGPL posture unchanged: function-local boundary imports, document bytes across the wire; evidence graduates under `GeometrySubject.BUILDING_ENERGY`.
 
 ## [01]-[INDEX]
 
@@ -11,9 +11,9 @@ The frame column discipline is load-bearing: `output`/`unit`/`period`/`zone`/`st
 ## [02]-[SIMULATE]
 
 - Owner: `Simulation` holds the admitted `BuildingModel`, the `LanePolicy` its CPU legs offload under, and the `RecipeExecution` handle — constructed once at the composition edge, never per call. `TranslateTarget` keys the `WRITERS` row, so a format is a row, never a parallel translator; `SimPar` folds onto one `SimulationParameter` document through the owned `add_*` request rows, never a hand-stitched JSON.
-- Entry: `translate` probes the native SDK once (`find_spec("openstudio")`) — present, the in-process writer row; absent, the OSW + OpenStudio CLI fall-through, which serves OSM/IDF alone, so an EPJSON/GBXML request without the SDK is a typed fault naming the constraint, never a silently wrong artifact; both legs block, so the whole kernel offloads on the THREAD band, never the event loop. `simulate` hands execution to the runtime `RecipeExecution` — engine gates, handler coercion, the `queenbee local run` subprocess, the luigi verdict — and geometry receives the typed `RecipeProduct`, never re-parsing a log. `job()` is queenbee schema only, zero execution — the submission document for a consumer that submits to the Pollination API rather than runs locally.
-- Auto: `simulate`/`job` delegate to the runtime owner's own span and receipt — never a doubled page-level weave over the delegated leg; the translate offload carries no retry class — deterministic translation owns no transiency, and the runtime recipe owner retries its own engine gate; `DetailedHVAC` models route through the OpenStudio measure path by construction, and the pure-EnergyPlus IDF row rejects one with a typed fault; the `outputs` census is the router — a requested name absent from the census is a typed fault naming the name and the census size, never a guessed output.
-- Receipt: the measured graduation fact is the total EUI (kWh/m2) against the caller's compliance ceiling — real building-physics evidence crossing to compute, never a row count.
+- Entry: `translate` probes the native SDK once (`find_spec("openstudio")`) — present, the in-process writer row; absent, the OSW + OpenStudio CLI fall-through, which serves OSM/IDF alone, so an EPJSON/GBXML request without the SDK is a typed fault naming the constraint, never a silently wrong artifact; the SDK leg loads the native-hostile `openstudio` band in-process, so the whole kernel crosses as `Kernel.of(_translated, KernelTrait.HOSTILE, idempotent=False)` onto the warm process pool, never the event loop and never a thread arm whose trait the SDK load falsifies. `simulate` hands execution to the runtime `RecipeExecution` — engine gates, handler coercion, the `queenbee local run` subprocess, the luigi verdict — and geometry receives the typed `RecipeProduct`, never re-parsing a log. `job()` is queenbee schema only, zero execution — the submission document for a consumer submitting to the Pollination API rather than running locally.
+- Auto: `simulate`/`job` delegate to the runtime owner's own span and receipt — never a doubled page-level weave over the delegated leg; the translate crossing declares `idempotent=False`, dropping the `HOSTILE` trait's `WORKER` retry default — deterministic translation owns no transiency AND the kernel writes artifacts, so a worker death rails typed instead of re-running the write, while the runtime recipe owner retries its own engine gate; `DetailedHVAC` models route through the OpenStudio measure path by construction, and the pure-EnergyPlus IDF row rejects one with a typed fault; the `outputs` census is the router — a requested name absent from the census is a typed fault naming the name and the census size, never a guessed output.
+- Receipt: measured graduation fact is the total EUI (kWh/m2) against the caller's compliance ceiling — real building-physics evidence crossing to compute, never a row count.
 - Packages: `honeybee-openstudio` wraps the BSD `openstudio` SDK behind the `find_spec` gate; `honeybee-energy` carries the CLI pair, the `SimulationParameter` family, and the result parsers; ladybug `SQLiteResult` is the ONLY EnergyPlus SQL decode path; `queenbee` is schema only; `pyarrow` is module-level-banned and defers inside the crossing kernel; the data `tabular/columnar` Arrow-bytes fold is the one canonical serialization, composed at the consumer edge.
 - Growth: a new translation format is one `WRITERS` row; a new output family one `SimPar` policy row over its `add_*` method; a new result decode is one `ResultQuery` case — `loadbalance`/`emissions`/`generation`/`component_sizes` the named next rows over their `honeybee_energy.result` parsers; daylight/comfort-map recipes ride the SAME `simulate` shape — one more `RecipeName` row, the `ladybug_comfort.map` kernels composing over those matrices through the climate owner's vocabulary; a cloud submission consumes `job()` when a consumer names it.
 - Boundary: execution is the runtime `execution/recipe` owner's; model semantics are `energy/model`'s, weather algebra `energy/climate`'s; a result frame missing its `unit`/`period`/`zone`/`content_key` columns is the deleted form — the C# decoder can neither attribute nor dedupe it.
@@ -36,9 +36,10 @@ from rasm.geometry.energy.model import BuildingModel
 from rasm.geometry.graduation import EvidenceScope, GeometryHandoff, GeometrySubject, evidence_run
 from rasm.runtime.faults import RuntimeRail
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.lanes import LanePolicy, Modality
+from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.receipts import Receipt
 from rasm.runtime.recipe import RecipeExecution, RecipeName, RecipeProduct, RecipeSpec
+from rasm.runtime.workers import Kernel, KernelTrait
 
 if TYPE_CHECKING:  # AGPL band: annotations resolve here; every runtime use is a function-local boundary import
     from queenbee.job.job import Job
@@ -140,7 +141,10 @@ class Simulation(Struct, frozen=True):
     recipes: RecipeExecution
 
     async def translate(self, target: TranslateTarget, folder: Path) -> "RuntimeRail[Path]":
-        return (await self.lane.offload(_translated, self.building, target, folder, modality=Modality.THREAD)).bind(lambda rail: rail)
+        # HOSTILE: the SDK writer leg loads native openstudio in-process; idempotent=False keeps a worker-death
+        # retry from re-running the artifact write, so a death rails typed instead.
+        kernel = Kernel.of(_translated, KernelTrait.HOSTILE, idempotent=False)
+        return (await self.lane.offload(kernel, self.building, target, folder)).bind(lambda rail: rail)
 
     def sim_par(self, spec: SimPar) -> "RuntimeRail[dict[str, object]]":
         def fold() -> dict[str, object]:
@@ -248,7 +252,7 @@ async def _refused[T](fault: object) -> "RuntimeRail[T]":
 
 
 def _job(interface: "RecipeInterface", run: RunSpec, model: Path, source: str) -> "Job":
-    # the v1beta1 Job carries ONE inner argument list (one parametric run), artifact paths as ProjectFolder sources.
+    # v1beta1 Jobs carry ONE inner argument list (one parametric run), artifact paths as ProjectFolder sources.
     from queenbee.io.artifact_source import ProjectFolder  # noqa: PLC0415 — AGPL band boundary import
     from queenbee.io.inputs.job import JobArgument, JobPathArgument  # noqa: PLC0415
     from queenbee.job.job import Job  # noqa: PLC0415
@@ -263,7 +267,7 @@ def _job(interface: "RecipeInterface", run: RunSpec, model: Path, source: str) -
 
 def _translated(building: BuildingModel, target: TranslateTarget, folder: Path) -> "RuntimeRail[Path]":
     def in_process() -> Path:
-        # the in-process writers return the serialized document string and take no folder parameter; this kernel owns the artifact write.
+        # in-process writers return the serialized document string and take no folder parameter; this kernel owns the artifact write.
         from importlib import import_module  # noqa: PLC0415 — row-resolved AGPL boundary import
 
         writer = getattr(import_module("honeybee_openstudio.writer"), WRITERS[target])

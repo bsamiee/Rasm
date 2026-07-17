@@ -1,8 +1,8 @@
 # [PY_COMPUTE_FIELD]
 
-The one finite-element-and-grid field readout owner beside the FEM assemble and solve routes. `FieldQuery` discriminates the three postprocessing operations a discretized or sampled solution admits — `interpolate` lifts a DOF vector into a `skfem.DiscreteField` and reads `value`/`grad`/`hess` under one `ReadoutKind` axis, `project` L2-projects a callable or cross-basis DOF vector onto a target `ElementKind` basis through `basis.project`, `resample` evaluates a regular grid at query points through the JAX-differentiable `interpax.Interpolator{1,2,3}D`. The owner consumes the solution and never produces it: it reports an in-memory extent and residual and never solves, assembles, or aggregates a field across a grid.
+One finite-element-and-grid field readout owner beside the FEM assemble and solve routes. `FieldQuery` discriminates the three postprocessing operations a discretized or sampled solution admits — `interpolate` lifts a DOF vector into a `skfem.DiscreteField` and reads `value`/`grad`/`hess` under one `ReadoutKind` axis, `project` L2-projects a callable or cross-basis DOF vector onto a target `ElementKind` basis through `basis.project`, `resample` evaluates a regular grid at query points through the JAX-differentiable `interpax.Interpolator{1,2,3}D`. This owner consumes the solution and never produces it: it reports an in-memory extent and residual and never solves, assembles, or aggregates a field across a grid.
 
-`solvers/mesh.md#MESH_FIELD` owns the whole element vocabulary — `ElementKind`, the `CTOR` `(Mesh*, Element*, cell-type)` triple, and `MeshField` — so the interpolate and project cases build the same `Basis(mesh, Element*())` the assemble built rather than a second constructor map; `solvers/receipt.md#RECEIPT` owns the `SolveStatus`/`status_of` residual-floor verdict each case terminates in; the `resample` case realizes the multidimensional consumer `solvers/quadrature.md#QUADRATURE` defers here. The resolved `FieldReceipt` is the `ReceiptContributor` the study spine harvests through the `runtime/observability/receipts#RECEIPT` `@receipted(REDACTION)` aspect, and `_dispatch`'s `@railed` chain `yield from`-binds the `_key` RESULT-identity rail so the mesh-minted `field.content_key` enters as one labeled part and distinct operations over one operand carry distinct keys. Every `FieldQuery` pins the PROCESS lane — the `interpax` resample is JAX-gated and the x64 flag is process-global — so one isolation pin covers all three routes and the numpy nodal readout and `np.interp` 1-D resample are the in-worker `ImportError` fallbacks inside that same lane; an outbound field routes through `graduation/handoff.md#GRADUATION` on the `solver` `HandoffAxis` case.
+`solvers/mesh.md#MESH_FIELD` owns the whole element vocabulary — `ElementKind`, the `CTOR` `(Mesh*, Element*, cell-type)` triple, and `MeshField` — so the interpolate and project cases build the same `Basis(mesh, Element*())` the assemble built rather than a second constructor map; `solvers/receipt.md#RECEIPT` owns the `SolveStatus`/`status_of` residual-floor verdict each case terminates in; the `resample` case realizes the multidimensional consumer `solvers/quadrature.md#QUADRATURE` defers here. Resolved `FieldReceipt` is the `ReceiptContributor` the study spine harvests through the `runtime/observability/receipts#RECEIPT` `@receipted(REDACTION)` aspect, and `_dispatch`'s `@railed` chain `yield from`-binds the `_key` RESULT-identity rail so the mesh-minted `field.content_key` enters as one labeled part and distinct operations over one operand carry distinct keys. Every `FieldQuery` declares the `HOSTILE` trait — the `interpax` resample is JAX-gated and the x64 flag is process-global — so one trait covers all three routes and the numpy nodal readout and `np.interp` 1-D resample are the in-worker `ImportError` fallbacks inside that same worker, isolation, band, and worker-death retry deriving at the runtime `Kernel` crossing; an outbound field routes through `graduation/handoff.md#GRADUATION` on the `solver` `HandoffAxis` case.
 
 ## [01]-[INDEX]
 
@@ -13,10 +13,10 @@ The one finite-element-and-grid field readout owner beside the FEM assemble and 
 - Owner: `FieldQuery` — the ONE `@tagged_union` field-postprocessing owner; one owner spans the nodal-quadrature readout, the basis-to-basis transfer, and the grid resample.
 - Cases: `interpolate` reads its source element off the topology's own `MeshField.element`, never a redundant parallel parameter; a vector/composite split (via `basis.split`) reports the component count and the worst-component peak rather than collapsing every axis into one scalar. `project` carries the genuinely-distinct target `ElementKind` and a `ProjectSource` (a `FieldFn` over physical points or a `(ElementKind, np.ndarray)` cross-basis DOF pair); the transfer rides the `basis.project` METHOD, never a phantom top-level `skfem.project(basis_from=, basis_to=)`. Its cross-basis residual is a source-space round trip — a P1→P2→P1 reports the lost information in one comparison space, never `DiscreteField` value arrays subtracted at incompatible quadrature points — and its callable residual is the physical-point fidelity at `global_coordinates()` the `compute/.api/scikit-fem.md` `[LOCAL_ADMISSION]` mandates, never a finiteness sentinel. `resample` carries the `GridAxes`, gridded values, query points, and the bounded `ResampleMethod`, and has no `MeshField`, so its key is the `_key` rail `_dispatch` already bound.
 - Output: `ReadoutKind` (`VALUE`/`GRAD`/`HESS`) is the ONE bounded readout policy keyed through `_READOUT` onto the `DiscreteField` attribute, so a value, a flux-recovery gradient, and a Hessian are one policy row on the interpolate case rather than three parallel entries — the case is parameterized over its OUTPUT shape, not only its input.
-- Receipt: `FieldReceipt` is the ONE `@tagged_union` field receipt whose `Literal` `tag` IS the operation. One `_SLOTS` table names each operation's field sequence (`key` leading, `status` trailing) and drives the structural shape, the trailing-slot `.status` read, and the `.facts`/`.content_key`/`.element` accessors, so the table and the case tuples cannot drift. The factories fold extent or residual through the shared `status_of(None, value, _TOL[op])` floor, and `contribute` stays the undecorated `ReceiptContributor` projection. A projection's transfer fidelity is a first-class `SolveStatus` verdict carried in the project case, not a `SolverReceipt` convergence verdict — a projection is not a solve.
-- Packages: `skfem` (`Basis`, the `Mesh*`/`Element*` families, `basis.interpolate`/`split`/`project`/`global_coordinates`, `basis.N`, `DiscreteField.value`/`.grad`/`.hess`), `interpax` (`Interpolator{1,2,3}D`, the reusable grid interpolants `FieldEngine.worker()` builds once on the x64-floated rail), `jax` (`config.update("jax_enable_x64", True)` floats the worker to float64 so the interpolant's `grad`/`vjp` holds at double precision rather than the float32 default), `numpy`, `expression`, plus the `solvers/mesh.md#MESH_FIELD`, `solvers/receipt.md#RECEIPT`, and runtime seams above. The cross-module private `CTOR` import is the reuse `solvers/mesh.md#MESH_FIELD` runs, never the parallel `_ELEMENTCTOR`/`_MESHCTOR` pair.
+- Receipt: `FieldReceipt` is the ONE `@tagged_union` field receipt whose `Literal` `tag` IS the operation. One `_SLOTS` table names each operation's field sequence (`key` leading, `status` trailing) and drives the structural shape, the trailing-slot `.status` read, and the `.facts`/`.content_key`/`.element` accessors, so the table and the case tuples cannot drift. Factories fold extent or residual through the shared `status_of(None, value, _TOL[op])` floor, and `contribute` stays the undecorated `ReceiptContributor` projection. A projection's transfer fidelity is a first-class `SolveStatus` verdict carried in the project case, not a `SolverReceipt` convergence verdict — a projection is not a solve.
+- Packages: `skfem` (`Basis`, the `Mesh*`/`Element*` families, `basis.interpolate`/`split`/`project`/`global_coordinates`, `basis.N`, `DiscreteField.value`/`.grad`/`.hess`), `interpax` (`Interpolator{1,2,3}D`, the reusable grid interpolants `FieldEngine.worker()` builds once on the x64-floated rail), `jax` (`config.update("jax_enable_x64", True)` floats the worker to float64 so the interpolant's `grad`/`vjp` holds at double precision rather than the float32 default), `numpy`, `expression`, plus the `solvers/mesh.md#MESH_FIELD`, `solvers/receipt.md#RECEIPT`, and runtime seams above. This cross-module private `CTOR` import is the reuse `solvers/mesh.md#MESH_FIELD` runs, never the parallel `_ELEMENTCTOR`/`_MESHCTOR` pair.
 - Growth: a new element is one shared `CTOR` row; a new readout is one `ReadoutKind` row plus one `_READOUT` entry on the existing interpolate case; a new field operation is one `FieldQuery` case plus one `_SLOTS` row sharing the basis-construction fold and the status floor; a new resample arity beyond 3-D is one `_INTERPOLATOR` row; a new resample kernel is one `ResampleMethod` member; a new worker resample module is one `FieldEngine` field; a new readout statistic is one slot on the owning `_SLOTS` row; a new termination class is one `SolveStatus` member shared with every solver route.
-- Boundary: field evaluation, projection, and grid resample only — the assemble stays on `solvers/mesh.md#MESH_FIELD`, the solve on `solvers/quadrature.md#QUADRATURE`, and columnar/gridded aggregation of the evaluated field in the `data` branch, so this owner reports an in-memory extent and residual and never aggregates across a grid. Rejected: a hand-rolled interpolation loop where `basis.interpolate`/`basis.project`/`interpax.Interpolator` own the concern; a worker resample left on the JAX float32 default; a per-call `import interpax`/`import jax` where the frozen `FieldEngine` folds the modules once; a `@receipted`-on-`_dispatch` shape swallowing the resample key-derive where `@railed` threads the `_key` rail and the weave harvests. The mesh shape aligns to the geometry-branch tessellation at the wire and never imports its interior.
+- Boundary: field evaluation, projection, and grid resample only — the assemble stays on `solvers/mesh.md#MESH_FIELD`, the solve on `solvers/quadrature.md#QUADRATURE`, and columnar/gridded aggregation of the evaluated field in the `data` branch, so this owner reports an in-memory extent and residual and never aggregates across a grid. Rejected: a hand-rolled interpolation loop where `basis.interpolate`/`basis.project`/`interpax.Interpolator` own the concern; a worker resample left on the JAX float32 default; a per-call `import interpax`/`import jax` where the frozen `FieldEngine` folds the modules once; a `@receipted`-on-`_dispatch` shape swallowing the resample key-derive where `@railed` threads the `_key` rail and the weave harvests. Mesh shape aligns to the geometry-branch tessellation at the wire and never imports its interior.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
@@ -34,8 +34,9 @@ from rasm.compute.solvers.mesh import CTOR, ElementKind, MeshField
 from rasm.compute.solvers.receipt import SolveStatus, status_of
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import RuntimeRail, boundary, railed
-from rasm.runtime.lanes import LanePolicy, Modality
+from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.receipts import Receipt
+from rasm.runtime.workers import Kernel, KernelTrait
 
 
 # --- [TYPES] -------------------------------------------------------------------------------
@@ -56,12 +57,13 @@ class ReadoutKind(StrEnum):
 
 # --- [CONSTANTS] ---------------------------------------------------------------------------
 
-# policy DATA: every route pins PROCESS (the JAX x64 flag is process-global native state); the numpy
-# fallbacks run inside that same worker when a gated package is absent.
-_MODALITY: Final[Map[str, Modality | None]] = Map.of_seq([
-    ("interpolate", Modality.PROCESS),
-    ("project", Modality.PROCESS),
-    ("resample", Modality.PROCESS),
+# family trait rows: every route declares HOSTILE (the JAX x64 flag is process-global native state);
+# isolation, band, and worker-death retry derive at the runtime Kernel crossing owner. Numpy fallbacks
+# run inside that same worker when a gated package is absent.
+_TRAIT: Final[Map[str, KernelTrait]] = Map.of_seq([
+    ("interpolate", KernelTrait.HOSTILE),
+    ("project", KernelTrait.HOSTILE),
+    ("resample", KernelTrait.HOSTILE),
 ])
 
 # ReadoutKind -> DiscreteField attribute (value, recovered-gradient flux, or Hessian) cataloged on DiscreteField.
@@ -172,7 +174,7 @@ class FieldQuery:
         # gated readouts cross the process lane as spec + operands; `_dispatch` resolves imports in the
         # worker, where the x64 gate applies, and the weave owns span, fence, and receipt harvest.
         async def dispatch() -> RuntimeRail[FieldReceipt]:
-            return (await lane.offload(_dispatch, self, modality=_MODALITY[self.tag])).bind(lambda rail: rail)
+            return (await lane.offload(Kernel.of(_dispatch, _TRAIT[self.tag]), self)).bind(lambda rail: rail)
 
         return await evidence_run(EvidenceScope.FIELD, f"field.{self.tag}", dispatch)
 
@@ -180,7 +182,7 @@ class FieldQuery:
 # --- [SERVICES] ----------------------------------------------------------------------------
 
 
-# the worker `interpax`/`jax` modules folded into ONE frozen value object; `worker()` imports once behind the
+# worker `interpax`/`jax` modules folded into ONE frozen value object; `worker()` imports once behind the
 # band and floats the rail to x64 before the interpolant is built (pure-`skfem` eval needs no x64). `resample`
 # resolves the arity row through `getattr(self.interpax, _INTERPOLATOR[dim])`, builds the reusable interpolant
 # ONCE, and splits the `(N, dim)` query into `(dim, N)` columns via `reshape(-1, dim).T` for `dim>1` / raw for 1-D.
@@ -270,7 +272,7 @@ def _interpolate_receipt(key: ContentKey, field: MeshField, dofs: np.ndarray, re
         return FieldReceipt.Interpolate(key, element, readout, int(dofs.size), 1, extent, peak)
 
 
-# the residual is a source-space round trip; the callable path reads the projected DOFs back at the target
+# residual is a source-space round trip; the callable path reads the projected DOFs back at the target
 # basis's physical coordinates (`global_coordinates`) against the source callable there — never finiteness.
 def _project_receipt(key: ContentKey, field: MeshField, target: ElementKind, source: ProjectSource) -> FieldReceipt:
     import skfem  # noqa: F401 — worker; project is reachable only on the FEM band.
@@ -294,7 +296,7 @@ def _project_receipt(key: ContentKey, field: MeshField, target: ElementKind, sou
 
 # regular-grid resample over the interpax interpolant folded through `FieldEngine.worker()`; the `np.interp`/
 # ravel branch is the in-worker `ImportError` fallback. The resample has no `MeshField`, so its content key is
-# the `_key` rail `_dispatch` already bound, never re-derived.
+# `_key` rail `_dispatch` already bound, never re-derived.
 def _resample_receipt(key: ContentKey, axes: GridAxes, values: np.ndarray, query: np.ndarray, method: ResampleMethod) -> FieldReceipt:
     dim = len(axes)
     try:
@@ -305,9 +307,9 @@ def _resample_receipt(key: ContentKey, axes: GridAxes, values: np.ndarray, query
     return FieldReceipt.Resample(key, dim, int(query.size), extent, peak)
 
 
-# the field RESULT-identity mint every `_dispatch` arm binds: parts cross length-prefixed so the `stream`
+# field RESULT-identity mint every `_dispatch` arm binds: parts cross length-prefixed so the `stream`
 # updater sees unambiguous boundaries. Raw value bytes alone are the deleted keying form — dtype/shape join
-# the canonical stream so a reshaped or re-typed operand re-keys. `ContentIdentity.of` returns
+# canonical stream so a reshaped or re-typed operand re-keys. `ContentIdentity.of` returns
 # `RuntimeRail[ContentKey]`, so `_key` `yield from`-binds the key off the rail.
 @railed
 def _key(label: str, *parts: "bytes | np.ndarray") -> ContentKey:

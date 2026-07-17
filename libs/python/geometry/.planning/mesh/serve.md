@@ -1,8 +1,8 @@
 # [PY_GEOMETRY_MESH_SERVE]
 
-The geometry-side wire owner: the servicer putting the daemon's flagship output behind the C# `ComputeService`/`ArtifactSync` contract — it registers `Route` rows into the runtime `ServerHost`, decodes the C#-minted `TessellationRequest`, drives the `mesh/daemon` `TessellationDaemon`, answers the `TessellationReceipt` field floor, and streams the GLB back as 64 KiB `FrameEdge`-framed `ArtifactFrame` rows. Registration direction is boundary law: serve owns the geometry-side composition root and registers INTO the runtime host; runtime never imports geometry.
+Geometry's wire owner: the servicer putting the daemon's flagship output behind the C# `ComputeService`/`ArtifactSync` contract — it registers `Route` rows into the runtime `ServerHost`, decodes the C#-minted `TessellationRequest`, drives the `mesh/daemon` `TessellationDaemon`, answers the `TessellationReceipt` field floor, and streams the GLB back as 64 KiB `FrameEdge`-framed `ArtifactFrame` rows. Registration direction is boundary law: serve owns the geometry-side composition root and registers INTO the runtime host; runtime never imports geometry.
 
-Geometry authors NO wire vocabulary: `TessellationRequest`/`TessellationReceipt`/`ArtifactFrame` import by symbol from the runtime `transport/shapes` registry (C#-minted, geometry the named consumer), and the `grpcio`/`protobuf` substrate is consumed only through the runtime transport owners — no proto, stub, or codegen surface exists here. The one hash serve derives is the seed-zero (`Some(0)`) `XxHash128` wire key equal to the C# `RepresentationContentHash` byte-for-byte; the daemon's policy-folded cache key never rides the wire (the two-key discipline). The daemon tessellates, caches, and keys; serve registers, frames, and streams — never tessellating, re-keying, or reaching past the daemon's returned results.
+Geometry authors NO wire vocabulary: `TessellationRequest`/`TessellationReceipt`/`ArtifactFrame` import by symbol from the runtime `transport/shapes` registry (C#-minted, geometry the named consumer), and the `grpcio`/`protobuf` substrate is consumed only through the runtime transport owners — no proto, stub, or codegen surface exists here. Serve derives exactly one hash — the seed-zero (`Some(0)`) `XxHash128` wire key equal to the C# `RepresentationContentHash` byte-for-byte; the daemon's policy-folded cache key never rides the wire (the two-key discipline). Daemon and serve split by law: the daemon tessellates, caches, and keys; serve registers, frames, and streams — never tessellating, re-keying, or reaching past the daemon's returned results.
 
 ## [01]-[INDEX]
 
@@ -23,7 +23,7 @@ Geometry authors NO wire vocabulary: `TessellationRequest`/`TessellationReceipt`
 import zlib
 from typing import Final
 
-from expression import Error, Ok, Some
+from expression import Error, Ok, Result, Some
 from expression.collections import Block, Map
 from msgspec import to_builtins
 
@@ -39,7 +39,7 @@ from rasm.runtime.shapes import ArtifactFrame, TessellationReceipt, Tessellation
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# the C# ARTIFACT_FRAMES FrameEdge both ends hold; framing is data over this edge, never a hand-rolled message loop.
+# C#'s ARTIFACT_FRAMES FrameEdge both ends hold; framing is data over this edge, never a hand-rolled message loop.
 FRAME_EDGE: Final[int] = 64 * 1024
 _REDACTION: Final[Redaction] = Redaction(classified=Map.empty())  # tessellation facts carry no secret field
 
@@ -67,13 +67,13 @@ def _source(request: TessellationRequest) -> "RuntimeRail[TessellationSource]":
 
 
 def _wire_hash(glb: bytes) -> ContentKey:
-    # the bare C# XxHash128.HashToUInt128(span) parity path, proven by the "glb-by-key" reproduction pin;
+    # bare C# XxHash128.HashToUInt128(span) parity path, proven by the "glb-by-key" reproduction pin;
     # DISTINCT from the daemon's policy-folded cache key.
     return ContentIdentity.key("glb", glb, seed=Some(0))
 
 
 def _frames(wire_key: ContentKey, glb: bytes) -> Block[ArtifactFrame]:
-    # the whole-artifact hash rides the receipt once; each frame carries only its per-frame crc32 producer obligation.
+    # whole-artifact hash rides the receipt once; each frame carries only its per-frame crc32 producer obligation.
     return Block.of_seq(range(0, len(glb), FRAME_EDGE)).map(
         lambda off: ArtifactFrame(
             artifact_id=wire_key.memory,  # the ContentKey 16-byte little-endian projection
@@ -124,15 +124,15 @@ class GeometryServe:
     async def _tessellate(self, request: TessellationRequest, context: RuntimeContext) -> "RuntimeRail[TessellationReceipt]":
         # decode -> drive -> harvest -> answer; the head result answers the floor while every result parks for the sync leg.
         match _source(request):
-            case Ok(source):
+            case Result(tag="ok", ok=source):
                 rail = await self._drive(source, _policy(request))
                 return rail.bind(
                     lambda results: results.try_head()
                     .map(lambda head: Ok(_receipt(head)))
                     .default_value(Error(BoundaryFault(wire=("serve.tessellate.empty", 0))))
                 )
-            case Error(fault):
-                return Error(fault)
+            case Result(tag="error") as refused:
+                return refused
 
     async def _drive(self, source: TessellationSource, mesher: TessellationPolicy) -> "RuntimeRail[Block[TessellationResult]]":
         # a sharpened echo mints a per-request daemon over the same lane so the cache keys stay policy-distinct —
@@ -144,7 +144,7 @@ class GeometryServe:
 
     @receipted(_REDACTION)
     def _harvest(self, daemon: TessellationDaemon) -> TessellationDaemon:
-        # the one harvest point — receipts stay on the daemon, serve adds no parallel receipt rail.
+        # one harvest point — receipts stay on the daemon, serve adds no parallel receipt rail.
         return daemon
 
     def _park(self, results: Block[TessellationResult]) -> Block[TessellationResult]:
@@ -153,7 +153,7 @@ class GeometryServe:
         return results
 
     def sync(self, artifact_hash: str) -> "RuntimeRail[Block[ArtifactFrame]]":
-        # the served GLB fetched by its wire hash, never re-tessellated.
+        # served GLB fetched by its wire hash, never re-tessellated.
         return (
             self._served.try_find(artifact_hash)
             .map(lambda result: Ok(_frames(_wire_hash(result.glb), result.glb)))

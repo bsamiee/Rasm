@@ -1,8 +1,8 @@
 # [PY_DATA_MESH]
 
-The mesh-file exchange owner over a `MeshBackend` axis, plus the point-cloud interchange row: `MeshPayload` carries mesh-file identity, cell-block topology, units, named array arities, the FE time-series rail, and preview export over one `_BACKEND` behavior table — `meshio` for FE volume/cell-block meshes, `trimesh` for surface meshes, `rhino3dm` for `.3dm` exchange — and `PointCloud` is the LAS/LAZ/COPC row over `laspy` alone. This is file exchange and identity: the IFC-to-GLB tessellation rail belongs to the geometry package, never re-derived here, and the geometry `pdal` filter-graph stays geometry-owned.
+Mesh-file exchange owner over a `MeshBackend` axis, plus the point-cloud interchange row: `MeshPayload` carries mesh-file identity, cell-block topology, units, named array arities, the FE time-series rail, and preview export over one `_BACKEND` behavior table — `meshio` for FE volume/cell-block meshes, `trimesh` for surface meshes, `rhino3dm` for `.3dm` exchange — and `PointCloud` is the LAS/LAZ/COPC row over `laspy` alone. This is file exchange and identity: the IFC-to-GLB tessellation rail belongs to the geometry package, never re-derived here, and the geometry `pdal` filter-graph stays geometry-owned.
 
-Every payload keys by runtime `ContentIdentity` over the canonical `float64` point buffer, and the named-array egress rides the shared `tabular/columnar#SCAN` `QueryReceipt.railed` Arrow rail — the same `(table, QueryReceipt)` pair every sibling Arrow producer returns. The source engine loads exactly once per operation and threads through the row reader, so `read`/`arrays`/`preview`/`write` never re-open the file. Network-bearing COPC reads route through `guarded(RetryClass.HTTP, anyio.to_thread.run_sync, ...)` — the same retry/span/lift triplet the sibling spatial pages delegate to the runtime resilience owner.
+Every payload keys by runtime `ContentIdentity` over the canonical `float64` point buffer, and the named-array egress rides the shared `tabular/columnar#SCAN` `QueryReceipt.railed` Arrow rail — the same `(table, QueryReceipt)` pair every sibling Arrow producer returns. Source engines load exactly once per operation and threads through the row reader, so `read`/`arrays`/`preview`/`write` never re-open the file. Network-bearing COPC reads route through `guarded(RetryClass.HTTP, on_thread, ...)`, the `THREAD_BAND`-bounded hop — the same retry/span/lift triplet the sibling spatial pages delegate to the runtime resilience owner.
 
 ## [01]-[INDEX]
 
@@ -12,7 +12,7 @@ Every payload keys by runtime `ContentIdentity` over the canonical `float64` poi
 ## [02]-[MESH]
 
 - Owner: each `_Backend` row pairs the loader, the engine-specific `extract` pack, the exporter, the unit reader, the per-engine fault set the `boundary` narrows `catch=` to, and the extension set, so engine variation collapses to one row, never a parallel per-engine builder family or a per-engine `match` arm in `frame`/`export`.
-- Auto: `MeshBackend.of` resolves the case off the source extension through the `_EXT` table, an unrecognized suffix defaulting to the `meshio` tag. The `rhino3dm` row reads units from `File3dm.Settings.ModelUnitSystem.name` (default `Millimeters`), never a hardcoded `"m"`.
+- Auto: `MeshBackend.of` resolves the case off the source extension through the `_EXT` table, an unrecognized suffix defaulting to the `meshio` tag. `rhino3dm` rows read units from `File3dm.Settings.ModelUnitSystem.name` (default `Millimeters`), never a hardcoded `"m"`.
 - Receipt: `MeshReceipt` (the geometry/topology proof) and `QueryReceipt` (the columnar table proof) are two typed receipts disjoint by evidence axis, never one rail straddling both.
 - Growth: a new surface format is one extension string on the `trimesh` row; a new FE format already routes through `meshio.extension_to_filetypes`; a new engine is one `MeshBackend` case plus one `_Backend` row; a new named array kind is one more dict the row `extract` folds, surfacing as one more egress column and receipt arity with no frame edit; zero per-format `read_*`/`write_*` family.
 - Boundary: no geometry kernel, no bridge lifecycle, no NURBS/Brep/SubD construction — the `rhino3dm` row reads `File3dm.Read` meshes only, the offline 3dm reader per the geometry-flow law.
@@ -33,7 +33,8 @@ from opentelemetry import trace
 
 from rasm.data.tabular.columnar import QueryReceipt
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.faults import RuntimeRail, boundary
+from rasm.runtime.faults import RuntimeRail, async_boundary
+from rasm.runtime.lanes import on_thread
 from rasm.runtime.receipts import Receipt
 from rasm.runtime.roots import ResourceRef
 
@@ -52,7 +53,7 @@ class _Extract(Struct, frozen=True):
     field_data: Arrays
 
 
-# The frame carries only the canonical-geometry identity (the `float64` point-buffer `ContentKey`) plus the named-array arities the receipt
+# frame carries only the canonical-geometry identity (the `float64` point-buffer `ContentKey`) plus the named-array arities the receipt
 # reports; the egress-driving column NAMES live on the transient `_Extract` the `arrays` fence reads, never re-stored. Mesh identity is its point
 # geometry, so `_frame` is one `ContentIdentity.of(...).map(...)` rail, never a per-array key-derivation fold whose keys no consumer reads off the
 # once-dropped buffers.
@@ -105,7 +106,7 @@ def _trimesh_extract(surface: "trimesh.Trimesh") -> _Extract:
 # A per-vertex aux stack (`normal`/`color`) is emitted only when EVERY object-table mesh carries it, so the concatenated array is row-aligned with the
 # vertex stack `point_count` keys: a mixed model where one mesh defines normals and another does not would otherwise concatenate a short array a
 # "vertex"-keyed consumer reads off the end of, so the absent-on-any case drops the whole aux array rather than minting a length-mismatched one —
-# the `all(...)`-gated `_stack` fold, never a filtered `[... for mesh in meshes if len(mesh.Normals)]` comprehension tracking the present subset.
+# `all(...)`-gated `_stack` fold, never a filtered `[... for mesh in meshes if len(mesh.Normals)]` comprehension tracking the present subset.
 def _rhino3dm_extract(model: "rhino3dm.File3dm") -> _Extract:
     meshes = [obj.Geometry for obj in model.Objects if isinstance(obj.Geometry, rhino3dm.Mesh)]
     points = [np.array([(v.X, v.Y, v.Z) for v in mesh.Vertices], dtype="float64") for mesh in meshes]
@@ -284,7 +285,8 @@ class MeshPayload(Struct, frozen=True):
     units: str
 
     @classmethod
-    def read(cls, ref: ResourceRef) -> "RuntimeRail[MeshPayload]":
+    async def read(cls, ref: ResourceRef) -> "RuntimeRail[MeshPayload]":
+        # a whole-file provider load blocks on disk — the banded thread hop, never the loop.
         backend = MeshBackend.of(ref)
         row = backend.row
 
@@ -293,9 +295,9 @@ class MeshPayload(Struct, frozen=True):
             return row.frame(engine).map(lambda frame: cls._build(backend, frame, row.units(engine)))
 
         with _TRACER.start_as_current_span("mesh.read", attributes={"rasm.mesh.backend": backend.tag}):
-            return boundary("mesh.read", run, catch=row.fault).bind(lambda rail: rail)
+            return (await async_boundary("mesh.read", lambda: on_thread(run), catch=row.fault)).bind(lambda rail: rail)
 
-    def arrays(self, ref: ResourceRef) -> "RuntimeRail[tuple[pa.Table, QueryReceipt]]":
+    async def arrays(self, ref: ResourceRef) -> "RuntimeRail[tuple[pa.Table, QueryReceipt]]":
         row = self.backend.row
 
         def run() -> "RuntimeRail[tuple[pa.Table, QueryReceipt]]":
@@ -304,10 +306,10 @@ class MeshPayload(Struct, frozen=True):
             return QueryReceipt.railed(self.backend.tag, self.content_key.hex, table).map(lambda receipt: (table, receipt))
 
         with _TRACER.start_as_current_span("mesh.arrays", attributes={"rasm.mesh.backend": self.backend.tag}):
-            return boundary("mesh.arrays", run, catch=row.fault).bind(lambda rail: rail)
+            return (await async_boundary("mesh.arrays", lambda: on_thread(run), catch=row.fault)).bind(lambda rail: rail)
 
-    def timeseries(self, ref: ResourceRef) -> "RuntimeRail[Frames]":
-        # the reader open and `read_points_cells` (where `ReadError` surfaces) run eagerly inside the
+    async def timeseries(self, ref: ResourceRef) -> "RuntimeRail[Frames]":
+        # reader open and `read_points_cells` (where `ReadError` surfaces) run eagerly inside the
         # fence; only the per-step `read_data` loop stays lazy, its provider-fault lift deferred to the
         # consumer that drains it — the same STREAM-arm convention `transport/roots#RESOURCE` holds, the
         # generator's own `with` owning the HDF5 `TimeSeriesReader.__exit__` close on exhaustion or break.
@@ -317,13 +319,13 @@ class MeshPayload(Struct, frozen=True):
             return _frames(reader)
 
         with _TRACER.start_as_current_span("mesh.timeseries"):
-            return boundary("mesh.timeseries", run, catch=(meshio.ReadError, meshio.WriteError))
+            return await async_boundary("mesh.timeseries", lambda: on_thread(run), catch=(meshio.ReadError, meshio.WriteError))
 
-    def preview(self, ref: ResourceRef, out: ResourceRef) -> "RuntimeRail[ContentKey]":
-        return self._emit(ref, out, "glb", "mesh.preview")
+    async def preview(self, ref: ResourceRef, out: ResourceRef) -> "RuntimeRail[ContentKey]":
+        return await self._emit(ref, out, "glb", "mesh.preview")
 
-    def write(self, ref: ResourceRef, out: ResourceRef) -> "RuntimeRail[ContentKey]":
-        return self._emit(ref, out, out.path.suffix.lstrip("."), "mesh.write")
+    async def write(self, ref: ResourceRef, out: ResourceRef) -> "RuntimeRail[ContentKey]":
+        return await self._emit(ref, out, out.path.suffix.lstrip("."), "mesh.write")
 
     def contribute(self) -> Iterator[Receipt]:
         return MeshReceipt(
@@ -334,7 +336,8 @@ class MeshPayload(Struct, frozen=True):
     def _build(cls, backend: MeshBackend, frame: MeshFrame, units: str) -> "MeshPayload":
         return cls(backend, frame.points, frame.point_count, frame.cell_blocks, frame.point_arrays, frame.cell_arrays, frame.field_arrays, units)
 
-    def _emit(self, ref: ResourceRef, out: ResourceRef, fmt: str, subject: str) -> "RuntimeRail[ContentKey]":
+    async def _emit(self, ref: ResourceRef, out: ResourceRef, fmt: str, subject: str) -> "RuntimeRail[ContentKey]":
+        # load-export-readback is disk-bound end to end — the banded thread hop, never the loop.
         row = self.backend.row
 
         def run() -> RuntimeRail[ContentKey]:
@@ -342,7 +345,7 @@ class MeshPayload(Struct, frozen=True):
             return ContentIdentity.of("mesh.export", out.path.read_bytes())
 
         with _TRACER.start_as_current_span(subject, attributes={"rasm.mesh.backend": self.backend.tag, "rasm.mesh.format": fmt}):
-            return boundary(subject, run, catch=row.fault).bind(lambda rail: rail)
+            return (await async_boundary(subject, lambda: on_thread(run), catch=row.fault)).bind(lambda rail: rail)
 
 
 def _frames(reader: "meshio.xdmf.TimeSeriesReader") -> Frames:
@@ -358,7 +361,7 @@ def _frames(reader: "meshio.xdmf.TimeSeriesReader") -> Frames:
 
 ## [03]-[POINTCLOUD]
 
-- Owner: `PointCloud` — the LAS/LAZ/COPC row over `laspy` alone. A `Selection` threads the `decompression_selection` mask identically through `laspy.read` and `CopcReader.open`, fixed once at `open`, so a cloud subset skips fields it never reads — one optional carrier, never a parallel selective-read method. The owner carries the point-format id plus CRS WKT directly, never a second `PointFormat` struct duplicating what the receipt names.
+- Owner: `PointCloud` — the LAS/LAZ/COPC row over `laspy` alone. A `Selection` threads the `decompression_selection` mask identically through `laspy.read` and `CopcReader.open`, fixed once at `open`, so a cloud subset skips fields it never reads — one optional carrier, never a parallel selective-read method. This owner carries the point-format id plus CRS WKT directly, never a second `PointFormat` struct duplicating what the receipt names.
 - Entry: the remote COPC leg drives the blocking eager `open`-plus-`query` sequence through the `guarded` HTTP envelope — `CopcReader.open` reads the `copc_info` header and root octree page eagerly over `requests` before `query` pages a chunk, which is why the leg is network-bearing — while a local-path source threads the same body off the event loop with no retry budget; the subset keeps the COPC header's declared CRS, never dropping it to an empty string. `write` routes the closed `WriteMode` through the one `_WRITE` table, `compress`/`store`/`preserve` one row each.
 - Boundary: no geometry kernel registration, no scan-to-BIM compute, no `pdal` filter-graph, no host coupling — host-free file exchange feeding the geometry companion at the wire; the point records cross as one content-keyed `PointRecordTable` through the shared `_column` builder, never a `laspy`- or `pdal`-specific object and never a re-spelled column fold.
 
@@ -366,7 +369,6 @@ def _frames(reader: "meshio.xdmf.TimeSeriesReader") -> Frames:
 from collections.abc import Callable, Iterator
 from typing import Final, Literal, assert_never
 
-import anyio
 import laspy
 import laspy.copc
 import numpy as np
@@ -378,6 +380,7 @@ from opentelemetry import trace
 
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import RuntimeRail, async_boundary, boundary
+from rasm.runtime.lanes import on_thread
 from rasm.runtime.receipts import Receipt
 from rasm.runtime.resilience import RetryClass, guarded
 from rasm.runtime.roots import ResourceRef
@@ -440,7 +443,7 @@ def _to_arrow(record: Record) -> pa.Table:
     return pa.table({name: _column(array) for name, array in columns.items()})
 
 
-# The one point-cloud emitted-phase evidence both the content-keyed table and the frozen owner
+# one point-cloud emitted-phase evidence both the content-keyed table and the frozen owner
 # contribute, native scalars the receipts `Encoder(enc_hook=repr)` serializes without a `str()` coerce.
 def _pointcloud_receipt(content_key: ContentKey, point_count: int, point_format: int, crs_wkt: str) -> Iterator[Receipt]:
     yield Receipt.of("pointcloud", ("emitted", content_key.hex, {"points": point_count, "format": point_format, "crs": crs_wkt}))
@@ -499,9 +502,9 @@ class PointCloud(Struct, frozen=True):
 
         with _TRACER.start_as_current_span("pointcloud.subset", attributes={"rasm.pointcloud.remote": remote}):
             railed_rail = (
-                await guarded(RetryClass.HTTP, anyio.to_thread.run_sync, run, subject="pointcloud.subset")
+                await guarded(RetryClass.HTTP, on_thread, run, abandon=True, subject="pointcloud.subset")
                 if remote
-                else await async_boundary("pointcloud.subset", lambda: anyio.to_thread.run_sync(run), catch=laspy.LaspyException)
+                else await async_boundary("pointcloud.subset", lambda: on_thread(run), catch=laspy.LaspyException)
             )
             return railed_rail.bind(lambda rail: rail)
 
@@ -537,7 +540,7 @@ def _laz_backend() -> laspy.LazBackend:
     return backend
 
 
-# the `do_compress` tri-state is a closed `WriteMode` vocabulary, not a `bool | None` truthiness fork: `compress` transcodes LAS->LAZ over the
+# `do_compress` tri-state is a closed `WriteMode` vocabulary, not a `bool | None` truthiness fork: `compress` transcodes LAS->LAZ over the
 # band-resolved `LazBackend`, `store` forces an explicit uncompressed write, and `preserve` round-trips the source's own format — each one row,
 # never an `if do_compress`/`elif do_compress is not None` ladder collapsing the `store` write into the `preserve` path.
 _WRITE: Final[Map[WriteMode, Callable[["laspy.LasData", str], None]]] = Map.of_seq([
@@ -548,7 +551,7 @@ _WRITE: Final[Map[WriteMode, Callable[["laspy.LasData", str], None]]] = Map.of_s
 
 
 def _open_copc(path: str, selection: Selection) -> "laspy.copc.CopcReader":
-    # the remote leg takes the catalogue `http_num_threads=80` default by omission (never a local
+    # remote legs take the catalogue `http_num_threads=80` default by omission (never a local
     # constant restating it); only the local leg forces `1` to serialize the single-file read.
     threads: dict[str, object] = {} if path.startswith(("http://", "https://")) else {"http_num_threads": 1}
     selected: dict[str, object] = {"decompression_selection": selection} if selection is not None else {}

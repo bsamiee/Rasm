@@ -1,8 +1,8 @@
 # [PY_GEOMETRY_SCAN_RECONSTRUCTION]
 
-`ScanReconstruction` builds a watertight `TriangleMesh` from a registered `o3d.geometry.PointCloud` and produces the `reconstructed-mesh` `GeometrySubject`. The reconstruction algorithm is a STATIC open3d constructor choice keyed by `ReconstructionMethod` — never a runtime mode flag — holding parity with the sibling `ScanRegistration`/`ScanDeviation` owners. The surface egresses as GLB and graduates to compute; the closure algebra and watertight conditioning belong to named `mesh/` siblings, never re-implemented here.
+`ScanReconstruction` builds a watertight `TriangleMesh` from a registered `Cloud` — the `scan/ingestion.md#INGESTION` array carrier, never a live `open3d` handle across the worker seam — and produces the `reconstructed-mesh` `GeometrySubject`. Reconstruction is a STATIC open3d constructor choice keyed by `ReconstructionMethod`, never a runtime mode flag, holding parity with the sibling `ScanRegistration`/`ScanDeviation` owners. That surface egresses as GLB and graduates to compute; the closure algebra and watertight conditioning belong to named `mesh/` siblings, never re-implemented here.
 
-The reconstructed body's watertight/winding/euler/volume/area/components algebra reads ONCE through `mesh/quality`'s public `closure_fold` (quality tiers below the scan producers) — `ReconReceipt` carries the folded `QualityMetrics`, and both `facts()` and the graduation residual ledger project from that one fold. The ledger gates `nonwatertight` and `noncontiguous` (the `components - 1` over-segmentation residual) against zero ceilings, so a Poisson balloon that closes into two disjoint shells fails a gate the lone watertight flag passes. The `async` entry rides `lane.offload` under the graduation `evidence_run` weave seeded by `EvidenceScope.SCAN_RECONSTRUCTION`; the watertight solid graduates through the `rasm.geometry.graduation` spine as `GeometrySubject.RECONSTRUCTED_MESH`, `graduates()` returning the `GeometryHandoff` whose `wire()` projection is the compute crossing. The registered pose from `scan/registration.md#REGISTRATION` is the precondition; watertight conditioning routes the `mesh/repair.md#MESH` `MeshRepairOp.Condition` arm.
+A reconstructed body's watertight/winding/euler/volume/area/components algebra reads ONCE through `mesh/quality`'s public `closure_fold` (quality tiers below the scan producers) — `ReconReceipt` carries the folded `QualityMetrics`, and both `facts()` and the graduation residual ledger project from that one fold. That ledger gates `nonwatertight` and `noncontiguous` (the `components - 1` over-segmentation residual) against zero ceilings, so a Poisson balloon that closes into two disjoint shells fails a gate the lone watertight flag passes. `reconstruct` runs `async`, riding the `lane.offload` crossing on `Kernel.of(_reconstruct_kernel, KernelTrait.HOSTILE)` under the graduation `evidence_run` weave seeded by `EvidenceScope.SCAN_RECONSTRUCTION` — the `open3d` band imports under no isolated subinterpreter, so the kernel rides the warm process pool, the `Cloud` arrays cross the pickle seam, and the kernel re-inflates through `Cloud.legacy()` where the normal estimation begins. That watertight solid graduates through the `rasm.geometry.graduation` spine as `GeometrySubject.RECONSTRUCTED_MESH`, `graduates()` returning the `GeometryHandoff` whose `wire()` projection is the compute crossing. A registered pose from `scan/registration.md#REGISTRATION` is the precondition; watertight conditioning routes the `mesh/repair.md#MESH` `MeshRepairOp.Condition` arm.
 
 ## [01]-[INDEX]
 
@@ -10,9 +10,9 @@ The reconstructed body's watertight/winding/euler/volume/area/components algebra
 
 ## [02]-[RECONSTRUCTION]
 
-- Owner: `ScanReconstruction` discriminates by `ReconstructionMethod` over a registered `o3d.geometry.PointCloud`; `ReconPolicy` carries the per-algorithm knobs (normal search, orientation `k`, Poisson depth/scale/density-quantile, ball-pivoting radius schedule, alpha, DBSCAN eps/min-points) and `ReconReceipt` the typed receipt. The page mints NO quality value object — `mesh/quality.closure_fold` is the one closure truth, this page one of its two scan consumers, the `scan/deviation.md#DEVIATION` watertight gate the other.
+- Owner: `ScanReconstruction` discriminates by `ReconstructionMethod` over a registered `Cloud` carrier; `ReconPolicy` carries the per-algorithm knobs (normal search, orientation `k`, Poisson depth/scale/density-quantile, ball-pivoting radius schedule, alpha, DBSCAN eps/min-points) and `ReconReceipt` the typed receipt. This page mints NO quality value object — `mesh/quality.closure_fold` is the one closure truth, this page one of its two scan consumers, the `scan/deviation.md#DEVIATION` watertight gate the other.
 - Cases: `POISSON` is watertight by construction and the default; `BALL_PIVOTING` preserves detail over the oriented samples yet never closes; `ALPHA_SHAPE` is the concave-hull surface for sparse or open scans. Each resolves as one `_CONSTRUCT[method].build(cloud, policy)` row read binding the STATIC open3d constructor, never a `match` over three near-identical arms.
-- Auto: `estimate_normals` then `orient_normals_consistent_tangent_plane` condition every method once above the cluster split — Poisson and ball-pivoting both require globally consistent oriented normals. The Poisson constructor alone returns a per-vertex density array whose low-density balloon artifacts trim away at the `poisson_density_quantile` order statistic; `cluster_dbscan` (only when `dbscan_eps > 0.0`) labels the cloud so a multi-object scene reconstructs each cluster separately.
+- Auto: `estimate_normals` then `orient_normals_consistent_tangent_plane` condition every method once above the cluster split — Poisson and ball-pivoting both require globally consistent oriented normals. Poisson's constructor alone returns a per-vertex density array whose low-density balloon artifacts trim away at the `poisson_density_quantile` order statistic; `cluster_dbscan` (only when `dbscan_eps > 0.0`) labels the cloud so a multi-object scene reconstructs each cluster separately.
 - Packages: `open3d` (the `PointCloud` normal/cluster ops and the three `TriangleMesh.create_from_point_cloud_*` constructors, `DoubleVector`, `KDTreeSearchParamHybrid`), `trimesh` (the `Trimesh(...)` lift and `.export(file_type="glb")`, the only GLB encode path — open3d `io` writes PLY/OBJ/STL/OFF only), `numpy` (the density trim and cluster split), `beartype` + `vale.Is` (the `DensityField` finiteness refinement), `expression` (`Block.fold` cluster merge, `Map` table and redaction), `msgspec` carriers, the geometry graduation spine (`evidence_run`/`EvidenceScope`/`GeometryHandoff`/`GeometrySubject`, `closure_fold`/`QualityMetrics`), and the runtime rails per the fence imports.
 - Growth: a new reconstruction algorithm is one `ReconstructionMethod` member plus one `_CONSTRUCT` row; a new pre-step is one composition above the cluster split; a per-cluster method selection is one policy field discriminating the row read.
 - Boundary: raw-scan ingestion and decimation route `scan/ingestion.md#INGESTION`; watertight repair and hole-fill route the `mesh/repair.md#MESH` `MeshRepairOp.Condition` arm, the only path from a non-watertight ball-pivoting or alpha surface to a valid solid; scan-vs-model deviation routes `scan/deviation.md#DEVIATION`; the closure algebra is `mesh/quality.closure_fold`'s. No IFC tessellation, no durable store, no Rhino/GH mutation.
@@ -32,13 +32,16 @@ from msgspec import Struct
 
 from rasm.geometry.graduation import EvidenceScope, GeometryHandoff, GeometrySubject, evidence_run
 from rasm.geometry.mesh.quality import QualityMetrics, closure_fold
+from rasm.geometry.scan.ingestion import Cloud
 from rasm.runtime.faults import FAULT_CONF, RuntimeRail
 from rasm.runtime.identity import ContentKey
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.receipts import Receipt, Redaction, receipted
+from rasm.runtime.workers import Kernel, KernelTrait
 
-if TYPE_CHECKING:  # type-only: each runtime open3d call self-imports at boundary scope, so the module loads clean
+if TYPE_CHECKING:  # type-only: each runtime open3d/trimesh call self-imports at boundary scope, so the module loads clean
     import open3d as o3d
+    import trimesh
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -49,8 +52,7 @@ class ReconstructionMethod(StrEnum):
     ALPHA_SHAPE = "alpha-shape"
 
 
-# solver-output density; a degenerate solve's `NaN`/`±inf` would silently corrupt the sort/mask, so
-# the trim gates on finiteness under `FAULT_CONF`.
+# solver-output density; a degenerate solve's `NaN`/`±inf` would silently corrupt the sort/mask, so the trim gates on finiteness under `FAULT_CONF`.
 type DensityField = Annotated[np.ndarray, Is[lambda a: bool(np.isfinite(a).all())]]
 
 
@@ -106,8 +108,9 @@ class ReconReceipt(Struct, frozen=True):
 
     @property
     def residuals(self) -> dict[str, float]:
-        # the `components - 1` over-segmentation residual off the quality fold's component count.
-        return {"nonwatertight": 0.0 if self.quality.watertight else 1.0, "noncontiguous": float(self.quality.components - 1)}
+        # `abs(components - 1)` deviation from the one-shell target off the quality fold's component count: an empty
+        # body (zero components) fails the gate exactly as a split shell does, never a negative residual passing a zero ceiling.
+        return {"nonwatertight": 0.0 if self.quality.watertight else 1.0, "noncontiguous": float(abs(self.quality.components - 1))}
 
     def facts(self) -> dict[str, object]:
         q = self.quality
@@ -194,12 +197,13 @@ def _cluster(cloud: "o3d.geometry.PointCloud", policy: ReconPolicy) -> tuple["o3
     return tuple(cloud.select_by_index(np.where(labels == label)[0]) for label in range(int(labels.max()) + 1))
 
 
-def _reconstruct_kernel(cloud: "o3d.geometry.PointCloud", method: ReconstructionMethod, policy: ReconPolicy) -> tuple[bytes, ReconReceipt]:
-    # the fold accumulates over the immutable open3d `+` merge, never the in-place `+=` that mutates the seed.
+def _reconstruct_kernel(cloud: Cloud, method: ReconstructionMethod, policy: ReconPolicy) -> tuple[bytes, ReconReceipt]:
+    # module-level HOSTILE kernel: the Cloud arrays cross the pickle seam, the legacy handle rebuilds here, and the
+    # fold accumulates over the immutable open3d `+` merge, never the in-place `+=` that mutates the seed.
     import open3d as o3d  # noqa: PLC0415
     import trimesh  # noqa: PLC0415
 
-    oriented = _estimate(cloud, policy)
+    oriented = _estimate(cloud.legacy(), policy)
     clusters = _cluster(oriented, policy) if policy.dbscan_eps > 0.0 else (oriented,)
     build = _CONSTRUCT[method].build
     mesh = Block.of_seq(clusters).fold(lambda acc, part: acc + build(part, policy), o3d.geometry.TriangleMesh())
@@ -214,11 +218,14 @@ class ScanReconstruction(Struct, frozen=True):
     lane: LanePolicy
     policy: ReconPolicy = ReconPolicy()
 
-    async def reconstruct(self, cloud: "o3d.geometry.PointCloud", method: ReconstructionMethod) -> "RuntimeRail[tuple[bytes, ReconReceipt]]":
-        # the graduation weave wraps the lane offload; the cleared Ok threads the receipt slot through
-        # `_emit` while the GLB bytes ride through untouched.
+    async def reconstruct(self, cloud: Cloud, method: ReconstructionMethod) -> "RuntimeRail[tuple[bytes, ReconReceipt]]":
+        # graduation weave wraps the lane offload; the cleared Ok threads the receipt slot through `_emit` while
+        # GLB bytes ride through untouched. HOSTILE is the declared trait — the open3d band imports under no
+        # isolated subinterpreter, so the kernel rides the warm process pool.
         rail = await evidence_run(
-            EvidenceScope.SCAN_RECONSTRUCTION, f"reconstruct.{method}", partial(self.lane.offload, _reconstruct_kernel, cloud, method, self.policy)
+            EvidenceScope.SCAN_RECONSTRUCTION,
+            f"reconstruct.{method}",
+            partial(self.lane.offload, Kernel.of(_reconstruct_kernel, KernelTrait.HOSTILE), cloud, method, self.policy),
         )
         return rail.map(lambda pair: (pair[0], ReconReceipt._emit(pair[1])))
 ```

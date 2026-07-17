@@ -1,8 +1,8 @@
 # [PY_GEOMETRY_GRADUATION]
 
-The folder's tier-0 evidence spine every producer composes and no page precedes. It mints the graduation vocabulary — `GeometrySubject`, the geometry-owned union of what the folder produces — and the typed `GeometryHandoff` carrier every producer's `graduates()` returns; the crossing to compute is content-keyed receipt DATA (`GeometryHandoff.wire()`), never an import. It also owns the folder's evidence weave, geometry's faults-analogue tier, so a producer writes only its domain fold.
+`graduation` is the folder's tier-0 evidence spine every producer composes and no page precedes. It mints the graduation vocabulary — `GeometrySubject`, the geometry-owned union of what the folder produces — and the typed `GeometryHandoff` carrier every producer's `graduates()` returns; the crossing to compute is content-keyed receipt DATA (`GeometryHandoff.wire()`), never an import. It also owns the folder's evidence weave, geometry's faults-analogue tier, so a producer writes only its domain fold.
 
-Compute is the named demanding consumer: its `HandoffAxis` hub and `GraduationReceipt` fold decode `wire()` at the seam and re-shape nothing without a geometry ripple that a union change ships, never a silent admit; no geometry prelude names a compute symbol. The evidence weave composes the runtime `boundary`/`async_boundary` fence inside a span seeded from `EvidenceScope`, then the `@receipted` harvest and OK close-out, so producers thread no page-local instrumentation.
+Compute is the named demanding consumer: its `HandoffAxis` hub and `GraduationReceipt` fold decode `wire()` at the seam and re-shape nothing without a geometry ripple that a union change ships, never a silent admit; no geometry prelude names a compute symbol. Evidence weave composes the runtime `boundary`/`async_boundary` fence inside a span seeded from `EvidenceScope`, then the `@receipted` harvest and OK close-out, so producers thread no page-local instrumentation.
 
 ## [01]-[INDEX]
 
@@ -15,7 +15,7 @@ Compute is the named demanding consumer: its `HandoffAxis` hub and `GraduationRe
 - Entry: `evidence_run(scope, operation, dispatch)` is the one polymorphic weave, modality discriminated on the dispatch shape (`iscoroutinefunction`), never an `evidence_run_async` sibling — a coroutine rides `async_boundary` for the awaitable rail, a sync callable fences inline. Both arms FLATTEN through `_flat`, so a `lane.offload` or rail-returning fold absorbs un-nested and a bare value lifts `Ok`. `GeometryHandoff.of` mints, `admitted` folds residual-over-ceiling, `wire()` projects the dict the receipt stream and compute seam consume.
 - Receipt: `GeometryHandoff.contribute` yields one `Receipt.of("rasm.geometry.graduation", (phase, subject, wire))` row — `phase="emitted"` for an admitted crossing, `"admitted"` for a breaching one whose caveat the receipt flags rather than asserts — so every graduation is visible before compute decodes it. Producer receipts stay on the producing pages; this owner receipts only the crossing.
 - Packages: `expression` (`Map`), `msgspec` (`Struct` carrier), `opentelemetry-api` — the ONE page that names the OTel tracer/span API, every sibling composing `evidence_run` — and runtime (`RuntimeRail`/`boundary`/`async_boundary`, `ContentKey`, `Receipt`/`receipted`).
-- Growth: a new evidence class is one `GeometrySubject` member plus its producing binding, shipping the compute-side decode ripple; a new producing page is one `EvidenceScope` member; a new cross-cutting concern on the weave is one composition inside `evidence_run`, never a per-page re-weave. The reverse direction does not exist — the crossing is one-way data.
+- Growth: a new evidence class is one `GeometrySubject` member plus its producing binding, shipping the compute-side decode ripple; a new producing page is one `EvidenceScope` member; a new cross-cutting concern on the weave is one composition inside `evidence_run`, never a per-page re-weave; the crossing is one-way data, no reverse direction.
 - Boundary: no compute import anywhere in the folder, the crossing being `wire()` data; no per-page tracer mint, `_ok`/`_emit` pair, or inline `start_as_current_span` beside this owner; no second subject vocabulary, bare-`str` subject, or per-receipt `subject` field racing the union. A `"numerical-primitive"` literal carrying compliance, lifecycle, or section evidence breaches the differentiated members; the compute graduation interior is compute's to own — this owner only mints and projects.
 
 ```python signature
@@ -76,7 +76,7 @@ class EvidenceScope(StrEnum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# the frozen tuple compute inherits as decode-only wire data; a union change lands as a compute ripple, never a silent admit.
+# frozen tuple compute inherits as decode-only wire data; a union change lands as a compute ripple, never a silent admit.
 SUBJECTS: Final[tuple[str, ...]] = tuple(member.value for member in GeometrySubject)
 _REDACTION: Final[Redaction] = Redaction(classified=Map.empty())  # graduation facts carry no secret field
 

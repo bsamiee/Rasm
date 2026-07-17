@@ -1,8 +1,8 @@
 # [PY_RUNTIME_METRICS]
 
-The async-observable metric spine: `Metrics` registers the measured instrument set against the `observability/telemetry#TELEMETRY`-installed `MeterProvider` — it constructs no provider, reader, or exporter, minting its meter once from the `reliability/faults#FAULT` `SCOPES[Scope.METER]` row — and one `INSTRUMENTS` table owns both instrument disciplines and every derived surface, so a new signal is one row. `install` rides the imported `latched` one-shot aspect, so a re-bootstrap returns the cached `MeterReceipt` stamped `REENTRANT` and the SDK never holds a doubled callback set.
+`Metrics` is the async-observable metric spine, registering the measured instrument set against the `observability/telemetry#TELEMETRY`-installed `MeterProvider` — it constructs no provider, reader, or exporter, minting its meter once from the `reliability/faults#FAULT` `SCOPES[Scope.METER]` row — and one `INSTRUMENTS` table owns both instrument disciplines and every derived surface, so a new signal is one row. `install` rides the imported `latched` one-shot aspect, so a re-bootstrap returns the cached `MeterReceipt` stamped `REENTRANT` and the SDK never holds a doubled callback set.
 
-The instruments read a frozen `MetricState` swapped under one atomic reference assignment — the single bytecode store CPython executes indivisibly — so the export thread reads the latest fold with no lock and the serve leg never blocks the lane to publish. The exemplar hand-off is a cross-page contract: `record` threads `context=` and the telemetry install wires `exemplar_filter=TraceBasedExemplarFilter()` — without that install the SDK default drops every exemplar. Retry attempts ride the metrics-owned `retry_hook` the `reliability/resilience#RESILIENCE` owner composes into its one `set_on_retry_hooks` registration; the drain taxonomy imports from `observability/receipts#RECEIPT`; provider install, `View`/exemplar machinery, hook registration, product export, and health stay telemetry-, resilience-, and AppHost-owned.
+Instruments read a frozen `MetricState` swapped under one atomic reference assignment — the single bytecode store CPython executes indivisibly — so the export thread reads the latest fold with no lock and the serve leg never blocks the lane to publish. Exemplar hand-off is a cross-page contract: `record` threads `context=` and the telemetry install wires `exemplar_filter=TraceBasedExemplarFilter()` — without that install the SDK default drops every exemplar. Retry attempts ride the metrics-owned `retry_hook` the `reliability/resilience#RESILIENCE` owner composes into its one `set_on_retry_hooks` registration; the drain taxonomy imports from `observability/receipts#RECEIPT`; provider install, `View`/exemplar machinery, hook registration, product export, and health stay telemetry-, resilience-, and AppHost-owned.
 
 ## [01]-[INDEX]
 
@@ -12,7 +12,7 @@ The instruments read a frozen `MetricState` swapped under one atomic reference a
 
 - Owner: `INSTRUMENTS` is the one table every derived surface reads — the `slot` rows mint the `SyncInstruments` carrier by comprehension, the `slot=None` rows register through the typed `ObservableFactory` dispatch, the `domain` rows derive `_DOMAIN_SLOT`, and `MeterReceipt.instruments` names the same rows — no per-instrument `create_*` call, seed function, or name-to-field map beside it. `latched` imports from `reliability/faults#FAULT` and closes over the `_receipt` accessor pair — one definition, two latches with the telemetry owner, never a re-pinned local guard.
 - Entry: under a `PACKAGE`/`TEST` profile no provider is set, so `get_meter` resolves the API no-op meter and the fold mints no-op instruments — the gate is the installed provider, never a profile argument here. `record` is one polymorphic entrypoint: a scalar records the request-duration histogram, a `Mapping` records each named measure onto its `_DOMAIN_SLOT`-resolved row (the artifacts emit-harvest seam records its byte-volume and compression measures under `domain="artifact"`) — both arms under the active context so every measurement exemplar-correlates to its span. `measured` folds a resolved rail through `FAULT_OUTCOME` at one site — `deadline` lands `cancelled`, every other fault `rejected`, an `Ok` rail `completed` — never a lossy ok/error bool per handler.
-- Auto: the frozen carriers turn over under atomic reference stores — a callback load reads either the prior or the next complete snapshot, immutability the correctness guarantee rather than a mutex. The `psutil.Process` handle mints at install and carries through every swap, and the reading samples once per `observe`, so gauge callbacks read a cached fold rather than firing syscalls on the export thread; `cpu_percent(interval=None)` is the non-blocking since-last-call delta, the first sample the `0.0` seed. The `lane.in_flight` value is the lane-computed went-live-but-unresolved cardinality — this owner never reads the lane's `CapacityLimiter` directly. `ProcessReading.sample`'s `suppress` is the one admitted raw-except site: the OTel observable-callback contract returns `Iterable[Observation]` and forbids a railed `Result`, so a dead-process race drops the reading and the gauges yield empty for that cycle.
+- Auto: the frozen carriers turn over under atomic reference stores — a callback load reads either the prior or the next complete snapshot, immutability the correctness guarantee rather than a mutex. Its `psutil.Process` handle mints at install and carries through every swap, and the reading samples once per `observe`, so gauge callbacks read a cached fold rather than firing syscalls on the export thread; `cpu_percent(interval=None)` is the non-blocking since-last-call delta, the first sample the `0.0` seed. `lane.in_flight` carries the lane-computed went-live-but-unresolved cardinality — this owner never reads the lane's `CapacityLimiter` directly. `ProcessReading.sample`'s `suppress` is the one admitted raw-except site: the OTel observable-callback contract returns `Iterable[Observation]` and forbids a railed `Result`, so a dead-process race drops the reading and the gauges yield empty for that cycle; its vanished-process fence rides the receipts-owned `PROCESS_FAULTS` tuple, never a second local mint.
 - Growth: a new measured signal is one `InstrumentSpec` row — a synchronous row adds its `SyncInstruments` field, a domain row additionally carries `domain`, an observable row registers through the one dispatch — and the receipt names itself from the table; a new instrument family is one `InstrumentKind` member plus one dispatch entry; a new process probe one `ProbeField` literal plus one `ProcessReading` field plus one `_gauge` row inside the batched `oneshot`; a new drain dimension one `DrainOutcome` member at the receipts owner, reaching this counter through the imported `DRAIN_COLUMNS` with no edit here; a new fault-to-outcome mapping one `FAULT_OUTCOME` row, unmapped tags defaulting `rejected`.
 - Boundary: no second `MeterProvider`, no SDK provider/reader/exporter/`View`/exemplar construction, no `set_on_retry_hooks` registration, and no AppHost telemetry envelope, health status, or product export — the histogram ships the API-level bucket advisory the SDK honors, and `View` ownership stays telemetry's.
 
@@ -35,7 +35,7 @@ from opentelemetry.metrics import CallbackOptions, Counter, Histogram, Meter, Ob
 from stamina.instrumentation import RetryDetails, RetryHook
 
 from rasm.runtime.faults import SCOPES, BoundaryFault, FaultTag, RuntimeRail, Scope, latched
-from rasm.runtime.receipts import DRAIN_COLUMNS, DrainOutcome, DrainReceipt
+from rasm.runtime.receipts import DRAIN_COLUMNS, PROCESS_FAULTS, DrainOutcome, DrainReceipt
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -44,7 +44,7 @@ type Project = Callable[["MetricState"], Iterable[Observation]]
 type ObservableCallback = Callable[[CallbackOptions], Iterable[Observation]]
 
 
-# the create-dispatch discriminant: two synchronous recorders + three observable kinds.
+# create-dispatch discriminant: two synchronous recorders + three observable kinds.
 class InstrumentKind(StrEnum):
     HISTOGRAM = "histogram"
     COUNTER = "counter"
@@ -53,7 +53,7 @@ class InstrumentKind(StrEnum):
     GAUGE = "gauge"
 
 
-# the structural create signature the three `create_observable_*` methods satisfy, so the
+# structural create signature the three `create_observable_*` methods satisfy, so the
 # kind-keyed dispatch is typed rather than an erased `Callable[..., object]`.
 class ObservableFactory(Protocol):
     def __call__(self, name: str, *, callbacks: Sequence[ObservableCallback], unit: str) -> object: ...
@@ -66,8 +66,6 @@ class MeterOutcome(StrEnum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-PROCESS_FAULTS: Final[tuple[type[psutil.Error], ...]] = (psutil.NoSuchProcess, psutil.ZombieProcess, psutil.AccessDenied)
-
 # request-duration bucket advisory (ms); the SDK honors it without a View, View ownership stays telemetry.
 DURATION_BUCKETS_MS: Final[tuple[float, ...]] = (1.0, 5.0, 10.0, 25.0, 50.0, 100.0, 250.0, 500.0, 1000.0, 5000.0)
 
@@ -75,7 +73,7 @@ DURATION_BUCKETS_MS: Final[tuple[float, ...]] = (1.0, 5.0, 10.0, 25.0, 50.0, 100
 # tag defaults `rejected` through the `try_find` fold, an Ok rail folds `completed` at the call site.
 FAULT_OUTCOME: Final[Map[FaultTag, DrainOutcome]] = Map.of_seq([("deadline", "cancelled")])
 
-# the all-zero seed published before the first `observe`; `hit=0` is spelled so the seed carries every DRAIN_COLUMNS column explicitly.
+# all-zero seed published before the first `observe`; `hit=0` is spelled so the seed carries every DRAIN_COLUMNS column explicitly.
 ZERO_DRAIN: Final[DrainReceipt[object]] = DrainReceipt(accepted=0, completed=0, cancelled=0, rejected=0, hit=0)
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -121,7 +119,7 @@ class InstrumentSpec(Struct, frozen=True):
     domain: str | None = None
 
 
-# the held synchronous recorders, swapped as one frozen carrier (the `MetricState`
+# held synchronous recorders, swapped as one frozen carrier (the `MetricState`
 # atomic-reference idiom). No `gc=False`: it holds instrument references, not a leaf.
 class SyncInstruments(Struct, frozen=True):
     duration: Histogram
@@ -159,7 +157,7 @@ def _recorder(meter: Meter, spec: InstrumentSpec) -> Histogram | Counter:
             return meter.create_histogram(spec.name, unit=spec.unit, explicit_bucket_boundaries_advisory=spec.advisory)
 
 
-# the one table every derived surface reads: sync rows land by `slot`, observable rows pull
+# one table every derived surface reads: sync rows land by `slot`, observable rows pull
 # from `_state` through `project`, `domain` rows feed `record`'s mapping arm.
 INSTRUMENTS: Final[Block[InstrumentSpec]] = Block.of_seq([
     InstrumentSpec("companion.request.duration", InstrumentKind.HISTOGRAM, "ms", advisory=DURATION_BUCKETS_MS, slot="duration"),
@@ -182,7 +180,7 @@ _DOMAIN_SLOT: Final[Map[str, str]] = Map.of_seq([
 ])
 
 
-# the synchronous carrier DERIVES from the table's `slot` rows against one meter resolution.
+# synchronous carrier DERIVES from the table's `slot` rows against one meter resolution.
 def _sync_carrier(meter: Meter) -> SyncInstruments:
     return SyncInstruments(**{slot: _recorder(meter, spec) for spec in INSTRUMENTS if (slot := spec.slot) is not None})
 

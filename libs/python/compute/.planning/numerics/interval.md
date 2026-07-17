@@ -1,6 +1,6 @@
 # [PY_COMPUTE_INTERVAL]
 
-The one validated-numerics owner producing certified enclosures over a layered floor ladder: `IntervalNumerics` evaluates an interval extension over a box, certifies that an enclosure contains a target, refines an enclosure by bisection toward a width tolerance, and isolates certified polynomial roots, every operation one tag on one `IntervalOp` dispatch. The receipt names which `Floor` certified an enclosure and how tight the ball is — Arb and mpmath certify, the numpy grid is a sound-but-uncertified band — so rigor is first-class evidence, never a bare boolean.
+One validated-numerics owner producing certified enclosures over a layered floor ladder: `IntervalNumerics` evaluates an interval extension over a box, certifies that an enclosure contains a target, refines an enclosure by bisection toward a width tolerance, and isolates certified polynomial roots, every operation one tag on one `IntervalOp` dispatch. Its receipt names which `Floor` certified an enclosure and how tight the ball is — Arb and mpmath certify, the numpy grid is a sound-but-uncertified band — so rigor is first-class evidence, never a bare boolean.
 
 `run` rides the hub `evidence_run` weave under the `compute.interval` scope row, and `graduates` feeds the solver-axis projection on `solvers/receipt.md#RECEIPT` with the `(ledger, ceiling, key)` triple projected from its own `Certificate`. Identity is op-owned: `identity_buffer` folds the extension key, bounds, target, and every yield-changing knob through runtime `ContentIdentity`, and a box admitting from a `numerics/array.md#PAYLOAD` payload keys through the same seed.
 
@@ -23,7 +23,7 @@ from typing import Annotated, Final, Literal, Protocol, Self, assert_never, runt
 
 import numpy as np
 from beartype import beartype
-from expression import Error, Nothing, Ok, Option, Some, TailCall, case, tag, tagged_union, tailrec
+from expression import Error, Nothing, Ok, Option, Result, Some, TailCall, case, tag, tagged_union, tailrec
 from expression.collections import Block, Map
 from msgspec import Meta, Struct
 
@@ -44,7 +44,7 @@ type Yield = Enclosure | tuple[Enclosure, ...]  # Evaluate/Certify/Refine -> one
 
 
 class Floor(StrEnum):
-    # the closed certified-arithmetic ladder, tightest first; the enum value names the rung the `Certificate` carries.
+    # closed certified-arithmetic ladder, tightest first; the enum value names the rung the `Certificate` carries.
     ARB = "arb"
     MPMATH = "mpmath"
     NUMPY = "numpy"
@@ -60,7 +60,7 @@ class Expr(Protocol):
     # symbolic derivation lowers a `sympy.lambdify(..., modules='mpmath')`/Arb closure to this shape.
     def over(self, ball: object, /) -> object: ...
 
-    # the extension's STABLE identity (lowered-spec digest or canonical coefficient bytes) — an anonymous
+    # extension's STABLE identity (lowered-spec digest or canonical coefficient bytes) — an anonymous
     # closure with no key cannot enter the identity rail.
     def key(self) -> bytes: ...
 
@@ -178,7 +178,7 @@ class IntervalReceipt(Struct, frozen=True):
 
     @property
     def span_facts(self) -> dict[str, object]:
-        # the `content_key` hex rides the receipt facts only, not the OTLP attribute set.
+        # `content_key` hex rides the receipt facts only, not the OTLP attribute set.
         return {"floor": self.floor.value, "width": self.width, "accuracy_bits": self.accuracy_bits, "certified": self.certified, "roots": self.roots}
 
     def contribute(self) -> Iterable[Receipt]:
@@ -248,7 +248,7 @@ class IntervalOp:
 # --- [TABLES] ------------------------------------------------------------------------------
 
 
-# the ladder is data, not control flow: each row binds a `Floor` to its evaluator behind the gated import, and `_resolve_floor`
+# ladder is data, not control flow: each row binds a `Floor` to its evaluator behind the gated import, and `_resolve_floor`
 # keeps the tightest importable row through one first-available fold — never stacked `try/except ImportError: pass` blocks.
 class FloorRow(Struct, frozen=True):
     floor: Floor
@@ -345,25 +345,25 @@ def _dispatch(op: IntervalOp, precision: int) -> Yield:
 
 
 def _keyed(op: IntervalOp, precision: int) -> RuntimeRail[ContentKey]:
-    # the key names the computation, never merely the box — a repeated op at identical precision keys by reference.
+    # key names the computation, never merely the box — a repeated op at identical precision keys by reference.
     return ContentIdentity.of(f"interval.{op.tag}", op.identity_buffer(precision))
 
 
 @beartype(conf=FAULT_CONF)
 def _report(op: IntervalOp, precision: int) -> IntervalReceipt:
-    # the railed `_keyed` digest is matched HERE inside the already-fenced body — an `Error` re-raises onto the enclosing boundary,
+    # railed `_keyed` digest is matched HERE inside the already-fenced body — an `Error` re-raises onto the enclosing boundary,
     # which re-folds it — so the impure floor solve and the pure key fold ride ONE fence and the entry mints exactly one rail.
     yielded = _dispatch(op, precision)
     match _keyed(op, precision):
-        case Ok(key):
+        case Result(tag="ok", ok=key):
             return IntervalReceipt.of(op.tag, yielded, key)
-        case Error(fault):
+        case Result(tag="error", error=fault):
             raise RuntimeError(fault)
 
 
 # --- [ENTRY] -------------------------------------------------------------------------------
 
-# the interval family's default graduation ceiling; a certified enclosure admits zero refutation and a finite width bound.
+# interval family's default graduation ceiling; a certified enclosure admits zero refutation and a finite width bound.
 _CEILING: Final[Map[str, float]] = Map.of_seq([("refuted", 0.0), ("width", 1e-6)])
 
 
@@ -374,7 +374,7 @@ class IntervalNumerics:
 
     @staticmethod
     def graduates(receipt: IntervalReceipt, subject: str = "interval-certificate") -> "RuntimeRail[GraduationReceipt]":
-        # the family ceiling row governs; a caller's tighter row overrides at the hub.
+        # family ceiling row governs; a caller's tighter row overrides at the hub.
         ledger = {"refuted": 0.0 if receipt.certified else 1.0, "width": float(receipt.width)}
         return graduate("compute.interval", subject, receipt.content_key, ledger, dict(_CEILING.items()))
 ```

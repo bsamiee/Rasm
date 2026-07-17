@@ -1,21 +1,21 @@
 # [PY_GEOMETRY_GRAPH_FEATURES]
 
-Mesh-feature detection projected onto the `networkx` analytic graph: sharp-edge, planar, curvature, and boundary detection are four rows of one `FEATURE_OPS` detect/project table — never four functions — and the `ANALYTICS` table closes the connectivity/centrality/spanning/cycle/community families over the one projection, `mode_guard` skipping a directed-only or undirected-only algorithm by data rather than an inline graph-kind branch. This owner is the mesh-feature-projection producer of `network-graph`; the `algebra` sibling is the compas-adjacency producer of the same literal, never folded into one file.
+Mesh-feature detection projected onto the `networkx` analytic graph: sharp-edge, planar, curvature, and boundary detection are rows of one `FEATURE_OPS` detect/project table, never sibling functions, and the `ANALYTICS` table closes the connectivity/centrality/spanning/cycle/community families over that one projection, `mode_guard` skipping a directed-only or undirected-only algorithm by data rather than an inline graph-kind branch. `Features` is the mesh-feature-projection producer of `network-graph`; the `algebra` sibling is the compas-adjacency producer of the same literal, never folded into one file.
 
-The reducer-return vocabulary (`AnalyticValue`, `ranked`, the census projections) imports downward from the tier-0 `graph/analytic` substrate — no local twin. The `@receipted` aspect sits on the one pure `_extract` both paths share, with the fence OUTSIDE — `run`'s `boundary` on the sync arm, the lane's `async_boundary` on the bridged arm — the same wiring the siblings carry, and `bridged` rides the runtime THREAD band with zero geometry-minted limiters. The feature graph graduates under `GeometrySubject.NETWORK_GRAPH`; the compute crossing is the carrier's `wire()` data, never an import.
+Reducer-return vocabulary (`AnalyticValue`, `ranked`, the census projections) imports downward from the tier-0 `graph/analytic` substrate, no local twin. `@receipted` sits on the one pure module-level `_extracted` both paths share, fence OUTSIDE — `run`'s `boundary` on the sync arm, the lane's `async_boundary` on the bridged arm — matching the sibling wiring, and `bridged` ships that module-qualified body `REFERENCE` as a `KernelTrait.HOSTILE` kernel onto the warm process pool with only the mesh and request as crossing payload and zero geometry-minted limiters, because the `trimesh`/`numpy` detector band imports under no isolated subinterpreter. Each feature graph graduates under `GeometrySubject.NETWORK_GRAPH`; the compute crossing is the carrier's `wire()` data, never an import.
 
 ## [01]-[INDEX]
 
-- [01]-[FEATURES]: the `FEATURE_OPS` detect/project table, the `MARK_PROJECT` projection algebra, the `ANALYTICS` reducer table, and the `run`/`bridged` pair under one `ReceiptContributor`.
+- [01]-[FEATURES]: `FEATURE_OPS` detect/project table, `MARK_PROJECT` projection algebra, `ANALYTICS` reducer table, and the `run`/`bridged` pair under one `ReceiptContributor`.
 
 ## [02]-[FEATURES]
 
-- Owner: `Features` holds the conditioned `trimesh.Trimesh`. `GraphMode` resolves `create_using` over the full `Graph`/`DiGraph`/`MultiGraph`/`MultiDiGraph` family, so directedness AND multiplicity are a bounded vocabulary, never a `directed`/`multi` knob pair; `GraphBackend` threads once as `backend=` into every reducer, never forked per call site nor a global `nx.config` mutation; `MarkSpace` is the key `MARK_PROJECT` dispatches on, so a detector's mark space and its projection cannot cross-index — the four kinds reuse two edge arms plus one facet arm. Every threshold, cap, solver bound, and analytic toggle is a `FeaturePolicy` field; the power-iteration ceiling is `power_iter`, threaded as `max_iter` into the eigenvector/pagerank reducers.
-- Entry: `run` discriminates a single request or a batch; the `NetworkX*` taxonomy (including `PowerIterationFailedConvergence`) and the trimesh cache faults convert exactly once at the fence. `bridged` is NOT itself `@receipted` and never collapses an offload fault into a synthetic empty result — a failure stays an `Error(BoundaryFault)` on the returned rail.
-- Receipt: the phase is data-driven — `emitted` for a graph with nodes, `admitted` for a vacuous feature set; the `_HEAD_OPS` centrality rows read `peak` so the load-bearing centrality signal survives onto the flat facts map, count/partition rows read `as_scalar`, and the leaderboards/partitions stay OFF the flat map on the typed `Census.values`; every kind gates `empty_graph_fraction` against the zero ceiling, so a no-node projection does not graduate; the node-link evidence is real JSON bytes, never a Python `repr`.
+- Owner: `Features` holds the conditioned `trimesh.Trimesh`. `GraphMode` resolves `create_using` over the full `Graph`/`DiGraph`/`MultiGraph`/`MultiDiGraph` family, so directedness and multiplicity form one bounded vocabulary, never a `directed`/`multi` knob pair; `GraphBackend` threads once as `backend=` into every reducer, never forked per call site nor mutating a global `nx.config`; `MarkSpace` keys `MARK_PROJECT` dispatch, so a detector's mark space and its projection cannot cross-index — the kinds reuse two edge arms plus one facet arm. Every threshold, cap, solver bound, and analytic toggle is a `FeaturePolicy` field; `power_iter` caps power iteration, threaded as `max_iter` into the eigenvector/pagerank reducers.
+- Entry: `run` discriminates a single request or a batch; the `NetworkX*` taxonomy (including `PowerIterationFailedConvergence`) and trimesh cache faults convert exactly once at the fence. `bridged` is NOT itself `@receipted` and never collapses an offload fault into a synthetic empty result — a failure stays an `Error(BoundaryFault)` on the returned rail.
+- Receipt: phase is data-driven — `emitted` for a graph with nodes, `admitted` for a vacuous feature set; `_HEAD_OPS` centrality rows read `peak` so the load-bearing centrality signal survives onto the flat facts map, count/partition rows read `as_scalar`, and leaderboards/partitions stay OFF the flat map on the typed `Census.values`; every kind gates `empty_graph_fraction` against the zero ceiling, so a no-node projection does not graduate; node-link evidence is real JSON bytes, never a Python `repr`.
 - Packages: `trimesh`, `numpy`, and `networkx` per the fence imports; the analytic vocabulary and the graduation spine import downward from their geometry owners.
 - Growth: a new feature kind is one `FeatureKind` row plus one `FEATURE_OPS` row and one `CASE` row; a new mark space is one `MarkSpace` member plus one `MARK_PROJECT` arm; a new analytic is one `AnalyticOp` row plus one `ANALYTICS` row — plus `_HEAD_OPS` membership when its flat fact is the extremum rather than the count; a new `AnalyticValue` shape lands on the `graph/analytic` owner; a threshold, cap, selection, or backend switch is a `FeaturePolicy` value.
-- Boundary: mesh repair/winding/boolean is the `mesh/repair` sibling's over `trimesh`/`manifold3d`; non-manifold cell/aperture topology is the `nonmanifold` sibling's; compas numerical/form-finding is the `algebra` sibling's; raw mesh-file decode/encode and columnar edge-list reframing stay at the data seam. The two `network-graph` producers cross on the one geometry `HandoffAxis` case — mesh-feature projection here, compas adjacency there.
+- Boundary: mesh repair/winding/boolean is the `mesh/repair` sibling's over `trimesh`/`manifold3d`; non-manifold cell/aperture topology is the `nonmanifold` sibling's; compas numerical/form-finding is the `algebra` sibling's; raw mesh-file decode/encode and columnar edge-list reframing stay at the data seam. Both `network-graph` producers cross on the one geometry `HandoffAxis` case — mesh-feature projection here, compas adjacency there.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -37,8 +37,9 @@ from rasm.geometry.graduation import GeometryHandoff, GeometrySubject
 from rasm.geometry.graph.analytic import AnalyticValue, peak_of, ranked, scalar_of
 from rasm.runtime.faults import Disposition, RuntimeRail, boundary, traversed
 from rasm.runtime.identity import ContentKey
-from rasm.runtime.lanes import LanePolicy, Modality
+from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.receipts import Receipt, Redaction, receipted
+from rasm.runtime.workers import Kernel, KernelTrait
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -60,8 +61,8 @@ class FeatureKind(StrEnum):
 
 
 class MarkSpace(StrEnum):
-    # the projection-dispatch key: EDGE_ROW marks index the spec's EdgeSource array directly, VERTEX
-    # marks scatter incidence onto it, FACET marks build the facet-adjacency matrix. MARK_PROJECT folds.
+    # Projection-dispatch key: EDGE_ROW marks index the spec's EdgeSource array directly, VERTEX marks
+    # scatter incidence onto it, FACET marks build the facet-adjacency matrix, MARK_PROJECT folds.
     EDGE_ROW = "edge-row"
     VERTEX = "vertex"
     FACET = "facet"
@@ -105,7 +106,7 @@ class AnalyticOp(StrEnum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# the default menu; the row mode_guard is the per-graph filter pruning directed-only rows on an undirected graph.
+# Default menu; row mode_guard is the per-graph filter pruning directed-only rows on an undirected graph.
 _DEFAULT_OPS: Final[frozenset[AnalyticOp]] = frozenset({
     AnalyticOp.COMPONENTS,
     AnalyticOp.STRONG_COMPONENTS,
@@ -113,7 +114,7 @@ _DEFAULT_OPS: Final[frozenset[AnalyticOp]] = frozenset({
     AnalyticOp.PAGERANK,
     AnalyticOp.SPANNING_WEIGHT,
 })
-# the centrality band whose flat fact IS the top head score, not the board cardinality — one membership test, no branch.
+# centrality band whose flat fact IS the top head score, not the board cardinality — one membership test, no branch.
 _HEAD_OPS: Final[frozenset[AnalyticOp]] = frozenset({
     AnalyticOp.BETWEENNESS,
     AnalyticOp.DEGREE,
@@ -134,7 +135,7 @@ class FeaturePolicy(Struct, frozen=True, gc=False):
     mode: GraphMode = GraphMode.UNDIRECTED
     backend: GraphBackend = GraphBackend.DEFAULT
     centrality_top: int = 8
-    power_iter: int = 200  # the eigenvector/pagerank power-iteration ceiling both reducers thread as max_iter
+    power_iter: int = 200  # eigenvector/pagerank power-iteration ceiling both reducers thread as max_iter
     ops: frozenset[AnalyticOp] = _DEFAULT_OPS
 
 
@@ -235,7 +236,7 @@ def _boundary_edges(mesh: trimesh.Trimesh, _: FeaturePolicy) -> Marks:
     return np.asarray(np.where(incidence == 1)[0], dtype=np.int64)
 
 
-# the EdgeSource arms the EDGE_ROW/VERTEX projections lift; FACET binds `_no_edges` since it reads `face_adjacency`/`facets` directly.
+# EdgeSource arms the EDGE_ROW/VERTEX projections lift; FACET binds `_no_edges` since it reads `face_adjacency`/`facets` directly.
 def _adjacency_rows(mesh: trimesh.Trimesh) -> EdgeArray:
     return np.asarray(mesh.face_adjacency, dtype=np.int64)
 
@@ -258,8 +259,8 @@ def _edge_row(mesh: trimesh.Trimesh, spec: FeatureSpec, marks: Marks, policy: Fe
 
 
 def _vertex_edge(mesh: trimesh.Trimesh, spec: FeatureSpec, marks: Marks, policy: FeaturePolicy) -> nx.Graph:
-    # a vertex-index mark selects the `edges_unique` rows incident to a marked vertex rather than
-    # indexing edge rows by a vertex id: scatter the flag, then keep rows touching a flagged endpoint.
+    # A vertex-index mark selects the `edges_unique` rows incident to a marked vertex, not indexing edge
+    # rows by a vertex id: scatter the flag, then keep rows touching a flagged endpoint.
     edges = spec.edge_source(mesh)
     flags = np.zeros(len(mesh.vertices), dtype=bool)
     flags[marks] = True
@@ -392,6 +393,15 @@ def _assemble(graph: nx.Graph, marks: Marks, kind: FeatureKind, policy: FeatureP
     )
 
 
+@receipted(_REDACTION)
+def _extracted(mesh: trimesh.Trimesh, request: FeatureRequest) -> FeatureResult:
+    # the one pure extraction body both arms share, module-qualified so the bridged kernel ships REFERENCE and
+    # only the numpy-backed mesh plus the frozen request pickle — never an owner closure whose lane drags
+    # loop-side runtime state across the process seam; the aspect emits on worker-side exit.
+    graph, marks = _project(mesh, request.kind, request.policy)
+    return _assemble(graph, marks, request.kind, request.policy, _analyse(graph, request.policy, ops=request.policy.ops))
+
+
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
@@ -399,27 +409,24 @@ class Features(Struct, frozen=True):
     mesh: trimesh.Trimesh
     lane: LanePolicy
 
-    @receipted(_REDACTION)
-    def _extract(self, request: FeatureRequest) -> FeatureResult:
-        graph, marks = _project(self.mesh, request.kind, request.policy)
-        return _assemble(graph, marks, request.kind, request.policy, _analyse(graph, request.policy, ops=request.policy.ops))
-
     def run(self, request: FeatureRequest | Sequence[FeatureRequest]) -> RuntimeRail[FeatureResult] | RuntimeRail[Block[FeatureResult]]:
         # a batch folds a Block of the same fenced rail through traversed(ACCUMULATE); `i=item` binds the loop variable per closure.
         match request:
             case Sequence() as batch:
                 return traversed(
-                    Block.of_seq([boundary(f"features.{item.kind}", lambda i=item: self._extract(i)) for item in batch]), by=Disposition.ACCUMULATE
+                    Block.of_seq([boundary(f"features.{item.kind}", lambda i=item: _extracted(self.mesh, i)) for item in batch]),
+                    by=Disposition.ACCUMULATE,
                 )
             case FeatureRequest() as single:
-                return boundary(f"features.{single.kind}", lambda: self._extract(single))
+                return boundary(f"features.{single.kind}", lambda: _extracted(self.mesh, single))
             case _ as unreachable:
                 assert_never(unreachable)
 
     async def bridged(self, request: FeatureRequest) -> RuntimeRail[FeatureResult]:
-        # the all-pairs/enumeration cores (betweenness/pagerank/simple_cycles) never block the loop; the aspect emits on
-        # `_extract`'s exit on the worker thread.
-        return await self.lane.offload(lambda: self._extract(request), modality=Modality.THREAD)
+        # HOSTILE: the trimesh detector band is native and the all-pairs/enumeration cores (betweenness/pagerank/
+        # simple_cycles) are CPU-bound; the module-qualified `_extracted` resolves by name on the warm process pool
+        # and its arguments carry the whole crossing payload.
+        return await self.lane.offload(Kernel.of(_extracted, KernelTrait.HOSTILE), self.mesh, request)
 ```
 
 ## [03]-[RESEARCH]

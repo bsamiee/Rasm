@@ -1,18 +1,18 @@
 # [PY_GEOMETRY_MESH_SPATIAL]
 
-Spatial query over an in-memory triangulation: the proximity, ray, containment, bounds, clearance, and sampling primitive the deviation, clash, and reconstruction hops compose against a built mesh. `SpatialQuery` discriminates the kind on one polymorphic entrypoint, `SpatialResult` mirrors the query case, and every kind flows through one capability-aware `_route` over a single `_dispatch` body — a core-resident kind runs synchronously under `boundary`, a native-backend kind whose compiled package is absent in-process offloads the SAME body onto the lane subinterpreter, so the offload-vs-sync choice never forks the geometry dispatch. This owner indexes an in-memory `trimesh.Trimesh` and returns numpy arrays across the wire; mesh-file decode/encode is the data `MeshPayload` owner's (`rasm.data.spatial.mesh`).
+Spatial query over an in-memory triangulation: the proximity, ray, containment, bounds, clearance, and sampling primitive the deviation, clash, and reconstruction hops compose against a built mesh. `SpatialQuery` discriminates the kind on one polymorphic entrypoint, `SpatialResult` mirrors the query case, and every kind flows through one work-class-aware `_route` over a single `_dispatch` body — an index-cached kind runs synchronously under `boundary` against the capsule mesh's own lazily-cached indices, a batch-heavy kind offloads the SAME body as a `KernelTrait.HOSTILE` kernel onto the warm process pool, so the offload-vs-sync choice never forks the geometry dispatch. Offload membership is declared by work class, never derived from module presence: a process-pool worker shares the one venv, so a native module absent in-process is equally absent on the worker floor, and a missing admission is an import fault at the seam, never a routing signal. This owner indexes an in-memory `trimesh.Trimesh` and returns numpy arrays across the wire; mesh-file decode/encode is the data `MeshPayload` owner's (`rasm.data.spatial.mesh`).
 
-The spine is `trimesh` plus `numpy` — never a phantom `scipy` spine, since no geometry fence imports a scipy member — with the admitted `rtree`/`python-fcl` native band composed at the DIRECT surface, not a one-call trimesh veneer. `SpatialBackend` resolves per interpreter off real `find_spec` probes: the exact `manifold3d.Manifold.min_gap` clearance supersedes the conservative FCL separation when the richer package loads, both operands built through repair's public `to_manifold` (repair is the chartered `manifold3d` owner). The `Contains`/`Clearance` arms gate `is_watertight` BEFORE the query, so an off-solid test is an admitted caveat rather than a meaningless mask.
+The spine is `trimesh` plus `numpy` — never a phantom `scipy` spine, since no geometry fence imports a scipy member — with the admitted `rtree`/`python-fcl` native band composed at the DIRECT surface, not a one-call trimesh veneer. `SpatialBackend` resolves once per capsule off the `find_spec` capability probe: the exact `manifold3d.Manifold.min_gap` clearance supersedes the conservative FCL separation when the richer package is admitted, both operands built through repair's public `to_manifold` (repair is the chartered `manifold3d` owner). The `Contains`/`Clearance` arms gate `is_watertight` BEFORE the query, so an off-solid test is an admitted caveat rather than a meaningless mask.
 
 ## [01]-[INDEX]
 
-- [01]-[SPATIAL]: query kinds under tagged union over the `trimesh`/`numpy` spine and the `rtree`/`python-fcl`/`manifold3d` native band, capability-routed, returning `SpatialResult` union.
+- [01]-[SPATIAL]: query kinds under tagged union over the `trimesh`/`numpy` spine and the `rtree`/`python-fcl`/`manifold3d` native band, work-class-routed, returning `SpatialResult` union.
 
 ## [02]-[SPATIAL]
 
-- Owner: `MeshSpatial` — the boundary capsule over the one module-level `_dispatch`; the `_offload` membership is data-driven off the `_NATIVE` probe table, never a hardcoded per-case branch, and the `_fold` cross-cut turns every `Outcome` into the one held receipt, so a new kind writes only its `_dispatch` arm.
+- Owner: `MeshSpatial` — the boundary capsule over the one module-level `_dispatch`; the `_OFFLOAD` membership is declared work-class data — the batch-heavy kinds ride the process kernel, the index-cached kinds stay in-process — never a hardcoded per-case branch and never a module-presence probe, and the `_fold` cross-cut turns every `Outcome` into the one held receipt, so a new kind writes only its `_dispatch` arm plus its membership row.
 - Cases: `Ray` reduces the all-hits return to the nearest hit per ray in one vectorized pass, never a per-ray cast; `Bounds`/`Nearest` run ONE vectorized `intersection_v`/`nearest_v` call for the whole box set, never a per-box loop; `Clearance` carries a backend-shaped payload — the FCL arm returns the signed gap plus the `nearest_points` witness pair, the exact `manifold3d` gap carries no witness.
-- Auto: an offloaded kind rebuilds whatever index its hop needs inside the subinterpreter — a live R-tree or `Manifold` cannot cross the no-pickle boundary, so the capsule caches no native handle, while the in-process pure-Python arms read the lazily-cached `kdtree`/`ray` indices the `Trimesh` owns.
+- Auto: an offloaded kind rebuilds whatever index its hop needs inside the worker process — a live R-tree, FCL model, or `Manifold` is a native handle no pickler carries, so only the numpy-backed `Trimesh` crosses the seam and the capsule caches no native handle — while the in-process kinds read the lazily-cached `triangles_tree`/`kdtree` indices the capsule `Trimesh` owns and amortizes across calls.
 - Packages: `trimesh` (proximity/ray/contains/sample and the cached indices), `numpy`, `rtree` (the `triangles_tree` R-tree), `python-fcl` (the direct narrow-phase `fcl.distance`), `manifold3d` (through repair's `to_manifold`), `expression`, `msgspec`, and the runtime rails per the fence imports.
 - Growth: a new query kind is one `SpatialQuery` case plus its mirrored `SpatialResult` arm plus one `_dispatch` arm — `assert_never` forces the closure; a new native backend is one `SpatialBackend` row plus its probe module.
 - Boundary: vertex-KNN acceleration (`open3d.geometry.KDTreeFlann`, `small_gicp.KdTree.batch_knn_search`) is NOT this owner's backend — a vertex nearest-neighbor is a coarser, distinct result from `closest_point`'s exact on-surface projection, so that acceleration belongs to the `scan/deviation`+`scan/registration` consumers that own the cloud-to-vertex correspondence; conditioning is `mesh/repair.md#MESH`'s, metrology is `mesh/quality.md#QUALITY`'s.
@@ -27,13 +27,17 @@ from typing import TYPE_CHECKING, Final, Literal, assert_never, overload
 import numpy as np
 import trimesh
 from expression import case, tag, tagged_union
-from expression.collections import Block, Map
+from expression.collections import Block
 from msgspec import Struct
 
 from rasm.geometry.mesh.repair import to_manifold
 from rasm.runtime.faults import Disposition, RuntimeRail, boundary, traversed
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.receipts import Phase, Receipt
+from rasm.runtime.workers import Kernel, KernelTrait
+
+if TYPE_CHECKING:  # annotation-only; the runtime binding is the function-local narrow-phase import
+    import fcl
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -135,9 +139,10 @@ class SpatialResult:
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# each native-backend kind mapped to its `find_spec` probe module (`python-fcl` imports as `fcl`); the pure-Python
-# kinds carry no row and never offload, so `_route` reads one data-driven membership, never a per-case branch.
-_NATIVE: Final[Map[QueryKind, str]] = Map.of_seq((("bounds", "rtree"), ("nearest", "rtree"), ("clearance", "fcl")))
+# declared work-class membership: the batch-heavy kinds (surface projection, ray casting, containment, sampling, and
+# the native narrow-phase gap) offload as HOSTILE process kernels, while `bounds`/`nearest` stay in-process to reuse
+# the capsule mesh's cached `triangles_tree` R-tree a per-hop worker rebuild would forfeit.
+_OFFLOAD: Final[frozenset[QueryKind]] = frozenset(("proximity", "ray", "contains", "clearance", "sample"))
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -190,8 +195,8 @@ def _nearest_hits(
     return face, pos, dist
 
 
-# the one exhaustive dispatch, module-level and arg-only so the no-pickle hop receives it verbatim; `backend`
-# selects the clearance kernel, and `_route` decides sync-vs-offload — never a second dispatch body.
+# the one exhaustive dispatch, module-level and arg-only so REFERENCE shipping resolves it on the worker floor;
+# `backend` selects the clearance kernel, and `_route` decides sync-vs-offload — never a second dispatch body.
 def _dispatch(mesh: trimesh.Trimesh, q: SpatialQuery, backend: SpatialBackend) -> Outcome:
     match q:
         case SpatialQuery(tag="proximity", proximity=(points, signed)):
@@ -269,12 +274,7 @@ class MeshSpatial:  # structural ReceiptContributor conformance — no subclass
     def __init__(self, mesh: trimesh.Trimesh, lane: LanePolicy, backend: SpatialBackend | None = None) -> None:
         self._mesh = mesh
         self._lane = lane  # the offload seam; the lane never imports the kernel
-        self._backend = backend or SpatialBackend.resolve()
-        # a kind offloads iff its native module is missing IN-PROCESS; `clearance` probes the module its RESOLVED
-        # kernel needs (`manifold3d` under MANIFOLD3D, else `fcl`), and the set resolves once at construction.
-        clearance_mod = "manifold3d" if self._backend is SpatialBackend.MANIFOLD3D else _NATIVE["clearance"]
-        probe = _NATIVE.add("clearance", clearance_mod)  # persistent insert overriding the clearance probe
-        self._offload: frozenset[QueryKind] = frozenset(k for k, mod in probe.items() if find_spec(mod) is None)
+        self._backend = backend or SpatialBackend.resolve()  # the one find_spec read: tier selection, never offload routing
         self._last: SpatialReceipt | None = None
 
     @overload
@@ -291,11 +291,13 @@ class MeshSpatial:  # structural ReceiptContributor conformance — no subclass
                 return traversed(rails, by=Disposition.ACCUMULATE)  # a faulted query stays addressable in the aggregate
 
     async def _route(self, q: SpatialQuery) -> "RuntimeRail[SpatialResult]":
-        # resident kinds run under `boundary`; absent-package kinds offload the SAME `_dispatch`, both paths
-        # producing the one `Outcome` the `_fold` cross-cut consumes.
-        offloaded = q.tag in self._offload
+        # index-cached kinds run under `boundary`; batch-heavy kinds offload the SAME `_dispatch` as a HOSTILE kernel —
+        # the native band imports under no isolated subinterpreter — both paths producing the one `Outcome` the
+        # `_fold` cross-cut consumes.
+        offloaded = q.tag in _OFFLOAD
         if offloaded:
-            return (await self._lane.offload(_dispatch, self._mesh, q, self._backend)).map(lambda out: self._fold(q, out, offloaded))
+            kernel = Kernel.of(_dispatch, KernelTrait.HOSTILE)
+            return (await self._lane.offload(kernel, self._mesh, q, self._backend)).map(lambda out: self._fold(q, out, offloaded))
         return boundary(f"mesh.spatial.{q.tag}", lambda: self._fold(q, _dispatch(self._mesh, q, self._backend), offloaded))
 
     def _fold(self, q: SpatialQuery, out: Outcome, offloaded: bool) -> SpatialResult:  # the receipt cross-cut off each Outcome

@@ -1,21 +1,21 @@
 # [PY_GEOMETRY_SCAN_INGESTION]
 
-`ScanIngestion` is the registration-ready front door of the host-free scan companion — the raw-scan cleaning the `data` branch deliberately declines. One frozen owner discriminates over a `ScanSource` `@tagged_union` whose two cases each carry their own decode: `arrow_las` holds the `pyarrow.Table` columnar point-record bridge from `data/spatial/mesh.md#POINTCLOUD` (LAS/LAZ/COPC already decoded), `e57` holds the `pye57` source path the columnar bridge does not own. Both converge on one composable `pdal` filter graph and one registration-ready `o3d.t.geometry.PointCloud` egress. The graph is policy, not code — an `IngestStage` row sequence folded over the `pdal` `|` pipe, so the order and membership of ground classification, outlier removal, downsampling, and range cropping are `IngestPolicy` rows a rebuild reorders without touching the fold, and a block-scale cloud rides the streaming arm when `IngestPolicy.stream_chunk` is non-zero.
+`ScanIngestion` fronts the host-free scan companion registration-ready — the raw-scan cleaning the `data` branch declines. One frozen owner discriminates over a `ScanSource` `@tagged_union` whose two cases each carry their own decode: `arrow_las` holds the `pyarrow.Table` columnar point-record bridge from `data/spatial/mesh.md#POINTCLOUD` (LAS/LAZ/COPC already decoded), `e57` holds the `pye57` source path that bridge does not own. Both converge on one composable `pdal` filter graph and one registration-ready `Cloud` egress. This owner mints the scan plane's sealed cloud crossing: a live `open3d` point cloud is a pybind11 handle no pickler carries, so clouds cross every worker seam as bare `positions`/`colors`/`normals` arrays on the frozen `Cloud` carrier, and a consumer re-inflates through `tensor()`/`legacy()` where its own native work begins. Graph shape is policy, not code — an `IngestStage` row sequence folded over the `pdal` `|` pipe, so ground classification, outlier removal, downsampling, and range cropping order and membership are `IngestPolicy` rows a rebuild reorders without touching the fold; a block-scale cloud rides the streaming arm when `IngestPolicy.stream_chunk` is non-zero.
 
-The `async` entry keeps the multi-second SMRF/voxel sweep off the event loop: `ingest` composes the graduation `evidence_run` weave (span + fence + receipt harvest, `EvidenceScope.SCAN_INGESTION` the seed) around `lane.offload(_ingest_kernel, ...)`, and the `pdal` stage graph survives the process-modality fallback through the pipeline JSON's own pickle state. Emission rides the `@receipted(_REDACTION)` aspect over `IngestReceipt._emit`, harvesting `contribute` on exit. The receipt names what was cleaned, where it sat, and which stations produced it — the realized stage axis, input/output counts, decimation ratio, the executed pipeline's `srswkt2`/`schema` metadata, and the per-station E57 provenance off the typed `ScanHeader`. The cleaned cloud is the precondition `scan/registration.md#REGISTRATION` consumes across a same-folder read-only seam.
+`ingest` runs `async`, keeping the multi-second SMRF/voxel sweep off the event loop: it composes the graduation `evidence_run` weave (span + fence + receipt harvest, `EvidenceScope.SCAN_INGESTION` the seed) around the `lane.offload` crossing on `Kernel.of(_ingest_kernel, KernelTrait.HOSTILE)` — the `pdal`/`pye57`/`open3d` band holds process-global native state and imports under no isolated subinterpreter, so the kernel rides the warm process pool — and the stage graph builds worker-side inside the kernel, so no `pdal` object meets the pickle seam. Emission rides the `@receipted(_REDACTION)` aspect over `IngestReceipt._emit`, harvesting `contribute` on exit. `IngestReceipt` names what was cleaned, where it sat, and which stations produced it — the realized stage axis, input/output counts, decimation ratio, the executed pipeline's `srswkt2`/`schema` metadata, and per-station E57 provenance off the typed `ScanHeader`. A cleaned `Cloud` is the precondition `scan/registration.md#REGISTRATION` consumes across a same-folder read-only seam.
 
 ## [01]-[INDEX]
 
-- [01]-[INGESTION]: source-discriminated raw-scan preprocessing — the `ScanSource` intake folded through one policy-ordered `pdal` `|` filter graph to a registration-ready `open3d` point cloud, offloaded under the graduation weave.
+- [01]-[INGESTION]: source-discriminated raw-scan preprocessing — the `ScanSource` intake folded through one policy-ordered `pdal` `|` filter graph to the registration-ready `Cloud` carrier, offloaded to the warm process pool under the graduation weave.
 
 ## [02]-[INGESTION]
 
-- Owner: `ScanIngestion` the frozen dispatch owner; the `ScanSource` tag IS the decode-carrying discriminant (`arrow_las` the `pyarrow.Table` bridge, `e57` the `pye57` path), never an untyped `object` token paired with a separate enum. `IngestReceipt` conforms structurally to the runtime `ReceiptContributor` through its own `contribute()`, never importing the port as a base.
-- Cases: `ScanSource` arms `arrow_las` (the data-branch `pyarrow.Table` bridge, `x`/`y`/`z` plus the LAS columns already decoded) and `e57` (the `pye57` structured multi-scan source read per-scan with its acquisition pose applied and `ScanHeader` provenance harvested), matched by `match`/`assert_never`, converging on the shared `_filter_graph` and one egress. `IngestStage` rows — `GROUND_CLASSIFY` (`SMRF` default / `PMF` alternate, swap on `IngestPolicy.ground_filter`), `OUTLIER_REMOVE`, `DECIMATE` (`DECIMATION` / `VOXELDOWNSIZE`, swap on `IngestPolicy.decimate_filter`), `RANGE_CROP` — each build their `pdal.Filter` through one `_STAGE` row, the swappable rows dispatching to the policy-chosen `_FILTER` factory, so a stage's driver and its option dict are one row read, never a type match plus a parallel option match. `IngestFilter` is the closed `filters.*` driver vocabulary whose `.value` is the driver string.
-- Entry: `ingest` is `async`, admits one `ScanSource`, and returns `RuntimeRail[tuple[o3d.t.geometry.PointCloud, IngestReceipt]]` by composing `evidence_run(EvidenceScope.SCAN_INGESTION, f"ingest.{source.tag}", partial(lane.offload, _ingest_kernel, source, policy))`. `_ingest_kernel` is module-level and picklable — the lane imports neither `pdal` nor `pye57` nor the kernel, and a decode/filter raise inside the hop converts through the lane's `async_boundary` onto the recorded rail. The interior runs the source through one `match`: `arrow_las` folds the Arrow columns into the `pdal`-shaped structured array through the `@beartype(conf=FAULT_CONF)` `_structured` fence, `e57` folds every pose-applied scan block plus its provenance through `_read_e57`, and both reach `_filter_graph`.
-- Auto: `_filter_graph` folds the graph through one `Option` rail — `_stages` builds the `IngestPolicy.stages` sequence through the `_STAGE` table and gates emptiness via `try_head`, so an empty policy is the structural `Nothing` `default_value` lifts the raw array through, never an `and` truthiness branch. The present-graph arm binds the array once at the head stage's `.pipeline(points)` wrap (never a `Reader` re-read), folds the tail over `|`, then selects execution by `stream_chunk`: zero runs whole-array `execute()`, a positive chunk runs `iterator(chunk_size)` when the composed graph is streamable and degrades to `execute()` otherwise, since a blocking stage (smrf/pmf/outlier/voxeldownsize) cannot stream. The `import pdal` side-effect that binds the injected `Filter.<name>` factories lives in `_stages`, the one place a `_STAGE` row is invoked, so the boundary import completes before any factory reference.
-- Receipt: `IngestReceipt.of` derives the decimation ratio from the counts and integer-narrows at one factory; `facts` emits the native slots and tuple axes once; `_emit` carries the `@receipted(_REDACTION)` aspect. Ingestion mints no graduation subject — the cleaned cloud is an intra-folder precondition the `register` rail graduates downstream, so there is no `scan-ingestion` member on the `rasm.geometry.graduation` `GeometrySubject` union.
-- Packages: `pdal` (the injected `Filter.smrf`/`.pmf`/`.outlier`/`.decimation`/`.voxeldownsize`/`.range` factories, the `|` pipe composition, the `execute()`/`iterator(chunk_size)` runs, and the `srswkt2`/`schema` output metadata; the pipeline-JSON pickle state rides the modality fallback), `pye57` (`E57` context-manager open, `read_scan(transform=True)` the conditioned global-frame intake, `get_header` the typed `ScanHeader`), `open3d` (the `o3d.t.geometry.PointCloud` egress tensor), `pyarrow` (the bridge columns), `numpy` (structured-array assembly over the shared `_DTYPE`), `expression` (`Block`/`Map`/`Option` folds), `beartype` (the `_structured` fence), `msgspec` (frozen carriers), the geometry `evidence_run`/`EvidenceScope` weave, and the runtime `RuntimeRail`/`LanePolicy.offload`/`Receipt`/`receipted` rails. `laspy` is consumed transitively through the data-branch bridge, never imported here; the three compiled scan packages (`pdal`/`pye57`/`open3d`) import function-local at boundary scope.
+- Owner: `ScanIngestion`, the frozen dispatch owner; `ScanSource`'s tag IS the decode-carrying discriminant (`arrow_las` the `pyarrow.Table` bridge, `e57` the `pye57` path), never an untyped `object` token paired with a separate enum. `Cloud` mints HERE as the scan plane's sealed cloud crossing — bare ndarray fields plus the `tensor()`/`legacy()` rebuild pair, the point-cloud analogue of `mesh/brep`'s sealed-STEP octets — and `scan/registration`, `scan/deviation`, `scan/reconstruction` import it downward, never a per-page carrier twin. `IngestReceipt` conforms structurally to the runtime `ReceiptContributor` through its own `contribute()`, never importing the port as a base.
+- Cases: `ScanSource` arms `arrow_las` (the data-branch `pyarrow.Table` bridge, `x`/`y`/`z` plus LAS columns already decoded) and `e57` (the `pye57` structured multi-scan source read per-scan with acquisition pose applied and `ScanHeader` provenance harvested), matched by `match`/`assert_never`, converging on the shared `_filter_graph` and one egress. `IngestStage` rows — `GROUND_CLASSIFY` (`SMRF` default / `PMF` alternate, swap on `IngestPolicy.ground_filter`), `OUTLIER_REMOVE`, `DECIMATE` (`DECIMATION` / `VOXELDOWNSIZE`, swap on `IngestPolicy.decimate_filter`), `RANGE_CROP` — each build their `pdal.Filter` through one `_STAGE` row, the swappable rows dispatching to the policy-chosen `_FILTER` factory, so a stage's driver and option dict are one row read, never a type match plus a parallel option match. `IngestFilter` is the closed `filters.*` driver vocabulary whose `.value` is the driver string.
+- Entry: `ingest` is `async`, admits one `ScanSource`, and returns `RuntimeRail[tuple[Cloud, IngestReceipt]]` by composing `evidence_run(EvidenceScope.SCAN_INGESTION, f"ingest.{source.tag}", partial(lane.offload, Kernel.of(_ingest_kernel, KernelTrait.HOSTILE), source, policy))`. `_ingest_kernel` is module-level, so it ships `REFERENCE` across the process seam — the lane imports neither `pdal` nor `pye57` nor the kernel, and a decode/filter raise inside the hop converts through the lane's `async_boundary` onto the recorded rail. Its interior runs the source through one `match`: `arrow_las` folds the Arrow columns into the `pdal`-shaped structured array through the `@beartype(conf=FAULT_CONF)` `_structured` fence, `e57` folds every pose-applied scan block plus its provenance through `_read_e57`, and both reach `_filter_graph`.
+- Auto: `_filter_graph` folds the graph through one `Option` rail — `_stages` builds the `IngestPolicy.stages` sequence through the `_STAGE` table and gates emptiness via `try_head`, so an empty policy is the structural `Nothing` `default_value` lifts the raw array through, never an `and` truthiness branch. That present-graph arm binds the array once at the head stage's `.pipeline(points)` wrap (never a `Reader` re-read), folds the tail over `|`, then selects execution by `stream_chunk`: zero runs whole-array `execute()`, a positive chunk runs `iterator(chunk_size)` when the composed graph is streamable and degrades to `execute()` otherwise, since a blocking stage (smrf/pmf/outlier/voxeldownsize) cannot stream. `import pdal`'s side-effect binding the injected `Filter.<name>` factories lives in `_stages`, the one place a `_STAGE` row is invoked, so the boundary import completes before any factory reference.
+- Receipt: `IngestReceipt.of` derives the decimation ratio from counts and integer-narrows at one factory; `facts` emits the native slots and tuple axes once; `_emit` carries the `@receipted(_REDACTION)` aspect. Ingestion mints no graduation subject — a cleaned cloud is an intra-folder precondition the `register` rail graduates downstream, so no `scan-ingestion` member sits on the `rasm.geometry.graduation` `GeometrySubject` union.
+- Packages: `pdal` (the injected `Filter.smrf`/`.pmf`/`.outlier`/`.decimation`/`.voxeldownsize`/`.range` factories, the `|` pipe composition, the `execute()`/`iterator(chunk_size)` runs, and the `srswkt2`/`schema` output metadata), `pye57` (`E57` context-manager open, `read_scan(transform=True)` the conditioned global-frame intake, `get_header` the typed `ScanHeader`), `open3d` (touched only by the `Cloud.tensor()`/`legacy()` rebuild projections a consumer calls on its own native floor), `pyarrow` (the bridge columns), `numpy` (structured-array assembly over the shared `_DTYPE`), `expression` (`Block`/`Map`/`Option` folds), `beartype` (the `_structured` fence), `msgspec` (frozen carriers), the geometry `evidence_run`/`EvidenceScope` weave, and the runtime `RuntimeRail`/`LanePolicy.offload`/`Kernel`/`Receipt`/`receipted` rails. `laspy` is consumed transitively through the data-branch bridge, never imported here; the three compiled scan packages (`pdal`/`pye57`/`open3d`) import function-local at boundary scope.
 - Growth: a new cleaning stage is one `IngestStage` member plus one `_STAGE` row (and one `_FILTER` row when a new driver backs it); a new driver alternative on a swappable stage is one `IngestFilter` member plus one `_FILTER` row plus the policy default; a new source format is one `ScanSource` case plus one dispatch arm; a new output-metadata fact is one `facts` slot read off the executed pipeline.
 - Boundary: the inbound LAS/LAZ/COPC decode and the `pyarrow.Table` bridge are `data/spatial/mesh.md#POINTCLOUD`'s (`laspy` full decode and the COPC octree subset live there), so ingestion never re-reads LAS nor crosses a `pdal` `Pipeline` at the data seam; the E57 path is legitimately ingestion's because `pye57` is absent from the data branch, but the E57 write path (`write_scan_raw`) is declined — scan egress is the data seam's. Registration is `scan/registration.md#REGISTRATION`'s; ingestion never registers, deviates, reconstructs, tessellates, stores, or mutates a Rhino/GH document.
 
@@ -24,18 +24,24 @@ The `async` entry keeps the multi-second SMRF/voxel sweep off the event loop: `i
 from collections.abc import Callable
 from enum import StrEnum
 from functools import partial
-from typing import Final, Literal, assert_never
+from typing import TYPE_CHECKING, Final, Literal, assert_never
 
 import numpy as np
 from beartype import beartype
 from expression import Option, case, tag, tagged_union
 from expression.collections import Block, Map
-from msgspec import Struct
+from msgspec import Struct, field
 
 from rasm.geometry.graduation import EvidenceScope, evidence_run
 from rasm.runtime.faults import FAULT_CONF, RuntimeRail
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.receipts import Receipt, Redaction, receipted
+from rasm.runtime.workers import Kernel, KernelTrait
+
+if TYPE_CHECKING:  # annotation-only names; the compiled band imports function-local at boundary scope
+    import open3d as o3d
+    import pdal
+    import pyarrow as pa
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -70,10 +76,46 @@ class ScanSource:
 # no secret field in the facts, so the @receipted egress binds the keep-all redaction.
 _REDACTION: Final[Redaction] = Redaction(classified=Map.empty())
 
-# the one structured layout the Arrow bridge and E57 blocks both fill; `pdal` reads X/Y/Z.
+# one structured layout the Arrow bridge and E57 blocks both fill; `pdal` reads X/Y/Z and threads the optional
+# full-range u16 Red/Green/Blue band through every filter stage untouched, so COLORED_ICP receives source color.
 _DTYPE: Final = np.dtype([(axis, np.float64) for axis in ("X", "Y", "Z")])
+_COLOR_DTYPE: Final = np.dtype([*_DTYPE.descr, *((band, np.uint16) for band in ("Red", "Green", "Blue"))])
 
 # --- [MODELS] ---------------------------------------------------------------------------
+
+
+class Cloud(Struct, frozen=True):
+    # sealed cloud crossing: bare arrays plus the rebuild recipe, because a live open3d cloud is a pybind11 handle no
+    # pickler carries; a struct-wrapped buffer rides the PICKLE wire by the workers span law, and every consumer
+    # re-inflates through tensor()/legacy() where its own native work begins — the brep unsealed() analogue.
+    positions: np.ndarray  # (N, 3) float64
+    colors: np.ndarray = field(default_factory=lambda: np.empty((0, 3)))
+    normals: np.ndarray = field(default_factory=lambda: np.empty((0, 3)))
+
+    def __len__(self) -> int:
+        return int(self.positions.shape[0])
+
+    def tensor(self) -> "o3d.t.geometry.PointCloud":
+        import open3d as o3d  # noqa: PLC0415
+
+        cloud = o3d.t.geometry.PointCloud()
+        cloud.point.positions = o3d.core.Tensor(self.positions.astype(np.float32))
+        if self.colors.size:
+            cloud.point.colors = o3d.core.Tensor(self.colors.astype(np.float32))
+        if self.normals.size:
+            cloud.point.normals = o3d.core.Tensor(self.normals.astype(np.float32))
+        return cloud
+
+    def legacy(self) -> "o3d.geometry.PointCloud":
+        import open3d as o3d  # noqa: PLC0415
+
+        cloud = o3d.geometry.PointCloud()
+        cloud.points = o3d.utility.Vector3dVector(self.positions)
+        if self.colors.size:
+            cloud.colors = o3d.utility.Vector3dVector(self.colors)
+        if self.normals.size:
+            cloud.normals = o3d.utility.Vector3dVector(self.normals)
+        return cloud
 
 
 class IngestPolicy(Struct, frozen=True, gc=False):
@@ -93,13 +135,13 @@ class IngestPolicy(Struct, frozen=True, gc=False):
 
     @property
     def range_limits(self) -> str:
-        # the `filters.range` grammar string derives from the typed axis/band pair, never a raw literal.
+        # `filters.range` grammar string derives from the typed axis/band pair, never a raw literal.
         lo, hi = self.range_band
         return f"{self.range_axis}[{lo:g}:{hi:g}]"
 
 
 class StationFact(Struct, frozen=True, gc=False):
-    # the pose/acquisition surface the raw read path drops; native slots ride the receipt facts.
+    # pose/acquisition surface the raw read path drops; native slots ride the receipt facts.
     guid: str
     points: int
     translation: tuple[float, float, float]
@@ -155,10 +197,15 @@ class IngestReceipt(Struct, frozen=True, gc=False):
 
 
 @beartype(conf=FAULT_CONF)
-def _structured(x: np.ndarray, y: np.ndarray, z: np.ndarray) -> np.ndarray:
-    # a non-ndarray column raises the BeartypeCallHintViolation the fence lifts onto the rail.
-    out = np.empty(x.shape[0], dtype=_DTYPE)
+def _structured(x: np.ndarray, y: np.ndarray, z: np.ndarray, rgb: tuple[np.ndarray, np.ndarray, np.ndarray] | None = None) -> np.ndarray:
+    # a non-ndarray column raises the BeartypeCallHintViolation the fence lifts onto the rail; a color triple widens
+    # the layout by the u16 band, a u8 source (E57 colors) scaling by 257 onto the LAS full range so one canonical
+    # color regime crosses the pipeline regardless of source depth.
+    out = np.empty(x.shape[0], dtype=_COLOR_DTYPE if rgb is not None else _DTYPE)
     out["X"], out["Y"], out["Z"] = x, y, z
+    for band, values in zip(("Red", "Green", "Blue"), rgb or (), strict=False):
+        arr = np.asarray(values)
+        out[band] = arr.astype(np.uint16) * 257 if arr.dtype.kind in "iu" and np.iinfo(arr.dtype).max == 255 else arr
     return out
 
 
@@ -172,10 +219,17 @@ def _read_e57(path: str) -> tuple[np.ndarray, tuple[StationFact, ...]]:
             StationFact(str(h.guid), int(h.point_count), tuple(float(v) for v in h.translation))
             for h in (handle.get_header(index) for index in range(handle.scan_count))
         )
-        blocks = Block.of_seq(
-            _structured(*(scan[f"cartesian{axis}"] for axis in ("X", "Y", "Z")))
-            for scan in (handle.read_scan(index, transform=True) for index in range(handle.scan_count))
+        scans = tuple(handle.read_scan(index, transform=True, colors=True, ignore_missing_fields=True) for index in range(handle.scan_count))
+    # color survives only when EVERY station carries it — a half-attributed set drops the band whole, because a
+    # cloud padded with fabricated zeros would poison the COLORED_ICP objective it exists to feed.
+    colored = bool(scans) and all("colorRed" in scan for scan in scans)
+    blocks = Block.of_seq(
+        _structured(
+            *(scan[f"cartesian{axis}"] for axis in ("X", "Y", "Z")),
+            tuple(scan[f"color{band}"] for band in ("Red", "Green", "Blue")) if colored else None,
         )
+        for scan in scans
+    )
     # a scan-less E57 is the structural Nothing the empty-array arm lifts, never a falsy-Block guard.
     points = blocks.try_head().map(lambda _: np.concatenate(blocks)).default_value(np.empty(0, dtype=_DTYPE))
     return points, stations
@@ -184,14 +238,13 @@ def _read_e57(path: str) -> tuple[np.ndarray, tuple[StationFact, ...]]:
 def _stages(policy: IngestPolicy) -> Option[Block["pdal.Filter"]]:
     import pdal  # noqa: PLC0415  binds the injected Filter.<name> factories before any _STAGE row call
 
-    # the injected `Filter` class threads into each `_STAGE`/`_FILTER` closure, so the tables never
-    # resolve an unbound `pdal` global.
+    # injected `Filter` class threads into each `_STAGE`/`_FILTER` closure, so the tables never resolve an unbound `pdal` global.
     built = Block.of_seq(_STAGE[stage](pdal.Filter, policy) for stage in policy.stages)
     return built.try_head().map(lambda _: built)
 
 
 def _execute(stages: Block["pdal.Filter"], points: np.ndarray, chunk: int) -> tuple[np.ndarray, str, int]:
-    # the array enters once at the head stage's `.pipeline(points)` wrap, never a redundant Reader re-read.
+    # array enters once at the head stage's `.pipeline(points)` wrap, never a redundant Reader re-read.
     pipeline = stages.tail().fold(lambda acc, stage: acc | stage, stages.head().pipeline(points))
     if chunk and pipeline.streamable:
         # iterator() requires every composed stage streamable; a blocking stage degrades to execute().
@@ -203,26 +256,36 @@ def _execute(stages: Block["pdal.Filter"], points: np.ndarray, chunk: int) -> tu
     return cleaned, str(pipeline.srswkt2 or ""), len(schema)
 
 
-def _filter_graph(points: np.ndarray, policy: IngestPolicy) -> tuple["o3d.t.geometry.PointCloud", np.ndarray, str, int]:
-    import open3d as o3d  # noqa: PLC0415
-
+def _filter_graph(points: np.ndarray, policy: IngestPolicy) -> tuple[Cloud, np.ndarray, str, int]:
     cleaned, srs, dims = (
         _stages(policy).map(lambda stages: _execute(stages, points, policy.stream_chunk)).default_value((points, "", 0))
     )
-    positions = np.column_stack((cleaned["X"], cleaned["Y"], cleaned["Z"])).astype(np.float32)
-    cloud = o3d.t.geometry.PointCloud()
-    cloud.point.positions = o3d.core.Tensor(positions)
-    return cloud, cleaned, srs, dims
+    # the color band that survived the filter graph lands unit-scaled on the Cloud; normals stay absent by
+    # construction — neither LAS nor pye57 exposes them, so the registration owner's estimation stage mints them.
+    colors = (
+        np.column_stack((cleaned["Red"], cleaned["Green"], cleaned["Blue"])).astype(np.float64) / 65535.0
+        if {"Red", "Green", "Blue"} <= set(cleaned.dtype.names or ())
+        else np.empty((0, 3))
+    )
+    return Cloud(positions=np.column_stack((cleaned["X"], cleaned["Y"], cleaned["Z"])).astype(np.float64), colors=colors), cleaned, srs, dims
 
 
-def _ingest_kernel(source: ScanSource, policy: IngestPolicy) -> tuple["o3d.t.geometry.PointCloud", IngestReceipt]:
-    # the module-level picklable kernel the lane offloads.
+def _ingest_kernel(source: ScanSource, policy: IngestPolicy) -> tuple[Cloud, IngestReceipt]:
+    # module-level HOSTILE kernel: ships REFERENCE, runs on the warm process pool, and returns only picklable material.
     match source:
         case ScanSource(tag="arrow_las", arrow_las=table):
+            # a color-bearing LAS point format (red/green/blue columns present) rides its band into the layout;
+            # a colorless format yields the bare X/Y/Z dtype rather than a fabricated zero band.
+            rgb = (
+                tuple(table.column(band).to_numpy(zero_copy_only=False) for band in ("red", "green", "blue"))
+                if {"red", "green", "blue"} <= set(table.column_names)
+                else None
+            )
             points = _structured(
                 table.column("x").to_numpy(zero_copy_only=False),
                 table.column("y").to_numpy(zero_copy_only=False),
                 table.column("z").to_numpy(zero_copy_only=False),
+                rgb,
             )
             stations: tuple[StationFact, ...] = ()
         case ScanSource(tag="e57", e57=path):
@@ -240,10 +303,13 @@ class ScanIngestion(Struct, frozen=True):
     lane: LanePolicy
     policy: IngestPolicy = IngestPolicy()
 
-    async def ingest(self, source: ScanSource) -> "RuntimeRail[tuple[o3d.t.geometry.PointCloud, IngestReceipt]]":
-        # `partial` keeps the dispatch a coroutine function the weave's modality probe reads.
+    async def ingest(self, source: ScanSource) -> "RuntimeRail[tuple[Cloud, IngestReceipt]]":
+        # `partial` keeps the dispatch a coroutine function the weave's modality probe reads; HOSTILE is the declared
+        # trait because the pdal/pye57 band holds process-global native state and imports under no isolated subinterpreter.
         rail = await evidence_run(
-            EvidenceScope.SCAN_INGESTION, f"ingest.{source.tag}", partial(self.lane.offload, _ingest_kernel, source, self.policy)
+            EvidenceScope.SCAN_INGESTION,
+            f"ingest.{source.tag}",
+            partial(self.lane.offload, Kernel.of(_ingest_kernel, KernelTrait.HOSTILE), source, self.policy),
         )
         return rail.map(lambda pair: (pair[0], IngestReceipt._emit(pair[1])))
 

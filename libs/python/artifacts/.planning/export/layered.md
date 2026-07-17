@@ -1,43 +1,50 @@
 # [PY_ARTIFACTS_LAYERED]
 
-`LayeredExport` owns the editable named-layer export close — it authors the separable, toggleable, lockable layer structure an external editor re-orders and re-colors, the inverse of the `document/egress#FINISH` `FINISHERS` table that STRIPS the layers this owner authors. ONE owner discriminates the editor family over the closed `ExportTarget` `StrEnum` (`SVG`/`PDF`/`ORA`/`PSD`/`PSB`/`TIFF`), each target a `LayerEngine` row in the `ENGINES` policy table binding its single `LayerFact`-returning arm, its `preview`-versus-egress receipt discriminant, and its execution `Band` — the table the totality proof and the only dispatch. Placement, scaling, and rasterization stay upstream: this owner re-renders nothing and re-lays-out nothing, receiving already-placed sources and authoring the layer structure the flat egress deliberately omits.
+`LayeredExport` owns the editable named-layer export close — it authors the separable, toggleable, lockable layer structure an external editor re-orders and re-colors, the inverse of the `document/egress#FINISH` `FINISHERS` table that strips the layers this owner authors. One owner discriminates the editor family over the closed `ExportTarget` vocabulary, each target a `LayerEngine` row in `ENGINES` binding one `LayerFact` arm and its crossing `KernelTrait`. `LayerFact` separates `preview` and `egress` payloads, so receipt dispatch reads the fact without a boolean or default-filled cross-mode record. Placement, scaling, and rasterization stay upstream. `BlendMode` composes from `graphic/color/derive#DERIVE`; its value derives SVG and `photoshopapi.enum.BlendMode`, and its name derives `psdtags.PsdBlendMode`.
 
-Admission is trusted layer material plus one optional untrusted blob: the `tuple[Layer, ...]` rows arrive from the visual producers (`composition/compose#COMPOSE`, `graphic/marks/encode#MARK`, `visualization/diagram/draw#DRAW`, `graphic/raster/io#RASTER`) beside one trusted `LayerPolicy`, the untrusted external `base` PDF admitted once at `of` through the closed `ExportPayload` `TypedDict` + `TypeAdapter`, an empty layer set rejected into `ExportFault.empty` before the fold. `Layer(name, source, bbox)`'s positional contract the five producers construct stays a three-argument call while `visible`/`locked`/`opacity`/`blend`/`intent`/`group`/`color` carry the full editor-panel axis. Placement is a `Band` policy value the `_PLACE` table resolves — the `SVG`/`PDF` arms cross the runtime thread lane under the `_THREAD_GATE` `CapacityLimiter` so the GIL-releasing `pymupdf`/`pikepdf` render never runs on the event loop, the `ORA`/`PSD`/`PSB`/`TIFF` arms cross the process lane under the module-level `_GATE` because libvips and the libxml2-backed `lxml` are off the runtime loader path. One per-instance `LayeredExport.emit -> RuntimeRail[ArtifactReceipt]` IS the `core/plan#PLAN` `ArtifactWork.work` coroutine the ONE `ArtifactPipeline` schedules (the `export/indesign#INDESIGN` `Idml.emit` counterpart recorded in ARCHITECTURE `[02]-[SEAMS]` as the single-production-entry seam), returning the existing `core/receipt#RECEIPT` `ArtifactReceipt.Preview` case (the named-layer documents) or `ArtifactReceipt.Egress` case (the OCG-layered PDF) with the authored-layer count on the `overlays` slot the `document/egress#FINISH` REWRITE arm reports a STRIPPED count on.
+Admission is trusted layer material plus one optional untrusted blob: `Layer.issue` rejects empty identity/source, degenerate bounds, and invalid opacity; `LayeredExport.of` rejects an empty layer set, duplicate names, and PSD/PSB dimensions outside the selected container. `ExportPayload` and `TypeAdapter` admit the external `base` PDF. Each arm crosses `self.lane.offload(Kernel.of(engine.arm, engine.trait), self)`; SVG/PDF ride the `RELEASING` thread arm, and ORA/PSD/PSB/TIFF the `HOSTILE` process pool. Runtime lanes own capacity and fault conversion. `LayeredExport.emit` is the `ArtifactWork.work` coroutine and threads the pre-run `_key` into `ArtifactReceipt.Preview` or `ArtifactReceipt.Egress`.
 
 ## [01]-[INDEX]
 
-- [01]-[LAYERED]: the one editable named-layer export owner — `LayeredExport` discriminating the editor family over the closed `ExportTarget` (`SVG`/`PDF`/`ORA`/`PSD`/`PSB`/`TIFF`) keyed to the `ENGINES` band-dispatched table, each arm authoring the layer structure the flat egress omits and returning `ArtifactReceipt.Preview` or `ArtifactReceipt.Egress`.
+- [01]-[LAYERED]: the one editable named-layer export owner — `LayeredExport` discriminating the editor family over the closed `ExportTarget` (`SVG`/`PDF`/`ORA`/`PSD`/`PSB`/`TIFF`) keyed to the `ENGINES` modality-dispatched table, each arm authoring the layer structure the flat egress omits and returning `ArtifactReceipt.Preview` or `ArtifactReceipt.Egress`.
 
 ## [02]-[LAYERED]
 
-- Owner: `LayeredExport` discriminates the editor family over the closed `ExportTarget` keyed to the `ENGINES` policy table binding each arm's `LayerFact` body, `preview`-versus-egress discriminant, and execution `Band`. `Layer` is the row every visual producer constructs — `name`/`source`/`bbox` positional, the editor-panel axis (`visible`/`locked`/`opacity`/`blend`/`intent`/`group`/`color`) defaulting after `bbox`; `group` is a folder LABEL projected to all three editors (the SVG parent `<g>`, the OCG `/Order` folder, the ORA `<stack name=>`), never a parent-layer-NAME reference. `LayerPolicy` is the trusted save-knob bundle; `BlendMode` is the 16-mode CSS enum whose value IS the SVG `mix-blend-mode` token and whose member NAME derives the `psdtags.PsdBlendMode`/`psd_constants.BlendMode` members with no parallel table.
-- Cases: each `ExportTarget` is a `LayerEngine` row with its editability ruling — `SVG` (`drawsvg` named `<g inkscape:groupmode=layer>` groups read as layers by the Illustrator and Inkscape panels), `PDF` (`pymupdf` OCG placement enriched by the `pikepdf` `/OCProperties` object model for Acrobat), `ORA` (an OpenRaster `pyvips`/`lxml`/`stream-zip` container for GIMP/Krita), `PSD`/`PSB` (a native Photoshop channel-stack document through `psd_tools`, the cp315-present standing author, PhotoshopAPI the categorical-best native writer selected once a wheel lands, per-channel codec capability-detected off the `imagecodecs` `<CODEC>.available` backend), `TIFF` (a Photoshop-compatible layered TIFF through `psdtags`+`tifffile`, RETAINED for the TIFF container only). There is NO layer-faithful `.ai` target: Illustrator's `.ai` OCG layers do NOT map to its layer panel, so an OCG-PDF renamed `.ai` opens FLAT — the durable Illustrator hand-off is the `SVG` named-layer document, so `.ai` is deliberately absent.
-- Auto: `_emit` resolves `engine = ENGINES[self.target]`, awaits `_PLACE[engine.band](engine.arm, self)` so the band table runs the arm on the `to_thread` lane or the subprocess worker, never inline on the event loop, mints the content key over the returned `LayerFact.data`, and returns the `preview`-discriminated `ArtifactReceipt` directly. `SVG` folds each `Layer` into one leaf `Group(**layer.svg_attrs())` nested under one `<g inkscape:groupmode=layer>` folder minted per distinct `group`. `PDF` opens the `pymupdf` document in a `with` that closes the native handle (never GC-reaped), mints one `add_ocg` xref per layer, places each source in a nested `with`, drives the visibility/lock partitions through `set_layer`, then `_enriched` folds the per-layer `/Usage` sub-dict and `/Order` folder tree onto the `pikepdf` `/OCProperties` catalog. `ORA` scales alpha by `opacity` and stacks the visible layers through the native `composite(modes)` under their `_vips_blend` modes for a FAITHFUL `mergedimage.png`, authors `stack.xml` through `lxml`, and frames the ZIP through `stream_zip`.
-- Output: `LayerFact` is the bytes-plus-evidence carrier every arm returns — the `data` plus the SVG/ORA viewport (`width`/`height`, the `Preview` facts) and the PDF `pages`/`layers` (the `Egress` facts).
-- Receipt: `_emit` mints the content key over the arm's `LayerFact.data` and folds the case off the `LayerEngine.preview` discriminant — the named-document arms return `ArtifactReceipt.Preview(key, width, height)` (the same `Preview` shape the visual producers return), the `PDF` arm returns `ArtifactReceipt.Egress(key, bytes, pages, 0, 0, layers)` carrying the authored-layer count on the `overlays` slot the `document/egress#FINISH` REWRITE arm reports a STRIPPED count on — author and subtract are inverses over one field. Layered export adds NO new receipt case; the producer projects flat scalars so the receipt owner imports no producer value object.
-- Growth: a new editable-export target (a Scribus `.sla`, an Affinity `.afphoto`) is one `ExportTarget` member plus one `LayerEngine` row plus one arm over the existing engine algebra — never a re-implemented serializer, object model, channel writer, or container; a new layer attribute is one `Layer` field threaded into each format's projection; a new compositing mode is one `BlendMode` member, its value the SVG spelling and its member NAME the `psdtags`/`psd_constants` correspondence (the 12 native-only Photoshop modes are a separate growth axis, absent from the CSS-value contract the SVG arm demands); a new per-channel codec is one `PsdCompression` member plus one `_CHANNEL_CODEC` row; a further usage application is one `LayerIntent` member plus one `_USAGE`/`_STATE_KEY` row (`_INTENT` is DERIVED, so the member auto-derives its hint), only a Real-valued `/Zoom` min/max band adding one `_usage` arm; a new execution band is one `Band` member plus one `_PLACE` row; a new save knob is one `LayerPolicy` field; a new admission invariant is one `ExportFault` case plus one `of` guard; a new untrusted blob is one `ExportPayload` band line. Zero new surface.
-- Boundary: a per-producer layer-export class family where one `ENGINES`-dispatched owner suffices; a `names`/`sources`/`flags` triple-list zipped at the call site where one `Layer` row carries its own; a hand-emitted `<g id>` string where the `drawsvg` `Group` authors it, and a plain `<g id>` (a GROUP, not a layer) where `inkscape:groupmode="layer"` makes it a real layer; a `groups[layer.name]` parent lookup where `group` references a folder LABEL, not a layer NAME; a hand-written `/OC … BDC … EMC` content-stream where the `pymupdf` `oc=` placement brackets the span natively; a multi-column per-format `_BLEND` table where the shared member NAME derives every consumer; a `reduce(composite2, OVER)` flatten discarding per-layer blend and opacity where the native `composite(modes)` keeps a FAITHFUL `mergedimage.png`; an unbounded `to_process` offload where the `_GATE`/`_THREAD_GATE` `CapacityLimiter` bounds it; an arm run inline on the event loop where the `to_thread` lane offloads the GIL-releasing render; a native `pymupdf`/`pikepdf` handle left for GC where the arm brackets it in a `with`; a module-level batch entry where the one per-instance `emit` the `ArtifactPipeline` schedules; a duplicate layer name where `of`'s `Counter` gate rejects it into `ExportFault.duplicate` are the deleted forms. On the PSD plane: a `psd_tools`-plus-PhotoshopAPI writer admitted on ONE interpreter (the native writer supersedes, never a second parallel owner), a `psd_tools` array handed straight to `tifffile` (the TIFF arm owns its own `psdtags.PsdLayer` lowering), the 12 native-only Photoshop blend modes forced onto the CSS-value `BlendMode`, and a channel routed through an unprobed codec are the rejected forms. Rasterization stays `graphic/raster/io#RASTER`/`graphic/vector/region#REGION`, placement the compose `Tile`/`ScaleFit`/`Overlay` arms; the inverse OCG-layer STRIP/FLATTEN stays `document/egress#FINISH`, the PDF/A close `document/emit#EMIT`, the PAdES close `exchange/conformance#CONFORMANCE`, the InDesign hand-off `export/indesign#INDESIGN`.
+- Owner: `LayeredExport` discriminates the editor family over the closed `ExportTarget` keyed to the `ENGINES` policy table binding each arm's `LayerFact` body and crossing `KernelTrait`. `LayerFact.preview` carries named-document bytes, viewport, and layer count; `LayerFact.egress` carries PDF bytes, page count, and authored-layer count. `Layer` is the row every visual producer constructs — `name`/`source`/`bbox` positional, the editor-panel axis (`visible`/`locked`/`opacity`/`blend`/`intent`/`group`/`color`) defaulting after `bbox`; `group` is a folder label projected to all editors, never a parent-layer-name reference. `OcgIntent` absorbs the producer vocabulary and lowers every editorial semantic onto one OCG usage row. `LayerPolicy` is the trusted save-policy bundle; `BlendMode` is `graphic/color/derive#DERIVE`'s canonical vocabulary whose value is the SVG `mix-blend-mode` token and whose name derives the Photoshop members.
+- Cases: each `ExportTarget` is a `LayerEngine` row with its editability ruling — `SVG` uses named `drawsvg` layer groups, `PDF` uses `pymupdf` OCG placement plus `pikepdf` `/OCProperties`, `ORA` uses `pyvips`/`lxml`/`stream-zip`, `PSD`/`PSB` use `PhotoshopAPI` native channel stacks with `psd-tools` structural readback, and `TIFF` uses `psdtags`/`tifffile`. `_PSB_FLOOR` refuses a target on the wrong side of the PSD dimension bound, and the output suffix selects the native container. Illustrator consumes the named-layer `SVG`; renamed OCG PDF does not create Illustrator layer-panel structure.
+- Auto: `_emit` resolves `engine = ENGINES[self.target]`, crosses `self.lane.offload(Kernel.of(engine.arm, engine.trait), self)` so the arm runs on the thread arm or the warm process pool, never inline on the event loop, and maps the returned rail onto the `preview`-discriminated `ArtifactReceipt` threading the PRE-RUN `_key` — key-over-INPUT (`ContentIdentity.key` over the deterministic-msgpack `target ⊕ layers ⊕ base ⊕ policy` bytes), never a key over authored bytes, so `receipt.slot == node.key` and the plan's sub-graph elision short-circuits before the arm runs. `_svg` folds each `Layer` into one leaf `Group(**layer.svg_attrs())` nested under one `<g inkscape:groupmode=layer>` folder minted per distinct `group`. `_pdf` opens the `pymupdf` document in a `with` that closes the native handle (never GC-reaped), mints one `add_ocg` xref per layer, places each source in a nested `with`, drives the visibility/lock partitions through `set_layer`, then `_enriched` folds the per-layer `/Usage` sub-dict and `/Order` folder tree onto the `pikepdf` `/OCProperties` catalog. `_ora` scales alpha by `opacity` and stacks the visible layers through the native `composite(modes)` under their `_vips_blend` modes for a FAITHFUL `mergedimage.png`, authors `stack.xml` through `lxml`, and frames the ZIP through `stream_zip`; the ORA/TIFF alpha-scale-embed-composite stack is the one shared `_flattened` fold, never a per-arm copy. `_tiff_rows` projects `group` onto the flat layered-TIFF grammar — a `PsdSectionDividerSetting` `BOUNDING_SECTION_DIVIDER` row below the members and a named `OPEN_FOLDER` row above them at the group's first paint position — so every editor family reads the same folder structure.
+- Output: `LayerFact` is the closed bytes-plus-evidence family every arm returns; each case carries only its mode's required payload, with no null or default ghost fields.
+- Receipt: `_emit` totally matches `LayerFact`. `preview` maps to `ArtifactReceipt.Preview` with layer count and target in `scores`; `egress` maps to `ArtifactReceipt.Egress` with authored layers in `overlays`. Layered export adds no receipt case.
+- Growth: a new editable-export target is one `ExportTarget` member, one `LayerEngine` row, and one arm over the engine algebra. A new layer attribute is one `Layer` field threaded into each projection. A compositing mode extends `graphic/color/derive#DERIVE`, and each lowering derives the provider member by value or name; Photoshop-only modes remain outside the CSS contract. Codec, OCG usage, lane, save, admission, and untrusted-payload growth extend their existing closed owners.
+- Boundary: a per-producer export class family, parallel name/source/flag lists, hand-emitted SVG groups, hand-written PDF OCG streams, local `BlendMode` twins, per-format blend tables, lossy flattening, class-qualified offload, inline native work, unbracketed document handles, duplicate names, and module batch entrypoints are rejected. `PhotoshopAPI` alone authors PSD/PSB; `psd-tools` only reopens the finished bytes. `psdtags`/`tifffile` own TIFF. Rasterization stays graphic-owned, placement stays composition-owned, and PDF/A/PAdES/flat egress stay their close owners.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections import Counter
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable
 from enum import IntEnum, StrEnum
+from itertools import groupby
 from io import BytesIO
-from typing import TYPE_CHECKING, Final, Literal, NotRequired, ReadOnly, Self, TypedDict, Unpack
+from math import ceil
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from typing import TYPE_CHECKING, Final, Literal, NotRequired, ReadOnly, Self, TypedDict, Unpack, assert_never
 
-from expression import Error, Ok, Result, case, tag, tagged_union
-from expression.collections import Map
+from builtins import frozendict
+from expression import Error, Nothing, Ok, Option, Result, Some, case, tag, tagged_union
 from msgspec import Struct, field
+from msgspec.msgpack import Encoder
 from pydantic import TypeAdapter, ValidationError
 
-from rasm.runtime.identity import CANONICAL_POLICY, ContentIdentity, ContentKey
-from rasm.runtime.lanes import LanePolicy, Modality
-from rasm.runtime.resilience import RetryClass
-from rasm.runtime.faults import RuntimeRail, async_boundary
+from rasm.runtime.identity import ContentIdentity, ContentKey
+from rasm.runtime.lanes import LanePolicy
+from rasm.runtime.workers import Kernel, KernelTrait
+from rasm.runtime.faults import RuntimeRail
 
-from artifacts.core.plan import Admission, ArtifactWork
-from artifacts.core.receipt import ArtifactReceipt
+from rasm.artifacts.core.plan import Admission, ArtifactWork
+from rasm.artifacts.core.receipt import ArtifactReceipt
+from rasm.artifacts.graphic.color.derive import BlendMode
+from rasm.artifacts.graphic.layer import FlatLayer, LayerFault, LayerPlan, flattened as graphic_flattened
 
 # core-arm providers; each proxy reifies in-process on first SVG/PDF arm use
 lazy import drawsvg
@@ -48,22 +55,20 @@ lazy import pymupdf
 lazy import tifffile
 lazy from pikepdf import Array, Dictionary, Name, String
 
-# ORA-arm deps; each proxy reifies on first `_ora` use in the to_process worker
+# ORA-arm deps; each proxy reifies on first `_ora` use in the process worker
 lazy import pyvips
 lazy import zlib
 lazy from datetime import UTC, datetime
 lazy from lxml import etree
 lazy from stream_zip import NO_COMPRESSION_32, ZIP_AUTO, stream_zip
 
-# PSD/PSB-arm + channel-codec deps; each proxy reifies on first `_psd`/`_tiff` use in the to_process worker
+# PSD/PSB-arm + channel-codec deps; each proxy reifies on first `_psd`/`_tiff` use in the process worker
 lazy import imagecodecs
-lazy from PIL import Image
+lazy import photoshopapi as psapi
 lazy from psd_tools import PSDImage
-lazy from psd_tools import constants as psd_constants
 
 if TYPE_CHECKING:
     import pikepdf
-    from psd_tools.api.layers import Group  # the `_psd` group-folder type, annotation-only (never loaded at runtime)
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -71,38 +76,13 @@ class ExportTarget(StrEnum):
     SVG = "svg"  # drawsvg named-layer <g inkscape:groupmode=layer> document — Illustrator/Inkscape (core)
     PDF = "pdf"  # pymupdf OCG placement + pikepdf /Usage+/Order catalog enrichment — Acrobat (core)
     ORA = "ora"  # OpenRaster layered container (pyvips + lxml + stream-zip) — GIMP/Krita
-    PSD = "psd"  # native Photoshop channel-stack document (psd-tools standing author; PhotoshopAPI the gated native writer) — Photoshop
-    PSB = "psb"  # the large-document Photoshop Big container, the same `_psd` arm keyed by target/dimensions — Photoshop
+    PSD = "psd"  # native Photoshop channel-stack document — Photoshop
+    PSB = "psb"  # the large-document Photoshop Big container, the same `_psd` arm past the 30000 px `_PSB_FLOOR` — Photoshop
     TIFF = "tiff"  # Photoshop-compatible layered TIFF via psdtags ImageSourceData + tifffile extratags
 
 
-class Band(StrEnum):
-    CORE = "core"  # in-process `to_thread` offload — drawsvg author + GIL-releasing pymupdf/pikepdf native render, off the event loop
-    WORKER = "worker"  # the to_process worker — pyvips + lxml + stream_zip, off the runtime loader path
-
-
-class BlendMode(StrEnum):  # the 16 CSS `mix-blend-mode` modes; the value IS the SVG token, `_ora_op`/`_vips_blend` derive the OpenRaster/libvips ops
-    NORMAL = "normal"
-    MULTIPLY = "multiply"
-    SCREEN = "screen"
-    OVERLAY = "overlay"
-    DARKEN = "darken"
-    LIGHTEN = "lighten"
-    COLOR_DODGE = "color-dodge"
-    COLOR_BURN = "color-burn"
-    HARD_LIGHT = "hard-light"
-    SOFT_LIGHT = "soft-light"
-    DIFFERENCE = "difference"
-    EXCLUSION = "exclusion"
-    HUE = "hue"
-    SATURATION = "saturation"
-    COLOR = "color"
-    LUMINOSITY = "luminosity"
-
-
-class LayerIntent(
-    StrEnum
-):  # the ISO 32000 OCG `/Usage` application + `/Intent` hint; `_INTENT` -> add_ocg /Intent, `_USAGE` -> the `_enriched` /Usage sub-dict
+class OcgIntent(StrEnum):
+    # ISO 32000 OCG `/Usage` application + `/Intent` hint; `_INTENT` -> add_ocg /Intent, `_USAGE` -> the `_enriched` /Usage sub-dict
     VIEW = "view"  # always visible; default, no explicit /Usage
     PRINT = "print"  # print-only — /Print /PrintState /ON, /View /ViewState /OFF
     EXPORT = "export"  # export-only — /Export /ExportState /ON, /View /ViewState /OFF
@@ -111,30 +91,25 @@ class LayerIntent(
     HEADER_FOOTER = "header_footer"  # /PageElement /Subtype /HF — running header/footer furniture
     FOREGROUND = "foreground"  # /PageElement /Subtype /FG — foreground overlay plate
     LOGO = "logo"  # /PageElement /Subtype /L — brand/logo mark
+    ANNOTATION = "annotation"
+    FIGURE = "figure"
+    LINEWORK = "linework"
+    OVERLAY = "overlay"
+    REFERENCE = "reference"
+    SYMBOL = "symbol"
 
 
-class PsdCompression(IntEnum):  # the PSD/PSB per-channel method code — ALSO the `psd_tools.constants.Compression` member value
+class PsdCompression(IntEnum):  # channel compression policy shared by native PSD and layered TIFF lowering
     RAW = 0  # store raw channel bytes (imagecodecs `none`)
     RLE = 1  # PackBits RLE per scanline (imagecodecs `packbits`)
     ZIP = 2  # zlib deflate (imagecodecs `zlib`)
     ZIP_PREDICTION = 3  # delta predictor + raw-deflate — best ratio (imagecodecs `delta`+`deflate`)
 
 
-# --- [ERRORS] ---------------------------------------------------------------------------
-@tagged_union(frozen=True)
-class ExportFault:
-    # the closed ADMISSION vocabulary `of` produces; a worker provider raise (`pyvips.Error`, `lxml.etree.LxmlError`,
-    # a `BrokenWorkerProcess`) converts to the runtime `BoundaryFault` at the `async_boundary` `CLASSIFY` table, never here.
-    tag: Literal["payload", "empty", "duplicate"] = tag()
-    payload: tuple[str, ...] = case()  # the rejected `ExportPayload` key paths
-    empty: None = case()  # an empty layer set
-    duplicate: tuple[str, ...] = (
-        case()
-    )  # layer names colliding across the by-`name` OCG match, the ORA `data/<name>.png` path, and the SVG group keying
-
-
 # --- [CONSTANTS] ------------------------------------------------------------------------
 _ORA_MIME: Final[bytes] = b"image/openraster"  # the OpenRaster magic, stored first and uncompressed in the ZIP
+_PSB_FLOOR: Final[int] = 30_000  # PSD dimension ceiling; larger canvases require PSB
+_PSB_CEILING: Final[int] = 300_000  # native PSD/PSB hard dimension cap
 _THUMB: Final[int] = 256  # the OpenRaster `Thumbnails/thumbnail.png` 256x256 long-edge bound
 _INKSCAPE_NS: Final = "http://www.inkscape.org/namespaces/inkscape"  # the `inkscape:` namespace the `<g inkscape:groupmode=layer>` layer idiom declares on the root `<svg>`
 # NORMAL plus the four non-separable HSL modes are absent from `VipsBlendMode`, so `_vips_blend` falls them
@@ -146,22 +121,46 @@ _VIPS_UNMAPPED: Final[frozenset[BlendMode]] = frozenset({
     BlendMode.COLOR,
     BlendMode.LUMINOSITY,
 })
-# the pymupdf `add_ocg(intent=)` /Intent hint, DERIVED over `LayerIntent`: only `DESIGN` is design-time, every
+# pymupdf `add_ocg(intent=)` /Intent hint, DERIVED over `OcgIntent`: only `DESIGN` is design-time, every
 # other intent the default `View`. The richer view-application and /PageElement marking are the `_enriched` /Usage concern.
-_INTENT: Final[Map[LayerIntent, str]] = Map.of_seq((intent, "Design" if intent is LayerIntent.DESIGN else "View") for intent in LayerIntent)
-# the /Usage sub-dict policy keyed `category -> cell`; VIEW omits its dict (default visible), the PRINT/EXPORT
+_INTENT: Final[frozendict[OcgIntent, str]] = frozendict({intent: "Design" if intent is OcgIntent.DESIGN else "View" for intent in OcgIntent})
+# semantic graphic/layer intent value -> the OCG usage row `Layer.of_plan` lowers it onto; unmapped semantics stay VIEW.
+_OCG_OF_SEMANTIC: Final[frozendict[str, OcgIntent]] = frozendict({
+    "background": OcgIntent.BACKGROUND,
+    "guide": OcgIntent.DESIGN,
+    "mask": OcgIntent.DESIGN,
+    "grid": OcgIntent.DESIGN,
+    "datum": OcgIntent.DESIGN,
+    "issue": OcgIntent.PRINT,
+    "overlay": OcgIntent.FOREGROUND,
+})
+# /Usage sub-dict policy keyed `category -> cell`; VIEW omits its dict (default visible), the PRINT/EXPORT
 # rows ride the `state` cell and the /PageElement rows ride the `Subtype` cell, `_STATE_KEY` naming each
 # category's inner key so `_usage` emits `/<Category> << /<StateKey> /<Cell> >>` uniformly with no per-kind arm.
-_USAGE: Final[Map[LayerIntent, frozendict[str, str]]] = Map.of_seq([
-    (LayerIntent.PRINT, frozendict({"Print": "ON", "View": "OFF"})),
-    (LayerIntent.EXPORT, frozendict({"Export": "ON", "View": "OFF"})),
-    (LayerIntent.DESIGN, frozendict({"View": "ON"})),
-    (LayerIntent.BACKGROUND, frozendict({"PageElement": "BG"})),
-    (LayerIntent.HEADER_FOOTER, frozendict({"PageElement": "HF"})),
-    (LayerIntent.FOREGROUND, frozendict({"PageElement": "FG"})),
-    (LayerIntent.LOGO, frozendict({"PageElement": "L"})),
-])
-_STATE_KEY: Final[Map[str, str]] = Map.of_seq([("View", "ViewState"), ("Print", "PrintState"), ("Export", "ExportState"), ("PageElement", "Subtype")])
+_USAGE: Final[frozendict[OcgIntent, frozendict[str, str]]] = frozendict({
+    OcgIntent.PRINT: frozendict({"Print": "ON", "View": "OFF"}),
+    OcgIntent.EXPORT: frozendict({"Export": "ON", "View": "OFF"}),
+    OcgIntent.DESIGN: frozendict({"View": "ON"}),
+    OcgIntent.BACKGROUND: frozendict({"PageElement": "BG"}),
+    OcgIntent.HEADER_FOOTER: frozendict({"PageElement": "HF"}),
+    OcgIntent.FOREGROUND: frozendict({"PageElement": "FG"}),
+    OcgIntent.LOGO: frozendict({"PageElement": "L"}),
+    OcgIntent.ANNOTATION: frozendict({"View": "ON"}),
+    OcgIntent.FIGURE: frozendict({"View": "ON"}),
+    OcgIntent.LINEWORK: frozendict({"View": "ON"}),
+    OcgIntent.OVERLAY: frozendict({"View": "ON"}),
+    OcgIntent.REFERENCE: frozendict({"View": "ON"}),
+    OcgIntent.SYMBOL: frozendict({"View": "ON"}),
+})
+_STATE_KEY: Final[frozendict[str, str]] = frozendict({"View": "ViewState", "Print": "PrintState", "Export": "ExportState", "PageElement": "Subtype"})
+# imagecodecs backends + the tifffile codec name each PSD method code selects; ZIP_PREDICTION probes BOTH the
+# delta predictor and the deflate core, and the LAST name is the tifffile merged-strip codec.
+_CHANNEL_CODEC: Final[frozendict[PsdCompression, tuple[str, ...]]] = frozendict({
+    PsdCompression.RAW: ("none",),
+    PsdCompression.RLE: ("packbits",),
+    PsdCompression.ZIP: ("zlib",),
+    PsdCompression.ZIP_PREDICTION: ("delta", "deflate"),
+})
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -175,9 +174,45 @@ class Layer(Struct, frozen=True):
     locked: bool = False
     opacity: float = 1.0
     blend: BlendMode = BlendMode.NORMAL
-    intent: LayerIntent = LayerIntent.VIEW
+    intent: OcgIntent = OcgIntent.VIEW
     group: str = ""  # folder label; "" roots the layer at the drawing root
     color: str = ""  # SVG <g> `data-color` swatch (OCG/ORA carry no color slot); "" omits it
+
+    @classmethod
+    def of_plan(cls, plan: "LayerPlan", bbox: tuple[float, float, float, float], /) -> "Result[tuple[Layer, ...], LayerFault]":
+        # semantic-tree bridge: graphic/layer's `flattened` projection lowers each FRAGMENT leaf into one
+        # writer row — the composed path names the folder `group`, and the leaf's `LayerState` editor axes land on the
+        # row's own fields — so the tree stays the ONE semantic model and this flat value stays its writer row.
+        def _row(flat: "FlatLayer") -> "Layer | None":
+            path, node = flat
+            if node.tag != "leaf" or node.leaf[1].tag != "fragment":
+                return None
+            meta, content = node.leaf
+            return cls(
+                name=path[-1],
+                source=content.fragment,
+                bbox=bbox,
+                visible=meta.state.visible,
+                locked=meta.state.locked,
+                opacity=meta.opacity,
+                blend=meta.blend,
+                intent=_OCG_OF_SEMANTIC.get(meta.intent.value, OcgIntent.VIEW),
+                group="/".join(path[:-1]),
+            )
+
+        return graphic_flattened(plan).map(lambda rows: tuple(row for flat in rows if (row := _row(flat)) is not None))
+
+    @property
+    def issue(self) -> Option[str]:
+        faults = (
+            Some("name") if not self.name.strip() else Nothing,
+            Some("source") if not self.source else Nothing,
+            Some("bbox")
+            if self.bbox[0] < 0.0 or self.bbox[1] < 0.0 or self.bbox[2] <= self.bbox[0] or self.bbox[3] <= self.bbox[1]
+            else Nothing,
+            Some("opacity") if not 0.0 <= self.opacity <= 1.0 else Nothing,
+        )
+        return next((fault for fault in faults if fault.is_some()), Nothing)
 
     def svg_attrs(self) -> dict[str, str]:
         # `inkscape:groupmode="layer"`+`inkscape:label` make Inkscape read the group AS a layer (a bare `<g id=>` is a
@@ -196,28 +231,36 @@ class Layer(Struct, frozen=True):
 
 
 class LayerPolicy(Struct, frozen=True):
-    # the trusted save-knob bundle (POLICY_VALUES: never a `garbage`/`deflate` flag tail on the signature)
+    # trusted save-knob bundle (POLICY_VALUES: never a `garbage`/`deflate` flag tail on the signature)
     usage: str = "Artwork"  # the OCG /Usage category label pymupdf `add_ocg(usage=)` carries
     garbage: int = 3  # pymupdf `tobytes(garbage=)` xref compaction level
     deflate: bool = True
-    channel: PsdCompression = (
-        PsdCompression.ZIP_PREDICTION
-    )  # the PSD/PSB/TIFF per-channel codec, capability-detected via imagecodecs `<CODEC>.available`
+    channel: PsdCompression = PsdCompression.ZIP_PREDICTION  # native PSD/PSB policy; TIFF capability-detects the matching imagecodecs backend
 
 
-class LayerFact(Struct, frozen=True):
-    # the bytes-plus-evidence carrier every arm returns; `contribute` reads it off the threaded owner
-    data: bytes
-    width: int = 0  # the SVG/ORA named-document viewport (the `Preview` facts)
-    height: int = 0
-    pages: int = 0  # the PDF page count (the `Egress` facts)
-    layers: int = 0  # the authored-layer count, riding the `Egress` `overlays` slot
+@tagged_union(frozen=True)
+class LayerFact:
+    tag: Literal["preview", "egress"] = tag()
+    preview: tuple[bytes, int, int, int] = case()
+    egress: tuple[bytes, int, int] = case()
 
 
 class LayerEngine(Struct, frozen=True):
     arm: Callable[["LayeredExport"], LayerFact]
-    preview: bool = False  # True -> `ArtifactReceipt.Preview`; False -> `ArtifactReceipt.Egress`
-    band: Band = Band.CORE  # the `_PLACE` placement lane: in-process core, or the `to_process` worker
+    trait: KernelTrait = KernelTrait.RELEASING  # the kernel crossing: RELEASING for the in-process arms, HOSTILE for the loader-hostile workers
+
+
+# --- [ERRORS] ---------------------------------------------------------------------------
+@tagged_union(frozen=True)
+class ExportFault:
+    # closed ADMISSION vocabulary `of` produces; a worker provider raise (`pyvips.Error`, `lxml.etree.LxmlError`,
+    # a `BrokenProcessPool`) converts to the runtime `BoundaryFault` at the lane's boundary CLASSIFY table, never here.
+    tag: Literal["payload", "empty", "layer", "duplicate", "container"] = tag()
+    payload: tuple[str, ...] = case()  # the rejected `ExportPayload` key paths
+    empty: None = case()  # an empty layer set
+    layer: tuple[int, str] = case()  # layer index and invalid field
+    duplicate: tuple[str, ...] = case()  # layer names colliding across the by-`name` OCG match, the ORA `data/<name>.png` path, and the SVG group keying
+    container: tuple[int, int] = case()  # a PSD canvas past `_PSB_FLOOR`, or a PSB canvas at or under it or past `_PSB_CEILING`
 
 
 # --- [BOUNDARIES] -----------------------------------------------------------------------
@@ -232,79 +275,104 @@ _PAYLOAD: Final = TypeAdapter(ExportPayload)
 class LayeredExport(Struct, frozen=True):
     target: ExportTarget
     layers: tuple[Layer, ...]
+    # `lane` arrives projected via LanePolicy.of(context) at the composition root — a capacity literal has no owner.
+    lane: LanePolicy
     base: bytes = b""
     policy: LayerPolicy = field(default_factory=LayerPolicy)
 
     @classmethod
     def of(
-        cls, target: ExportTarget, layers: tuple[Layer, ...], /, *, policy: LayerPolicy = LayerPolicy(), **raw: Unpack[ExportPayload]
+        cls,
+        target: ExportTarget,
+        layers: tuple[Layer, ...],
+        lane: LanePolicy,
+        /,
+        *,
+        policy: LayerPolicy = LayerPolicy(),
+        **raw: Unpack[ExportPayload],
     ) -> Result[Self, "ExportFault"]:
+        # `lane` is positional-only ahead of the `Unpack` band, so payload validation never sees it and the
+        # factory constructs the same lane-bearing owner the composition root projects.
         if not layers:
             return Error(ExportFault(empty=None))
+        issues = tuple((index, layer.issue) for index, layer in enumerate(layers))
+        invalid = next((issue.map(lambda reason: (index, reason)) for index, issue in issues if issue.is_some()), Nothing)
+        match invalid:
+            case Option(tag="some", some=fault):
+                return Error(ExportFault(layer=fault))
+            case _:
+                pass
         if collisions := tuple(name for name, n in Counter(layer.name for layer in layers).items() if n > 1):
             return Error(ExportFault(duplicate=collisions))  # the interior keys layers by `name`; a collision silently drops an OCG/ORA-file/SVG leaf
+        width, height = (ceil(extent) for extent in _viewport(layers))
+        # PhotoshopAPI selects the container by suffix and enforces the PSD/PSB dimension bounds.
+        if target in {ExportTarget.PSD, ExportTarget.PSB} and (
+            max(width, height) > _PSB_CEILING
+            or (target is ExportTarget.PSB and max(width, height) <= _PSB_FLOOR)
+            or (target is ExportTarget.PSD and max(width, height) > _PSB_FLOOR)
+        ):
+            return Error(ExportFault(container=(width, height)))
         try:
             payload = _PAYLOAD.validate_python(raw)
         except ValidationError as fault:
             return Error(ExportFault(payload=tuple(str(error["loc"]) for error in fault.errors())))
-        return Ok(cls(target=target, layers=layers, base=payload.get("base", b""), policy=policy))
+        return Ok(cls(target=target, layers=layers, lane=lane, base=payload.get("base", b""), policy=policy))
 
     def emit(self, /) -> ArtifactWork:
         return ArtifactWork(key=self._key, work=self._emit, parents=(), admission=Admission(keyed=None), cost=float(len(self.layers) or 1))
 
     @property
     def _key(self) -> ContentKey:
-        # key-over-INPUT: canonical (target ⊕ layers ⊕ base ⊕ policy) minted PRE-RUN — never a key over authored bytes.
-        return ContentIdentity.of(f"export-{self.target}", (self.target, self.layers, self.base, self.policy), policy=CANONICAL_POLICY)
+        # key-over-INPUT: canonical (target ⊕ layers ⊕ base ⊕ policy) minted PRE-RUN — never a key over authored bytes;
+        # `ContentIdentity.key` is the bare mint (`of` returns the railed `RuntimeRail[ContentKey]`).
+        return ContentIdentity.key(f"export-{self.target}", _CANON.encode((self.target, self.layers, self.base, self.policy)))
 
     async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
-        # the terminal receipt threads the PRE-RUN key (receipt.slot == node.key).
-        return await async_boundary(f"export.layered.{self.target}", self._produced)
+        # one lane crossing, one rail: the offload converts a worker raise to `BoundaryFault`, `.map` threads the
+        # PRE-RUN key onto the receipt (receipt.slot == node.key) — no second boundary, no raise-bridge.
+        engine = ENGINES[self.target]
+        crossed = await self.lane.offload(Kernel.of(engine.arm, engine.trait), self)
 
-    async def _produced(self) -> ArtifactReceipt:
-        engine = ENGINES[self.target]  # the thin pure core: one band-placed arm, one minted fact, one receipt
-        fact = await _PLACE[engine.band](engine.arm, self)
-        key = self._key
-        # the `preview` discriminant folds the case: SVG/ORA/PSD/PSB/TIFF -> Preview, the OCG-layered PDF -> Egress
-        return (
-            ArtifactReceipt.Preview(key, fact.width, fact.height)
-            if engine.preview
-            else ArtifactReceipt.Egress(key, len(fact.data), fact.pages, 0, 0, fact.layers)
-        )
+        def receipt(fact: LayerFact, /) -> ArtifactReceipt:
+            match fact:
+                case LayerFact(tag="preview", preview=(data, width, height, layers)):
+                    return ArtifactReceipt.Preview(
+                        self._key,
+                        width,
+                        height,
+                        len(data),
+                        frozendict({"layers": float(layers), "target": self.target.value}),
+                    )
+                case LayerFact(tag="egress", egress=(data, pages, layers)):
+                    return ArtifactReceipt.Egress(self._key, len(data), pages, 0, 0, layers)
+                case unreachable:
+                    assert_never(unreachable)
 
-
-# --- [TABLES] ---------------------------------------------------------------------------
-# the Photoshop blend correspondence is the shared member NAME, not a table: `BlendMode` names ARE the
-# `psdtags.PsdBlendMode`/`psd_constants.BlendMode` names, so `<Enum>[blend.name]` derives both consumers with no table.
-# the imagecodecs backend + tifffile codec name each PSD method code selects, capability-detected via `<CODEC>.available`.
-_CHANNEL_CODEC: Final[Map[PsdCompression, str]] = Map.of_seq([
-    (PsdCompression.RAW, "none"),
-    (PsdCompression.RLE, "packbits"),
-    (PsdCompression.ZIP, "zlib"),
-    (PsdCompression.ZIP_PREDICTION, "deflate"),
-])
-
-
-def _channel(method: PsdCompression, /) -> PsdCompression:
-    # capability-detection at the boundary (the `media/filtergraph#FILTER` native-vs-substitute shape): probe the
-    # imagecodecs backend `<CODEC>.available` flag; an unbuilt channel core falls to RAW rather than a mid-write
-    # `DelayedImportError`, so the achieved method rides the PSD/TIFF channel receipt and a build without a codec still writes.
-    codec = getattr(imagecodecs, _CHANNEL_CODEC[method].upper())
-    return method if codec.available else PsdCompression.RAW
+        return crossed.map(receipt)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+_CANON: Final[Encoder] = Encoder(order="deterministic")  # every `_key` payload member is msgpack-native (Struct/StrEnum/IntEnum/bytes)
+
+
 def _viewport(layers: tuple[Layer, ...], /) -> tuple[float, float]:
     return (max((layer.bbox[2] for layer in layers), default=0.0), max((layer.bbox[3] for layer in layers), default=0.0))
 
 
+def _channel(method: PsdCompression, /) -> PsdCompression:
+    # capability-detection at the boundary (the `media/filtergraph#FILTER` native-vs-substitute shape): probe every
+    # imagecodecs backend the method layers (`ZIP_PREDICTION` = delta + deflate); an unbuilt core falls to RAW rather
+    # than a mid-write `DelayedImportError`, so the achieved method rides the channel bytes and a lean build still writes.
+    return method if all(getattr(imagecodecs, name.upper()).available for name in _CHANNEL_CODEC[method]) else PsdCompression.RAW
+
+
 def _ora_op(blend: BlendMode, /) -> str:
-    # the OpenRaster `composite-op` for `stack.xml`: SVG-namespaced, `normal` mapping to the spec's `svg:src-over`.
+    # OpenRaster `composite-op` for `stack.xml`: SVG-namespaced, `normal` mapping to the spec's `svg:src-over`.
     return "svg:src-over" if blend is BlendMode.NORMAL else f"svg:{blend.value}"
 
 
 def _vips_blend(blend: BlendMode, /) -> str:
-    # the libvips composite nickname for the FLATTENED `mergedimage.png`, derived off `blend.value`: the 11
+    # libvips composite nickname for the FLATTENED `mergedimage.png`, derived off `blend.value`: the 11
     # separable CSS modes map by value (libvips spells the British `colour-dodge`/`colour-burn`), while the
     # `_VIPS_UNMAPPED` set (NORMAL + the 4 non-separable HSL modes absent from `VipsBlendMode`) falls to `over`.
     return "over" if blend in _VIPS_UNMAPPED else blend.value.replace("color", "colour")
@@ -321,12 +389,12 @@ def _svg(export: LayeredExport) -> LayerFact:
             folders[layer.group] = drawsvg.Group(**{"id": layer.group, "inkscape:groupmode": "layer", "inkscape:label": layer.group})
             drawing.append(folders[layer.group])
         folders.get(layer.group, drawing).append(leaf)  # nest under the group folder, else the root
-    return LayerFact(drawing.as_svg().encode(), width=int(width), height=int(height), layers=len(export.layers))
+    return LayerFact(preview=(drawing.as_svg().encode(), int(width), int(height), len(export.layers)))
 
 
 def _pdf(export: LayeredExport) -> LayerFact:
     width, height = _viewport(export.layers)
-    # the base-or-fresh pymupdf document brackets in one `with` so the native handle closes deterministically,
+    # base-or-fresh pymupdf document brackets in one `with` so the native handle closes deterministically,
     # never GC-reaped; the per-source `src` brackets in its own nested `with`. `tobytes` runs while the handle is live.
     with pymupdf.open(stream=export.base, filetype="pdf") if export.base else pymupdf.open() as doc:
         page = doc[0] if export.base else doc.new_page(width=width, height=height)
@@ -347,22 +415,22 @@ def _pdf(export: LayeredExport) -> LayerFact:
 
 
 def _enriched(placed: bytes, export: LayeredExport) -> LayerFact:
-    # the pikepdf catalog enrichment the pymupdf `add_ocg` placement cannot author: the per-layer `/Usage` and the
+    # pikepdf catalog enrichment the pymupdf `add_ocg` placement cannot author: the per-layer `/Usage` and the
     # nested `/D/Order` folder tree, matched onto the placed OCGs by /Name; the `with` closes the native handle deterministically.
     with pikepdf.open(BytesIO(placed)) as pdf:
         ocprops = pdf.Root[Name.OCProperties]
         by_name = {str(ocg.get(Name.Name, "")): ocg for ocg in ocprops.get(Name.OCGs, Array())}
         for layer in export.layers:
-            if layer.intent is not LayerIntent.VIEW and (ocg := by_name.get(layer.name)) is not None:
+            if layer.intent is not OcgIntent.VIEW and (ocg := by_name.get(layer.name)) is not None:
                 ocg[Name.Usage] = _usage(layer.intent)
         ocprops[Name.D][Name("/Order")] = _order(export.layers, by_name)
         sink = BytesIO()
         pdf.save(sink)
-        return LayerFact(sink.getvalue(), pages=len(pdf.pages), layers=len(export.layers))
+        return LayerFact(egress=(sink.getvalue(), len(pdf.pages), len(export.layers)))
 
 
-def _usage(intent: LayerIntent) -> "pikepdf.Object":
-    # the /Usage sub-dict — PRINT/EXPORT/DESIGN view-application OR /PageElement structural marking, both
+def _usage(intent: OcgIntent) -> "pikepdf.Object":
+    # /Usage sub-dict — PRINT/EXPORT/DESIGN view-application OR /PageElement structural marking, both
     # `category -> {stateKey: cell}` rows — emitted uniformly; the nanobind `Dictionary` constructor coerces
     # keys to strings and rejects a `Name` key (`std::bad_cast`), so each `/Category /StateKey /Cell` rides subscript.
     usage = Dictionary()
@@ -374,7 +442,7 @@ def _usage(intent: LayerIntent) -> "pikepdf.Object":
 
 
 def _order(layers: tuple[Layer, ...], ocgs: "dict[str, pikepdf.Object]") -> "pikepdf.Array":
-    # the nested /Order: top-level layers as direct OCG refs, grouped layers folded into `[/GroupTitle, …]`.
+    # nested /Order: top-level layers as direct OCG refs, grouped layers folded into `[/GroupTitle, …]`.
     grouped: dict[str, list[pikepdf.Object]] = {}
     direct: list[pikepdf.Object] = []
     for layer in layers:
@@ -383,31 +451,42 @@ def _order(layers: tuple[Layer, ...], ocgs: "dict[str, pikepdf.Object]") -> "pik
     return Array([*direct, *(Array([String(title), *members]) for title, members in grouped.items())])
 
 
-def _ora(export: LayeredExport) -> LayerFact:
-    # `pyvips` scales each layer's alpha by `opacity` and stacks the visible layers through the native `composite`
-    # (ONE call, per-layer mode via `_vips_blend`) so the flattened `mergedimage.png` is FAITHFUL to the stack the editor
-    # re-composites from; `lxml` authors `stack.xml`, `stream_zip` frames the ZIP with the `mimetype` stored first.
-    width, height = (int(extent) for extent in _viewport(export.layers))
-    loaded = [(layer, pyvips.Image.new_from_buffer(layer.source, "")) for layer in export.layers]
-    pngs = frozendict({layer.name: image.write_to_buffer(".png") for layer, image in loaded})
-    visible = [(layer, image) for layer, image in loaded if layer.visible]
-    placed = [
-        (rgba * [1.0, 1.0, 1.0, layer.opacity] if layer.opacity < 1.0 else rgba).embed(
+def _flattened(export: LayeredExport, width: int, height: int, /) -> "tuple[tuple[tuple[Layer, pyvips.Image], ...], Option[pyvips.Image]]":
+    # shared ORA/TIFF stack: decode each layer once, scale alpha by `opacity`, embed at its bbox, and composite the
+    # visible layers in ONE native call under their `_vips_blend` modes — the bottom layer the OVER base, the rest
+    # carrying their own mode — so the flattened preview is FAITHFUL to the stack the editor re-composites from.
+    loaded = tuple((layer, pyvips.Image.new_from_buffer(layer.source, "")) for layer in export.layers)
+    visible = tuple((layer, image) for layer, image in loaded if layer.visible)
+
+    def canvas(row: tuple[Layer, "pyvips.Image"], /) -> "pyvips.Image":
+        layer, image = row
+        rgba = image if image.hasalpha() else image.addalpha()
+        return (rgba * [1.0, 1.0, 1.0, layer.opacity] if layer.opacity < 1.0 else rgba).embed(
             int(layer.bbox[0]), int(layer.bbox[1]), width, height, extend=pyvips.Extend.BACKGROUND
         )
-        for layer, image in visible
-        if (rgba := image if image.hasalpha() else image.addalpha()) is not None  # the alpha-scale base bound once per layer
-    ]
-    modes = [_vips_blend(layer.blend) for layer, _ in visible]
-    flattened = (
-        placed[0].composite(placed[1:], modes[1:])
-        if len(placed) > 1  # bottom layer is the OVER base; the rest carry their mode
-        else placed[0]
-        if placed
-        else None
+
+    placed = tuple(map(canvas, visible))
+    modes = tuple(_vips_blend(layer.blend) for layer, _ in visible)
+    flattened = Some(placed[0].composite(placed[1:], modes[1:])) if len(placed) > 1 else Some(placed[0]) if placed else Nothing
+    return loaded, flattened
+
+
+def _rgba_array(image: "pyvips.Image", /) -> "np.ndarray":
+    rgba = image if image.hasalpha() else image.addalpha()
+    rgba = rgba.cast("uchar")
+    return np.ndarray(buffer=rgba.write_to_memory(), dtype=np.uint8, shape=(rgba.height, rgba.width, rgba.bands))[:, :, :4].copy()
+
+
+def _ora(export: LayeredExport) -> LayerFact:
+    # flattened stack feeds `mergedimage.png`; `lxml` authors `stack.xml`, `stream_zip` frames the ZIP with the
+    # `mimetype` member stored first and uncompressed per the OpenRaster spec.
+    width, height = (ceil(extent) for extent in _viewport(export.layers))
+    loaded, flattened = _flattened(export, width, height)
+    pngs = frozendict({layer.name: image.write_to_buffer(".png") for layer, image in loaded})
+    merged = flattened.map(lambda image: image.write_to_buffer(".png")).default_with(
+        lambda: pyvips.Image.black(width, height, bands=4).write_to_buffer(".png")
     )
-    merged = flattened.write_to_buffer(".png") if flattened is not None else b""
-    thumb = pyvips.Image.thumbnail_buffer(merged, _THUMB, height=_THUMB).write_to_buffer(".png") if merged else b""
+    thumb = pyvips.Image.thumbnail_buffer(merged, _THUMB, height=_THUMB).write_to_buffer(".png")
     root = etree.Element("image", version="0.0.3", w=str(width), h=str(height))
     stack = etree.SubElement(root, "stack")
     folders: dict[str, etree._Element] = {}  # one `<stack name=group>` per distinct `group`, the ORA folder counterpart
@@ -434,21 +513,14 @@ def _ora(export: LayeredExport) -> LayerFact:
         ("mergedimage.png", now, 0o644, ZIP_AUTO(len(merged)), (merged,)),
         ("Thumbnails/thumbnail.png", now, 0o644, ZIP_AUTO(len(thumb)), (thumb,)),
     )
-    return LayerFact(b"".join(stream_zip(members)), width=width, height=height, layers=len(export.layers))
+    return LayerFact(preview=(b"".join(stream_zip(members)), width, height, len(export.layers)))
 
 
-def _rgba_array(image: "pyvips.Image", /) -> "np.ndarray":
-    rgba = image if image.hasalpha() else image.addalpha()
-    rgba = rgba.cast("uchar")
-    return np.ndarray(buffer=rgba.write_to_memory(), dtype=np.uint8, shape=(rgba.height, rgba.width, rgba.bands))[:, :, :4].copy()
-
-
-def _psd_flags(layer: Layer, /) -> object:
+def _psd_flags(layer: Layer, /) -> "psdtags.PsdLayerFlag":
     # `PsdLayerFlag.VISIBLE` is the RAW Adobe flag bit (value 2) whose SET state means the layer is HIDDEN
     # (ISO/Adobe layer-flags bit 1: 0 = visible, 1 = hidden); psdtags is a raw codec with no inverting accessor,
-    # so authoring `VISIBLE` writes byte 0x02 which every conforming reader (Photoshop, psd_tools' `not flags & 2`)
-    # decodes as hidden — the bit is therefore set ONLY for a hidden layer, else a visible layer opens hidden.
-    hidden = psdtags.PsdLayerFlag.VISIBLE if not layer.visible else psdtags.PsdLayerFlag(0)
+    # so the bit is set ONLY for a hidden layer, else a visible layer opens hidden in every conforming reader.
+    hidden = psdtags.PsdLayerFlag.VISIBLE if not layer.visible else psdtags.PsdLayerFlag.BASE
     return hidden | psdtags.PsdLayerFlag.TRANSPARENCY_PROTECTED if layer.locked else hidden
 
 
@@ -472,33 +544,56 @@ def _psd_layer(layer: Layer, image: "pyvips.Image", compression: "psdtags.PsdCom
     )
 
 
+def _psd_divider(name: str, kind: "psdtags.PsdSectionDividerType", /) -> "psdtags.PsdLayer":
+    # a zero-channel marker row: the layered-TIFF group grammar is FLAT — a BOUNDING_SECTION_DIVIDER row below the
+    # members and an OPEN_FOLDER row carrying the group name above them (the list is bottom-up paint order).
+    return psdtags.PsdLayer(
+        name=name,
+        channels=[],
+        rectangle=psdtags.PsdRectangle(0, 0, 0, 0),
+        info=[psdtags.PsdSectionDividerSetting(kind)],
+    )
+
+
+def _tiff_rows(loaded: "tuple[tuple[Layer, pyvips.Image], ...]", codec: "psdtags.PsdCompressionType", /) -> "list[psdtags.PsdLayer]":
+    # ORA folder position projected onto the flat grammar: an ungrouped layer lands inline, a group lands
+    # whole where its members paint — divider below, members in paint order, named folder row above. The flat
+    # PSD grammar cannot interleave a foreign layer inside a folder run, so a non-contiguous group refuses
+    # before export rather than silently reordering the paint sequence at its first occurrence.
+    runs = tuple(key for key, _ in groupby(layer.group for layer, _ in loaded) if key)
+    if broken := tuple(sorted({key for key in runs if runs.count(key) > 1})):
+        raise ValueError(f"layered TIFF groups interleaved with foreign layers: {broken}")
+    seen: set[str] = set()
+    rows: list[psdtags.PsdLayer] = []
+    for layer, image in loaded:
+        if not layer.group:
+            rows.append(_psd_layer(layer, image, codec))
+        elif layer.group not in seen:
+            seen.add(layer.group)
+            members = [_psd_layer(member, art, codec) for member, art in loaded if member.group == layer.group]
+            rows += [
+                _psd_divider("</Layer group>", psdtags.PsdSectionDividerType.BOUNDING_SECTION_DIVIDER),
+                *members,
+                _psd_divider(layer.group, psdtags.PsdSectionDividerType.OPEN_FOLDER),
+            ]
+    return rows
+
+
 def _tiff(export: LayeredExport) -> LayerFact:
-    width, height = (int(extent) for extent in _viewport(export.layers))
-    loaded = [(layer, pyvips.Image.new_from_buffer(layer.source, "")) for layer in export.layers]
-    visible = [(layer, image) for layer, image in loaded if layer.visible]
-    placed = [
-        (rgba * [1.0, 1.0, 1.0, layer.opacity] if layer.opacity < 1.0 else rgba).embed(
-            int(layer.bbox[0]), int(layer.bbox[1]), width, height, extend=pyvips.Extend.BACKGROUND
-        )
-        for layer, image in visible
-        if (rgba := image if image.hasalpha() else image.addalpha()) is not None
-    ]
-    modes = [_vips_blend(layer.blend) for layer, _ in visible]
-    flattened = placed[0].composite(placed[1:], modes[1:]) if len(placed) > 1 else placed[0] if placed else None
-    merged = _rgba_array(flattened) if flattened is not None else np.zeros((height, width, 4), dtype=np.uint8)
+    width, height = (ceil(extent) for extent in _viewport(export.layers))
+    loaded, flattened = _flattened(export, width, height)
+    merged = flattened.map(_rgba_array).default_with(lambda: np.zeros((height, width, 4), dtype=np.uint8))
     method = _channel(export.policy.channel)  # capability-detected ONCE, driving BOTH the layer channels and the merged strip
-    channel_codec = psdtags.PsdCompressionType(
-        int(method)
-    )  # PSD method code -> psdtags per-channel codec (RAW fallback already applied by `_channel`)
+    channel_codec = psdtags.PsdCompressionType(int(method))  # PSD method code -> psdtags per-channel codec (RAW fallback already applied)
     source_data = psdtags.TiffImageSourceData(
         psdtags.PsdFormat.BE32BIT,
-        psdtags.PsdLayers(psdtags.PsdKey.LAYER, [_psd_layer(layer, image, channel_codec) for layer, image in loaded], has_transparency=True),
+        psdtags.PsdLayers(psdtags.PsdKey.LAYER, _tiff_rows(loaded, channel_codec), has_transparency=True),
         psdtags.PsdUserMask(),
         name="layered.tif",
     )
     resources = psdtags.TiffImageResources(psdtags.PsdFormat.BE32BIT, [], name="layered.tif")
     sink = BytesIO()
-    codec = _CHANNEL_CODEC[method]  # the same method as the merged-strip codec (tifffile routes to the same imagecodecs core)
+    codec = _CHANNEL_CODEC[method][-1]  # the merged-strip codec (tifffile routes to the same imagecodecs core)
     tifffile.imwrite(
         sink,
         merged,
@@ -506,81 +601,102 @@ def _tiff(export: LayeredExport) -> LayerFact:
         extrasamples=("unassalpha",),
         metadata=None,
         compression=None if codec == "none" else codec,
+        predictor=tifffile.PREDICTOR.HORIZONTAL if method is PsdCompression.ZIP_PREDICTION else None,
         byteorder=source_data.byteorder,
         extratags=(source_data.tifftag(maxworkers=4), resources.tifftag()),
     )
-    return LayerFact(sink.getvalue(), width=width, height=height, layers=len(export.layers))
+    return LayerFact(preview=(sink.getvalue(), width, height, len(export.layers)))
 
 
-def _layered_raise(fault: object) -> object:
-    raise ValueError(str(fault))
+def _plane_array(image: "pyvips.Image", /) -> "np.ndarray":
+    # dtype-PRESERVING decode: uchar/ushort/float planes survive to the family selection — the PhotoshopAPI
+    # specialization derives off the DECODED dtype (catalog law), never an unconditional `uchar` quantization.
+    rgba = image if image.hasalpha() else image.addalpha()
+    rgba = rgba if rgba.format in ("uchar", "ushort", "float") else rgba.cast("uchar")
+    dtype = {"uchar": np.uint8, "ushort": np.uint16, "float": np.float32}[rgba.format]
+    return np.ndarray(buffer=rgba.write_to_memory(), dtype=dtype, shape=(rgba.height, rgba.width, rgba.bands))[:, :, :4].copy()
+
+
+def _promoted(plane: "np.ndarray", grade: str, /) -> "np.ndarray":
+    # a mixed-depth stack promotes UP to the richest decoded grade — precision widens, never quantizes.
+    if str(plane.dtype) == grade:
+        return plane
+    if grade == "float32":
+        return (plane.astype(np.float32) / float(np.iinfo(plane.dtype).max)) if plane.dtype != np.float32 else plane
+    return plane.astype(np.uint16) * 257 if grade == "uint16" else plane
 
 
 def _psd(export: LayeredExport) -> LayerFact:
-    # the native Photoshop channel-stack author on the `Band.WORKER` worker: one `PSDImage` holding one
-    # `create_pixel_layer` per `Layer`, one native group per distinct `group` label, and a per-channel `Compression`
-    # capability-detected off the `imagecodecs` backend. psd-tools is the cp315-present standing author; PhotoshopAPI
-    # (gated on a cp315 wheel) is the categorical-best writer selected in its place ONCE one lands — one writer per
-    # interpreter, never two parallel. Bit depth is fixed at 8 off the `uint8` `_rgba_array`, never a caller knob.
-    width, height = (int(extent) for extent in _viewport(export.layers))
-    compression = psd_constants.Compression(int(_channel(export.policy.channel)))  # PSD method code -> psd_tools member by value
-    document = PSDImage.new("RGBA", (width, height), depth=8)
-    if export.target is ExportTarget.PSB:
-        # Exemption: psd-tools exposes no public PSB author (`new` has no `version` arg and `.version` has no setter), so the
-        # header `version = 2` field is the one private seam that widens the length fields to the PSB (>30000px) container — the
-        # `PSB` target authoring a real Big-document file rather than silently degrading to a `version = 1` PSD.
-        document._record.header.version = 2
-    folders: dict[str, "Group"] = {}  # one native `Group` per distinct `group` label, minted on first use and re-parented into
-    for layer in export.layers:
-        image = Image.fromarray(
-            _rgba_array(pyvips.Image.new_from_buffer(layer.source, ""))
-        )  # the shared ORA/TIFF decode, lifted to PIL for `create_pixel_layer`
-        node = document.create_pixel_layer(
-            image,
-            name=layer.name,
-            top=int(layer.bbox[1]),
-            left=int(layer.bbox[0]),
-            compression=compression,
-            opacity=round(layer.opacity * 255),
-            blend_mode=psd_constants.BlendMode[layer.blend.name],
+    # PhotoshopAPI authors once to its path boundary; psd-tools reopens the bytes as structural evidence. The
+    # document and layer families specialize off the richest decoded plane dtype (uint8/uint16/float32).
+    width, height = (ceil(extent) for extent in _viewport(export.layers))
+    planes = tuple(_plane_array(pyvips.Image.new_from_buffer(layer.source, "")) for layer in export.layers)
+    grade = max((str(plane.dtype) for plane in planes), key=("uint8", "uint16", "float32").index, default="uint8")
+    family = {"uint8": "8bit", "uint16": "16bit", "float32": "32bit"}[grade]
+    document = getattr(psapi, f"LayeredFile_{family}")(psapi.enum.ColorMode.rgb, width, height)
+    folders: dict[str, object] = {}
+    for layer, decoded in zip(export.layers, planes, strict=True):
+        rgba = _promoted(decoded, grade)
+        node = getattr(psapi, f"ImageLayer_{family}")(
+            {
+                psapi.enum.ChannelID.red: rgba[:, :, 0],
+                psapi.enum.ChannelID.green: rgba[:, :, 1],
+                psapi.enum.ChannelID.blue: rgba[:, :, 2],
+                psapi.enum.ChannelID.alpha: rgba[:, :, 3],
+            },
+            layer_name=layer.name,
+            width=rgba.shape[1],
+            height=rgba.shape[0],
+            blend_mode=getattr(psapi.enum.BlendMode, layer.blend.value.replace("-", "")),
+            pos_x=int(layer.bbox[0]),
+            pos_y=int(layer.bbox[1]),
+            opacity=layer.opacity,
+            compression=getattr(psapi.enum.Compression, export.policy.channel.name.lower().replace("_", "")),
+            color_mode=psapi.enum.ColorMode.rgb,
+            is_visible=layer.visible,
+            is_locked=layer.locked,
         )
-        node.visible = layer.visible
-        if layer.locked:
-            node.lock(psd_constants.ProtectedFlags.COMPLETE)
-        if layer.group:  # mint one native `Group` per distinct label on first use (never `setdefault`, whose default arg
-            if layer.group not in folders:  # would re-mint an empty group per layer through the `create_group` side effect)
-                folders[layer.group] = document.create_group(name=layer.group)
-            node.move_to_group(folders[layer.group])
-    sink = BytesIO()
-    document.save(sink)  # psd-tools `save` writes the header-version-keyed PSD/PSB stream (no scratch path); the `PSB` target forced version 2 above
-    return LayerFact(sink.getvalue(), width=width, height=height, layers=len(export.layers))
+        if not layer.group:
+            document.add_layer(node)
+            continue
+        if layer.group not in folders:
+            folders[layer.group] = getattr(psapi, f"GroupLayer_{family}")(layer.group, width=width, height=height)
+            document.add_layer(folders[layer.group])
+        folders[layer.group].add_layer(document, node)
+    with TemporaryDirectory(prefix="rasm-layered-") as scratch:
+        sink = Path(scratch) / f"layered.{export.target.value}"
+        document.write(str(sink), force_overwrite=True)
+        data = sink.read_bytes()
+    decoded = PSDImage.open(BytesIO(data), max_alloc_bytes=max(len(data) * 8, width * height * 4 * (len(export.layers) + 1)))
+    if not all(decoded.find(layer.name) is not None for layer in export.layers):
+        raise ValueError("Photoshop layer tree lost authored leaves")
+    return LayerFact(preview=(data, width, height, len(export.layers)))
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
-# the worker offloads thread the module-level `_GATE` `CapacityLimiter` (the `export/indesign#INDESIGN` IDML worker
-# counterpart) so N concurrent `emit` calls share a fixed subprocess pool; the `async_boundary` default `Exception`
-# capture plus its `CLASSIFY` table routes a worker death to `resource` where a hand-named `catch` tuple would miss it
-# (`import pyvips` itself raises with native libvips unprovisioned). The `SVG`/`PDF` arms ride the separate `_THREAD_GATE`.
+ENGINES: Final[frozendict[ExportTarget, LayerEngine]] = frozendict({
+    ExportTarget.SVG: LayerEngine(_svg),
+    ExportTarget.PDF: LayerEngine(_pdf),
+    ExportTarget.ORA: LayerEngine(_ora, trait=KernelTrait.HOSTILE),
+    ExportTarget.PSD: LayerEngine(_psd, trait=KernelTrait.HOSTILE),
+    ExportTarget.PSB: LayerEngine(_psd, trait=KernelTrait.HOSTILE),  # the same arm; the target suffix selects the PSB container
+    ExportTarget.TIFF: LayerEngine(_tiff, trait=KernelTrait.HOSTILE),
+})
 
 
-async def _threaded(arm: Callable[["LayeredExport"], LayerFact], export: "LayeredExport", /) -> LayerFact:
-    # the in-process lane: the GIL-releasing pymupdf/pikepdf render crosses `to_thread` so the body never runs on the loop.
-    return (await LanePolicy.offload(arm, export, modality=Modality.THREAD, retry=RetryClass.OCCT)).default_with(_layered_raise)
-
-
-async def _offloaded(arm: Callable[["LayeredExport"], LayerFact], export: "LayeredExport", /) -> LayerFact:
-    return (await LanePolicy.offload(arm, export, modality=Modality.PROCESS, retry=RetryClass.OCCT)).default_with(_layered_raise)
-
-
-_PLACE: Final[Map[Band, Callable[..., Awaitable[LayerFact]]]] = Map.of_seq([(Band.CORE, _threaded), (Band.WORKER, _offloaded)])
-ENGINES: Final[Map[ExportTarget, LayerEngine]] = Map.of_seq([
-    (ExportTarget.SVG, LayerEngine(_svg, preview=True)),
-    (ExportTarget.PDF, LayerEngine(_pdf)),
-    (ExportTarget.ORA, LayerEngine(_ora, preview=True, band=Band.WORKER)),
-    (ExportTarget.PSD, LayerEngine(_psd, preview=True, band=Band.WORKER)),
-    (ExportTarget.PSB, LayerEngine(_psd, preview=True, band=Band.WORKER)),  # the same `_psd` arm; the target/dimensions select the PSB container
-    (ExportTarget.TIFF, LayerEngine(_tiff, preview=True, band=Band.WORKER)),
-])
+# --- [EXPORTS] --------------------------------------------------------------------------
+__all__ = [
+    "ExportFault",
+    "ExportPayload",
+    "ExportTarget",
+    "Layer",
+    "LayerEngine",
+    "LayerFact",
+    "OcgIntent",
+    "LayerPolicy",
+    "LayeredExport",
+    "PsdCompression",
+]
 ```
 
 ## [03]-[RESEARCH]
@@ -589,4 +705,4 @@ ENGINES: Final[Map[ExportTarget, LayerEngine]] = Map.of_seq([
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 
-(none)
+- [PSAPI_CP315]-[BLOCKED]: `PhotoshopAPI` publishes `cp38`–`cp313` wheels only and the manifest gates `PhotoshopAPI; python_version<'3.15'`, so the PSD/PSB arms have no admitted runtime provider on this interpreter; re-verify the wheel tags each release via `uv run python -m tools.assay api resolve photoshopapi` and drop the gate the moment a `cp315` wheel or source-build provision lands.

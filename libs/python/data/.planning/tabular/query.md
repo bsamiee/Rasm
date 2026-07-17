@@ -1,8 +1,8 @@
 # [PY_DATA_QUERY]
 
-The relational query owner over one `QuerySpec` axis materializing to uniform Arrow. `QueryEngine` discriminates the `QuerySpec` tagged-union — DuckDB SQL gated through the `sqlglot` parse/qualify/optimize plane, the chained DuckDB relational API, the dataframe-agnostic narwhals surface, the Ibis backend-agnostic expression IR with cross-dialect emission, the ADBC/ConnectorX/Flight SQL remote transport over a `RemoteOp` read/stream/ingest/probe/partition sub-axis, the daft out-of-core/distributed runner, and the in-process `datafusion` federated engine — onto one `pyarrow.Table`. The frontend IS the spec shape, never a parallel backend `StrEnum` knob and never a `read`/`stream`/`ingest` name-suffix method family, and no serve-plane servicer is authored here: the federation channel is content-keyed and AT-REST.
+Relational query owner over one `QuerySpec` axis materializing to uniform Arrow. `QueryEngine` discriminates the `QuerySpec` tagged-union — DuckDB SQL gated through the `sqlglot` parse/qualify/optimize plane, the chained DuckDB relational API, the dataframe-agnostic narwhals surface, the Ibis backend-agnostic expression IR with cross-dialect emission, the ADBC/ConnectorX/Flight SQL remote transport over a `RemoteOp` read/stream/ingest/probe/partition sub-axis, the daft out-of-core/distributed runner, and the in-process `datafusion` federated engine — onto one `pyarrow.Table`. Frontend identity IS the spec shape, never a parallel backend `StrEnum` knob and never a `read`/`stream`/`ingest` name-suffix method family, and no serve-plane servicer is authored here: the federation channel is content-keyed and AT-REST.
 
-The `datafusion` Substrait interchange is BIDIRECTIONAL — outbound `Serde.serialize_bytes` mints the portable plan bytes `csharp:Rasm.Persistence/Query/federation` retains as the content-keyed at-rest wire, inbound a Persistence-authored plan arrives as BYTES and executes through `Serde.deserialize_bytes` -> `Consumer.from_substrait_plan`, data executing foreign plans and never re-planning them. The `QueryReceipt`, the `predicate_count` fold, and its `_PREDICATE_NODES` widening are the lower `columnar#SCAN` owner's, imported and called rather than re-spelled so scan and query count predicates off one application; this owner extends the receipt with the column-level `lineage_edges` projection it populates from `sqlglot.lineage.lineage` over the qualified SQL and `ibis.to_sql` over the bound expression. The awaitable `run` offloads every blocking leg to the `anyio` worker pool — in-process arms ride `_local`, remote and streaming arms delegate the retried-traced-railed leg to `reliability/resilience#RESILIENCE` under the `REMOTE_DB`/`STREAMING` rows. A secret-bearing DSN and the Ray cluster-address are caller-supplied `Remote.dsn`/`Streaming.cluster` case payloads, the outbound credential minted caller-side through `execution/admission#SETTINGS` `SecretBoundary`, never `transport/roots#RESOURCE` `TransportResource` (the `http`/`ssh` artifact-fetch union, not a database-DSN resolver). The durable provenance ledger stays the C# `Rasm.Persistence` Version/Provenance owner consumed at the wire, never a Python owner.
+`datafusion` Substrait interchange is BIDIRECTIONAL — outbound `Serde.serialize_bytes` mints the portable plan bytes `csharp:Rasm.Persistence/Query/federation` retains as the content-keyed at-rest wire, inbound a Persistence-authored plan arrives as BYTES and executes through `Serde.deserialize_bytes` -> `Consumer.from_substrait_plan`, data executing foreign plans and never re-planning them. `QueryReceipt`, the `predicate_count` fold, and its `_PREDICATE_NODES` widening are the lower `columnar#SCAN` owner's, imported and called rather than re-spelled so scan and query count predicates off one application; this owner extends the receipt with the column-level `lineage_edges` projection it populates from `sqlglot.lineage.lineage` over the qualified SQL and `ibis.to_sql` over the bound expression. Awaitable `run` offloads every blocking leg to the `anyio` worker pool — in-process arms ride `_local`, remote and streaming arms delegate the retried-traced-railed leg to `reliability/resilience#RESILIENCE` under the `REMOTE_DB`/`STREAMING` rows. A secret-bearing DSN and the Ray cluster-address are caller-supplied `Remote.dsn`/`Streaming.cluster` case payloads, the outbound credential minted caller-side through `execution/admission#SETTINGS` `SecretBoundary`, never `transport/roots#RESOURCE` `TransportResource` (the `http`/`ssh` artifact-fetch union, not a database-DSN resolver). Durable provenance ledgers stay the C# `Rasm.Persistence` Version/Provenance owner consumed at the wire, never a Python owner.
 
 ## [01]-[INDEX]
 
@@ -11,9 +11,9 @@ The `datafusion` Substrait interchange is BIDIRECTIONAL — outbound `Serde.seri
 ## [02]-[QUERY]
 
 - Owner: `QueryEngine` — the one relational query owner discriminating by the `QuerySpec` tagged-union axis, the single discriminant. `QuerySpec` cases: `Sql`/`Rel`/`Agnostic`/`Ir` in-process, `Remote` over the ADBC/ConnectorX/Flight SQL `RemoteOp` sub-axis, `Streaming` the daft runner, `Flight` the `csharp:Rasm.Persistence/Query/federation` FLIGHT_RESULT_PLANE ticket consumer (SubstraitPlan command bytes -> `GetFlightInfo` -> `DoGet(FlightTicket)`), and `Federated` the in-process `datafusion` `SessionContext` over `register_object_store`-backed stores and Arrow-capsule-registered frames, carrying EITHER the outbound plan-minting `sql` OR the inbound Persistence-authored Substrait `plan` bytes — the two directions of the one `ARCH`-declared `⇄` seam on one case, the minted-or-received bytes stamped onto the result table's schema metadata so the plan rides the wire and keys the receipt.
-- Entry: `QueryEngine.of` admits the bound Arrow/relation inputs; the awaitable `run` folds the `QuerySpec` through `match`/`case` closed by `assert_never`, returning `RuntimeRail[pa.Table]`. In-process `Sql`/`Rel`/`Agnostic`/`Ir` arms ride `_local` — one `async_boundary` offloading the blocking materialization off the event loop through `anyio.to_thread.run_sync`, the broad `Exception` default deliberate because `duckdb.Error`, `ibis.IbisError`, narwhals, and pyarrow are disjoint exception roots with no shared base, so a narrowed catch lets one arm's taxonomy escape the fence. Remote and streaming arms delegate to `guarded(RetryClass.REMOTE_DB)`/`guarded(RetryClass.STREAMING)`, whose `_adbc_transient` hook (ADBC `OperationalError` on `status_code` `TIMEOUT`/`IO`) and `DaftTransientError` tuple retry a genuine transport-transient under runtime backoff — never `RetryClass.RPC`/`WIRE`, whose `_named` COMPAS qualnames and `(ConnectionError,)` intra-mesh tuple catch no ADBC `OperationalError` (which subclasses `DatabaseError`, never `ConnectionError`) or daft Rust fault. Every connection is request-scoped: the DuckDB `Sql`/`Rel` connection rides the shared `columnar#SCAN` `DuckDbSession().connect()` bracket, the `_ir` backend releases through `try`/`finally` `backend.disconnect()` closing the native `backend.con` the Substrait round-trip drives, and the remote drivers ride `with dbapi.connect(...)`.
-- Receipt: `receipt_of` folds one total `_provenance` match over the `QuerySpec` axis into the shared `columnar#SCAN` `QueryReceipt.railed` — source, `predicate_count` (the lower owner's exported `parse_one().find_all(*_PREDICATE_NODES)` fold, applied not re-spelled, so scan and query share the application not only the node tuple), and `lineage_edges` (the column-level source→derived edges `sqlglot.lineage.lineage` traces per qualified output column, walked to source-column leaves through `_leaves` so an unqualified projection resolves to its real physical source, extracted on every SQL-carrying arm and `()` on the relational/agnostic arms). The content key derives off the canonical Arrow bytes through the railed `ContentIdentity.of` — EXCEPT the `Federated` arm, whose identity IS the Substrait plan bytes riding the result table's schema metadata: `ContentIdentity.of("query.plan", wire)` keys the receipt so the `Rasm.Persistence` reuse ledger gains a recompute-dedupe key, the received and minted bytes keying identically because retention-never-re-serialization is the channel law. `_provenance` is one total fold yielding `(source, predicate_count, lineage_edges)` together, never two parallel spec walks.
-- Packages: `duckdb`/`sqlglot` (the parse/qualify/optimize/lineage plane), `narwhals`, `ibis`, `adbc_driver_manager`/`adbc_driver_flightsql` (the DBAPI transport and the `DatabaseOptions`/`StatementOptions`/`ConnectionOptions`-keyed `db_kwargs`/`conn_kwargs` knobs), `connectorx` (the read-parallel accelerator over ADBC's serial pull), `daft` (the out-of-core/distributed runner), `datafusion` (the federation `Serde`/`Consumer` Substrait executor — `duckdb-substrait` owns the DuckDB half, `pyarrow.substrait` DECLINED), `obstore` (`from_url` object-store federation), `anyio` (the worker-pool offload), `beartype` (`@beartype(conf=FAULT_CONF)` on `of`/`run`), `columnar#SCAN` (the shared `DuckDbSession`/`DuckDbExtension`/`QueryReceipt`/`predicate_count` substrate), runtime (`RuntimeRail`/`ContentIdentity`/`async_boundary`/`guarded`/`RetryClass`).
+- Entry: `QueryEngine.of` admits the bound Arrow/relation inputs; the awaitable `run` folds the `QuerySpec` through `match`/`case` closed by `assert_never`, returning `RuntimeRail[pa.Table]`. In-process `Sql`/`Rel`/`Agnostic`/`Ir` arms ride `_local` — one `async_boundary` offloading the blocking materialization off the event loop through `on_thread` (the `THREAD_BAND`-bounded hop), the broad `Exception` default deliberate because `duckdb.Error`, `ibis.IbisError`, narwhals, and pyarrow are disjoint exception roots with no shared base, so a narrowed catch lets one arm's taxonomy escape the fence. Remote and streaming arms delegate to `guarded(RetryClass.REMOTE_DB)`/`guarded(RetryClass.STREAMING)`, whose `_adbc_transient` hook (ADBC `OperationalError` on `status_code` `TIMEOUT`/`IO`) and `DaftTransientError` tuple retry a genuine transport-transient under runtime backoff — never `RetryClass.RPC`/`WIRE`, whose `_transient` COMPAS module-qualified spellings and `ConnectionError` intra-mesh target catch no ADBC `OperationalError` (which subclasses `DatabaseError`, never `ConnectionError`) or daft Rust fault. Every connection is request-scoped: the DuckDB `Sql`/`Rel` connection rides the shared `columnar#SCAN` `DuckDbSession().connect()` bracket, the `_ir` backend releases through `try`/`finally` `backend.disconnect()` closing the native `backend.con` the Substrait round-trip drives, and the remote drivers ride `with dbapi.connect(...)`.
+- Receipt: `receipt_of` folds one total `_provenance` match over the `QuerySpec` axis into the shared `columnar#SCAN` `QueryReceipt.railed` — source, `predicate_count` (the lower owner's exported `parse_one().find_all(*_PREDICATE_NODES)` fold, applied not re-spelled, so scan and query share the application not only the node tuple), and `lineage_edges` (the column-level source→derived edges `sqlglot.lineage.lineage` traces per qualified output column, walked to source-column leaves through `_leaves` so an unqualified projection resolves to its real physical source, extracted on every SQL-carrying arm and `()` on the relational/agnostic arms). Content keys derive off the canonical Arrow bytes through the railed `ContentIdentity.of` — EXCEPT the `Federated` and `Flight` arms, whose identity IS the Substrait plan bytes (the result table's stamped schema metadata, or the `Flight` case's ticket-minting command payload): `ContentIdentity.of("query.plan", wire)` keys the receipt so the `Rasm.Persistence` reuse ledger gains a recompute-dedupe key, the received, minted, and ticket-redeemed bytes of one plan keying identically because retention-never-re-serialization is the channel law. `_provenance` is one total fold yielding `(source, predicate_count, lineage_edges)` together, never two parallel spec walks.
+- Packages: `duckdb`/`sqlglot` (the parse/qualify/optimize/lineage plane), `narwhals`, `ibis`, `adbc_driver_manager`/`adbc_driver_flightsql` (the DBAPI transport and the `DatabaseOptions`/`StatementOptions`/`ConnectionOptions`-keyed `db_kwargs`/`conn_kwargs` knobs), `connectorx` (the read-parallel accelerator over ADBC's serial pull), `daft` (the out-of-core/distributed runner), `datafusion` (the federation `Serde`/`Consumer` Substrait executor — `duckdb-substrait` owns the DuckDB half, `pyarrow.substrait` DECLINED), `obstore` (`from_url` object-store federation), `beartype` (`@beartype(conf=FAULT_CONF)` on `of`/`run`), `columnar#SCAN` (the shared `DuckDbSession`/`DuckDbExtension`/`QueryReceipt`/`predicate_count` substrate), runtime (`RuntimeRail`/`ContentIdentity`/`async_boundary`/`guarded`/`RetryClass`/`on_thread`).
 - Growth: a new query frontend is one `QuerySpec` case; a new SQL dialect target is one `Dialects` member the `SqlGate`/`IrEmit` already thread; a new plan-wire artifact is one `PlanWire` row; a new predicate-bearing node is one `_PREDICATE_NODES` row on the lower `columnar#SCAN` owner the exported `predicate_count` already scans; a new transport operation is one `RemoteOp` row under `assert_never`; a new remote driver is one `RemoteDriver` row on the `_REMOTE` table; a new transport knob is one `Transport` field folded into `db_kwargs`/`conn_kwargs`; a new timeout phase is one `TimeoutPhase` row; a new OAuth key is one `Transport.oauth` entry the `OAUTH_*` projection folds; a new daft runner is one `Runner` row; a new lakehouse source is one `LakehouseFormat` row on the `_DAFT_READ` table with its time-travel key; a new federated store backend is one `(scheme, url, host)` row `register_object_store` federates; a new daft shaping verb is one `StreamingPlan` field; a new agnostic comparator or aggregator is one `Comparator`+`_COMPARE` row or one `Aggregator` member; a relational verb composes on the existing chain; zero new surface.
 - Boundary: no durable query rail and no global connection; no SQL-string templating or regex rewriting where the `sqlglot` AST owns structure; no hand-rolled Substrait protobuf codec where the extensions own each half; no per-setting builder type where the `DatabaseOptions`/`ConnectionOptions`/`StatementOptions` enum value keys the option; the ADBC partition fan-out rides `Cursor.adbc_execute_partitions`/`adbc_read_partition`/`partition_sql`, never a hand-stitched gRPC loop or low-level `AdbcStatement` dance; a free-string dialect bypassing `Dialect.get_or_raise`, a `find_tables`×`exp.Column` cartesian where `sqlglot.lineage.lineage` owns column provenance, and a `register_globals`-leaking `daft.sql` over unbound globals are foreclosed; `of`/`run` carry the `@beartype(conf=FAULT_CONF)` public-seam contract the sibling `interop`/`egress`/`columnar` admission entrypoints share.
 
@@ -23,7 +23,6 @@ from collections.abc import Callable, Mapping
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any, Final, Literal, assert_never
 
-import anyio
 import duckdb
 import ibis
 import narwhals as nw
@@ -46,6 +45,7 @@ from sqlglot.optimizer.qualify import qualify as sqlglot_qualify
 from rasm.data.tabular.columnar import DuckDbExtension, DuckDbSession, QueryReceipt, predicate_count
 from rasm.runtime.faults import FAULT_CONF, BoundaryFault, RuntimeRail, async_boundary
 from rasm.runtime.identity import ContentIdentity
+from rasm.runtime.lanes import on_thread
 from rasm.runtime.resilience import RetryClass, guarded
 
 if TYPE_CHECKING:
@@ -112,7 +112,7 @@ class Runner(StrEnum):
     RAY = "ray"
 
 
-# the daft read-scan FRONTEND axis keying `_DAFT_READ` — orthogonal to the `lakehouse#LAKEHOUSE` `TableFormat`
+# daft read-scan FRONTEND axis keying `_DAFT_READ` — orthogonal to the `lakehouse#LAKEHOUSE` `TableFormat`
 # transactional-WRITE axis. Both share DELTA/ICEBERG/LANCE, but this read set adds PARQUET/HUDI/SQL with no write
 # owner, so a merge would pollute the write axis with read-only members carrying no commit arm — NOT collapsed.
 class LakehouseFormat(StrEnum):
@@ -333,28 +333,33 @@ class QueryEngine(Struct, frozen=True):
                 return await self._local("agnostic", lambda: self._agnostic(select, predicates, group_by, aggs))
             case QuerySpec(tag="ir", ir=(expr, emit)):
                 return await self._local("ir", lambda: self._ir(expr, emit))
+            case QuerySpec(tag="remote", remote=(sql, dsn, driver, RemoteOp.INGEST as op, transport)):
+                # ingest mutates the remote table — a transport timeout leaves an unknowable partial append, so the arm crosses
+                # unretried and the caller re-issues under its own dedupe, never a blind REMOTE_DB replay duplicating rows; the
+                # hop never abandons its band slot either, so a deadline-tripped mutation stays observed to completion.
+                return await async_boundary("query.ingest", lambda: on_thread(_REMOTE[driver], sql, dsn, op, transport, self.inputs))
             case QuerySpec(tag="remote", remote=(sql, dsn, driver, op, transport)):
                 divert = transport.partition_on is not None and driver is RemoteDriver.ADBC and op in _CX_OPS
                 selected = RemoteDriver.CONNECTORX if divert else driver
                 return await guarded(
-                    RetryClass.REMOTE_DB, anyio.to_thread.run_sync, _REMOTE[selected], sql, dsn, op, transport, self.inputs, subject="query.remote"
+                    RetryClass.REMOTE_DB, on_thread, _REMOTE[selected], sql, dsn, op, transport, self.inputs, abandon=True, subject="query.remote"
                 )
             case QuerySpec(tag="streaming", streaming=(plan, runner, cluster)):
                 return await guarded(
-                    RetryClass.STREAMING, anyio.to_thread.run_sync, _stream, plan, runner, cluster, self.inputs, subject="query.streaming"
+                    RetryClass.STREAMING, on_thread, _stream, plan, runner, cluster, self.inputs, abandon=True, subject="query.streaming"
                 )
             case QuerySpec(tag="federated", federated=(sql, plan, stores)):
                 return await self._local("federated", lambda: _federated(sql, plan, stores, self.inputs))
             case QuerySpec(tag="flight", flight=(plan, dsn)):
-                return await guarded(RetryClass.REMOTE_DB, anyio.to_thread.run_sync, _flight_ticket, plan, dsn, subject="query.flight")
+                return await guarded(RetryClass.REMOTE_DB, on_thread, _flight_ticket, plan, dsn, abandon=True, subject="query.flight")
             case unreachable:
                 assert_never(unreachable)
 
     async def _local(self, tag: str, run: Callable[[], pa.Table]) -> "RuntimeRail[pa.Table]":
-        return await async_boundary(f"query.{tag}", lambda: anyio.to_thread.run_sync(run))
+        return await async_boundary(f"query.{tag}", lambda: on_thread(run))
 
     def _duckdb(self, build: Callable[[duckdb.DuckDBPyConnection], duckdb.DuckDBPyRelation]) -> pa.Table:
-        # the `columnar#SCAN` bracket, released once `to_arrow_table` has materialized the relation inside it.
+        # `columnar#SCAN` bracket, released once `to_arrow_table` has materialized the relation inside it.
         with DuckDbSession().connect() as con:
             for name, frame in self.inputs.items():
                 con.register(name, frame)
@@ -426,7 +431,7 @@ def _partitions(conn: dbapi.Connection, sql: str, transport: Transport) -> pa.Ta
 
 
 def _ir_plan(backend: Any, expr: IbisTable, emit: IrEmit) -> pa.Table:
-    # the ibis backend owns the connection; the extension load names WHAT it needs through the
+    # ibis backends own the connection; the extension load names WHAT it needs through the
     # `columnar#SCAN` `DuckDbExtension.SUBSTRAIT` row (community repository a row property), never HOW.
     con = backend.con
     DuckDbExtension.SUBSTRAIT.load(con)
@@ -600,7 +605,7 @@ def _federated(sql: str | None, plan: bytes | None, stores: tuple[tuple[str, str
 type Provenance = tuple[str, int, tuple[LineageEdge, ...]]
 
 
-# the imported `columnar#SCAN` fold — applied here, never re-spelling the byte-identical `find_all(*_PREDICATE_NODES)`.
+# imported `columnar#SCAN` fold — applied here, never re-spelling the byte-identical `find_all(*_PREDICATE_NODES)`.
 def _provenance(spec: QuerySpec) -> Provenance:
     match spec:
         case QuerySpec(tag="sql", sql=(text, gate)):
@@ -623,16 +628,20 @@ def _provenance(spec: QuerySpec) -> Provenance:
         case QuerySpec(tag="federated", federated=(sql, _, _)):
             # outbound carries lineage/predicates off the minting SQL; the inbound plan-bytes leg carries none (foreign provenance).
             return ("substrait-plan" if sql is None else sql, predicate_count(sql) if sql else 0, SqlGate().edges(sql) if sql else ())
+        case QuerySpec(tag="flight", flight=(_, dsn)):
+            # ticket redemption executes a producer-held plan — provenance is the endpoint alone, no local SQL to count or trace.
+            return dsn, 0, ()
         case unreachable:
             assert_never(unreachable)
 
 
 def receipt_of(spec: QuerySpec, table: pa.Table) -> "RuntimeRail[QueryReceipt]":
-    # the FEDERATED arm keys by the PLAN BYTES on the table's schema metadata (received or minted — the reuse
-    # ledger's dedupe key), every other arm by the canonical Arrow result bytes through the railed `ContentIdentity.of`.
+    # FEDERATED and FLIGHT arms key by the PLAN BYTES — the stamped schema metadata or the ticket-minting command — so the
+    # in-process execution and the ticket redemption of one Persistence plan share one reuse-ledger dedupe key; every other
+    # arm keys by the canonical Arrow result bytes through the railed `ContentIdentity.of`.
     source, predicates, edges = _provenance(spec)
-    if spec.tag == "federated":
-        wire = (table.schema.metadata or {}).get(_PLAN_META, b"")
+    wire = (table.schema.metadata or {}).get(_PLAN_META, b"") if spec.tag == "federated" else spec.flight[0] if spec.tag == "flight" else None
+    if wire is not None:
         return ContentIdentity.of("query.plan", wire).map(
             lambda key: QueryReceipt.of(spec.tag, source, table, key, predicate_count=predicates, lineage_edges=edges)
         )

@@ -1,8 +1,8 @@
 # [PY_GEOMETRY_ENERGY_MODEL]
 
-The HBJSON building-energy-model owner — the plane's canonical model admission and the one place a building model becomes simulation-ready. `BuildingModel.of` discriminates two modalities under one `check_all` gate: wire-arrival HBJSON decode, and the COMPUTED BIM-to-BEM derivation that lifts `IfcSpace` solids into an adjacency-solved, fenestrated honeybee model. `assign` folds one `EnergySpec` over the room set through the `.properties.energy` extension spine. The owner re-implements no adjacency solver, aperture generator, HBJSON parser, or validation rule — `honeybee-core`/`honeybee-energy`/`ladybug-geometry` own those kernels; this page composes them into one admitted, validated, energy-assigned, content-keyed model graduating under `GeometrySubject.BUILDING_ENERGY`.
+`BuildingModel` owns HBJSON building-energy-model admission — the one place a building model becomes simulation-ready. `BuildingModel.of` discriminates two modalities under one `check_all` gate: wire-arrival HBJSON decode, and the COMPUTED BIM-to-BEM derivation lifting `IfcSpace` solids into an adjacency-solved, fenestrated honeybee model. `assign` folds one `EnergySpec` over the room set through the `.properties.energy` extension spine. `honeybee-core`/`honeybee-energy`/`ladybug-geometry` own every adjacency solver, aperture generator, HBJSON parser, and validation rule; this page composes them into one admitted, validated, energy-assigned, content-keyed model graduating under `GeometrySubject.BUILDING_ENERGY`.
 
-The honeybee band is AGPL-3.0 on the standing companion-lane charter — function-local boundary imports, evidence as document bytes. The wire form IS the cross-language contract: the C# `Rasm.Bim` Energy exchange and `Rasm.Compute` simulation are peers meeting at content-keyed HBJSON document bytes, one `XxHash128` derivation, never a shared client and never a mirrored shape. BIM-to-BEM is the modality only this folder can own — `ifcopenshell` binds as a direct package consume, never an `ifc/`-plane page import, and only space solids cross.
+Honeybee's AGPL-3.0 band rides the standing companion-lane charter — function-local boundary imports, evidence as document bytes. Wire form IS the cross-language contract: the C# `Rasm.Bim` Energy exchange and `Rasm.Compute` simulation are peers meeting at content-keyed HBJSON document bytes, one `XxHash128` derivation, never a shared client and never a mirrored shape. BIM-to-BEM is the modality only this folder can own — `ifcopenshell` binds as a direct package consume, never an `ifc/`-plane page import, and only space solids cross.
 
 ## [01]-[INDEX]
 
@@ -11,10 +11,10 @@ The honeybee band is AGPL-3.0 on the standing companion-lane charter — functio
 ## [02]-[MODEL]
 
 - Owner: `BuildingModel` holds the validated honeybee `Model` and its `ContentKey` — the honeybee `Model` IS the canonical owner, never mirrored into a local dataclass graph, and the content-keyed bytes are its only projection. `BemPolicy` carries derivation behavior as data: the `wwr` default plus orientation-binned ratio rows, the classification bounds `Room.from_polyface3d` reads, and ONE tolerance every kernel reads, never three literals. `HvacSpec.template` keys `HVAC_TYPES_DICT`, which resolves the dynamically-built class, never a per-template import; `StandardsKind` keys `RESOLVERS`, so standards resolution is one row-keyed lookup.
-- Entry: both admission arms converge on the ONE `check_all(raise_exception=False, detailed=True)` gate. `assign` re-runs the same gate — honeybee invokes every registered extension's checks automatically, so the energy-validity rows ride it — and the returned successor re-keys because assignment changed the document bytes. The fenestration mint walks exterior walls only, a zero ratio skipping the face.
+- Entry: `of` is `async` over the source and the lane, and both admission arms converge on the ONE `check_all(raise_exception=False, detailed=True)` gate. `hbjson` decodes on the caller floor — a short pure decode earns no crossing — while the `bim` arm's repeated `ifcopenshell.geom.create_shape` sweep is the genuinely long native phase, so `_derived` crosses as `Kernel.of(_derived, KernelTrait.HOSTILE)` with picklable args: SPF bytes in, the pure-Python honeybee `Model` graph pickled home, the derivation content-keyed and run-scoped so the trait's `WORKER` death retry stays sound. `assign` re-runs the same gate — honeybee invokes every registered extension's checks automatically, so the energy-validity rows ride it — and the returned successor re-keys because assignment changed the document bytes. Fenestration mint walks exterior walls only, a zero ratio skipping the face.
 - Auto: a missing standards identifier resolves a typed fault naming the identifier and the registry kind, never a bare `KeyError` — the extension-dependent `building_program_type_by_identifier` fault names the absent `honeybee-energy-standards` backend; orientation binning derives from `angles_from_num_orient`, so four/eight/sixteen-bin policies are one integer, never a compass ladder.
-- Receipt: the graduation residual is the validation-error fraction over the element census — a degenerate derivation that minted no rooms keys `1.0` — so the compute crossing carries measured admission evidence, never a count that clears any ceiling.
-- Packages: `honeybee-core`, `honeybee-energy`, `ladybug-geometry`, and `ifcopenshell` per the fence imports, function-local on the AGPL companion posture. The two standards backends merge behind the `lib` loaders — `honeybee-standards` defaults floor always resolvable, `honeybee-energy-standards` ASHRAE/DOE vintage sets when installed — never a direct standards-JSON read; `honeybee-schema` validates the HBJSON dict upstream of C#, and no parallel `msgspec` model family mirrors it.
+- Receipt: graduation residual is the validation-error fraction over the element census — a degenerate derivation minting no rooms keys `1.0` — so the compute crossing carries measured admission evidence, never a count clearing any ceiling.
+- Packages: `honeybee-core`, `honeybee-energy`, `ladybug-geometry`, and `ifcopenshell` per the fence imports. Two standards backends merge behind the `lib` loaders — `honeybee-standards` defaults floor always resolvable, `honeybee-energy-standards` ASHRAE/DOE vintage sets when installed — never a direct standards-JSON read; `honeybee-schema` validates the HBJSON dict upstream of C#, and no parallel `msgspec` model family mirrors it.
 - Growth: a new fenestration strategy is one `BemPolicy` row family — dimension-driven apertures ride `apertures_by_width_height_rectangle` as one more policy case; shading mints (`louvers_by_count`/`overhang`) enter as `EnergySpec` rows when a consumer names them; a new HVAC template or vintage is zero code — the registry and its `equipment_type` vocabulary are upstream data; a new standards kind is one `RESOLVERS` row; the daylight modality (`honeybee-radiance` plus sensor grids) enters only through a future package-admission motion; dragonfly-exploded models arrive as ordinary `hbjson` payloads from `energy/district`, no third modality.
 - Boundary: IFC semantic analysis is the `ifc/` plane's — the BIM arm consumes ONLY space solids; simulation is `energy/simulate`'s, urban massing `energy/district`'s, weather `energy/climate`'s; the mesh daemon owns the GLB render wire — this arm's `create_shape` feeds `Face3D` lifting, never a cached render artifact.
 
@@ -25,7 +25,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING, Final, Literal, Self, assert_never
 
-from expression import Nothing, Option, Some, case, tag, tagged_union
+from expression import Nothing, Ok, Option, Some, case, tag, tagged_union
 from expression.collections import Block, Map
 from msgspec import Struct
 from msgspec import json as msgjson
@@ -33,7 +33,9 @@ from msgspec import json as msgjson
 from rasm.geometry.graduation import EvidenceScope, GeometryHandoff, GeometrySubject, evidence_run
 from rasm.runtime.faults import RuntimeRail
 from rasm.runtime.identity import ContentIdentity, ContentKey
+from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.receipts import Receipt
+from rasm.runtime.workers import Kernel, KernelTrait
 
 if TYPE_CHECKING:  # AGPL band: annotations resolve here; every runtime use is a function-local boundary import
     from honeybee.model import Model
@@ -148,17 +150,21 @@ class BuildingModel(Struct, frozen=True):
     content_key: ContentKey
 
     @classmethod
-    def of(cls, source: ModelSource) -> "RuntimeRail[Self]":
-        def admit() -> Self:
+    async def of(cls, source: ModelSource, lane: LanePolicy) -> "RuntimeRail[Self]":
+        async def admit() -> "RuntimeRail[Self]":
             match source:
                 case ModelSource(tag="hbjson", hbjson=payload):
-                    return cls._gated(_decoded(payload), "hbjson")
+                    # short pure decode: caller-floor by charter, no crossing earned.
+                    return Ok(cls._gated(_decoded(payload), "hbjson"))
                 case ModelSource(tag="bim", bim=(spf, policy)):
-                    return cls._gated(_derived(spf, policy), "bim")
+                    # create_shape sweep crosses HOSTILE with picklable args — SPF bytes in, the pure-Python
+                    # honeybee Model graph pickled home — and the caller-side gate re-proves it before admission.
+                    derived = await lane.offload(Kernel.of(_derived, KernelTrait.HOSTILE), spf, policy)
+                    return derived.map(lambda model: cls._gated(model, "bim"))
                 case _ as unreachable:
                     assert_never(unreachable)
 
-        return evidence_run(EvidenceScope.ENERGY_MODEL, f"admit.{source.tag}", admit)
+        return await evidence_run(EvidenceScope.ENERGY_MODEL, f"admit.{source.tag}", admit)
 
     def assign(self, spec: EnergySpec) -> "RuntimeRail[Self]":
         def fold() -> Self:
@@ -188,7 +194,7 @@ class BuildingModel(Struct, frozen=True):
         return evidence_run(EvidenceScope.ENERGY_MODEL, "assign", fold)
 
     def wire(self) -> "RuntimeRail[tuple[bytes, ContentKey]]":
-        # the wire key is SEED-ZERO over the format-key-then-document chunk stream, reproducing the C# CanonicalWriter
+        # wire key is SEED-ZERO over the format-key-then-document chunk stream, reproducing the C# CanonicalWriter
         # String(format.Key).Raw(bytes) fold; the reproduction-corpus HBJSON golden fixture proves the parity cross-runtime.
         def fold() -> tuple[bytes, ContentKey]:
             document = _ENCODER.encode(self.model.to_dict(included_prop=("energy",)))
@@ -243,6 +249,7 @@ def _decoded(payload: "bytes | str | Path | Mapping[str, object]") -> "Model":
 
 def _derived(spf: bytes, policy: BemPolicy) -> "Model":
     # BIM-to-BEM: IfcSpace solids -> Face3D triangles -> Polyface3D -> Room -> adjacency -> apertures.
+    # module-level HOSTILE kernel: ships REFERENCE onto the warm process pool; the live ifcopenshell.file stays worker-local.
     import ifcopenshell  # noqa: PLC0415 — companion-lane worker import
     import ifcopenshell.geom  # noqa: PLC0415
     from honeybee.model import Model  # noqa: PLC0415 — AGPL boundary import

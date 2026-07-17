@@ -1,56 +1,69 @@
 # [PY_ARTIFACTS_SCENE_STAGE]
 
-The USD/USDZ stage-authoring owner. `StageOp` is the one Pixar OpenUSD source-axis family over the closed `RenderExport`/`MeshAuthor` cases — `RenderExport` writes the rendered scene to a layer through the source-build-gated `vtkUSDExporter`, `MeshAuthor` authors a `pxr.Usd.Stage` directly from the `scene/render#SCENE` `surface_arrays` numpy buffers over the `UsdGeom`/`Vt`/`Gf` schema family with no render pass — each folding to a serialized USD layer through one total `apply` `match`, plus the `package_usdz` close that zips an authored `.usdc` (with its dependency-asset closure) into the `.usdz` AR deliverable. `MeshScene` is the rich `MeshAuthor` payload over a recursive `PrimKind` scene-graph — a `mesh`/`points`/`curves` leaf, an `xform` group of placed `PrimNode` children, a `PointInstancer` array, or a `Camera` — carrying the `UpAxis`/`meters_per_unit` AR metadata, the `displayColor` primvar, the PBR `Material` bind, the `UsdSemantics.LabelsAPI` AEC labels, the `Usd.ModelAPI` `Kind` asset marking, and the `Sdf.Reference` composition arcs. This owner authors and packages only: the offscreen render stays at `scene/render#SCENE`, raw mesh-file interchange at `geometry/mesh`.
+`StageOp` owns USD/USDZ stage authoring as one closed Pixar OpenUSD source family over `RenderExport` and `MeshAuthor`. `RenderExport` writes a rendered scene through the source-build-gated `vtkUSDExporter`; `MeshAuthor` authors a `pxr.Usd.Stage` from admitted numpy buffers over `UsdGeom`, `Vt`, and `Gf`; and both fold to a serialized layer through one total `apply` match. `PackageOp` owns package, extraction, compliance, and relocation closes, while `packaged` returns one `Result[PackageFacts, PackageFault]` rail. `MeshScene` owns the recursive `PrimKind` graph, stage metadata, appearance, semantics, model kind, and eager-reference or deferred-payload `AssetArc` composition. Offscreen rendering stays at `scene/render#SCENE`, and raw mesh interchange stays at `geometry/mesh`.
 
-The owner rides the wider worker band. OpenUSD declares a HARD `>=3.9, <3.15` upper cap and ships no cp315 wheel, so `pxr` imports neither on the runtime nor at module scope — the `lazy from pxr` bindings reify only when a worker function first runs INSIDE the `scene/render#SCENE` runtime process lane subprocess (the sub-3.13 native-VTK worker the render already crosses onto). The `scene/export#EXPORT` `USD`/`USDZ` `SceneTarget` arms delegate here through the wheel-available `author_mesh(MeshScene(...))` numpy path — no render pass — threading the render spec's mapped per-vertex `display_color`, its PBR `Material`, and its AEC `labels` so the deliverable carries colour+material+classification rather than a bare grey mesh; `package_usdz` then closes the `.usdz`. `export_usd` (the `vtkUSDExporter` render-window front-half) is the source-build-gated enhancement reached only on a VTK built against OpenUSD (the standard `vtk` wheel ships no `vtkmodules.vtkIOUSD`). The `ArtifactReceipt.Scene` case is minted once at the `scene/render#SCENE` `Export` arm, no parallel receipt rail. The `pxr` `Tf.ErrorException`, the `Boost.Python.ArgumentError` (the `Sdf.AssetPath`-vs-`str` mismatch), and the empty-stage `ValueError` guard all map at the `scene/render#SCENE` `async_boundary` worker edge into the `RuntimeRail` fault, never surfaced bare across the interpreter seam; a `bool False` return from `CreateNewUsdzPackage`/`ExtractUsdzPackage` is the packaging-failure rail.
+`pxr` imports eagerly at module scope — this module loads only on the worker floor — and every annotation remains parse-floor-safe. One guarded `_usd_exporter` resolver owns the optional `vtkmodules.vtkIOUSD` import. `scene/export#EXPORT` delegates `USD` and `USDZ` to the numpy authoring path, and its terminal adapter maps `PackageFault` onto `ExportFault`; no false provider return or failed compliance result can masquerade as a successful receipt.
 
 ## [01]-[INDEX]
 
-- [02]-[STAGE]: the one `StageOp` closed source-axis family folding to a serialized USD layer through one total `apply` `match`, the `MeshScene` recursive `PrimKind` scene-graph the wheel-available `MeshAuthor` path authors and `package_usdz` closes into the `.usdz`.
+- [02]-[STAGE]: `StageOp` folds its closed source family to a serialized layer, `MeshScene` authors the recursive `PrimKind` graph, and `packaged` folds `PackageOp` onto `Result[PackageFacts, PackageFault]`.
 
 ## [02]-[STAGE]
 
-- Cases: `RenderExport` writes the rendered scene to a `.usdc`/`.usda` layer over `SetRenderWindow`/`SetFileName`/`Write`, source-build-gated because the official `vtk` wheel ships no `vtkIOUSD`. `MeshAuthor` is the wheel-available default the `scene/export#EXPORT` USD arm always takes: `PrimKind.define` folds each leaf/group/instancer/camera into its schema, `_dress` folds the `displayColor` primvar, PBR bind, and labels, and `MeshScene.author` folds the stage metadata. USDZ packaging is not a third case but the `package_usdz` close over either arm's `.usdc`: `CreateNewUsdzPackage` gathers the full dependency-asset closure and writes the aligned-zip `.usdz`, `CreateNewARKitUsdzPackage` the Apple QuickLook variant as the `UsdzProfile.ARKIT` policy value on the same close, never a per-platform owner. `extract_usdz` is the import inverse; `relocate_assets` the external-asset relocation before packaging.
-- Auto: the `MeshAuthor` arm folds each numpy buffer through the zero-copy `Vt.<Type>Array.FromNumpy` bridge (the bare ctor raises `TypeError`, no registered converter), never a per-vertex append nor a `.tolist()` copy. `CreateSubdivisionSchemeAttr(none)` marks the triangulation non-subdivision-surface so a viewer does not re-subdivide it under the `catmullClark` default. Each Boundable prim's `CreateExtentAttr` box authors from its own buffer once, and a composed hierarchy's aggregate world box reads through `UsdGeom.BBoxCache` (the `IsEmpty`-guarded diagonal a single-prim numpy extreme cannot span). The `instancer` case defines the prototype once under a `UsdGeom.Scope` so N identical elements author one prototype and N transforms rather than N meshes; a `FaceSubset` binds a material to a `UsdGeom.Subset` region so one mesh carries N materials. `ComputeUsdStageStats` gates the authored stage so a zero-prim authoring rails rather than writing an empty layer. `CreateNewUsdzPackage` itself embeds the full dependency closure, so a scene with referenced textures/components packages a self-contained `.usdz`.
-- Receipt: each USD/USDZ export contributes `core/receipt#RECEIPT` `ArtifactReceipt.Scene(key, target, bytes, facts)` minted once at the `scene/render#SCENE` `Export` arm; this owner contributes the serialized payload, never a parallel per-format rail. The `ComputeUsdStageStats` prim/layer counts, up-axis, meters-per-unit, and the `BBoxCache` `extent_diag` thread back as the `apply` `(bytes, facts)` return, minted onto the widened band — a new fact is one band key, never a new receipt case.
-- Growth: a new USD prim schema is one `PrimKind` case plus one `define` arm; a per-element placement is one `XformOp` case; a multi-material region is one `FaceSubset`; a per-element appearance is one `PrimNode` field; a new material knob is one `Material` field bound into `bind`; a new semantic taxonomy is one `MeshScene.labels` key; an asset-composition arc is one `MeshScene.references` entry; an asset-kind marking is one `ModelKind` row; a new layer format is one `LayerFormat` row keyed by suffix; a new packaging policy is one `UsdzProfile` row on the `package_usdz` close; a new stage source is one `StageOp` case folding into the `apply` `match`; a new receipt fact is one `frozendict` band key. Zero new owner — the source axis stays two cases on one family, the geometry one recursive `PrimKind`, the packaging one close.
+- Cases: `RenderExport` writes a `.usdc` or `.usda` layer through `SetRenderWindow`, `SetFileName`, and `Write`. `MeshAuthor` folds every admitted `PrimKind` into its schema, then `MeshScene.author` binds metadata, appearance, labels, model kind, and `AssetArc` composition. `PackageOp.Package`, `Extract`, `Verify`, and `Relocate` fold through `packaged`; success carries `PackageFacts`, and every provider false return, unavailable layer, or compliance issue carries a closed `PackageFault` case.
+- Auto: `MeshAuthor` folds numpy buffers through `Vt.<Type>Array.FromNumpy`, never per-element append or `.tolist()` copies; orientation buffers carry the page-wide `(w, x, y, z)` convention and roll into Gf quaternion memory order once at `_instancer`. `PrimKind` admits point, face, normal, curve, instancing, camera, and light invariants — sibling and subset names unique, so no two prims silently merge onto one path — before authoring. `CreateSubdivisionSchemeAttr(UsdGeom.Tokens.none)` preserves an exported triangulation. Each boundable schema authors its extent, while `UsdGeom.BBoxCache` derives the composed world diagonal. `instancer` authors a prototype roster with range-checked indices beside its placement arrays; `FaceSubset` binds material regions; `camera` selects perspective or orthographic projection through `Lens.projection`; and `sun` aims a `UsdLux.DistantLight` from solar azimuth and elevation. `ComputeUsdStageStats` rejects an empty stage, and `UsdSemantics.LabelsQuery.ComputeUniqueInheritedLabels` adds resolved taxonomies to the facts band.
+- Receipt: each USD/USDZ export contributes `core/receipt#RECEIPT` `ArtifactReceipt.Scene(key, target, bytes, facts)` at `scene/render#SCENE`. `ComputeUsdStageStats` counts, up-axis, scale, `BBoxCache` diagonal, and `labels:*` sets return through `apply`; each new fact remains one band key.
+- Growth: a new USD schema is one `PrimKind` case plus one `define` arm; placement is one `XformOp` case; appearance and semantics enrich `PrimNode`; composition is one `AssetArc` case; layer format is one `LayerFormat` row; packaging is one `PackageOp` and `PackageFault` case pair; and receipt evidence is one facts-band key. Source, graph, and package axes retain one owner each.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
-from collections.abc import Callable, Mapping
-from dataclasses import dataclass, field
+from collections.abc import Callable
 from enum import StrEnum
+from importlib import import_module
+from importlib.util import find_spec
 from pathlib import Path
 from typing import Literal, assert_never
 
 import numpy as np
-from expression import case, tag, tagged_union
+from builtins import frozendict
+from expression import Error, Ok, Result, case, tag, tagged_union
 from msgspec import Struct
 from numpy.typing import NDArray
-
-lazy from pxr import Gf, Kind, Sdf, Usd, UsdGeom, UsdSemantics, UsdShade, UsdUtils, Vt
-lazy from vtkmodules.vtkIOUSD import vtkUSDExporter  # source-build-gated: the official vtk wheel ships no vtkIOUSD
+from pxr import Gf, Kind, Sdf, Usd, UsdGeom, UsdLux, UsdSemantics, UsdShade, UsdUtils, Vt
 
 # --- [TYPES] ---------------------------------------------------------------------------
 
 type Vec3 = tuple[float, float, float]
-type Quat = tuple[float, float, float, float]  # (real, i, j, k) -> Gf.Quatf for AddOrientOp / PointInstancer orientations
-type Matrix4 = tuple[float, ...]  # 16 row-major cells -> Gf.Matrix4d for AddTransformOp
-type PrimKindTag = Literal["mesh", "points", "curves", "xform", "instancer", "camera"]
+type Quat = tuple[float, float, float, float]  # (w, x, y, z) — the page-wide quaternion convention every buffer and factory carries
+type Matrix4 = tuple[float, ...]
+type PrimKindTag = Literal["mesh", "points", "curves", "xform", "instancer", "camera", "sun"]
 type StageOpTag = Literal["render_export", "mesh_author"]
 type XformOpTag = Literal["translate", "rotate", "scale", "orient", "transform"]
+type PackageOpTag = Literal["package", "extract", "verify", "relocate"]
+type PackageFaultTag = PackageOpTag
+type AssetArcTag = Literal["reference", "payload"]
+type ColorSourceTag = Literal["flat", "texture", "primvar"]
 
 
 class LayerFormat(StrEnum):
-    CRATE = "usdc"  # crate binary
-    ASCII = "usda"  # human-readable ASCII (diff/inspect); Stage.Export discriminates by suffix natively
+    CRATE = "usdc"
+    ASCII = "usda"
 
     @staticmethod
     def of_suffix(path: str) -> "LayerFormat":
-        for fmt in LayerFormat:
-            if path.endswith(f".{fmt.value}"):
-                return fmt
-        raise ValueError(f"not a USD layer suffix: {path!r}")  # a non-.usdc/.usda path to the USD arm is a fault
+        found = next((fmt for fmt in LayerFormat if path.endswith(f".{fmt.value}")), None)
+        if found is None:
+            raise ValueError(f"not a USD layer suffix: {path!r}")
+        return found
+
+
+class Projection(StrEnum):
+    PERSPECTIVE = "perspective"
+    ORTHOGRAPHIC = "orthographic"
+
+    @property
+    def token(self) -> object:
+        return getattr(UsdGeom.Tokens, self.value)
 
 
 class UpAxis(StrEnum):
@@ -59,25 +72,29 @@ class UpAxis(StrEnum):
 
     @property
     def token(self) -> object:
-        return UsdGeom.Tokens.y if self is UpAxis.Y else UsdGeom.Tokens.z  # resolved inside the worker only
+        return getattr(UsdGeom.Tokens, self.value)
 
 
 class SubdivScheme(StrEnum):
-    NONE = "none"  # a render-exported triangulation authors `none` so viewers do NOT re-subdivide it
+    NONE = "none"
     CATMULL_CLARK = "catmullClark"
 
     @property
     def token(self) -> object:
-        return getattr(UsdGeom.Tokens, self.value)  # the StrEnum value IS the USD subdivision token
+        return getattr(UsdGeom.Tokens, self.value)
 
 
 class UsdzProfile(StrEnum):
-    STANDARD = "CreateNewUsdzPackage"  # general USDZ
-    ARKIT = "CreateNewARKitUsdzPackage"  # Apple QuickLook-constrained; the StrEnum value IS the UsdUtils packager name
+    STANDARD = "standard"
+    ARKIT = "arkit"
+
+    @property
+    def arkit(self) -> bool:
+        return self is UsdzProfile.ARKIT
 
 
 class ModelKind(StrEnum):
-    # Usd.ModelAPI.SetKind marks a prim as a scene-graph asset for BIM/USD-pipeline interop; the value IS the Kind.Tokens name
+    MODEL = "model"
     COMPONENT = "component"
     ASSEMBLY = "assembly"
     GROUP = "group"
@@ -92,34 +109,72 @@ class ModelKind(StrEnum):
 
 
 @tagged_union(frozen=True)
+class AssetArc:
+    tag: AssetArcTag = tag()
+    reference: str = case()
+    payload: str = case()
+
+    @staticmethod
+    def Reference(asset: str) -> "AssetArc":
+        return AssetArc(reference=asset)
+
+    @staticmethod
+    def Payload(asset: str) -> "AssetArc":
+        return AssetArc(payload=asset)
+
+    def compose(self, prim: object) -> None:
+        match self:
+            case AssetArc(tag="reference", reference=asset):
+                prim.GetReferences().AddReference(Sdf.Reference(asset))
+            case AssetArc(tag="payload", payload=asset):
+                prim.GetPayloads().AddPayload(Sdf.Payload(asset))
+            case _ as unreachable:
+                assert_never(unreachable)
+
+
+@tagged_union(frozen=True)
 class XformOp:
-    # the placement op stack every UsdGeom.Xformable carries, composed left-to-right at author
     tag: XformOpTag = tag()
     translate: Vec3 = case()
-    rotate: Vec3 = case()  # XYZ Euler degrees
+    rotate: Vec3 = case()
     scale: Vec3 = case()
-    orient: Quat = case()  # (real, i, j, k)
-    transform: Matrix4 = case()  # 16 row-major cells
+    orient: Quat = case()
+    transform: Matrix4 = case()
 
     @staticmethod
     def Translate(offset: Vec3) -> "XformOp":
+        XformOp._finite(offset, "translation")
         return XformOp(translate=offset)
 
     @staticmethod
     def Rotate(euler_xyz: Vec3) -> "XformOp":
+        XformOp._finite(euler_xyz, "rotation")
         return XformOp(rotate=euler_xyz)
 
     @staticmethod
     def Scale(factor: Vec3) -> "XformOp":
+        XformOp._finite(factor, "scale")
+        if any(cell == 0.0 for cell in factor):
+            raise ValueError("scale contains a zero axis")
         return XformOp(scale=factor)
 
     @staticmethod
     def Orient(quat: Quat) -> "XformOp":
+        XformOp._finite(quat, "orientation")
+        if np.linalg.norm(quat) == 0.0:
+            raise ValueError("orientation quaternion has zero norm")
         return XformOp(orient=quat)
 
     @staticmethod
     def Transform(matrix: Matrix4) -> "XformOp":
+        if len(matrix) != 16 or not np.isfinite(matrix).all():
+            raise ValueError("transform requires sixteen finite cells")
         return XformOp(transform=matrix)
+
+    @staticmethod
+    def _finite(values: tuple[float, ...], name: str) -> None:
+        if not np.isfinite(values).all():
+            raise ValueError(f"{name} contains a non-finite value")
 
     def add(self, xformable: object) -> None:
         match self:
@@ -137,44 +192,70 @@ class XformOp:
                 assert_never(self)
 
 
-class Texture(Struct, frozen=True, kw_only=True):
-    # a UsdUVTexture -> UsdPrimvarReader_float2('st') node pair driving UsdPreviewSurface.diffuseColor; the textured PBR path
+class Texture(Struct, frozen=True, gc=False, kw_only=True):
     file: str
     wrap: Literal["repeat", "clamp", "mirror", "black"] = "repeat"
 
 
+@tagged_union(frozen=True)
+class ColorSource:
+    tag: ColorSourceTag = tag()
+    flat: Vec3 = case()
+    texture: Texture = case()
+    primvar: str = case()
+
+    @staticmethod
+    def Flat(color: Vec3 = (0.18, 0.18, 0.18)) -> "ColorSource":
+        return ColorSource(flat=color)
+
+    @staticmethod
+    def Texture(texture: Texture) -> "ColorSource":
+        return ColorSource(texture=texture)
+
+    @staticmethod
+    def Primvar(name: str) -> "ColorSource":
+        return ColorSource(primvar=name)
+
+
 class Material(Struct, frozen=True, kw_only=True):
-    diffuse: Vec3 = (0.18, 0.18, 0.18)
+    source: ColorSource = ColorSource(flat=(0.18, 0.18, 0.18))
     metallic: float = 0.0
     roughness: float = 0.5
     opacity: float = 1.0
-    texture: Texture | None = None  # when set, diffuseColor drives from a UsdUVTexture(st) node graph
-    diffuse_primvar: str | None = (
-        None  # when set (e.g. "displayColor"), diffuseColor reads the per-vertex primvar so scalar colour survives under PBR
-    )
 
     def bind(self, stage: object, prim: object, path: object) -> None:
+        if not np.isfinite((self.metallic, self.roughness, self.opacity)).all() or not all(
+            0.0 <= value <= 1.0 for value in (self.metallic, self.roughness, self.opacity)
+        ):
+            raise ValueError("material factors must be finite values in [0, 1]")
         material = UsdShade.Material.Define(stage, path)
         shader = UsdShade.Shader.Define(stage, path.AppendChild("PreviewSurface"))
         shader.CreateIdAttr("UsdPreviewSurface")
         shader.CreateInput("metallic", Sdf.ValueTypeNames.Float).Set(self.metallic)
         shader.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(self.roughness)
         shader.CreateInput("opacity", Sdf.ValueTypeNames.Float).Set(self.opacity)
-        match self.texture, self.diffuse_primvar:  # base-colour source: a UV texture, a per-vertex primvar, or the flat Color3f
-            case Texture() as texture, _:
+        match self.source:
+            case ColorSource(tag="texture", texture=texture):
                 self._textured(stage, shader, path, texture)
-            case None, str() as primvar:
+            case ColorSource(tag="primvar", primvar=primvar):
+                if not primvar:
+                    raise ValueError("material primvar name cannot be empty")
                 reader = UsdShade.Shader.Define(stage, path.AppendChild("colorReader"))
                 reader.CreateIdAttr("UsdPrimvarReader_float3")
                 reader.CreateInput("varname", Sdf.ValueTypeNames.Token).Set(primvar)
                 shader.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).ConnectToSource(reader.ConnectableAPI(), "result")
-            case _:
-                shader.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*self.diffuse))
+            case ColorSource(tag="flat", flat=diffuse):
+                if not np.isfinite(diffuse).all() or any(not 0.0 <= value <= 1.0 for value in diffuse):
+                    raise ValueError("material diffuse color must contain finite values in [0, 1]")
+                shader.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*diffuse))
+            case _ as unreachable:
+                assert_never(unreachable)
         material.CreateSurfaceOutput().ConnectToSource(shader.ConnectableAPI(), "surface")
-        UsdShade.MaterialBindingAPI.Apply(prim).Bind(material)  # the actual attach, distinct from defining the material
+        UsdShade.MaterialBindingAPI.Apply(prim).Bind(material)
 
     def _textured(self, stage: object, shader: object, path: object, texture: Texture, /) -> None:
-        # st reader -> UsdUVTexture -> diffuseColor: the standard UsdPreviewSurface texture graph replacing the flat Color3f
+        if not texture.file:
+            raise ValueError("material texture path cannot be empty")
         reader = UsdShade.Shader.Define(stage, path.AppendChild("stReader"))
         reader.CreateIdAttr("UsdPrimvarReader_float2")
         reader.CreateInput("varname", Sdf.ValueTypeNames.Token).Set("st")
@@ -188,28 +269,26 @@ class Material(Struct, frozen=True, kw_only=True):
 
 
 class FaceSubset(Struct, frozen=True, kw_only=True):
-    # one per-face material region -> UsdGeom.Subset the MaterialBindingAPI targets
     name: str
     faces: NDArray[np.int32]
     material: Material
 
 
-class Lens(Struct, frozen=True, kw_only=True):
-    # a UsdGeom.Camera authored from the render viewpoint so a USD/USDZ deliverable frames its subject in QuickLook/AR
+class Lens(Struct, frozen=True, gc=False, kw_only=True):
     eye: Vec3
     target: Vec3 = (0.0, 0.0, 0.0)
     up: Vec3 = (0.0, 0.0, 1.0)
+    projection: Projection = Projection.PERSPECTIVE
     focal_length: float = 50.0
     clip: tuple[float, float] = (0.1, 100000.0)
 
 
 class Instancing(Struct, frozen=True, kw_only=True):
-    # UsdGeom.PointInstancer: one prototype authored once, placed N times by the per-instance arrays
-    prototype: "PrimKind"
+    prototypes: tuple["PrimKind", ...]
     positions: NDArray[np.float32]
     proto_indices: NDArray[np.int32]
     scales: NDArray[np.float32] | None = None
-    orientations: NDArray[np.float32] | None = None  # (N,4) (real,i,j,k) -> Vt.QuathArray
+    orientations: NDArray[np.float32] | None = None  # (N, 4) rows in the page-wide (w, x, y, z) convention; _instancer rolls at the seam
 
 
 @tagged_union(frozen=True)
@@ -218,35 +297,93 @@ class PrimKind:
     mesh: tuple[NDArray[np.float32], NDArray[np.int32], NDArray[np.float32] | None, tuple[FaceSubset, ...]] = case()
     points: tuple[NDArray[np.float32], NDArray[np.float32] | None] = case()
     curves: tuple[NDArray[np.float32], NDArray[np.int32], NDArray[np.float32] | None] = case()
-    xform: tuple[tuple[XformOp, ...], tuple["PrimNode", ...]] = case()  # a scene-graph group: placement op stack + named children (recursive)
+    xform: tuple[tuple[XformOp, ...], tuple["PrimNode", ...]] = case()
     instancer: Instancing = case()
     camera: Lens = case()
+    sun: tuple[float, float, float, Vec3] = case()
 
     @staticmethod
     def Mesh(
         points: NDArray[np.float32], faces: NDArray[np.int32], normals: NDArray[np.float32] | None = None, subsets: tuple[FaceSubset, ...] = ()
     ) -> "PrimKind":
+        PrimKind._points(points, "mesh")
+        if faces.ndim != 2 or faces.shape[1] < 3:
+            raise ValueError("mesh faces require a rank-two polygon index buffer")
+        if faces.size and (faces.min() < 0 or faces.max() >= len(points)):
+            raise ValueError("face indices exceed the point range")
+        if normals is not None and (normals.shape != points.shape or not np.isfinite(normals).all()):
+            raise ValueError("mesh normals must be finite and align with points")
+        if any(subset.faces.ndim != 1 or (subset.faces.size and (subset.faces.min() < 0 or subset.faces.max() >= len(faces))) for subset in subsets):
+            raise ValueError("face subset indices exceed the face range")
+        if len({subset.name for subset in subsets}) != len(subsets):
+            raise ValueError("face subsets require unique names")  # a duplicate name silently re-defines one Subset prim path
         return PrimKind(mesh=(points, faces, normals, subsets))
 
     @staticmethod
     def Points(coords: NDArray[np.float32], widths: NDArray[np.float32] | None = None) -> "PrimKind":
+        PrimKind._points(coords, "point cloud")
+        if widths is not None and (widths.shape != (len(coords),) or not np.isfinite(widths).all() or np.any(widths <= 0.0)):
+            raise ValueError("point widths must be positive, finite, and align with points")
         return PrimKind(points=(coords, widths))
 
     @staticmethod
     def Curves(points: NDArray[np.float32], vertex_counts: NDArray[np.int32], widths: NDArray[np.float32] | None = None) -> "PrimKind":
+        PrimKind._points(points, "curve")
+        if vertex_counts.ndim != 1 or np.any(vertex_counts < 2) or int(vertex_counts.sum()) != len(points):
+            raise ValueError("curve vertex counts must partition the point buffer into segments")
+        if widths is not None and (widths.shape != (len(points),) or not np.isfinite(widths).all() or np.any(widths <= 0.0)):
+            raise ValueError("curve widths must be positive, finite, and align with points")
         return PrimKind(curves=(points, vertex_counts, widths))
 
     @staticmethod
     def Group(children: tuple["PrimNode", ...], *ops: XformOp) -> "PrimKind":
+        if len({child.name for child in children}) != len(children):
+            raise ValueError("group children require unique prim names")  # duplicate siblings silently merge onto one Sdf path
         return PrimKind(xform=(ops, children))
 
     @staticmethod
     def Instancer(instancing: Instancing) -> "PrimKind":
+        PrimKind._points(instancing.positions, "instancer")
+        count = len(instancing.positions)
+        if not instancing.prototypes:
+            raise ValueError("instancer requires at least one prototype")
+        if instancing.proto_indices.shape != (count,) or instancing.proto_indices.min() < 0 or instancing.proto_indices.max() >= len(instancing.prototypes):
+            raise ValueError("prototype indices must align with positions and select a declared prototype")
+        if instancing.scales is not None and (
+            instancing.scales.shape != (count, 3) or not np.isfinite(instancing.scales).all() or np.any(instancing.scales <= 0.0)
+        ):
+            raise ValueError("instance scales must be positive, finite, and align with positions")
+        if instancing.orientations is not None and (
+            instancing.orientations.shape != (count, 4)
+            or not np.isfinite(instancing.orientations).all()
+            or np.any(np.linalg.norm(instancing.orientations, axis=1) == 0.0)
+        ):
+            raise ValueError("instance orientations must be finite nonzero quaternions aligned with positions")
         return PrimKind(instancer=instancing)
 
     @staticmethod
     def Camera(lens: Lens) -> "PrimKind":
+        if lens.focal_length <= 0.0 or lens.clip[0] <= 0.0 or lens.clip[0] >= lens.clip[1] or not np.isfinite((*lens.eye, *lens.target, *lens.up, lens.focal_length, *lens.clip)).all():
+            raise ValueError("camera values must be finite with positive focal length and ordered clipping planes")
         return PrimKind(camera=lens)
+
+    @staticmethod
+    def Sun(azimuth: float, elevation: float, intensity: float = 50000.0, color: Vec3 = (1.0, 1.0, 1.0)) -> "PrimKind":
+        if (
+            not np.isfinite((azimuth, elevation, intensity, *color)).all()
+            or not -90.0 <= elevation <= 90.0
+            or intensity < 0.0
+            or len(color) != 3
+            or any(not 0.0 <= channel <= 1.0 for channel in color)
+        ):
+            # color carries exactly three finite [0, 1] channels — the same admission Material.bind enforces
+            raise ValueError("sun requires finite values, bounded elevation, nonnegative intensity, and a three-channel [0, 1] color")
+        return PrimKind(sun=(azimuth, elevation, intensity, color))
+
+    @staticmethod
+    def _points(points: NDArray[np.float32], owner: str) -> None:
+        if points.ndim != 2 or points.shape[1] != 3 or not len(points) or not np.isfinite(points).all():
+            raise ValueError(f"{owner} points require a nonempty finite (N, 3) buffer")
 
     def define(self, stage: object, path: object, subdiv: SubdivScheme) -> object:
         match self:
@@ -255,11 +392,11 @@ class PrimKind:
                 mesh.CreatePointsAttr(Vt.Vec3fArray.FromNumpy(verts))
                 mesh.CreateFaceVertexCountsAttr(Vt.IntArray.FromNumpy(np.full(faces.shape[0], faces.shape[1], dtype=np.int32)))
                 mesh.CreateFaceVertexIndicesAttr(Vt.IntArray.FromNumpy(faces.reshape(-1)))
-                mesh.CreateSubdivisionSchemeAttr(subdiv.token)  # `none` for a triangulation: viewers do not re-subdivide
+                mesh.CreateSubdivisionSchemeAttr(subdiv.token)
                 if normals is not None:
                     mesh.CreateNormalsAttr(Vt.Vec3fArray.FromNumpy(normals))
                 mesh.CreateExtentAttr(_extent(verts))
-                for subset in subsets:  # one UsdGeom.Subset per per-face material region; the binding targets the subset, not the whole mesh
+                for subset in subsets:
                     region = UsdGeom.Subset.Define(stage, path.AppendChild(subset.name))
                     region.CreateElementTypeAttr(UsdGeom.Tokens.face)
                     region.CreateIndicesAttr(Vt.IntArray.FromNumpy(subset.faces))
@@ -273,7 +410,7 @@ class PrimKind:
                 cloud.CreateExtentAttr(_extent(coords))
                 return cloud.GetPrim()
             case PrimKind(tag="curves", curves=(pts, counts, widths)):
-                curve = UsdGeom.BasisCurves.Define(stage, path)  # drawing-edge / linework geometry
+                curve = UsdGeom.BasisCurves.Define(stage, path)
                 curve.CreatePointsAttr(Vt.Vec3fArray.FromNumpy(pts))
                 curve.CreateCurveVertexCountsAttr(Vt.IntArray.FromNumpy(counts))
                 curve.CreateTypeAttr(UsdGeom.Tokens.linear)
@@ -282,7 +419,7 @@ class PrimKind:
                 curve.CreateExtentAttr(_extent(pts))
                 return curve.GetPrim()
             case PrimKind(tag="xform", xform=(ops, children)):
-                group = UsdGeom.Xform.Define(stage, path)  # a scene-graph grouping/placement node over recursive children
+                group = UsdGeom.Xform.Define(stage, path)
                 for op in ops:
                     op.add(group)
                 for child in children:
@@ -292,25 +429,30 @@ class PrimKind:
                 return _instancer(stage, path, inst, subdiv)
             case PrimKind(tag="camera", camera=lens):
                 return _camera(stage, path, lens)
+            case PrimKind(tag="sun", sun=(azimuth, elevation, intensity, color)):
+                light = UsdLux.DistantLight.Define(stage, path)
+                light.CreateIntensityAttr(intensity)
+                light.CreateColorAttr(Gf.Vec3f(*color))
+                light.CreateAngleAttr(0.53)
+                XformOp.Rotate((elevation - 90.0, 0.0, -azimuth)).add(light)
+                return light.GetPrim()
             case _:
                 assert_never(self)
 
 
-@dataclass(frozen=True, slots=True, kw_only=True)
-class PrimNode:
-    # one placed child of an xform group: its own name, geometry, placement ops, and per-element appearance (material/color/labels)
+class PrimNode(Struct, frozen=True, kw_only=True):
     name: str
     kind: PrimKind
     transform: tuple[XformOp, ...] = ()
     display_color: NDArray[np.float32] | None = None
     material: Material | None = None
-    labels: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
+    labels: frozendict[str, tuple[str, ...]] = frozendict()
 
     def define(self, stage: object, parent: object, subdiv: SubdivScheme, /) -> object:
         path = parent.AppendChild(self.name)
         prim = self.kind.define(stage, path, subdiv)
         for op in self.transform:
-            op.add(UsdGeom.Xformable(prim))  # wrap the leaf prim as Xformable to place it under its parent group
+            op.add(UsdGeom.Xformable(prim))
         _dress(stage, prim, path, self.display_color, self.material, self.labels)
         return prim
 
@@ -320,14 +462,16 @@ class MeshScene(Struct, frozen=True, kw_only=True):
     up_axis: UpAxis = UpAxis.Z
     meters_per_unit: float = 1.0
     subdiv: SubdivScheme = SubdivScheme.NONE
-    transform: tuple[XformOp, ...] = ()  # root placement op stack
+    transform: tuple[XformOp, ...] = ()
     display_color: NDArray[np.float32] | None = None
     material: Material | None = None
-    labels: Mapping[str, tuple[str, ...]] = {}  # taxonomy -> semantic labels; the AEC discipline/classification plane
-    model_kind: ModelKind | None = None  # Usd.ModelAPI scene-as-asset marking (component/assembly) for BIM/USD interop
-    references: tuple[str, ...] = ()  # Sdf.Reference composition arcs -> a shared component/detail library
+    labels: frozendict[str, tuple[str, ...]] = frozendict()
+    model_kind: ModelKind | None = None
+    arcs: tuple[AssetArc, ...] = ()
 
     def author(self, stage: object) -> object:
+        if not np.isfinite(self.meters_per_unit) or self.meters_per_unit <= 0.0:
+            raise ValueError("meters_per_unit must be positive and finite")
         UsdGeom.SetStageUpAxis(stage, self.up_axis.token)
         UsdGeom.SetStageMetersPerUnit(stage, self.meters_per_unit)
         root = Sdf.Path("/Root")
@@ -335,19 +479,33 @@ class MeshScene(Struct, frozen=True, kw_only=True):
         for op in self.transform:
             op.add(UsdGeom.Xformable(prim))
         _dress(stage, prim, root, self.display_color, self.material, self.labels)
-        for asset in self.references:
-            prim.GetReferences().AddReference(Sdf.Reference(asset))  # compose a shared component/detail-library layer into the root
+        for arc in self.arcs:
+            arc.compose(prim)
         if self.model_kind is not None:
-            Usd.ModelAPI(prim).SetKind(self.model_kind.token)  # mark the scene an asset (component/assembly) for BIM/USD pipelines
-        stage.SetDefaultPrim(prim)  # a top-level prim is a valid USDZ default prim
+            Usd.ModelAPI(prim).SetKind(self.model_kind.token)
+        stage.SetDefaultPrim(prim)
         return prim
+
+
+class PackageFacts(Struct, frozen=True, gc=False):
+    references: int = 0
+    assets: int = 0
+
+
+@tagged_union(frozen=True)
+class PackageFault:
+    tag: PackageFaultTag = tag()
+    package: str = case()
+    extract: str = case()
+    verify: tuple[str, tuple[str, ...]] = case()
+    relocate: str = case()
 
 
 @tagged_union(frozen=True)
 class StageOp:
     tag: StageOpTag = tag()
-    render_export: object = case()  # the live vtk render_window (source-build-gated vtkUSDExporter front-half)
-    mesh_author: MeshScene = case()  # the wheel-available numpy pxr authoring path
+    render_export: object = case()
+    mesh_author: MeshScene = case()
 
     @staticmethod
     def RenderExport(render_window: object) -> "StageOp":
@@ -358,40 +516,73 @@ class StageOp:
         return StageOp(mesh_author=scene)
 
     def apply(self, path: str) -> tuple[bytes, frozendict[str, float | str]]:
-        LayerFormat.of_suffix(path)  # boundary guard: the crate/ASCII suffix Stage.Export writes
+        LayerFormat.of_suffix(path)
         match self:
             case StageOp(tag="render_export", render_export=render_window):
-                exporter = vtkUSDExporter()
+                exporter = _usd_exporter()()
                 exporter.SetRenderWindow(render_window)
                 exporter.SetFileName(path)
                 exporter.Write()
-                return Path(
-                    path
-                ).read_bytes(), frozendict()  # the VTK layer carries no in-process stage handle; the render-window path leaves the receipt band empty
+                out = Path(path)
+                if not out.exists() or not out.stat().st_size:
+                    # a failed write never reads stale or missing output back as a successful render
+                    raise ValueError(f"USD render export produced no output: {path}")
+                return out.read_bytes(), frozendict()
             case StageOp(tag="mesh_author", mesh_author=scene):
                 stage = Usd.Stage.CreateInMemory(path)
                 prim = scene.author(stage)
-                stats = UsdUtils.ComputeUsdStageStats(stage)  # single-arg form -> {"totalPrimCount", "usedLayerCount", ...}
-                if not stats["totalPrimCount"]:  # an empty authoring rails at the native boundary the worker seam converts
+                stats = UsdUtils.ComputeUsdStageStats(stage)
+                if not stats["totalPrimCount"]:
                     raise ValueError("empty stage: zero prims authored")
-                stage.Export(path)
+                if not stage.Export(path):
+                    raise ValueError(f"USD stage export failed: {path}")
+                resolved = {
+                    f"labels:{taxonomy}": ",".join(sorted(UsdSemantics.LabelsQuery(taxonomy, Usd.TimeCode.Default()).ComputeUniqueInheritedLabels(prim)))
+                    for taxonomy in scene.labels
+                }
                 facts: frozendict[str, float | str] = frozendict({
-                    "prims": int(stats["totalPrimCount"]),
-                    "layers": int(stats["usedLayerCount"]),
+                    "prims": float(stats["totalPrimCount"]),
+                    "layers": float(stats["usedLayerCount"]),
                     "up_axis": scene.up_axis.value,
                     "meters_per_unit": scene.meters_per_unit,
-                    "extent_diag": _diagonal(stage, prim),  # the BBoxCache aggregate diagonal a single-prim numpy extreme cannot span
-                })  # the authored-prim evidence the `ArtifactReceipt.Scene` band carries, threaded back through the export worker
+                    "extent_diag": _diagonal(prim),
+                    **resolved,
+                })
                 return Path(path).read_bytes(), facts
             case _:
                 assert_never(self)
+
+
+@tagged_union(frozen=True)
+class PackageOp:
+    tag: PackageOpTag = tag()
+    package: tuple[str, str, UsdzProfile] = case()
+    extract: tuple[str, str] = case()
+    verify: tuple[str, UsdzProfile] = case()
+    relocate: tuple[str, Callable[[str], str]] = case()
+
+    @staticmethod
+    def Package(source: str, sink: str, profile: UsdzProfile = UsdzProfile.STANDARD) -> "PackageOp":
+        return PackageOp(package=(source, sink, profile))
+
+    @staticmethod
+    def Extract(package: str, into: str) -> "PackageOp":
+        return PackageOp(extract=(package, into))
+
+    @staticmethod
+    def Verify(package: str, profile: UsdzProfile = UsdzProfile.STANDARD) -> "PackageOp":
+        return PackageOp(verify=(package, profile))
+
+    @staticmethod
+    def Relocate(layer: str, rewrite: Callable[[str], str]) -> "PackageOp":
+        return PackageOp(relocate=(layer, rewrite))
 
 
 # --- [OPERATIONS] ----------------------------------------------------------------------
 
 
 def _extent(points: NDArray[np.float32]) -> object:
-    return Vt.Vec3fArray.FromNumpy(np.stack([points.min(axis=0), points.max(axis=0)]))  # the per-prim [min, max] AR-framing box
+    return Vt.Vec3fArray.FromNumpy(np.stack([points.min(axis=0), points.max(axis=0)]))
 
 
 def _dress(
@@ -400,11 +591,12 @@ def _dress(
     path: object,
     display_color: NDArray[np.float32] | None,
     material: Material | None,
-    labels: Mapping[str, tuple[str, ...]],
+    labels: frozendict[str, tuple[str, ...]],
     /,
 ) -> None:
-    # displayColor primvar + material bind + AEC labels; shared by MeshScene.author and PrimNode.define so appearance is authored one way
     if display_color is not None:
+        if display_color.ndim not in (1, 2) or display_color.shape[-1] != 3 or not display_color.size or not np.isfinite(display_color).all():
+            raise ValueError("display_color requires a nonempty finite RGB or (N, 3) buffer")
         colors = np.atleast_2d(display_color)
         interp = UsdGeom.Tokens.vertex if display_color.ndim == 2 else UsdGeom.Tokens.constant
         UsdGeom.PrimvarsAPI(prim).CreatePrimvar("displayColor", Sdf.ValueTypeNames.Color3fArray, interp).Set(Vt.Vec3fArray.FromNumpy(colors))
@@ -416,22 +608,25 @@ def _dress(
 
 def _instancer(stage: object, path: object, inst: Instancing, subdiv: SubdivScheme, /) -> object:
     instancer = UsdGeom.PointInstancer.Define(stage, path)
-    protos = UsdGeom.Scope.Define(stage, path.AppendChild("Prototypes")).GetPath()  # a pure-namespace Scope holds the prototype library
-    proto = inst.prototype.define(stage, protos.AppendChild("proto0"), subdiv)
-    instancer.CreatePrototypesRel().AddTarget(proto.GetPath())
+    protos = UsdGeom.Scope.Define(stage, path.AppendChild("Prototypes")).GetPath()
+    prototypes = instancer.CreatePrototypesRel()
+    for rank, prototype in enumerate(inst.prototypes):
+        prototypes.AddTarget(prototype.define(stage, protos.AppendChild(f"proto{rank}"), subdiv).GetPath())
     instancer.CreateProtoIndicesAttr(Vt.IntArray.FromNumpy(inst.proto_indices))
     instancer.CreatePositionsAttr(Vt.Vec3fArray.FromNumpy(inst.positions))
     if inst.scales is not None:
         instancer.CreateScalesAttr(Vt.Vec3fArray.FromNumpy(inst.scales))
     if inst.orientations is not None:
-        instancer.CreateOrientationsAttr(Vt.QuathArray.FromNumpy(inst.orientations))
+        # Gf quaternion memory is imaginary-first real-last, so the (w, x, y, z) buffer rolls one slot left before FromNumpy
+        wxyz = np.ascontiguousarray(np.roll(inst.orientations, -1, axis=1), dtype=np.float32)
+        instancer.CreateOrientationsAttr(Vt.QuathArray.FromNumpy(wxyz))
     instancer.CreateExtentAttr(_extent(inst.positions))
     return instancer.GetPrim()
 
 
 def _camera(stage: object, path: object, lens: Lens, /) -> object:
-    camera = UsdGeom.Camera.Define(stage, path)  # a Camera IS Xformable, so it carries the look-at transform op directly
-    camera.CreateProjectionAttr(UsdGeom.Tokens.perspective)
+    camera = UsdGeom.Camera.Define(stage, path)
+    camera.CreateProjectionAttr(lens.projection.token)
     camera.CreateFocalLengthAttr(lens.focal_length)
     camera.CreateClippingRangeAttr(Gf.Vec2f(*lens.clip))
     camera.AddTransformOp().Set(Gf.Matrix4d(*_look_at(lens.eye, lens.target, lens.up)))
@@ -439,22 +634,39 @@ def _camera(stage: object, path: object, lens: Lens, /) -> object:
 
 
 def _look_at(eye: Vec3, target: Vec3, up: Vec3, /) -> Matrix4:
-    # camera-to-world (USD row-vector convention, camera looks down local -Z); returns the 16 row-major cells for Gf.Matrix4d
+    # USD cameras use row-vector transforms and look down local `-Z`.
     e = np.asarray(eye, dtype=np.float64)
     z = e - np.asarray(target, dtype=np.float64)
-    z = z / (float(np.linalg.norm(z)) or 1.0)
+    z_norm = float(np.linalg.norm(z))
+    if z_norm == 0.0:
+        raise ValueError("degenerate camera frame: eye == target")
+    z = z / z_norm
     x = np.cross(np.asarray(up, dtype=np.float64), z)
-    x = x / (float(np.linalg.norm(x)) or 1.0)
+    x_norm = float(np.linalg.norm(x))
+    if x_norm == 0.0:
+        raise ValueError("degenerate camera frame: up parallel to the view direction")
+    x = x / x_norm
     y = np.cross(z, x)
     basis = np.eye(4, dtype=np.float64)
     basis[0, :3], basis[1, :3], basis[2, :3], basis[3, :3] = x, y, z, e
     return tuple(float(cell) for cell in basis.reshape(-1))
 
 
-def _diagonal(stage: object, prim: object, /) -> float:
-    # the aggregate world bound of a composed hierarchy through UsdGeom.BBoxCache — AR-framing evidence a single-prim numpy extreme cannot span
+def _diagonal(prim: object, /) -> float:
     box = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_]).ComputeWorldBound(prim).ComputeAlignedRange()
     return 0.0 if box.IsEmpty() else float(np.linalg.norm(np.asarray(box.GetMax(), dtype=np.float64) - np.asarray(box.GetMin(), dtype=np.float64)))
+
+
+def _usd_exporter() -> type:
+    # find_spec on a dotted name imports the PARENT package, so a missing vtkmodules raises ModuleNotFoundError
+    # here rather than probing silently — both absences converge on the one explicit provisioning hint.
+    try:
+        present = find_spec("vtkmodules.vtkIOUSD") is not None
+    except ModuleNotFoundError:
+        present = False
+    if not present:
+        raise ImportError("vtkUSDExporter needs a VTK source build against OpenUSD; the standard vtk wheel ships no vtkmodules.vtkIOUSD")
+    return import_module("vtkmodules.vtkIOUSD").vtkUSDExporter
 
 
 def export_usd(render_window: object, path: str) -> tuple[bytes, frozendict[str, float | str]]:
@@ -465,23 +677,31 @@ def author_mesh(scene: MeshScene, path: str) -> tuple[bytes, frozendict[str, flo
     return StageOp.MeshAuthor(scene).apply(path)
 
 
-def package_usdz(source: str, sink: str, profile: UsdzProfile = UsdzProfile.STANDARD) -> bool:
-    return getattr(UsdUtils, profile.value)(
-        Sdf.AssetPath(source), sink
-    )  # profile.value IS the UsdUtils packager name; gathers + embeds the full dependency-asset closure itself
-
-
-def extract_usdz(package: str, into: str) -> bool:
-    return UsdUtils.ExtractUsdzPackage(package, into, True, False, True)  # recurse, quiet, force — the packaging inverse
-
-
-def relocate_assets(layer_path: str, rewrite: Callable[[str], str]) -> tuple[int, int]:
-    layer = Sdf.Layer.FindOrOpen(layer_path)
-    UsdUtils.ModifyAssetPaths(layer, rewrite)  # rewrite every asset path (relocation before packaging)
-    _layers, references, assets = UsdUtils.ComputeAllDependencies(Sdf.AssetPath(layer_path))
-    return len(references), len(
-        assets
-    )  # the relocated-edge counts; CreateNewUsdzPackage embeds the closure, so this is the audit/relocation path only
+def packaged(op: PackageOp) -> Result[PackageFacts, PackageFault]:
+    match op:
+        case PackageOp(tag="package", package=(source, sink, UsdzProfile.STANDARD)):
+            return Ok(PackageFacts()) if UsdUtils.CreateNewUsdzPackage(Sdf.AssetPath(source), sink) else Error(PackageFault(package=sink))
+        case PackageOp(tag="package", package=(source, sink, UsdzProfile.ARKIT)):
+            return Ok(PackageFacts()) if UsdUtils.CreateNewARKitUsdzPackage(Sdf.AssetPath(source), sink) else Error(PackageFault(package=sink))
+        case PackageOp(tag="extract", extract=(package, into)):
+            return Ok(PackageFacts()) if UsdUtils.ExtractUsdzPackage(package, into, True, False, True) else Error(PackageFault(extract=package))
+        case PackageOp(tag="verify", verify=(package, profile)):
+            checker = UsdUtils.ComplianceChecker(arkit=profile.arkit)
+            checker.CheckCompliance(package)
+            issues = tuple((*checker.GetErrors(), *checker.GetFailedChecks()))
+            return Ok(PackageFacts()) if not issues else Error(PackageFault(verify=(package, issues)))
+        case PackageOp(tag="relocate", relocate=(layer_path, rewrite)):
+            layer = Sdf.Layer.FindOrOpen(layer_path)
+            if layer is None:
+                return Error(PackageFault(relocate=layer_path))
+            UsdUtils.ModifyAssetPaths(layer, rewrite)
+            if not layer.Save():
+                # ModifyAssetPaths rewrites in memory only until the layer persists; an unsaved relocate never mints facts
+                return Error(PackageFault(relocate=layer_path))
+            _layers, references, assets = UsdUtils.ComputeAllDependencies(Sdf.AssetPath(layer_path))
+            return Ok(PackageFacts(references=len(references), assets=len(assets)))
+        case _:
+            assert_never(op)
 ```
 
 ## [03]-[RESEARCH]

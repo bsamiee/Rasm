@@ -1,8 +1,8 @@
 # [PY_ARTIFACTS_EGRESS]
 
-The security-and-navigation finishing close over an emitted PDF or Office container: `DocumentEgress` takes bytes authored by `document/emit#DOCUMENT` and returns a sealed, watermarked, redaction-burned, imposed, form-baked, content-rewritten, or Office-(de)sealed artifact keyed by the runtime content key — it finishes an emitted artifact and never authors one. Re-signing routes to `../exchange/conformance#CONFORM`, PDF/A authoring to `document/emit#DOCUMENT`, named-layer authoring to `../export/layered#LAYERED`, descriptive-metadata authoring to `../exchange/metadata#METADATA`.
+Security-and-navigation finishing closes over an emitted PDF or Office container: `DocumentEgress` takes bytes authored by `document/emit#DOCUMENT` and returns a sealed, watermarked, redaction-burned, imposed, form-baked, content-rewritten, or Office-(de)sealed artifact keyed by the runtime content key — it finishes an emitted artifact and never authors one. Re-signing routes to `exchange/conformance#CONFORMANCE`, PDF/A authoring to `document/emit#DOCUMENT`, named-layer authoring to `export/layered#LAYERED`, descriptive-metadata authoring to `exchange/metadata#METADATA`.
 
-`EgressStep` is the closed `StrEnum` over the finishing operations and `FINISHERS` binds each step to one `Finisher` row — its `FinishFact`-returning arm, its `office` receipt discriminant, its optional `permissive` arm — so the table is the totality proof. `LicenseLane` selects the footing at the value: `AGPL_MAX` keeps the richest arm, `PERMISSIVE` the MIT/Apache/BSD arm so a closed-distributed deliverable carries no copyleft obligation. Every arm resolves in-process; the fold crosses the GIL-releasing runtime thread lane under the `@receipted(OPEN)` weave and contributes one `../core/receipt#RECEIPT` `ArtifactReceipt.Egress`/`.Office` case off the `office` discriminant. The OUTLINE and REDACT arms fold the `document/model#NODE` semantic tree — `SectionNode` headings into the bookmark hierarchy, `AnnotKind.REDACTION` rects into the burn targets.
+`EgressStep` is the closed `StrEnum` over the finishing operations and `FINISHERS` binds each step to one `Finisher` row — its `FinishFact`-returning arm, its `office` receipt discriminant, its optional `permissive` arm — so the table is the totality proof. `LicenseLane` selects the footing at the value: `AGPL_MAX` keeps the richest arm, `PERMISSIVE` the MIT/Apache/BSD arm so a closed-distributed deliverable carries no copyleft obligation (MPL `pikepdf` counts outside the permissive footing, so ENCRYPT and SANITIZE both carry a `pdf_oxide` alternate). Every arm resolves in-process; the fold crosses the GIL-releasing runtime thread lane through the owner's own `lane: LanePolicy` under the `@receipted(OPEN)` weave and contributes one `core/receipt#RECEIPT` `ArtifactReceipt.Egress`/`.Office` case off the `office` discriminant. `OUTLINE` and `REDACT` fold the `document/model#NODE` semantic tree — `SectionNode` headings into the bookmark hierarchy, `AnnotKind.REDACTION` rects into the burn targets — and because those arms derive output bytes from the tree, `node` joins the content-key preimage so two egresses differing only by tree never alias one cached artifact.
 
 ## [01]-[INDEX]
 
@@ -11,11 +11,11 @@ The security-and-navigation finishing close over an emitted PDF or Office contai
 ## [02]-[FINISH]
 
 - Owner: `DocumentEgress` — one `Finisher.arm` per step resolved off `FINISHERS`, never an `if step ==` cascade or a worker-side `match`; `LicenseLane` is read once at the value in `_stepped`, never a per-call knob. `Finishing` bundles every trusted policy value object while `Extras` carries the untrusted material (stamp bytes, attachment payload, Office credentials) — the admission split is trust, not concern, so passwords never ride the untrusted payload and stamp bytes never ride a trusted default.
-- Entry: `of` admits untrusted material exactly once through the `EgressPayload` `TypedDict`, its `extra_items=str` band folding the format-discriminated Office credential axis into `Extras.credentials`, and rejects an under-supplied step through `_PREREQ` into `EgressFault.incomplete` before the fold runs — the interior is total over admitted owners and never re-validates. One polymorphic entry owns both the singular step and the chain: the `EgressStep | tuple[EgressStep, ...]` discriminant threads finished bytes step-to-step through one `reduce`, never a caller-orchestrated re-entry or a `mode` knob.
-- Auto: each arm returns a `FinishFact` threaded onto a successor owner through `structs.replace`, so `contribute` reads the arm's own evidence without a second parse. `pypdf` is reserved for the structural OUTLINE/IMPOSE/NAVIGATE/FORMS arms and the gated SANITIZE/OPTIMIZE second passes it owns, never a parallel encryptor — qpdf authors every encryption strength through one `pikepdf.Encryption` leg. Native packages bind as module-scope `lazy import` reified on first arm use; no native import lands on the core owner.
-- Receipt: the node key mints PRE-RUN over the canonical input (steps, source, finishing, extras, license) so keyed admission probes the warm seed before the fold runs, and `receipt.slot == node.key`. REWRITE's OCG-strip count and FORMS' baked-widget count ride the `overlays` slot — content-composition operations of the watermark-overlay family.
-- Packages: `pikepdf` (MPL) owns the qpdf object model, encryption, composition, and save strategy; `pypdf` (BSD) the pure-Python structural arms; `pymupdf` (AGPL) the richest REDACT burn-in with `search_for` needle match, flagged for supersession on the permissive lane; `pdf_oxide` (MIT/Apache) the permissive REDACT/SANITIZE arms and the STRIP running-content removal no other step owns; `msoffcrypto` the bidirectional Office confidentiality rail.
-- Growth: a new finishing step is one `EgressStep` row plus one `Finisher` row, plus one `_PREREQ` row when it needs material; a commercial-safe alternative is one `Finisher.permissive` arm, never a parallel license-keyed table; a new policy concern is one `Finishing` field carrying its own value object; a new receipt fact is one `FinishFact` field the arm populates, never a re-derivation off the bytes; an encryption strength is one `Strength` row plus its `_STRENGTHS` cell; a document-wide strip class is one `PruneClass` member plus one `_PRUNE` row; a deeper chain is one more step in the sequence the rail already folds.
+- Entry: `of` admits untrusted material exactly once through the `EgressPayload` `TypedDict`, its `extra_items=str` band folding the format-discriminated Office credential axis into `Extras.credentials`, and rejects an under-supplied step through `_PREREQ` into `EgressFault.incomplete` before the fold runs — the interior is total over admitted owners and never re-validates; material the selected footing's arm cannot express (a needle-bearing REDACT, a finer-than-coarse ENCRYPT policy, an active-content SANITIZE demand under `PERMISSIVE`) refuses through the `_LANE_GAPS` predicate table as `EgressFault.lane`, never a silent drop or a weakened seal. One polymorphic entry owns both the singular step and the chain: the `EgressStep | tuple[EgressStep, ...]` discriminant threads finished bytes step-to-step through one `reduce`, never a caller-orchestrated re-entry or a `mode` knob.
+- Auto: each arm returns a `FinishFact` merged onto the running owner through the `FinishFact.combined` monoid (`rails-and-effects.md` STATE_RECEIPTS) — terminal bytes and page count ride the newest fact, single-owner scalars (`encryption_r`, `outline_depth`) survive by right-or-left, additive counters sum — so a chain's earlier evidence never vanishes under a later step's default zeros and `contribute` reads the whole chain's facts without a second parse. `pypdf` is reserved for the structural OUTLINE/IMPOSE/NAVIGATE/FORMS arms and the gated SANITIZE/OPTIMIZE second passes it owns, never a parallel encryptor — qpdf authors every encryption strength through one `pikepdf.Encryption` leg on the rich lane, `pdf_oxide.to_bytes_encrypted` the permissive alternate. Native packages bind as module-scope `lazy import` reified on first arm use; no native import lands on the core owner.
+- Receipt: the node key mints PRE-RUN over the canonical input (steps, source, node, finishing, extras, footing) so keyed admission probes the warm seed before the fold runs, and `receipt.slot == node.key`. REWRITE's OCG-strip count and FORMS' baked-widget count ride the `overlays` slot — content-composition operations of the watermark-overlay family.
+- Packages: `pikepdf` (MPL) owns the qpdf object model, encryption, composition, and save strategy; `pypdf` (BSD) the pure-Python structural arms and the `ObjectDeletionFlag` object pruner; `pymupdf` (AGPL) the richest REDACT burn-in with `search_for` needle match, flagged for supersession on the permissive lane; `pdf_oxide` (MIT/Apache) the permissive ENCRYPT/REDACT/SANITIZE arms and the STRIP running-content removal no other step owns; `msoffcrypto` the bidirectional Office confidentiality rail.
+- Growth: a new finishing step is one `EgressStep` row plus one `Finisher` row, plus one `_PREREQ` row when it needs material; a commercial-safe alternative is one `Finisher.permissive` arm, never a parallel license-keyed table; a new policy concern is one `Finishing` field carrying its own value object; a new receipt fact is one `FinishFact` field plus its `combined` column, never a re-derivation off the bytes; an encryption strength is one `Strength` row plus its `_STRENGTHS` cell; a document-wide strip class is one `PruneClass` member plus one `_PRUNE` row; a deeper chain is one more step in the sequence the rail already folds.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -24,29 +24,31 @@ from enum import StrEnum
 from functools import reduce
 from io import BytesIO
 from itertools import batched
+from math import isfinite
 from typing import TYPE_CHECKING, Final, Literal, NotRequired, ReadOnly, Self, TypedDict, Unpack, assert_never
 
+import msgspec
+from builtins import frozendict
 from expression import Error, Ok, Result, Some, case, tag, tagged_union
 from expression.collections import Block, Map
 from msgspec import Struct, field, structs
 from pydantic import TypeAdapter, ValidationError
 
-from rasm.runtime.identity import CANONICAL_POLICY, ContentIdentity, ContentKey
+from rasm.artifacts.core.plan import Admission, ArtifactWork
+from rasm.artifacts.core.receipt import ArtifactReceipt
+from rasm.artifacts.document.model import AnnotKind, AnnotationNode, DocumentNode, SectionNode, node_digest, walk
+from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import RuntimeRail, async_boundary
-from rasm.runtime.lanes import LanePolicy, Modality
-from rasm.runtime.resilience import RetryClass
+from rasm.runtime.lanes import LanePolicy
+from rasm.runtime.workers import Kernel, KernelTrait
 from rasm.runtime.receipts import OPEN, Receipt, receipted
-
-from artifacts.core.plan import Admission, ArtifactWork
-from artifacts.core.receipt import ArtifactReceipt
-from artifacts.document.model import AnnotKind, AnnotationNode, DocumentNode, SectionNode, walk
 
 lazy import msoffcrypto
 lazy import pdf_oxide
 lazy import pikepdf
 lazy import pymupdf
 lazy from pikepdf import sanitize
-lazy from pypdf import PdfReader, PdfWriter, Transformation
+lazy from pypdf import ObjectDeletionFlag, PdfReader, PdfWriter, Transformation
 lazy from pypdf.generic import Fit
 
 if TYPE_CHECKING:
@@ -78,6 +80,13 @@ class LicenseLane(StrEnum):
     PERMISSIVE = "permissive"
 
 
+class OfficeVerification(StrEnum):
+    NONE = "none"
+    KEY = "key"
+    INTEGRITY = "integrity"
+    FULL = "full"
+
+
 class Strength(StrEnum):
     RC4_40 = "RC4-40"
     RC4_128 = "RC4-128"
@@ -96,11 +105,15 @@ class LayerMode(StrEnum):
     STRIP = "strip"
 
 
-class PruneClass(StrEnum):  # the pypdf document-wide object class the SANITIZE prune strips whole
+class PruneClass(StrEnum):  # the document-wide object class the SANITIZE prune strips whole; the flag-only rows ride `ObjectDeletionFlag` per page
     LINKS = "links"
     ANNOTATIONS = "annotations"
     IMAGES = "images"
     TEXT = "text"
+    OBJECTS_3D = "objects-3d"
+    XOBJECT_IMAGES = "xobject-images"
+    INLINE_IMAGES = "inline-images"
+    DRAWING_IMAGES = "drawing-images"
 
 
 class FitMode(StrEnum):  # the pypdf `generic.Fit` destination-zoom family the outline node carries
@@ -148,15 +161,19 @@ class AFRelationship(StrEnum):  # the `/AFRelationship` an embedded source file 
 # --- [ERRORS] ---------------------------------------------------------------------------
 @tagged_union(frozen=True)
 class EgressFault:
-    # the closed ADMISSION vocabulary `of` produces; arm-level provider raises (`pikepdf.PdfError`, `pymupdf.FileDataError`,
+    # Closed ADMISSION vocabulary `of` produces; arm-level provider raises (`pikepdf.PdfError`, `pymupdf.FileDataError`,
     # `msoffcrypto.DecryptionError`) convert to the runtime `BoundaryFault` at the `async_boundary` capsule, never into this vocabulary.
-    tag: Literal["payload", "empty", "incomplete"] = tag()
+    tag: Literal["payload", "empty", "incomplete", "chain", "container", "lane"] = tag()
     payload: tuple[str, ...] = case()  # the rejected payload key paths
     empty: None = case()  # an empty finishing chain
     incomplete: EgressStep = case()  # a step admitted without its required material/policy
+    chain: tuple[EgressStep, ...] = case()  # a PDF/Office mixed chain
+    container: str = case()  # a PROTECT source or reseal disposition the Office factory rejects
+    lane: tuple[EgressStep, LicenseLane] = case()  # a step whose admitted material the selected footing's arm cannot express
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
+_KEY_ENCODER: Final = msgspec.msgpack.Encoder(order="deterministic")  # the stable preimage encoding the bare `ContentIdentity.key` mint addresses
 _STRENGTHS: Final[Map[Strength, tuple[int, bool]]] = Map.of_seq([
     (Strength.RC4_40, (2, False)),
     (Strength.RC4_128, (4, False)),
@@ -169,6 +186,12 @@ _FITS: Final[Map[FitMode, str]] = Map.of_seq([  # the FitMode -> `generic.Fit` f
     (FitMode.FIT_V, "fit_vertically"),
     (FitMode.FIT_B, "fit_box"),
     (FitMode.XYZ, "xyz"),
+])
+_VERIFICATION: Final[Map[OfficeVerification, tuple[bool, bool]]] = Map.of_seq([
+    (OfficeVerification.NONE, (False, False)),
+    (OfficeVerification.KEY, (True, False)),
+    (OfficeVerification.INTEGRITY, (False, True)),
+    (OfficeVerification.FULL, (True, True)),
 ])
 
 
@@ -256,7 +279,7 @@ class Imposition(Struct, frozen=True):
         return self.across * self.down
 
     def order(self, count: int, /) -> tuple[int, ...]:
-        # the source-page index sequence per sheet cell: `NUP` is sequential, `BOOKLET` is the
+        # Source-page index sequence per sheet cell: `NUP` is sequential, `BOOKLET` is the
         # saddle-stitch 2-up fold padded to a multiple of four with `-1` blanks the placer skips.
         if self.layout is ImposeLayout.NUP:
             return tuple(range(count))
@@ -312,7 +335,7 @@ class Label(Struct, frozen=True):
     needles: tuple[str, ...] = ()  # content-search terms resolved to rects through `Page.search_for`
 
     def annot(self) -> dict[str, object]:
-        # the full `add_redact_annot` typography axis; a non-empty `overlay_text` suppresses the strike-out
+        # Full `add_redact_annot` typography axis; a non-empty `overlay_text` suppresses the strike-out
         overlay = self.overlay_text or None
         return {
             "fontname": self.fontname,
@@ -375,24 +398,47 @@ class ContentEdit(Struct, frozen=True):
 
 @tagged_union(frozen=True)
 class Confidentiality:
-    # the Office disposition: `unlock` an encrypted container through the format-discriminated
-    # credential axis, or `reseal` a plaintext OOXML payload under a fresh agile container; only
-    # the OOXML object carries `encrypt`, so a 97-container re-seal is unrepresentable by case.
+    # `unlock` carries the two-axis verification policy; `reseal` carries the fresh agile password,
+    # and admission rejects its non-OOXML source before the finishing fold.
     tag: Literal["unlock", "reseal"] = tag()
-    unlock: bool = case()  # `verify` — fold the HMAC/password verification into load+decrypt
+    unlock: OfficeVerification = case()
     reseal: str = case()  # the re-seal password
 
 
 class FinishFact(Struct, frozen=True):
     data: bytes
-    pages: int = 0
-    encryption_r: int = 0
-    outline_depth: int = 0
+    pages: int | None = None
+    encryption_r: int | None = None
+    outline_depth: int | None = None
     overlays: int = 0  # content-composition op count: overlay placements, OCG strips, baked form fills, stripped running content
     layers_removed: int = 0
     fields_filled: int = 0
     content_stripped: int = 0  # STRIP running-header/footer/artifact blocks pdf_oxide repeat-detection removed
     syntax_warnings: int = 0  # OPTIMIZE qpdf `check_pdf_syntax` warning count — carrier-only evidence, not a receipt slot
+    office_format: str = ""
+    office_scheme: str = ""
+    credential_kinds: tuple[str, ...] = ()
+    verification: OfficeVerification | None = None
+
+    @staticmethod
+    def combined(left: "FinishFact", right: "FinishFact", /) -> "FinishFact":
+        # STATE_RECEIPTS evidence monoid: bytes and page count ride the newest arm, single-owner scalars survive
+        # right-or-left, additive counters sum — so a chained fold keeps every arm's evidence with no second parse.
+        return FinishFact(
+            data=right.data,
+            pages=right.pages if right.pages is not None else left.pages,
+            encryption_r=right.encryption_r if right.encryption_r is not None else left.encryption_r,
+            outline_depth=right.outline_depth if right.outline_depth is not None else left.outline_depth,
+            overlays=left.overlays + right.overlays,
+            layers_removed=left.layers_removed + right.layers_removed,
+            fields_filled=left.fields_filled + right.fields_filled,
+            content_stripped=left.content_stripped + right.content_stripped,
+            syntax_warnings=left.syntax_warnings + right.syntax_warnings,
+            office_format=right.office_format or left.office_format,
+            office_scheme=right.office_scheme or left.office_scheme,
+            credential_kinds=right.credential_kinds or left.credential_kinds,
+            verification=right.verification if right.verification is not None else left.verification,
+        )
 
 
 class Finishing(Struct, frozen=True):
@@ -410,7 +456,7 @@ class Finishing(Struct, frozen=True):
     sanitize: Sanitize = Sanitize()
     optimize: Optimize = Optimize()
     edit: ContentEdit = ContentEdit()
-    confidentiality: Confidentiality = field(default_factory=lambda: Confidentiality(unlock=True))
+    confidentiality: Confidentiality = field(default_factory=lambda: Confidentiality(unlock=OfficeVerification.FULL))
 
 
 class Extras(Struct, frozen=True, omit_defaults=True):
@@ -439,13 +485,16 @@ class Finisher(Struct, frozen=True):
 
 
 class DocumentEgress(Struct, frozen=True):
+    # `lane` arrives projected via LanePolicy.of(context) at the composition root — a capacity literal has no owner.
     step: EgressStep | tuple[EgressStep, ...]
     source: bytes
+    lane: LanePolicy
     node: DocumentNode | None = None
     finishing: Finishing = field(default_factory=Finishing)
     extras: Extras = field(default_factory=Extras)
-    license: LicenseLane = LicenseLane.AGPL_MAX
+    footing: LicenseLane = LicenseLane.AGPL_MAX  # `license` is a `site` builtin; the footing name dodges the shadow and matches the lane prose
     fact: FinishFact | None = None
+    parents: tuple[ContentKey, ...] = ()  # the upstream producer keys — a caller holding the emit node's key threads the DATA edge here
 
     @property
     def steps(self) -> tuple[EgressStep, ...]:
@@ -454,46 +503,59 @@ class DocumentEgress(Struct, frozen=True):
     def _stepped(self, step: EgressStep, /) -> Self:
         staged = structs.replace(self, step=step)
         finisher = FINISHERS[step]
-        arm = finisher.permissive if self.license is LicenseLane.PERMISSIVE and finisher.permissive is not None else finisher.arm
+        arm = finisher.permissive if self.footing is LicenseLane.PERMISSIVE and finisher.permissive is not None else finisher.arm
         fact = arm(staged)
-        return structs.replace(staged, fact=fact, source=fact.data)
+        merged = fact if self.fact is None else FinishFact.combined(self.fact, fact)
+        return structs.replace(staged, fact=merged, source=fact.data)
 
     def finished(self) -> Self:
         return reduce(lambda live, step: live._stepped(step), self.steps, self)
 
     def emit(self, /) -> ArtifactWork:
-        return ArtifactWork(key=self._key, work=self._emit, parents=self._parents, admission=Admission(keyed=None), cost=float(len(self.source)))
+        return ArtifactWork(key=self._key, work=self._emit, parents=self.parents, admission=Admission(keyed=None), cost=float(len(self.source)))
 
     @property
     def _key(self) -> ContentKey:
-        return ContentIdentity.of(f"egress-{self.steps[-1]}", (self.steps, self.source, self.finishing, self.extras, self.license), policy=CANONICAL_POLICY)
-
-    @property
-    def _parents(self) -> tuple[ContentKey, ...]:
-        # the upstream emit-produced document rides as bytes; a caller that holds the producer's node key threads it here
-        return ()
+        # `node` joins the preimage as its `node_digest` content key through the runtime merkle fold (OUTLINE/REDACT
+        # derive bytes from the tree, and msgpack cannot integer-encode the live u128 `ContentKey` leaves a tree
+        # carries), so two egresses differing only by tree never alias. `ContentIdentity.key` mints the bare
+        # `ContentKey`; `.of` is the railed form and never keys a plan.
+        spec = ContentIdentity.key(f"egress-{self.steps[-1]}", _KEY_ENCODER.encode((self.steps, self.source, self.finishing, self.extras, self.footing)))
+        return spec if self.node is None else ContentIdentity.key(f"egress-{self.steps[-1]}", (spec, node_digest(self.node)))
 
     @receipted(OPEN)  # egress facts carry no classified field, so the runtime keep-all `OPEN` policy rides directly, never a re-minted per-file `Redaction`
     async def _finished(self) -> Self:
-        # heavy GIL-releasing native work crosses the runtime thread lane, never a folder-minted limiter.
-        crossed = await LanePolicy.offload(self.finished, modality=Modality.THREAD, retry=RetryClass.OCCT)
+        # heavy GIL-releasing native work crosses the runtime thread lane through the owner's bound `lane`, never a folder-minted limiter.
+        crossed = await self.lane.offload(Kernel.of(self.finished, KernelTrait.RELEASING))
         return crossed.default_with(lambda fault: _egress_raise(fault))
 
     async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
-        # the terminal receipt threads the PRE-RUN input key so receipt.slot == node.key.
+        # Terminal receipt threads the PRE-RUN input key so receipt.slot == node.key.
         return (await async_boundary(f"egress.{'+'.join(self.steps)}", self._finished)).map(lambda live: live._receipt(self._key))
 
     def _receipt(self, key: ContentKey, /) -> ArtifactReceipt:
         fact = self.fact if self.fact is not None else FinishFact(data=self.source)
+        # office finish evidence survives the receipt boundary on the `finish.*` band — format, scheme, credential
+        # kinds, and the verification verdict the FinishFact computed are facts, never projected away.
+        finish = frozendict({
+            name: value
+            for name, value in (
+                ("format", fact.office_format),
+                ("scheme", fact.office_scheme),
+                ("credentials", ",".join(fact.credential_kinds)),
+                ("verification", fact.verification.value if fact.verification is not None else ""),
+            )
+            if value
+        })
         return (
-            ArtifactReceipt.Office(key, len(fact.data))
+            ArtifactReceipt.Office(key, len(fact.data), finish)
             if FINISHERS[self.steps[-1]].office
             else ArtifactReceipt.Egress(
                 key,
                 len(fact.data),
-                fact.pages,
-                fact.encryption_r,
-                fact.outline_depth,
+                fact.pages if fact.pages is not None else 0,
+                fact.encryption_r if fact.encryption_r is not None else 0,
+                fact.outline_depth if fact.outline_depth is not None else 0,
                 fact.overlays + fact.layers_removed + fact.fields_filled + fact.content_stripped,
             )
         )
@@ -510,21 +572,51 @@ class DocumentEgress(Struct, frozen=True):
         source: bytes,
         /,
         *,
+        lane: LanePolicy,
         finishing: Finishing = Finishing(),
         node: DocumentNode | None = None,
+        footing: LicenseLane = LicenseLane.AGPL_MAX,
         **raw: Unpack[EgressPayload],
     ) -> Result[Self, EgressFault]:
         if isinstance(step, tuple) and not step:
             return Error(EgressFault(empty=None))
+        steps = step if isinstance(step, tuple) else (step,)
+        if EgressStep.PROTECT in steps and len(steps) > 1:
+            return Error(EgressFault(chain=steps))
         try:
-            payload = _PAYLOAD.validate_python(raw)
+            payload = _PAYLOAD.validate_python(raw, strict=True)
         except ValidationError as fault:
             return Error(EgressFault(payload=tuple(str(error["loc"]) for error in fault.errors())))
         credentials = frozendict({name: value for name, value in payload.items() if name not in _DECLARED})
         known = {name: value for name, value in payload.items() if name in _DECLARED}
-        candidate = cls(step=step, source=source, node=node, finishing=finishing, extras=Extras(credentials=credentials, **known))
+        candidate = cls(
+            step=step, source=source, lane=lane, node=node, finishing=finishing, extras=Extras(credentials=credentials, **known), footing=footing
+        )
+        # each permissive arm expresses a strict subset of its rich sibling's policy axes, so admission refuses any
+        # step whose `_LANE_GAPS` predicate proves the material inexpressible rather than silently weakening policy.
+        if footing is LicenseLane.PERMISSIVE:
+            gap = next((member for member in candidate.steps if member in _LANE_GAPS and _LANE_GAPS[member](candidate)), None)
+            if gap is not None:
+                return Error(EgressFault(lane=(gap, footing)))
         missing = next((member for member in candidate.steps if member in _PREREQ and not _PREREQ[member](candidate)), None)
-        return Error(EgressFault(incomplete=missing)) if missing is not None else Ok(candidate)
+        if missing is not None:
+            return Error(EgressFault(incomplete=missing))
+        if EgressStep.PROTECT not in steps:
+            return Ok(candidate)
+        try:
+            office = msoffcrypto.OfficeFile(BytesIO(source))
+        except msoffcrypto.exceptions.FileFormatError:
+            return Error(EgressFault(container="unrecognized"))
+        confidentiality = candidate.finishing.confidentiality
+        if confidentiality.tag == "reseal" and getattr(office, "format", "") != "ooxml":
+            return Error(EgressFault(container="reseal-requires-ooxml"))
+        # Parsed container declares its own credential axis: an `unlock` on a sealed source admits only when the
+        # supplied credentials cover at least one container-supported `keyTypes` kind (any one kind unlocks), so
+        # `load_key` never reaches an absent key — a bare-credential container refuses here as `incomplete`.
+        supported = tuple(getattr(office, "keyTypes", ("password",)))
+        if confidentiality.tag == "unlock" and office.is_encrypted() and not any(kind in candidate.extras.credentials for kind in supported):
+            return Error(EgressFault(incomplete=EgressStep.PROTECT))
+        return Ok(candidate)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -544,6 +636,7 @@ def _redaction_rects(node: DocumentNode | None, /) -> Map[int, tuple[tuple[float
 
 def _encrypt(egress: DocumentEgress) -> FinishFact:
     enc, sink = egress.finishing.encryption, BytesIO()
+    assert enc is not None
     with pikepdf.open(BytesIO(egress.source)) as pdf:  # deterministic close, never GC-reaped
         pdf.save(
             sink,
@@ -553,6 +646,25 @@ def _encrypt(egress: DocumentEgress) -> FinishFact:
             ),
         )
         return FinishFact(sink.getvalue(), pages=len(pdf.pages), encryption_r=enc.r)
+
+
+def _encrypt_oxide(egress: DocumentEgress) -> FinishFact:
+    # MIT/Apache ENCRYPT alternate: the `_LANE_GAPS` admission already refused any policy the coarse four-permission
+    # axis cannot carry losslessly (split print, divergent assemble/fill-forms, accessibility denial, plaintext metadata,
+    # non-default strength), so each boolean below is exact; cipher revision is engine-chosen and unexposed, so
+    # `encryption_r` stays 0 as unknown-revision evidence (the RESEARCH row below).
+    enc, allow = egress.finishing.encryption, egress.finishing.permissions
+    assert enc is not None
+    with pdf_oxide.PdfDocument.from_bytes(egress.source) as doc:
+        sealed = doc.to_bytes_encrypted(
+            enc.user or enc.owner,
+            owner_password=enc.owner,
+            allow_print=allow.print_highres,
+            allow_copy=allow.extract,
+            allow_modify=allow.modify,
+            allow_annotate=allow.annotate,
+        )
+        return FinishFact(sealed, pages=doc.page_count)
 
 
 type _Outline = tuple[frozendict[int, "IndirectObject"], int]
@@ -570,9 +682,12 @@ def _outline(egress: DocumentEgress) -> FinishFact:
         return parents | {section.level: node}, max(depth, section.level)
 
     _parents, depth = Block.of_seq(_sections(egress.node)).fold(author, (frozendict(), 0))
-    if egress.node is None:
-        for title, page in bookmark.fallback:
-            writer.add_outline_item(title, page)
+
+    def author_fallback(depth: int, item: tuple[str, int], /) -> int:
+        writer.add_outline_item(*item)
+        return max(depth, 1)
+
+    depth = Block.of_seq(bookmark.fallback).fold(author_fallback, depth) if egress.node is None else depth
     sink = BytesIO()
     writer.write(sink)
     return FinishFact(sink.getvalue(), pages=len(writer.pages), outline_depth=depth)
@@ -633,7 +748,7 @@ def _impose(egress: DocumentEgress) -> FinishFact:
     def imposed(window: tuple[int, ...], /) -> object:
         return Block.of_seq(enumerate(window)).fold(placed, writer.add_blank_page(width=width, height=height))
 
-    for window in batched(imp.order(len(reader.pages)), imp.slots):
+    for window in batched(imp.order(len(reader.pages)), imp.slots):  # Exemption: the writer mutation loop is the pypdf provider seam
         imposed(window)
     sink = BytesIO()
     writer.write(sink)
@@ -675,7 +790,7 @@ type _Fold = tuple[tuple[LayerMode, ...], Block[_Instr]]
 
 
 def _folded_stream(page: "pikepdf.Page", edit: ContentEdit) -> bytes:
-    # the carried `(stack, kept)` threads the `/OC` BDC/BMC…EMC marked-content stack immutably: a STRIP layer's whole span is
+    # Carried `(stack, kept)` threads the `/OC` BDC/BMC…EMC marked-content stack immutably: a STRIP layer's whole span is
     # omitted, a FLATTEN layer keeps its body without its markers, and every surviving operand renames `Name`-guarded only.
     rename = {pikepdf.Name(f"/{k}"): pikepdf.Name(f"/{v}") for k, v in edit.rename_resources.items()}
 
@@ -780,7 +895,7 @@ def _redact_oxide(egress: DocumentEgress) -> FinishFact:
 
 def _strip(egress: DocumentEgress) -> FinishFact:
     # repeat-detection strips content recurring on `threshold` of pages (running headers/footers, page-number artifacts);
-    # the single arm is already permissive, so STRIP declares no `Finisher.permissive` alternate.
+    # its single arm is already permissive, so STRIP declares no `Finisher.permissive` alternate.
     rc = egress.finishing.running
     with pdf_oxide.PdfDocument.from_bytes(egress.source) as doc:
         removed = (
@@ -812,25 +927,33 @@ def _sanitize(egress: DocumentEgress) -> FinishFact:
         scrubbed, pages = sink.getvalue(), len(pdf.pages)
     if not pol.prune:  # the pikepdf active-content scrub is the single pass; the object-class strip is the gated pypdf second pass
         return FinishFact(scrubbed, pages=pages)
-    # pypdf owns document-wide object-class removal (`remove_links`/`remove_annotations`/`remove_images`/`remove_text`)
-    # that pikepdf.sanitize does not; the second pass runs only when an explicit `PruneClass` set is admitted.
-    writer = PdfWriter(clone_from=PdfReader(BytesIO(scrubbed)))
-    for cut in pol.prune:
+    return FinishFact(*_prune_pass(scrubbed, pol.prune))
+
+
+def _prune_pass(data: bytes, prune: frozenset[PruneClass], /) -> tuple[bytes, int]:
+    # pypdf (BSD — valid on BOTH footings) owns document-wide object-class removal and the `ObjectDeletionFlag` per-page
+    # pruner neither pikepdf.sanitize nor pdf_oxide covers; both SANITIZE arms share this gated second pass.
+    writer = PdfWriter(clone_from=PdfReader(BytesIO(data)))
+    for cut in prune:
         _PRUNE[cut](writer)
     pruned = BytesIO()
     writer.write(pruned)
-    return FinishFact(pruned.getvalue(), pages=len(writer.pages))
+    return pruned.getvalue(), len(writer.pages)
 
 
 def _sanitize_oxide(egress: DocumentEgress) -> FinishFact:
-    # one self-contained Rust-core pass pulling neither pikepdf nor pypdf; the `PruneClass` document-wide object strip stays an
-    # `AGPL_MAX`-lane pypdf concern — this arm covers the active-content + annotation-flatten scrub the permissive lane needs.
+    # Rust-core scrub pulls no MPL pikepdf; the `_LANE_GAPS` admission already refused the external-access,
+    # multimedia, and signature-disable demands this arm cannot express, and the admitted `PruneClass` set still runs the
+    # shared BSD pypdf second pass, so the permissive footing loses no admitted capability.
     pol = egress.finishing.sanitize
     with pdf_oxide.PdfDocument.from_bytes(egress.source) as doc:
         doc.sanitize_document(scrub_metadata=pol.private_app_data, remove_javascript=pol.javascript, remove_embedded_files=pol.attachments)
         if pol.flatten_annotations:
             doc.flatten_all_annotations()
-        return FinishFact(doc.to_bytes(), pages=doc.page_count)
+        scrubbed, pages = doc.to_bytes(), doc.page_count
+    if not pol.prune:
+        return FinishFact(scrubbed, pages=pages)
+    return FinishFact(*_prune_pass(scrubbed, pol.prune))
 
 
 def _optimize(egress: DocumentEgress) -> FinishFact:
@@ -866,7 +989,7 @@ def _optimize(egress: DocumentEgress) -> FinishFact:
     if not pol.dedup_objects:  # the pikepdf stream recompress is the single pass; the object-table dedup is the gated pypdf second pass
         return FinishFact(recompressed, pages=pages, syntax_warnings=warnings)
     # pypdf owns object-table dedup/GC (`compress_identical_objects`) the pikepdf stream recompress does not:
-    # the second pass merges identical object definitions and drops the unreferenced tail for a further size cut.
+    # its second pass merges identical object definitions and drops the unreferenced tail for a further size cut.
     writer = PdfWriter(clone_from=PdfReader(BytesIO(recompressed)))
     writer.compress_identical_objects(remove_duplicates=True, remove_unreferenced=True)
     deduped = BytesIO()
@@ -877,27 +1000,53 @@ def _optimize(egress: DocumentEgress) -> FinishFact:
 def _protect(egress: DocumentEgress) -> FinishFact:
     office = msoffcrypto.OfficeFile(BytesIO(egress.source))
     sink = BytesIO()
+    format_ = getattr(office, "format", "legacy-97")
+    scheme = getattr(office, "type", "legacy-97")
+    key_axis = tuple(getattr(office, "keyTypes", ("password",)))
+    verification_fact = None
     match egress.finishing.confidentiality:
         case Confidentiality(tag="reseal", reseal=password):  # the inverse rail — only the OOXML object carries `encrypt`
             if office.is_encrypted():  # an already-sealed container is the idempotent terminal, never a double-seal
-                return FinishFact(egress.source)
+                return FinishFact(egress.source, office_format=format_, office_scheme=scheme, credential_kinds=key_axis)
             office.encrypt(password, sink)
-        case Confidentiality(tag="unlock", unlock=verify):
-            if not office.is_encrypted():  # an already-plaintext container is the idempotent unlock terminal
-                return FinishFact(egress.source)
-            ooxml = getattr(office, "format", "") == "ooxml"  # `format` is the factory-set discriminant; `keyTypes` is absent on 97/extensible/plain
-            key_axis = getattr(office, "keyTypes", ("password",))
+            scheme = "agile"
+        case Confidentiality(tag="unlock", unlock=verification):
+            verify_key, verify_integrity = _VERIFICATION[verification]
+            if not office.is_encrypted():  # an already-plaintext container is the idempotent unlock terminal — no verification ran
+                return FinishFact(
+                    egress.source,
+                    office_format=format_,
+                    office_scheme=scheme,
+                    credential_kinds=key_axis,
+                    verification=OfficeVerification.NONE,
+                )
+            ooxml = format_ == "ooxml"
+            # the fact records the verification PERFORMED, never the one requested: both verify kwargs are OOXML-only,
+            # so a legacy container runs neither check and its fact stays NONE rather than claiming the requested axis.
+            verification_fact = verification if ooxml else OfficeVerification.NONE
             credentials = {kind: egress.extras.credentials[kind] for kind in key_axis if kind in egress.extras.credentials}
-            office.load_key(**credentials, **({"verify_password": True} if ooxml and verify else {}))
-            office.decrypt(sink, **({"verify_integrity": verify} if ooxml else {}))
+            office.load_key(**credentials, **({"verify_password": True} if ooxml and verify_key else {}))
+            office.decrypt(sink, **({"verify_integrity": verify_integrity} if ooxml else {}))
         case _ as unreachable:
             assert_never(unreachable)
-    return FinishFact(sink.getvalue())
+    return FinishFact(
+        sink.getvalue(),
+        office_format=format_,
+        office_scheme=scheme,
+        credential_kinds=key_axis,
+        verification=verification_fact,
+    )
+
+
+def _pruned_pages(writer: "PdfWriter", flag: "ObjectDeletionFlag", /) -> None:
+    # Per-page `ObjectDeletionFlag` pruner behind the flag-only `PruneClass` rows the doc-wide removers do not cover.
+    for page in writer.pages:  # Exemption: writer mutation at the pypdf provider seam
+        writer.remove_objects_from_page(page, flag)
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 FINISHERS: Final[Map[EgressStep, Finisher]] = Map.of_seq([
-    (EgressStep.ENCRYPT, Finisher(_encrypt)),
+    (EgressStep.ENCRYPT, Finisher(_encrypt, permissive=_encrypt_oxide)),  # pikepdf (MPL) rich arm; pdf_oxide `to_bytes_encrypted` under `PERMISSIVE`
     (EgressStep.OUTLINE, Finisher(_outline)),
     (EgressStep.WATERMARK, Finisher(_watermark)),
     (EgressStep.ATTACH, Finisher(_attach)),
@@ -911,23 +1060,62 @@ FINISHERS: Final[Map[EgressStep, Finisher]] = Map.of_seq([
     (EgressStep.OPTIMIZE, Finisher(_optimize)),
     (EgressStep.PROTECT, Finisher(_protect, office=True)),
 ])
-# the SANITIZE object-class prune dispatch: one bound pypdf document-wide remover per `PruneClass`;
-# `remove_annotations(None)` strips every annotation subtype, the doc-wide supersets `remove_links` folds.
+# SANITIZE object-class prune dispatch: the doc-wide pypdf removers own their classes whole
+# (`remove_annotations(None)` strips every annotation subtype, supersetting `remove_links`), and the finer
+# flag-only classes ride the per-page `ObjectDeletionFlag` pruner through `_pruned_pages`.
 _PRUNE: Final[Map[PruneClass, Callable[["PdfWriter"], None]]] = Map.of_seq([
     (PruneClass.LINKS, lambda writer: writer.remove_links()),
     (PruneClass.ANNOTATIONS, lambda writer: writer.remove_annotations(None)),
     (PruneClass.IMAGES, lambda writer: writer.remove_images()),
     (PruneClass.TEXT, lambda writer: writer.remove_text()),
+    (PruneClass.OBJECTS_3D, lambda writer: _pruned_pages(writer, ObjectDeletionFlag.OBJECTS_3D)),
+    (PruneClass.XOBJECT_IMAGES, lambda writer: _pruned_pages(writer, ObjectDeletionFlag.XOBJECT_IMAGES)),
+    (PruneClass.INLINE_IMAGES, lambda writer: _pruned_pages(writer, ObjectDeletionFlag.INLINE_IMAGES)),
+    (PruneClass.DRAWING_IMAGES, lambda writer: _pruned_pages(writer, ObjectDeletionFlag.DRAWING_IMAGES)),
 ])
-# the per-step admission prerequisite: `of` rejects a step whose required owner is absent into
+# Per-step admission prerequisite: `of` rejects a step whose required owner is absent into
 # `EgressFault.incomplete` so the in-process fold is total — steps omitted here are always ready.
 _PREREQ: Final[Map[EgressStep, Callable[[DocumentEgress], bool]]] = Map.of_seq([
     (EgressStep.ENCRYPT, lambda eg: eg.finishing.encryption is not None),
+    (
+        EgressStep.IMPOSE,
+        lambda eg: eg.finishing.imposition.across > 0
+        and eg.finishing.imposition.down > 0
+        and all(isfinite(side) and side > 0.0 for side in eg.finishing.imposition.sheet)
+        and (eg.finishing.imposition.layout is not ImposeLayout.BOOKLET or eg.finishing.imposition.slots == 2),
+    ),  # grid counts and sheet sides positive and finite before any placement arithmetic; saddle-stitch stays a 2-up fold
     (EgressStep.WATERMARK, lambda eg: bool(eg.extras.stamp)),
     (EgressStep.ATTACH, lambda eg: bool(eg.extras.attachment_data and eg.finishing.attachment.name)),
     (EgressStep.OUTLINE, lambda eg: eg.node is not None or bool(eg.finishing.bookmark.fallback)),
     (EgressStep.FORMS, lambda eg: bool(eg.finishing.forms.values) or eg.finishing.forms.flatten),
     (EgressStep.REDACT, lambda eg: eg.node is not None or bool(eg.finishing.label.needles)),
+])
+# Per-step PERMISSIVE expressibility gate: a predicate proves the admitted policy exceeds what the step's
+# permissive arm can express, and `of` refuses that step as `EgressFault.lane` instead of silently weakening it.
+_LANE_GAPS: Final[Map[EgressStep, Callable[[DocumentEgress], bool]]] = Map.of_seq([
+    # `_redact_oxide` burns tree rects only — `search_page` returns no verified rect shape (the RESEARCH row).
+    (EgressStep.REDACT, lambda eg: bool(eg.finishing.label.needles)),
+    # `to_bytes_encrypted` exposes four coarse permission booleans over an engine-chosen cipher: a split print policy,
+    # an assemble/fill-forms grant diverging from its coarse superset, an accessibility denial, a plaintext-metadata
+    # demand, and a non-default strength each have no pdf_oxide member.
+    (
+        EgressStep.ENCRYPT,
+        lambda eg: eg.finishing.encryption is not None
+        and (
+            eg.finishing.encryption.strength is not Strength.AES_256
+            or not eg.finishing.encryption.encrypt_metadata
+            or eg.finishing.permissions.print_lowres != eg.finishing.permissions.print_highres
+            or not eg.finishing.permissions.accessibility
+            or eg.finishing.permissions.assemble != eg.finishing.permissions.modify
+            or eg.finishing.permissions.fill_forms != eg.finishing.permissions.annotate
+        ),
+    ),
+    # `sanitize_document` scrubs metadata/javascript/embedded-files only — the external-access, multimedia, and
+    # signature-disable axes have no pdf_oxide member, so an active-content strip demand refuses rather than surviving.
+    (
+        EgressStep.SANITIZE,
+        lambda eg: eg.finishing.sanitize.external_access or eg.finishing.sanitize.multimedia or eg.finishing.sanitize.disable_signatures,
+    ),
 ])
 ```
 
@@ -938,3 +1126,4 @@ _PREREQ: Final[Map[EgressStep, Callable[[DocumentEgress], bool]]] = Map.of_seq([
 -->
 
 - [OXIDE_SEARCH]-[OPEN]: does `pdf_oxide.PdfDocument.search_page` return typed rects usable for a permissive-lane needle redaction; verify against the folder `.api/pdf-oxide.md` catalog.
+- [OXIDE_ENCRYPT_R]-[OPEN]: which encryption revision does `pdf_oxide.PdfDocument.to_bytes_encrypted` write, so the permissive ENCRYPT arm can record a true `FinishFact.encryption_r`; verify via `UV_CACHE_DIR=.cache/uv uv run --frozen python` over a sealed round-trip inspected with `pikepdf.open(...).encryption`.

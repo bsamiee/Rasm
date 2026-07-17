@@ -1,22 +1,22 @@
 # [PY_GEOMETRY_IFC_ANALYSIS]
 
-IFC property/quantity/relationship analysis and standards-conformant validation — the AEC verbs the tessellation hop alone drops: quantity takeoff, Pset queries, IDS model-checking, clash detection, space-program validation, and BCF issue authoring over `ifcopenshell.util`, `ifctester`, `ifcclash`, and the `bcf` library, every verb's provider output folded into one `AnalysisRow` row algebra. The C# `IfcSemanticModel` projects the spatial hierarchy in-process; this owner adds the analysis verbs and the buildingSMART validation output the managed projection does not produce.
+IFC property, quantity, and relationship analysis plus standards-conformant validation — AEC verbs the tessellation hop drops: quantity takeoff, Pset queries, IDS model-checking, clash detection, space-program validation, and BCF issue authoring over `ifcopenshell.util`, `ifctester`, `ifcclash`, and `bcf`, every provider output folded into one `AnalysisRow` algebra. C# `IfcSemanticModel` projects the spatial hierarchy in-process; this owner adds the analysis verbs and buildingSMART validation output that projection never produces.
 
-Every selecting verb admits its query through `IfcSelector` from `ifc/selector.md#SELECTOR`, so a malformed selector is a typed fault at the boundary, never a silent empty `filter_elements` match three arms deep. `run` threads the graduation `evidence_run` weave under `EvidenceScope.IFC_ANALYSIS` with `@beartype(conf=FAULT_CONF)` binding the contract fence. The OCC clash tree is this owner's one transient-native boundary and rides the runtime-pinned `guarded_sync(RetryClass.OCC_NATIVE)` row, never a bare `stamina.retry` mint; the durable `.bcfzip`/IDS-report archive WRITE stays the `python:data/spatial` boundary's. Evidence graduates under `GeometrySubject.BIM_COMPLIANCE` — the differentiated member the IDS/clash/BCF verdict class owns, distinct from the section-integral and lifecycle members their owners bind.
+Every selecting verb admits its query through `IfcSelector` (`ifc/selector.md#SELECTOR`), so a malformed selector faults typed at the boundary, never a silent empty `filter_elements` match three arms deep. `run` threads the graduation `evidence_run` weave under `EvidenceScope.IFC_ANALYSIS`, `@beartype(conf=FAULT_CONF)` binding the contract fence. OCC clash trees are this owner's one transient-native boundary, riding the runtime-pinned `guarded_sync(RetryClass.OCC_NATIVE)` row, never a bare `stamina.retry` mint; durable `.bcfzip`/IDS-report archive writes stay `python:data/spatial`'s. Evidence graduates under `GeometrySubject.BIM_COMPLIANCE`, the differentiated member the IDS/clash/BCF verdict class owns, distinct from the section-integral and lifecycle members their owners bind.
 
 ## [01]-[INDEX]
 
-- [01]-[ANALYSIS]: six analysis verbs over one `AnalysisRow` algebra, the `IfcSelector` gate, the `OCC_NATIVE` retry row, and kind-specific graduation evidence under `BIM_COMPLIANCE`.
+- [01]-[ANALYSIS]: analysis verbs over one `AnalysisRow` algebra, the `IfcSelector` gate, the `OCC_NATIVE` retry row, and kind-specific graduation evidence under `BIM_COMPLIANCE`.
 
 ## [02]-[ANALYSIS]
 
-- Owner: `IfcAnalysis` dispatches the verbs through one rail-returning `_dispatch` fold; `AnalysisRow` is the one row carrier whose case IS the shape — six verbs, one algebra, never a per-verb row dialect; the graduation subject rides the `ANALYSIS_SUBJECT` module constant, never a per-receipt `subject: str` field racing the discriminant.
-- Entry: the `query` meaning is fixed by the kind through the `QUERY_SPLIT` table — pure selector, `a#b` side pair, or spec path/JSON table — one table-keyed split, never a partition-per-arm string ladder; the `CLASH`/`BCF` sides validate under one polymorphic batch parse aborting on the first malformed member, an empty query defaulting both sides to the whole-model mode. The BCF verb is the composition apex — it re-runs the clash leg and stacks the overlaps into `bcf` topics with viewpoints AND the OCC-rendered `get_viewpoint_snapshot` image bound per topic, never a same-string round-trip.
-- Auto: IDS reads BOTH verdict depths off one validation pass — the per-spec entity ratio and the `Json(ids).report()` roll-up, with `percent_checks_pass` on the `Results` ROOT and the `total_applicable_*` totals on the `ResultsSpecification` rows, never conflated — excluding a `status is None` not-applicable spec, whose `0.0` row poisons the evidence mean; space-program validation excludes spaces absent from the program table — a `0.0`-ratio row reads an out-of-program space as total non-compliance — and scales net area through `calculate_unit_scale` squared before the comparison.
-- Receipt: the `evidence` ledger is kind-specific, never a row count — IDS keys the per-entity AND per-check failing fractions, `SPACE_PROGRAM` the per-space failing fraction, `CLASH` the unresolved-cluster count, the takeoff/BCF verbs the empty-result fraction — so a model breaching its ceiling fails the carrier's `admitted` verdict rather than crossing clean.
+- Owner: `IfcAnalysis` dispatches verbs through one rail-returning `_dispatch` fold; `AnalysisRow` is the one carrier whose case IS the shape — one algebra, never a per-verb row dialect; graduation subject rides the `ANALYSIS_SUBJECT` module constant, never a per-receipt `subject: str` field racing the discriminant.
+- Entry: `query` meaning is kind-fixed through the `QUERY_SPLIT` table — pure selector, `a#b` side pair, or spec path/JSON table — one table-keyed split, never a partition-per-arm string ladder; `CLASH`/`BCF` sides validate under one polymorphic batch parse aborting on the first malformed member, an empty query defaulting both sides to whole-model mode. `BCF` is the composition apex, re-running the clash leg and stacking overlaps into `bcf` topics with viewpoints AND the OCC-rendered `get_viewpoint_snapshot` image bound per topic, never a same-string round-trip.
+- Auto: IDS reads BOTH verdict depths off one validation pass — per-spec entity ratio and the `Json(ids).report()` roll-up, `percent_checks_pass` on the `Results` ROOT and `total_applicable_*` totals on the `ResultsSpecification` rows, never conflated — excluding a `status is None` not-applicable spec whose `0.0` row poisons the evidence mean; space-program validation excludes spaces absent from the program table — a `0.0`-ratio row reads an out-of-program space as total non-compliance — and scales net area through `calculate_unit_scale` squared before comparison.
+- Receipt: `evidence` ledger is kind-specific, never a row count — IDS keys per-entity AND per-check failing fractions, `SPACE_PROGRAM` the per-space failing fraction, `CLASH` the unresolved-cluster count, takeoff/BCF the empty-result fraction — so a model breaching its ceiling fails the carrier's `admitted` verdict rather than crossing clean.
 - Packages: `ifcopenshell`, `ifctester`, `ifcclash`, and `bcf-client` per the fence imports; `IfcSelector` is the only `filter_elements` caller.
-- Growth: a new verb is one `AnalysisKind` row, one `of_*` constructor plus one `facts` arm, one dispatch arm, one `QUERY_SPLIT` row, and one `evidence` key; a new selection axis is one `IfcSelector` grammar alternative, never a local query-parse fold here; IDS document AUTHORING (the `Ids(...)`/facet family/`to_xml` surface) is the named next verb when a consumer supplies a rule vocabulary — one row, never a second engine.
-- Boundary: no re-derivation of the C# `IfcSemanticModel` spatial hierarchy; no durable store — the topic rows are the wire carry and the durable `.bcfzip` write is the data seam's; no Rhino/GH mutation; no raw `query` string threaded past admission into `filter_elements`.
+- Growth: a new verb is one `AnalysisKind` row, one `of_*` constructor plus one `facts` arm, one dispatch arm, one `QUERY_SPLIT` row, and one `evidence` key; a new selection axis is one `IfcSelector` grammar alternative, never a local query-parse fold; IDS document AUTHORING (`Ids(...)`/facet family/`to_xml`) is the named next verb once a consumer supplies a rule vocabulary — one row, never a second engine.
+- Boundary: no re-derivation of the C# `IfcSemanticModel` spatial hierarchy; no durable store — topic rows are the wire carry, the durable `.bcfzip` write the data seam's; no Rhino/GH mutation; no raw `query` string threaded past admission into `filter_elements`.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -53,7 +53,7 @@ class AnalysisKind(StrEnum):
 
 
 class ClashRow(TypedDict):
-    # the `ifcclash.ClashResult` shape plus the derived spatial-cluster index the grouper writes.
+    # `ifcclash.ClashResult` shape plus the derived spatial-cluster index the grouper writes.
     a_global_id: str
     b_global_id: str
     distance: float
@@ -128,7 +128,7 @@ class AnalysisResult(Struct, frozen=True, gc=False):
     kind: AnalysisKind
     subjects: tuple[str, ...]
     rows: tuple[AnalysisRow, ...]
-    checks_pass: float | None = None  # the IDS arm's Json-report root percent_checks_pass roll-up; None elsewhere
+    checks_pass: float | None = None  # IDS arm's Json-report root percent_checks_pass roll-up; None elsewhere
 
     def evidence(self) -> dict[str, float]:
         match self.kind:
@@ -164,7 +164,7 @@ class IfcAnalysis:
     @staticmethod
     @beartype
     def run(model: "ifcopenshell.file", kind: AnalysisKind, query: str) -> "RuntimeRail[AnalysisResult]":
-        # the weave's flatten absorbs the rail-returning `_dispatch`, so a selector parse fault meets the converted
+        # weave flatten absorbs the rail-returning `_dispatch`, so a selector parse fault meets the converted
         # provider fault on one carrier; graduation stays the caller's own step on the returned receipt.
         return evidence_run(EvidenceScope.IFC_ANALYSIS, f"run.{kind}", lambda: IfcAnalysis._dispatch(model, kind, query))
 
@@ -192,8 +192,8 @@ class IfcAnalysis:
 
     @staticmethod
     def _space(model: "ifcopenshell.file", query: str) -> AnalysisResult:
-        # The program-table decode runs under the weave fence, so a malformed JSON table is a
-        # BoundaryFault classified at the seam rather than an inline try/except in domain logic.
+        # Program-table decode runs under the weave fence, so a malformed JSON table is a
+        # BoundaryFault classified at the seam, never an inline try/except in domain logic.
         program = decode(query.encode(), type=dict[str, float])
         scale = IfcAnalysis._unit_scale(model)
         spaces = model.by_type("IfcSpace")
@@ -279,12 +279,12 @@ class IfcAnalysis:
         from ifcclash.ifcclash import Clasher, ClashSettings, ClashSet, ClashSource  # noqa: PLC0415
 
         def source(selector: str) -> ClashSource:
-            # `file` is a required ClashSource key; the pre-loaded `ifc` model makes the empty path inert. The 'e'
-            # expression mode consumes the validated `filter_string`, the 'a'-all mode the whole-model default.
+            # `file` is a required ClashSource key; the pre-loaded `ifc` model makes the empty path inert. Mode
+            # 'e' consumes the validated `filter_string`, mode 'a'-all the whole-model default.
             base: ClashSource = {"file": "", "ifc": model}
             return {**base, "selector": selector, "mode": "e"} if selector else {**base, "mode": "a"}
 
-        # the returned rail carries the live Clasher and the clash set so the BCF arm binds snapshots.
+        # returned rail carries the live Clasher and the clash set so the BCF arm binds snapshots.
         def solve() -> tuple[Clasher, tuple[ClashRow, ...], ClashSet]:
             clasher = Clasher(ClashSettings())
             clash_set: ClashSet = {"name": "ifc.clash", "a": [source(sides[0])], "b": [source(sides[1])], "mode": "intersection", "tolerance": 0.001}

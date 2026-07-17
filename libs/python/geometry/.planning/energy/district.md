@@ -1,8 +1,8 @@
 # [PY_GEOMETRY_ENERGY_DISTRICT]
 
-The urban-district massing owner — the 2.5-D layer above the building model where a city block or campus stays compact until it explodes into detailed energy models. `District.of` admits the dragonfly graph from a dfjson document, an anchored GeoJSON footprint import, or a computed massing specification; `zone` pairs the plates, `explode` crosses to detailed models, `translate` builds the district-energy egress inputs, and `assign` mirrors the model page's energy assignment over `Room2D` hosts. The owner re-implements no footprint extrusion, adjacency solver, equirectangular projection, or multiplier arithmetic — `dragonfly-core` owns the massing kernels; this page composes them into typed, railed, receipted evidence graduating under `GeometrySubject.BUILDING_ENERGY`.
+`District` owns the urban-district 2.5-D massing layer above the building model, where a city block or campus stays compact until it explodes into detailed energy models. `District.of` admits the dragonfly graph from a dfjson document, an anchored GeoJSON footprint import, or a computed massing specification; `zone` pairs the plates, `explode` crosses to detailed models, `translate` builds the district-energy egress inputs, and `assign` mirrors the model page's energy assignment over `Room2D` hosts. `dragonfly-core` owns every footprint extrusion, adjacency solver, equirectangular projection, and multiplier-arithmetic kernel; this page composes them into typed, railed, receipted evidence graduating under `GeometrySubject.BUILDING_ENERGY`.
 
-The dragonfly band is AGPL-3.0 on the standing companion-lane charter — function-local boundary imports, evidence across the wire, no link into a distributed binary. `explode` is the seam onto `energy/model`: emitted honeybee dicts cross straight into `BuildingModel.of` — the district constructs, the model page admits, ONE gate per tier. Standards assignment reuses the `energy/model` `RESOLVERS` rows downward, one standards access path folder-wide. The engines behind the translate inputs (URBANopt CLI, Modelica, RNM, the REopt API) are external process-boundary services this page never drives — it builds the TYPED INPUTS only; run orchestration enters through a future admission motion carrying its own engine provisioning. Every admitted district keys once over its canonical dfjson bytes.
+Dragonfly's AGPL-3.0 band rides the standing companion-lane charter — function-local boundary imports, evidence across the wire, no link into a distributed binary. `explode` is the seam onto `energy/model`: emitted honeybee dicts cross straight into `BuildingModel.of` — district constructs, model page admits, ONE gate per tier. Standards assignment reuses the `energy/model` `RESOLVERS` rows downward, one standards access path folder-wide. URBANopt CLI, Modelica, RNM, and the REopt API behind the translate inputs are external process-boundary services this page never drives — it builds the TYPED INPUTS only; run orchestration enters through a future admission motion carrying its own engine provisioning. Every admitted district keys once over its canonical dfjson bytes.
 
 ## [01]-[INDEX]
 
@@ -10,11 +10,11 @@ The dragonfly band is AGPL-3.0 on the standing companion-lane charter — functi
 
 ## [02]-[DISTRICT]
 
-- Owner: `District` holds the validated dragonfly `Model` and its `ContentKey`. `Anchor` carries the geo registration constructed once and projected into the ladybug `Location` at each kernel, never four loose floats per call; `ExplodePolicy` and `DistrictTarget` carry behavior as data over dragonfly's own knobs — one row per district-energy egress, never a per-target method family.
-- Entry: every admission arm converges on the ONE `check_all(raise_exception=False, detailed=True)` gate whose defect rows fold to a typed fault census. `zone` runs the only legal order — `intersect_adjacency` splits coincident walls THEN `solve_adjacency` pairs them, never a solve over un-intersected plates — and returns the re-keyed successor. `explode` hands each emitted honeybee dict to `BuildingModel.of`, and failed building admissions accumulate through `traversed(ACCUMULATE)` so every bad building names itself in the combined fault, never a first-fault abort hiding siblings.
-- Auto: `use_multiplier=True` keeps the compact graph and `False` instances every floor — a policy value on the explode row; the equirectangular meters-to-lon-lat correspondence stays `dragonfly.projection`'s, never re-derived; the `des_param`/`opendss`/`reopt` targets consume CALLER-authored dragonfly-energy value objects — this page routes them through the translation seam and re-mints none of their vocabulary.
+- Owner: `District` holds the validated dragonfly `Model`, its `ContentKey`, and the `LanePolicy` the explosion seam threads into each emitted model's admission. `Anchor` carries the geo registration constructed once and projected into the ladybug `Location` at each kernel, never four loose floats per call; `ExplodePolicy` and `DistrictTarget` carry behavior as data over dragonfly's own knobs — one row per district-energy egress, never a per-target method family.
+- Entry: every admission arm converges on the ONE `check_all(raise_exception=False, detailed=True)` gate whose defect rows fold to a typed fault census. `zone` runs the only legal order — `intersect_adjacency` splits coincident walls THEN `solve_adjacency` pairs them, never a solve over un-intersected plates — and returns the re-keyed successor. `explode` is `async`, awaiting `BuildingModel.of(..., self.lane)` per emitted honeybee dict over the held lane; failed building admissions accumulate through `traversed(ACCUMULATE)` so every bad building names itself in the combined fault, never a first-fault abort hiding siblings.
+- Auto: `use_multiplier=True` keeps the compact graph and `False` instances every floor — a policy value on the explode row; equirectangular meters-to-lon-lat correspondence stays `dragonfly.projection`'s, never re-derived; `des_param`/`opendss`/`reopt` targets consume CALLER-authored dragonfly-energy value objects — this page routes them through the translation seam and re-mints none of their vocabulary.
 - Receipt: the graduation residual DERIVES from the receipt's own segment census — `unzoned_segments`/`total_segments`, a fully-zoned district graduating at zero — never a caller-supplied fraction; `modeled_floors` sums story multipliers, the real modeled-floor census.
-- Packages: `dragonfly-core` (the module is `dragonfly`, never `dragonfly_core`) and `dragonfly-energy` per the fence imports, function-local on the AGPL companion posture; `FourthGenThermalLoop` is the 4th-gen hot/chilled loop, `GHEThermalLoop` the 5th-gen ground-heat-exchanger ambient loop with borefield sizing.
+- Packages: `dragonfly-core` (the module is `dragonfly`, never `dragonfly_core`) and `dragonfly-energy` per the fence imports; `FourthGenThermalLoop` is the 4th-gen hot/chilled loop, `GHEThermalLoop` the 5th-gen ground-heat-exchanger ambient loop with borefield sizing.
 - Growth: a new translation egress is one `DistrictTarget` case plus one dispatch arm; window/skylight/shading parameter families attach as `BuildingSpec` rows when a consumer names them; the URBANopt/DES/RNM/REopt run drivers enter only through a future admission motion provisioning their engines; GeoJSON parcel-layer ingest at scale composes the data folder's geospatial owners at the data seam, never a geometry-side `geopandas` import.
 - Boundary: rooms/faces/apertures are `energy/model`'s — this page stops at `Room2D` plates and the explosion seam; simulation and result decode are `energy/simulate`'s, weather is `energy/climate`'s; accurate CRS work beyond dragonfly's own equirectangular helpers is the data folder's `pyproj` plane.
 
@@ -34,6 +34,7 @@ from rasm.geometry.energy.model import RESOLVERS, BuildingModel, EnergySpec, Mod
 from rasm.geometry.graduation import EvidenceScope, GeometryHandoff, GeometrySubject, evidence_run
 from rasm.runtime.faults import Disposition, RuntimeRail, traversed
 from rasm.runtime.identity import ContentIdentity, ContentKey
+from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.receipts import Receipt
 
 if TYPE_CHECKING:  # AGPL band: annotations resolve here; every runtime use is a function-local boundary import
@@ -141,7 +142,9 @@ class DistrictReceipt(Struct, frozen=True):
         )
 
     def graduates(self, key: ContentKey, ceiling: float) -> GeometryHandoff:
-        residual = self.unzoned_segments / max(self.total_segments, 1)
+        # an empty segment census carries no zoning evidence, so it reads fully unzoned (residual 1.0) and refuses the
+        # ceiling — a `max(total, 1)` fallback would graduate a segmentless district as fully zoned.
+        residual = self.unzoned_segments / self.total_segments if self.total_segments else 1.0
         return GeometryHandoff.of(
             GeometrySubject.BUILDING_ENERGY,
             key,
@@ -156,9 +159,10 @@ class DistrictReceipt(Struct, frozen=True):
 class District(Struct, frozen=True):
     graph: "DistrictGraph"
     content_key: ContentKey
+    lane: LanePolicy  # the lane the explosion seam hands each emitted model's BIM-capable admission
 
     @classmethod
-    def of(cls, source: DistrictSource) -> "RuntimeRail[Self]":
+    def of(cls, source: DistrictSource, lane: LanePolicy) -> "RuntimeRail[Self]":
         def admit() -> Self:
             from dragonfly.model import Model  # noqa: PLC0415 — AGPL boundary import; the module is `dragonfly`
 
@@ -175,7 +179,7 @@ class District(Struct, frozen=True):
                     graph = _massed(specs, policy)
                 case _ as unreachable:
                     assert_never(unreachable)
-            return cls._gated(graph)
+            return cls._gated(graph, lane)
 
         return evidence_run(EvidenceScope.ENERGY_DISTRICT, f"admit.{source.tag}", admit)
 
@@ -186,12 +190,12 @@ class District(Struct, frozen=True):
             for story in self.graph.stories:  # Exemption: dragonfly zones stories in place; the ordered pair is its owned surface.
                 Room2D.intersect_adjacency(story.room_2ds, tolerance)
                 Room2D.solve_adjacency(story.room_2ds, tolerance)
-            return type(self)._gated(self.graph)
+            return type(self)._gated(self.graph, self.lane)
 
         return evidence_run(EvidenceScope.ENERGY_DISTRICT, "zone", fold)
 
-    def explode(self, policy: ExplodePolicy) -> "RuntimeRail[Block[BuildingModel]]":
-        def fold() -> Block["RuntimeRail[BuildingModel]"]:
+    async def explode(self, policy: ExplodePolicy) -> "RuntimeRail[Block[BuildingModel]]":
+        async def fold() -> "RuntimeRail[Block[BuildingModel]]":
             emitted = self.graph.to_honeybee(
                 object_per_model=policy.per_model.value,
                 use_multiplier=policy.use_multiplier,
@@ -200,9 +204,12 @@ class District(Struct, frozen=True):
                 enforce_adj=policy.enforce_adjacency,
                 enforce_solid=policy.enforce_solid,
             )
-            return Block.of_seq([BuildingModel.of(ModelSource(hbjson=model.to_dict())) for model in emitted])
+            # hbjson admissions run caller-floor inside the model page's own weave; the sequential await is the
+            # statement-bearing async fold, and every failed building accumulates rather than aborting its siblings.
+            rails = Block.of_seq([await BuildingModel.of(ModelSource(hbjson=model.to_dict()), self.lane) for model in emitted])
+            return traversed(rails, by=Disposition.ACCUMULATE)
 
-        return evidence_run(EvidenceScope.ENERGY_DISTRICT, "explode", fold).bind(lambda rails: traversed(rails, by=Disposition.ACCUMULATE))
+        return await evidence_run(EvidenceScope.ENERGY_DISTRICT, "explode", fold)
 
     def assign(self, spec: EnergySpec) -> "RuntimeRail[Self]":
         # one fold over Room2D hosts BEFORE the explode, so a multiplier story assigns once.
@@ -234,7 +241,7 @@ class District(Struct, frozen=True):
                 energy.construction_set = constructions if constructions is not None else energy.construction_set
                 energy.hvac = hvac if hvac is not None else energy.hvac
                 energy.shw = shw if shw is not None else energy.shw
-            return type(self)._gated(self.graph)
+            return type(self)._gated(self.graph, self.lane)
 
         return evidence_run(EvidenceScope.ENERGY_DISTRICT, "assign", fold)
 
@@ -283,12 +290,12 @@ class District(Struct, frozen=True):
         return evidence_run(EvidenceScope.ENERGY_DISTRICT, f"translate.{target.tag}", fold)
 
     @classmethod
-    def _gated(cls, graph: "DistrictGraph") -> Self:
+    def _gated(cls, graph: "DistrictGraph", lane: LanePolicy) -> Self:
         rows = graph.check_all(raise_exception=False, detailed=True)
         if rows:
             census = Block.of_seq(rows).fold(lambda acc, row: acc.change(str(row.get("code", "?")), lambda n: Some(n.default_value(0) + 1)), Map.empty())
             raise ValueError(f"check_all:district:{len(rows)}:{dict(census.to_seq())}")  # converted once by the evidence_run fence
-        return cls(graph=graph, content_key=ContentIdentity.key("district", _ENCODER.encode(graph.to_dict())))
+        return cls(graph=graph, content_key=ContentIdentity.key("district", _ENCODER.encode(graph.to_dict())), lane=lane)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

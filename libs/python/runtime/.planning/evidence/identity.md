@@ -2,7 +2,7 @@
 
 `ContentIdentity` is the single content-addressing owner the whole branch consumes, the module `rasm.runtime.identity`: one XxHash128 key over canonical bytes, reproducing the C# `System.IO.Hashing.XxHash128` seed with format and consumer-folded policy bytes carried into the key, so a re-tessellation at identical settings is a cache hit by reference. Data, geometry, compute, and artifacts consume this one owner and mint no parallel content key.
 
-One span-fold core serves both entries — `_derive_span` the sole `content.derive` bracket, `_minted` the sole fold-annotate-status body — so the railed `of` and the bare `key` differ only in the fallibility fence, never a re-opened span or a second status spelling. The tracer mints from the `reliability/faults#FAULT` `SCOPES[Scope.IDENTITY]` row and the railed entry fences through `boundary(fmt, ...)` inside the live span. The corpus-parity binding lives in the sibling `evidence/reproduction` module, split out so its `receipts` import stays DAG-legal (`identity < receipts < reproduction`).
+One span-fold core serves both entries — `_derive_span` the sole `content.derive` bracket, `_minted` the sole fold-annotate-status body — so the railed `of` and the bare `key` differ only in the fallibility fence, never a re-opened span or a second status spelling. Its tracer mints from the `reliability/faults#FAULT` `SCOPES[Scope.IDENTITY]` row and the railed entry fences through `boundary(fmt, ...)` inside the live span. Corpus-parity binding lives in the sibling `evidence/reproduction` module, split out so its `receipts` import stays DAG-legal (`identity < receipts < reproduction`).
 
 ## [01]-[INDEX]
 
@@ -12,9 +12,9 @@ One span-fold core serves both entries — `_derive_span` the sole `content.deri
 
 - Owner: `IdentityPolicy.spec` IS the canonical-seed field contract — every field it renders enters the seed bytes — and the policy is a GENERIC carrier: a domain knob such as geometry's tessellation deflection/angle rides a consumer-owned policy folded into the canonical seed bytes, never a new `IdentityPolicy` field per domain. Key equality is bytes-law — `of(fmt, source)` under the default and under an explicit `CANONICAL_POLICY` mint the same key, the compute design-key resume cache the demanding proof. `IdentitySource` owns its own `lift` and `fold`, so dispatch is total and the digest algebra rides the union, never an external dispatcher or a second entrypoint.
 - Entry: `of` is the one polymorphic derivation over input shape and output projection — no per-render method and no parallel `of_canonical`; `key` is the bare synchronous accessor beside it, the one fallibility split, never a `rail: bool` knob. An empty or mixed tuple falls through to `stream`, whose seed-only fold is a deterministic degenerate key. `seed` is the `Option[U64]` override: `Nothing` the policy-folded settings seed, `Some(0)` the bare C# `XxHash128.HashToUInt128(span)` seed-zero path the `GeometryHash`/`NamingHashOps` boundary mints — geometry `mesh/daemon` keys GLB wire bytes under this seed-zero `RepresentationContentHash` parity contract — so the seed origin is one parameter, never a fake policy. Identity is recovered from the value shape, never a path, name suffix, or mode flag.
-- Auto: the `merkle` child transcription reproduces the C# `BinaryPrimitives.WriteUInt128LittleEndian` canonical span the `Rasm.Persistence/Version/commits#COMMIT_DAG` `CommitGraph.Of`/`MerkleRange.Of` and `#CRDT_WIRE` `CrdtWire.ContentKey` fold before `XxHash128.HashToUInt128`, so a parent key is order-sensitive over its parts. The `lift` payload modalities are exported branch law — data keys operation bytes and derived-snapshot Merkle keys, compute keys buffer/stream payloads for its resume cache, geometry keys GLB bytes — so narrowing any modality is a cross-folder break. `project("hex")` renders `{value:032x}:{fmt}` so a companion GLB result keys byte-identically to the C# `InterchangeIdentity.Key`.
+- Auto: the `merkle` child transcription reproduces the C# `BinaryPrimitives.WriteUInt128LittleEndian` canonical span the `Rasm.Persistence/Version/commits#COMMIT_DAG` `CommitGraph.Of`/`MerkleRange.Of` and `#CRDT_WIRE` `CrdtWire.ContentKey` fold before `XxHash128.HashToUInt128`, so a parent key is order-sensitive over its parts. `lift`'s payload modalities are exported branch law — data keys operation bytes and derived-snapshot Merkle keys, compute keys buffer/stream payloads for its resume cache, geometry keys GLB bytes — so narrowing any modality is a cross-folder break. `project("hex")` renders `{value:032x}:{fmt}` so a companion GLB result keys byte-identically to the C# `InterchangeIdentity.Key`.
 - Growth: a new evaluation parameter is one `Tolerance` field on `IdentityPolicy.spec`; a new output render one `KeyView` member plus one `project` arm; a new input modality one `IdentitySource` case plus one `lift` shape plus one `fold` arm; a distinct seed origin one `Some(value)` through the existing override; a new span attribute one line in the span-fold core reaching both entries.
-- Boundary: artifact identity is XxHash128 over canonical bytes — the suite hash law — and the C# `InterchangeIdentity` is the cross-boundary mechanics owner this seed reproduces. Consumers ride the unbroken `of`/`key`/`ContentKey`/`hex` surface. The span scopes exactly the derivation: the downstream `execution/lanes#LANE` cache hit/miss the returned key drives is the lane owner's span, never folded into `content.derive`.
+- Boundary: artifact identity is XxHash128 over canonical bytes — the suite hash law — and the C# `InterchangeIdentity` is the cross-boundary mechanics owner this seed reproduces. Consumers ride the unbroken `of`/`key`/`ContentKey`/`hex` surface. Its span scopes exactly the derivation: the downstream `execution/lanes#LANE` cache hit/miss the returned key drives is the lane owner's span, never folded into `content.derive`.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -46,7 +46,9 @@ type Source = Buffer | Iterable[bytes] | tuple[ContentKey, ...] | Struct
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class ContentKey(Struct, frozen=True, gc=False):
+class ContentKey(Struct, frozen=True, order=True, gc=False):
+    # `order=True` is load-bearing: `expression.Map` is an ordered tree, so every `Map[ContentKey, ...]`
+    # (lane drain cache, plan tables, warm seeds) needs the field-order `<` this generates.
     value: U128
     fmt: str
     byte_length: int
@@ -146,7 +148,7 @@ _TRACER: Final[trace.Tracer] = trace.get_tracer(SCOPES[Scope.IDENTITY])
 
 @contextmanager
 def _derive_span(fmt: str, modality: str) -> Iterator[Span]:
-    # the SOLE `content.derive` bracket both entries compose; attribute writes gate on `is_recording`.
+    # SOLE `content.derive` bracket both entries compose; attribute writes gate on `is_recording`.
     with _TRACER.start_as_current_span("content.derive") as span:
         if span.is_recording():
             span.set_attributes({"identity.fmt": fmt, "identity.modality": modality})
@@ -154,7 +156,7 @@ def _derive_span(fmt: str, modality: str) -> Iterator[Span]:
 
 
 def _minted(span: Span, fmt: str, lifted: IdentitySource, seed: U64) -> ContentKey:
-    # the SOLE fold-annotate-status body: `032x` render (a raw `U128` overflows the OTLP signed-int64 attribute bound), then the
+    # SOLE fold-annotate-status body: `032x` render (a raw `U128` overflows the OTLP signed-int64 attribute bound), then the
     # clean-path OK; a fault never reaches here — `_convert` records ERROR on the still-open span instead.
     value, byte_length = lifted.fold(seed)
     if span.is_recording():
@@ -164,7 +166,7 @@ def _minted(span: Span, fmt: str, lifted: IdentitySource, seed: U64) -> ContentK
 
 
 def derived[T](fmt: str, source: IdentitySource, run: Callable[[Span], T]) -> RuntimeRail[T]:
-    # the railed composition: `boundary` fences INSIDE the live span so a canonical-encode
+    # railed composition: `boundary` fences INSIDE the live span so a canonical-encode
     # `EncodeError` records on it; `subject` is the caller's `fmt`, never a clobbering literal.
     with _derive_span(fmt, source.tag) as span:
         return boundary(fmt, lambda: run(span), catch=EncodeError)
@@ -208,7 +210,7 @@ class ContentIdentity:
         *,
         seed: Option[U64] = Nothing,
     ) -> ContentKey:
-        # the signature excludes `Struct`, so `lift` cannot key `canonical` and the fold runs no fallible encode — same core, no rail.
+        # `key`'s signature excludes `Struct`, so `lift` cannot key `canonical` and the fold runs no fallible encode — same core, no rail.
         lifted = IdentitySource.lift(source)
         with _derive_span(fmt, lifted.tag) as span:
             return _minted(span, fmt, lifted, seed.default_with(lambda: cls.seed(fmt, policy)))

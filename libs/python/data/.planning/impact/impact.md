@@ -1,8 +1,8 @@
 # [PY_DATA_IMPACT]
 
-The material environmental-impact owner — the EPD/LCA normalization plane of `data`. Two external EPD declaration formats (`openepd`, `epdx`) and three life-cycle-assessment compute legs (the Brightway solver, the live openLCA engine, `premise`-shifted prospective backgrounds) fold into ONE `MaterialImpact` carrier: an EN 15804 indicator × life-cycle-stage matrix keyed by `ContentIdentity`, discriminated on the source payload shape, never a provider knob. This owner owns only the normalization to the common carrier, the identity, the receipt, and the tabular egress — `openepd`/`epdx` own EPD wire parsing, `bw2data` owns the project graph as system of record, `bw2calc`/openLCA own the solver, and `MaterialImpact` is never the system of record.
+One material environmental-impact owner — the EPD/LCA normalization plane of `data`. Two external EPD declaration formats (`openepd`, `epdx`) and three life-cycle-assessment compute legs (the Brightway solver, the live openLCA engine, `premise`-shifted prospective backgrounds) fold into ONE `MaterialImpact` carrier: an EN 15804 indicator × life-cycle-stage matrix keyed by `ContentIdentity`, discriminated on the source payload shape, never a provider knob. This owner owns only the normalization to the common carrier, the identity, the receipt, and the tabular egress — `openepd`/`epdx` own EPD wire parsing, `bw2data` owns the project graph as system of record, `bw2calc`/openLCA own the solver, and `MaterialImpact` is never the system of record.
 
-The self-describing eight-column frame crosses to the C# AEC domain as the seam `Discipline.Environmental` `Assessment` payload routed onto the `Material` node `MaterialPropertySet.Environmental` case — `Rasm.Compute` the assessment-runner owner, `Rasm.Materials` the material-node projection — the physical crossing content-keyed canonical Arrow bytes through the `tabular/columnar` public fold. The solver cluster is pure-python and 3.15-clean: its function-local imports are optional-provider lazy loading, never a version gate — a run touching only the declaration arms never pays the Brightway/openLCA import — while `premise` alone keeps its manifest `<3.15` marker pending resolver evidence and `epdx` carries its `<1.0` pin on the 1.x wheel break. Transport endpoints arrive from the runtime `TransportResource` at the boundary, never re-minted here.
+Its self-describing eight-column frame crosses to the C# AEC domain as the seam `Discipline.Environmental` `Assessment` payload routed onto the `Material` node `MaterialPropertySet.Environmental` case — `Rasm.Compute` the assessment-runner owner, `Rasm.Materials` the material-node projection — the physical crossing content-keyed canonical Arrow bytes through the `tabular/columnar` public fold. Its solver cluster is pure-python and 3.15-clean: its function-local imports are optional-provider lazy loading, never a version gate — a run touching only the declaration arms never pays the Brightway/openLCA import — while `premise` alone keeps its manifest `<3.15` marker pending resolver evidence and `epdx` carries its `<1.0` pin on the 1.x wheel break. Transport endpoints arrive from the runtime `TransportResource` at the boundary, never re-minted here.
 
 ## [01]-[INDEX]
 
@@ -16,7 +16,7 @@ The self-describing eight-column frame crosses to the C# AEC domain as the seam 
 - Auto: `premise` supplies the future-year background LCI and never an LCIA of its own — the `premise_background` case scores through the same Brightway solve arm, keyed by its scenario tuple so identical prospective builds dedupe; a demand×method sweep rides the `Block` arity with each solve content-keyed, never a second arm.
 - Receipt: the receipt keys over the source identity — declaration id+version, solve fingerprint, setup identity, scenario tuple — so re-ingestion or recompute of the same declaration dedupes in the `Rasm.Persistence` reuse ledger rather than recomputing; structured evidence on the one runtime rail, never product LCA state.
 - Packages: `bw2io`/`bw-processing` are the cluster's ingestion and matrix-datapackage substrate, composed by the graph owners; `pyarrow` binds function-local per the module-level ban.
-- Growth: a new EPD format or compute engine is one `ImpactSource` case plus one `_normalize` arm; a new indicator one `Indicator` member plus one `INDICATOR_UNIT` row, with a provider correspondence row only where its field spelling drifts; a new stage one `Stage` row; a new egress shape one `_lower` arm. The staged rows: the EC3 OMF search stream (`epds.find`) when a consumer names search; `annotated_top_emissions` and the recursive-calculation prints as one contribution-kind row each; the `bw2calc.MultiLCA` shared-factorization batch when a consumer carries sweeps too wide for the per-solve arity; per-stage foreground/background splits beyond the aggregate `A1A3` when a consumer carries staged system boundaries.
+- Growth: a new EPD format or compute engine is one `ImpactSource` case plus one `_normalize` arm; a new indicator one `Indicator` member plus one `INDICATOR_UNIT` row, with a provider correspondence row only where its field spelling drifts; a new stage one `Stage` row; a new egress shape one `_lower` arm. Staged rows: the EC3 OMF search stream (`epds.find`) when a consumer names search; `annotated_top_emissions` and the recursive-calculation prints as one contribution-kind row each; the `bw2calc.MultiLCA` shared-factorization batch when a consumer carries sweeps too wide for the per-solve arity; per-stage foreground/background splits beyond the aggregate `A1A3` when a consumer carries staged system boundaries.
 - Boundary: never a per-provider `EpdImpact`/`LcaImpact` carrier split, never a second normalization kernel, never a re-implemented solver or sparse-matrix assembly; a frame missing its `source`/`declared_unit`/`content_key` columns is the rejected form — the C# decoder can neither attribute nor dedupe it.
 
 ```python signature
@@ -25,7 +25,7 @@ from collections.abc import Iterable
 from enum import StrEnum
 from typing import TYPE_CHECKING, Final, Literal, assert_never
 
-from expression import Nothing, Option, Some, case, tag, tagged_union
+from expression import Nothing, Option, Result, Some, case, tag, tagged_union
 from expression.collections import Block, Map
 from msgspec import Struct
 from msgspec import json as msgjson
@@ -36,6 +36,7 @@ from rasm.data.tabular.interop import Backend, FieldShape, FrameInterop
 from rasm.data.tabular.profile import ProfileReceipt, QualityProfile
 from rasm.runtime.faults import Disposition, RuntimeRail, boundary, traversed
 from rasm.runtime.identity import ContentIdentity, ContentKey
+from rasm.runtime.lanes import on_thread
 from rasm.runtime.receipts import Receipt
 from rasm.runtime.roots import TransportResource
 
@@ -101,7 +102,7 @@ class Indicator(StrEnum):  # EN 15804+A2 impact + primary-energy + resource + wa
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# the canonical EN 15804+A2 unit per indicator — ONE table every arm reads; epdx carries no unit
+# canonical EN 15804+A2 unit per indicator — ONE table every arm reads; epdx carries no unit
 # and openepd's ScopeSet subclass pins its own, so the row is the floor and the provider overrides.
 INDICATOR_UNIT: Final[Map[Indicator, str]] = Map.of_seq([
     (Indicator.GWP, "kg CO2 eq"),
@@ -145,7 +146,7 @@ OPENEPD_STAGE: Final[Map[Stage, str]] = Map.of_seq([(stage, "A1A2A3" if stage is
 
 FRAME_COLUMNS: Final[tuple[str, ...]] = ("source", "method", "indicator", "stage", "amount", "unit", "declared_unit", "content_key")
 
-# the structural claim over the fence-pinned wire: amount is the one float64 column, every other
+# structural claim over the fence-pinned wire: amount is the one float64 column, every other
 # slot a non-null string — the FieldShape rows the contract gate proves before the wire crosses.
 _WIRE_SHAPES: Final[tuple[FieldShape, ...]] = tuple(
     FieldShape(field=name, logical_type="Float64" if name == "amount" else "String", nullable=False) for name in FRAME_COLUMNS
@@ -237,7 +238,7 @@ class MaterialImpact(Struct, frozen=True):
 
     @staticmethod
     def ilcd(document: "str | bytes") -> "RuntimeRail[ImpactSource]":
-        # the ILCD admission projector: convert_ilcd panics as pyo3_runtime.PanicException — a
+        # ILCD admission projector: convert_ilcd panics as pyo3_runtime.PanicException — a
         # BaseException no Exception fence sees — so the kernel guards by qualname and re-raises
         # every other BaseException; the converted JSON lands the typed epdx model.
         def convert() -> ImpactSource:
@@ -257,7 +258,7 @@ class MaterialImpact(Struct, frozen=True):
 
     @staticmethod
     async def fetched(transport: TransportResource, uuid: str, method: str = "") -> "RuntimeRail[ImpactSource]":
-        # the live EC3 leg over the runtime transport axis — bearer + retry ride the resource; RootDocumentFactory routes the doctype.
+        # live EC3 leg over the runtime transport axis — bearer + retry ride the resource; RootDocumentFactory routes the doctype.
         acquired = await transport.acquire(f"epds/{uuid}")
         return acquired.bind(
             lambda body: boundary(
@@ -274,18 +275,27 @@ class MaterialImpact(Struct, frozen=True):
         return boundary("impact.frame", lambda: _lower(self))
 
     def wire(self) -> "RuntimeRail[tuple[bytes, ContentKey]]":
-        # the consumer-edge physical crossing: the canonical Arrow-bytes fold over the frame, the carrier key traveling with the bytes.
+        # consumer-edge physical crossing: the canonical Arrow-bytes fold over the frame, the carrier key traveling with the bytes.
         return self.frame().map(lambda table: (bytes(arrow_bytes(table)), self.content_key))
 
     def gated(self, *rules: QualityRule) -> "RuntimeRail[ContractClaim]":
-        # the eight-column frame proves the `_WIRE_SHAPES` structural rows through the one contract gate — the claim records,
+        # eight-column frame proves the `_WIRE_SHAPES` structural rows through the one contract gate — the claim records,
         # never raises, so a breached wire is a caller `match`, not an exception.
         admission = FrameAdmission.of(FrameInterop.of(Backend.PYARROW), _WIRE_SHAPES, *rules)
         return self.frame().bind(lambda table: admission.admit(table).bind(admission.enforce))
 
-    def profiled(self, profile: QualityProfile) -> "RuntimeRail[ProfileReceipt]":
-        # the caller-tuned pointblank plan grades the frame above the gate — pointblank's Narwhals engine admits the pa.Table directly.
-        return self.frame().bind(profile.interrogate)
+    async def profiled(self, profile: QualityProfile) -> "RuntimeRail[ProfileReceipt]":
+        # caller-tuned pointblank plan grades the frame above the gate — pointblank's Narwhals engine admits the pa.Table
+        # directly. The synchronous Arrow lowering crosses the band-bounded `on_thread` hop so the loop never hosts the
+        # materialization; the frame rail short-circuits before the awaited interrogation and the composed signature
+        # stays one rail, never a coroutine smuggled through `bind`.
+        match await on_thread(self.frame):
+            case Result(tag="error") as refused:
+                return refused
+            case Result(tag="ok", ok=table):
+                return await profile.interrogate(table)
+            case _ as unreachable:
+                assert_never(unreachable)
 
     def receipt(self) -> ImpactReceipt:
         sampled = max((cell.spread.map(lambda s: s.samples).default_value(0) for cell in self.cells), default=0)
@@ -349,7 +359,7 @@ def _from_epdx(epd: "IlcdEpd") -> MaterialImpact:
 
 
 def _from_score(solve: LcaSolve, source: str, identity: bytes) -> MaterialImpact:
-    # the staged bw2calc solve at mined depth: lci/lcia/score -> the aggregate A1A3 cell; Monte
+    # staged bw2calc solve at mined depth: lci/lcia/score -> the aggregate A1A3 cell; Monte
     # Carlo one draw per next(lca); bw2analyzer contribution rows when the request carries depth.
     import bw2calc as bc  # noqa: PLC0415 — banded boundary import
     import bw2data as bd  # noqa: PLC0415
@@ -386,7 +396,7 @@ def _from_score(solve: LcaSolve, source: str, identity: bytes) -> MaterialImpact
 
 
 def _from_olca(solve: OlcaSolve) -> MaterialImpact:
-    # the documented lifecycle: setup -> calculate -> wait_until_ready -> query -> dispose (finally).
+    # documented lifecycle: setup -> calculate -> wait_until_ready -> query -> dispose (finally).
     import olca_ipc as ipc  # noqa: PLC0415 — banded boundary import
 
     client = ipc.Client(solve.endpoint)
@@ -421,7 +431,7 @@ def _doctyped(body: bytes) -> "Epd | IndustryEpd | GenericEstimate":
 
 
 def _lower(impact: MaterialImpact) -> "pa.Table":
-    # the eight-column SELF-DESCRIBING floor: a frame the C# Discipline.Environmental Assessment
+    # eight-column SELF-DESCRIBING floor: a frame the C# Discipline.Environmental Assessment
     # decode attributes (source/method/declared_unit) and dedupes (content_key) with no side channel.
     import pyarrow as pa  # noqa: PLC0415 — module-level import banned; deferred at the egress edge
 

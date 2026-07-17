@@ -1,8 +1,8 @@
 # [PY_COMPUTE_TRANSFORM]
 
-The one frequency-domain transform owner: `TransformOp` discriminates the pocketfft Fourier family, the trigonometric cosine/sine transforms, the FFTLog fast Hankel transform, and the FFT-backed analytic signal on a single `Transform` surface, so a spectrum, an energy-compacted basis, a log-radial coefficient set, and an instantaneous envelope are transform evidence on one owner rather than a per-transform method family. The eight pocketfft entrypoints collapse to one forward body and one inverse body indexing a `FOURIER_ROUTES` row per `FourierBasis`, and one `SpectralReadout` axis folds every dominant-band read, so output is parameterized as tightly as input. These are in-memory transforms; columnar and gridded statistical aggregation defers to the `data` branch gridded/field owners.
+One frequency-domain transform owner rules: `TransformOp` discriminates the pocketfft Fourier family, the trigonometric cosine/sine transforms, the FFTLog fast Hankel transform, and the FFT-backed analytic signal on a single `Transform` surface, so a spectrum, an energy-compacted basis, a log-radial coefficient set, and an instantaneous envelope are transform evidence on one owner rather than a per-transform method family. Pocketfft's eight entrypoints collapse to one forward body and one inverse body indexing a `FOURIER_ROUTES` row per `FourierBasis`, and one `SpectralReadout` axis folds every dominant-band read, so output is parameterized as tightly as input. These are in-memory transforms; columnar and gridded statistical aggregation defers to the `data` branch gridded/field owners.
 
-The operand admits through `numerics/array.md#PAYLOAD` for the finite gate and the operand `ContentKey`; the receipt keys the RESULT through the op-owned `identity_buffer` fold, so two different ops over one operand never share a key; the resolved receipt is the `ReceiptContributor` the study spine harvests through the `runtime/observability/receipts#RECEIPT` `@receipted` aspect. `scipy.fft` is Array-API-aware, so the Fourier/Trigonometric/Hankel arms ride the resolved `xp` while the analytic arm stays numpy-resident — `scipy.signal.hilbert` is jax-skipped and its Array-API support sits behind the `SCIPY_ARRAY_API` gate.
+Operands admit through `numerics/array.md#PAYLOAD` for the finite gate and the operand `ContentKey`; the receipt keys the RESULT through the op-owned `identity_buffer` fold, so two different ops over one operand never share a key; the resolved receipt is the `ReceiptContributor` the study spine harvests through the `runtime/observability/receipts#RECEIPT` `@receipted` aspect. `scipy.fft` is Array-API-aware, so the Fourier/Trigonometric/Hankel arms ride the resolved `xp` while the analytic arm stays numpy-resident — `scipy.signal.hilbert` is jax-skipped and its Array-API support sits behind the `SCIPY_ARRAY_API` gate. Every body crosses the runtime thread band under the `RELEASING` trait through `lane.offload` — the sibling `analysis/signal.md#DSP` crossing — and the pocketfft worker team binds to `LanePolicy.capacity`, never the unbounded `-1` team that oversubscribes an already-offloaded kernel against the band.
 
 ## [01]-[INDEX]
 
@@ -28,9 +28,12 @@ from expression.collections import Map
 from msgspec import Struct
 
 from rasm.compute.numerics.array import ArrayPayload, ArraySource, FiniteGate
+from rasm.compute.graduation.handoff import EvidenceScope, evidence_run
 from rasm.runtime.identity import ContentIdentity, ContentKey
+from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.faults import RuntimeRail, boundary
 from rasm.runtime.receipts import Receipt
+from rasm.runtime.workers import Kernel, KernelTrait
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -71,7 +74,7 @@ class SpectralReadout(StrEnum):
     FLATNESS = "flatness"  # geometric-over-arithmetic mean (Wiener entropy)
 
     def fold(self, freqs: "Array", amplitude: "Array") -> float:
-        # the spine is the LINEAR AMPLITUDE spectrum `|X(f)|`, never power — an owner holding a power/energy spine square-roots
+        # spine is the LINEAR AMPLITUDE spectrum `|X(f)|`, never power — an owner holding a power/energy spine square-roots
         # before the fold, while `FLATNESS` squares back to power internally (the librosa `power=2.0` convention). Every reduction
         # is an Array API standard op, the namespace resolved off the amplitude operand.
         xp = array_namespace(amplitude)
@@ -222,15 +225,26 @@ def _fourier_routes() -> Map[FourierBasis, FourierRoute]:
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def apply(samples: object, fs: float, op: TransformOp) -> "RuntimeRail[TransformReceipt]":
+def _transform_kernel(samples: object, fs: float, op: TransformOp, workers: int) -> "RuntimeRail[TransformReceipt]":
+    # module-level so REFERENCE shipping resolves it by import — a closure pays an eager cloudpickle round-trip
+    # no thread arm needs; `workers` arrives as the lane capacity the pocketfft team binds to.
     return ArrayPayload.admit(ArraySource.Live(samples), (), FiniteGate.REJECT).bind(
         lambda payload: ContentIdentity.of(f"transform.{op.tag}", op.identity_buffer(fs, payload.content_key)).bind(
-            lambda result_key: boundary(f"transform.{op.tag}", lambda: _apply(samples, fs, op, result_key))
+            lambda result_key: boundary(f"transform.{op.tag}", lambda: _apply(samples, fs, op, result_key, workers))
         )
     )
 
 
-def _apply(samples: object, fs: float, op: TransformOp, key: ContentKey) -> TransformReceipt:
+async def apply(samples: object, fs: float, op: TransformOp, lane: LanePolicy) -> "RuntimeRail[TransformReceipt]":
+    # weave owns span, fence, and the `@receipted` receipt harvest.
+    async def dispatch() -> RuntimeRail[TransformReceipt]:
+        # One flatten from `RuntimeRail[RuntimeRail[TransformReceipt]]` to `RuntimeRail[TransformReceipt]`.
+        return (await lane.offload(Kernel.of(_transform_kernel, KernelTrait.RELEASING), samples, fs, op, lane.capacity)).bind(lambda rail: rail)
+
+    return await evidence_run(EvidenceScope.TRANSFORM, f"transform.{op.tag}", dispatch)
+
+
+def _apply(samples: object, fs: float, op: TransformOp, key: ContentKey, workers: int) -> TransformReceipt:
     import scipy.fft as fft
     import scipy.signal as sig
 
@@ -242,7 +256,7 @@ def _apply(samples: object, fs: float, op: TransformOp, key: ContentKey) -> Tran
     spacing = 1.0 / fs
     match op:
         case TransformOp(tag="fourier", fourier=(basis, axes, readout, pad, invert)):
-            return TransformReceipt.of("fourier", x.size, key, _fourier(xp, fft, x, spacing, basis, axes, readout, pad, invert))
+            return TransformReceipt.of("fourier", x.size, key, _fourier(xp, fft, x, spacing, basis, axes, readout, pad, invert, workers))
         case TransformOp(tag="trigonometric", trigonometric=(kind, variant, axes, keep)):
             return TransformReceipt.of(kind.value, x.size, key, _trigonometric(xp, fft, x, kind, variant, axes, keep))
         case TransformOp(tag="analytic", analytic=readout):
@@ -263,14 +277,16 @@ def _fourier(
     readout: SpectralReadout,
     pad: PadPolicy,
     invert: bool,
+    workers: int,
 ) -> TransformEvidence:
     forward, inverse, grid = _fourier_routes()[basis]
     lead = axes[0] if axes else (x.ndim - 1)
     fast = (lambda a, real: fft.next_fast_len(x.shape[a], real=real)) if pad is PadPolicy.FAST else (lambda a, real: x.shape[a])
     n = fast(lead, basis is FourierBasis.REAL)
-    # the n-D path is the complex `fftn`/`ifftn` mirror (scipy catalogs no `rfftn`/`hfftn`): a non-empty `axes` runs the complex
-    # transform on the `fftfreq` grid regardless of `basis`, padding each transformed axis to its OWN fast length.
-    with fft.set_workers(-1):
+    # n-D path is the complex `fftn`/`ifftn` mirror (scipy catalogs no `rfftn`/`hfftn`): a non-empty `axes` runs the complex
+    # transform on the `fftfreq` grid regardless of `basis`, padding each transformed axis to its OWN fast length. `set_workers`
+    # binds the pocketfft team to the lane capacity — `-1` spawns an unbounded page-local team under an already-offloaded kernel.
+    with fft.set_workers(workers):
         spectrum = fft.fftn(x, s=tuple(fast(a, False) for a in axes), axes=axes) if axes else forward(x, n=n, axis=lead)
     freqs = xp.asarray(fft.fftfreq(spectrum.shape[lead], spacing) if axes else grid(n, spacing))
     amplitude = xpx.nan_to_num(xp.abs(spectrum), xp=xp)
@@ -280,16 +296,16 @@ def _fourier(
     band = readout.fold(freqs[: spine.shape[0]], spine)
     if not invert:
         return TransformEvidence.Spectrum(readout, band, energy)
-    # the inverse pins `s`/`n` to the SOURCE lengths so the residual against `x` is shape-correct under PadPolicy.FAST.
+    # inverse pins `s`/`n` to the SOURCE lengths so the residual against `x` is shape-correct under PadPolicy.FAST.
     rebuilt = fft.ifftn(spectrum, s=tuple(x.shape[a] for a in axes), axes=axes) if axes else inverse(spectrum, n=x.shape[lead], axis=lead)
-    # the complex norm holds for all three bases — `ihfft` reconstructs a complex half-spectrum, and forcing `xp.real` truncates
+    # complex norm holds for all three bases — `ihfft` reconstructs a complex half-spectrum, and forcing `xp.real` truncates
     # its imaginary part and inflates the residual.
     residual = float(xp.linalg.norm(xp.reshape(rebuilt - x, (-1,))) / (xp.linalg.norm(xp.reshape(x, (-1,))) + 1e-30))
     return TransformEvidence.Roundtrip(band, energy, residual)
 
 
 def _hankel(xp: "ModuleType", fft: "ModuleType", x: "Array", dln: float, mu: float, readout: SpectralReadout, invert: bool) -> TransformEvidence:
-    # the conjugate log-radial abscissa `exp(dln * (i - n/2))` gives the readout a real radial frequency, never a bare bin index.
+    # conjugate log-radial abscissa `exp(dln * (i - n/2))` gives the readout a real radial frequency, never a bare bin index.
     coeffs = xp.asarray(fft.fht(x, dln, mu))
     grid = xp.exp(dln * (xp.arange(coeffs.shape[-1], dtype=xpx.default_dtype(xp, "real floating")) - 0.5 * coeffs.shape[-1]))
     amplitude = xpx.nan_to_num(xp.abs(coeffs), xp=xp)

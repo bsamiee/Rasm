@@ -2,7 +2,7 @@
 
 `Detect` is the ingest-boundary format-identification owner: one polymorphic `of` admits a `Source` or an `Iterable[Source]` and sniffs each payload into a typed `DetectIdentity` — MIME, description, charset, valid-extension tuple, the derived `MediaClass` routing discriminant, the orthogonal `Container` structural discriminant (the ZIP/OLE/TAR/compression kind a consumer routes a second-pass unpacker on), the multi-match set, the ingress-declared `claimed` type, the `Trust` declared-vs-sniffed verdict, the sniff `confidence`, the resolving `engine`, byte length, and libmagic version. It is the DUAL-ENGINE owner over ONE surface: `puremagic` is the in-process pure-Python DEFAULT whose `single_deep_scan` resolves the `PK\x03\x04` ZIP and `\xd0\xcf\x11\xe0` CFBF containers to the EXACT OOXML/ODF/EPUB/USDZ + legacy-Office subtype (closing the `application/zip`/`application/CDFV2` floor) and whose float `confidence` is the native ambiguity signal `libmagic` can only approximate through `keep_going`; `python-magic`/libmagic is the broad-leaf-signature fallback ONLY where its compiled database recognizes a niche signature `magic_data.json` lacks — a stronger-on-a-distinct-axis retention, never an overlap.
 
-`DetectEngine` (`PUREMAGIC`/`LIBMAGIC`/`LAYERED`) composes the arms over the caller-threaded `LanePolicy.offload` seam: `puremagic` rides the loader path IN-PROCESS on `Modality.THREAD`, while `libmagic` — a Forge-provisioned host dependency off the loader path — crosses `Modality.PROCESS` under `retry=RetryClass.OCCT`; `LAYERED` escalates ONLY a resolved-but-`UNKNOWN` verdict to libmagic, so a confident sniff never pays the crossing and a provisioning fault keeps the honest `UNKNOWN`. `Detect` sits STRATUM 1 — it imports nothing artifacts-internal, and `graphic/raster/io`, `document/lens`, and `document/emit` import it downward. Every detection resolves the `DetectIdentity` the per-format reader dispatch reads through `MediaClass`, minting no `ContentKey` (the `evidence/identity#IDENTITY` owner's concern) and reading no descriptive metadata inside the container (`exchange/metadata#METADATA`'s).
+`DetectEngine` (`PUREMAGIC`/`LIBMAGIC`/`LAYERED`) composes the arms over the caller-threaded `LanePolicy.offload` seam: `puremagic` rides the loader path as a `KernelTrait.RELEASING` thread kernel, while `libmagic` — a Forge-provisioned host dependency off the loader path — crosses as `KernelTrait.HOSTILE` onto the warm process pool under its trait-row worker-death retry; `LAYERED` escalates ONLY a resolved-but-`UNKNOWN` verdict to libmagic, so a confident sniff never pays the crossing and a provisioning fault keeps the honest `UNKNOWN`. `Detect` sits STRATUM 1 — it imports nothing artifacts-internal, and `graphic/raster/io`, `document/lens`, and `document/emit` import it downward. Every detection resolves the `DetectIdentity` the per-format reader dispatch reads through `MediaClass`, minting no `ContentKey` (the `evidence/identity#IDENTITY` owner's concern) and reading no descriptive metadata inside the container (`exchange/metadata#METADATA`'s).
 
 ## [01]-[INDEX]
 
@@ -11,12 +11,12 @@
 ## [02]-[DETECT]
 
 - Owner: `Detect` carries the offload seam, the `DetectEngine` axis, a `DetectProfile`, a `DetectPolicy`, a `deepscan` toggle, and a `Disposition` batch-combination policy. `Source` is the closed `Buffer`/`File` admission family — a `File`'s path is read WORKER-SIDE so the parent never pickles the payload across the process seam, and each `@beartype(conf=FAULT_CONF)`-woven factory lifts a malformed `bytes`/`Path` ingress onto the fault rail rather than a native `TypeError` deep in the sniff. `DetectProfile` is the facet-cookie selector on the libmagic arm alone — the `puremagic` arm resolves the full identity in one roster call. `MagicFacet` pins exactly one `Magic` cookie flag per facet through `_FACET_FLAG` because libmagic cooks one string per call, never a `tuple[bool, bool, bool]` triple. `DetectPolicy` folds the `DetectFlag` set, the `MagicParam` recursion/ELF caps, the `CheckClass` test-class narrowing, and the custom `.mgc` `magic_db` into ONE value instead of per-call flag arguments. `MediaClass` (routing) and `Container` (structural) are orthogonal discriminants both from the one sniffed MIME via `_classified`'s exact-then-longest-prefix fold, so the longest registered prefix wins and an OOXML compound subtype routes correctly even when the deep-scan appends the `.document`/`.sheet` suffix. `Trust` folds `media_class`/`container`/multi-match/`extensions`/`claimed` AND `confidence` in one pass — a sub-`_CONFIDENCE_FLOOR` top match collapses to `UNKNOWN`, two distinct strong matches to `AMBIGUOUS` — so a spoofed, polyglot, or low-confidence payload is a stated verdict, not silently-discarded evidence. `DetectIdentity` IS its own wire/egress projection a consumer renders through `msgspec.to_builtins` directly, never a forwarding `facts()` hop.
-- Cases: `DetectEngine` — `PUREMAGIC` (`_pure_detect` over the roster on `Modality.THREAD`, deep-scan folding the exact ZIP/CFBF subtype) · `LIBMAGIC` (`_gated_detect` over the flag-pinned `Magic` cookie on `Modality.PROCESS` under `retry=RetryClass.OCCT`) · `LAYERED` (`_pure` first, `_libmagic` escalated ONLY on a `MediaClass.UNKNOWN` verdict, `or_else_with` keeping the puremagic `UNKNOWN` when the libmagic worker itself faults) — one total `match` in `_railed`. `DetectProfile` rows select the `_PROFILE_FACETS` facet set (`IDENTITY` cooking `MIME`/`DESCRIPTION`/`ENCODING`/`EXTENSION` each in its own cookie in one libmagic crossing). `MagicParam` caps and `CheckClass` narrowing apply through `setparam`/`magic_setflags` to harden untrusted ingest against unbounded recursion and ELF-table bombs. `MediaClass` routes: `MODEL` sends IANA `model/*` to `scene/stage#STAGE`/`scene/export#EXPORT`, `EBOOK` sends epub/mobi to `pymupdf`, `DATA` sends json/xml/yaml/toml/csv to the structured readers a bare `text/` prefix floors to `TEXT`. `Container` is the parallel structural axis (`ZIP`/`OLE`/per-compression) `media_class` cannot answer, so a consumer routes reader on one and second-pass unpacker on the other without a re-sniff. `Trust`: `UNKNOWN` for the octet-stream floor, the `MediaClass.UNKNOWN` sniff, or a sub-floor confidence; `AMBIGUOUS` for a polyglot; `MISMATCH` for a cross-class claim or a same-class `guess_all_extensions` disjoint from the sniffed `extensions`; `IDENTIFIED` for an agreeing sniff or a generic-container claim (`application/zip` for a `.docx`) whose `Container` matches the sniffed one — the ARCHIVE-gated generalization the cross-class check otherwise false-flags, needed less now the deep-scan resolves the exact subtype.
+- Cases: `DetectEngine` — `PUREMAGIC` (`_pure_detect` over the roster on the `RELEASING` thread arm, deep-scan folding the exact ZIP/CFBF subtype) · `LIBMAGIC` (`_gated_detect` over the flag-pinned `Magic` cookie as a `HOSTILE` kernel) · `LAYERED` (`_pure` first, `_libmagic` escalated ONLY on a `Trust.UNKNOWN` verdict, `or_else_with` keeping the puremagic `UNKNOWN` when the libmagic worker itself faults) — one total `match` in `_railed`. `DetectProfile` rows select the `_PROFILE_FACETS` facet set (`IDENTITY` cooking `MIME`/`DESCRIPTION`/`ENCODING`/`EXTENSION` each in its own cookie in one libmagic crossing). `MagicParam` caps and `CheckClass` narrowing apply through `setparam`/`magic_setflags` to harden untrusted ingest against unbounded recursion and ELF-table bombs. `MediaClass` routes: `MODEL` sends IANA `model/*` to `scene/stage#STAGE`/`scene/export#EXPORT`, `EBOOK` sends epub/mobi to `pymupdf`, `DATA` sends json/xml/yaml/toml/csv to the structured readers a bare `text/` prefix floors to `TEXT`. `Container` is the parallel structural axis (`ZIP`/`OLE`/per-compression) `media_class` cannot answer, so a consumer routes reader on one and second-pass unpacker on the other without a re-sniff. `Trust`: `UNKNOWN` for the octet-stream floor, the `MediaClass.UNKNOWN` sniff, or a sub-floor confidence; `AMBIGUOUS` for a polyglot; `MISMATCH` for a cross-class claim or a same-class `guess_all_extensions` disjoint from the sniffed `extensions`; `IDENTIFIED` for an agreeing sniff or a generic-container claim (`application/zip` for a `.docx`) whose `Container` matches the sniffed one — the ARCHIVE-gated generalization the cross-class check otherwise false-flags, needed less now the deep-scan resolves the exact subtype.
 - Auto: `_pure_detect` reads `_pure_roster` — a `Buffer` spills to a bounded `NamedTemporaryFile` so its ZIP/CFBF central directory resolves the exact subtype at `confidence == 1.0`, a `File` deep-scans natively, and either drops to the no-I/O `identify_all` head+foot when `deepscan` is off — traps `PureError`/`PureValueError` to an empty roster (an unmatched payload is the gate's honest `UNKNOWN`), takes the top head, and folds the charset through `_charset` (gated to the text-family class) into the `encoding` the libmagic `mime_encoding` cook alone set before, so BOTH arms converge on a populated `encoding`. `_gated_detect` reads `magic.version()` once (the `EXTENSION` facet gated `>= _EXTENSION_MIN`), cooks each facet through the memoised `_cookie`, and trusts its single match at `confidence=1.0` since libmagic carries no confidence. `_handle509Bug`'s null-result quirk returns `application/octet-stream` (a valid unknown-content MIME classified `UNKNOWN`), never an escaping exception.
 - Receipt: `Detect` is the format-ID GATE, not a producer — the S1 seams `graphic/raster/io`, `document/lens`, and `document/emit` all import detect DOWNWARD, with no `→ core/receipt` or `→ core/plan` edge, so it contributes no `ArtifactReceipt` and mints no `ContentKey` (the `evidence/identity#IDENTITY` hash a producing owner mints over emitted bytes, which `Detect` neither computes nor folds into). Each detection resolves the `DetectIdentity` the document/PDF/image/scene owners read before per-format dispatch. `MediaClass` is the consumers' routing discriminant (`PDF`→`pymupdf`, `WORD`→`python-docx`, `SPREADSHEET`→`openpyxl`, `MODEL`→`scene/stage#STAGE`, `DATA`→`msgspec`/`lxml`, …) — the deep-scan splitting `.docx`/`.xlsx`/`.pptx` to their exact subtypes so one OOXML class never fans to three packages; the consumers own the `MediaClass`→reader table, this owner only the classification, and the descriptive metadata INSIDE the container is `exchange/metadata#METADATA`'s concern.
 - Packages: `puremagic` (`magic_file`/`magic_string`/`magic_stream` the confidence-ranked roster, unknown resolving `[]` under `raise_on_none=False` never a raise; `main.file_details`/`string_details`/`identify_all` the no-I/O head+foot; `single_deep_scan` the exact OOXML/CFBF subtype through the `zip_scanner`/`cfbf_scanner`; `ext_from_filename`/`from_extension` the ext↔MIME reverse-lookup, `PureError` on an unregistered ext; `text_scanner.decode_any` returning `(text, encoding)` and raising `TypeError` on an undecodable head; the two roster-trapped faults `PureError`(LookupError)/`PureValueError`(ValueError); the bundled `magic_data.json` needs no `.mgc`); `python-magic` (`Magic(...)` — the combined `mime=True, mime_encoding=True` cook returns the fused `text/plain; charset=utf-8` form the one-flag-per-facet law forbids; `version()` raising `NotImplementedError` on an ancient lib is the `_EXTENSION_MIN` gate; `magic_setflags` the raw-bit `MAGIC_NO_CHECK_*` binding no constructor boolean covers; `import magic` raises `ImportError` off the loader path so it is reified worker-side only; `Magic.from_descriptor` excluded — a parent-process fd never crosses the process seam); runtime (`LanePolicy.offload`, `faults.traversed`, `FAULT_CONF`); `pydantic-settings`; `expression`; `msgspec`; stdlib `mimetypes` (`guess_file_type`/`guess_all_extensions` the thin fallback and same-class spoof set).
 - Growth: a new engine is one `DetectEngine` member plus one `_railed` arm; a new facet one `MagicFacet` plus one `_FACET_FLAG` row; a new profile one `DetectProfile` plus one `_PROFILE_FACETS` row; a new libmagic flag one `DetectFlag`; a tuning param one `MagicParam`; a test-class narrowing one `CheckClass`; a routing branch one `MediaClass` plus one `_MEDIA_CLASS` row; a container kind one `Container` plus one `_CONTAINER` row; a source kind one `Source` case; an ingest verdict one `Trust` member plus one `_trust` arm; an identity fact one `DetectIdentity` field; a deployment knob one `DetectSettings` field plus one `detector()` projection; the singular/batch modality rides the existing `of(Source | Iterable[Source])`; zero new surface.
-- Boundary: `Detect` owns content sniffing only — no `ContentKey`, no `ArtifactReceipt`, and no descriptive-metadata read inside the container (`exchange/metadata#METADATA`'s concern). `puremagic`'s default rides the loader path IN-PROCESS on `Modality.THREAD` (no native dependency to reify, so the process crossing, retry row, and pickle seam the libmagic arm pays all drop), while libmagic — off the loader path — crosses `Modality.PROCESS` under `WORKER_BAND`/`RetryClass.OCCT`. Not a single-engine libmagic-only owner: `puremagic` is the categorical-best default and libmagic the distinct-axis fallback. `lane.offload` owns isolation/band/retry/boundary, never a folder-minted limiter beside it. `DetectSettings` admits the deployment env once, never raw `os.environ` reads.
+- Boundary: `Detect` owns content sniffing only — no `ContentKey`, no `ArtifactReceipt`, and no descriptive-metadata read inside the container (`exchange/metadata#METADATA`'s concern). `puremagic`'s default rides the loader path IN-PROCESS as a `RELEASING` kernel (no native dependency to reify, so the process crossing and pickle seam the libmagic arm pays both drop), while libmagic — off the loader path — crosses as `HOSTILE` under its trait-row worker-death retry. Not a single-engine libmagic-only owner: `puremagic` is the categorical-best default and libmagic the distinct-axis fallback. `lane.offload` owns isolation/band/retry/boundary, never a folder-minted limiter beside it. `DetectSettings` admits the deployment env once, never raw `os.environ` reads.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -33,6 +33,7 @@ from typing import Final, Literal, assert_never, overload
 import anyio
 from anyio import TaskHandle
 from beartype import beartype
+from builtins import frozendict
 from expression import case, tag, tagged_union
 from expression.collections import Block, Map
 from expression.extra.result import catch
@@ -40,8 +41,8 @@ from msgspec import Struct
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from rasm.runtime.faults import FAULT_CONF, BoundaryFault, Disposition, RuntimeRail, traversed
-from rasm.runtime.lanes import LanePolicy, Modality
-from rasm.runtime.resilience import RetryClass
+from rasm.runtime.lanes import LanePolicy
+from rasm.runtime.workers import Kernel, KernelTrait
 
 lazy from puremagic import (
     PureError,
@@ -57,9 +58,9 @@ lazy import magic  # libmagic native dep, off the loader path; reified worker-si
 
 # --- [TYPES] ----------------------------------------------------------------------------
 class DetectEngine(StrEnum):
-    PUREMAGIC = "puremagic"  # pure-Python default, in-process THREAD-modality offload, confidence roster + deep-scan exact subtypes
-    LIBMAGIC = "libmagic"  # native libmagic fallback, broad leaf-signature database, PROCESS-modality offload
-    LAYERED = "layered"  # puremagic default → libmagic escalation on a MediaClass.UNKNOWN miss
+    PUREMAGIC = "puremagic"  # pure-Python default on the RELEASING thread kernel, confidence roster + deep-scan exact subtypes
+    LIBMAGIC = "libmagic"  # native libmagic fallback, broad leaf-signature database, HOSTILE process kernel
+    LAYERED = "layered"  # puremagic default → libmagic escalation on a Trust.UNKNOWN verdict
 
 
 class MagicFacet(StrEnum):
@@ -257,7 +258,7 @@ _MEDIA_CLASS: Final[Map[str, MediaClass]] = Map.of_seq([
     ("text/", MediaClass.TEXT),
 ])
 
-# the structural container the sniffed MIME sits inside, orthogonal to MediaClass: a `.docx` is
+# structural container the sniffed MIME sits inside, orthogonal to MediaClass: a `.docx` is
 # (WORD, ZIP), a legacy `.doc` is (OFFICE_LEGACY, OLE), a bare archive is (ARCHIVE, its compression
 # kind) — the discriminant a consumer routes a second-pass unpacker (stream-unzip/olefile/py7zr/…) on.
 _CONTAINER: Final[Map[str, Container]] = Map.of_seq([
@@ -309,6 +310,7 @@ class DetectIdentity(Struct, frozen=True, gc=False):
     libmagic_version: int = 0
 
 
+# --- [SERVICES] -------------------------------------------------------------------------
 class DetectSettings(BaseSettings):  # admitted once at the composition root; the deployment env → configured Detect
     model_config = SettingsConfigDict(env_prefix="RASM_DETECT_", frozen=True, extra="forbid")
     engine: DetectEngine = DetectEngine.LAYERED
@@ -356,17 +358,17 @@ class Detect:
 
     async def _pure(self, source: Source, /) -> RuntimeRail[DetectIdentity]:
         # in-process THREAD_BAND parse; no retry row — nothing transient to recover
-        return await self.lane.offload(_pure_detect, source, self.deepscan, modality=Modality.THREAD)
+        return await self.lane.offload(Kernel.of(_pure_detect, KernelTrait.RELEASING), source, self.deepscan)
 
     async def _libmagic(self, source: Source, /) -> RuntimeRail[DetectIdentity]:
         # OCCT recovers a transient worker death, never a deterministic crash; the MagicParam caps are the bomb defense
-        return await self.lane.offload(_gated_detect, source, self.profile, self.policy, modality=Modality.PROCESS, retry=RetryClass.OCCT)
+        return await self.lane.offload(Kernel.of(_gated_detect, KernelTrait.HOSTILE), source, self.profile, self.policy)
 
     async def _layered(self, source: Source, /) -> RuntimeRail[DetectIdentity]:
         # escalate ONLY a resolved-but-UNKNOWN verdict; a libmagic provisioning fault keeps the puremagic UNKNOWN
         primary = await self._pure(source)
         resolved = primary.to_option()
-        if resolved.is_none() or resolved.value.media_class is not MediaClass.UNKNOWN:
+        if resolved.is_none() or resolved.value.trust is not Trust.UNKNOWN:
             return primary
         return (await self._libmagic(source)).or_else_with(lambda _fault: primary)
 
@@ -398,19 +400,16 @@ def _trust(
 ) -> Trust:
     declared = MediaClass.of(claimed) if claimed else MediaClass.UNKNOWN
     claimed_container = Container.of(claimed) if claimed else Container.NONE
-    claimed_exts = frozenset(
-        suffix.lstrip(".") for suffix in mimetypes.guess_all_extensions(claimed)
-    )  # the claim's valid extensions, dot-stripped to the sniffed form
+    # claim's valid extensions, dot-stripped to the sniffed form
+    claimed_exts = frozenset(suffix.lstrip(".") for suffix in mimetypes.guess_all_extensions(claimed))
     return (
         Trust.UNKNOWN
         if media_class is MediaClass.UNKNOWN or mime in ("", "application/octet-stream") or confidence < _CONFIDENCE_FLOOR
         else Trust.AMBIGUOUS
         if len(matches) > 1  # two distinct strong matches — a polyglot
         else Trust.IDENTIFIED
-        if declared is MediaClass.ARCHIVE
-        and claimed_container
-        is container
-        is not Container.NONE  # a generic-container claim naming the sniffed container is a generalization, not a spoof
+        # a generic-container claim naming the sniffed container is a generalization, not a spoof
+        if declared is MediaClass.ARCHIVE and claimed_container is container is not Container.NONE
         else Trust.MISMATCH
         if declared is not MediaClass.UNKNOWN and declared is not media_class  # cross-class spoof
         else Trust.MISMATCH
@@ -420,7 +419,7 @@ def _trust(
 
 
 def _claim_mime(path: Path, /) -> str:
-    # the File claim over puremagic's richer ext<->MIME table: `ext_from_filename` recovers a compound
+    # File claim over puremagic's richer ext<->MIME table: `ext_from_filename` recovers a compound
     # extension the stdlib split drops, `from_extension` maps it (`PureError` trapped to the stdlib fallback).
     ext = ext_from_filename(path)
     stdlib = mimetypes.guess_file_type(path)[0] or ""
@@ -428,7 +427,7 @@ def _claim_mime(path: Path, /) -> str:
 
 
 def _charset(source: Source, media_class: MediaClass, /) -> str:
-    # the in-process charset facet symmetric with the libmagic `mime_encoding` cook: `text_scanner.decode_any`
+    # in-process charset facet symmetric with the libmagic `mime_encoding` cook: `text_scanner.decode_any`
     # over a bounded head, `TypeError`-trapped (undecodable binary narrows to ""), gated to the text-family class.
     if media_class not in (MediaClass.TEXT, MediaClass.DATA):
         return ""
@@ -444,14 +443,15 @@ def _charset(source: Source, media_class: MediaClass, /) -> str:
 
 
 def _pure_roster(source: Source, deepscan: bool, /) -> Block[PureMagicWithConfidence]:
-    # the confidence-ranked roster; a Buffer spills to a bounded temp file so its ZIP/CFBF central directory
+    # confidence-ranked roster; a Buffer spills to a bounded temp file so its ZIP/CFBF central directory
     # resolves the exact subtype, deepscan off drops to the no-I/O head+foot; PureError/PureValueError → empty.
     try:
         match source:
             case Source(tag="buffer", buffer=(payload, _)) if deepscan:
-                with NamedTemporaryFile(
-                    delete_on_close=False
-                ) as spill:  # Exemption: puremagic deep-scan reads a real path for the ZIP/CFBF central directory
+                # Exemption: puremagic deep-scan reads a real path for the ZIP/CFBF central directory; the
+                # default `delete=True` reclaims the spill at context exit on every path, `delete_on_close`
+                # only deferring the unlink past the read.
+                with NamedTemporaryFile(delete_on_close=False) as spill:
                     spill.write(payload)
                     spill.flush()
                     return Block.of_seq(magic_file(spill.name))
@@ -505,10 +505,12 @@ def _cookie(
     /,
 ) -> "magic.Magic":
     cookie = magic.Magic(magic_file=str(magic_db) if magic_db is not None else None, **({facet_flag: True} if facet_flag else {}), **flagged)
+    # Exemption: libmagic exposes cookie policy only through mutating setters and raw flag replacement. Every
+    # mutation lives INSIDE this cached constructor and the cache is worker-process-local — `_gated_detect`
+    # runs only inside the HOSTILE process worker, one job per worker — so a cooked cookie is never mutated after
+    # construction nor shared across threads, and the per-key memo spares a magic-database reload per call.
     for param, value in params.items():
-        cookie.setparam(
-            getattr(magic, param.value), value
-        )  # cookie and its loaded database cached across detections in the worker
+        cookie.setparam(getattr(magic, param.value), value)
     if no_check:  # MAGIC_NO_CHECK_* is raw-bit-only; classes OR into the flags via `magic_setflags`
         magic.magic_setflags(cookie.cookie, cookie.flags | reduce(or_, (getattr(magic, klass.value) for klass in no_check), 0))
     return cookie
@@ -549,9 +551,8 @@ def _gated_detect(source: Source, profile: DetectProfile, policy: DetectPolicy, 
         container=container,
         matches=matches,
         claimed=claimed,
-        trust=_trust(
-            mime, media_class, container, extensions, matches, claimed, 1.0
-        ),  # libmagic carries no confidence; it clears the floor and trusts its single match
+        # libmagic carries no confidence; it clears the floor and trusts its single match
+        trust=_trust(mime, media_class, container, extensions, matches, claimed, 1.0),
         confidence=1.0,
         engine=DetectEngine.LIBMAGIC,
         byte_length=source.length,

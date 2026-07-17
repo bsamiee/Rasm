@@ -1,6 +1,6 @@
 # [PY_COMPUTE_STATISTICS]
 
-The one in-memory classical-statistics owner producing hypothesis-test and distribution-fit evidence over `scipy.stats`: every route is one `_STAT_ROUTES` row folding one `StatReport` on the one `TestIntent` owner. This owner carries no numpy floor — the hypothesis test IS `scipy.stats`, so a run without the package returns `Error(Import)` rather than a degraded estimate — and columnar or gridded statistical aggregation stays in the `data` branch gridded/field owner, never re-catalogued here.
+One in-memory classical-statistics owner producing hypothesis-test and distribution-fit evidence over `scipy.stats`: every route is one `_STAT_ROUTES` row folding one `StatReport` on the one `TestIntent` owner. This owner carries no numpy floor — the hypothesis test IS `scipy.stats`, so a run without the package returns `Error(Import)` rather than a degraded estimate — and columnar or gridded statistical aggregation stays in the `data` branch gridded/field owner, never re-catalogued here.
 
 `test` rides the hub `evidence_run` weave under the `compute.statistics` scope row, and the owner is graduation-free by charter: a frequentist reject/retain verdict is none of the graduation axes, so a `StatReport` streams onto the receipt rail and stops — the same egress boundary `experiments/study.md#STUDY` holds, and composing the weave is an observability import, never a graduation admission. Sample arrays admit as `numerics/array.md#PAYLOAD` payloads keying through the same `ContentIdentity` seed; the report key is intent-owned over the sample bytes plus every active discriminant, so the key names the report, never merely the operand.
 
@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING, Final, Literal, Protocol, assert_never
 
 import numpy as np
 from beartype import beartype
-from expression import Error, Nothing, Ok, Option, Some, case, default_arg, tag, tagged_union
+from expression import Error, Nothing, Ok, Option, Result, Some, case, default_arg, tag, tagged_union
 from expression.collections import Map
 from msgspec import Struct
 
@@ -222,20 +222,20 @@ def _stat_report(intent: TestIntent, alpha: float, fit_sample: int) -> StatRepor
     route = _STAT_ROUTES[intent.tag]
     reading = route.run(intent, alpha, fit_sample)
     match _stat_key(intent, alpha, fit_sample):
-        case Ok(key):
+        case Result(tag="ok", ok=key):
             return StatReport.graded(intent.tag, route.decision, reading, alpha, key)
-        case Error(fault):
+        case Result(tag="error", error=fault):
             raise RuntimeError(fault)  # the `boundary` `_convert` re-folds it; `BoundaryFault` is no exception
 
 
 def _stat_key(intent: TestIntent, alpha: float, fit_sample: int) -> "RuntimeRail[ContentKey]":
-    # the `CANONICAL_POLICY` default keys the canonical path — an explicit `IdentityPolicy()` allocation keys identically and is ceremony.
+    # `CANONICAL_POLICY` default keys the canonical path — an explicit `IdentityPolicy()` allocation keys identically and is ceremony.
     return ContentIdentity.of(f"stat.{intent.tag}", intent.identity_buffer(alpha, fit_sample))
 
 
 def _significance(intent: TestIntent, _alpha: float, _: int) -> Reading:
     # `_SIGNIFICANCE_CALLS[tag]` projects `(entry_name, kwargs)` off the intent and the gated `getattr(stats, entry_name)` binds
-    # the entrypoint inside the boundary; the named result's `.pvalue` is the SIGNIFICANCE criterion.
+    # entrypoint inside the boundary; the named result's `.pvalue` is the SIGNIFICANCE criterion.
     from scipy import stats
 
     entry, kwargs = _SIGNIFICANCE_CALLS[intent.tag](intent)
@@ -249,8 +249,8 @@ def _run_anderson(intent: TestIntent, alpha: float, _: int) -> Reading:
     (x,) = intent.samples
     _, dist = intent.anderson
     result: AndersonResult = stats.anderson(x, dist=dist.value)
-    # the criterion is the critical value at the tightest published significance level still at or above `alpha`, picked by masking
-    # the sub-`alpha` levels to `+inf` and taking `np.argmin` — never `np.interp` between grid points.
+    # criterion is the critical value at the tightest published significance level still at or above `alpha`, picked by masking
+    # sub-`alpha` levels to `+inf` and taking `np.argmin` — never `np.interp` between grid points.
     levels = np.asarray(result.significance_level, dtype=float)
     admissible = np.where(levels >= alpha * 100.0, levels, np.inf)
     pick = int(np.argmin(admissible))
@@ -265,7 +265,7 @@ def _run_fit(intent: TestIntent, _alpha: float, fit_sample: int) -> Reading:
     frozen = getattr(stats, dist.value)
     params = tuple(float(p) for p in frozen.fit(x))
     estimate = frozen(*params)
-    # the reference draw seeds off the sample buffer so the GOF p-value is reproducible per input — an unseeded `rvs` would re-score
+    # reference draw seeds off the sample buffer so the GOF p-value is reproducible per input — an unseeded `rvs` would re-score
     # a fresh verdict on identical data and break the `ContentKey` cache-hit-by-reference contract.
     entropy = int.from_bytes(np.ascontiguousarray(x).tobytes(), "big")
     rng = np.random.default_rng(np.random.SeedSequence(entropy))

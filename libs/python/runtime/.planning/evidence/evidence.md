@@ -1,6 +1,6 @@
 # [PY_RUNTIME_EVIDENCE]
 
-External-API and structural-parsing evidence ride one tagged-union fact stream the `assay code` rail consumes: `member` a `MemberFact` row of a distribution's official surface, `span` a `SpanFact` tree-sitter capture, `drift` a `DriftFact` cross-language re-mint of a canonical wire-projection name the topology law forbids. The surface produces evidence the rail reads — never a competing search owner, a guessed environment status, or an exception into domain flow.
+External-API and structural-parsing evidence ride one tagged-union fact stream the `assay code` rail consumes: `member` a `MemberFact` row of a distribution's official surface, `span` a `SpanFact` tree-sitter capture, `drift` a `DriftFact` cross-language re-mint of a canonical wire-projection name the topology law forbids. This surface produces evidence the rail reads — never a competing search owner, a guessed environment status, or an exception into domain flow.
 
 `GrammarRegistry` holds the reused-`Parser`/compile-once topology the `runtime/.api/tree-sitter.md` parsing law fixes, and `scan` is the one polymorphic extraction entry — probe, multi-language `Corpus`, `Disposition` output shape, `Into[R]` projector — the disposition-keyed mirror of the `reliability/faults#FAULT` `traversed`. `ApiCatalogue.reflect` rides the canonical `@trapped("reflect", catch=ImportError)` faults aspect, so a missing distribution or failing root import lands as the one `import_` row. `EvidenceScan` streams each scan onto the `observability/receipts#RECEIPT` rail; the page tracer mints from the `SCOPES[Scope.EVIDENCE]` row; the `canonical` name registry arrives from the topology law and is never re-minted here.
 
@@ -12,7 +12,7 @@ External-API and structural-parsing evidence ride one tagged-union fact stream t
 
 - Owner: `Evidence` — the one slot/kind union whose cases carry frozen value objects, never positional tuples read by index; `Locus` the one extent value object both span-shaped facts share, so no `(lang, point, start_byte)` triple re-declares per fact and the extent rides the package-owned `tree_sitter.Point`, never a re-minted pair alias. `MemberFact` carries the distribution `version` and its REAL group — `ep.group`, `_GROUP_MEMBER`, `_GROUP_IMPORT` — never a caller-supplied family constant, the inventory backing the boundary claim that a source cannot name a member absent from the catalogue. Correlation flows through the `EvidenceScan` receipt and the rail's own `assay code` receipt, never a per-case id field.
 - Entry: coverage is registry data on both entries — `scan` pre-filters the corpus to the probe's covered columns, so a `locals` scan over a Python row yields no evidence and no fault, while a direct `run` on an uncovered grammar returns the typed `config` `uncovered-grammar` fault; every bundled source is a first-class producer, `locals` the live partial-coverage column. `drift` flags a canonical name only where it binds in more than one grammar namespace, so a legitimately distinct same-named concept in one namespace never yields a defect. `reflect` mines the FULL surface — entry points plus the importable members of every mapped root — because an entry-points-only reflect cannot back the member-absence boundary claim.
-- Auto: the registry build pays everything once per grammar at import — compile, `PROBE_KEEP` prune, capture-name-to-id resolution — and each probe compiles its OWN-language source per grammar, because a cross-grammar alternation mixing Python and TypeScript node kinds in one pattern is a `QueryError` at compile for every grammar. The hang guard is the `progress_callback` cancel hook, never the deprecated `timeout_micros`.
+- Auto: the registry build pays everything once per grammar at import — compile, `PROBE_KEEP` prune, capture-name-to-id resolution — and each probe compiles its OWN-language source per grammar, because a cross-grammar alternation mixing Python and TypeScript node kinds in one pattern is a `QueryError` at compile for every grammar. `progress_callback` is the hang-guard cancel hook, never the deprecated `timeout_micros`.
 - Packages: `msgspec` — `gc=False` only on the container-free `MemberFact`; `Point`, the nested `Locus`, and `frozenset[Lang]` keep the span-shaped records GC-tracked. `tree-sitter-python`/`tree-sitter-typescript` ship the bundled `tags`/`highlights`/`locals` sources, and those sources carry only the internally-evaluated `#match?` predicate, so no `QueryPredicate` handler threads through the build.
 - Growth: a new evidence family is one `Evidence` case plus its value object; a new language one `Lang` member, one `GRAMMARS` row, and one own-language source column per probe; a new probe one `Probe` literal plus one `PROBE_SOURCES` row, partial coverage included; a new capture allowlist one `PROBE_KEEP` row; a new traversal shape one `Disposition` member the faults owner adds; a custom-predicate probe earns the `QueryPredicate` handler as its own row when a non-built-in directive ships; a new member group one `_GROUP_*` constant.
 - Boundary: the scan is one-shot by charter — an incremental `Tree.edit`/`changed_ranges` re-scan cache is the ruled-out form for this owner. One tracer spans `code.scan` over the per-file `code.query` legs — never a second tracer per probe — and the trace status and the rail outcome are the same fact on every arm.
@@ -54,7 +54,7 @@ _GROUP_MEMBER: Final[str] = "member"
 _SPAN_QUERY: Final[str] = "code.query"
 _SPAN_SCAN: Final[str] = "code.scan"
 
-# the type-alias pattern anchors `left:` so the aliased VALUE identifier in `type Alias = int` never emits as a declared binding.
+# type-alias pattern anchors `left:` so the aliased VALUE identifier in `type Alias = int` never emits as a declared binding.
 _BINDING_PY: Final[str] = "[(class_definition name: (identifier) @name) (type_alias_statement left: (type (identifier) @name))] @decl"
 _BINDING_TS: Final[str] = (
     "[(class_declaration name: (type_identifier) @name)"
@@ -276,7 +276,7 @@ class GrammarRegistry:
 
     @staticmethod
     def drift(corpus: Corpus, canonical: frozenset[str]) -> RuntimeRail[Block[Evidence]]:
-        # the capture filter compares the build-resolved integer id — the belt on the build prune that already scopes binding to `@name`.
+        # capture filter compares the build-resolved integer id — the belt on the build prune that already scopes binding to `@name`.
         return GrammarRegistry.scan("binding", corpus, SpanFact.of).map(
             lambda spans: GrammarRegistry._cross(
                 spans.filter(lambda fact: fact.capture_id == _BINDING_NAME_ID[fact.locus.lang] and fact.text in canonical)
@@ -327,7 +327,7 @@ class EvidenceScan(Struct, frozen=True):
     evidence: Block[Evidence]
 
     def contribute(self) -> Iterable[Receipt]:
-        # the disjoint `count.*`/`drift.*` prefixes keep a symbol literally named for a tag from colliding with a tally key in the flat map.
+        # disjoint `count.*`/`drift.*` prefixes keep a symbol literally named for a tag from colliding with a tally key in the flat map.
         counts = self.evidence.fold(lambda acc, ev: acc.change(f"count.{ev.tag}", lambda n: Some(n.default_value(0) + 1)), Map.empty())
         drifts = self.evidence.choose(
             lambda ev: Some((f"drift.{ev.drift.name}", ",".join(sorted(ev.drift.bindings)))) if ev.tag == "drift" else Nothing

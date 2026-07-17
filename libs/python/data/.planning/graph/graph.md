@@ -1,8 +1,8 @@
 # [PY_DATA_GRAPH]
 
-The graph-payload owner over a license-split backend triangle: the permissive `rustworkx` analysis core, the `networkx` codec/egress lane, and the GPL-confined `igraph` community engine carrying the Leiden/Louvain/Infomap split rustworkx lacks and the BSD core cannot license. The backend is recovered from the source shape, never a knob, and analysis collapses onto ONE kernel: every algorithm runs on `rustworkx` keyed by its stable non-recycled integer index, a `networkx` or `igraph` source converting once through the one-way `_as_rx` bridge, so the `NodeId` stays the rx `int` the node-keyed frame seam joins on.
+One graph-payload owner over a license-split backend triangle: the permissive `rustworkx` analysis core, the `networkx` codec/egress lane, and the GPL-confined `igraph` community engine carrying the Leiden/Louvain/Infomap split rustworkx lacks and the BSD core cannot license. Its backend is recovered from the source shape, never a knob, and analysis collapses onto ONE kernel: every algorithm runs on `rustworkx` keyed by its stable non-recycled integer index, a `networkx` or `igraph` source converting once through the one-way `_as_rx` bridge, so the `NodeId` stays the rx `int` the node-keyed frame seam joins on.
 
-Payload identity is the railed `ContentIdentity` fingerprint over the canonical node-link wire, never a `repr(dict)` byte stream. `GraphResult.frame` lowers node-index-keyed results into one canonical `node`-keyed `pa.Table` the `tabular/columnar#SCAN` plane left-joins by `node` — a centrality run is a left-join enrichment, never a re-keyed copy. The GPL `igraph` core stays in this data graph rail and is never linked into a host-distributed plugin.
+Payload identity is the railed `ContentIdentity` fingerprint over the canonical node-link wire, never a `repr(dict)` byte stream. `GraphResult.frame` lowers node-index-keyed results into one canonical `node`-keyed `pa.Table` the `tabular/columnar#SCAN` plane left-joins by `node` — a centrality run is a left-join enrichment, never a re-keyed copy. `igraph`'s GPL core stays in this data graph rail and is never linked into a host-distributed plugin.
 
 ## [01]-[INDEX]
 
@@ -16,7 +16,7 @@ Payload identity is the railed `ContentIdentity` fingerprint over the canonical 
 - Auto: the bare-name rustworkx members dispatch on graph subtype, so the owner never names the `graph_*`/`digraph_*` typed forms; the dense matrices stay `npt.NDArray[np.float64]` so they fold straight into the tensor carriers.
 - Receipt: the content key derives once at admission from the canonical node-link wire and the receipt reuses it — an unchanged graph keys byte-stable, an added edge re-admits to a new key; the algorithm receipt is typed rail evidence, never product graph-database state.
 - Packages: `pyarrow` binds function-local, so the codec-only graph path never loads Arrow.
-- Growth: a new algorithm is one `GraphAlgorithm` case plus one `_run_rx` arm; a new community algorithm one `IG_COMMUNITY` row; a new centrality metric one `RX_CENTRALITY` row; a new egress one `GraphFormat` row plus one `_EGRESS` codec row; a new layout one `LayoutKind` row. A networkx `@_dispatchable` accelerator lands as one `backend=`/`nx.config.backend_priority` policy on the codec lane when such a backend enters the manifest roster, never a second analysis kernel — a phantom accelerator axis claimed but unwired is the rejected form. The deferred rustworkx residue is the named set — VF2 isomorphism (`vf2_mapping`/`is_isomorphic`), the `rustworkx.generators` builders, the DOT/Matrix-Market IO codecs, group centrality, edge coloring — each one case plus one arm when a consumer names it.
+- Growth: a new algorithm is one `GraphAlgorithm` case plus one `_run_rx` arm; a new community algorithm one `IG_COMMUNITY` row; a new centrality metric one `RX_CENTRALITY` row; a new egress one `GraphFormat` row plus one `_EGRESS` codec row; a new layout one `LayoutKind` row. A networkx `@_dispatchable` accelerator lands as one `backend=`/`nx.config.backend_priority` policy on the codec lane when such a backend enters the manifest roster, never a second analysis kernel — a phantom accelerator axis claimed but unwired is the rejected form. Deferred rustworkx residue is the named set — VF2 isomorphism (`vf2_mapping`/`is_isomorphic`), the `rustworkx.generators` builders, the DOT/Matrix-Market IO codecs, group centrality, edge coloring — each one case plus one arm when a consumer names it.
 - Boundary: the graph plane produces the node-keyed enrichment frame; the relational join belongs to the tabular plane, never a graph-database node table re-minted here. `NodeId` is never widened to `Hashable` to admit a networkx analysis kernel — conversion keeps it the rx `int`. No product collaboration store, no bridge lifecycle, no compute numeric trio.
 
 ```python signature
@@ -31,8 +31,8 @@ import msgspec
 import networkx as nx
 import numpy as np
 import rustworkx as rx
-from expression import Block, case, tag, tagged_union
-from expression.collections import Map
+from expression import case, tag, tagged_union
+from expression.collections import Block, Map
 from msgspec import Struct
 
 from rasm.runtime.faults import BoundaryFault, Disposition, RuntimeRail, boundary, traversed
@@ -52,7 +52,7 @@ if TYPE_CHECKING:
 type NodeId = int
 type RxGraph = rx.PyGraph | rx.PyDiGraph
 type NxGraph = nx.Graph | nx.DiGraph
-# the GPL igraph member is TYPE_CHECKING-only, so the alias is checker-facing while the runtime
+# GPL igraph members are TYPE_CHECKING-only, so the alias is checker-facing while the runtime
 # carrier slot on `GraphPayload` stays the honest `Any` wire floor.
 type AnyGraph = "RxGraph | NxGraph | igraph.Graph"
 type GraphBackend = Literal["rustworkx", "networkx", "igraph"]
@@ -348,7 +348,7 @@ RX_LAYOUT: "Final[Map[LayoutKind, Callable[[RxGraph], rx.Pos2DMapping]]]" = Map.
 
 
 def _as_rx(graph: "AnyGraph") -> RxGraph:
-    # the one analysis-coercion seam. `networkx_converter`'s `keep_attributes` default rides the original label as node
+    # one analysis-coercion seam. `networkx_converter`'s `keep_attributes` default rides the original label as node
     # payload so the rx index stays the stable join key; the nx->rx bridge is the only converter direction, so the igraph
     # leg crosses networkx first (`to_networkx` then convert).
     match graph:
@@ -381,8 +381,8 @@ def _run_rx(g: RxGraph, algo: GraphAlgorithm, kind: GraphKind) -> GraphResult:  
             paths = rx.bellman_ford_shortest_paths(g, src, target=dst, weight_fn=weight)
             return GraphResult(path=tuple(paths[dst]) if dst in paths else ())
         case GraphAlgorithm(tag="astar", astar=(src, dst, edge_cost, estimate)):
-            # the carried selector pair: `edge_cost` reads the edge payload, `estimate` the node —
-            # the admissible-heuristic policy is DATA on the case, never a hardcoded unit lambda.
+            # carried selector pair: `edge_cost` reads the edge payload, `estimate` the node —
+            # admissible-heuristic policy is DATA on the case, never a hardcoded unit lambda.
             return GraphResult(path=tuple(rx.astar_shortest_path(g, src, lambda n: n == dst, edge_cost, estimate)))
         case GraphAlgorithm(tag="k_shortest", k_shortest=(src, k, weight)):
             return GraphResult(scores=tuple(rx.k_shortest_path_lengths(g, src, k, weight).items()))
@@ -450,7 +450,7 @@ def _run_rx(g: RxGraph, algo: GraphAlgorithm, kind: GraphKind) -> GraphResult:  
 
 # --- [IGRAPH_COMMUNITY] -----------------------------------------------------------------
 
-# the community rows call methods ON the passed C-core graph, so the table itself links no GPL
+# community rows call methods ON the passed C-core graph, so the table itself links no GPL
 # symbol — the one import site is `_ig_from`, reached only from the `_run_rx` community arm.
 IG_COMMUNITY: "Final[Map[str, Callable[[igraph.Graph, GraphAlgorithm], igraph.VertexClustering]]]" = Map.of_seq([
     ("leiden", lambda g, a: g.community_leiden(objective_function="modularity", resolution=a.leiden)),
@@ -460,15 +460,15 @@ IG_COMMUNITY: "Final[Map[str, Callable[[igraph.Graph, GraphAlgorithm], igraph.Ve
 
 
 def _ig_from(g: RxGraph, kind: GraphKind) -> "igraph.Graph":
-    # the ONE GPL import site, function-local by law — the community split is the only leg that
+    # ONE GPL import site, function-local by law — the community split is the only leg that
     # links the igraph C core, so the confinement is structural rather than prose. The leg builds
-    # the C-core graph from the rustworkx edge list (`_as_rx` already coerced any networkx/igraph
+    # C-core graph builds from the rustworkx edge list (`_as_rx` already coerced any networkx/igraph
     # source to rustworkx, so the edge list is always rx integer indices). `Graph.TupleList`'s
     # default `vertex_name_attr="name"` stores each rx endpoint index in the `name` vertex
     # attribute, so the membership read recovers the rx index — robust to rx index gaps after node
     # removal — rather than igraph's reindexed 0-based vertex. `TupleList` creates a vertex only
     # per endpoint, so an ISOLATED rx node carries no edge and would vanish from the partition;
-    # the `add_vertices` pass re-admits the edgeless rx indices as `name`-carrying singleton
+    # `add_vertices` re-admits the edgeless rx indices as `name`-carrying singleton
     # vertices so the community partition stays TOTAL over the node set.
     import igraph  # noqa: PLC0415
 
@@ -488,7 +488,8 @@ def _run_ig(g: "igraph.Graph", algo: GraphAlgorithm, _: GraphKind) -> GraphResul
             names = g.vs["name"]
             return GraphResult(partition=tuple(tuple(names[v] for v in block) for block in IG_COMMUNITY[algo.tag](g, algo)))
         case off_lane:
-            # igraph owns only the community split — a reachable out-of-lane rejection the fence rails.
+            # totality arm: `_run_rx` routes only the community tags here, so this raise fires only for a future direct
+            # caller — loud at the fence, never a silent partial backend.
             raise NotImplementedError(f"igraph backend owns only the community split, not {off_lane.tag}; route to rustworkx")
 
 
@@ -497,7 +498,7 @@ def _run_ig(g: "igraph.Graph", algo: GraphAlgorithm, _: GraphKind) -> GraphResul
 
 def _graphml(write: "Callable[[str], object]") -> bytes:
     # GraphML is path-keyed on every backend (`rx.write_graphml(g, path)`, `nx.write_graphml(g, path)`);
-    # the one helper reads the written document back through a scratch path rather than re-encoding
+    # one helper reads the written document back through a scratch path rather than re-encoding
     # through a foreign codec or an unconfirmed byte-streaming variant.
     with tempfile.NamedTemporaryFile(suffix=".graphml") as handle:
         write(handle.name)

@@ -1,8 +1,8 @@
 # [PY_RUNTIME_SERVE]
 
-The companion server-host and daemon composition root: `ServerHost` owns the inbound `grpc.aio` lifecycle and the one `dispatch` servicer-body aspect every registered method folds through, `CapabilityInvoke` the descriptor-driven outbound invoke over the C#-generated capability SDK, and `Entrypoint` the daemon boot/serve/drain choreography. It hosts the geometry companion daemon over the existing C# gRPC contract on the UDS leg and re-mints nothing it composes.
+Companion server-host and daemon composition root: `ServerHost` owns the inbound `grpc.aio` lifecycle and the one `dispatch` servicer-body aspect every registered method folds through, `CapabilityInvoke` the descriptor-driven outbound invoke over the C#-generated capability SDK, and `Entrypoint` the daemon boot/serve/drain choreography. It hosts the geometry companion daemon over the existing C# gRPC contract on the UDS leg and re-mints nothing it composes.
 
-The wire vocabulary is `transport/shapes#VOCABULARY`'s, the transcode machinery `transport/wire#PROTO_TRANSCODE`'s, causal time `clock#CLOCK`'s, and the admitted context `execution/admission#CONTEXT`'s. The seam ledger files the `CredentialPolicy` axis decode and the W3C inbound extraction on this page — the interceptor at this ingress is the one trace-context authority.
+Wire vocabulary is `transport/shapes#VOCABULARY`'s, the transcode machinery `transport/wire#PROTO_TRANSCODE`'s, causal time `clock#CLOCK`'s, and the admitted context `execution/admission#CONTEXT`'s. Seam ledgers file the `CredentialPolicy` axis decode and the W3C inbound extraction on this page — the interceptor at this ingress is the one trace-context authority.
 
 ## [01]-[INDEX]
 
@@ -25,11 +25,12 @@ Entry: the method roster:
 |  [04]   | `settle(servicer_context, context, descriptor, wired) -> bytes`           | rail-terminating fold; `FaultDetail` trailer then abort |
 |  [05]   | `serve() -> RuntimeRail[None]`                                            | bind UDS, start, flip `SERVING`, await termination      |
 |  [06]   | `drain() -> None`                                                         | `NOT_SERVING` first, then `stop(grace)`                 |
-|  [07]   | `CredentialPolicy.server_credentials() -> RuntimeRail[ServerCredentials]` | loopback → `local_server_credentials(UDS)`              |
+|  [07]   | `status(service, serving) -> None`                                        | supervisor flip; one bool onto the two serving states   |
+|  [08]   | `CredentialPolicy.server_credentials() -> RuntimeRail[ServerCredentials]` | loopback → `local_server_credentials(UDS)`              |
 
- `serve()` refuses an empty roster with a typed `config` fault — never a silent empty bind — and awaits termination directly; supervision is the `[04]-[ENTRY]` composition root's. `inbound` lifts `ServicerContext.time_remaining()` into the admitted `Deadline`, feeding the C#-dialed budget to the deadline rail — never an unbounded handler.
+ `serve()` refuses an empty roster with a typed `config` fault — never a silent empty bind — signals readiness through its `ready` hook once the health flips land, and awaits termination directly; supervision is the `[04]-[ENTRY]` composition root's. `inbound` lifts `ServicerContext.time_remaining()` into the admitted `Deadline`, feeding the C#-dialed budget to the deadline rail — never an unbounded handler. `dispatch` runs every route through the `observability/metrics#METRIC` `Metrics.measured(descriptor)` weave minted once at registration, so each method's duration and rail outcome land on the request histogram with no per-handler timing. `status` is the one worker-facing flip the `execution/workers#SUPERVISION` actuator drives, so pool liveness advertises through the same servicer the C# host polls and no second health surface exists.
 
-- Auto: the interceptor is the ONE trace-context authority — it extracts the C#-minted W3C parent and opens the SERVER span natively, so `inbound` re-extracts nothing, `dispatch` opens no second scope, and a `Signals.attach` around the handler body re-roots spans the interceptor already parented. The health filter suppresses liveness noise from a protocol that is actually served — the registered servicer answers `Check`/`Watch`, so the filter claim is real. `enrich` is `set_attributes` inside the interceptor's active scope, not a hook param on `aio_server_interceptor` (which takes none) and not a hand-rolled tracing interceptor.
+- Auto: this interceptor is the ONE trace-context authority — it extracts the C#-minted W3C parent and opens the SERVER span natively, so `inbound` re-extracts nothing, `dispatch` opens no second scope, and a `Signals.attach` around the handler body re-roots spans the interceptor already parented. Its health filter suppresses liveness noise from a protocol that is actually served — the registered servicer answers `Check`/`Watch`, so the filter claim is real. `enrich` is `set_attributes` inside the interceptor's active scope, not a hook param on `aio_server_interceptor` (which takes none) and not a hand-rolled tracing interceptor.
 - Growth: a new servicer method is one `Route` row; a new wire message is one shapes registry row; a new fault-to-status mapping is one `_FAULT_STATUS` row; a new health surface is automatic with the lifecycle; a new span dimension is one `enrich` key; a new compression algorithm is one `grpc.Compression` member at construction.
 - Boundary: the wire contract is the existing C# proto — the runtime mints no transport, no channel, and no second wire vocabulary; the C# host lifecycle and product telemetry export stay AppHost-owned.
 
@@ -40,7 +41,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Final, Literal, Self, assert_never
 
 import grpc
-from expression import Error, Ok, Option, case, tag, tagged_union
+from expression import Error, Ok, Option, Result, case, tag, tagged_union
 from expression.collections import Block, Map
 from google.protobuf.message import Message
 from grpc_health.v1 import health, health_pb2, health_pb2_grpc
@@ -51,6 +52,7 @@ from opentelemetry.instrumentation.grpc import aio_server_interceptor, filters
 from rasm.runtime.admission import Deadline, RuntimeContext, RuntimeProfile
 from rasm.runtime.clock import CausalFrame
 from rasm.runtime.faults import SCOPES, BoundaryFault, Disposition, FaultTag, RuntimeRail, Scope, traversed
+from rasm.runtime.metrics import Metrics
 from rasm.runtime.shapes import FaultDetail
 from rasm.runtime.wire import WireProtoCodec, codec
 
@@ -58,13 +60,14 @@ from rasm.runtime.wire import WireProtoCodec, codec
 
 type RailHandler = Callable[[Struct, RuntimeContext], Awaitable[RuntimeRail[Struct]]]
 type CodecPair = tuple[WireProtoCodec[Struct, Message], WireProtoCodec[Struct, Message]]
+type Invoke = Callable[[CodecPair, bytes, RuntimeContext, RailHandler], Awaitable[RuntimeRail[bytes]]]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# the round-trip's two symbolic anchors: settle packs them, the invoke ingress reads them.
+# round-trip's two symbolic anchors: settle packs them, the invoke ingress reads them.
 _DETAIL_KEY: Final[str] = "grpc-status-details-bin"
 _FAULT_DETAIL: Final[str] = "fault_detail"
-# the C# Instant.ToUnixTimeTicks 100 ns unit; the trailer echo truncates to Timestamp
+# C# Instant.ToUnixTimeTicks is the 100 ns unit; the trailer echo truncates to Timestamp
 # microseconds — the carrier headers stay the authoritative full-fidelity stamp.
 _TICKS_PER_SECOND: Final[int] = 10_000_000
 
@@ -147,14 +150,17 @@ class ServerHost:
         return len(rows)
 
     def _behavior(self, row: Route, pair: CodecPair) -> Callable[[bytes, grpc.aio.ServicerContext], Awaitable[bytes]]:
+        # registration-time weave: every registered method records its request-duration row under its own descriptor label.
+        invoke: Invoke = Metrics.measured(row.descriptor)(ServerHost._invoke)
+
         async def method(request: bytes, servicer_context: grpc.aio.ServicerContext) -> bytes:
-            return await self.dispatch(servicer_context, request, row.descriptor, pair, row.handler)
+            return await self.dispatch(servicer_context, request, row.descriptor, pair, row.handler, invoke)
 
         return method
 
     @staticmethod
     def inbound(servicer_context: grpc.aio.ServicerContext) -> RuntimeRail[RuntimeContext]:
-        # the ambient scope IS remote-parented by the interceptor; this reads only the causal frame and the inbound budget.
+        # ambient scope IS remote-parented by the interceptor; this reads only the causal frame and the inbound budget.
         carrier = dict(servicer_context.invocation_metadata())
         budget = Option.of_optional(servicer_context.time_remaining()).map(lambda remaining: Deadline(timedelta(seconds=remaining)))
         return CausalFrame.decode(carrier).map(
@@ -168,10 +174,10 @@ class ServerHost:
     @staticmethod
     async def settle(servicer_context: grpc.aio.ServicerContext, context: RuntimeContext, descriptor: str, wired: RuntimeRail[bytes]) -> bytes:
         match wired:
-            case Ok(payload):
+            case Result(tag="ok", ok=payload):
                 ServerHost.enrich(context, descriptor, "ok")
                 return payload
-            case Error(fault):
+            case Result(tag="error", error=fault):
                 ServerHost.enrich(context, descriptor, fault.tag)
                 status = _FAULT_STATUS.try_find(fault.tag).default_value(grpc.StatusCode.INTERNAL)
                 # a failed trailer encode skips the trailer, never the abort; the details string
@@ -192,44 +198,45 @@ class ServerHost:
     ) -> RuntimeRail[bytes]:
         decode, encode = codec_pair
         match decode.decode(request):
-            case Error(fault):
-                return Error(fault)
-            case Ok(shape):
+            case Result(tag="error") as refused:
+                return refused
+            case Result(tag="ok", ok=shape):
                 return (await handler(shape, context)).bind(encode.encode)
             case _ as unreachable:
                 assert_never(unreachable)
 
-    async def dispatch[S: Struct, M: Message, R: Struct, N: Message](
-        self,
-        servicer_context: grpc.aio.ServicerContext,
-        request: bytes,
-        descriptor: str,
-        codec_pair: tuple[WireProtoCodec[S, M], WireProtoCodec[R, N]],
-        handler: Callable[[S, RuntimeContext], Awaitable[RuntimeRail[R]]],
+    async def dispatch(
+        self, servicer_context: grpc.aio.ServicerContext, request: bytes, descriptor: str, codec_pair: CodecPair, handler: RailHandler, invoke: Invoke
     ) -> bytes:
         match ServerHost.inbound(servicer_context):
-            case Error(fault):
-                return await ServerHost.settle(servicer_context, RuntimeContext.admit(RuntimeProfile.SIDECAR), descriptor, Error(fault))
-            case Ok(context):
-                return await ServerHost.settle(servicer_context, context, descriptor, await ServerHost._invoke(codec_pair, request, context, handler))
+            case Result(tag="error") as refused:
+                return await ServerHost.settle(servicer_context, RuntimeContext.admit(RuntimeProfile.SIDECAR), descriptor, refused)
+            case Result(tag="ok", ok=context):
+                return await ServerHost.settle(servicer_context, context, descriptor, await invoke(codec_pair, request, context, handler))
             case _ as unreachable:
                 assert_never(unreachable)
 
-    async def serve(self) -> RuntimeRail[None]:
+    async def serve(self, ready: Callable[[], Awaitable[None]] | None = None) -> RuntimeRail[None]:
         if self._services == frozenset():
             return Error(BoundaryFault(config=("serve.roster", "empty-roster")))
         match self._credential.server_credentials():
-            case Error(_) as refused:
+            case Result(tag="error") as refused:
                 return refused
-            case Ok(credentials):
+            case Result(tag="ok", ok=credentials):
                 self._server.add_secure_port(self._bind, credentials)
                 await self._server.start()
                 for service in (health.OVERALL_HEALTH, *sorted(self._services)):  # Exemption: the health flips are the servicer's own async mutation seam.
                     await self._health.set(service, health_pb2.HealthCheckResponse.SERVING)
+                if ready is not None:  # the readiness hook fires after the health flips, so an sd-notify READY never precedes a serving probe
+                    await ready()
                 await self._server.wait_for_termination()
                 return Ok(None)
             case _ as unreachable:
                 assert_never(unreachable)
+
+    async def status(self, service: str, serving: bool) -> None:
+        # supervisor's one flip surface; after enter_graceful_shutdown the servicer holds NOT_SERVING and this set is a no-op.
+        await self._health.set(service, health_pb2.HealthCheckResponse.SERVING if serving else health_pb2.HealthCheckResponse.NOT_SERVING)
 
     async def drain(self) -> None:
         # NOT_SERVING races ahead of the stop: probes stop routing new work while the grace window
@@ -242,7 +249,7 @@ class ServerHost:
 
 
 def _sealed(fault: BoundaryFault, context: RuntimeContext, status: grpc.StatusCode) -> FaultDetail:
-    # the one total egress fold off facts() + the inbound frame: the C# WireFault.Decode(FaultDetail)
+    # one total egress fold off facts() + the inbound frame: the C# WireFault.Decode(FaultDetail)
     # consumer reads the typed conflict; the hlc echo rides Timestamp precision.
     facts = fault.facts()
     return FaultDetail(
@@ -260,8 +267,8 @@ def _sealed(fault: BoundaryFault, context: RuntimeContext, status: grpc.StatusCo
 
 ## [03]-[CAPABILITY_INVOKE]
 
-- Owner: `CapabilityInvoke` decodes the C# `Rasm.AppHost/Agent/capability#SDK_CODEGEN` Python target into one dispatch — the request's own `Struct` type and the caller's `into` type are the codec discriminants off the `_ROW_BY_STRUCT` table, so one `run` genuinely spans the whole catalog and no injected per-shape codec pair narrows it. The outbound leg retries under the bare cached `guard(RetryClass.WIRE)` caller with a two-fence ingress — a `guarded(...)` wrap is the ruled-out composition because its terminal lift consumes the exception before the trailer read — so no bare gRPC exception escapes and no trailer erases to a bare `boundary` tag.
-- Cases: the per-descriptor `input_schema` is the C# `SuiteContracts.Schema` JSON Schema carried as a deferred `msgspec.Raw` slot, so the routing decode never pays the schema-document parse; the argument payload is the already-typed canonical `Struct` the resolved codec transcodes, never a hand-mirrored mapping re-validated against a schema document. The `effect`/`idempotency`/cost-unit keys decode as the C# smart-enum string keys.
+- Owner: `CapabilityInvoke` decodes the C# `Rasm.AppHost/Agent/capability#SDK_CODEGEN` Python target into one dispatch — the request's own `Struct` type and the caller's `into` type are the codec discriminants off the `_ROW_BY_STRUCT` table, so one `run` genuinely spans the whole catalog and no injected per-shape codec pair narrows it. Outbound legs retry under the bare cached `guard(RetryClass.WIRE)` caller with a two-fence ingress — a `guarded(...)` wrap is the ruled-out composition because its terminal lift consumes the exception before the trailer read — so no bare gRPC exception escapes and no trailer erases to a bare `boundary` tag.
+- Cases: the per-descriptor `input_schema` is the C# `SuiteContracts.Schema` JSON Schema carried as a deferred `msgspec.Raw` slot, so the routing decode never pays the schema-document parse; the argument payload is the already-typed canonical `Struct` the resolved codec transcodes, never a hand-mirrored mapping re-validated against a schema document. `effect`/`idempotency`/cost-unit keys decode as the C# smart-enum string keys.
 - Entry: the per-call descriptor dimension rides the interceptor-set `rpc.service`/`rpc.method` attributes natively — the invoke path IS `/rasm.capability/{descriptor_id}` — while the channel-stable hooks enrich tenant and fault case on the CLIENT span; an ambient per-call `set_attribute` lands on whatever span was current BEFORE the CLIENT span opened.
 - Packages: `msgspec`, `grpcio`, `opentelemetry-instrumentation-grpc`, and the shapes/wire/resilience/faults rails per the fence imports; `guard` is exported for exactly this composed per-seam aspect.
 - Growth: a new capability is one descriptor row the C# registry already folds — the companion reads it through the existing `discover`/`run` pair; a new wire shape reaches the invoke through one shapes registry row with zero edits here; a new span dimension is one hook key.
@@ -274,7 +281,7 @@ from typing import Final, Literal, Self, assert_never
 
 import grpc
 import msgspec
-from expression import Error, Ok
+from expression import Error, Ok, Result
 from expression.collections import Block, Map
 from google.protobuf.message import Message
 from msgspec import Raw, Struct
@@ -344,7 +351,7 @@ class CapabilityInvoke:
 
     @classmethod
     def discover(cls, payload: bytes) -> RuntimeRail[Map[str, DiscoveryResult]]:
-        # the descriptor-keyed fold lives at the one decode site, never a list-to-Map re-key the composition root hand-spells.
+        # descriptor-keyed fold lives at the one decode site, never a list-to-Map re-key the composition root hand-spells.
         return boundary("wire", lambda: cls._DISCOVERY.decode(payload)).map(lambda rows: Map.of_seq((row.descriptor, row) for row in rows))
 
     @staticmethod
@@ -386,16 +393,16 @@ class CapabilityInvoke:
             .bind(lambda transcode: transcode.encode(request))
         )
         match staged:
-            case Error(_) as refused:
+            case Result(tag="error") as refused:
                 return refused
-            case Ok(payload):
-                # the registry row pins struct identity, so the `into`-resolved decode returns the caller's typed R.
+            case Result(tag="ok", ok=payload):
+                # registry row pins struct identity, so the `into`-resolved decode returns the caller's typed R.
                 return (await self._dispatch(descriptor_id, payload)).bind(lambda wire: _transcoder(into).bind(lambda transcode: transcode.decode(wire)))
             case _ as unreachable:
                 assert_never(unreachable)
 
     async def aclose(self) -> None:
-        # the runtime-lived channel's deterministic drain; a directly-injected dispatch carries no channel, a typed no-op.
+        # runtime-lived channel's deterministic drain; a directly-injected dispatch carries no channel, a typed no-op.
         if self._channel is not None:
             await self._channel.close()
 
@@ -408,7 +415,7 @@ def _transcoder(shape: type[Struct]) -> RuntimeRail[WireProtoCodec[Struct, Messa
 
 
 def _unsealed(terminal: grpc.aio.AioRpcError) -> BoundaryFault:
-    # the trailer's fault_detail row decodes to the typed producer conflict; an absent or undecodable
+    # trailer's fault_detail row decodes to the typed producer conflict; an absent or undecodable
     # trailer falls back to the status-coded lift, never a bare erasure.
     status = terminal.code().value[0]
     detail = (
@@ -424,16 +431,19 @@ def _unsealed(terminal: grpc.aio.AioRpcError) -> BoundaryFault:
 
 ## [04]-[ENTRY]
 
-- Owner: `Entrypoint` is the `cyclopts` command axis AND the daemon composition root, co-located with `ServerHost` because the serve command composes the host it launches. `companion_app(routes, drains)` is parameterized over both the servicer roster and the drainable owners, so a downstream folder's composition root — geometry `mesh/serve` the named consumer — registers its rows and drain stages by data; runtime never imports a sibling, the terminal-tier `serve -> lanes | recipe` imports the module's only sibling edges.
-- Entry: the drain fold owns ORDER — the caller's `drains` rows with `Telemetry.shutdown` appended LAST so every earlier stage's spans and receipts still export — and every stage settles even after an earlier fault, the faults accumulating into one aggregate; a first-fault abort leaving later stages undrained never lands. The boot chain rides the faults `railed` builder over heterogeneous binds a `traversed` fold cannot express.
-- Packages: `cyclopts`, `anyio`, `msgspec`, and the faults/telemetry/receipts/resilience/admission/lanes/recipe owners per the fence imports.
-- Growth: a new private command is one `@app.command` method folding through the shared `_exit`; a new drainable owner is one `(subject, stage)` row the ordered fold, the accumulate, and the receipt absorb; a sibling daemon is one `companion_app(routes, drains)` call with its own rows.
-- Boundary: never a new public command surface — public commands are reserved to the suite Assay command surface.
+- Owner: `companion_app` is the `cyclopts` command axis AND the daemon composition root, co-located with `ServerHost` because the serve command composes the host it launches. `companion_app(routes, drains, charges)` is parameterized over the servicer roster, the drainable owners, and the supervised worker charges, so a downstream folder's composition root — geometry `mesh/serve` the named consumer — registers its rows, drain stages, and pool charges by data; runtime never imports a sibling, the terminal-tier `serve -> lanes | workers | recipe` imports the module's only sibling edges.
+- Entry: this drain fold owns ORDER — the caller's `drains` rows, then one pool-drain row per charge, then the supervisor's daemon-stop escalation so no spawned child outlives the daemon, with `Telemetry.shutdown` appended LAST so every earlier stage's spans and receipts still export — and every stage settles even after an earlier fault, the faults accumulating into one aggregate; a first-fault abort leaving later stages undrained never lands. Boot chains ride the faults `railed` builder over heterogeneous binds a `traversed` fold cannot express.
+- Auto: readiness is sd-notify-shaped data — `NotifyState` closes the handshake vocabulary, `_notify` writes the service manager's `NOTIFY_SOCKET` datagram through the anyio UNIX-datagram factory, and an absent socket folds to a no-op so the same daemon runs bare or managed. `READY` fires through the serve `ready` hook after the health flips, `STOPPING` fires at the signal seam before the drain, and the `beating` leg halves `WATCHDOG_USEC` into its ping interval only when the manager arms it. Workers' actuator joins the one supervision group with the awaited `ServerHost.status` coroutine as its flip, so pool death advertises on the served health protocol without a second loop, and the serve leg's terminal send cancels the whole group — the standing signal, watchdog, and supervision rhythms end with the server, never after it.
+- Packages: `cyclopts`, `anyio`, `msgspec`, and the faults/telemetry/metrics/receipts/resilience/admission/lanes/workers/recipe owners per the fence imports.
+- Growth: a new private command is one `@app.command` method folding through the shared `_exit`; a new drainable owner is one `(subject, stage)` row the ordered fold, the accumulate, and the receipt absorb; a new supervised pool is one `Charge` row; a new manager handshake is one `NotifyState` member; a sibling daemon is one `companion_app(routes, drains, charges)` call with its own rows.
+- Boundary: never a new public command surface — public commands are reserved to the suite Assay command surface. `NOTIFY_SOCKET`/`WATCHDOG_USEC` are the service manager's own env contract read at this one entry seam, never a settings field and never a read past admission elsewhere.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+import os
 import signal
 from collections.abc import Awaitable, Callable, Generator
+from enum import StrEnum
 from pathlib import Path
 from typing import Annotated, Any, assert_never
 
@@ -445,14 +455,16 @@ from cyclopts.types import NonNegativeFloat
 from expression import Error, Ok, Option, Result
 from expression.collections import Block, Map
 
-from rasm.runtime.admission import RuntimeProfile, SettingsAdmission
+from rasm.runtime.admission import RuntimeContext, RuntimeProfile, SettingsAdmission
 from rasm.runtime.faults import SCOPES, Disposition, RuntimeRail, Scope, async_boundary, boundary, railed, traversed
 from rasm.runtime.lanes import LanePolicy
+from rasm.runtime.metrics import Metrics
 from rasm.runtime.receipts import OPEN, DrainReceipt, Receipt, Signals
 from rasm.runtime.recipe import RecipeExecution, RecipeName, RecipeSpec
 from rasm.runtime.resilience import RetryMode, install
 from rasm.runtime.shapes import aligned
 from rasm.runtime.telemetry import Telemetry
+from rasm.runtime.workers import Charge, Supervisor, WorkerKind, WorkerPool
 
 # `ServerHost`/`CredentialPolicy`/`Route` are this module's [02]-[SERVE] owners — no cross-module import.
 
@@ -460,11 +472,17 @@ from rasm.runtime.telemetry import Telemetry
 
 type DrainStage = Callable[[], Awaitable[object] | RuntimeRail[object]]
 
+
+class NotifyState(StrEnum):
+    READY = "READY=1"
+    STOPPING = "STOPPING=1"
+    WATCHDOG = "WATCHDOG=1"
+
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def _exit(outcome: RuntimeRail[object] | DrainReceipt[object]) -> int:
-    # the one CLI exit fold both commands share; the traceback never escapes the CLI boundary.
+    # one CLI exit fold both commands share; the traceback never escapes the CLI boundary.
     match outcome:
         case Result() as rail:
             return rail.map(lambda _value: 0).default_value(1)
@@ -475,9 +493,10 @@ def _exit(outcome: RuntimeRail[object] | DrainReceipt[object]) -> int:
 @railed
 def _booted(bind: str, grace: float, routes: Block[Route]) -> Generator[Any, Any, ServerHost]:
     # install -> admit -> gate -> bind as one railed bind chain: the first Error short-circuits,
-    # the composed host is the Ok payload; an absent otel endpoint installs nothing — no literal.
+    # composed host rides the Ok payload; an absent otel endpoint installs nothing — no literal.
     settings = yield from boundary("config", SettingsAdmission)
     Option.of_optional(settings.otel_endpoint).map(lambda endpoint: Telemetry.install(RuntimeProfile.SIDECAR, str(endpoint)))
+    Metrics.install()  # instruments register against whatever provider the line above set; a silent profile enrolls no-op instruments
     Signals.configure()
     install(RetryMode.EMIT)
     yield from aligned()
@@ -487,14 +506,14 @@ def _booted(bind: str, grace: float, routes: Block[Route]) -> Generator[Any, Any
 
 
 async def _settled(subject: str, stage: DrainStage) -> RuntimeRail[object]:
-    # the stage() call itself is fenced so a synchronous raise converts instead of escaping the drain fold; a rail-returning
+    # stage() itself is fenced so a synchronous raise converts instead of escaping the drain fold; a rail-returning
     # sync owner passes through, an async owner awaits under the same named fence.
     match boundary(subject, stage):
-        case Error(_) as refused:
+        case Result(tag="error") as refused:
             return refused
-        case Ok(Result() as rail):
+        case Result(tag="ok", ok=Result() as rail):
             return rail
-        case Ok(pending):
+        case Result(tag="ok", ok=pending):
             return await async_boundary(subject, lambda: pending)
         case _ as unreachable:
             assert_never(unreachable)
@@ -507,45 +526,107 @@ async def _drained(stages: Block[tuple[str, DrainStage]]) -> RuntimeRail[Block[o
     return traversed(settled, by=Disposition.ACCUMULATE)
 
 
-async def _supervised(host: ServerHost, drains: Block[tuple[str, DrainStage]]) -> RuntimeRail[None]:
+async def _notify(state: NotifyState) -> None:
+    # sd-notify readiness as data: an absent NOTIFY_SOCKET folds to a no-op; an abstract-namespace @ path rewrites to the
+    # NUL form; a dead, refusing, or invalid manager socket is swallowed — notification is advisory, so a failed send
+    # never faults the heartbeat leg and never outranks the shielded drain the STOPPING notice precedes.
+    match os.environ.get("NOTIFY_SOCKET"):
+        case None:
+            return
+        case path:
+            try:
+                async with await anyio.create_unix_datagram_socket() as sock:
+                    await sock.sendto(state.value.encode(), path.replace("@", "\0", 1) if path.startswith("@") else path)
+            except OSError:  # Exemption: the platform notify seam — an unreachable manager is ignored, never fatal.
+                return
+
+
+async def _beating() -> None:
+    # systemd watchdog admission is total: WATCHDOG_USEC must parse to a POSITIVE period — "0" is the manager's
+    # disable spelling, not an interval, and would spin a zero-sleep ping storm — and WATCHDOG_PID, when set, must
+    # name this process, so a value inherited from a parent scope never arms a child heartbeat; the armed leg pings
+    # at half the period per the watchdog contract.
+    match os.environ.get("WATCHDOG_USEC", ""), os.environ.get("WATCHDOG_PID", str(os.getpid())):
+        case (usec, owner) if not usec.isdigit() or int(usec) == 0 or owner != str(os.getpid()):
+            return
+        case (usec, _):
+            while True:  # Exemption: the watchdog heartbeat is the daemon's standing keep-alive, cancelled by its owning group.
+                await _notify(NotifyState.WATCHDOG)
+                await anyio.sleep(int(usec) / 2_000_000)
+
+
+def _fleet(charges: Block[Charge]) -> Block[tuple[str, DrainStage]]:
+    # one pool-drain row per pooled charge — a DAEMON charge drains through the supervisor's stop escalation, never a pool;
+    # only a LIVE arm drains (an acquire here would spawn a pool solely to drain it), and the lookup carries the charge's
+    # full arm key — a REMOTE endpoint or GPU device placement key included, or the dialed channel outlives the drain.
+    # `pool.drain()` is the async graceful stage `_settled` awaits; its blocking joins already ride the worker band inside
+    # the pool owner.
+    return charges.filter(lambda charge: charge.kind in (WorkerKind.PROCESS, WorkerKind.GPU, WorkerKind.REMOTE)).map(
+        lambda charge: (
+            f"workers.{charge.policy.subject}",
+            lambda: WorkerPool.live(charge.kind, charge.enforcement, charge.placement.key if charge.placement else "")
+            .map(lambda pool: pool.drain())
+            .default_value(Ok(None)),
+        )
+    )
+
+
+async def _supervised(host: ServerHost, drains: Block[tuple[str, DrainStage]], charges: Block[Charge]) -> RuntimeRail[None]:
     send, receive = anyio.create_memory_object_stream[RuntimeRail[object]](max_buffer_size=2)
-    trip = anyio.CancelScope()
 
     async def hosting(sink: MemoryObjectSendStream[RuntimeRail[object]]) -> None:
-        # the serve leg is fenced: a platform raise lands on the rail instead of killing the group as an unconverted
-        # ExceptionGroup, so the trip cancel below ALWAYS runs and the daemon never hangs on a signal that will not come.
+        # serve leg is fenced: a platform raise lands on the rail instead of killing the group as an unconverted
+        # ExceptionGroup; the terminal group cancel below ALWAYS runs, so the standing signal, watchdog, and supervision
+        # rhythms end with the server and the daemon never hangs on a loop that will not stop.
         async with sink:
-            await sink.send((await async_boundary("serve.host", host.serve)).bind(lambda rail: rail))
-        trip.cancel()  # a failed or refused bind releases the signal wait
+            await sink.send((await async_boundary("serve.host", lambda: host.serve(ready=lambda: _notify(NotifyState.READY)))).bind(lambda rail: rail))
+        group.cancel_scope.cancel()
 
     async def tripped(sink: MemoryObjectSendStream[RuntimeRail[object]]) -> None:
-        with trip:
+        # signal leg lives whole inside its sink so the hosting-side group cancel still closes the clone and the
+        # post-group drain reaches EndOfStream; on a real signal the drain verdict sends under a shield, and the
+        # finally's own group cancel makes signal-path termination unconditional — a drain refusal whose stop(grace)
+        # never unblocks wait_for_termination can no longer strand the daemon on the hosting leg's cancel alone.
+        async with sink:
             with anyio.open_signal_receiver(signal.SIGTERM, signal.SIGINT) as trips:  # Exemption: the platform signal seam.
                 async for _ in trips:
                     break
-        async with sink:
-            # stage one of the drain order: health flip + stop(grace) unblocks wait_for_termination.
-            await sink.send(await async_boundary("serve.drain", host.drain))
+            await _notify(NotifyState.STOPPING)
+            try:
+                with anyio.CancelScope(shield=True):
+                    # stage one of the drain order: health flip + stop(grace) unblocks wait_for_termination.
+                    await sink.send(await async_boundary("serve.drain", host.drain))
+            finally:
+                group.cancel_scope.cancel()
 
+    supervisor = Supervisor(charges, host.status)
     async with anyio.create_task_group() as group, send:  # Exemption: the daemon's one supervision group.
         group.start_soon(hosting, send.clone())
         group.start_soon(tripped, send.clone())
+        group.start_soon(_beating)
+        supervisor.watch(group)
 
     settled = Block.of_seq([outcome async for outcome in receive])
-    flushed = await _drained(drains.append(Block.singleton((str(Scope.SERVICE), Telemetry.shutdown))))
+    # daemon children stop AFTER the pools drain — a child may still serve pooled work — and telemetry flushes last.
+    ordered = (
+        drains.append(_fleet(charges))
+        .append(Block.singleton(("workers.daemons", supervisor.stop)))
+        .append(Block.singleton((str(Scope.SERVICE), Telemetry.shutdown)))
+    )
+    flushed = await _drained(ordered)
     outcome = traversed(settled.append(Block.singleton(flushed)), by=Disposition.ACCUMULATE)
     await Signals.emit_async(
-        Receipt.of(SCOPES[Scope.SERVICE], ("emitted", "shutdown", {"stages": len(settled) + len(drains) + 1, "clean": outcome.is_ok()})), OPEN
+        Receipt.of(SCOPES[Scope.SERVICE], ("emitted", "shutdown", {"stages": len(settled) + len(ordered), "clean": outcome.is_ok()})), OPEN
     )
     return outcome.map(lambda _: None)
 
 
-async def _daemon(bind: str, grace: float, routes: Block[Route], drains: Block[tuple[str, DrainStage]]) -> RuntimeRail[None]:
+async def _daemon(bind: str, grace: float, routes: Block[Route], drains: Block[tuple[str, DrainStage]], charges: Block[Charge]) -> RuntimeRail[None]:
     match _booted(bind, grace, routes):
-        case Error(_) as refused:
+        case Result(tag="error") as refused:
             return refused
-        case Ok(host):
-            return await _supervised(host, drains)
+        case Result(tag="ok", ok=host):
+            return await _supervised(host, drains, charges)
         case _ as unreachable:
             assert_never(unreachable)
 
@@ -553,20 +634,20 @@ async def _daemon(bind: str, grace: float, routes: Block[Route], drains: Block[t
 # --- [ENTRY] ----------------------------------------------------------------------------
 
 
-def companion_app(routes: Block[Route], drains: Block[tuple[str, DrainStage]] = Block.empty()) -> App:
+def companion_app(routes: Block[Route], drains: Block[tuple[str, DrainStage]] = Block.empty(), charges: Block[Charge] = Block.empty()) -> App:
     app = App(name=SCOPES[Scope.SERVICE], help="private companion daemon entry", result_action="return_int_as_exit_code_else_zero")
 
     @app.command
     async def serve(bind: str, *, grace: Annotated[NonNegativeFloat, Parameter(env_var="RASM_COMPANION_GRACE")] = 5.0) -> int:
-        return _exit(await _daemon(bind, grace, routes, drains))
+        return _exit(await _daemon(bind, grace, routes, drains, charges))
 
     @app.command
     async def recipe(selector: str, assignments: Path | None = None) -> int:
         # one-shot local bind of the execution/recipe#RECIPE owner: a RecipeName member or an external recipe-folder path;
-        # the boot pair mirrors the serve leg so the engine-gate retries ride RETRY_HOOKS.
+        # boot pair mirrors the serve leg so the engine-gate retries ride RETRY_HOOKS.
         Signals.configure()
         install(RetryMode.EMIT)
-        execution = RecipeExecution(lane=LanePolicy(capacity=1))
+        execution = RecipeExecution(lane=LanePolicy.of(RuntimeContext.admit(RuntimeProfile.TOOL)))
         loaded = (
             Ok(Map.empty())
             if assignments is None
@@ -576,9 +657,9 @@ def companion_app(routes: Block[Route], drains: Block[tuple[str, DrainStage]] = 
             lambda inputs: RecipeSpec(recipe=boundary("config", lambda: RecipeName(selector)).default_value(selector), inputs=inputs)
         )
         match spec:
-            case Error(_) as refused:
+            case Result(tag="error") as refused:
                 return _exit(refused)
-            case Ok(one):
+            case Result(tag="ok", ok=one):
                 return _exit(await execution.execute(one))
             case _ as unreachable:
                 assert_never(unreachable)

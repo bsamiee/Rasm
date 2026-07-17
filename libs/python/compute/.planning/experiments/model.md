@@ -1,8 +1,8 @@
 # [PY_COMPUTE_MODEL]
 
-The classical-ML model-asset export, validation, and graduation owner: `ModelAsset` exports a fitted scikit-learn estimator graph to ONNX through `skl2onnx.to_onnx`, structurally checks it through `onnx`, runs it through an `onnxruntime.InferenceSession`, and folds every check into a typed evidence ledger that graduates on the `model_asset` `HandoffAxis` case. Authoring or training a neural model is out of charter.
+Classical-ML model-asset export, validation, and graduation owner: `ModelAsset` exports a fitted scikit-learn estimator graph to ONNX through `skl2onnx.to_onnx`, structurally checks it through `onnx`, runs it through an `onnxruntime.InferenceSession`, and folds every check into a typed evidence ledger that graduates on the `model_asset` `HandoffAxis` case. Authoring or training a neural model is out of charter.
 
-Input and output are both parameterized: `ExportSource` discriminates the `to_onnx` source shapes and `ValidationCheck.run` folds each case to a `ValidationEvidence` carrier holding only the slots its kind names. `onnx` is core; `onnxruntime`, `skl2onnx`, and `scikit-learn` gate on the worker lane. The run rides the `EvidenceScope.MODEL` weave — span, `boundary` fence, beartype guard, `@receipted` harvest of the manifest contributor.
+Input and output are both parameterized: `ExportSource` discriminates the `to_onnx` source shapes and `ValidationCheck.run` folds each case to a `ValidationEvidence` carrier holding only the slots its kind names. `onnx` is core; `onnxruntime`, `skl2onnx`, and `scikit-learn` gate on the worker lane. This run rides the `EvidenceScope.MODEL` weave — span, `boundary` fence, beartype guard, `@receipted` harvest of the manifest contributor.
 
 ## [01]-[INDEX]
 
@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING, Annotated, Final, Literal, assert_never
 import numpy as np
 from beartype import beartype
 from beartype.vale import Is
-from expression import Error, Nothing, Ok, Option, Some, case, tag, tagged_union
+from expression import Error, Nothing, Ok, Option, Result, Some, case, tag, tagged_union
 from expression.collections import Block, Map
 from msgspec import Struct
 from upath import UPath
@@ -31,9 +31,10 @@ from upath import UPath
 from rasm.compute.graduation.handoff import EvidenceScope, GraduationReceipt, HandoffAxis, evidence_run
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import FAULT_CONF, RuntimeRail, boundary
-from rasm.runtime.lanes import LanePolicy, Modality
+from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.receipts import Receipt
 from rasm.runtime.roots import ResourceRef
+from rasm.runtime.workers import Kernel, KernelTrait
 
 if TYPE_CHECKING:
     from onnx import ModelProto
@@ -54,8 +55,6 @@ type Residual = Annotated[dict[str, float], Is[lambda m: all(isfinite(v) for v i
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# the family modality row: policy DATA, never a per-page literal.
-_MODALITY: Final[Modality] = Modality.THREAD
 _PARITY_TOL: Final[float] = 1e-4  # converter float32-vs-float64 numeric drift tolerance
 
 # each row pairs a sklearn verb with the ONNX output index it rides — a `zipmap`-off classifier emits `label` at 0 and dense
@@ -71,7 +70,7 @@ class OperatorGate(Struct, frozen=True, gc=False):
     black: frozenset[str] = frozenset()
 
 
-# the estimator's richest probabilistic output paired with the ONNX output index it rides; holds a tracked `ndarray`, so no `gc=False`.
+# estimator's richest probabilistic output paired with the ONNX output index it rides; holds a tracked `ndarray`, so no `gc=False`.
 class ProbeRef(Struct, frozen=True):
     index: int
     reference: np.ndarray
@@ -156,7 +155,7 @@ class ValidationEvidence:
 
 @tagged_union(frozen=True)
 class ValidationCheck:
-    # the check INPUT union, distinct from the `ValidationEvidence` verdict output — two parameterized shapes, never one fat
+    # check INPUT union, distinct from the `ValidationEvidence` verdict output — two parameterized shapes, never one fat
     # carrier; only the refinement-bearing `parity` case keeps a fenced factory.
     tag: CheckKind = tag()
     structural: ModelProto = case()
@@ -167,7 +166,7 @@ class ValidationCheck:
     @staticmethod
     @beartype(conf=FAULT_CONF)
     def Parity(session_output: ParityArray, reference: ParityArray) -> ValidationCheck:
-        # the sole factory the union keeps — the `ParityArray` finiteness refinement must fire inside the `boundary` fence.
+        # sole factory the union keeps — the `ParityArray` finiteness refinement must fire inside the `boundary` fence.
         return ValidationCheck(parity=(session_output, reference))
 
     def run(self) -> ValidationEvidence:
@@ -189,7 +188,7 @@ class ValidationCheck:
                 finite = all(bool(np.isfinite(r).all()) if np.issubdtype(r.dtype, np.number) else True for r in outputs)
                 return ValidationEvidence(smoke=(len(outputs), finite))
             case ValidationCheck(tag="parity", parity=(produced, reference)):
-                # the max-abs-delta the receipt records, never a bare `allclose` bool that drops the actual divergence.
+                # max-abs-delta the receipt records, never a bare `allclose` bool that drops the actual divergence.
                 delta = float(np.abs(produced.ravel() - reference.ravel()).max()) if reference.size else 0.0
                 return ValidationEvidence(parity=(delta, _PARITY_TOL))
             case _ as unreachable:
@@ -213,7 +212,7 @@ class ModelAssetManifest(Struct, frozen=True):
 
     @property
     def residuals(self) -> Residual:
-        # the verdict ledger lowered to the measured-residual map — `0.0` on pass, `1.0` on fail, keyed by each verdict's own `tag`.
+        # verdict ledger lowered to the measured-residual map — `0.0` on pass, `1.0` on fail, keyed by each verdict's own `tag`.
         return {v.tag: 0.0 if v.passed else 1.0 for v in self.verdicts}
 
     @property
@@ -266,9 +265,9 @@ class ModelAsset(Struct, frozen=True, gc=False):
     async def _traced(
         self, lane: LanePolicy, op: str, kernel: Callable[..., "RuntimeRail[ModelAssetManifest]"], *args: object
     ) -> RuntimeRail[ModelAssetManifest]:
-        # the weave owns span, fence, and the `@receipted` receipt harvest.
+        # weave owns span, fence, and the `@receipted` receipt harvest.
         async def dispatch() -> RuntimeRail[ModelAssetManifest]:
-            return (await lane.offload(kernel, *args, modality=_MODALITY)).bind(lambda rail: rail)
+            return (await lane.offload(Kernel.of(kernel, KernelTrait.RELEASING), *args)).bind(lambda rail: rail)
 
         return await evidence_run(EvidenceScope.MODEL, f"model.{op}", dispatch)
 
@@ -290,7 +289,7 @@ class ModelAsset(Struct, frozen=True, gc=False):
         # element dtype, so neither run is two parallel constructions nor a diff against the zero feed.
         smoke_feed = {a.name: np.zeros(tuple(d if isinstance(d, int) else 1 for d in a.shape), dtype=element[a.name]) for a in args}
         produced = tuple(session.run(list(outputs), smoke_feed))
-        # the parity check is `Some` only when a source feeds the real `sample`, so the verdict tuple is one `Block` fold over an
+        # parity check is `Some` only when a source feeds the real `sample`, so the verdict tuple is one `Block` fold over an
         # `Option`-tailed sequence, never a mutable `list` + conditional `append`.
         parity = Option.of_optional(source).map(
             lambda src: ValidationCheck.Parity(
@@ -307,12 +306,12 @@ class ModelAsset(Struct, frozen=True, gc=False):
             ValidationCheck(smoke=produced),
             *parity.to_list(),
         ])
-        # the key is `match`ed off the rail inside the already-fenced body, so a hash `Error` re-raises onto the fence rather than
+        # key is `match`ed off the rail inside the already-fenced body, so a hash `Error` re-raises onto the fence rather than
         # masking the checksum behind a fabricated zero key.
         match ContentIdentity.of("onnx", path.read_bytes()):
-            case Ok(checksum):
+            case Result(tag="ok", ok=checksum):
                 pass
-            case Error(fault):
+            case Result(tag="error", error=fault):
                 raise RuntimeError(fault)
         return ModelAssetManifest(
             checksum=checksum,

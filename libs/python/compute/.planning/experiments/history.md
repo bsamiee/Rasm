@@ -1,8 +1,8 @@
 # [PY_COMPUTE_HISTORY]
 
-The experiment-run persistence, resume, and comparison rail on the study spine: `experiments/study.md#STUDY` owns one grid evaluation, `RunHistory` owns the multi-run cohort that persists, resumes, and compares those evaluations, never a parallel experiment tracker. A `Partial` resume evaluates only the remaining grid rows yet recomputes the sensitivity indices over the whole reconstituted response vector — a SALib variance-, moment-, or derivative-based index is undefined over a design tail slice — so a resumed receipt is statistically indistinguishable from an unbroken run. Compute owns no durable run store: the resume proof is key equality over caller-supplied evidence, never storage.
+Experiment-run persistence, resume, and comparison rail on the study spine: `experiments/study.md#STUDY` owns one grid evaluation, `RunHistory` owns the multi-run cohort that persists, resumes, and compares those evaluations, never a parallel experiment tracker. A `Partial` resume evaluates only the remaining grid rows yet recomputes the sensitivity indices over the whole reconstituted response vector — a SALib variance-, moment-, or derivative-based index is undefined over a design tail slice — so a resumed receipt is statistically indistinguishable from an unbroken run. Compute owns no durable run store: the resume proof is key equality over caller-supplied evidence, never storage.
 
-The response cache is one `Map[ContentKey, np.ndarray]` keyed by each design's `ContentKey`, so a data or method change keys distinctly and never collides to a stale hit. Both entrypoints ride one `_traced` weave — the `EvidenceScope.HISTORY` span over the `boundary` fence over the beartype-guarded thunk, harvesting either receipt through the `runtime/observability/receipts#RECEIPT` `@receipted` aspect — the same multi-entry form `experiments/model.md#ASSET` holds.
+Response caching is one `Map[ContentKey, np.ndarray]` keyed by `Study.spec_key` — axes, method, mode, the objective's full identity (row/batch scorer shipping identity plus the jit route row), and design bytes in one preimage — so a data, method, mode, scorer, or jit/batch configuration change keys distinctly and never collides to a stale hit. `resume` evaluates its remaining rows through the same `HOSTILE`-trait `Kernel` crossing `experiments/study.md#STUDY` `Study.run` rides — the module-level `_resume_kernel` ships `REFERENCE`, a closure-bearing objective crosses on the pool's cloudpickle wire — while `compare` stays the sync `_traced` weave; both run under the `EvidenceScope.HISTORY` span with the `boundary` fence over beartype-guarded bodies, receipts harvested through the `runtime/observability/receipts#RECEIPT` `@receipted` aspect.
 
 ## [01]-[INDEX]
 
@@ -13,7 +13,7 @@ The response cache is one `Map[ContentKey, np.ndarray]` keyed by each design's `
 - Owner: `RunHistory` — the study receipt is the per-grid evidence, `RunHistory` the cohort that keys, resumes, and compares those receipts.
 - Cases: `ResumePlan` discriminates `Complete`/`Partial`/`Fresh` against the prior run through one total `match`, so a new resume policy is one plan case and one `match` arm, never a new entrypoint.
 - Output: `CrossStat` parameterizes the comparison on both axes — the variadic `*keys` cohort in, the per-statistic agreement table out — reading run concurrence as per-axis sensitivity-ordering agreement, never a side-by-side index transpose.
-- Growth: a new resume outcome is one `ResumePlan` case and its `match` arm; a new comparison projection is one `RunProjection` field; a new cross-run statistic is one `CrossStat` member plus one `_KERNELS` row; a new entrypoint shares the one `_traced` weave by passing its `Traceable`-returning thunk.
+- Growth: a new resume outcome is one `ResumePlan` case and its `match` arm; a new comparison projection is one `RunProjection` field; a new cross-run statistic is one `CrossStat` member plus one `_KERNELS` row; a new sync entrypoint shares the `_traced` weave by passing its `Traceable`-returning thunk, and an evaluating entrypoint crosses on the study kernel's lane.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -23,15 +23,17 @@ from typing import Final, Literal, Protocol, assert_never, runtime_checkable
 
 import numpy as np
 from beartype import beartype
-from expression import Error, Nothing, Ok, case, tag, tagged_union
+from expression import Error, Nothing, Ok, Result, Some, case, tag, tagged_union
 from expression.collections import Block, Map
 from msgspec import Struct
 
 from rasm.compute.experiments.study import Measured, Objective, Study, StudyReceipt
 from rasm.compute.graduation.handoff import EvidenceScope, evidence_run
-from rasm.runtime.identity import ContentIdentity, ContentKey
+from rasm.runtime.identity import ContentKey
 from rasm.runtime.faults import FAULT_CONF, RuntimeRail, boundary
+from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.receipts import Receipt, ReceiptContributor
+from rasm.runtime.workers import Kernel, KernelTrait
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -39,8 +41,8 @@ from rasm.runtime.receipts import Receipt, ReceiptContributor
 type CrossKernel = Callable[[np.ndarray, np.ndarray, np.ndarray, np.ndarray], float]
 
 
-# the `_traced` egress bound: a receipt streams its `contribute` facts AND projects the bounded scalars the `Ok` arm writes onto
-# the span; `StudyReceipt` and `ComparisonReceipt` both satisfy it, so one bound `E` carries either egress.
+# `_traced` egress bound: a receipt streams its `contribute` facts AND projects the bounded scalars the `Ok` arm writes
+# onto the span; `StudyReceipt` and `ComparisonReceipt` both satisfy it, so one bound `E` carries either egress.
 @runtime_checkable
 class Traceable(ReceiptContributor, Protocol):
     @property
@@ -53,7 +55,7 @@ class CrossStat(StrEnum):
     KENDALL_TAU = "kendall_tau"  # concordant-minus-discordant pair fraction over the ranks
     LINEAR_CORRELATION = "linear_correlation"  # Pearson over the raw shared-axis index magnitudes
 
-    # the statistic family OWNS its kernels: the rank transform, the closed-form kernels, and the `_KERNELS` dispatch table are
+    # statistic family OWNS its kernels: the rank transform, the closed-form kernels, and the `_KERNELS` dispatch table are
     # static members of this owner, never module-level free functions the enum reaches back down into.
     def score(self, u_idx: np.ndarray, v_idx: np.ndarray) -> float:
         u_rank, v_rank = CrossStat._rank(u_idx), CrossStat._rank(v_idx)
@@ -128,7 +130,7 @@ class ResumePlan:
 
     @staticmethod
     def of(prior: StudyReceipt | None, cached: np.ndarray | None, total: int) -> "ResumePlan":
-        # the resume index is the cached vector's ROW count `len(prefix)` against the design height `total` — `design[done:]` and
+        # resume index is the cached vector's ROW count `len(prefix)` against the design height `total` — `design[done:]` and
         # `prefix[:done]` address rows, never the scalar element count `StudyReceipt.response_width` carries.
         match prior, cached:
             case StudyReceipt(), np.ndarray() as prefix if len(prefix) >= total:
@@ -231,6 +233,20 @@ def _recompute(study: Study, design: np.ndarray, responses: np.ndarray, key: Con
     return StudyReceipt.graded(study, design, Measured(responses, 0.0, Nothing), key)
 
 
+def _resume_kernel(
+    by_key: Map[ContentKey, StudyReceipt], cache: Map[ContentKey, np.ndarray], study: Study, objective: Objective, seed: int
+) -> RuntimeRail[StudyReceipt]:
+    # module-level so REFERENCE shipping resolves it by import — the crossing law `study._study_kernel` holds; the fence
+    # converts a design/scorer/analyzer raise, and a closure-bearing objective crosses on the pool's cloudpickle wire.
+    # design generation and the key mint run worker-side: `method.design` is CPU work an awaiting caller must never host,
+    # and an encode refusal rails through the same fence as every other worker fault.
+    def worked() -> RuntimeRail[StudyReceipt]:
+        design = study.method.design(study.axes, seed)
+        return study.spec_key(design, Some(objective)).map(lambda key: _resume(by_key, cache, study, objective, design, key))
+
+    return boundary("history.resume", worked).bind(lambda rail: rail)
+
+
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
@@ -242,23 +258,25 @@ class RunHistory(Struct, frozen=True):
     def _by_key(self) -> Map[ContentKey, StudyReceipt]:
         return Map.of_seq((r.content_key, r) for r in self.runs)
 
-    def resume(self, study: Study, objective: Objective, /, *, seed: int = 0) -> RuntimeRail[StudyReceipt]:
-        # `bind`ing the railed design key into `_traced` keeps an encode fault and a resume fault on one rail; the cache reads by
-        # the same `ContentKey` `_resume` looks the prior receipt up by, never a positional `zip` that mis-pairs or truncates.
-        design = study.method.design(study.axes, seed)
-        # the default `IdentityPolicy` is a frozen single-field value, so this key equals study's design key by value equality
-        # and the response cache hits by construction.
-        return ContentIdentity.of("study", design.tobytes()).bind(
-            lambda key: self._traced("resume", lambda: _resume(self._by_key, self.responses, study, objective, design, key))
-        )
+    async def resume(self, study: Study, objective: Objective, lane: LanePolicy, /, *, seed: int = 0) -> RuntimeRail[StudyReceipt]:
+        # remaining-row evaluation is the same HOSTILE crossing `Study.run` rides — `objective.rows` AND `method.design`
+        # on the loop would stall it, so the kernel derives design and key worker-side through `Study.spec_key`, the ONE
+        # mint both owners share (axes, method, mode, objective label, design bytes), so the key equals the original
+        # run's by construction and the response cache hits — and `_recompute` grades zero elapsed, so a worker-death
+        # re-run reproduces the receipt and the retry default stands.
+        async def dispatch() -> RuntimeRail[StudyReceipt]:
+            kernel = Kernel.of(_resume_kernel, KernelTrait.HOSTILE)
+            return (await lane.offload(kernel, self._by_key, self.responses, study, objective, seed)).bind(lambda rail: rail)
+
+        return await evidence_run(EvidenceScope.HISTORY, "history.resume", dispatch)
 
     def compare(self, *keys: ContentKey, stats: frozenset[CrossStat] = frozenset({CrossStat.RANK_CORRELATION})) -> RuntimeRail[ComparisonReceipt]:
-        # the single-pair join is the two-key cohort; the statistic family is the `stats` parameter.
+        # single-pair join is the two-key cohort; the statistic family is the `stats` parameter.
         return self._traced("compare", lambda: _compare(self._by_key, keys, stats))
 
     def _traced[E: Traceable](self, op: str, thunk: Callable[[], E]) -> RuntimeRail[E]:
-        # two entrypoints feed the one weave — span, fence over the beartype-guarded bodies, fenced receipt harvest — so a contract
-        # violation folds through the `CLASSIFY` `api` row and a missing-cohort `KeyError` through the `boundary` row.
+        # sync weave — span, fence over the beartype-guarded body, fenced receipt harvest — so a contract violation folds
+        # through the `CLASSIFY` `api` row and a missing-cohort `KeyError` through the `boundary` row.
         return evidence_run(EvidenceScope.HISTORY, f"history.{op}", lambda: boundary(f"history.{op}", thunk))
 ```
 

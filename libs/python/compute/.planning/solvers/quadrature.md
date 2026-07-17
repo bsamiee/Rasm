@@ -1,8 +1,8 @@
 # [PY_COMPUTE_QUADRATURE]
 
-`QuadratureIntent` is the one numeric solver over three routes — 1-D quadrature, 1-D interpolation, and the weak-form finite-element `condense -> solve` fold — every route folding into the one `SolverReceipt`. Variation rides bounded policy values and one catalog row per concept: `QuadKind` keys the `_QUAD` integration-family catalog, `InterpKind` keys the `_INTERP` interpolant catalog, the shared `Readout` axis parameterizes output shape across both numeric routes, and one `QuadPolicy` struct carries every per-call knob. The FEM route owns only the `condense -> solve` half of an already-assembled system and never re-runs a `Basis`/`asm`.
+`QuadratureIntent` is the one numeric solver over three routes — 1-D quadrature, 1-D interpolation, and the weak-form finite-element `condense -> solve` fold — every route folding into the one `SolverReceipt`. Variation rides bounded policy values and one catalog row per concept: `QuadKind` keys the `_QUAD` integration-family catalog, `InterpKind` keys the `_INTERP` interpolant catalog, the shared `Readout` axis parameterizes output shape across both numeric routes, and one `QuadPolicy` struct carries every per-call knob. This FEM route owns only the `condense -> solve` half of an already-assembled system and never re-runs a `Basis`/`asm`.
 
-The reused `Readout` axis spans both numeric routes; the FEM route consumes the `AssembledSystem` that `solvers/mesh.md#EXCHANGE` `MeshExchange.assemble` lowers, condenses it through `skfem.condense`, and solves the condensed system through the `solvers/linear.md#LINEAR` public `sparse_receipt` under the caller's `SparseScheme`/`LinearPolicy` against the honest condensed-load residual, while the element axis `ElementKind`/`FemForm`/`CTOR` is owned by `solvers/mesh.md#MESH_FIELD` and imported downward at module top. Each numeric floor climbs the JAX-native `quadax`/`interpax` companion — woven once through the frozen `QuadEngine`, which floats the rail to float64 via `jax.config.update("jax_enable_x64", True)` since the `epsabs=1e-10`/`epsrel=1e-8` tolerances sit below float32 eps and the adaptive termination is otherwise unsatisfiable — then the host `scipy` body, then the unconditional `numpy` floor, the same x64 contract `solvers/linear.md#LINEAR`/`solvers/nonlinear.md#NONLINEAR`/`solvers/differential.md#DIFFERENTIAL` float their rails to. The module-level `_dispatch` kernel crosses the process lane as spec data plus operands, `_MODALITY` pins the gated `integrate`/`interpolate` routes on PROCESS and the scipy-bound FEM on THREAD, and receipt egress rides the hub `evidence_run` weave — span, fence, `@receipted(REDACTION)` harvest — over the `solvers/receipt.md#RECEIPT` `status_of` residual floor every scipy/numpy path defers to with `result=None`.
+Reused `Readout` axis spans both numeric routes; the FEM route consumes the `AssembledSystem` that `solvers/mesh.md#EXCHANGE` `MeshExchange.assemble` lowers, condenses it through `skfem.condense`, and solves the condensed system through the `solvers/linear.md#LINEAR` public `sparse_receipt` under the caller's `SparseScheme`/`LinearPolicy` against the honest condensed-load residual, while the element axis `ElementKind`/`FemForm`/`CTOR` is owned by `solvers/mesh.md#MESH_FIELD` and imported downward at module top. Each numeric floor climbs the JAX-native `quadax`/`interpax` companion — woven once through the frozen `QuadEngine`, which floats the rail to float64 via `jax.config.update("jax_enable_x64", True)` since the `epsabs=1e-10`/`epsrel=1e-8` tolerances sit below float32 eps and the adaptive termination is otherwise unsatisfiable — then the host `scipy` body, then the unconditional `numpy` floor, the same x64 contract `solvers/linear.md#LINEAR`/`solvers/nonlinear.md#NONLINEAR`/`solvers/differential.md#DIFFERENTIAL` float their rails to. Module-level `_dispatch` kernel crosses the process lane as spec data plus operands, `_TRAIT` declares the gated `integrate`/`interpolate` routes `HOSTILE` and the scipy-bound FEM `RELEASING`, isolation, band, and worker-death retry deriving at the runtime `Kernel` crossing, and receipt egress rides the hub `evidence_run` weave — span, fence, `@receipted(REDACTION)` harvest — over the `solvers/receipt.md#RECEIPT` `status_of` residual floor every scipy/numpy path defers to with `result=None`.
 
 ## [01]-[INDEX]
 
@@ -11,7 +11,7 @@ The reused `Readout` axis spans both numeric routes; the FEM route consumes the 
 ## [02]-[QUADRATURE]
 
 - Owner: `QuadratureIntent` carries the integrate/interpolate/fem cases on one solver; the `fem` case carries the assembled stiffness/load/dof system itself, never the `MeshField`, so this route condenses and solves and never reaches into mesh assembly.
-- Entry: `QuadratureIntent.solve(lane)` is the one union method matching `LinearIntent.solve`/`DifferentialIntent.solve`, composing the `_MODALITY`-routed `lane.offload` under the hub `evidence_run` weave — PROCESS for the gated quadax/interpax routes (x64 is process-global native state), THREAD for the scipy FEM — with `retry=RetryClass.OCCT` wrapping the process isolation leg only, never the deterministic solve.
+- Entry: `QuadratureIntent.solve(lane)` is the one union method matching `LinearIntent.solve`/`DifferentialIntent.solve`, composing the `_TRAIT`-routed `lane.offload` under the hub `evidence_run` weave — `HOSTILE` for the gated quadax/interpax routes (x64 is process-global native state), `RELEASING` for the scipy FEM — isolation, band, and worker-death retry deriving at the runtime `Kernel` crossing owner from the trait row.
 - Output: the shared `Readout` axis carries output shape for both routes — scalar integral, running antiderivative, `nu`-th derivative, analytic antiderivative — never a `cumulative`/`derivative` boolean knob or parallel `IntegrateOutput`/`InterpOutput` enums.
 - Receipt: the adaptive `QuadratureInfo` termination bitfield folds into the `Iterative` receipt's typed `SolveStatus` (estimated error in `residual`, evaluation count in `iterations`), exactly as the sparse Krylov `_info_status` fold does; a `VECTORIZED` per-component `err`/`status` reduces to the worst scalar (`np.max` error, `np.bitwise_or.reduce` flag union), `NO_CONVERGE` decodes to divergence rather than the distinct `MAX_NINTER` step-budget verdict, and every scipy/numpy floor passes `result=None` to the shared `solvers/receipt.md#RECEIPT` `status_of` residual floor.
 - Packages: `quadax`/`interpax` the JAX-native differentiable adaptive/fixed/sampled and interpolant floor, `scipy` the host bodies (never the deprecated `interp1d`; no scipy node-derivative Hermite drop-in, so the `HERMITE` scipy floor is the degree-`k` `make_interp_spline` C2 cubic), `skfem` the `condense`/`solve` half only (`Basis`/`asm` stays on `solvers/mesh.md#EXCHANGE`), `jax` the x64 float64 promotion, `numpy` the unconditional floor owning `_prefix_trapezoid` locally (numpy exposes no `cumulative_trapezoid`; that spelling is SciPy-owned), otherwise per the fence imports.
@@ -36,8 +36,8 @@ from rasm.compute.solvers.linear import LinearMap, LinearPolicy, MatrixStructure
 from rasm.compute.solvers.mesh import AssembledSystem, ElementKind, FemForm
 from rasm.compute.solvers.receipt import SolverReceipt
 from rasm.runtime.faults import RuntimeRail
-from rasm.runtime.lanes import LanePolicy, Modality
-from rasm.runtime.resilience import RetryClass
+from rasm.runtime.lanes import LanePolicy
+from rasm.runtime.workers import Kernel, KernelTrait
 
 
 # --- [TYPES] -------------------------------------------------------------------------------
@@ -91,11 +91,12 @@ _QUAD_STATUS: tuple[tuple[str, str], ...] = (
 )
 
 
-# family modality rows: gated quadax/interpax pin PROCESS (x64 flag is process-global native state), scipy FEM rides THREAD.
-_MODALITY: Final[Map[str, Modality]] = Map.of_seq([
-    ("integrate", Modality.PROCESS),
-    ("interpolate", Modality.PROCESS),
-    ("fem", Modality.THREAD),
+# family trait rows: gated quadax/interpax declare HOSTILE (x64 flag is process-global native state), scipy FEM
+# RELEASING; isolation, band, and worker-death retry derive at the runtime Kernel crossing owner.
+_TRAIT: Final[Map[str, KernelTrait]] = Map.of_seq([
+    ("integrate", KernelTrait.HOSTILE),
+    ("interpolate", KernelTrait.HOSTILE),
+    ("fem", KernelTrait.RELEASING),
 ])
 
 
@@ -135,7 +136,7 @@ class InterpRow(Struct, frozen=True):
     scipy_class: str  # modern scipy.interpolate class/factory; never the deprecated interp1d
 
 
-# The gated quadax/interpax/jax modules folded into ONE frozen value object, behavior built once per `gated()`:
+# Gated quadax/interpax/jax modules folded into ONE frozen value object, behavior built once per `gated()`:
 # `integrate` the SINGLE row-keyed (value, QuadratureInfo) driver, `sampled` the bare-array fold, `interpolant` the interpax constructor-and-readout fold.
 @dataclass(frozen=True, slots=True)
 class QuadEngine:
@@ -152,7 +153,7 @@ class QuadEngine:
         jax.config.update("jax_enable_x64", True)  # epsabs 1e-10 / epsrel 1e-8 are below float32 eps; JAX defaults to float32
         return cls(quadax=quadax, interpax=interpax)
 
-    # The ONE callable-integrand driver: `row.adaptive` names the quadax specialization, so one row-keyed call site
+    # ONE callable-integrand driver: `row.adaptive` names the quadax specialization, so one row-keyed call site
     # spans every family — `not adaptive` swaps to fixed_quad* over scalar bounds, `extrapolated` passes `divmax`, the rest `order`+`max_ninter`.
     def integrate(self, row: QuadRow, fn: object, lo: float, hi: float, policy: "QuadPolicy") -> tuple[object, object]:
         qx, interval = self.quadax, np.asarray([lo, hi])
@@ -162,12 +163,12 @@ class QuadEngine:
             return getattr(qx, row.adaptive)(fn, interval, epsabs=policy.epsabs, epsrel=policy.epsrel, divmax=policy.divmax)
         return getattr(qx, row.adaptive)(fn, interval, epsabs=policy.epsabs, epsrel=policy.epsrel, max_ninter=policy.max_ninter, order=policy.order)
 
-    # The ONE quadax.sampled fold: SAMPLED_SIMPSON integrates discretized data (bare array, no QuadratureInfo); CUMULATIVE selects the running antiderivative.
+    # ONE quadax.sampled fold: SAMPLED_SIMPSON integrates discretized data (bare array, no QuadratureInfo); CUMULATIVE selects the running antiderivative.
     def sampled(self, samples: np.ndarray, grid: np.ndarray, readout: "Readout") -> np.ndarray:
         fold = self.quadax.sampled.cumulative_simpson if readout is Readout.CUMULATIVE else self.quadax.sampled.simpson
         return np.asarray(fold(samples, x=grid))
 
-    # The ONE interpax builder over the `_INTERP` row: a method-only kind takes interp1d(method=..., derivative=nu),
+    # ONE interpax builder over the `_INTERP` row: a method-only kind takes interp1d(method=..., derivative=nu),
     # a spline kind the JAX-differentiable class (node_derivatives=True so interpax Hermite reads its dydx); `None` (BSPLINE) routes scipy.
     def interpolant(
         self,
@@ -223,14 +224,10 @@ class QuadratureIntent:
         return QuadratureIntent(fem=(system, dirichlet, scheme, policy))
 
     async def solve(self, lane: LanePolicy) -> "RuntimeRail[SolverReceipt]":
-        # the gated routes pin PROCESS (x64 gate applies at worker import), the FEM arm rides THREAD;
-        # `retry=RetryClass.OCCT` wraps the process isolation leg only. The weave owns span, fence, and harvest.
+        # gated routes declare HOSTILE (x64 gate applies at worker import), the FEM arm RELEASING; isolation,
+        # band, and worker-death retry derive at the runtime Kernel crossing owner. The weave owns span, fence, and harvest.
         async def dispatch() -> RuntimeRail[SolverReceipt]:
-            match _MODALITY[self.tag]:
-                case Modality.PROCESS as modality:
-                    return await lane.offload(_dispatch, self, modality=modality, retry=RetryClass.OCCT)
-                case modality:
-                    return await lane.offload(_dispatch, self, modality=modality)
+            return await lane.offload(Kernel.of(_dispatch, _TRAIT[self.tag]), self)
 
         return await evidence_run(EvidenceScope.QUADRATURE, f"solve.{self.tag}", dispatch)
 
@@ -277,7 +274,7 @@ def _quad_status(quadax: object, status: int | np.ndarray) -> str:
     return next((member for token, member in _QUAD_STATUS if token in message), "other")
 
 
-# the one measured kernel returning the `SolverReceipt` — module-level and import-resolvable, so it crosses the process lane as spec data plus operands.
+# One measured kernel returning the `SolverReceipt` — module-level and import-resolvable, so it crosses the process lane as spec data plus operands.
 def _dispatch(intent: QuadratureIntent) -> SolverReceipt:
     match intent:
         case QuadratureIntent(tag="integrate", integrate=(fn, span, kind, policy)):
@@ -292,7 +289,7 @@ def _dispatch(intent: QuadratureIntent) -> SolverReceipt:
 
 def _integrate_receipt(fn: object, span: tuple[float, float], kind: QuadKind, policy: QuadPolicy) -> SolverReceipt:
     lo, hi = span
-    # the lowering bridge: a jit-minted `LoweredSpec` integrand compiles through its own route row before the
+    # Lowering bridge: a jit-minted `LoweredSpec` integrand compiles through its own route row before the
     # driver runs (symbolic->jit->quadrature, zero symbolic imports); a compile fault degrades to the host kernel.
     if isinstance(fn, LoweredSpec):
         fn = fn.compiled().map(lambda jitted: jitted.fn).default_value(fn.kernel)
@@ -324,7 +321,7 @@ def _integrate_receipt(fn: object, span: tuple[float, float], kind: QuadKind, po
         return _integrate_scipy(fn, lo, hi, row, policy)
 
 
-# The scipy host floor: the row's `scipy` field names the callable and one match folds the divergent call/return
+# Scipy host floor: the row's `scipy` field names the callable and one match folds the divergent call/return
 # shapes into the one (err, neval) pair; result=None defers the verdict to the receipt residual floor.
 def _integrate_scipy(fn: object, lo: float, hi: float, row: QuadRow, policy: QuadPolicy) -> SolverReceipt:
     try:
@@ -373,7 +370,7 @@ def _interpolate_receipt(
     return SolverReceipt.LeastSquares(residual, int(points.size), 0)
 
 
-# The interpax floor reads the `_INTERP` row through `QuadEngine.interpolant`; a method-only ANTIDERIVATIVE/CUMULATIVE folds the running integral (no analytic `.antiderivative()`).
+# Interpax floor reads the `_INTERP` row through `QuadEngine.interpolant`; a method-only ANTIDERIVATIVE/CUMULATIVE folds the running integral (no analytic `.antiderivative()`).
 def _evaluate_interpolant(
     points: np.ndarray, values: np.ndarray, xq: np.ndarray, kind: InterpKind, policy: QuadPolicy, dydx: np.ndarray | None
 ) -> np.ndarray:
@@ -387,7 +384,7 @@ def _evaluate_interpolant(
         return _interpolate_scipy(points, values, xq, kind, policy, dydx)
 
 
-# The numpy-floor running antiderivative: a vectorized prefix trapezoid with a leading zero row — numpy exposes no
+# Numpy-floor running antiderivative: a vectorized prefix trapezoid with a leading zero row — numpy exposes no
 # `cumulative_trapezoid`, so the no-scipy floor owns this fold locally.
 def _prefix_trapezoid(y: np.ndarray, x: np.ndarray) -> np.ndarray:
     dx = np.diff(np.asarray(x, dtype=np.float64))
@@ -408,8 +405,8 @@ def _interpolate_scipy(
 ) -> np.ndarray:
     row = _INTERP[kind]
     if row.interpax_class is None and row.scipy_class == "make_interp_spline" and kind is not InterpKind.BSPLINE:
-        # the method-only kinds have no dedicated scipy class: np.interp serves VALUE, np.gradient the DERIVATIVE,
-        # the running cumulative-trapezoid the ANTIDERIVATIVE/CUMULATIVE — the Readout row never dropped.
+        # Method-only kinds have no dedicated scipy class: np.interp serves VALUE, np.gradient the DERIVATIVE,
+        # Running cumulative-trapezoid the ANTIDERIVATIVE/CUMULATIVE — the Readout row never dropped.
         base = np.asarray(np.interp(xq, points, values))
         if policy.readout is Readout.DERIVATIVE:
             return np.asarray(np.gradient(base, xq))
@@ -456,7 +453,7 @@ def _read_spline(spline: object, xq: np.ndarray, policy: QuadPolicy) -> np.ndarr
             assert_never(unreachable)
 
 
-# The FEM solve owns only the condense->solve half. `skfem.condense(..., expand=False)` returns the reduced
+# FEM solve owns only the condense->solve half. `skfem.condense(..., expand=False)` returns the reduced
 # `(cond_a, cond_b, *_restore)` bundle, then the caller's scheme solves it through `sparse_receipt` — honest `‖cond_a @ x - cond_b‖`, MatrixStructure.SYMMETRIC exposing SPD.
 def _fem_receipt(system: AssembledSystem, dirichlet: float, scheme: SparseScheme, policy: LinearPolicy) -> SolverReceipt:
     import skfem

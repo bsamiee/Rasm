@@ -1,68 +1,77 @@
 # [PY_ARTIFACTS_SHAPE]
 
-`Shaping` is the text-shaping, itemization, and color-glyph rasterization owner over the document rail — one owner folding a Unicode text run and a font through a closed 7-arm `ShapeOp` family: `NORMALIZE` (UAX#15 NFC), `BIDI` (UAX#9 logical→visual reorder), `ITEMIZE` (script/direction visual-run split into typed `ItemizedRun` spans carrying the `typography/font#FONT` `ScriptTags` resolution at the seam), `FALLBACK` (per-cluster covering-face assignment over a grapheme/UVS/ZWJ-aware probe), `SHAPE` (uharfbuzz OpenType shaping into a `PositionedGlyphRun` carrying GID/cluster/advance/offset, the HarfBuzz break-safety flags, the ink-bbox and font-extents columns, the OT baseline, the resolved `StyleValues`, and the advance-threaded outline), `RASTERIZE` (color-format-probed COLRv1 / CBDT-sbix-PNG / SVG-table / CPU-BGRA32 glyph render, the CPAL palette selected by light/dark-background flag), and `QA` (vharfbuzz golden round-trip with the diff-gated per-lookup GSUB/GPOS trace).
+`Shaping` owns text shaping, itemization, fallback, and color-glyph rasterization through one closed `ShapeRequest` family. `NORMALIZE`, `BIDI`, and `ITEMIZE` carry text policy alone; `FALLBACK` shapes each extended grapheme cluster against each candidate face and rejects any `.notdef` result; `SHAPE` emits glyph, cluster, advance, offset, safety, extent, baseline, style, and outline evidence; `RASTERIZE` composes COLRv1, CBDT/sbix, OT-SVG, and CPU paint into a positioned PNG run; `QA` carries a golden serialization, lookup mutation trace, and SVG proof.
 
-Each arm's offload lane is one row on the frozen `_SHAPE_TABLE` — `THREAD` for the GIL-releasing native shape/raster/QA/fallback, `PROCESS` for the gated python-bidi/PyICU reorder-normalize-itemize workers — while the bidi/segment owner is a `BidiEngine`/`SegmentEngine` policy value per run and the cluster granularity a `ClusterLevel` axis, never a parallel shaping owner; the `PositionedGlyphRun` carries the `GlyphFlags` column so `typography/layout#LAYOUT` reads `UNSAFE_TO_BREAK`/`UNSAFE_TO_CONCAT` for break refusal and `SAFE_TO_INSERT_TATWEEL` for kashida, plus the extents/ascender/descender/line-gap/baseline metrics layout reads for line-height and mixed-script alignment; it feeds `document/emit#DOCUMENT` text placement and `composition/compose#COMPOSE` annotation, while face selection, the `ScriptTags` seam, and variation location arrive from `typography/font#FONT`. Every arm keys by the runtime content key and contributes one `ArtifactReceipt.Document`/`.Preview`.
+Each arm's `KernelTrait` is one row on the frozen `_SHAPE_TABLE` — `RELEASING` for the GIL-releasing native shape/raster/QA/fallback, `HOSTILE` for the gated python-bidi/PyICU reorder-normalize-itemize workers whose case payloads carry no font bytes by construction — while the bidi/segment owner is a `BidiEngine`/`SegmentEngine` policy value per request and the cluster granularity a `ClusterLevel` axis, never a parallel shaping owner. `PositionedGlyphRun.source` carries the source-of-truth text beside glyph cluster values that index its code points, so `typography/layout#LAYOUT` derives paragraph text rather than accepting a parallel copy; layout also reads `UNSAFE_TO_BREAK`/`UNSAFE_TO_CONCAT` for break refusal, `SAFE_TO_INSERT_TATWEEL` for kashida, and the extents/ascender/descender/line-gap/baseline metrics for line-height and mixed-script alignment. A produced run feeds `document/emit#DOCUMENT` text placement and `composition/compose#COMPOSE` annotation; face selection, the `ScriptTags` seam, and variation location arrive from `typography/font#FONT`. Every arm keys by the runtime content key and contributes `ArtifactReceipt.Document` — save `RASTERIZE`, which contributes `ArtifactReceipt.Preview` carrying the produced pixel bounds.
 
 ## [01]-[INDEX]
 
-- [01]-[SHAPE]: the 7-arm `ShapeOp` shaping/itemization/rasterization owner over the frozen `_SHAPE_TABLE`, each row a `(ShapeAcceptor, Lane)` pair so the offload lane is a row property — `NORMALIZE`/`BIDI`/`ITEMIZE`/`FALLBACK`/`SHAPE`/`RASTERIZE`/`QA`, `PositionedGlyphRun` the shaped-run value object and `ItemizedRun` the itemized span.
+- [01]-[SHAPE]: the 7-arm `ShapeRequest` shaping/itemization/rasterization owner over the frozen `_SHAPE_TABLE`, each row a `(ShapeAcceptor, KernelTrait)` pair so the crossing trait is a row property — `NORMALIZE`/`BIDI`/`ITEMIZE`/`FALLBACK`/`SHAPE`/`RASTERIZE`/`QA`, `PositionedGlyphRun` the shaped-run value object, `ItemizedRun` the itemized span, `ShapeRun` the one shaping-input owner `SHAPE`/`RASTERIZE`/`QA` share.
 
 ## [02]-[SHAPE]
 
-- Owner: `Shaping` folds `(step, font, params)` through the frozen `_SHAPE_TABLE`, each row a `(ShapeAcceptor, Lane)` pair — the lane is a row property, never a smuggled `if self.step is BIDI`. uharfbuzz owns the OpenType layout engine, the `ot_layout_*`/`axis_infos` introspection, the coverage probe, the `GlyphFlags` signal, the CBDT/sbix+SVG color extractors, and the zero-native-dep BGRA32 CPU rasterizer; fonttools owns the binary model, the `SVGPathPen` outline, and the `fontTools.unicodedata.script` itemize fallback; blackrenderer owns the COLRv1 paint-graph rasterizer; python-bidi owns the UAX#9 default; PyICU owns the locale-aware upgrade behind the `SegmentEngine`/`BidiEngine` row.
-- Cases: seven arms on one `ShapeOp`, each dispatched to its library-owned acceptor per the Owner split — `ITEMIZE` enriches each single-direction/single-script span by `ScriptTags.of` at the seam, `FALLBACK` resolves a per-cluster covering face over the grapheme/UVS/ZWJ probe (`-1` marking tofu), `SHAPE` runs the one `Buffer` pipeline into a `PositionedGlyphRun`, `RASTERIZE` dispatches the `_COLOR_TABLE` row the format probe selects. `WritingDirection`/`ClusterLevel`/`RasterBackend`/`ColorFormat`/`PaletteUsage` drive the buffer and the raster surface.
-- Entry: `emit()` returns the one `ArtifactWork` keyed pre-run over `(step ⊕ font ⊕ params)`; `_emit` maps the crossed bytes onto `ArtifactReceipt.Document`; the `_SHAPE_TABLE` row's `Lane` picks `Modality.PROCESS`/`.THREAD`, the PROCESS arms reading only `params` and ignoring the shared font bytes, spanned once.
-- Auto: every arm offloads off the event loop under one `CapacityLimiter`, its lane read off the `_SHAPE_TABLE` row; `SHAPE` draws each glyph twice — the advance-threaded combined `outline` plus the per-glyph origin outlines `run.on_path()` hands to `graphic/vector/region#REGION` `text_path` — reading extents, font extents, the OT baseline, and `StyleValues` in one pass; `FALLBACK` folds a base+marks, a UVS selector, and a ZWJ sequence to one cluster probe; `RASTERIZE` selects the CPAL palette by the light/dark-background flag, never a raw index; `QA`'s `onchange` trace fires only on a buffer-changing lookup, the regression oracle the production path omits.
-- Receipt: `SHAPE`/`BIDI`/`ITEMIZE`/`NORMALIZE`/`FALLBACK`/`QA` contribute `ArtifactReceipt.Document` carrying the content key and encoded byte count; `RASTERIZE` contributes `ArtifactReceipt.Preview` carrying the pixel width/height. Resolved COLR version, chosen `ColorFormat`, selected palette and its flags, backend name, glyph count, resolved script/direction/OT-tags, the font-extents/baseline/`StyleValues` metrics, and pixel bounds stay interior evidence in the content key and the span, never new `Document`/`Preview` fields.
-- Packages: `uharfbuzz` (the layout engine, `ot_layout_*`/`axis_infos` introspection, the coverage probe, the `GlyphFlags` signal, the color extractors, the `RasterPaint` CPU rasterizer), `fonttools` (`SVGPathPen`/`TransformPen`, `fontTools.unicodedata.script`), `blackrenderer` (the COLRv1 rasterizer, `listBackends`), `python-bidi`, `vharfbuzz`, `PyICU`, `uniseg` (the grapheme probe), `core/receipt#RECEIPT` (`ArtifactReceipt.Document`/`.Preview`, composed never re-declared).
-- Growth: a new shaping feature is one `shape` feature-dict row; a new arm one `ShapeOp` member plus one `_SHAPE_TABLE` row; a new raster backend one `RasterBackend` row; a new color format one `ColorFormat` member plus one `_COLOR_PROBE` predicate and one `_COLOR_TABLE` row; a new writing direction one `WritingDirection` member plus its `_HB_DIRECTION`/`_BIDI_BASE` rows; a new cluster granularity one `ClusterLevel` member; a new bidi/segment owner one `BidiEngine`/`SegmentEngine` member plus one arm; a new palette policy one `PaletteUsage` member; a new style read one `StyleValues` field plus one `hb.StyleTag`; a new shaped-run fact one column on the glyph tuple or one per-run field; a new itemization fact one `ItemizedRun` field.
-- Boundary: no font subsetting/instancing (`typography/font#FONT`), no line-break/hyphenation/paragraph layout (`typography/layout#LAYOUT`, which reads the break-safety column), no PDF authoring (`document/emit#DOCUMENT`), no PAdES/PDF security (`exchange/conformance#CONFORMANCE`) — the owner shapes, itemizes, reorders, normalizes, resolves fallback, and renders glyphs, never breaking a paragraph or producing a document. Text-on-path is the landed `graphic/vector/region#REGION` `text_path` entrypoint's `skia-pathops`/`svgelements` algebra: `SHAPE` draws each glyph to its own origin pen and a curved-baseline consumer hands `run.on_path()` to `vector.text_path`, never a `pathops` import here. A uharfbuzz subsetter, a hand-rolled COLRv1 dispatch, the `renderText` one-shot (it hides the palette/glyph-bounds/backend evidence), a hand-rolled UAX#9 reorder, a hand-rolled break-class table, and a hand-coded script→OT-tag map are each rejected against blackrenderer, `bidi.get_display`, `uniseg`, `fontTools.unicodedata.script`, or the `typography/font#FONT` op that owns them; a parallel `_RasterBackend` enum, a second buffer construction, and a smuggled lane branch collapse into the `_SHAPE_TABLE` row and the one `Buffer` pipeline.
+- Owner: `Shaping` folds one `ShapeRequest` through the frozen `_SHAPE_TABLE`, each row a `(ShapeAcceptor, KernelTrait)` pair — the trait is a row property, never a smuggled `if` on the tag. uharfbuzz owns the OpenType layout engine, the `ot_layout_*`/`axis_infos` introspection, the coverage probe, the `GlyphFlags` signal, the CBDT/sbix+SVG color extractors, and the zero-native-dep BGRA32 CPU rasterizer; fonttools owns the binary model, the `SVGPathPen` outline, and the `fontTools.unicodedata.script` itemize fallback; blackrenderer owns the COLRv1 paint-graph rasterizer; python-bidi owns the UAX#9 default; PyICU owns the locale-aware upgrade behind the `SegmentEngine`/`BidiEngine` rows.
+- Cases: seven arms on one `ShapeRequest`, each case payload closed to its arm's inputs — `normalize` carries text plus its `NormalForm` (all four UAX #15 forms, one member selecting `unicodedata.normalize` or the matching `Normalizer2.get*Instance` singleton) and engine, `bidi`/`itemize` carry text plus direction/engine values alone (a `NORMALIZE` key is untouched by font, raster, or fallback state), `fallback` carries a `FallbackSpec` face stack, and `shape`/`rasterize`/`qa` share the one `ShapeRun` shaping-input owner (`rasterize` composing it inside `RasterSpec`) so the shaping knob set has one declaration site. `ITEMIZE` enriches each single-direction/single-script span by `ScriptTags.of` at the seam after folding `Zyyy`/`Zinh` common/inherited code points onto the surrounding strong script, its ICU arm converting `getVisualRun` UTF-16 offsets onto code-point indices before intersecting script spans and its `AUTO` direction riding `UBiDiLevel.DEFAULT_LTR` first-strong autodetect; `FALLBACK` resolves a per-cluster covering face over the whole-cluster probe (`-1` marking tofu); `SHAPE` runs the one `Buffer` pipeline into a `PositionedGlyphRun`; `RASTERIZE` dispatches the `_COLOR_TABLE` row the format probe selects. `WritingDirection`/`ClusterLevel`/`RasterBackend`/`ColorFormat`/`PaletteUsage` drive the buffer and the raster surface.
+- Entry: `emit()` returns the one `ArtifactWork` keyed pre-run over the request value joined with the `_toolchain()` provider generations — resolved lazily at the first key mint, an absent extra-gated provider fingerprinting as absent — so a shaping-stack upgrade re-keys rather than replaying a stale durable-cache hit; `_emit` crosses the arm over `self.lane.offload(Kernel.of(acceptor, row_trait), request)` — the offload rail is the one fallibility carrier, a provider raise converting once at that boundary — and projects the crossed `ShapedPayload` onto the per-tag receipt case.
+- Auto: every arm offloads under the trait row selected by `_SHAPE_TABLE`; `HOSTILE` requests carry no font bytes. `SHAPE` emits an advance-threaded outline plus origin-drawn per-glyph outlines and reads glyph extents, font extents, baseline, and `StyleValues` from one shaped buffer. `FALLBACK` shapes complete extended grapheme clusters, so UVS, combining, regional-indicator, Indic, and ZWJ sequences share one coverage predicate. `RASTERIZE` derives every plane from two-axis HarfBuzz advances, offsets, and bearings, then composites a positioned PNG with measured bounds.
+- Receipt: `ShapedPayload.encoded` projects to `ArtifactReceipt.Document`; `ShapedPayload.raster` projects to `ArtifactReceipt.Preview` with byte volume and pixel bounds. One closed payload family makes absent raster dimensions unrepresentable and threads the pre-run key captured by `emit()`.
+- Packages: `uharfbuzz` owns layout, shaped-cluster coverage, metrics, color extraction, and CPU paint; `fonttools` owns pens and script resolution; `blackrenderer` owns COLRv1 paint; `python-bidi` and PyICU own UAX#9; `uniseg` owns grapheme boundaries; `vharfbuzz` owns shaping proofs; `resvg-py` rasterizes OT-SVG glyphs; Pillow composites positioned glyph planes into PNG.
+- Exemption: native buffer mutation, glyph drawing, raster compositing, and trace collection are measured provider kernels; their statement loops own mutable provider objects and never escape an operation.
+- Growth: a new shaping feature is one `ShapeRun.features` dict row; a new arm one `ShapeRequest` case plus one `_SHAPE_TABLE` row (the receipt and dispatch `assert_never` tails breaking until both land); a new raster backend one `RasterBackend` row; a new color format one `ColorFormat` member plus one `_COLOR_PROBE` predicate and one `_COLOR_TABLE` row; a new writing direction one `WritingDirection` member plus its `_HB_DIRECTION`/`_BIDI_BASE` rows; a new cluster granularity one `ClusterLevel` member (names mirror `hb.BufferClusterLevel`, so no table row); a new normalization form one `NormalForm` member; a new bidi/segment owner one `BidiEngine`/`SegmentEngine` member plus one arm; a new palette policy one `PaletteUsage` member; a new style read one `StyleValues` field plus one `hb.StyleTag`; a new shaped-run fact one column on the glyph tuple or one per-run field; a new itemization fact one `ItemizedRun` field; a new arm-local knob one field on that arm's case payload, never a shared bag.
+- Boundary: no font subsetting/instancing (`typography/font#FONT`), no line-break/hyphenation/paragraph layout (`typography/layout#LAYOUT`, which reads the break-safety column), no PDF authoring (`document/emit#DOCUMENT`), no PAdES/PDF security (`exchange/conformance#CONFORMANCE`) — the owner shapes, itemizes, reorders, normalizes, resolves fallback, and renders glyphs, never breaking a paragraph or producing a document. Text-on-path is the landed `graphic/vector/region#REGION` `text_path` entrypoint's `skia-pathops`/`svgelements` algebra: `SHAPE` draws each glyph to its own origin pen and a curved-baseline consumer hands `run.on_path()` to `vector.text_path`, never a `pathops` import here. A uharfbuzz subsetter, a hand-rolled COLRv1 dispatch, the `renderText` one-shot (it hides the palette/glyph-bounds/backend evidence), a hand-rolled UAX#9 reorder, a hand-rolled break-class table, and a hand-coded script→OT-tag map are each rejected against blackrenderer, `bidi.get_display`, `uniseg`, `fontTools.unicodedata.script`, or the `typography/font#FONT` op that owns them; a parallel raster-backend enum, a second buffer construction, an omnibus parameter bag spanning every arm, and a smuggled lane branch collapse into the per-case payload, the `_SHAPE_TABLE` row, and the one `Buffer` pipeline.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+import importlib.metadata
 import io
-import os
 import tempfile
 import unicodedata
-from collections.abc import Callable, Mapping, Sequence
+from builtins import frozendict
+from collections.abc import Callable
+from contextlib import ExitStack
 from enum import StrEnum
-from itertools import accumulate, groupby, pairwise
+from functools import cache, partial
+from itertools import pairwise
+from math import ceil
 from pathlib import Path
-from typing import Final, assert_never
+from typing import Final, Literal, assert_never
 
 import msgspec
 import structlog
+from expression import case, tag, tagged_union
 from expression.collections import Map
 from msgspec import Struct
 from opentelemetry import trace
 
-from rasm.runtime.identity import CANONICAL_POLICY, ContentIdentity, ContentKey
-from rasm.runtime.lanes import LanePolicy, Modality
-from rasm.runtime.resilience import RetryClass
-from rasm.runtime.faults import RuntimeRail, async_boundary
+from rasm.artifacts.core.plan import Admission, ArtifactWork
+from rasm.artifacts.core.receipt import ArtifactReceipt
+from rasm.runtime.faults import RuntimeRail
+from rasm.runtime.identity import ContentIdentity, ContentKey
+from rasm.runtime.lanes import LanePolicy
+from rasm.runtime.workers import Kernel, KernelTrait
 
 lazy import uharfbuzz as hb
-lazy from bidi import get_display
-lazy from blackrenderer.backends import getSurfaceClass, listBackends
+lazy from bidi import get_base_level, get_display
+lazy from bidi import algorithm as bidi_algorithm
+lazy from blackrenderer.backends import getSurfaceClass
 lazy from blackrenderer.font import BlackRendererFont
 lazy from blackrenderer.render import BackendUnavailableError, buildGlyphLine, calcGlyphLineBounds
 lazy from fontTools.pens.svgPathPen import SVGPathPen
 lazy from fontTools.pens.transformPen import TransformPen
 lazy from fontTools.ttLib import TTFont
-lazy from fontTools.unicodedata import script as ot_script
-lazy from uniseg.graphemecluster import grapheme_cluster_boundaries  # UAX#29 extended grapheme boundaries for the per-cluster fallback probe
-lazy from icu import Bidi, Normalizer2, Script  # gated PyICU upgrade behind the .ICU rows; absent, the default arms run
+lazy from PIL import Image
+lazy from uniseg.graphemecluster import grapheme_cluster_boundaries
+lazy from icu import Bidi, Normalizer2
+lazy from resvg_py import svg_to_bytes
 lazy from vharfbuzz import Vharfbuzz
 
-lazy from artifacts.typography.font import (
-    ScriptTags,
-)  # the face-selection seam: script -> (OT tags, direction), composed at ITEMIZE
+lazy from rasm.artifacts.typography.font import ScriptTags
 
 # --- [TYPES] ----------------------------------------------------------------------------
-type FeatureSpec = Mapping[str, int | bool | Sequence[tuple[int, int, int | bool]]]
-type ShapeAcceptor = Callable[["Shaping"], bytes]
-type ColorAcceptor = Callable[["Shaping", object, object], bytes]  # (shaping, hb.Face, hb.Font) -> rendered bytes
+type FeatureSpec = frozendict[str, int | bool | tuple[tuple[int, int, int | bool], ...]]
+type ShapeAcceptor = Callable[["ShapeRequest"], "ShapedPayload"]
+type ColorAcceptor = Callable[["RasterSpec", object, object], "ShapedPayload"]
+type ShapeTag = Literal["normalize", "bidi", "itemize", "fallback", "shape", "rasterize", "qa"]
 
 
 class ShapeOp(StrEnum):
@@ -75,11 +84,6 @@ class ShapeOp(StrEnum):
     QA = "qa"
 
 
-class Lane(StrEnum):
-    THREAD = "thread"  # GIL-releasing native lane; the worker shares the font bytes zero-copy
-    PROCESS = "process"  # gated PyO3/native-C++ lane
-
-
 class WritingDirection(StrEnum):
     AUTO = "auto"
     LTR = "ltr"
@@ -88,18 +92,25 @@ class WritingDirection(StrEnum):
 
 
 class BidiEngine(StrEnum):
-    PYTHON_BIDI = "python-bidi"  # the locale-free UAX#9 default
-    ICU = "icu"  # the locale/explicit-level PyICU upgrade
+    PYTHON_BIDI = "python-bidi"
+    ICU = "icu"
 
 
 class SegmentEngine(StrEnum):
-    DEFAULT = "default"  # locale-free default: fontTools.unicodedata.script itemize + stdlib NFC (itemize owner is fontTools, not uniseg)
-    ICU = "icu"  # the CLDR-tailored PyICU upgrade
+    DEFAULT = "default"
+    ICU = "icu"
+
+
+class NormalForm(StrEnum):
+    # member names key the provider surfaces: `unicodedata.normalize(form.value, ...)` and `Normalizer2.get<form>Instance()`.
+    NFC = "NFC"
+    NFD = "NFD"
+    NFKC = "NFKC"
+    NFKD = "NFKD"
 
 
 class ClusterLevel(StrEnum):
-    # hb.BufferClusterLevel names, resolved via getattr; drives caret/mark-attachment/grapheme selection
-    MONOTONE_GRAPHEMES = "MONOTONE_GRAPHEMES"  # the HarfBuzz default
+    MONOTONE_GRAPHEMES = "MONOTONE_GRAPHEMES"
     MONOTONE_CHARACTERS = "MONOTONE_CHARACTERS"
     GRAPHEMES = "GRAPHEMES"
     CHARACTERS = "CHARACTERS"
@@ -113,29 +124,52 @@ class RasterBackend(StrEnum):
 
 
 class ColorFormat(StrEnum):
-    PAINT = "paint"  # COLRv1 paint graph via blackrenderer
-    PNG = "png"  # CBDT/sbix bitmap via Font.get_glyph_color_png
-    SVG = "svg"  # OT-SVG table via Face.get_glyph_color_svg
-    RASTER = "raster"  # zero-native-dep uharfbuzz RasterPaint BGRA32 CPU fallback
+    PAINT = "paint"
+    PNG = "png"
+    SVG = "svg"
+    RASTER = "raster"
 
 
 class PaletteUsage(StrEnum):
-    ANY = "any"  # the explicit `palette_index`
-    LIGHT = "light"  # first CPAL palette flagged USABLE_WITH_LIGHT_BACKGROUND
-    DARK = "dark"  # first CPAL palette flagged USABLE_WITH_DARK_BACKGROUND
+    ANY = "any"
+    LIGHT = "light"
+    DARK = "dark"
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 _DEFAULT_FONT_SIZE: Final = 250.0
 _DEFAULT_MARGIN: Final = 20
-_SHAPE_SLOTS: Final[int] = os.process_cpu_count() or 4
+
+
+def _canon_hook(value: object, /) -> object:
+    # frozendict is not a dict subclass, so the canonical encoder lowers `ShapeRun.variations`/`features` (and any
+    # future frozendict field) to the dict projection; `order="deterministic"` restores the stable preimage.
+    if isinstance(value, frozendict):
+        return dict(value)
+    raise NotImplementedError(f"unencodable preimage member: {type(value).__name__}")
+
+
+_CANON: Final = msgspec.msgpack.Encoder(order="deterministic", enc_hook=_canon_hook)  # the stable preimage encoding the bare `ContentIdentity.key` mint addresses
+
+
+def _generation(name: str, /) -> str:
+    try:
+        return f"{name}:{importlib.metadata.version(name)}"
+    except importlib.metadata.PackageNotFoundError:
+        return f"{name}:absent"  # an install-extra-gated provider fingerprints as absent, so normalization stays importable without it
+
+
+@cache
+def _toolchain() -> tuple[str, ...]:
+    # shaped output is a function of the shaping toolchain, not the request alone: the installed provider generations
+    # join the key preimage so a uharfbuzz/fontTools/blackrenderer/Pillow/python-bidi/PyICU upgrade re-keys instead of
+    # replaying a stale cross-run cache hit off the durable artifact index; resolution defers to the first key mint so
+    # module import never pays or trips the metadata walk.
+    return tuple(_generation(name) for name in ("uharfbuzz", "fonttools", "blackrenderer", "pillow", "python-bidi", "pyicu"))
 _RUN_ENCODER: Final = msgspec.msgpack.Encoder()
-_UNSAFE_TO_BREAK: Final = 0x0001  # mirrors hb.GlyphFlags.UNSAFE_TO_BREAK — layout refuses a break inside the cluster
-_UNSAFE_TO_CONCAT: Final = 0x0002  # mirrors hb.GlyphFlags.UNSAFE_TO_CONCAT — the run cache refuses a shaped-run splice
-_SAFE_TO_INSERT_TATWEEL: Final = 0x0004  # mirrors hb.GlyphFlags.SAFE_TO_INSERT_TATWEEL — kashida tatweel-insertion points
-_VARIATION_SELECTORS: Final[frozenset[int]] = frozenset(range(0xFE00, 0xFE10)) | frozenset(
-    range(0xE0100, 0xE01F0)
-)  # VS1-16 + VS17-256 selecting a UVS glyph variant
+_UNSAFE_TO_BREAK: Final = 0x0001
+_UNSAFE_TO_CONCAT: Final = 0x0002
+_SAFE_TO_INSERT_TATWEEL: Final = 0x0004
 _IDEOGRAPHIC_SCRIPTS: Final[frozenset[str]] = frozenset({
     "hani",
     "hang",
@@ -145,7 +179,7 @@ _IDEOGRAPHIC_SCRIPTS: Final[frozenset[str]] = frozenset({
     "yiii",
     "hant",
     "hans",
-})  # the `ideo` OT baseline tag; every other script reads `romn`
+})
 _LOG: Final = structlog.get_logger()
 _TRACER: Final = trace.get_tracer(__name__)
 _HB_DIRECTION: Final[Map[WritingDirection, str | None]] = Map.of_seq([
@@ -160,52 +194,47 @@ _BIDI_BASE: Final[Map[WritingDirection, str | None]] = Map.of_seq([
     (WritingDirection.RTL, "R"),
     (WritingDirection.TTB, None),
 ])
-_ICU_LEVEL: Final[Map[WritingDirection, int]] = (
-    Map.of_seq(  # 0 = LTR base, 1 = RTL (UAX#9); AUTO falls to the LTR base
-        [(WritingDirection.AUTO, 0), (WritingDirection.LTR, 0), (WritingDirection.RTL, 1), (WritingDirection.TTB, 0)]
-    )
-)
+_ICU_DEFAULT_LEVEL: Final = 0xFE  # icu.UBiDiLevel.DEFAULT_LTR — first-strong autodetect; the int literal keeps the gated icu import lazy
+_ICU_LEVEL: Final[Map[WritingDirection, int]] = Map.of_seq([
+    (WritingDirection.AUTO, _ICU_DEFAULT_LEVEL),
+    (WritingDirection.LTR, 0),
+    (WritingDirection.RTL, 1),
+    (WritingDirection.TTB, _ICU_DEFAULT_LEVEL),
+])
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
 class StyleValues(Struct, frozen=True):
-    # resolved OT style-attribute values (Font.get_style_value(StyleTag)) the opsz-aware shaper carries as evidence
-    weight: float = 400.0
-    width: float = 100.0
-    optical_size: float = 0.0
-    italic: float = 0.0
-    slant_angle: float = 0.0
+    weight: float
+    width: float
+    optical_size: float
+    italic: float
+    slant_angle: float
 
 
 class ItemizedRun(Struct, frozen=True):
-    # one single-direction/single-script span carrying the ScriptTags resolution FONT selects a face per, SHAPE shapes per
     start: int
     stop: int
-    script: str  # ISO 15924 / ICU short script code
-    ot_tags: tuple[str, ...]  # OT script tags (multi for Indic v1/v2) via ScriptTags.of, never a re-derived map
-    direction: str  # "LTR" / "RTL" from ScriptTags.direction
-    level: int  # bidi embedding level (0 = LTR base)
+    script: str
+    ot_tags: tuple[str, ...]
+    direction: str
+    level: int
 
 
 class PositionedGlyphRun(Struct, frozen=True):
-    # glyph = (codepoint/GID, cluster, x_advance, y_advance, x_offset, y_offset, flags); flags is the hb.GlyphFlags column layout reads
+    # Each glyph row is `(gid, cluster, x_advance, y_advance, x_offset, y_offset, flags)`; clusters index source code points.
+    source: str
     glyphs: tuple[tuple[int, int, int, int, int, int, int], ...]
-    outline: str = ""
-    direction: str = "ltr"
-    script: str = ""
-    glyph_outlines: tuple[
-        str, ...
-    ] = ()  # per-glyph origin-drawn d-strings `graphic/vector/region#REGION` `text_path` threads arc-length; empty when the consumer reads `outline`
-    extents: tuple[
-        tuple[int, int, int, int], ...
-    ] = ()  # per-glyph ink bbox (x_bearing, y_bearing, width, height) from Font.get_glyph_extents, layout reads
-    ascender: int = 0  # Font.get_font_extents(direction).ascender
-    descender: int = 0  # .descender (negative below the baseline)
-    line_gap: int = 0  # .line_gap — the run's vertical leading layout reads for line-height
-    baseline: int = (
-        0  # get_layout_baseline: the per-run OT baseline a mixed Latin+CJK union aligns on (0 = no BASE table)
-    )
-    style: StyleValues = StyleValues()
+    outline: str
+    direction: str
+    script: str
+    glyph_outlines: tuple[str, ...]
+    extents: tuple[tuple[int, int, int, int], ...]
+    ascender: int
+    descender: int
+    line_gap: int
+    baseline: int
+    style: StyleValues
 
     @property
     def count(self) -> int:
@@ -213,12 +242,16 @@ class PositionedGlyphRun(Struct, frozen=True):
 
     @property
     def line_height(self) -> int:
-        # the natural leading layout folds into LineBrokenRun.line_height
         return self.ascender - self.descender + self.line_gap
 
-    def on_path(self) -> tuple[tuple[str, float], ...]:
-        # each glyph's origin-drawn outline paired with its x-advance for `graphic/vector/region#REGION` `text_path`.
-        return tuple((outline, float(glyph[2])) for glyph, outline in zip(self.glyphs, self.glyph_outlines, strict=True))
+    def on_path(self) -> tuple[tuple[str, float, float, float, float], ...]:
+        # CANONICAL path-placement projection: (outline, x_advance, y_advance, x_offset, y_offset) — shaped
+        # placement facts survive to the Region baseline so combining marks, kerning offsets, and vertical
+        # advancement lower as the SAME geometry the straight placement renders.
+        return tuple(
+            (outline, float(glyph[2]), float(glyph[3]), float(glyph[4]), float(glyph[5]))
+            for glyph, outline in zip(self.glyphs, self.glyph_outlines, strict=True)
+        )
 
     def to_svg_path(self) -> str:
         return self.outline
@@ -236,168 +269,244 @@ class PositionedGlyphRun(Struct, frozen=True):
         return tuple(glyph[1] for glyph in self.glyphs if glyph[6] & _SAFE_TO_INSERT_TATWEEL)
 
 
-class ShapeParams(Struct, frozen=True, kw_only=True):
-    text: str = ""
+@tagged_union(frozen=True)
+class ShapedPayload:
+    tag: Literal["encoded", "raster"] = tag()
+    encoded: bytes = case()
+    raster: tuple[bytes, int, int] = case()
+
+    @property
+    def data(self) -> bytes:
+        match self:
+            case ShapedPayload(tag="encoded", encoded=data) | ShapedPayload(tag="raster", raster=(data, _, _)):
+                return data
+            case _ as unreachable:
+                assert_never(unreachable)
+
+
+class FallbackSpec(Struct, frozen=True, kw_only=True):
+    text: str
+    font: bytes
     face_index: int = 0
-    variations: Mapping[str, float] = {}
+    fallback_faces: tuple[bytes, ...] = ()
+
+
+class ShapeRun(Struct, frozen=True, kw_only=True):
+    text: str
+    font: bytes
+    face_index: int = 0
+    variations: frozendict[str, float] = frozendict()
     features: FeatureSpec | None = None
     direction: WritingDirection = WritingDirection.AUTO
-    script: str | None = None  # explicit OT script tag pinned through set_script_from_ot_tag; None guesses
-    language: str | None = None  # explicit OT language tag pinned through set_language_from_ot_tag; None guesses
-    fallback_faces: tuple[bytes, ...] = ()
-    bidi_engine: BidiEngine = BidiEngine.PYTHON_BIDI
-    segment_engine: SegmentEngine = SegmentEngine.DEFAULT
-    cluster_level: ClusterLevel = (
-        ClusterLevel.MONOTONE_GRAPHEMES
-    )  # caret/mark-attachment/grapheme-selection granularity threaded into Buffer.cluster_level
+    script: str | None = None
+    language: str | None = None
+    cluster_level: ClusterLevel = ClusterLevel.MONOTONE_GRAPHEMES
+    synthetic_bold: float = 0.0
+    synthetic_slant: float = 0.0
+    not_found_glyph: int | None = None
+
+
+class RasterSpec(Struct, frozen=True, kw_only=True):
+    run: ShapeRun
     raster_backend: RasterBackend = RasterBackend.SVG
-    synthetic_bold: float = 0.0  # faux-bold embolden ratio when the face lacks a real bold instance (Font.synthetic_bold)
-    synthetic_slant: float = 0.0  # faux-italic slant when the face lacks a real italic (Font.synthetic_slant)
     font_size: float = _DEFAULT_FONT_SIZE
     margin: int = _DEFAULT_MARGIN
     palette_index: int = 0
-    palette_usage: PaletteUsage = PaletteUsage.ANY  # CPAL palette selection by light/dark-background flag, not a raw index
+    palette_usage: PaletteUsage = PaletteUsage.ANY
+
+
+@tagged_union(frozen=True)
+class ShapeRequest:
+    tag: ShapeTag = tag()
+    normalize: tuple[str, NormalForm, SegmentEngine] = case()
+    bidi: tuple[str, WritingDirection, BidiEngine] = case()
+    itemize: tuple[str, WritingDirection, SegmentEngine] = case()
+    fallback: FallbackSpec = case()
+    shape: ShapeRun = case()
+    rasterize: RasterSpec = case()
+    qa: ShapeRun = case()
+
+    @property
+    def op(self) -> ShapeOp:
+        return ShapeOp(self.tag)
 
 
 class Shaping(Struct, frozen=True):
-    step: ShapeOp
-    font: bytes
-    params: ShapeParams
+    # `lane` arrives projected via LanePolicy.of(context) at the composition root — a capacity literal has no owner.
+    request: ShapeRequest
+    lane: LanePolicy
 
     def emit(self, /) -> ArtifactWork:
-        return ArtifactWork(key=self._key, work=self._emit, parents=(), admission=Admission(keyed=None), cost=1.0)
+        # `ContentIdentity.key` is the bare mint (`of` returns the railed `RuntimeRail[ContentKey]`); the `_toolchain()`
+        # generations ride the preimage beside the request so provider upgrades never replay stale shaped output.
+        key = ContentIdentity.key(f"shape-{self.request.tag}", _CANON.encode((_toolchain(), self.request)))
+        return ArtifactWork(key=key, work=partial(self._emit, key), parents=(), admission=Admission(keyed=None), cost=1.0)
 
-    @property
-    def _key(self) -> ContentKey:
-        # key over (step ⊕ font ⊕ params); never a key over shaped output bytes.
-        return ContentIdentity.of(f"shape-{self.step}", (self.step, self.font, self.params), policy=CANONICAL_POLICY)
+    async def _emit(self, key: ContentKey, /) -> RuntimeRail[ArtifactReceipt]:
+        acceptor, trait = _SHAPE_TABLE[self.request.op]
+        with _TRACER.start_as_current_span(f"shape.{self.request.tag}") as span:
+            span.set_attributes({"step": self.request.tag, "trait": trait.value})
+            crossed = await self.lane.offload(Kernel.of(acceptor, trait), self.request)
+        # egress fold is asymmetric: the Error arm logs once at this boundary, the Ok path stays silent on the span.
+        return crossed.map(partial(self._receipted, key)).map_error(lambda fault: _logged_fault(self.request.tag, fault))
 
-    async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
-        # lane is a `_SHAPE_TABLE` row; the PROCESS arms read only `params`, ignoring the shared `font` bytes.
-        return (await async_boundary(f"shape.{self.step}", self._shaped)).map(
-            lambda data: ArtifactReceipt.Document(self._key, len(data))
-        )
-
-    async def _shaped(self) -> bytes:
-        acceptor, lane = _SHAPE_TABLE[self.step]
-        with _TRACER.start_as_current_span(f"shape.{self.step}") as span:
-            span.set_attributes({"step": self.step, "lane": lane, "direction": self.params.direction, "backend": self.params.raster_backend})
-            modality = Modality.PROCESS if lane is Lane.PROCESS else Modality.THREAD
-            crossed = await LanePolicy.offload(acceptor, self, modality=modality, retry=RetryClass.OCCT)
-            data = crossed.default_with(_shape_raise)
-        _LOG.info("shape.emit", step=self.step, lane=lane, bytes=len(data))
-        return data
+    def _receipted(self, key: ContentKey, payload: ShapedPayload, /) -> ArtifactReceipt:
+        match payload:
+            case ShapedPayload(tag="raster", raster=(data, width, height)):
+                return ArtifactReceipt.Preview(key, width, height, len(data))
+            case ShapedPayload(tag="encoded", encoded=data):
+                return ArtifactReceipt.Document(key, len(data))
+            case _ as unreachable:
+                assert_never(unreachable)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
-def _shape_raise(fault: object) -> bytes:
-    raise ValueError(str(fault))
+def _logged_fault[E](step: str, fault: E, /) -> E:
+    _LOG.error("shape.emit", step=step, **fault.facts())
+    return fault
 
 
-def _segment(buffer: object, params: "ShapeParams", /) -> None:
+def _segment(buffer: object, run: ShapeRun, /) -> None:
     # Exemption: wiring the native hb.Buffer — pin explicit direction/script/language/cluster-level before `guess` fills the rest
     buffer.flags = hb.BufferFlags.PRODUCE_UNSAFE_TO_CONCAT
-    buffer.cluster_level = getattr(hb.BufferClusterLevel, params.cluster_level.name)
-    if (direction := _HB_DIRECTION[params.direction]) is not None:
+    buffer.cluster_level = hb.BufferClusterLevel[run.cluster_level.value]  # ClusterLevel member names mirror the provider enum
+    if run.not_found_glyph is not None:
+        buffer.not_found_glyph = run.not_found_glyph
+    if (direction := _HB_DIRECTION[run.direction]) is not None:
         buffer.direction = direction
-    if params.script is not None:
-        buffer.set_script_from_ot_tag(params.script)
-    if params.language is not None:
-        buffer.set_language_from_ot_tag(params.language)
+    if run.script is not None:
+        buffer.set_script_from_ot_tag(run.script)
+    if run.language is not None:
+        buffer.set_language_from_ot_tag(run.language)
     buffer.guess_segment_properties()
 
 
-def _normalize_nfc(shaping: "Shaping") -> bytes:
-    text = shaping.params.text
-    match shaping.params.segment_engine:
+def _shaped_buffer(run: ShapeRun, hb_font: object, /) -> object:
+    buffer = hb.Buffer.create()
+    buffer.add_str(run.text)
+    _segment(buffer, run)
+    hb.shape(hb_font, buffer, dict(run.features) if run.features else None)
+    return buffer
+
+
+def _normalized(request: ShapeRequest) -> ShapedPayload:
+    text, form, engine = request.normalize
+    match engine:
         case SegmentEngine.ICU:
-            return Normalizer2.getNFCInstance().normalize(text).encode("utf-8")
+            return ShapedPayload(encoded=getattr(Normalizer2, f"get{form.value}Instance")().normalize(text).encode("utf-8"))
         case SegmentEngine.DEFAULT:
-            return unicodedata.normalize("NFC", text).encode("utf-8")
+            return ShapedPayload(encoded=unicodedata.normalize(form.value, text).encode("utf-8"))
         case _ as unreachable:
             assert_never(unreachable)
 
 
-def _bidi_reorder(shaping: "Shaping") -> bytes:
-    params = shaping.params
-    match params.bidi_engine:
+def _bidi_reordered(request: ShapeRequest) -> ShapedPayload:
+    text, direction, engine = request.bidi
+    match engine:
         case BidiEngine.PYTHON_BIDI:
-            return get_display(params.text, base_dir=_BIDI_BASE[params.direction]).encode("utf-8")
+            return ShapedPayload(encoded=get_display(text, base_dir=_BIDI_BASE[direction]).encode("utf-8"))
         case BidiEngine.ICU:
-            engine = Bidi()
-            engine.setPara(params.text, _ICU_LEVEL[params.direction])
-            return engine.writeReordered(0).encode("utf-8")
+            resolver = Bidi()
+            resolver.setPara(text, _ICU_LEVEL[direction])
+            return ShapedPayload(encoded=resolver.writeReordered(0).encode("utf-8"))
         case _ as unreachable:
             assert_never(unreachable)
 
 
 def _span(start: int, stop: int, script: str, level: int, /) -> ItemizedRun:
-    # compose typography/font#FONT ScriptTags.of at the seam: script -> (OT tags, direction), never a re-derived script->tag map
     tags = ScriptTags.of(script)
     return ItemizedRun(start=start, stop=stop, script=script, ot_tags=tags.ot_tags, direction=tags.direction, level=level)
 
 
-def _itemize_runs(shaping: "Shaping") -> bytes:
-    # partition into single-direction/single-script ItemizedRun spans, each span's OT tags + direction via ScriptTags at the seam.
-    params = shaping.params
-    match params.segment_engine:
+def _from_utf16(text: str, /) -> dict[int, int]:
+    # ICU offsets are UTF-16 code units; every boundary the engine yields lands on a code-point edge this table recovers.
+    units, table = 0, {0: 0}
+    for index, char in enumerate(text, start=1):
+        units += 2 if ord(char) > 0xFFFF else 1
+        table[units] = index
+    return table
+
+
+def _itemized(request: ShapeRequest) -> ShapedPayload:
+    text, direction, engine = request.itemize
+    scripts = ScriptTags.runs(text)  # contiguous per-code-point script spans, the font owner's primary — total over the input
+    match engine:
         case SegmentEngine.ICU:
-            engine = Bidi()
-            engine.setPara(params.text, _ICU_LEVEL[params.direction])
+            resolver = Bidi()
+            resolver.setPara(text, _ICU_LEVEL[direction])
+            offsets = _from_utf16(text)
+            visual = tuple(
+                (offsets[start], offsets[start + length], level)
+                for start, length, level in (resolver.getVisualRun(i) for i in range(resolver.countRuns()))
+            )
             spans = tuple(
-                (start, start + length, Script.getScript(ord(params.text[start])).getShortName(), level)
-                for start, length, level in (engine.getVisualRun(i) for i in range(engine.countRuns()))
+                (max(v_start, s_start), min(v_stop, s_stop), script, level)
+                for v_start, v_stop, level in visual
+                for s_start, s_stop, script in scripts
+                if max(v_start, s_start) < min(v_stop, s_stop)
             )
         case SegmentEngine.DEFAULT:
-            groups = tuple((script, sum(1 for _ in members)) for script, members in groupby(params.text, key=ot_script))
-            prefix = tuple(accumulate((length for _, length in groups), initial=0))
-            spans = tuple((prefix[i], prefix[i + 1], script, 0) for i, (script, _length) in enumerate(groups))
+            # UAX#9 resolved LEVEL RUNS intersect the script partition — a paragraph base level copied across
+            # spans cannot represent nested or opposing embeddings, so each emitted span carries its run's real
+            # resolved level from the bidi.algorithm reference pipeline (the pure-Python stage family the catalog
+            # verifies: get_embedding_levels -> explicit_embed_and_overrides -> weak -> neutral -> implicit).
+            storage = bidi_algorithm.get_empty_storage()
+            storage["base_level"] = get_base_level(text)
+            storage["base_dir"] = ("L", "R")[storage["base_level"]]
+            bidi_algorithm.get_embedding_levels(text, storage)
+            bidi_algorithm.explicit_embed_and_overrides(storage)
+            bidi_algorithm.resolve_weak_types(storage)
+            bidi_algorithm.resolve_neutral_types(storage, False)
+            bidi_algorithm.resolve_implicit_levels(storage, False)
+            bidi_algorithm.calc_level_runs(storage)
+            levels = tuple(
+                (run["start"], run["start"] + run["length"], storage["chars"][run["start"]]["level"]) for run in storage["runs"]
+            )
+            spans = tuple(
+                (max(r_start, s_start), min(r_stop, s_stop), script, level)
+                for r_start, r_stop, level in levels
+                for s_start, s_stop, script in scripts
+                if max(r_start, s_start) < min(r_stop, s_stop)
+            )
         case _ as unreachable:
             assert_never(unreachable)
-    return _RUN_ENCODER.encode(tuple(_span(start, stop, script, level) for start, stop, script, level in spans))
+    return ShapedPayload(encoded=_RUN_ENCODER.encode(tuple(_span(start, stop, script, level) for start, stop, script, level in spans)))
 
 
-def _cluster_probes(text: str, /) -> tuple[tuple[int, int, int], ...]:
-    # per grapheme cluster -> (cluster start, base codepoint, trailing variation selector or 0); uniseg owns the
-    # boundary (ZWJ/Indic-conjunct/regional-indicator/combining sequences fold to one cluster), never a hand-rolled UAX#29 table.
-    return tuple(
-        (start, ord(text[start]), next((ord(ch) for ch in text[start + 1 : stop] if ord(ch) in _VARIATION_SELECTORS), 0))
-        for start, stop in pairwise(grapheme_cluster_boundaries(text))
-    )
+def _covers_cluster(font: object, cluster: str, /) -> bool:
+    buffer = hb.Buffer.create()
+    buffer.add_str(cluster)
+    buffer.not_found_glyph = 0
+    buffer.guess_segment_properties()
+    hb.shape(font, buffer)
+    return bool(buffer.glyph_infos) and all(info.codepoint != 0 for info in buffer.glyph_infos)
 
 
-def _covers(font: object, base: int, vs: int, /) -> bool:
-    gid = font.get_variation_glyph(base, vs) if vs else font.get_nominal_glyph(base)  # UVS-selected glyph when a variation selector follows
-    return gid not in (0, None)
-
-
-def _fallback_coverage(shaping: "Shaping") -> bytes:
-    # per-cluster covering-face assignment: (cluster-start, face-rank) over primary + fallback_faces,
-    # -1 marking a cluster no face covers (tofu the Buffer.not_found_glyph override renders).
-    params = shaping.params
+def _fallback_coverage(request: ShapeRequest) -> ShapedPayload:
+    spec = request.fallback
     fonts = tuple(
         hb.Font.create(hb.Face.create(data, index))
-        for data, index in ((shaping.font, params.face_index), *((face, 0) for face in params.fallback_faces))
+        for data, index in ((spec.font, spec.face_index), *((face, 0) for face in spec.fallback_faces))
     )
+    clusters = tuple((start, spec.text[start:stop]) for start, stop in pairwise(grapheme_cluster_boundaries(spec.text)))
     assignment = tuple(
-        (start, next((rank for rank, font in enumerate(fonts) if _covers(font, base, vs)), -1)) for start, base, vs in _cluster_probes(params.text)
+        (start, next((rank for rank, font in enumerate(fonts) if _covers_cluster(font, cluster)), -1)) for start, cluster in clusters
     )
-    return _RUN_ENCODER.encode(assignment)
+    return ShapedPayload(encoded=_RUN_ENCODER.encode(assignment))
 
 
 def _glyph_bbox(font: object, gid: int, /) -> tuple[int, int, int, int]:
-    extents = font.get_glyph_extents(gid)  # GlyphExtents: x_bearing/y_bearing/width/height (the ink box)
+    extents = font.get_glyph_extents(gid)
     return (extents.x_bearing, extents.y_bearing, extents.width, extents.height) if extents is not None else (0, 0, 0, 0)
 
 
 def _run_baseline(font: object, script: str, direction: str, /) -> int:
-    # per-run OT baseline: `ideo` for a CJK script, `romn` otherwise; 0 when the font carries no BASE table
-    tag = "ideo" if script.lower()[:4] in _IDEOGRAPHIC_SCRIPTS else "romn"
-    return font.get_layout_baseline(tag, direction or "ltr", script.lower()[:4], "") or 0
+    tag_ = "ideo" if script.lower()[:4] in _IDEOGRAPHIC_SCRIPTS else "romn"
+    return font.get_layout_baseline(tag_, direction or "ltr", script.lower()[:4], "") or 0
 
 
 def _style_values(font: object, /) -> StyleValues:
-    read = font.get_style_value  # searches the resolved variation location first, then STAT/OS2 — the opsz-aware evidence
+    read = font.get_style_value
     return StyleValues(
         weight=read(hb.StyleTag.WEIGHT),
         width=read(hb.StyleTag.WIDTH),
@@ -407,25 +516,27 @@ def _style_values(font: object, /) -> StyleValues:
     )
 
 
-def _shape_text(shaping: "Shaping") -> bytes:
-    params = shaping.params
-    font = hb.Font.create(hb.Face.create(shaping.font, params.face_index))
-    if params.variations:
-        font.set_variations(dict(params.variations))
-    if params.synthetic_bold:  # faux-bold when the face lacks a real bold instance
-        font.synthetic_bold = (params.synthetic_bold, params.synthetic_bold)
-    if params.synthetic_slant:  # faux-italic when the face lacks a real italic
-        font.synthetic_slant = params.synthetic_slant
-    buffer = hb.Buffer.create()
-    buffer.add_str(params.text)
-    _segment(buffer, params)
-    hb.shape(font, buffer, dict(params.features) if params.features else None)
+def _styled_font(run: ShapeRun, /) -> object:
+    font = hb.Font.create(hb.Face.create(run.font, run.face_index))
+    if run.variations:
+        font.set_variations(dict(run.variations))
+    if run.synthetic_bold:
+        font.synthetic_bold = (run.synthetic_bold, run.synthetic_bold)
+    if run.synthetic_slant:
+        font.synthetic_slant = run.synthetic_slant
+    return font
+
+
+def _shape_text(request: ShapeRequest) -> ShapedPayload:
+    run = request.shape
+    font = _styled_font(run)
+    buffer = _shaped_buffer(run, font)
     glyphs = tuple(
         (info.codepoint, info.cluster, pos.x_advance, pos.y_advance, pos.x_offset, pos.y_offset, int(info.flags))
         for info, pos in zip(buffer.glyph_infos, buffer.glyph_positions, strict=True)
     )
-    glyph_set = TTFont(io.BytesIO(shaping.font)).getGlyphSet()
-    pen, outlines = SVGPathPen(glyph_set), []
+    # hb draw funcs decompose components, so the pens need no glyph set — no whole-font parse in the shaping hot path.
+    pen, outlines = SVGPathPen(None), []
     cursor_x = cursor_y = 0
     for (
         gid,
@@ -435,27 +546,30 @@ def _shape_text(shaping: "Shaping") -> bytes:
         x_offset,
         y_offset,
         _flags,
-    ) in glyphs:  # a bare origin draw stacks glyphs at (0, 0); origin-drawn pens let `graphic/vector/region#REGION` `text_path` curve the baseline
+    ) in glyphs:
         font.draw_glyph_with_pen(gid, TransformPen(pen, (1.0, 0.0, 0.0, 1.0, cursor_x + x_offset, cursor_y + y_offset)))
-        glyph_pen = SVGPathPen(glyph_set)
+        glyph_pen = SVGPathPen(None)
         font.draw_glyph_with_pen(gid, glyph_pen)
         outlines.append(glyph_pen.getCommands())
         cursor_x += x_advance
         cursor_y += y_advance
-    metrics = font.get_font_extents(buffer.direction)  # FontExtents: ascender/descender/line_gap for the run's line-height
-    return _RUN_ENCODER.encode(
-        PositionedGlyphRun(
-            glyphs=glyphs,
-            outline=pen.getCommands(),
-            glyph_outlines=tuple(outlines),
-            direction=buffer.direction,
-            script=buffer.script,
-            extents=tuple(_glyph_bbox(font, glyph[0]) for glyph in glyphs),
-            ascender=metrics.ascender,
-            descender=metrics.descender,
-            line_gap=metrics.line_gap,
-            baseline=_run_baseline(font, buffer.script, buffer.direction),
-            style=_style_values(font),
+    metrics = font.get_font_extents(buffer.direction)
+    return ShapedPayload(
+        encoded=_RUN_ENCODER.encode(
+            PositionedGlyphRun(
+                source=run.text,
+                glyphs=glyphs,
+                outline=pen.getCommands(),
+                glyph_outlines=tuple(outlines),
+                direction=buffer.direction,
+                script=buffer.script,
+                extents=tuple(_glyph_bbox(font, glyph[0]) for glyph in glyphs),
+                ascender=metrics.ascender,
+                descender=metrics.descender,
+                line_gap=metrics.line_gap,
+                baseline=_run_baseline(font, buffer.script, buffer.direction),
+                style=_style_values(font),
+            )
         )
     )
 
@@ -472,39 +586,77 @@ def _probe_color_format(face: object, backend: RasterBackend, /) -> ColorFormat:
 
 
 def _select_palette(face: object, usage: PaletteUsage, explicit: int, /) -> int:
-    # a color-glyph publication engine selects the CPAL palette by USABLE_WITH_LIGHT/DARK_BACKGROUND flag, not a raw index
     if usage is PaletteUsage.ANY:
         return explicit
     want = hb.OTColorPaletteFlags.USABLE_WITH_DARK_BACKGROUND if usage is PaletteUsage.DARK else hb.OTColorPaletteFlags.USABLE_WITH_LIGHT_BACKGROUND
     return next((index for index, palette in enumerate(face.color_palettes) if palette.flags & want), explicit)
 
 
-def _rasterize_color(shaping: "Shaping") -> bytes:
-    params = shaping.params
-    face = hb.Face.create(shaping.font, params.face_index)
-    hb_font = hb.Font.create(face)
-    if params.variations:
-        hb_font.set_variations(dict(params.variations))
-    return _COLOR_TABLE[_probe_color_format(face, params.raster_backend)](shaping, face, hb_font)
+def _raster_geometry(
+    spec: RasterSpec,
+    hb_font: object,
+    buffer: object,
+    upem: int,
+    /,
+) -> tuple[int, int, tuple[tuple[int, int, int, int, int], ...]]:
+    scale = spec.font_size / (upem or 1000)
+    cursor_x = cursor_y = 0.0
+    font_extents = hb_font.get_font_extents(buffer.direction)
+    measured = []
+    for info, position in zip(buffer.glyph_infos, buffer.glyph_positions, strict=True):
+        extents = hb_font.get_glyph_extents(info.codepoint)
+        x_bearing, y_bearing, glyph_width, glyph_height = (
+            (extents.x_bearing, extents.y_bearing, extents.width, extents.height)
+            if extents is not None
+            else (
+                0,
+                font_extents.ascender,
+                position.x_advance or upem,
+                position.y_advance or font_extents.descender - font_extents.ascender,
+            )
+        )
+        x0 = (cursor_x + position.x_offset + x_bearing) * scale
+        y0 = (cursor_y + position.y_offset + y_bearing) * scale
+        x1, y1 = x0 + glyph_width * scale, y0 + glyph_height * scale
+        measured.append((info.codepoint, min(x0, x1), max(x0, x1), min(y0, y1), max(y0, y1)))
+        cursor_x += position.x_advance
+        cursor_y += position.y_advance
+    x_min = min((row[1] for row in measured), default=0.0)
+    x_max = max((row[2] for row in measured), default=0.0)
+    y_min = min((row[3] for row in measured), default=0.0)
+    y_max = max((row[4] for row in measured), default=0.0)
+    placements = tuple(
+        (
+            gid,
+            round(spec.margin + left - x_min),
+            round(spec.margin + y_max - top),
+            max(1, ceil(right - left)),
+            max(1, ceil(top - bottom)),
+        )
+        for gid, left, right, bottom, top in measured
+    )
+    return max(1, ceil(x_max - x_min) + 2 * spec.margin), max(1, ceil(y_max - y_min) + 2 * spec.margin), placements
 
 
-def _raster_colr(shaping: "Shaping", face: object, hb_font: object) -> bytes:
-    params = shaping.params
-    surface_class = getSurfaceClass(params.raster_backend.value)
+def _rasterized(request: ShapeRequest) -> ShapedPayload:
+    spec = request.rasterize
+    face = hb.Face.create(spec.run.font, spec.run.face_index)
+    hb_font = _styled_font(spec.run)
+    return _COLOR_TABLE[_probe_color_format(face, spec.raster_backend)](spec, face, hb_font)
+
+
+def _raster_colr(spec: RasterSpec, face: object, hb_font: object) -> ShapedPayload:
+    surface_class = getSurfaceClass(spec.raster_backend.value)
     if surface_class is None:
-        raise BackendUnavailableError(params.raster_backend.value)
-    font = BlackRendererFont(ttFont=TTFont(io.BytesIO(shaping.font), fontNumber=0, lazy=True), hbFont=hb_font)
-    if params.variations:
-        font.setLocation(dict(params.variations))
-    palette = font.getPalette(_select_palette(face, params.palette_usage, params.palette_index))
-    buffer = hb.Buffer.create()
-    buffer.add_str(params.text)
-    _segment(buffer, params)
-    hb.shape(hb_font, buffer, dict(params.features) if params.features else None)
+        raise BackendUnavailableError(spec.raster_backend.value)
+    font = BlackRendererFont(ttFont=TTFont(io.BytesIO(spec.run.font), fontNumber=spec.run.face_index, lazy=True), hbFont=hb_font)
+    if spec.run.variations:
+        font.setLocation(dict(spec.run.variations))
+    palette = font.getPalette(_select_palette(face, spec.palette_usage, spec.palette_index))
+    buffer = _shaped_buffer(spec.run, hb_font)
     glyph_line = buildGlyphLine(buffer.glyph_infos, buffer.glyph_positions, font.glyphNames)
     x_min, y_min, x_max, y_max = calcGlyphLineBounds(glyph_line, font) or (0.0, 0.0, 0.0, 0.0)
-    scale, margin = params.font_size / font.unitsPerEm, params.margin
-    _LOG.info("shape.raster", backend=params.raster_backend, colr=bool(font.colrV1GlyphNames), available=[name for name, _ext in listBackends()])
+    scale, margin = spec.font_size / font.unitsPerEm, spec.margin
     surface = surface_class()
     with surface.canvas((x_min * scale - margin, y_min * scale - margin, x_max * scale + margin, y_max * scale + margin)) as canvas:
         canvas.transform((scale, 0, 0, scale, 0, 0))
@@ -518,79 +670,122 @@ def _raster_colr(shaping: "Shaping", face: object, hb_font: object) -> bytes:
         sink = Path(handle.name)
     try:
         surface.saveImage(str(sink))
-        return sink.read_bytes()
+        # an all-whitespace or zero-extent glyph line collapses the bounds to nothing; each dimension floors at one
+        # pixel independently — the same floor `_png_canvas` holds — so a degenerate run never mints a 0-dim payload.
+        width = max(1, int((x_max - x_min) * scale + 2 * margin))
+        height = max(1, int((y_max - y_min) * scale + 2 * margin))
+        return ShapedPayload(raster=(sink.read_bytes(), width, height))
     finally:
         sink.unlink(missing_ok=True)
 
 
-def _raster_png(shaping: "Shaping", _face: object, hb_font: object) -> bytes:
-    buffer = hb.Buffer.create()
-    buffer.add_str(shaping.params.text)
-    _segment(buffer, shaping.params)
-    hb.shape(hb_font, buffer, dict(shaping.params.features) if shaping.params.features else None)
-    blobs = tuple(bytes(blob.data) for info in buffer.glyph_infos if (blob := hb_font.get_glyph_color_png(info.codepoint)).data)
-    return blobs[0] if blobs else b""  # CBDT/sbix bitmap; graphic/raster composites a multi-glyph run
+def _png_canvas(width: int, height: int, placements: tuple[tuple["Image.Image", int, int], ...], /) -> bytes:
+    with ExitStack() as stack, Image.new("RGBA", (max(width, 1), max(height, 1))) as canvas:
+        for plane, x, y in placements:
+            stack.callback(plane.close)
+            canvas.alpha_composite(plane, dest=(x, y))
+        sink = io.BytesIO()
+        canvas.save(sink, format="PNG")
+        return sink.getvalue()
 
 
-def _raster_svg(shaping: "Shaping", face: object, hb_font: object) -> bytes:
-    buffer = hb.Buffer.create()
-    buffer.add_str(shaping.params.text)
-    _segment(buffer, shaping.params)
-    hb.shape(hb_font, buffer, dict(shaping.params.features) if shaping.params.features else None)
-    blobs = tuple(bytes(blob.data) for info in buffer.glyph_infos if (blob := face.get_glyph_color_svg(info.codepoint)).data)
-    return blobs[0] if blobs else b""  # OT-SVG table blob; graphic/vector/region composes a multi-glyph run
+def _embedded_raster(spec: RasterSpec, face: object, hb_font: object, extract: Callable[[int], bytes], /) -> ShapedPayload:
+    buffer = _shaped_buffer(spec.run, hb_font)
+    width, height, geometry = _raster_geometry(spec, hb_font, buffer, face.upem)
+    placements: list[tuple[Image.Image, int, int]] = []
+    for gid, x, y, glyph_width, glyph_height in geometry:
+        if blob := extract(gid):
+            with Image.open(io.BytesIO(blob)) as decoded, decoded.convert("RGBA") as converted:
+                plane = converted.resize((glyph_width, glyph_height), Image.Resampling.LANCZOS)
+            placements.append((plane, x, y))
+    return ShapedPayload(raster=(_png_canvas(width, height, tuple(placements)), width, height))
 
 
-def _raster_cpu(shaping: "Shaping", face: object, hb_font: object) -> bytes:
-    # zero-native-dep BGRA32 CPU fallback when no blackrenderer backend module imports; the buffer is numpy-addressable for graphic/raster
-    params = shaping.params
-    buffer = hb.Buffer.create()
-    buffer.add_str(params.text)
-    _segment(buffer, params)
-    hb.shape(hb_font, buffer, dict(params.features) if params.features else None)
-    raster = hb.RasterPaint()
-    raster.scale_factor = params.font_size / face.upem
-    for info in buffer.glyph_infos:  # Exemption: the CPU rasterizer accumulates per-glyph paint into one RasterImage
-        raster.paint_glyph(hb_font, info.codepoint)
-    image = raster.render()
-    return bytes(image.buffer) if image is not None else b""
+def _raster_png(spec: RasterSpec, face: object, hb_font: object) -> ShapedPayload:
+    return _embedded_raster(
+        spec,
+        face,
+        hb_font,
+        lambda gid: bytes(blob.data) if (blob := hb_font.get_glyph_color_png(gid)) is not None and blob.data else b"",
+    )
 
 
-def _shape_qa(shaping: "Shaping") -> bytes:
-    # the hb-shape golden round-trip with the diff-gated `shape(onchange=)` trace (vharfbuzz installs set_message_func): the
-    # (stage, lookup-id) pairs record which GSUB/GPOS lookup mutated the buffer, fired only on a buffer-changing lookup.
-    params = shaping.params
+def _raster_svg(spec: RasterSpec, face: object, hb_font: object) -> ShapedPayload:
+    return _embedded_raster(
+        spec,
+        face,
+        hb_font,
+        lambda gid: svg_to_bytes(svg_string=bytes(blob.data).decode("utf-8"))
+        if (blob := face.get_glyph_color_svg(gid)) is not None and blob.data
+        else b"",
+    )
+
+
+def _raster_cpu(spec: RasterSpec, face: object, hb_font: object) -> ShapedPayload:
+    buffer = _shaped_buffer(spec.run, hb_font)
+    width, height, geometry = _raster_geometry(spec, hb_font, buffer, face.upem)
+    scale, palette = spec.font_size / (face.upem or 1000), _select_palette(face, spec.palette_usage, spec.palette_index)
+    placements: list[tuple[Image.Image, int, int]] = []
+    for gid, x, y, glyph_width, glyph_height in geometry:
+        raster = hb.RasterPaint()
+        raster.scale_factor = scale
+        raster.palette = palette
+        raster.paint_glyph(hb_font, gid)
+        if image := raster.render():
+            extents = image.extents
+            plane_size = (abs(extents.width), abs(extents.height))
+            if 0 in plane_size:
+                continue
+            with Image.frombytes("RGBA", plane_size, bytes(image.buffer), "raw", "BGRA") as raw:
+                plane = raw.resize((glyph_width, glyph_height), Image.Resampling.LANCZOS)
+            placements.append((plane, x, y))
+    return ShapedPayload(raster=(_png_canvas(width, height, tuple(placements)), width, height))
+
+
+def _shape_qa(request: ShapeRequest) -> ShapedPayload:
+    # `onchange` records only lookups that mutate the buffer; `buf_to_svg` carries the corresponding visual proof.
+    run = request.qa
     with tempfile.NamedTemporaryFile(suffix=".ttf", delete=False) as handle:
         sink = Path(handle.name)
     try:
-        sink.write_bytes(shaping.font)
-        vhb, trace = Vharfbuzz(str(sink)), []
+        sink.write_bytes(run.font)
+        vhb, mutations = Vharfbuzz(str(sink)), []
 
         def traced(_vhb: object, stage: str, lookup: int, _snapshot: object, /) -> None:
-            trace.append((stage, lookup))
+            mutations.append((stage, lookup))
 
-        buffer = vhb.shape(params.text, {"features": dict(params.features)} if params.features else None, onchange=traced)
-        return _RUN_ENCODER.encode({"golden": vhb.serialize_buf(buffer), "trace": tuple(trace)})
+        # golden shapes under the production run's own parameters, so a QA oracle never diverges from the SHAPE arm.
+        offered = (
+            ("direction", _HB_DIRECTION[run.direction]),
+            ("script", run.script),
+            ("language", run.language),
+            ("features", dict(run.features) if run.features else None),
+            ("variations", dict(run.variations) if run.variations else None),
+        )
+        parameters = {name: value for name, value in offered if value is not None}
+        buffer = vhb.shape(run.text, parameters or None, onchange=traced)
+        return ShapedPayload(
+            encoded=_RUN_ENCODER.encode({"golden": vhb.serialize_buf(buffer), "trace": tuple(mutations), "proof": vhb.buf_to_svg(buffer)})
+        )
     finally:
         sink.unlink(missing_ok=True)
 
 
 # --- [TABLES] ---------------------------------------------------------------------------
-_ARM: Final[Map[Lane, Callable[..., object]]] = Map.of_seq([(Lane.THREAD, to_thread.run_sync), (Lane.PROCESS, to_process.run_sync)])
 _COLOR_TABLE: Final[Map[ColorFormat, ColorAcceptor]] = Map.of_seq([
     (ColorFormat.PAINT, _raster_colr),
     (ColorFormat.PNG, _raster_png),
     (ColorFormat.SVG, _raster_svg),
     (ColorFormat.RASTER, _raster_cpu),
 ])
-_SHAPE_TABLE: Final[Map[ShapeOp, tuple[ShapeAcceptor, Lane]]] = Map.of_seq([
-    (ShapeOp.NORMALIZE, (_normalize_nfc, Lane.PROCESS)),
-    (ShapeOp.BIDI, (_bidi_reorder, Lane.PROCESS)),
-    (ShapeOp.ITEMIZE, (_itemize_runs, Lane.PROCESS)),
-    (ShapeOp.FALLBACK, (_fallback_coverage, Lane.THREAD)),
-    (ShapeOp.SHAPE, (_shape_text, Lane.THREAD)),
-    (ShapeOp.RASTERIZE, (_rasterize_color, Lane.THREAD)),
-    (ShapeOp.QA, (_shape_qa, Lane.THREAD)),
+_SHAPE_TABLE: Final[Map[ShapeOp, tuple[ShapeAcceptor, KernelTrait]]] = Map.of_seq([
+    (ShapeOp.NORMALIZE, (_normalized, KernelTrait.HOSTILE)),
+    (ShapeOp.BIDI, (_bidi_reordered, KernelTrait.HOSTILE)),
+    (ShapeOp.ITEMIZE, (_itemized, KernelTrait.HOSTILE)),
+    (ShapeOp.FALLBACK, (_fallback_coverage, KernelTrait.RELEASING)),
+    (ShapeOp.SHAPE, (_shape_text, KernelTrait.RELEASING)),
+    (ShapeOp.RASTERIZE, (_rasterized, KernelTrait.RELEASING)),
+    (ShapeOp.QA, (_shape_qa, KernelTrait.RELEASING)),
 ])
 ```
 
@@ -600,4 +795,4 @@ _SHAPE_TABLE: Final[Map[ShapeOp, tuple[ShapeAcceptor, Lane]]] = Map.of_seq([
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 
-(none)
+[PYICU]-[BLOCKED]: `PyICU; python_version<'3.15'` excludes the live interpreter, and `UV_CACHE_DIR=.cache/uv uv run --frozen python -m tools.assay api resolve PyICU` reports the gate; `Bidi.setPara`/`getVisualRun`/`writeReordered`, `UBiDiLevel.DEFAULT_LTR` (the `0xFE` `_ICU_DEFAULT_LEVEL` literal), and the `Normalizer2.get{NFC,NFD,NFKC,NFKD}Instance` family therefore ride the catalog-verified surface.

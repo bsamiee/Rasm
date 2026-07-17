@@ -1,8 +1,8 @@
 # [PY_COMPUTE_STUDY]
 
-The one study-spine owner over design-of-experiments sampling, global sensitivity analysis, and surrogate fitting: `Study` discriminates by a `StudyMethod` axis over one param-axis and sample-grid spine, and the union owns its `design`/`discrepancy`/`indices` folds, so `experiments/history.md#RUN_HISTORY` composes `study.method.design`/`indices` directly rather than importing a private across the package seam. SALib owns sensitivity analysis — the owner composes its sampler-and-analyzer pairs through `ProblemSpec` rather than reimplementing variance-based, moment-independent, derivative-based, or component sensitivity. Classical polynomial and ensemble/kernel regression surrogates are in scope; a neural surrogate and an acquisition-driven active-learning loop are not.
+One study-spine owner spans design-of-experiments sampling, global sensitivity analysis, and surrogate fitting: `Study` discriminates by a `StudyMethod` axis over one param-axis and sample-grid spine, and the union owns its `design`/`discrepancy`/`indices` folds, so `experiments/history.md#RUN_HISTORY` composes `study.method.design`/`indices` directly rather than importing a private across the package seam. SALib owns sensitivity analysis — the owner composes its sampler-and-analyzer pairs through `ProblemSpec` rather than reimplementing variance-based, moment-independent, derivative-based, or component sensitivity. Classical polynomial and ensemble/kernel regression surrogates are in scope; a neural surrogate and an acquisition-driven active-learning loop are not.
 
-The run rides the `EvidenceScope.STUDY` weave — span, `boundary` fence, beartype guard, `@receipted` harvest. The seams: `numerics/jit` supplies `JitBackend`/`LoweredSpec` for the batch-lane compile and the symbolic-lowered spec VALUE; `data/tabular` supplies the `FrameAdmission`/`FrameInterop`/`FieldShape`/`Backend` DOE-frame gate and the `columnar.arrow_bytes` render fold — the published surfaces only, no data interior; the lane resolves by payload shape on the runtime `Modality` axis.
+Runs ride the `EvidenceScope.STUDY` weave — span, `boundary` fence, beartype guard, `@receipted` harvest. Seams: `numerics/jit` supplies `JitBackend`/`LoweredSpec` for the batch-lane compile and the symbolic-lowered spec VALUE; `data/tabular` supplies the `FrameAdmission`/`FrameInterop`/`FieldShape`/`Backend` DOE-frame gate and the `columnar.arrow_bytes` render fold — the published surfaces only, no data interior; the objective crosses the process band as an argument of one `HOSTILE`-trait runtime `Kernel` — the module-level kernel ships `REFERENCE`, and a closure-bearing objective rides the pool's cloudpickle wire.
 
 ## [01]-[INDEX]
 
@@ -23,9 +23,10 @@ from enum import StrEnum
 from importlib import import_module
 from typing import TYPE_CHECKING, Final, Literal, assert_never
 
+import msgspec
 import numpy as np
 from beartype import beartype
-from expression import Error, Nothing, Ok, Option, Some, case, tag, tagged_union
+from expression import Error, Nothing, Ok, Option, Result, Some, case, tag, tagged_union
 from expression.collections import Map
 from msgspec import Struct
 
@@ -35,8 +36,9 @@ from rasm.data.tabular.contract import FrameAdmission
 from rasm.data.tabular.interop import Backend, FieldShape, FrameInterop
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import BoundaryFault, FAULT_CONF, RuntimeRail, boundary
-from rasm.runtime.lanes import LanePolicy, Modality
+from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.receipts import Receipt
+from rasm.runtime.workers import Kernel, KernelTrait
 
 if TYPE_CHECKING:
     from SALib import ProblemSpec
@@ -53,6 +55,8 @@ type RowScorer = Callable[[np.ndarray], float | np.ndarray]
 type BatchScorer = Callable[[np.ndarray], np.ndarray]
 type SalibTag = Literal["morris_screen", "sobol_indices", "fast", "rbd_fast", "delta", "pawn", "dgsm", "hdmr"]
 
+_SPEC: Final = msgspec.msgpack.Encoder(order="deterministic")  # the stable study-spec preimage the shared `spec_key` mints over
+
 
 class Objective(Struct, frozen=True):
     row: RowScorer
@@ -61,7 +65,7 @@ class Objective(Struct, frozen=True):
 
     @staticmethod
     def lowered(spec: LoweredSpec) -> "Objective":
-        # the spec's kernel is the row scorer and its recommended route arms the batch-lane compile — the symbolic->jit->study
+        # spec's kernel is the row scorer and its recommended route arms the batch-lane compile — the symbolic->jit->study
         # chain with zero symbolic imports.
         return Objective(row=spec.kernel, jit=Some(spec.route))
 
@@ -73,24 +77,29 @@ class Objective(Struct, frozen=True):
         scorer = self.scorer()
         return np.stack([np.asarray(scorer(point), dtype=float) for point in design])
 
-
-def _importable_kernel(objective: Objective) -> bool:
-    # the process-lane payload law: only a module-qualified importable callable set crosses the
-    # process band; a closure or lambda anywhere in the objective drops to the THREAD band.
-    def importable(fn: object) -> bool:
-        name = getattr(fn, "__qualname__", "<lambda>")
-        return "<lambda>" not in name and "<locals>" not in name
-
-    return importable(objective.row) and objective.batch.map(importable).default_value(True)
+    def identity(self) -> tuple[object, ...]:
+        # the complete yield-affecting identity `Study.spec_key` folds: row scorer, batch lane, and the jit route
+        # row — a batch or jit configuration change re-keys exactly as a scorer change does.
+        route = self.jit.map(lambda held: (held.tag, getattr(held, held.tag))).default_value(())
+        return (_scorer_identity(self.row), self.batch.map(_scorer_identity).default_value(()), route)
 
 
-def _run_kernel(study: "Study", objective: Objective, seed: int) -> "RuntimeRail[StudyReceipt]":
-    # module-level so the worker resolves it by import; the fence converts a sampler/analyzer/fit raise.
+def _scorer_identity(fn: Callable[..., object]) -> tuple[str, str, bytes]:
+    # `Kernel.of` is the one payload-classification surface: an importable scorer keys by its module-qualified
+    # name (REFERENCE ships an empty payload), a closure or bound method by its cloudpickle content bytes (VALUE) —
+    # so two distinct scorers sharing a `<lambda>` label never share an identity.
+    kernel = Kernel.of(fn)
+    return (kernel.module, kernel.name, kernel.payload)
+
+
+def _study_kernel(study: "Study", objective: Objective, seed: int) -> "RuntimeRail[StudyReceipt]":
+    # module-level so REFERENCE shipping resolves it by import; the fence converts a sampler/analyzer/fit raise. A closure-bearing
+    # objective still crosses the process band as an argument on the pool's cloudpickle wire.
     return boundary(f"study.{study.method.tag}", lambda: study._execute(objective, seed))
 
 
 def _timed[T](thunk: Callable[[], T]) -> tuple[T, float]:
-    # the one perf_counter fold the measurement arms share.
+    # one perf_counter fold the measurement arms share.
     start = time.perf_counter()
     value = thunk()
     return value, time.perf_counter() - start
@@ -143,7 +152,7 @@ class ParamAxis(Struct, frozen=True):
     params: tuple[float, ...]  # SALib `dists` parameter vector; per-dist arity raises on the `rescale`/`bounds` unpack inside the fence
     dist: AxisDist = AxisDist.UNIF
 
-    # the support endpoints the sampler scales into; `norm`/`lognorm` are unbounded, so the row reads a wide window off mean±std.
+    # support endpoints the sampler scales into; `norm`/`lognorm` are unbounded, so the row reads a wide window off mean±std.
     @property
     def bounds(self) -> tuple[float, float]:
         match self.dist:
@@ -158,7 +167,7 @@ class ParamAxis(Struct, frozen=True):
             case _ as unreachable:
                 assert_never(unreachable)
 
-    # the qmc path inverse-transforms the unit draw through the exact `scipy.stats.<dist>.ppf` form the SALib `dists` channel
+    # qmc path inverse-transforms the unit draw through the exact `scipy.stats.<dist>.ppf` form the SALib `dists` channel
     # resolves, so the two draws are the same marginal rather than two divergent inverse transforms.
     def rescale(self, unit_col: np.ndarray) -> np.ndarray:
         from scipy import stats
@@ -238,7 +247,7 @@ class StudyMethod:
     polynomial: int = case()
     surrogate: SurrogateKind = case()
 
-    # the union OWNS its three folds — `design`/`discrepancy`/`indices`, each a total `match` taking `axes` as payload — so no
+    # union OWNS its three folds — `design`/`discrepancy`/`indices`, each a total `match` taking `axes` as payload — so no
     # detached free function reaches back into the union.
     def design(self, axes: tuple[ParamAxis, ...], seed: int) -> np.ndarray:
         match self:
@@ -317,7 +326,7 @@ class StudyMethod:
     def _spec(axes: tuple[ParamAxis, ...]) -> "ProblemSpec":
         from SALib import ProblemSpec
 
-        # the SALib samplers shape their own marginals off `problem['dists']` (emitted only when an axis is non-`unif`); when set,
+        # SALib samplers shape their own marginals off `problem['dists']` (emitted only when an axis is non-`unif`); when set,
         # SALib reads each `bounds` row as the dist's FULL parameter vector, so the row is `ax.params` itself, not `(low, high)`.
         problem: dict[str, object] = {"num_vars": len(axes), "names": [ax.name for ax in axes], "bounds": [list(ax.params) for ax in axes]}
         if any(ax.dist is not AxisDist.UNIF for ax in axes):
@@ -419,7 +428,7 @@ class StudyReceipt(Struct, frozen=True):
         }
 
     def render(self, design: np.ndarray, responses: np.ndarray, axes: "tuple[ParamAxis, ...]") -> bytes:
-        # the render seam: one self-describing frame crossing as content-keyed Arrow bytes through the data-owned
+        # render seam: one self-describing frame crossing as content-keyed Arrow bytes through the data-owned
         # `columnar.arrow_bytes` fold; the artifacts consumer decodes the frame and never re-derives the cohort.
         import pyarrow as pa
 
@@ -451,18 +460,18 @@ class Study(Struct, frozen=True):
     axes: tuple[ParamAxis, ...]
     method: StudyMethod
     mode: MeasurementMode
-    # the DOE-frame arm's admission source — `FrameInterop.of` is source-bearing; a zero-arity `FrameInterop()` is not an owned shape.
+    # DOE-frame arm's admission source — `FrameInterop.of` is source-bearing; a zero-arity `FrameInterop()` is not an owned shape.
     frame_backend: Backend = Backend.PYARROW
 
     async def run(self, source: "Objective | object", lane: LanePolicy, /, *, seed: int = 0) -> RuntimeRail[StudyReceipt]:
-        # the lane resolves BY PAYLOAD SHAPE: a module-qualified objective crosses the PROCESS band as spec data, a closure-bearing
-        # objective rides the THREAD band (a lambda on the process lane is a runtime pickle crash), a pre-measured frame decodes
-        # inline; the weave owns span, fence, and the `@receipted` receipt harvest.
+        # an Objective crosses as an argument of one HOSTILE-trait Kernel — sampler natives hold process-global state — while a
+        # pre-measured frame decodes inline; the weave owns span, fence, and the `@receipted` receipt harvest. Only the RESULT
+        # mode declares idempotent: a worker-death re-run under WALLCLOCK/SPEEDUP would report a post-crash retry as the measurement.
         async def dispatch() -> RuntimeRail[StudyReceipt]:
             match source:
                 case Objective() as objective:
-                    modality = Modality.PROCESS if _importable_kernel(objective) else Modality.THREAD
-                    return (await lane.offload(_run_kernel, self, objective, seed, modality=modality)).bind(lambda rail: rail)
+                    kernel = Kernel.of(_study_kernel, KernelTrait.HOSTILE, idempotent=self.mode is MeasurementMode.RESULT)
+                    return (await lane.offload(kernel, self, objective, seed)).bind(lambda rail: rail)
                 case frame:
                     return self._admit_frame(frame).bind(
                         lambda decoded: boundary(f"study.{self.method.tag}", lambda: self._graded_frame(*decoded))
@@ -471,7 +480,7 @@ class Study(Struct, frozen=True):
         return await evidence_run(EvidenceScope.STUDY, f"study.{self.method.tag}", dispatch)
 
     def _admit_frame(self, frame: object) -> "RuntimeRail[tuple[np.ndarray, np.ndarray]]":
-        # the gate proves one Float64 column per `ParamAxis` plus the `response` column, and the decoded design matrix + response
+        # gate proves one Float64 column per `ParamAxis` plus the `response` column, and the decoded design matrix + response
         # vector cross the boundary as numpy buffers — the published data surfaces only.
         shapes = tuple(FieldShape(field=axis.name, logical_type="Float64", nullable=False) for axis in self.axes)
         gate = FrameAdmission.of(FrameInterop.of(self.frame_backend), (*shapes, FieldShape(field="response", logical_type="Float64", nullable=False)))
@@ -484,26 +493,41 @@ class Study(Struct, frozen=True):
             )
         )
 
+    def spec_key(
+        self, design: np.ndarray, objective: Option[Objective] = Nothing, /, *, responses: "Option[np.ndarray]" = Nothing
+    ) -> "RuntimeRail[ContentKey]":
+        # ONE study-key builder over the COMPLETE specification — axes, method, mode, the objective's full identity
+        # (row/batch scorer shipping identity, the jit route row), and the shape-framed canonical float64 design and
+        # response bytes — shared by `_execute`, `_graded_frame`, and `RunHistory.resume`, so distinct closures,
+        # configurations, or measured response sets never collide onto one cache slot; `packed` frames the shape
+        # beside the canonicalized buffer, so a transposed or reshaped design sharing one byte payload keys apart
+        # while dtype and layout normalize onto contiguous float64.
+        framed = lambda chunk: len(chunk).to_bytes(8, "little") + chunk
+        packed = lambda array: framed(_SPEC.encode(array.shape)) + framed(np.ascontiguousarray(array, dtype=np.float64).tobytes())
+        spec = objective.map(Objective.identity).default_value(())
+        tail = responses.map(packed).default_value(b"")
+        return ContentIdentity.of("study", _SPEC.encode((self.axes, self.method.tag, self.mode, spec)) + packed(design) + tail)
+
     def _graded_frame(self, design: np.ndarray, responses: np.ndarray) -> StudyReceipt:
-        # a pre-measured DOE frame carries its own responses, so evaluation is skipped and the
-        # receipt grades the decoded cohort under the same design content key the resume proof reads.
+        # a pre-measured DOE frame carries its own responses, so evaluation is skipped and the response bytes join
+        # the key — two frames sharing one design matrix but carrying different measurements are different studies.
         measured = Measured(responses[:, None] if responses.ndim == 1 else responses, 0.0, Nothing)
-        match ContentIdentity.of("study", design.tobytes()):
-            case Ok(key):
+        match self.spec_key(design, responses=Some(responses)):
+            case Result(tag="ok", ok=key):
                 return StudyReceipt.graded(self, design, measured, key)
-            case Error(fault):
+            case Result(tag="error", error=fault):
                 raise RuntimeError(fault)
 
     @beartype(conf=FAULT_CONF)
     def _execute(self, objective: Objective, seed: int) -> StudyReceipt:
         design = self.method.design(self.axes, seed)
         measured = self.mode.evaluate(objective, design)
-        # the design key is `match`ed off the rail inside the already-fenced body, so a hash `Error` re-raises onto the `boundary`;
-        # the default policy keys identically to an explicit allocation, which is what makes `history`'s resume key provably equal.
-        match ContentIdentity.of("study", design.tobytes()):
-            case Ok(key):
+        # spec key is `match`ed off the rail inside the already-fenced body, so a hash `Error` re-raises onto the `boundary`;
+        # `spec_key` is the one mint every path shares, which is what makes `history`'s resume key provably equal.
+        match self.spec_key(design, Some(objective)):
+            case Result(tag="ok", ok=key):
                 return StudyReceipt.graded(self, design, measured, key)
-            case Error(fault):
+            case Result(tag="error", error=fault):
                 raise RuntimeError(fault)
 ```
 

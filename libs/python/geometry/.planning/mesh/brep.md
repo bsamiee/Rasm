@@ -1,19 +1,19 @@
 # [PY_GEOMETRY_MESH_BREP]
 
-Exact B-rep evaluation: parametric solid construction, robust n-ary Boolean algebra, profile offset/loft generation, feature operations, and watertight tessellation on one `BrepOp` union — five operation kinds, each carrying its inner verb as a closed `StrEnum` row bound to the owning OCCT `BRep*API` builder through an `expression.Map` dispatch table, so a new primitive, set verb, offset mode, or feature is one row plus one entry, never a new surface. The `Offset` arm integrates both kernels on one rail: the 2D profile offsets and simplifies in `manifold3d.CrossSection`, lifts through `BRepBuilderAPI_MakeFace.Add` as a holed planar face, then extrudes/revolves/lofts/thickens into a `TopoDS_Shape`. This owner writes no file — results cross the wire in memory as `TopoDS_Shape` plus optional `trimesh.Trimesh`.
+Exact B-rep evaluation on one `BrepOp` union: parametric solid construction, n-ary Boolean algebra, profile offset/loft generation, feature operations, and watertight tessellation — each operation kind carrying its inner verb as a closed `StrEnum` row bound to the owning OCCT `BRep*API` builder through an `expression.Map` dispatch, so a new primitive, set verb, offset mode, or feature is one row plus one entry, never a new surface. Its `Offset` arm rides both kernels on one rail: `manifold3d.CrossSection` offsets and simplifies the 2D profile, `BRepBuilderAPI_MakeFace.Add` lifts it as a holed planar face, then extrusion/revolution/loft/thickening yields a `TopoDS_Shape`. No durable file persists — a live `TopoDS_Shape` is a pybind11 handle no pickler carries, so every shape crosses the worker seam as sealed STEP octets (`Brep`) through the `sealed`/`unsealed` codec pair, returning as `Brep` plus optional `trimesh.Trimesh`.
 
-`TessellationPolicy` arrives from `mesh/cad` (minted there, imported downward), and an evaluated solid graduates through the geometry-minted `GeometrySubject.MESH_ALGEBRA` rail. The CPU-bound kernel rides `LanePolicy.offload` — the PEP 734 subinterpreter hop — with the `@receipted(REDACTION)` egress streaming the typed receipt on the `Ok` path. Consumers compose downward: the CAD-STEP hop (`mesh/cad.md#BRIDGE`), the mesh-algebra rail (`mesh/repair.md#MESH`), and the `ifc/structural` profile owner composing `Construct`/`Offset` to evaluate an `IfcProfileDef` cross-section into a `TopoDS_Face` before its section integral.
+`TessellationPolicy` arrives from `mesh/cad`, minted there and imported downward; an evaluated solid graduates through the geometry-minted `GeometrySubject.MESH_ALGEBRA` rail. Its CPU-bound kernel rides `LanePolicy.offload` on the `HOSTILE` trait — the OCCT band holds process-global native state and imports under no isolated subinterpreter, so the warm process pool is the one substrate that composes — and the `@receipted(REDACTION)` egress streams the typed receipt on the `Ok` path. Consumers compose downward: the CAD-STEP hop (`mesh/cad.md#BRIDGE`), the mesh-algebra rail (`mesh/repair.md#MESH`), and the `ifc/structural` profile owner folding `Construct`/`Offset` to evaluate an `IfcProfileDef` cross-section into a `TopoDS_Face` before its section integral.
 
 ## [01]-[INDEX]
 
-- [01]-[BREP]: B-rep operation union over OCCT plus `manifold3d.CrossSection`, offloaded to the subinterpreter lane, returning `RuntimeRail[BrepResult]`.
+- [01]-[BREP]: B-rep operation union over OCCT plus `manifold3d.CrossSection`, offloaded to the warm process lane over sealed-brep crossings, returning `RuntimeRail[BrepResult]`.
 
 ## [02]-[BREP]
 
-- Owner: `BrepOp` — one `@tagged_union` over five operation kinds with verbs as `StrEnum` rows, never a per-operation class family; `JoinPolicy` maps to `manifold3d.JoinType` through `_JOINS` so the join is a policy value, never a verb-keyed hardcode; `BrepResult` is the carrier-contributor and `BrepReceipt` the leaf evidence, the carrier/leaf split the mesh siblings share.
+- Owner: `BrepOp` — one `@tagged_union` over the operation kinds with verbs as `StrEnum` rows, never a per-operation class family; `JoinPolicy` maps to `manifold3d.JoinType` through `_JOINS`, so the join is a policy value, never a verb-keyed hardcode; `BrepResult` carries the contributor and `BrepReceipt` the leaf evidence, the carrier/leaf split the mesh siblings share. Shape-bearing cases carry `Brep` sealed octets, never a live handle — `sealed`/`unsealed` is the one STEP `AsIs` codec pair both seam directions resolve through, so the union pickles whole across the process crossing and a native-floor consumer unseals where its own OCCT work begins.
 - Cases: linear extrusion/revolution of a profile is the `Offset` arm's `EXTRUDE`/`REVOLVE` row, never a duplicate `Construct` primitive — `MakePrism`/`MakeRevol` are reached once, through the profile leg; `Boolean.section` yields a wire/edge result the consumer re-feeds as a profile, and no downstream owner re-discriminates the operation past this union.
-- Auto: `BRepAlgoAPI_*` is the robust BOPAlgo kernel (the legacy `BRepAlgo_*` family never enters) and its operators are n-ary — one `SetArguments`/`SetTools` build, never a pairwise fold rebuilding the kernel N-1 times; Boolean operands require triangulation absent, so a `Boolean` always precedes any `Tessellate` over its result.
-- Packages: `cadquery-ocp` (the `OCP.*` band per the fence imports — the retired conda-only `pythonocc-core` `OCC.Core.*` path never enters), `manifold3d` (`CrossSection`/`JoinType`, the 2D leg only — the 3D `Manifold` CSG backend belongs to `mesh/repair.md#MESH`), `trimesh`, `numpy`, `expression`, and `msgspec` per the fence imports; `TessellationPolicy`/`CANONICAL_TESSELLATION` and `GeometrySubject` arrive from the geometry owners, the rails from runtime.
+- Auto: `BRepAlgoAPI_*` is the robust BOPAlgo kernel (the legacy `BRepAlgo_*` family never enters) and its operators are n-ary — one `SetArguments`/`SetTools` build, never a pairwise fold rebuilding the kernel N-1 times; a Boolean operand requires triangulation absent, so a `Boolean` always precedes any `Tessellate` over its result.
+- Packages: `cadquery-ocp` (the `OCP.*` band — the retired conda-only `pythonocc-core` `OCC.Core.*` path never enters), `manifold3d` (`CrossSection`/`JoinType`, the 2D leg only — the 3D `Manifold` CSG backend belongs to `mesh/repair.md#MESH`), `trimesh`, `numpy`, `expression`, and `msgspec` per the fence imports; `TessellationPolicy`/`CANONICAL_TESSELLATION` and `GeometrySubject` arrive from the geometry owners, the rails from runtime.
 - Growth: a new primitive, set verb, offset mode, feature, or join is one `StrEnum` row plus one `Map` entry; a spine-following `SWEEP` verb is the `BRepOffsetAPI_MakePipeShell` landing site, staged behind a real spine-wire payload field rather than aliased to the linear `EXTRUDE` prism it cannot distinguish without one.
 - Boundary: mesh-file/GLB codec is the data `MeshPayload` owner's (`rasm.data.spatial.mesh`); scene/USD/GLTF/OBJ export is `artifacts` figures/scene; the STEP-read-to-GLB hop is `mesh/cad.md#BRIDGE`'s `StepBridge`, a distinct OCCT consumer meeting this evaluator only at the shared `cadquery-ocp` band, never a shared function; triangle-soup repair and mesh CSG are `mesh/repair.md#MESH`'s — exact OCCT B-rep Boolean here, robust triangle-mesh Boolean there, two kernels on two owners.
 
@@ -21,6 +21,9 @@ Exact B-rep evaluation: parametric solid construction, robust n-ary Boolean alge
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable, Iterable
 from enum import StrEnum
+from math import isfinite
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Final, Literal, Protocol, Self, assert_never
 
 import numpy as np
@@ -33,6 +36,8 @@ from expression.collections import Map
 from OCP.BRep import BRep_Tool
 from OCP.BRepAlgoAPI import BRepAlgoAPI_Common, BRepAlgoAPI_Cut, BRepAlgoAPI_Fuse, BRepAlgoAPI_Section
 from OCP.BRepAlgoAPI import BRepAlgoAPI_Splitter
+from OCP.IFSelect import IFSelect_ReturnStatus
+from OCP.STEPControl import STEPControl_Reader, STEPControl_StepModelType, STEPControl_Writer
 from OCP.BRepBuilderAPI import (
     BRepBuilderAPI_MakeEdge,
     BRepBuilderAPI_MakeFace,
@@ -69,9 +74,11 @@ from rasm.geometry.mesh.cad import CANONICAL_TESSELLATION, TessellationPolicy
 from rasm.runtime.faults import RuntimeRail
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.receipts import Phase, Receipt, Redaction, receipted
+from rasm.runtime.workers import Kernel, KernelTrait
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
+type Brep = bytes  # sealed STEP `AsIs` octets — the one shape form the pickle seam carries
 type Shapes = tuple[TopoDS_Shape, ...]
 type Params = tuple[float, ...]
 type Profile = tuple[tuple[float, float], ...]
@@ -128,11 +135,12 @@ class OcctBuilder(Protocol):
 # raised INTO the lane's `async_boundary`, never a domain `raise ValueError` the lane re-wraps.
 @tagged_union(frozen=True)
 class BrepFault(Exception):
-    tag: Literal["not_done", "empty_profile", "holed_profile", "unknown_verb"] = tag()
+    tag: Literal["not_done", "empty_profile", "holed_profile", "unknown_verb", "invalid_operands"] = tag()
     not_done: str = case()
     empty_profile: str = case()
     holed_profile: str = case()
     unknown_verb: str = case()
+    invalid_operands: str = case()
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -217,9 +225,13 @@ class BrepReceipt(Struct, frozen=True, gc=False):  # leaf-scalar evidence; owns 
 
 
 class BrepResult(Struct, frozen=True):
-    shape: TopoDS_Shape
+    brep: Brep
     mesh: trimesh.Trimesh | None
     receipt: BrepReceipt
+
+    def unsealed(self) -> TopoDS_Shape:
+        # native-floor projection: a consumer whose own OCCT work continues re-inflates the handle where it computes.
+        return unsealed(self.brep)
 
     def contribute(self) -> Iterable[Receipt]:
         yield Receipt.of("mesh.brep", self.receipt.fact())
@@ -229,19 +241,25 @@ class BrepResult(Struct, frozen=True):
 class BrepOp:
     tag: Literal["construct", "boolean", "offset", "feature", "tessellate"] = tag()
     construct: tuple[ConstructVerb, Params] = case()
-    boolean: tuple[Shapes, BooleanVerb, float] = case()
+    boolean: tuple[tuple[Brep, ...], BooleanVerb, float] = case()
     offset: tuple[Profile, OffsetVerb, float, float, JoinPolicy, bool] = case()
-    feature: tuple[TopoDS_Shape, FeatureVerb, float] = case()
-    tessellate: tuple[TopoDS_Shape, TessellationPolicy] = case()
+    feature: tuple[Brep, FeatureVerb, float] = case()
+    tessellate: tuple[Brep, TessellationPolicy] = case()
 
     @staticmethod
     def Construct(verb: ConstructVerb, params: Params) -> Self:
         return BrepOp(construct=(verb, params))
 
     @staticmethod
-    def Boolean(shapes: Shapes, verb: BooleanVerb, fuzzy: float = 0.0) -> Self:
-        # positive fuzz drives SetFuzzyValue tolerant intersection for near-coincident operands
-        return BrepOp(boolean=(shapes, verb, fuzzy))
+    def Boolean(breps: tuple[Brep, ...], verb: BooleanVerb, fuzzy: float = 0.0) -> Self:
+        # positive fuzz drives SetFuzzyValue tolerant intersection for near-coincident operands. Every verb partitions
+        # arguments-versus-tools, so the OCCT builder demands two operands minimum, and a negative or non-finite fuzz
+        # refuses at the mint — the constructor is the one seam, so an invalid boolean never reaches the worker.
+        if len(breps) < 2:
+            raise BrepFault(invalid_operands=f"{verb.value} needs at least 2 operands, got {len(breps)}")
+        if not (isfinite(fuzzy) and fuzzy >= 0.0):
+            raise BrepFault(invalid_operands=f"fuzzy must be finite and >= 0, got {fuzzy}")
+        return BrepOp(boolean=(breps, verb, fuzzy))
 
     @staticmethod
     def Offset(
@@ -251,26 +269,55 @@ class BrepOp:
         return BrepOp(offset=(profile, verb, dist, height, join, smooth))
 
     @staticmethod
-    def Feature(shape: TopoDS_Shape, verb: FeatureVerb, size: float) -> Self:
-        return BrepOp(feature=(shape, verb, size))
+    def Feature(brep: Brep, verb: FeatureVerb, size: float) -> Self:
+        return BrepOp(feature=(brep, verb, size))
 
     @staticmethod
-    def Tessellate(shape: TopoDS_Shape, policy: TessellationPolicy = CANONICAL_TESSELLATION) -> Self:
-        return BrepOp(tessellate=(shape, policy))
+    def Tessellate(brep: Brep, policy: TessellationPolicy = CANONICAL_TESSELLATION) -> Self:
+        return BrepOp(tessellate=(brep, policy))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 async def apply(op: BrepOp, lane: LanePolicy) -> "RuntimeRail[BrepResult]":
-    # the `Error` path carries no emit — the lane fence already recorded the fault.
-    return (await lane.offload(_dispatch, op)).map(_emit)
+    # `Error` paths carry no emit — the lane fence already recorded the fault; HOSTILE is the declared trait because the
+    # OCCT band holds process-global native state, so the kernel rides the warm process pool with the WORKER death retry.
+    return (await lane.offload(Kernel.of(_dispatch, KernelTrait.HOSTILE), op)).map(_emit)
 
 
 @receipted(REDACTION)
 def _emit(result: BrepResult) -> BrepResult:
-    # returns the contributor itself, so the mapped `Ok` arm keeps shape/mesh AND the receipt streams once.
+    # returns the contributor itself, so the mapped `Ok` arm keeps brep/mesh AND the receipt streams once.
     return result
+
+
+def sealed(shape: TopoDS_Shape) -> Brep:
+    # crossing codec, write half: STEP `AsIs` serializes the exact B-rep, so a live pybind11 handle never meets the pickle
+    # seam; the scoped temp file is the codec's only disk touch and dies with the call.
+    writer = STEPControl_Writer()
+    if writer.Transfer(shape, STEPControl_StepModelType.STEPControl_AsIs) != IFSelect_ReturnStatus.IFSelect_RetDone:
+        raise BrepFault(not_done="STEPControl_Writer.Transfer")
+    with TemporaryDirectory(prefix="brep-seal-") as work:
+        path = Path(work, "shape.step")
+        if writer.Write(str(path)) != IFSelect_ReturnStatus.IFSelect_RetDone:
+            raise BrepFault(not_done="STEPControl_Writer.Write")
+        return path.read_bytes()
+
+
+def unsealed(brep: Brep) -> TopoDS_Shape:
+    # crossing codec, read half: roots transfer in bulk and a multi-root seal lands as one compound through `OneShape`.
+    reader = STEPControl_Reader()
+    with TemporaryDirectory(prefix="brep-seal-") as work:
+        path = Path(work, "shape.step")
+        path.write_bytes(brep)
+        if reader.ReadFile(str(path)) != IFSelect_ReturnStatus.IFSelect_RetDone:
+            raise BrepFault(not_done="STEPControl_Reader.ReadFile")
+        reader.TransferRoots()
+        shape = reader.OneShape()
+        if shape.IsNull():  # a zero-root transfer returns a null handle, not a raise — validated before any consumer walks it
+            raise BrepFault(not_done="STEPControl_Reader.OneShape")
+        return shape
 
 
 def _built(builder: OcctBuilder) -> TopoDS_Shape:
@@ -323,7 +370,7 @@ def _evidence(
     # divergence-theorem `volume` is meaningless on an open surface: an open result records a `None` gap, never a spurious agreement.
     closure_gap = abs(mass - float(mesh.volume)) if watertight else None
     return BrepResult(
-        shape,
+        sealed(shape),
         mesh,
         BrepReceipt(
             kind, not shape.IsNull(), mass, float(area.Mass()), (com.X(), com.Y(), com.Z()), _census(shape), watertight, closure_gap, modified, generated
@@ -350,7 +397,7 @@ def _boolean(shapes: Shapes, verb: BooleanVerb, fuzzy: float) -> tuple[TopoDS_Sh
     return shape, bool(history.HasModified()), bool(history.HasGenerated())
 
 
-# the `(base, offset)` pair serves both the face lift and the loft rings, so the `manifold3d` 2D leg runs once per profile.
+# one `(base, offset)` pair serves both the face lift and the loft rings, so the `manifold3d` 2D leg runs once per profile.
 def _sections(profile: Profile, dist: float, join: JoinPolicy) -> tuple[CrossSection, CrossSection]:
     if not profile:
         raise BrepFault(empty_profile="offset")
@@ -399,8 +446,8 @@ def _dispatch(op: BrepOp) -> BrepResult:
         case BrepOp(tag="construct", construct=(verb, params)):
             factory = _PRIMITIVES.try_find(verb).default_with(lambda: _raise(BrepFault(unknown_verb=verb)))
             return _evidence(f"construct.{verb}", _built(factory(params)), None)
-        case BrepOp(tag="boolean", boolean=(shapes, verb, fuzzy)):
-            shape, modified, generated = _boolean(shapes, verb, fuzzy)
+        case BrepOp(tag="boolean", boolean=(breps, verb, fuzzy)):
+            shape, modified, generated = _boolean(tuple(unsealed(brep) for brep in breps), verb, fuzzy)
             return _evidence(f"boolean.{verb}", shape, None, modified=modified, generated=generated)
         case BrepOp(tag="offset", offset=(profile, verb, dist, height, join, smooth)):
             base, offset = _sections(profile, dist, join)
@@ -430,22 +477,24 @@ def _dispatch(op: BrepOp) -> BrepResult:
                 case unreachable:
                     assert_never(unreachable)
             return _evidence(f"offset.{verb}", shape, None)
-        case BrepOp(tag="feature", feature=(target, FeatureVerb.SEW, size)):
+        case BrepOp(tag="feature", feature=(sealed_target, FeatureVerb.SEW, size)):
             # Sewing is Perform/SewedShape, not the Build/IsDone/Shape maker family
             sewing = BRepBuilderAPI_Sewing(size)
-            sewing.Add(target)
+            sewing.Add(unsealed(sealed_target))
             sewing.Perform()
             return _evidence("feature.sew", sewing.SewedShape(), None)
-        case BrepOp(tag="feature", feature=(target, FeatureVerb.NURBS, _)):
-            return _evidence("feature.nurbs", _built(BRepBuilderAPI_NurbsConvert(target)), None)
-        case BrepOp(tag="feature", feature=(target, verb, size)):
+        case BrepOp(tag="feature", feature=(sealed_target, FeatureVerb.NURBS, _)):
+            return _evidence("feature.nurbs", _built(BRepBuilderAPI_NurbsConvert(unsealed(sealed_target))), None)
+        case BrepOp(tag="feature", feature=(sealed_target, verb, size)):
             factory = _FEATURES.try_find(verb).default_with(lambda: _raise(BrepFault(unknown_verb=verb)))
+            target = unsealed(sealed_target)
             feature, edges = factory(target), TopTools_IndexedMapOfShape()
             TopExp.MapShapes_s(target, TopAbs_ShapeEnum.TopAbs_EDGE, edges)
             for i in range(1, edges.Extent() + 1):
                 feature.Add(size, TopoDS.Edge_s(edges.FindKey(i)))
             return _evidence(f"feature.{verb}", _built(feature), None)
-        case BrepOp(tag="tessellate", tessellate=(shape, policy)):
+        case BrepOp(tag="tessellate", tessellate=(sealed_target, policy)):
+            shape = unsealed(sealed_target)
             BRepMesh_IncrementalMesh(shape, policy.deflection, False, policy.angle_tolerance, True)
             return _evidence("tessellate", shape, _triangulation(shape))
         case unreachable:

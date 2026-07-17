@@ -1,8 +1,8 @@
 # [PY_COMPUTE_CONVEX]
 
-The dual-certificate proof of global optimality the first-order design loop and the discrete math program structurally cannot furnish — the convex analogue of the certified-enclosure ladder in `numerics/interval.md#ENCLOSURE`. `ConvexProgram` discriminates the cone family a disciplined-convex model lands in, compiled to standard conic form and solved through the Clarabel interior-point backend that returns the primal optimum and the per-constraint dual multipliers; the full KKT triple is the proof object, so `certified` gates the complementary-slackness gap AND both feasibility residuals within `_TOL`, never the gap alone. Like `optimization/program.md#PROGRAM`, the convex solve IS `cvxpy` over the conic backend, so a run without the package returns `Error(Import)` rather than an uncertified estimate.
+Dual-certificate proof of global optimality the first-order design loop and the discrete math program structurally cannot furnish — the convex analogue of the certified-enclosure ladder in `numerics/interval.md#ENCLOSURE`. `ConvexProgram` discriminates the cone family a disciplined-convex model lands in, compiled to standard conic form and solved through the Clarabel interior-point backend that returns the primal optimum and the per-constraint dual multipliers; the full KKT triple is the proof object, so `certified` gates the complementary-slackness gap AND both feasibility residuals within `_TOL`, never the gap alone. Like `optimization/program.md#PROGRAM`, the convex solve IS `cvxpy` over the conic backend, so a run without the package returns `Error(Import)` rather than an uncertified estimate.
 
-`ConvexReceipt` stays a distinct typed receipt and never folds into the `OutcomeReceipt` the `design`/`program` siblings share — the KKT certificate is the proof object the first-order convergence and feasibility verdicts carry no field for. Its coherence with `solvers/receipt.md#RECEIPT` is the status vocabulary alone: the cvxpy status constants fold into the one `SolveStatus` enum through the `_CONVEX_STATUS` boundary table. The certified optimum graduates on the dedicated `convex_program` `HandoffAxis` case at `graduation/handoff.md#GRADUATION`, a distinct admission from the `solver` axis the design/program verdicts cross on.
+`ConvexReceipt` stays a distinct typed receipt and never folds into the `OutcomeReceipt` the `design`/`program` siblings share — the KKT certificate is the proof object the first-order convergence and feasibility verdicts carry no field for. Its coherence with `solvers/receipt.md#RECEIPT` is the status vocabulary alone: the cvxpy status constants fold into the one `SolveStatus` enum through the `_CONVEX_STATUS` boundary table. Certified optimum graduates on the dedicated `convex_program` `HandoffAxis` case at `graduation/handoff.md#GRADUATION`, a distinct admission from the `solver` axis the design/program verdicts cross on.
 
 ## [01]-[INDEX]
 
@@ -10,7 +10,7 @@ The dual-certificate proof of global optimality the first-order design loop and 
 
 ## [02]-[CONVEX]
 
-- Owner: `ConvexProgram` — the discriminant is the cone structure, so the differentiable design loop, the discrete math program, and the certified convex program are sibling owners on one sub-domain, never a duplicated optimizer surface; every case ends with one uniform `Policy` slot bound through the `policy` total `match self` or-pattern, never a `getattr(self, self.tag)[-1]` reflection whose `object` residual escapes the exhaustive match; factories are `@classmethod`-plus-`Self`, never a `@staticmethod` over a forward-ref. The five cone families differ by two `ConeRow` closures and one `psd` flag, four `ConeKKT` closures keyed on the constraint's cone family, and the one `Fields` typed projection every case lands in — table and closure rows, never parallel `match` bodies, so `_assemble` and the evidence fold read fixed attributes and reduce with no shape-probe `if`.
+- Owner: `ConvexProgram` — the discriminant is the cone structure, so the differentiable design loop, the discrete math program, and the certified convex program are sibling owners on one sub-domain, never a duplicated optimizer surface; every case ends with one uniform `Policy` slot bound through the `policy` total `match self` or-pattern, never a `getattr(self, self.tag)[-1]` reflection whose `object` residual escapes the exhaustive match; factories are `@classmethod`-plus-`Self`, never a `@staticmethod` over a forward-ref. Five cone families differ by two `ConeRow` closures and one `psd` flag, four `ConeKKT` closures keyed on the constraint's cone family, and the one `Fields` typed projection every case lands in — table and closure rows, never parallel `match` bodies, so `_assemble` and the evidence fold read fixed attributes and reduce with no shape-probe `if`.
 - Cases: `Problem.is_dcp()` adjudicates curvature BEFORE the solve, and a genuinely indefinite quadratic form fails it — never a silent `cp.psd_wrap` coercion that forces a PSD lift; the semidefinite case carries PSD membership as an explicit `X >> 0` cone row because a `PSD=True` leaf attribute hides the matrix dual `Z` behind the variable domain where `Constraint.dual_value` cannot reach it; the one `cp.Parameter` leaf sits on the inequality `rhs` — the sole DPP-legal parametrizable buffer, a `Parameter` in the form matrix or constraint matrix breaks the DPP ruleset — so a sweep warm-re-solves the one compiled `Problem`, never a rebuild.
 - Entry: a missing backend or a DCP-rejected model folds one uncertified receipt per `ParamBind` row, so the tuple cardinality always matches the bind table; the certificate folds exactly the catalogued cvxpy quantities — `Constraint.dual_value` and the per-cone primal read off `Constraint.args` — never a backend-internal residual the `solve` path does not surface.
 - Packages: `clarabel` is admitted only through the `solver=cp.CLARABEL` selector, never a direct `DefaultSolver`/`get_problem_data` assembly this owner re-derives; `gc=False` rides only the scalar-leaf carriers (`ConvexEvidence`, `ConvexReceipt`) while the container/closure carriers (`Policy`, `Fields`, `ConeRow`, `ConeKKT`) stay GC-tracked; problem data admits as `numerics/array.md#PAYLOAD` payloads keying through the same `ContentIdentity` seed.
@@ -32,8 +32,9 @@ from rasm.compute.graduation.handoff import EvidenceScope, GraduationReceipt, Ha
 from rasm.compute.solvers.receipt import SolveStatus
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import RuntimeRail, boundary, traversed
-from rasm.runtime.lanes import LanePolicy, Modality
+from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.receipts import Receipt
+from rasm.runtime.workers import Kernel, KernelTrait
 
 # --- [TYPES] -------------------------------------------------------------------------------
 
@@ -181,23 +182,20 @@ class ConvexProgram:
 # --- [OPERATIONS] --------------------------------------------------------------------------
 
 
-# the convex family's default graduation ceiling — all three KKT conditions within tolerance; caller-overridable at the hub.
+# convex family's default graduation ceiling — all three KKT conditions within tolerance; caller-overridable at the hub.
 _CEILING: Final[Map[str, float]] = Map.of_seq([("duality_gap", 1e-8), ("primal_infeasibility", 1e-8), ("dual_infeasibility", 1e-8)])
-
-# the family modality row: policy DATA, never a per-page literal, never a compute-minted limiter.
-_MODALITY: Final[Modality] = Modality.THREAD
 
 
 async def solve(program: ConvexProgram, lane: LanePolicy) -> "RuntimeRail[tuple[ConvexReceipt, ...]]":
     # `.bind`-flatten joins the solve fence and the railed digest onto one rail; the weave owns span, fence, and receipt harvest.
     async def dispatch() -> "RuntimeRail[tuple[ConvexReceipt, ...]]":
-        return (await lane.offload(_sweep, program, modality=_MODALITY)).bind(lambda rail: rail)
+        return (await lane.offload(Kernel.of(_sweep, KernelTrait.RELEASING), program)).bind(lambda rail: rail)
 
     return await evidence_run(EvidenceScope.CONVEX, f"convex.{program.tag}", dispatch)
 
 
 def graduates(receipt: ConvexReceipt) -> "RuntimeRail[GraduationReceipt]":
-    # the KKT triple is the ledger the hub clears against the family ceiling — a gap above tolerance is an admission rejection.
+    # KKT triple is the ledger the hub clears against the family ceiling — a gap above tolerance is an admission rejection.
     ledger = {
         "duality_gap": receipt.evidence.duality_gap,
         "primal_infeasibility": receipt.evidence.primal_infeasibility,
@@ -292,7 +290,7 @@ def _uncertified_sweep(program: ConvexProgram, fields: "Fields | None") -> "Runt
 
 
 def _assemble(program: ConvexProgram, cp: object) -> tuple[object, list[object], "Fields", dict[str, object]]:
-    # the decision dimension is the COST extent, NOT the constraint-matrix column count — an unconstrained program carries an empty
+    # decision dimension is the COST extent, NOT the constraint-matrix column count — an unconstrained program carries an empty
     # `mat`, so sizing `x` off `mat.shape[1]` mis-sizes the variable; the polyhedral row is added only when `rhs.size` is non-empty.
     parameters: dict[str, object] = {}
     row, fields = _CONE_ROWS[program.tag], _fields(program)
@@ -351,7 +349,7 @@ def _uncertified(program: ConvexProgram, key: ContentKey) -> ConvexReceipt:
 
 
 def _evidence(constraints: list[object], cp: object) -> ConvexEvidence:
-    # the cone identity is the constraint TYPE, never the dual's matrix-vs-vector shape; the primal rides the cell's `expr` extractor
+    # cone identity is the constraint TYPE, never the dual's matrix-vs-vector shape; the primal rides the cell's `expr` extractor
     # off `Constraint.args` because `SOC(t, X)`/`ExpCone` carry NO single `.expr` — a uniform `c.expr.value` read raises
     # `AttributeError` on exactly the certificate-bearing SOC/SDP rows.
     cells = ((_CONE_KKT[_cone(c, cp)], c) for c in constraints)
@@ -416,7 +414,7 @@ def _primal_psd(expr: np.ndarray) -> float:
 
 
 def _expr_nonneg(constraint: object) -> np.ndarray | None:
-    # the relational `Inequality` carries `args = [lhs, rhs]` and `g = lhs − rhs` (cvxpy `Inequality.expr`,
+    # relational `Inequality` carries `args = [lhs, rhs]` and `g = lhs − rhs` (cvxpy `Inequality.expr`,
     # `<= 0` at feasibility); read it off the universal `args` rather than the `.expr` only relationals own.
     lhs, rhs = constraint.args[0].value, constraint.args[1].value
     return None if lhs is None or rhs is None else np.asarray(lhs, dtype=float) - np.asarray(rhs, dtype=float)

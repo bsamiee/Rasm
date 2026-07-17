@@ -1,8 +1,8 @@
 # [PY_ARTIFACTS_TABLE]
 
-`TablePlan` is the publication-and-schedule tabular-artifact owner — the missing third artifact pillar beside documents and charts — graded at once as a journal-grade publication primitive and an ISO-drafting schedule/QTO primitive. One owner over great-tables (bring-your-own-DataFrame, polars first-class through `DataFrame.style`) admits a settled frame or the C# `Rasm.Bim` QTO/schedule wire over `data/tabular`, shapes it to its display cross-tab through the closed `Reshape` polars pre-pass, then styles it into journal output — spanners, scientific formatting, uncertainty merges, substitution, configured nanoplots, data-driven coloring, footnote marks, and `opt_*` theme identity — exported host-free to HTML/LaTeX and gated PDF.
+`TablePlan` is the publication-and-schedule tabular-artifact owner — the missing third artifact pillar beside documents and charts — graded at once as a journal-grade publication primitive and an ISO-drafting schedule/QTO primitive. One owner over great-tables (bring-your-own-DataFrame, polars first-class through `DataFrame.style`) admits a settled frame or the C# `Rasm.Bim` QTO/schedule wire over `data/tabular`, shapes it to its display cross-tab through the closed `Reshape` polars pre-pass, then styles it into journal output — spanners, scientific formatting, uncertainty merges, substitution, configured nanoplots, data-driven coloring, footnote marks, and `opt_*` theme identity — exported host-free to HTML/LaTeX and gated PDF. Every option axis is typed: the format verbs share one closed `FmtOptions` payload, cell styling rides the per-kind `TextStyleKwds`/`FillStyleKwds`/`BorderStyleKwds`/`CssStyleKwds` vocabulary, nanoplots the closed `NanoOptions` roster, and data coloring the `DataColorKwds` bundle — no case carries an open `Any` bag, so a misspelled provider argument fails at type-check, never inside the render.
 
-Frame arrives settled; `TablePlan` reshapes-to-display, styles, and content-keys it, never authoring the data, re-opening the lazy engine, or re-implementing a `data`-owned transform. Measured results and BIM quantity takeoffs both render as formatted tables feeding `document/report#REPORT` and `document/emit#DOCUMENT`; `drawing/schedule#SCHEDULE` lowers its AEC templates into this owner and composes the same `build()` bytes fact to mint its own `ArtifactReceipt.Schedule`, so a schedule lowers in with no private-method reach. Flat HTML/SVG egress hands to `composition/compose#COMPOSE` for placement beside sibling graphics.
+Frame arrives settled; `TablePlan` reshapes-to-display, styles, and content-keys it, never authoring the data, re-opening the lazy engine, or re-implementing a `data`-owned transform. `data/tabular/profile#QUALITY`'s `QualityProfile` frame enters through `TablePlan.of` exactly like any settled frame — the profile owner authors quality facts, this owner styles them. Measured results and BIM quantity takeoffs both render as formatted tables feeding `document/report#REPORT` and `document/emit#DOCUMENT`; `drawing/schedule#SCHEDULE` lowers its AEC templates into this owner and composes the same `build()` bytes fact to mint its own `ArtifactReceipt.Schedule`, so a schedule lowers in with no private-method reach. Flat HTML/SVG egress hands to `composition/compose#COMPOSE` for placement beside sibling graphics.
 
 ## [01]-[INDEX]
 
@@ -11,67 +11,68 @@ Frame arrives settled; `TablePlan` reshapes-to-display, styles, and content-keys
 ## [02]-[TABLE]
 
 - Owner: `TablePlan` discriminates export format over the closed `TableFormat` (`HTML`/`LATEX`/`PDF`); `Reshape` and `TableOp` are `expression.tagged_union` families each carrying one typed payload per case — `Reshape` folded `pl.DataFrame -> pl.DataFrame` before `.style`, `TableOp` folded onto the great-tables `GT` builder — dispatched by one total `match`, never a parallel `dict[str, Callable]` catalogue or a per-feature `reduce`. `Theme` is the closed `opt_*` stylize vocabulary carried as the table's named publication identity, its `FootnoteMarks` axis selecting numeric, alphabetic, or symbol mark sequences.
-- Cases: `Reshape` rows land the display cross-tab a raw QTO/schedule frame is not yet in — `Select`/`Filter`/`Sort`/`Rename`/`Cast`/`Head`/`Slice`/`With`, `GroupAgg` quantity rollup, `Pivot` (the door/window/room-finish cross-tab), `Unpivot`, `TopK`, and `Derive` (a display column the frame did not carry) — each a `pl.Expr`-carrying case folded by one total `_shape` match, so a schedule rollup is one row and never a Python loop over cells. `TableOp` folds the full publication surface — structure, column control, spanners, `Fmt` value format over the `FmtKind` table, `Nanoplot`, column merges, substitutions, cell transforms, aggregation, data-driven `Color`, and raw `Css` — each arm composing the verified `GT` member directly. One `Fmt` case carrying a `FmtKind` discriminant collapses every `fmt_*` verb plus the arbitrary `fmt(fns, is_substitution)` custom verb onto one fold over `FMT_TABLE`, since every member shares the `(columns, rows, **opts)` shape.
+- Cases: `Reshape` rows land the display cross-tab a raw QTO/schedule frame is not yet in — `Select`/`Filter`/`Sort`/`Rename`/`Cast`/`Head`/`Slice`/`With`, `GroupAgg` quantity rollup, `Pivot` (the door/window/room-finish cross-tab), `Unpivot`, `TopK`, and `Derive` (a display column the frame did not carry) — each a `pl.Expr`-carrying case folded by one total `_shape` match, so a schedule rollup is one row and never a Python loop over cells. `TableOp` folds the full publication surface — structure, column control, spanners, `Fmt` value format over the `FmtKind` table, `Nanoplot`, column merges, substitutions, cell transforms, aggregation, data-driven `Color`, and raw `Css` — each arm composing the verified `GT` member directly. One `Fmt` case carrying a `FmtKind` discriminant collapses every `fmt_*` verb plus the arbitrary `fmt(fns, is_substitution)` custom verb onto one fold over `FMT_TABLE`, since every member shares the `(columns, rows, FmtOptions)` boundary shape and `FmtOptions` is the closed union of every verb's admitted keywords, `_frozen` sealing each payload to an immutable band at storage.
 - Entry: `TablePlan.of` admits raw material exactly once — a settled `pl.DataFrame` passes through, an Arrow-C-stream / interchange capsule (the C# `Rasm.Bim` QTO/schedule egress over `data/tabular`, or any `data` producer) normalizes through `pl.from_dataframe` zero-copy where the layout permits — so the interior sees only a settled frame, never re-validated inward, and one parameterized `[WIRE]` edge sources across providers without touching the interior. `emit()` returns the `ArtifactWork` node with a PRE-RUN input key; `build()` is the synchronous bytes seam a composing AEC owner renders through directly, so `drawing/schedule#SCHEDULE` mints its own receipt off the same single render with no private-method reach.
-- Auto: `build` is one `pl.Config` scope over an ordered fold — `_shape` reshapes the frame to its cross-tab, `Theme.apply` seeds the `opt_*` identity, each `TableOp` case folds its one `GT` member. `maintain_order=True`/`sort_columns=True` on the group/pivot rows fix row/column order and the fold runs inside the render scope, so a float-to-display `Derive` renders at fixed precision and the display frame is byte-reproducible for the content key. `_stable_id` keys the render off the frame row-hash plus format plus op-tag digest through `blake2b`, because great-tables mints `random_id()` when `id` is `None`, drifting the rendered bytes and the `ContentKey` every render. `_place` is one `LOC_TABLE` projection from `StubLoc` to the verified per-selector arg-arity through the `LocArity` discriminant, never a branch on which location admits `columns`/`rows`/`ids`/`groups`; `_font` discriminates `FontFace` over the closed google/system/family axis; the `Color` arm derives text color from background luminance via `autocolor_text=True`; `Nanoplot` folds the `NanoSpec` value object over `fmt_nanoplot`; `TablePlan.Series`/`Units` are `staticmethod` projections off the `GT`-chain seam.
-- Receipt: each render contributes the shared `core/receipt#RECEIPT` `ArtifactReceipt.Table(key, format, bytes)` — content key, `TableFormat` value, and byte count off the one `build()` render — through the runtime `ReceiptContributor` port, the LEAF-producer pattern where the receipt IS the return, mirroring the sibling chart and raster producers rather than the `composition/compose#COMPOSE` placement-owner's `of()` plus separate `contribute()`. `drawing/schedule#SCHEDULE` composes the same `build` bytes fact to mint its own `ArtifactReceipt.Schedule` (single-fact: one render, one content key).
-- Packages: `great-tables` (the `GT` builder and its full `tab_*`/`cols_*`/`fmt_*`/`sub_*`/`text_*`/`opt_*`/`data_color`/`vals.fmt_*` surface plus the `loc.*` selectors, `style.*` constructors, and `nanoplot_options`/`define_units`/`from_column`/`google_font`/`system_fonts` helpers), `polars` (the `DataFrame.style -> GT` seam, the `Reshape` frame ops, `pl.from_dataframe` interchange ingress, `polars.selectors` for the `Cols` dtype-class selector, `pl.Config` render scope, `hash_rows` id seed, `PolarsError` the `_FAULTS` base), `anyio` (`CapacityLimiter` thread lane), `hashlib` (`blake2b` id digest), runtime (`ContentIdentity`/`ContentKey`, `RuntimeRail`/`async_boundary(catch=_FAULTS)`), `core/receipt#RECEIPT` (`ArtifactReceipt.Table`).
-- Growth: a new frame-shaping transform is one `Reshape` case plus one `_shape` arm; a new export format is one `TableFormat` row; a new format verb is one `FmtKind` row in `FMT_TABLE` (and one `VALS_TABLE` row where the standalone Series formatter exists); a new structural, merge, substitution, transform, or aggregation feature is one `TableOp` case plus one `match` arm; a new emit knob is one `TablePlan` policy field; a new location target is one `StubLoc` row in `LOC_TABLE`; a new theme axis is one `Theme` field; a new footnote-mark family is one `FootnoteMarks` member; a new font source is one `FontFace` row; a new provider ingress is one `FrameSource` arm in `of`; an unrowed package call is one `Pipe` `GT -> GT`.
-- Boundary: no raw data interchange authoring (that stays at `data`) — the frame arrives settled over the `data/tabular` wire and `_shape` only re-projects/rolls-up/cross-tabs it for display, `_seam` keeping the `DataFrame.style` accessor as the default path and falling to the explicit `GT(...)` constructor only when `rowname_col`/`groupname_col`/`locale`/`auto_align` diverges. HTML and LaTeX emit knobs ride `TablePlan` policy fields so every emit literal traces to a field default, both host-free no-driver byte paths; the emitted HTML/SVG is the flat handoff `composition/compose#COMPOSE` reads, re-rendering nothing. PDF `save` rides a host-coupled Chrome/Selenium WebDriver rounded through a temp file — gated optional, never the default, the one remaining gated host path, a host-free PDF instead routing this owner's HTML through `document/emit#DOCUMENT`. great-tables' `random_id()` default, a per-feature method chain, a per-cell imperative loop, a Python row loop where a `Reshape` expr shapes the frame, a re-opened lazy engine, a parallel format/style/location catalogue, and a branch on location kind are the rejected forms.
+- Auto: `build` is one `pl.Config` scope over an ordered fold — `_shape` reshapes the frame to its cross-tab, `Theme.apply` seeds the `opt_*` identity, each `TableOp` case folds its one `GT` member; `_bridged` detects a group-scoped `summary` op and enters the `GT` through `shaped.to_pandas()` because great-tables' group resolver faults on a polars frame (`IndexError`), the one verified provider gap the bridge closes. `maintain_order=True`/`sort_columns=True` on the group/pivot rows fix row/column order and the fold runs inside the render scope, so a float-to-display `Derive` renders at fixed precision and the display frame is byte-reproducible for the content key. CSS-scope ids derive from the content key — great-tables mints `random_id()` when `id` is `None`, drifting the rendered bytes every render, so `build` stamps `gt{key:032x}` unless the caller pinned `table_id`. `_place` is one `LOC_TABLE` projection from `StubLoc` to the verified per-selector arg-arity through the `LocArity` discriminant, never a branch on which location admits `columns`/`rows`/`ids`/`groups`; `_font` discriminates the closed `FontFace` payloads and passes the bounded `FontStackName` straight to `opt_table_font(stack=)`; the `Color` arm derives text color from background luminance via `autocolor_text=True`; `NanoSpec.fold` owns `fmt_nanoplot`, while standalone value formatting and unit grammar use `vals.fmt_*` and `define_units` directly.
+- Identity: ONE primary correspondence keys the render (`docs/laws/patterns` rows [05]/[06]): `_seed` emits length-framed canonical chunks for every render-affecting input — the frame schema plus `hash_rows` digest, each `Reshape` and `TableOp` through the `_sealed` per-value canon (a `pl.Expr` through `Expr.meta.serialize(format="binary")`, a callable through its `module:qualname`, marshalled code, defaults, keyword defaults, closure cells, bound-instance state, and one-hop referenced-global facets — an opaque `__call__` instance refuses), the format, theme, seam knobs, and emit knobs — and `_key = ContentIdentity.key(...)` over those chunks feeds the `ArtifactWork` node, the receipt (`receipt.slot == node.key`), and the derived CSS id, so no second identity mint exists and equal keys imply equal render behavior.
+- Receipt: each render contributes the shared `core/receipt#RECEIPT` `ArtifactReceipt.Table(key, format, bytes)` — the node's own content key, `TableFormat` value, and byte count off the one `build()` render — through the runtime `ReceiptContributor` port, the LEAF-producer pattern where the receipt IS the return, mirroring the sibling chart and raster producers rather than the `composition/compose#COMPOSE` placement-owner's `of()` plus separate `contribute()`. `drawing/schedule#SCHEDULE` composes the same `build` bytes fact to mint its own `ArtifactReceipt.Schedule` (single-fact: one render, one content key).
+- Packages: `great-tables` (the `GT` builder and its full `tab_*`/`cols_*`/`fmt_*`/`sub_*`/`text_*`/`opt_*`/`data_color`/`vals.fmt_*` surface plus the `loc.*` selectors, `style.*` constructors, and `nanoplot_options`/`define_units`/`from_column`/`google_font` helpers), `polars` (the `DataFrame.style -> GT` seam, the `Reshape` frame ops, `pl.from_dataframe` interchange ingress, `polars.selectors` for the `Cols` dtype-class selector, `pl.Config` render scope, `hash_rows` and `Expr.meta.serialize` the identity seeds, `PolarsError` the `_FAULTS` base), runtime (`ContentIdentity`/`ContentKey`, `RuntimeRail`/`boundary`, `LanePolicy`/`Kernel`/`KernelTrait`), `core/receipt#RECEIPT` (`ArtifactReceipt.Table`).
+- Growth: a new frame-shaping transform is one `Reshape` case plus one `_shape` arm; a new export format is one `TableFormat` row; a new format verb is one `FmtKind` row in `FMT_TABLE` plus its `FmtOptions` keys (and one `VALS_TABLE` row where the standalone Series formatter exists); a new structural, merge, substitution, transform, or aggregation feature is one `TableOp` case plus one `match` arm; a new emit knob is one `TablePlan` policy field; a new location target is one `StubLoc` row in `LOC_TABLE`; a new theme axis is one `Theme` field; a new footnote-mark family is one `FootnoteMarks` member; a new font source is one `FontFace` row; a new provider ingress is one `FrameSource` arm in `of`; a new provider keyword is one `NotRequired` key on the owning options TypedDict; an unrowed package call is one `Pipe` `GT -> GT`.
+- Boundary: no raw data interchange authoring (that stays at `data`) — the frame arrives settled over the `data/tabular` wire and `_shape` only re-projects/rolls-up/cross-tabs it for display, `_seam` keeping the `DataFrame.style` accessor as the default path and falling to the explicit `GT(...)` constructor only when `rowname_col`/`groupname_col`/`locale`/`auto_align` diverges. Summary fns split by path: `grand_summary` on the polars-native path evaluates `pl.Expr` fns, while a bridged plan (any group-scoped `summary` op) evaluates only the per-column callable form — a `pl.Expr` fn under the bridge raises `TypeError`, folded onto the boundary rail — so a plan mixing both keeps every summary fn callable. HTML and LaTeX emit knobs ride `TablePlan` policy fields so every emit literal traces to a field default, both host-free no-driver byte paths; the emitted HTML/SVG is the flat handoff `composition/compose#COMPOSE` reads, re-rendering nothing. PDF `save` rides a host-coupled Chrome/Selenium WebDriver rounded through a temp file — gated optional, never the default, the one remaining gated host path, a host-free PDF instead routing this owner's HTML through `document/emit#DOCUMENT`; the driver lifecycle owns the wedge kill through its own page-load timeout, because a worker-level `Enforcement.TERMINAL` orphans chromedriver. great-tables' `random_id()` default, a per-feature method chain, a per-cell imperative loop, a Python row loop where a `Reshape` expr shapes the frame, a re-opened lazy engine, a parallel format/style/location catalogue, a branch on location kind, an `Any`-typed option bag, and a second identity mint beside `_key` are the rejected forms.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
-import os
+import marshal
 from collections.abc import Callable, Iterable
 from enum import Enum, StrEnum, auto
 from functools import reduce
-from hashlib import blake2b
+from types import BuiltinFunctionType, MethodDescriptorType, ModuleType, WrapperDescriptorType
 from pathlib import Path
-from tempfile import NamedTemporaryFile
-from typing import Any, Literal, Protocol, Self, assert_never, runtime_checkable
+from tempfile import TemporaryDirectory
+from typing import Literal, NotRequired, Protocol, Self, TypedDict, Unpack, assert_never, runtime_checkable
 
 import polars as pl
 import polars.selectors as cs
-from polars.exceptions import PolarsError
+from builtins import frozendict
 from expression import case, tag, tagged_union
-from great_tables import GT, define_units, from_column, google_font, loc, md, nanoplot_options, style, system_fonts, vals
+from great_tables import GT, google_font, loc, md, nanoplot_options, style, vals
+from great_tables._helpers import FontStackName
 from great_tables._locations import Loc
 from great_tables._styles import CellStyle, ColumnExpr
-from msgspec import Struct
+from msgspec import Struct, json
+from polars.exceptions import PolarsError
 
-from rasm.runtime.identity import CANONICAL_POLICY, ContentIdentity, ContentKey
-from rasm.runtime.lanes import LanePolicy, Modality
-from rasm.runtime.resilience import RetryClass
-from rasm.runtime.faults import RuntimeRail, async_boundary
+from rasm.artifacts.core.plan import Admission, ArtifactWork
+from rasm.artifacts.core.receipt import ArtifactReceipt
+from rasm.runtime.faults import RuntimeRail, boundary
+from rasm.runtime.identity import ContentIdentity, ContentKey
+from rasm.runtime.lanes import LanePolicy
+from rasm.runtime.workers import Kernel, KernelTrait
 
-from artifacts.core.plan import Admission, ArtifactWork
-from artifacts.core.receipt import ArtifactReceipt
+lazy from selenium.common.exceptions import WebDriverException
+lazy from selenium.webdriver import Chrome, ChromeOptions
 
 # --- [TYPES] ----------------------------------------------------------------------------
-# `Cols` admits a `polars.selectors` class (`cs.numeric()` IS a `pl.Expr`) so a Fmt/Align/Color/Style op
-# addresses a dtype class without a hardcoded name list.
 type Cols = str | list[str] | cs.Selector | None
 type Rows = int | list[int] | None
 type Mask = pl.Expr | None
 type Groups = list[str] | str | None
 type Predicate = Callable[[str], bool]
-type FmtFn = Callable[[Any], str]
+type FmtFn = Callable[[object], str]
 type Bound = str | ColumnExpr
-type StyleSpec = tuple[Literal["text", "fill", "borders", "css"], dict[str, Bound]]
 type Place = tuple["StubLoc", Cols, Rows, Mask, Groups]
-type FmtMember = Callable[[GT, Cols, Rows, dict[str, Any]], GT]
-type FontFace = tuple[Literal["google", "system", "family"], str]
+type FmtMember = Callable[[GT, Cols, Rows, frozendict[str, object]], GT]
 type Aggregate = str | pl.Expr | None
+type SummaryFn = pl.Expr | Callable[[object], object]
 
 
-# the C# `Rasm.Bim` QTO/schedule egress (or any `data` producer) crosses as an Arrow-C-stream capsule
-# `pl.from_dataframe` admits zero-copy where possible; a settled `pl.DataFrame` is the other ingress arm.
 @runtime_checkable
 class ArrowStream(Protocol):
     def __arrow_c_stream__(self, requested_schema: object = None, /) -> object: ...
 
 
 type FrameSource = pl.DataFrame | ArrowStream
+type RenderedGt = object  # an upstream-styled great_tables.GT crossing opaque (the data-plane QualityProfile wire); `rendered` is its one egress
 
 
 class TableFormat(StrEnum):
@@ -85,7 +86,6 @@ class LocArity(Enum):
     COLUMNS = auto()
     IDS = auto()
     ROWS = auto()
-    CELLS = auto()
     GROUPED = auto()
     GROUP_ROWS = auto()
     MASKED = auto()
@@ -134,8 +134,6 @@ class StubLoc(StrEnum):
     GRAND_SUMMARY_STUB = "grand_summary_stub"
 
 
-# each member projects to the `opt_footnote_marks(marks=...)` keyword great-tables expands: alphabetic to
-# `letters()`/`LETTERS()`, `STANDARD`/`EXTENDED` to the symbol sets; a custom `tuple[str, ...]` rides the `list[str]` form.
 class FootnoteMarks(StrEnum):
     NUMBERS = "numbers"
     LETTERS = "letters"
@@ -144,38 +142,185 @@ class FootnoteMarks(StrEnum):
     EXTENDED = "extended"
 
 
+class FmtOptions(TypedDict, closed=True):
+    decimals: NotRequired[int]
+    n_sigfig: NotRequired[int | None]
+    drop_trailing_zeros: NotRequired[bool]
+    drop_trailing_dec_mark: NotRequired[bool]
+    use_seps: NotRequired[bool]
+    accounting: NotRequired[bool]
+    scale_by: NotRequired[float]
+    compact: NotRequired[bool]
+    pattern: NotRequired[str]
+    sep_mark: NotRequired[str]
+    dec_mark: NotRequired[str]
+    force_sign: NotRequired[bool]
+    locale: NotRequired[str | None]
+    currency: NotRequired[str | None]
+    use_subunits: NotRequired[bool]
+    placement: NotRequired[Literal["left", "right"]]
+    incl_space: NotRequired[str | bool]
+    scale_values: NotRequired[bool]
+    to_units: NotRequired[str]
+    symbol: NotRequired[str]
+    exp_style: NotRequired[str]
+    force_sign_m: NotRequired[bool]
+    force_sign_n: NotRequired[bool]
+    standard: NotRequired[Literal["decimal", "binary"]]
+    date_style: NotRequired[str]
+    time_style: NotRequired[str]
+    format_str: NotRequired[str]
+    sep: NotRequired[str]
+    input_units: NotRequired[str | list[str]]
+    output_units: NotRequired[str | list[str]]
+    duration_style: NotRequired[str]
+    trim_zero_units: NotRequired[bool]
+    max_output_units: NotRequired[int]
+    tf_style: NotRequired[str]
+    true_val: NotRequired[str]
+    false_val: NotRequired[str]
+    na_val: NotRequired[str]
+    colors: NotRequired[list[str]]
+    height: NotRequired[str | int]
+    width: NotRequired[str | int]
+    use_title: NotRequired[bool]
+    stroke_color: NotRequired[str]
+    stroke_width: NotRequired[str | int]
+    stroke_alpha: NotRequired[float]
+    fill_color: NotRequired[str | dict[str, str]]
+    fill_alpha: NotRequired[float]
+    margin_left: NotRequired[str | int]
+    margin_right: NotRequired[str | int]
+    path: NotRequired[str]
+    file_pattern: NotRequired[str]
+    encode: NotRequired[bool]
+    case: NotRequired[Literal["upper", "lower"]]
+    fns: NotRequired[FmtFn | dict[str, FmtFn]]
+    is_substitution: NotRequired[bool]
+
+
+class NanoOptions(TypedDict, closed=True):
+    data_point_radius: NotRequired[int | list[int]]
+    data_point_stroke_color: NotRequired[str | list[str]]
+    data_point_stroke_width: NotRequired[int | list[int]]
+    data_point_fill_color: NotRequired[str | list[str]]
+    data_line_type: NotRequired[str]
+    data_line_stroke_color: NotRequired[str]
+    data_line_stroke_width: NotRequired[int]
+    data_area_fill_color: NotRequired[str]
+    data_bar_stroke_color: NotRequired[str | list[str]]
+    data_bar_stroke_width: NotRequired[int | list[int]]
+    data_bar_fill_color: NotRequired[str | list[str]]
+    data_bar_negative_stroke_color: NotRequired[str]
+    data_bar_negative_stroke_width: NotRequired[int]
+    data_bar_negative_fill_color: NotRequired[str]
+    reference_line_color: NotRequired[str]
+    reference_area_fill_color: NotRequired[str]
+    vertical_guide_stroke_color: NotRequired[str]
+    vertical_guide_stroke_width: NotRequired[int]
+    show_data_points: NotRequired[bool]
+    show_data_line: NotRequired[bool]
+    show_data_area: NotRequired[bool]
+    show_reference_line: NotRequired[bool]
+    show_reference_area: NotRequired[bool]
+    show_vertical_guides: NotRequired[bool]
+    show_y_axis_guide: NotRequired[bool]
+    interactive_data_values: NotRequired[bool]
+    y_val_fmt_fn: NotRequired[FmtFn]
+    y_axis_fmt_fn: NotRequired[FmtFn]
+    y_ref_line_fmt_fn: NotRequired[FmtFn]
+    currency: NotRequired[str]
+
+
+class DataColorKwds(TypedDict, closed=True):
+    palette: NotRequired[str | list[str]]
+    domain: NotRequired[list[float] | list[str] | None]
+    na_color: NotRequired[str | None]
+    alpha: NotRequired[float]
+    reverse: NotRequired[bool]
+    truncate: NotRequired[bool]
+
+
+class SpannerKwds(TypedDict, closed=True):
+    spanners: NotRequired[str | list[str] | None]
+    level: NotRequired[int | None]
+    id: NotRequired[str | None]
+    gather: NotRequired[bool]
+    replace: NotRequired[bool]
+
+
+class TextStyleKwds(TypedDict, closed=True):
+    color: NotRequired[Bound]
+    font: NotRequired[Bound]
+    size: NotRequired[Bound]
+    align: NotRequired[Literal["center", "left", "right", "justify"]]
+    v_align: NotRequired[Literal["middle", "top", "bottom"]]
+    style: NotRequired[Literal["normal", "italic", "oblique"]]
+    weight: NotRequired[Bound]
+    stretch: NotRequired[str]
+    decorate: NotRequired[str]
+    transform: NotRequired[str]
+    whitespace: NotRequired[str]
+
+
+class FillStyleKwds(TypedDict, closed=True):
+    color: Bound
+
+
+class BorderStyleKwds(TypedDict, closed=True):
+    sides: NotRequired[str | list[str]]
+    color: NotRequired[Bound]
+    style: NotRequired[str]
+    weight: NotRequired[Bound]
+
+
+class CssStyleKwds(TypedDict, closed=True):
+    rule: str
+
+
+type StyleSpec = tuple[Literal["text", "fill", "borders", "css"], TextStyleKwds | FillStyleKwds | BorderStyleKwds | CssStyleKwds]
+
+
 # --- [CONSTANTS] ------------------------------------------------------------------------
-# the real engine raise tuple the leaf boundary narrows `catch` to: `PolarsError` (base of every `_shape` frame op),
-# great-tables' render `ValueError`/`KeyError`/`NotImplementedError`, and the gated PDF `OSError` — so a non-engine
-# raise and cancellation propagate as a defect, never railing through the `Exception` catch-all.
-_FAULTS: tuple[type[Exception], ...] = (PolarsError, ValueError, KeyError, NotImplementedError, OSError)
+_FAULTS: tuple[type[Exception], ...] = (PolarsError, ValueError, TypeError, KeyError, IndexError, NotImplementedError, OSError)
+_CANON = json.Encoder(order="deterministic")
+_PDF_LOAD_TIMEOUT: float = 30.0  # driver-owned page-load bound; the render deadline never joins the content preimage
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
+def _frozen(value: object) -> object:
+    # storage-side freeze every constructor runs over a caller payload: lists and sets become tuples, dict bands
+    # become frozendict rows, and tuples re-freeze member-wise so a list nested inside one cannot ride through —
+    # the freeze is transitive; scalars and callables pass through untouched.
+    match value:
+        case dict() as mapping:
+            return frozendict({key: _frozen(item) for key, item in mapping.items()})
+        case list() | set() | tuple() as items:
+            return tuple(_frozen(item) for item in items)
+        case _:
+            return value
+
+
+@tagged_union(frozen=True)
+class FontFace:
+    tag: Literal["google", "system", "family"] = tag()
+    google: str = case()
+    system: FontStackName = case()
+    family: str = case()
+
+
 class Theme(Struct, frozen=True):
-    style: int = 1
-    color: str = "blue"
+    style: Literal[1, 2, 3, 4, 5, 6] = 1
+    color: Literal["blue", "cyan", "pink", "green", "red", "gray"] = "blue"
     striping: bool = True
     font: FontFace | None = None
-    header_align: str = "center"
+    header_align: Literal["left", "center", "right"] = "center"
     all_caps: bool = False
     vertical_scale: float = 1.0
     horizontal_scale: float = 1.0
     outline: tuple[str, str, str] | None = None
     footnote_marks: FootnoteMarks | tuple[str, ...] = FootnoteMarks.NUMBERS
     css: str | None = None
-
-    @staticmethod
-    def google(name: str) -> FontFace:
-        return ("google", name)
-
-    @staticmethod
-    def system(name: str) -> FontFace:
-        return ("system", name)
-
-    @staticmethod
-    def family(name: str) -> FontFace:
-        return ("family", name)
 
     def _marks(self) -> str | list[str]:
         return list(self.footnote_marks) if isinstance(self.footnote_marks, tuple) else self.footnote_marks.value
@@ -187,7 +332,6 @@ class Theme(Struct, frozen=True):
         cssed = outlined.opt_css(css=self.css) if self.css else outlined
         return (
             cssed
-            .opt_row_striping(row_striping=self.striping)
             .opt_align_table_header(align=self.header_align)
             .opt_all_caps(all_caps=self.all_caps)
             .opt_vertical_padding(scale=self.vertical_scale)
@@ -197,15 +341,18 @@ class Theme(Struct, frozen=True):
 
 
 class NanoSpec(Struct, frozen=True):
+    # every payload is immutable at rest — tuple sequences and a frozen options band — so a caller-held reference
+    # mutated after emit() can shift neither the scheduled content key nor the rendered plot; `fold` thaws to the
+    # provider's list shapes at the one call boundary.
     plot_type: Literal["line", "bar"] = "line"
     plot_height: str = "2em"
     missing_vals: Literal["marker", "gap", "zero", "remove"] = "gap"
     autoscale: bool = False
     reference_line: str | int | float | None = None
-    reference_area: list[Any] | None = None
-    expand_x: list[float] | None = None
-    expand_y: list[float] | None = None
-    options: dict[str, Any] | None = None
+    reference_area: tuple[str | int | float, ...] | None = None
+    expand_x: tuple[float, ...] | None = None
+    expand_y: tuple[float, ...] | None = None
+    options: frozendict[str, object] | None = None
 
     def fold(self, gt: GT, columns: Cols, rows: Rows) -> GT:
         return gt.fmt_nanoplot(
@@ -216,15 +363,13 @@ class NanoSpec(Struct, frozen=True):
             missing_vals=self.missing_vals,
             autoscale=self.autoscale,
             reference_line=self.reference_line,
-            reference_area=self.reference_area,
-            expand_x=self.expand_x,
-            expand_y=self.expand_y,
+            reference_area=list(self.reference_area) if self.reference_area is not None else None,
+            expand_x=list(self.expand_x) if self.expand_x is not None else None,
+            expand_y=list(self.expand_y) if self.expand_y is not None else None,
             options=nanoplot_options(**self.options) if self.options else None,
         )
 
 
-# the closed frame-shaping pre-pass — one polars transform per case, folded `pl.DataFrame -> pl.DataFrame`
-# BEFORE `.style` so a raw QTO/schedule frame lands its display cross-tab columnar, never a Python row loop.
 @tagged_union(frozen=True)
 class Reshape:
     tag: Literal[
@@ -340,49 +485,49 @@ class TableOp:
         "css",
         "pipe",
     ] = tag()
-    header: tuple[str, str | None, list[str] | None] = case()
+    header: tuple[str, str | None, tuple[str, ...] | None] = case()
     stub: tuple[str | None, str | None] = case()
     stubhead: str = case()
     source_note: str = case()
     footnote: tuple[str, Place, Literal["auto", "left", "right"]] = case()
-    label: dict[str, str] = case()
+    label: frozendict[str, str] = case()
     label_with: tuple[Cols, Callable[[str], str]] = case()
     label_rotate: tuple[Cols, str, str, int] = case()
     align: tuple[str, Cols] = case()
-    width: dict[str, str] = case()
+    width: frozendict[str, str] = case()
     hide: Cols = case()
     unhide: Cols = case()
-    reorder: list[str] = case()
+    reorder: tuple[str, ...] = case()
     move: tuple[Cols, str] = case()
     move_ends: tuple[Cols, Literal["start", "end"]] = case()
-    spanner: tuple[str, Cols, str | list[str] | None, int | None, str | None, bool, bool] = case()
+    spanner: tuple[str, Cols, frozendict[str, object]] = case()  # the SpannerKwds roster proves at the Spanner boundary; storage is frozen evidence
     spanner_delim: tuple[str, Cols, Literal["first", "last"], int, bool] = case()
-    fmt: tuple[FmtKind, Cols, Rows, dict[str, Any]] = case()
-    nanoplot: tuple[Cols, Rows, "NanoSpec"] = case()
+    fmt: tuple[FmtKind, Cols, Rows, frozendict[str, object]] = case()  # the FmtOptions roster proves at the Fmt boundary; storage is frozen evidence
+    nanoplot: tuple[str | None, Rows, "NanoSpec"] = case()
     merge_range: tuple[str, str, str | None, Rows, bool] = case()
     merge_uncert: tuple[str, str, str, Rows, bool] = case()
     merge_n_pct: tuple[str, str, Rows, bool] = case()
     merge: tuple[Cols, str, Cols, Rows] = case()
-    sub_missing: tuple[Cols, str | None] = case()
-    sub_zero: tuple[Cols, str] = case()
-    sub_small: tuple[Cols, float, str | None, str] = case()
-    sub_large: tuple[Cols, float, str, str] = case()
-    sub_values: tuple[Cols, Predicate, str] = case()
+    sub_missing: tuple[Cols, Rows, str | None] = case()
+    sub_zero: tuple[Cols, Rows, str] = case()
+    sub_small: tuple[Cols, Rows, float, str | None, str] = case()
+    sub_large: tuple[Cols, Rows, float, str, str] = case()
+    sub_values: tuple[Cols, Rows, Predicate | None, tuple[object, ...] | None, str | None, str] = case()
     text_transform: tuple[Place, Callable[[str], str]] = case()
     text_case_when: tuple[Place, tuple[tuple[Predicate, str], ...], str | None] = case()
     text_case_match: tuple[Place, tuple[tuple[str | list[str], str], ...], str | None, Literal["all", "partial"]] = case()
     text_replace: tuple[Place, str, str] = case()
-    summary: tuple[dict[str, pl.Expr], FmtFn | None, list[str] | None, Literal["bottom", "top"], str] = case()
-    grand_summary: tuple[dict[str, pl.Expr], FmtFn | None, Literal["bottom", "top"], str] = case()
-    row_group_order: list[str] = case()
+    summary: tuple[frozendict[str, SummaryFn], FmtFn | None, tuple[str, ...] | None, Literal["bottom", "top"], str] = case()
+    grand_summary: tuple[frozendict[str, SummaryFn], FmtFn | None, Literal["bottom", "top"], str] = case()
+    row_group_order: tuple[str, ...] = case()
     style: tuple[Place, tuple[StyleSpec, ...]] = case()
-    color: tuple[Cols, Rows, str | list[str], list[float] | list[str] | None, str | None, float, bool, bool] = case()
+    color: tuple[Cols, Rows, frozendict[str, object]] = case()  # the DataColorKwds roster proves at the Color boundary; storage is frozen evidence
     css: str = case()
     pipe: Callable[[GT], GT] = case()
 
     @staticmethod
     def Header(title: str, subtitle: str | None = None, preheader: list[str] | None = None) -> "TableOp":
-        return TableOp(header=(title, subtitle, preheader))
+        return TableOp(header=(title, subtitle, tuple(preheader) if preheader is not None else None))
 
     @staticmethod
     def Stub(rowname: str | None = None, group: str | None = None) -> "TableOp":
@@ -409,8 +554,8 @@ class TableOp:
         return TableOp(footnote=(text, (at, columns, rows, mask, groups), placement))
 
     @staticmethod
-    def Label(labels: dict[str, str]) -> "TableOp":
-        return TableOp(label=labels)
+    def Label(labels: dict[str, str] | frozendict[str, str]) -> "TableOp":
+        return TableOp(label=frozendict(labels))
 
     @staticmethod
     def LabelWith(fn: Callable[[str], str], columns: Cols = None) -> "TableOp":
@@ -425,8 +570,8 @@ class TableOp:
         return TableOp(align=(align, columns))
 
     @staticmethod
-    def Width(widths: dict[str, str]) -> "TableOp":
-        return TableOp(width=widths)
+    def Width(widths: dict[str, str] | frozendict[str, str]) -> "TableOp":
+        return TableOp(width=frozendict(widths))
 
     @staticmethod
     def Hide(columns: Cols) -> "TableOp":
@@ -438,7 +583,7 @@ class TableOp:
 
     @staticmethod
     def Reorder(columns: list[str]) -> "TableOp":
-        return TableOp(reorder=columns)
+        return TableOp(reorder=tuple(columns))
 
     @staticmethod
     def Move(columns: Cols, after: str) -> "TableOp":
@@ -458,7 +603,9 @@ class TableOp:
         gather: bool = True,
         replace: bool = False,
     ) -> "TableOp":
-        return TableOp(spanner=(label, columns, nest, level, spanner_id, gather, replace))
+        # the SpannerKwds mint proves the static key roster, `_frozen` then seals it — a list-valued `nest` lands as
+        # a tuple inside a frozendict row, so a caller can never mutate a scheduled op or its content key.
+        return TableOp(spanner=(label, columns, _frozen(SpannerKwds(spanners=nest, level=level, id=spanner_id, gather=gather, replace=replace))))
 
     @staticmethod
     def SpannerDelim(
@@ -467,16 +614,16 @@ class TableOp:
         return TableOp(spanner_delim=(delim, columns, split, limit, reverse))
 
     @staticmethod
-    def Fmt(kind: FmtKind, columns: Cols = None, rows: Rows = None, **opts: Any) -> "TableOp":
-        return TableOp(fmt=(kind, columns, rows, opts))
+    def Fmt(kind: FmtKind, columns: Cols = None, rows: Rows = None, **opts: Unpack[FmtOptions]) -> "TableOp":
+        return TableOp(fmt=(kind, columns, rows, _frozen(opts)))
 
     @staticmethod
     def FmtCustom(fns: FmtFn | dict[str, FmtFn], columns: Cols = None, rows: Rows = None, is_substitution: bool = False) -> "TableOp":
-        return TableOp(fmt=(FmtKind.CUSTOM, columns, rows, {"fns": fns, "is_substitution": is_substitution}))
+        return TableOp(fmt=(FmtKind.CUSTOM, columns, rows, frozendict({"fns": _frozen(fns), "is_substitution": is_substitution})))
 
     @staticmethod
-    def Nanoplot(columns: Cols, spec: "NanoSpec | None" = None, rows: Rows = None, **opts: Any) -> "TableOp":
-        return TableOp(nanoplot=(columns, rows, spec if spec is not None else NanoSpec(options=opts or None)))
+    def Nanoplot(columns: str | None, spec: "NanoSpec | None" = None, rows: Rows = None, **opts: Unpack[NanoOptions]) -> "TableOp":
+        return TableOp(nanoplot=(columns, rows, spec if spec is not None else NanoSpec(options=_frozen(opts) if opts else None)))
 
     @staticmethod
     def MergeRange(begin: str, end: str, sep: str | None = None, rows: Rows = None, autohide: bool = True) -> "TableOp":
@@ -495,24 +642,31 @@ class TableOp:
         return TableOp(merge=(columns, pattern, hide_columns, rows))
 
     @staticmethod
-    def SubMissing(columns: Cols = None, text: str | None = None) -> "TableOp":
-        return TableOp(sub_missing=(columns, text))
+    def SubMissing(columns: Cols = None, rows: Rows = None, text: str | None = None) -> "TableOp":
+        return TableOp(sub_missing=(columns, rows, text))
 
     @staticmethod
-    def SubZero(columns: Cols = None, text: str = "nil") -> "TableOp":
-        return TableOp(sub_zero=(columns, text))
+    def SubZero(columns: Cols = None, rows: Rows = None, text: str = "nil") -> "TableOp":
+        return TableOp(sub_zero=(columns, rows, text))
 
     @staticmethod
-    def SubSmall(columns: Cols = None, threshold: float = 0.01, pattern: str | None = None, sign: str = "+") -> "TableOp":
-        return TableOp(sub_small=(columns, threshold, pattern, sign))
+    def SubSmall(columns: Cols = None, rows: Rows = None, threshold: float = 0.01, pattern: str | None = None, sign: str = "+") -> "TableOp":
+        return TableOp(sub_small=(columns, rows, threshold, pattern, sign))
 
     @staticmethod
-    def SubLarge(columns: Cols = None, threshold: float = 1e12, pattern: str = ">={x}", sign: str = "+") -> "TableOp":
-        return TableOp(sub_large=(columns, threshold, pattern, sign))
+    def SubLarge(columns: Cols = None, rows: Rows = None, threshold: float = 1e12, pattern: str = ">={x}", sign: str = "+") -> "TableOp":
+        return TableOp(sub_large=(columns, rows, threshold, pattern, sign))
 
     @staticmethod
-    def SubValues(fn: Predicate, replacement: str, columns: Cols = None) -> "TableOp":
-        return TableOp(sub_values=(columns, fn, replacement))
+    def SubValues(
+        replacement: str,
+        fn: Predicate | None = None,
+        values: tuple[object, ...] | None = None,
+        pattern: str | None = None,
+        columns: Cols = None,
+        rows: Rows = None,
+    ) -> "TableOp":
+        return TableOp(sub_values=(columns, rows, fn, values, pattern, replacement))
 
     @staticmethod
     def TextTransform(
@@ -553,23 +707,26 @@ class TableOp:
 
     @staticmethod
     def Summary(
-        fns: dict[str, pl.Expr],
+        fns: dict[str, SummaryFn] | frozendict[str, SummaryFn],
         fmt: FmtFn | None = None,
         groups: list[str] | None = None,
         side: Literal["bottom", "top"] = "bottom",
         missing_text: str = "---",
     ) -> "TableOp":
-        return TableOp(summary=(fns, fmt, groups, side, missing_text))
+        return TableOp(summary=(frozendict(fns), fmt, tuple(groups) if groups is not None else None, side, missing_text))
 
     @staticmethod
     def GrandSummary(
-        fns: dict[str, pl.Expr], fmt: FmtFn | None = None, side: Literal["bottom", "top"] = "bottom", missing_text: str = "---"
+        fns: dict[str, SummaryFn] | frozendict[str, SummaryFn],
+        fmt: FmtFn | None = None,
+        side: Literal["bottom", "top"] = "bottom",
+        missing_text: str = "---",
     ) -> "TableOp":
-        return TableOp(grand_summary=(fns, fmt, side, missing_text))
+        return TableOp(grand_summary=(frozendict(fns), fmt, side, missing_text))
 
     @staticmethod
     def RowGroupOrder(groups: list[str]) -> "TableOp":
-        return TableOp(row_group_order=groups)
+        return TableOp(row_group_order=tuple(groups))
 
     @staticmethod
     def Style(
@@ -578,17 +735,8 @@ class TableOp:
         return TableOp(style=((at, columns, rows, mask, groups), specs))
 
     @staticmethod
-    def Color(
-        columns: Cols = None,
-        palette: str | list[str] = "viridis",
-        domain: list[float] | list[str] | None = None,
-        rows: Rows = None,
-        na_color: str | None = None,
-        alpha: float = 1.0,
-        reverse: bool = False,
-        truncate: bool = True,
-    ) -> "TableOp":
-        return TableOp(color=(columns, rows, palette, domain, na_color, alpha, reverse, truncate))
+    def Color(columns: Cols = None, rows: Rows = None, **kwds: Unpack[DataColorKwds]) -> "TableOp":
+        return TableOp(color=(columns, rows, _frozen(kwds)))
 
     @staticmethod
     def Css(rule: str) -> "TableOp":
@@ -603,6 +751,8 @@ class TablePlan(Struct, frozen=True):
     frame: pl.DataFrame
     ops: tuple[TableOp, ...]
     fmt: TableFormat
+    # `lane` arrives projected via LanePolicy.of(context) at the composition root — a capacity literal has no owner.
+    lane: LanePolicy
     shape: tuple[Reshape, ...] = ()
     theme: Theme = Theme()
     rowname_col: str | None = None
@@ -617,6 +767,7 @@ class TablePlan(Struct, frozen=True):
     use_longtable: bool = True
     tbl_pos: str | None = None
     pdf_scale: float = 2.0
+    pdf_load_timeout: float = _PDF_LOAD_TIMEOUT
 
     @classmethod
     def of(
@@ -632,7 +783,6 @@ class TablePlan(Struct, frozen=True):
         locale: str | None = None,
         config: frozendict[str, object] = frozendict(),
     ) -> Self:
-        # admit raw material ONCE: a settled frame passes through; an Arrow-C-stream capsule normalizes via `pl.from_dataframe` (zero-copy where possible).
         frame = source if isinstance(source, pl.DataFrame) else pl.from_dataframe(source)
         return cls(
             frame=frame,
@@ -646,51 +796,75 @@ class TablePlan(Struct, frozen=True):
             config=config,
         )
 
-    @staticmethod
-    def Series(values: pl.Series, kind: FmtKind = FmtKind.NUMBER, **opts: Any) -> list[str]:
-        return VALS_TABLE[kind](values, opts)
-
-    @staticmethod
-    def Units(notation: str) -> Any:
-        return define_units(units_notation=notation)
-
     def emit(self, /) -> ArtifactWork:
         return ArtifactWork(key=self._key, work=self._emit, parents=(), admission=Admission(keyed=None), cost=1.0)
 
     @property
-    def _key(self) -> ContentKey:
-        # key-over-INPUT: canonical (frame ⊕ ops ⊕ fmt ⊕ theme) minted PRE-RUN, never over rendered bytes; the
-        # frame enters as its `_stable_id` row-hash digest, so distinct data never shares a key.
-        return ContentIdentity.of(
-            f"table-{self.fmt}", (_stable_id(self.frame, self.fmt, self.ops), self.ops, self.fmt, self.theme), policy=CANONICAL_POLICY
+    def _seed(self) -> tuple[bytes, ...]:
+        framed = lambda chunk: len(chunk).to_bytes(8, "little") + chunk
+        knobs = _CANON.encode((
+            self.fmt.value,
+            self.theme,
+            self.rowname_col,
+            self.groupname_col,
+            self.locale,
+            self.auto_align,
+            self.table_id,
+            dict(self.config),
+            self.inline_css,
+            self.make_page,
+            self.all_important,
+            self.use_longtable,
+            self.tbl_pos,
+            self.pdf_scale,
+        ))
+        return (
+            framed(_sealed(tuple(self.frame.schema.items()))),
+            framed(self.frame.hash_rows(seed=0).to_numpy().tobytes()),
+            *(framed(_sealed(op)) for op in self.shape),
+            *(framed(_sealed(op)) for op in self.ops),
+            framed(knobs),
         )
 
-    async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
-        # the whole shape-style-emit fold is synchronous CPU work; it crosses the runtime thread lane, `catch=_FAULTS` narrowing to the engine raise tuple.
-        return await async_boundary(f"table.{self.fmt}", self._offloaded, catch=_FAULTS)
+    @property
+    def _key(self) -> ContentKey:
+        return ContentIdentity.key(f"table-{self.fmt}", self._seed)
 
-    async def _offloaded(self) -> ArtifactReceipt:
-        crossed = await LanePolicy.offload(self._rendered, modality=Modality.THREAD, retry=RetryClass.OCCT)
-        return crossed.default_with(_table_raise)
+    async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
+        return (await self.lane.offload(Kernel.of(self._railed, KernelTrait.RELEASING))).bind(lambda inner: inner)
+
+    def _railed(self) -> RuntimeRail[ArtifactReceipt]:
+        # WebDriverException's tree joins the catch set only on the gated PDF arm, so the lazy selenium import stays cold elsewhere
+        return boundary(f"table.{self.fmt}", self._rendered, catch=(*_FAULTS, WebDriverException) if self.fmt is TableFormat.PDF else _FAULTS)
 
     def _rendered(self) -> ArtifactReceipt:
         data = self.build()
-        return ArtifactReceipt.Table(
-            ContentIdentity.key(f"table-{self.fmt}", data), self.fmt.value, len(data)
-        )  # rendered bytes are an infallible whole-byte source, so the receipt mints off a bare `ContentKey`, never the railed `of`
+        return ArtifactReceipt.Table(self._key, self.fmt.value, len(data))
 
     @property
     def _seam(self) -> bool:
-        # the id is always set, so the fast `DataFrame.style` seam survives whenever the non-default GT knobs
-        # stay default; a diverging rowname/group/locale/auto_align forces the explicit constructor.
         return self.rowname_col is None and self.groupname_col is None and self.locale is None and self.auto_align
+
+    @property
+    def _bridged(self) -> bool:
+        # great-tables' group resolver faults on a polars frame (IndexError), so a group-scoped summary forces the pandas bridge.
+        return any(op.tag == "summary" for op in self.ops)
 
     def build(self) -> bytes:
         with pl.Config(**self.config):
             shaped = reduce(_shape, self.shape, self.frame)
-            ident = self.table_id if self.table_id is not None else _stable_id(shaped, self.fmt, self.ops)
+            ident = self.table_id if self.table_id is not None else f"gt{self._key.value:032x}"
             base = (
-                shaped.style.with_id(ident)
+                GT(
+                    shaped.to_pandas(),
+                    rowname_col=self.rowname_col,
+                    groupname_col=self.groupname_col,
+                    auto_align=self.auto_align,
+                    id=ident,
+                    locale=self.locale,
+                )
+                if self._bridged
+                else shaped.style.with_id(ident)
                 if self._seam
                 else GT(
                     shaped, rowname_col=self.rowname_col, groupname_col=self.groupname_col, auto_align=self.auto_align, id=ident, locale=self.locale
@@ -703,11 +877,24 @@ class TablePlan(Struct, frozen=True):
                 case TableFormat.LATEX:
                     return built.as_latex(use_longtable=self.use_longtable, tbl_pos=self.tbl_pos).encode()
                 case TableFormat.PDF:
-                    with NamedTemporaryFile(suffix=".pdf", delete_on_close=False) as sink:
-                        built.save(file=sink.name, scale=self.pdf_scale)
-                        return Path(sink.name).read_bytes()
+                    return _pdf_bytes(built, self.pdf_scale, self.pdf_load_timeout)
                 case _:
                     assert_never(self.fmt)
+
+    @staticmethod
+    def rendered(gt: RenderedGt, fmt: TableFormat = TableFormat.HTML, /) -> bytes:
+        # upstream-styled GT egress: the data-plane `QualityProfile` report crosses as an opaque already-built
+        # `great_tables.GT` this tier alone renders — never re-shaped through `of` (a GT is no `FrameSource`) and
+        # never rendered on the data side, which imports no great_tables.
+        match fmt:
+            case TableFormat.HTML:
+                return gt.as_raw_html().encode()
+            case TableFormat.LATEX:
+                return gt.as_latex().encode()
+            case TableFormat.PDF:
+                return _pdf_bytes(gt)
+            case _:
+                assert_never(fmt)
 
 
 # --- [TABLES] ---------------------------------------------------------------------------
@@ -754,7 +941,7 @@ LOC_TABLE: frozendict[StubLoc, tuple[Callable[..., Loc], LocArity]] = frozendict
     StubLoc.SOURCE_NOTES: (loc.source_notes, LocArity.NONE),
 })
 
-VALS_TABLE: frozendict[FmtKind, Callable[[pl.Series, dict[str, Any]], list[str]]] = frozendict({
+VALS_TABLE: frozendict[FmtKind, Callable[[pl.Series, frozendict[str, object]], list[str]]] = frozendict({
     FmtKind.NUMBER: lambda v, k: vals.fmt_number(v, **k),
     FmtKind.INTEGER: lambda v, k: vals.fmt_integer(v, **k),
     FmtKind.CURRENCY: lambda v, k: vals.fmt_currency(v, **k),
@@ -773,17 +960,89 @@ VALS_TABLE: frozendict[FmtKind, Callable[[pl.Series, dict[str, Any]], list[str]]
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
-def _font(gt: GT, face: FontFace) -> GT:
-    kind, name = face
-    match kind:
-        case "google":
-            return gt.opt_table_font(font=google_font(name=name))
-        case "system":
-            return gt.opt_table_font(stack=name, font=system_fonts(name=name))
-        case "family":
-            return gt.opt_table_font(font=name)
+def _global_facet(target: object) -> object:
+    # one-hop projection of a referenced module global: a module pins by name, a callable by its own code identity
+    # (cycle-free — mutual recursion never re-enters `_sealed`), and plain data seals whole.
+    match target:
+        case ModuleType():
+            return f"mod:{target.__name__}"
+        case _ if callable(target):
+            code = getattr(target, "__code__", None)
+            name = f"{getattr(target, '__module__', '')}:{getattr(target, '__qualname__', type(target).__qualname__)}"
+            return (name, marshal.dumps(code) if code is not None else b"")
         case _:
-            assert_never(kind)
+            return target
+
+
+def _sealed(value: object) -> bytes:
+    # Canonicalization reads each case tag without dispatching behavior and length-frames every recursive projection.
+    match value:
+        case pl.Expr():
+            return b"expr:" + value.meta.serialize(format="binary")
+        case Reshape() | TableOp():
+            return b"case:" + value.tag.encode() + b":" + _sealed(getattr(value, value.tag))
+        case NanoSpec():
+            fields = (value.plot_type, value.plot_height, value.missing_vals, value.autoscale, value.reference_line)
+            return b"nanospec:" + _sealed((*fields, value.reference_area, value.expand_x, value.expand_y, value.options))
+        case tuple() | list():
+            return b"seq:" + b"".join(len(part := _sealed(item)).to_bytes(8, "little") + part for item in value)
+        case dict() | frozendict():
+            return b"map:" + b"".join(
+                len(part := _sealed((key, value[key]))).to_bytes(8, "little") + part for key in sorted(value, key=repr)
+            )
+        case _ if callable(value):
+            # content identity must determine the table bytes: code + defaults + closure + bound-instance state +
+            # the one-hop facet of every referenced module global. A C callable carries no code but is runtime-
+            # pinned by qualname; a stateful `__call__` instance is opaque and refuses (TypeError rides `_FAULTS`)
+            # rather than aliasing distinct behaviors onto one key.
+            code = getattr(value, "__code__", None)
+            if code is None:
+                if isinstance(value, BuiltinFunctionType | MethodDescriptorType | WrapperDescriptorType):
+                    return b"fn:" + _sealed(f"{getattr(value, '__module__', '')}:{value.__qualname__}")
+                raise TypeError(f"content key cannot seal opaque callable {type(value).__qualname__}")
+            closure = tuple(cell.cell_contents for cell in (getattr(value, "__closure__", None) or ()))
+            globals_read = getattr(value, "__globals__", {})
+            referenced = tuple((name, _global_facet(globals_read[name])) for name in code.co_names if name in globals_read)
+            return b"fn:" + _sealed((
+                f"{getattr(value, '__module__', '')}:{getattr(value, '__qualname__', type(value).__qualname__)}",
+                marshal.dumps(code),
+                getattr(value, "__defaults__", None),
+                getattr(value, "__kwdefaults__", None),
+                closure,
+                getattr(value, "__self__", None),
+                referenced,
+            ))
+        case pl.DataType():
+            return b"dtype:" + repr(value).encode()
+        case _:
+            return _CANON.encode(value)
+
+
+def _pdf_bytes(gt: RenderedGt, scale: float = 1.0, load_timeout: float = _PDF_LOAD_TIMEOUT, /) -> bytes:
+    # host-coupled boundary law: a worker-level Enforcement.TERMINAL kill would orphan chromedriver, so the DRIVER
+    # owns the wedge bound over BOTH of its lanes — page-load bounds navigation and script bounds the print/snapshot
+    # CDP leg gt.save drives after it — each raising into the boundary rail with the context exit quitting the
+    # browser; the offload stays a cooperative RELEASING crossing whose lane deadline abandons the settle loop-side.
+    options = ChromeOptions()
+    options.add_argument("--headless=new")
+    with TemporaryDirectory() as directory, Chrome(options=options) as driver:
+        driver.set_page_load_timeout(load_timeout)
+        driver.set_script_timeout(load_timeout)
+        sink = Path(directory) / "table.pdf"
+        gt.save(file=sink, scale=scale, web_driver=driver)
+        return sink.read_bytes()
+
+
+def _font(gt: GT, face: FontFace) -> GT:
+    match face:
+        case FontFace(tag="google", google=name):
+            return gt.opt_table_font(font=google_font(name=name))
+        case FontFace(tag="system", system=name):
+            return gt.opt_table_font(stack=name)
+        case FontFace(tag="family", family=name):
+            return gt.opt_table_font(font=name)
+        case _ as unreachable:
+            assert_never(unreachable)
 
 
 def _place(at: StubLoc, columns: Cols = None, rows: Rows = None, mask: Mask = None, groups: Groups = None) -> Loc:
@@ -791,7 +1050,7 @@ def _place(at: StubLoc, columns: Cols = None, rows: Rows = None, mask: Mask = No
     match arity:
         case LocArity.MASKED if mask is not None:
             return selector(mask=mask)
-        case LocArity.MASKED | LocArity.CELLS:
+        case LocArity.MASKED:
             return selector(columns=columns, rows=rows)
         case LocArity.GROUPED:
             return selector(groups=groups, columns=columns, rows=rows)
@@ -824,13 +1083,8 @@ def _cell(spec: StyleSpec) -> CellStyle:
             assert_never(kind)
 
 
-def _table_raise(fault: object) -> "ArtifactReceipt":
-    raise ValueError(str(fault))
-
-
 def _shape(frame: pl.DataFrame, op: Reshape) -> pl.DataFrame:
-    # `maintain_order=True`/`sort_columns=True` on group/pivot fix row/column order so the display cross-tab
-    # renders byte-reproducibly (per-column `Categories`, no global cache); total by `assert_never`.
+    # `maintain_order=True` and `sort_columns=True` fix display order without a process-global category cache.
     match op:
         case Reshape(tag="select", select=columns):
             return frame.select(*columns)
@@ -860,17 +1114,10 @@ def _shape(frame: pl.DataFrame, op: Reshape) -> pl.DataFrame:
             assert_never(unreachable)
 
 
-def _stable_id(frame: pl.DataFrame, fmt: TableFormat, ops: tuple[TableOp, ...]) -> str:
-    # a content-stable CSS-scope id: great-tables mints `random_id()` when `id` is None, drifting the rendered
-    # bytes and the ContentKey every render — the row-hash + format + op-tag digest keys it (id must lead with a letter).
-    seed = frame.hash_rows(seed=0).to_numpy().tobytes() + fmt.value.encode() + b"".join(op.tag.encode() for op in ops)
-    return f"gt{blake2b(seed, digest_size=8).hexdigest()}"
-
-
 def _fold(gt: GT, op: TableOp) -> GT:
     match op:
         case TableOp(tag="header", header=(title, subtitle, preheader)):
-            return gt.tab_header(title=md(title), subtitle=subtitle, preheader=preheader)
+            return gt.tab_header(title=md(title), subtitle=subtitle, preheader=list(preheader) if preheader is not None else None)
         case TableOp(tag="stub", stub=(rowname, group)):
             return gt.tab_stub(rowname_col=rowname, groupname_col=group)
         case TableOp(tag="stubhead", stubhead=label):
@@ -880,7 +1127,7 @@ def _fold(gt: GT, op: TableOp) -> GT:
         case TableOp(tag="footnote", footnote=(text, (at, columns, rows, mask, groups), placement)):
             return gt.tab_footnote(footnote=md(text), locations=_place(at, columns, rows, mask, groups), placement=placement)
         case TableOp(tag="label", label=labels):
-            return gt.cols_label(cases=labels)
+            return gt.cols_label(cases=dict(labels))
         case TableOp(tag="label_with", label_with=(columns, fn)):
             return gt.cols_label_with(columns=columns, fn=fn)
         case TableOp(tag="label_rotate", label_rotate=(columns, direction, align, padding)):
@@ -888,19 +1135,19 @@ def _fold(gt: GT, op: TableOp) -> GT:
         case TableOp(tag="align", align=(align, columns)):
             return gt.cols_align(align=align, columns=columns)
         case TableOp(tag="width", width=widths):
-            return gt.cols_width(cases=widths)
+            return gt.cols_width(cases=dict(widths))
         case TableOp(tag="hide", hide=columns):
             return gt.cols_hide(columns=columns)
         case TableOp(tag="unhide", unhide=columns):
             return gt.cols_unhide(columns=columns)
         case TableOp(tag="reorder", reorder=columns):
-            return gt.cols_reorder(columns=columns)
+            return gt.cols_reorder(columns=list(columns))
         case TableOp(tag="move", move=(columns, after)):
             return gt.cols_move(columns=columns, after=after)
         case TableOp(tag="move_ends", move_ends=(columns, end)):
             return (gt.cols_move_to_end if end == "end" else gt.cols_move_to_start)(columns=columns)
-        case TableOp(tag="spanner", spanner=(label, columns, nest, level, spanner_id, gather, replace)):
-            return gt.tab_spanner(label=label, columns=columns, spanners=nest, level=level, id=spanner_id, gather=gather, replace=replace)
+        case TableOp(tag="spanner", spanner=(label, columns, kwds)):
+            return gt.tab_spanner(label=label, columns=columns, **kwds)
         case TableOp(tag="spanner_delim", spanner_delim=(delim, columns, split, limit, reverse)):
             return gt.tab_spanner_delim(delim=delim, columns=columns, split=split, limit=limit, reverse=reverse)
         case TableOp(tag="fmt", fmt=(kind, columns, rows, opts)):
@@ -915,16 +1162,18 @@ def _fold(gt: GT, op: TableOp) -> GT:
             return gt.cols_merge_n_pct(col_n=n, col_pct=pct, rows=rows, autohide=autohide)
         case TableOp(tag="merge", merge=(columns, pattern, hide_columns, rows)):
             return gt.cols_merge(columns=columns, pattern=pattern, hide_columns=hide_columns, rows=rows)
-        case TableOp(tag="sub_missing", sub_missing=(columns, text)):
-            return gt.sub_missing(columns=columns, missing_text=text)
-        case TableOp(tag="sub_zero", sub_zero=(columns, text)):
-            return gt.sub_zero(columns=columns, zero_text=text)
-        case TableOp(tag="sub_small", sub_small=(columns, threshold, pattern, sign)):
-            return gt.sub_small_vals(columns=columns, threshold=threshold, small_pattern=pattern, sign=sign)
-        case TableOp(tag="sub_large", sub_large=(columns, threshold, pattern, sign)):
-            return gt.sub_large_vals(columns=columns, threshold=threshold, large_pattern=pattern, sign=sign)
-        case TableOp(tag="sub_values", sub_values=(columns, fn, replacement)):
-            return gt.sub_values(columns=columns, fn=fn, replacement=replacement)
+        case TableOp(tag="sub_missing", sub_missing=(columns, rows, text)):
+            return gt.sub_missing(columns=columns, rows=rows, missing_text=text)
+        case TableOp(tag="sub_zero", sub_zero=(columns, rows, text)):
+            return gt.sub_zero(columns=columns, rows=rows, zero_text=text)
+        case TableOp(tag="sub_small", sub_small=(columns, rows, threshold, pattern, sign)):
+            return gt.sub_small_vals(columns=columns, rows=rows, threshold=threshold, small_pattern=pattern, sign=sign)
+        case TableOp(tag="sub_large", sub_large=(columns, rows, threshold, pattern, sign)):
+            return gt.sub_large_vals(columns=columns, rows=rows, threshold=threshold, large_pattern=pattern, sign=sign)
+        case TableOp(tag="sub_values", sub_values=(columns, rows, fn, values, pattern, replacement)):
+            return gt.sub_values(
+                columns=columns, rows=rows, values=list(values) if values is not None else None, pattern=pattern, fn=fn, replacement=replacement
+            )
         case TableOp(tag="text_transform", text_transform=((at, columns, rows, mask, groups), fn)):
             return gt.text_transform(locations=_place(at, columns, rows, mask, groups), fn=fn)
         case TableOp(tag="text_case_when", text_case_when=((at, columns, rows, mask, groups), cases, default)):
@@ -934,25 +1183,15 @@ def _fold(gt: GT, op: TableOp) -> GT:
         case TableOp(tag="text_replace", text_replace=((at, columns, rows, mask, groups), pattern, replacement)):
             return gt.text_replace(pattern=pattern, replacement=replacement, locations=_place(at, columns, rows, mask, groups))
         case TableOp(tag="summary", summary=(fns, fmt, groups, side, missing_text)):
-            return gt.summary_rows(fns=fns, fmt=fmt, groups=groups, side=side, missing_text=missing_text)
+            return gt.summary_rows(fns=dict(fns), fmt=fmt, groups=list(groups) if groups is not None else None, side=side, missing_text=missing_text)
         case TableOp(tag="grand_summary", grand_summary=(fns, fmt, side, missing_text)):
-            return gt.grand_summary_rows(fns=fns, fmt=fmt, side=side, missing_text=missing_text)
+            return gt.grand_summary_rows(fns=dict(fns), fmt=fmt, side=side, missing_text=missing_text)
         case TableOp(tag="row_group_order", row_group_order=groups):
-            return gt.row_group_order(groups=groups)
+            return gt.row_group_order(groups=list(groups))
         case TableOp(tag="style", style=((at, columns, rows, mask, groups), specs)):
             return gt.tab_style(style=[_cell(spec) for spec in specs], locations=_place(at, columns, rows, mask, groups))
-        case TableOp(tag="color", color=(columns, rows, palette, domain, na_color, alpha, reverse, truncate)):
-            return gt.data_color(
-                columns=columns,
-                rows=rows,
-                palette=palette,
-                domain=domain,
-                na_color=na_color,
-                alpha=alpha,
-                reverse=reverse,
-                autocolor_text=True,
-                truncate=truncate,
-            )
+        case TableOp(tag="color", color=(columns, rows, kwds)):
+            return gt.data_color(columns=columns, rows=rows, autocolor_text=True, **kwds)
         case TableOp(tag="css", css=rule):
             return gt.opt_css(css=rule)
         case TableOp(tag="pipe", pipe=fn):
@@ -962,7 +1201,28 @@ def _fold(gt: GT, op: TableOp) -> GT:
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
-__all__ = ["FmtKind", "FootnoteMarks", "NanoSpec", "Reshape", "StubLoc", "TableFormat", "TableOp", "TablePlan", "Theme"]
+__all__ = [
+    "BorderStyleKwds",
+    "CssStyleKwds",
+    "DataColorKwds",
+    "FillStyleKwds",
+    "FmtKind",
+    "FmtOptions",
+    "FontFace",
+    "FootnoteMarks",
+    "NanoOptions",
+    "NanoSpec",
+    "Reshape",
+    "SpannerKwds",
+    "StubLoc",
+    "StyleSpec",
+    "SummaryFn",
+    "TableFormat",
+    "TableOp",
+    "TablePlan",
+    "TextStyleKwds",
+    "Theme",
+]
 ```
 
 ## [03]-[RESEARCH]

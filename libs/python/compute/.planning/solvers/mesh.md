@@ -1,8 +1,8 @@
 # [PY_COMPUTE_MESH]
 
-The one simulation mesh-and-field interchange and weak-form assembly owner, and the declaring owner of the FEM element axis: `ElementKind` and `FemForm` originate here so `solvers/quadrature.md#QUADRATURE` imports the axis downward for its FEM condense-solve arm and `solvers/field.md#FIELD` reads the element vocabulary from here. `MeshField` is the frozen topology-and-field value object; `MeshExchange` discriminates the three transforms a discretized mesh admits — `assemble` lowers a `FemForm` weak form to the sparse `(stiffness, load, dirichlet_dofs)` system through the scikit-fem `Basis`/`asm` fold, and `read`/`write` round-trip the meshio registry with physical groups intact. The owner holds element vocabulary, assembly, and interchange only — never the solve (`solvers/quadrature.md#QUADRATURE`), never the transient integration (`solvers/differential.md#DIFFERENTIAL`), never a parallel mesh container beside the meshio `Mesh`.
+One simulation mesh-and-field interchange and weak-form assembly owner, and the declaring owner of the FEM element axis: `ElementKind` and `FemForm` originate here so `solvers/quadrature.md#QUADRATURE` imports the axis downward for its FEM condense-solve arm and `solvers/field.md#FIELD` reads the element vocabulary from here. `MeshField` is the frozen topology-and-field value object; `MeshExchange` discriminates the three transforms a discretized mesh admits — `assemble` lowers a `FemForm` weak form to the sparse `(stiffness, load, dirichlet_dofs)` system through the scikit-fem `Basis`/`asm` fold, and `read`/`write` round-trip the meshio registry with physical groups intact. This owner holds element vocabulary, assembly, and interchange only — never the solve (`solvers/quadrature.md#QUADRATURE`), never the transient integration (`solvers/differential.md#DIFFERENTIAL`), never a parallel mesh container beside the meshio `Mesh`.
 
-Each operation folds into one `MeshReceipt` whose `Literal` `tag` IS the operation and whose payload shape, `.status` read, accessors, and observability row are all driven by one `_SLOTS` field-name table, as `solvers/field.md#FIELD` `FieldReceipt` and `solvers/receipt.md#RECEIPT` `SolverReceipt` drive theirs, each terminating in the shared `SolveStatus` the `solvers/receipt.md#RECEIPT` `status_of` floor adjudicates by public name. The content key threads `runtime/evidence/identity.md#IDENTITY` `ContentIdentity` under the `CANONICAL_POLICY` default and keys the `execution/lanes.md#LANE` reuse-fabric cache; receipt emission rides the hub `evidence_run` weave. `meshio` is pure-Python core, so `read`/`write` run inline as a top-level import; the native `scikit-fem` assemble folds onto the runtime THREAD band through `lane.offload` as a `_MODALITY` policy row, never a per-page literal or compute-minted limiter.
+Each operation folds into one `MeshReceipt` whose `Literal` `tag` IS the operation and whose payload shape, `.status` read, accessors, and observability row are all driven by one `_SLOTS` field-name table, as `solvers/field.md#FIELD` `FieldReceipt` and `solvers/receipt.md#RECEIPT` `SolverReceipt` drive theirs, each terminating in the shared `SolveStatus` the `solvers/receipt.md#RECEIPT` `status_of` floor adjudicates by public name. Content key threads `runtime/evidence/identity.md#IDENTITY` `ContentIdentity` under the `CANONICAL_POLICY` default and keys the `execution/lanes.md#LANE` reuse-fabric cache; receipt emission rides the hub `evidence_run` weave. `meshio` is pure-Python core and imports top-level; `read`/`write` block on arbitrary-size disk I/O and cross the thread band under `RELEASING` `_TRAIT` rows, while `assemble` crosses the process band under `HOSTILE` — `skfem.asm` evaluates the caller-supplied Python `FemForm` integrand thunks GIL-held, so a thread arm serializes the loop against them — every arm through `lane.offload`, isolation, band, and worker-death retry deriving at the runtime `Kernel` crossing, never a per-page literal or compute-minted limiter.
 
 ## [01]-[INDEX]
 
@@ -19,11 +19,11 @@ Each operation folds into one `MeshReceipt` whose `Literal` `tag` IS the operati
 
 ## [03]-[EXCHANGE]
 
-- Owner: `MeshExchange` is the one `@tagged_union(frozen=True)` operation owner discriminating `assemble`, `read`, and `write` rather than a free `MeshField.assemble` method beside a `read`/`write` static pair; the `@classmethod`-plus-`Self` factory law binds each subtype once, shared with `MeshReceipt`, `solvers/receipt.md#RECEIPT` `SolverReceipt`, and `solvers/field.md#FIELD` `FieldQuery`. The meshio `Mesh` is the canonical container `read`/`write` project through and meshio owns the ~40-format registry — a hand-rolled format parser, a wrapper-rename of `read`/`write`, a flat `cell_data` dropping the block-parallel list, and a write-only promotion that never recovers on read are all rejected.
-- Entry: `MeshExchange.run(lane)` rides the hub weave as `evidence_run(EvidenceScope.MESH, f"mesh.{self.tag}", dispatch)`, which owns span, fault fence, and receipt harvest, so receipt egress is composed rather than a page-local `_emit`. `dispatch` resolves the `_MODALITY` row: the `assemble` arm offloads onto the runtime THREAD band through `lane.offload` — the deterministic assemble takes no retry, so worker-death retry rides the process lane only — while the pure-Python `read`/`write` arms run `_dispatch` inline. The meshio `ReadError`/`WriteError` and the skfem assembly exceptions convert exactly once at the weave's fence into the `BoundaryFault` rail through the `runtime/reliability/faults.md#FAULT` `CLASSIFY` fold, so a malformed input or unsupported cell type is a typed rail, never a raised exception in domain flow.
-- Receipt: `MeshReceipt` is the one `@tagged_union(frozen=True)` receipt whose `Literal` `tag` IS the operation. One `_SLOTS` row names each payload sequence — `key` leading, `status` trailing — and drives the structural shape, the `.status` read, every named accessor off `.facts` (never parallel `getattr(self, self.tag)[N]` properties), and the `.facts` `zip(..., strict=True)` projection, so the table and the case tuples cannot drift. No operation carries a solve, so every factory floors a well-formedness extent, not a convergence residual, through the shared public `status_of` floor; `assembled` records `load_norm` as evidence yet floors on `dof_count` and a finite load rather than mislabeling a valid large load. The weave harvests the resolved receipt; `contribute` carries no decorator.
-- Packages: `skfem` (`Basis`/`asm`, the `Mesh*1`/`Element*` constructors resolved by name through `CTOR`, `get_dofs(facets=...).flatten()` the DOF selector, `basis.N` the dof count), `meshio` (the ~40-format registry, the per-type-merged `cell_data_dict`/`cell_sets_dict` read views, the block-parallel write surface, the `cell_sets_to_data`/`cell_data_to_sets` promoter/inverter family, `ReadError`/`WriteError` boundary-folded), `numpy` (`linalg.norm` the load fold, `issubdtype` the integer-label gate), `math.isfinite`, `expression` (`tagged_union`/`Map` the table rail), hub (`evidence_run`), `solvers/receipt.md#RECEIPT` (`status_of` by public name), runtime (`railed` the `effect.result` builder, `Modality` the offload axis, `ContentIdentity` under `CANONICAL_POLICY`, `Receipt`).
-- Growth: a new operation (a `Functional` energy-norm evaluation, an adaptive `refined` step) is one `MeshExchange` case plus one `_SLOTS` row plus one `_MODALITY` row sharing the `CTOR` resolution and the status floor; a new element is one `CTOR` row; a new assembled field is one slot on `AssembledSystem`; a new format is zero new surface because meshio owns the registry; a new termination class is one `SolveStatus` member; never a parallel mesh container, never a solve on this owner, never a per-operation factory plus per-operation fact dict beside the `_SLOTS` projection.
+- Owner: `MeshExchange` is the one `@tagged_union(frozen=True)` operation owner discriminating `assemble`, `read`, and `write` rather than a free `MeshField.assemble` method beside a `read`/`write` static pair; the `@classmethod`-plus-`Self` factory law binds each subtype once, shared with `MeshReceipt`, `solvers/receipt.md#RECEIPT` `SolverReceipt`, and `solvers/field.md#FIELD` `FieldQuery`. meshio `Mesh` is the canonical container `read`/`write` project through and meshio owns the ~40-format registry — a hand-rolled format parser, a wrapper-rename of `read`/`write`, a flat `cell_data` dropping the block-parallel list, and a write-only promotion that never recovers on read are all rejected.
+- Entry: `MeshExchange.run(lane)` rides the hub weave as `evidence_run(EvidenceScope.MESH, f"mesh.{self.tag}", dispatch)`, which owns span, fault fence, and receipt harvest, so receipt egress is composed rather than a page-local `_emit`. `dispatch` resolves the `_TRAIT` row through `lane.offload` — the interchange arms ride the `RELEASING` thread band because meshio blocks on disk, the assemble arm rides the `HOSTILE` process band because `skfem.asm` drives the caller's Python form callbacks GIL-held (the closure-bearing `FemForm` thunks cross on the pool's cloudpickle wire) — isolation, band, and worker-death retry deriving at the runtime `Kernel` crossing, so no arm stalls the loop. meshio `ReadError`/`WriteError` and the skfem assembly exceptions convert exactly once at the weave's fence into the `BoundaryFault` rail through the `runtime/reliability/faults.md#FAULT` `CLASSIFY` fold, so a malformed input or unsupported cell type is a typed rail, never a raised exception in domain flow.
+- Receipt: `MeshReceipt` is the one `@tagged_union(frozen=True)` receipt whose `Literal` `tag` IS the operation. One `_SLOTS` row names each payload sequence — `key` leading, `status` trailing — and drives the structural shape, the `.status` read, every named accessor off `.facts` (never parallel `getattr(self, self.tag)[N]` properties), and the `.facts` `zip(..., strict=True)` projection, so the table and the case tuples cannot drift. No operation carries a solve, so every factory floors a well-formedness extent, not a convergence residual, through the shared public `status_of` floor; `assembled` records `load_norm` as evidence yet floors on `dof_count` and a finite load rather than mislabeling a valid large load. Weave harvests the resolved receipt; `contribute` carries no decorator.
+- Packages: `skfem` (`Basis`/`asm`, the `Mesh*1`/`Element*` constructors resolved by name through `CTOR`, `get_dofs(facets=...).flatten()` the DOF selector, `basis.N` the dof count), `meshio` (the ~40-format registry, the per-type-merged `cell_data_dict`/`cell_sets_dict` read views, the block-parallel write surface, the `cell_sets_to_data`/`cell_data_to_sets` promoter/inverter family, `ReadError`/`WriteError` boundary-folded), `numpy` (`linalg.norm` the load fold, `issubdtype` the integer-label gate), `math.isfinite`, `expression` (`tagged_union`/`Map` the table rail), hub (`evidence_run`), `solvers/receipt.md#RECEIPT` (`status_of` by public name), runtime (`railed` the `effect.result` builder, `Kernel`/`KernelTrait` the offload crossing, `ContentIdentity` under `CANONICAL_POLICY`, `Receipt`).
+- Growth: a new operation (a `Functional` energy-norm evaluation, an adaptive `refined` step) is one `MeshExchange` case plus one `_SLOTS` row plus one `_TRAIT` row sharing the `CTOR` resolution and the status floor; a new element is one `CTOR` row; a new assembled field is one slot on `AssembledSystem`; a new format is zero new surface because meshio owns the registry; a new termination class is one `SolveStatus` member; never a parallel mesh container, never a solve on this owner, never a per-operation factory plus per-operation fact dict beside the `_SLOTS` projection.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
@@ -43,8 +43,9 @@ from rasm.compute.graduation.handoff import EvidenceScope, evidence_run
 from rasm.compute.solvers.receipt import SolveStatus, status_of
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import RuntimeRail, boundary, railed
-from rasm.runtime.lanes import LanePolicy, Modality
+from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.receipts import Receipt
+from rasm.runtime.workers import Kernel, KernelTrait
 
 
 # --- [TYPES] -------------------------------------------------------------------------------
@@ -66,7 +67,7 @@ class ElementKind(StrEnum):
 # --- [CONSTANTS] ---------------------------------------------------------------------------
 
 # ElementKind -> (Mesh*, Element*, meshio-cell-type). Names resolve through getattr(skfem, ...) behind
-# the deferred worker import; P2 shares its P1 sibling's affine Mesh*1 geometry and cell-type string,
+# deferred worker import; P2 shares its P1 sibling's affine Mesh*1 geometry and cell-type string,
 # varying only the Element*.
 CTOR: Final[Map[ElementKind, tuple[str, str, str]]] = Map.of_seq([
     (ElementKind.P1, ("MeshLine1", "ElementLineP1", "line")),
@@ -91,9 +92,9 @@ _SLOTS: Final[Map[MeshOp, tuple[str, ...]]] = Map.of_seq([
     ("written", ("key", "fmt", "byte_count", "status")),
 ])
 
-# Family modality rows: assemble on the THREAD band, meshio interchange inline (`None`) — policy data,
-# never a per-page literal, never a compute-minted limiter.
-_MODALITY: Final[Map[str, Modality | None]] = Map.of_seq([("assemble", Modality.THREAD), ("read", None), ("write", None)])
+# Family trait rows: assemble is HOSTILE — `skfem.asm` evaluates the caller-supplied Python form callbacks GIL-held, so the
+# process arm isolates them; read/write block on disk and stay RELEASING; isolation, band, and retry derive at the Kernel crossing.
+_TRAIT: Final[Map[str, KernelTrait]] = Map.of_seq([("assemble", KernelTrait.HOSTILE), ("read", KernelTrait.RELEASING), ("write", KernelTrait.RELEASING)])
 
 
 # --- [MODELS] ------------------------------------------------------------------------------
@@ -217,14 +218,10 @@ class MeshExchange:
         return cls(write=(field, path, file_format))
 
     async def run(self, lane: LanePolicy) -> RuntimeRail[MeshReceipt]:
-        # _MODALITY routes assemble onto the THREAD band, interchange inline; the weave owns span,
-        # fence, and harvest. The deterministic assemble takes no retry — worker-death retry rides the process lane only.
+        # _TRAIT routes each arm — assemble to the HOSTILE process band (Python form callbacks run GIL-held), read/write
+        # to the RELEASING thread band; the weave owns span, fence, and harvest, the Kernel crossing isolation and retry.
         async def dispatch() -> RuntimeRail[MeshReceipt]:
-            match _MODALITY[self.tag]:
-                case None:
-                    return _dispatch(self)
-                case modality:
-                    return (await lane.offload(_dispatch, self, modality=modality)).bind(lambda rail: rail)
+            return (await lane.offload(Kernel.of(_dispatch, _TRAIT[self.tag]), self)).bind(lambda rail: rail)
 
         return await evidence_run(EvidenceScope.MESH, f"mesh.{self.tag}", dispatch)
 
@@ -232,7 +229,7 @@ class MeshExchange:
 # --- [OPERATIONS] --------------------------------------------------------------------------
 
 
-# the `railed` `effect.result` chain: only the read arm `yield from`-binds a fallible rail (`_read`'s
+# `railed` `effect.result` chain: only the read arm `yield from`-binds a fallible rail (`_read`'s
 # meshio parse / canonical-encode); assemble and write hold no fallible derive and lift straight.
 @railed
 def _dispatch(exchange: MeshExchange) -> MeshReceipt:
@@ -252,7 +249,7 @@ def _dispatch(exchange: MeshExchange) -> MeshReceipt:
 
 
 # `_field` mints the content key from EVERY stored array as a LABELED chunk — element tag, then per block
-# the slot, map key, dtype, shape, and C-contiguous bytes, each part length-prefixed so the identity
+# slot, map key, dtype, shape, and C-contiguous bytes, each part length-prefixed so the identity
 # owner's `stream` updater sees unambiguous boundaries, dict sections sorted so insertion order never
 # leaks. A renamed group, reshaped array, or re-homed value therefore re-keys where raw value bytes alone
 # would collide. `ContentIdentity.of` returns `RuntimeRail[ContentKey]`, so the key threads by `yield from`.

@@ -2,7 +2,7 @@
 
 Caller-owned context and settings admission: one immutable `RuntimeContext` carries the profile, correlation, deadline, classification, and inbound `CausalFrame` a caller supplies; one `SettingsAdmission` owns the local settings source order; `SecretBoundary.resolve` is the one credential reader the outbound `transport/roots#RESOURCE` legs consume — output-parameterized, profile-gated, and lazy on the outbound leg, never an eager unattended probe.
 
-`CausalFrame`, `Hlc`, and `Tenant` arrive from the `clock/clock#CLOCK` owner — admission consumes the host-minted stamp and re-mints nothing. Each `SECRET_LADDER` tier folds through the `reliability/resilience#RESILIENCE` `guarded` envelope under the `RetryClass.SECRET` row, so a transiently-locked keystore or unreachable Secret Manager retries inside one derivation span rather than failing the resolve. Feature gating and killswitch state are data rows on `PROFILE_POLICY`, never boolean knobs the caller re-derives. The package never discovers the host, starts services, owns lifecycle, derives product roots, reads the environment after admission, or caches a global mutable context, and a resolved secret crosses as `SecretStr`, never a bare `str` a receipt or log egress serializes.
+`CausalFrame`, `Hlc`, and `Tenant` arrive from the `clock/clock#CLOCK` owner — admission consumes the host-minted stamp and re-mints nothing. Each `SECRET_LADDER` tier folds through the `reliability/resilience#RESILIENCE` `guarded` envelope under the `RetryClass.SECRET` row, so a transiently-locked keystore or unreachable Secret Manager retries inside one derivation span rather than failing the resolve. Feature gating and killswitch state are data rows on `PROFILE_POLICY`, never boolean knobs the caller re-derives. This package never discovers the host, starts services, owns lifecycle, derives product roots, reads the environment after admission, or caches a global mutable context, and a resolved secret crosses as `SecretStr`, never a bare `str` a receipt or log egress serializes.
 
 ## [01]-[INDEX]
 
@@ -14,7 +14,7 @@ Caller-owned context and settings admission: one immutable `RuntimeContext` carr
 - Owner: `RuntimeContext` is the one caller-supplied context discriminating profile, correlation, deadline, and classification, carrying the inbound `causal` frame as `Option[CausalFrame]` — `Nothing` locally minted, `Some(frame)` the host stamp. `PROFILE_POLICY` keys behavior on the profile row, so the `ProfilePolicy` value carries no redundant `profile` field to drift and a caller never re-derives a flag.
 - Entry: `Deadline.seconds` is the one `float` the `execution/lanes#LANE` `LanePolicy.deadline` reads — never a re-derived `total_seconds()` at the lane seam. `Correlation.seed(frame)` is the one parent-derivation owner: the packing semantics stay the `clock/clock#CLOCK` owner's, and `attribute` folds the carried frame through `CausalFrame.attributes("packed")` rather than re-spelling the `(rasm.tenant, rasm.hlc)` columns, so the result is admissible to `Span.set_attributes` directly.
 - Growth: a new context field is one `RuntimeContext` column; a new profile one `RuntimeProfile` member plus one `PROFILE_POLICY` row; a new feature one `Feature` case plus its membership in the affected rows' `admitted` sets; a new killswitch one `Killswitch` case plus one `KILLSWITCH_FEATURE` disabling edge plus its `tripped` memberships — never a parallel boolean knob; a new attribute dimension one entry in the `attribute` projection.
-- Boundary: no environment probing, profile resolution, service-root construction, or global mutable context lives here. The C# `HostProfile` stays AppHost-owned, never mirrored row-for-row, and `CausalFrame`/`Hlc`/`Tenant` stay the `clock/clock#CLOCK` owner's records.
+- Boundary: no environment probing, profile resolution, service-root construction, or global mutable context lives here. `HostProfile` stays AppHost-owned, never mirrored row-for-row, and `CausalFrame`/`Hlc`/`Tenant` stay the `clock/clock#CLOCK` owner's records.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -191,9 +191,9 @@ class RuntimeContext(Struct, frozen=True):
 
 - Owner: `SettingsAdmission` admits init mapping, environment, dotenv, and OS secret files over the DEFAULT `pydantic-settings` precedence — no `settings_customise_sources` override exists, because restating the default order is ceremony and an override is earned only by a permutation or a new origin. Every root is typed against the `pydantic` catalogue, never bare `str`. `BasicCredential` is deliberately not named `Credential`: the serve-side `CredentialPolicy` union is `transport/serve#SERVE`'s decode of the C#-minted wire axis, a different concept under a different name.
 - Entry: `SecretBoundary.resolve` is the one credential reader, parameterized over output shape by `@overload` — admitting a new consumer shape is one `SecretShape` member plus one overload arm plus one fold-tail arm, never a parallel resolver. An absent secret folds to `Ok(Nothing)` rather than a fault: a missing credential is a wire fact the outbound leg routes. `known_hosts` returns the admission-loaded `SSHKnownHosts` the `transport/roots#RESOURCE` `ssh` leg binds — host-key verification is admission-supplied, never the disabled-verification `known_hosts=None` the connection law forbids.
-- Auto: the ladder fold drops every row the carried `FeatureGate` refuses, so a session that cannot answer a keychain prompt never triggers one and a killswitched deployment never dials GCP. The declared-field twin of this caller-dynamic ladder is the branch-catalogued `GoogleSecretManagerSettingsSource` injected with this same cached client — the settings-source chain row a deployment adds when declared model fields, not per-service credentials, live in Secret Manager.
+- Auto: the ladder fold drops every row the carried `FeatureGate` refuses, so a session that cannot answer a keychain prompt never triggers one and a killswitched deployment never dials GCP. Its declared-field twin is the branch-catalogued `GoogleSecretManagerSettingsSource` injected with this same cached client — the settings-source chain row a deployment adds when declared model fields, not per-service credentials, live in Secret Manager.
 - Growth: a new setting is one typed field on the model; a new source origin or precedence permutation is the one `settings_customise_sources` override, absent until needed; a new secret-resolution tier is one `SecretTier` case plus one `SECRET_LADDER` row carrying its `Option[Feature]` gate and `RetryClass`; a new output shape one `SecretShape` member plus one overload and one fold-tail arm.
-- Boundary: no package reads `os.environ` after admission. The keystore and cloud tiers read credentials for the OUTBOUND transport legs only — the companion UDS serve leg reads no keyring, peer identity being the kernel accept-time credential (`transport/serve#SERVE`). The multi-source remote-config remainder rides the `STRUCTURED_SETTINGS_SCHEMA` idea card.
+- Boundary: no package reads `os.environ` after admission. Keystore and cloud tiers read credentials for the OUTBOUND transport legs only — the companion UDS serve leg reads no keyring, peer identity being the kernel accept-time credential (`transport/serve#SERVE`). Multi-source remote-config work rides the `STRUCTURED_SETTINGS_SCHEMA` idea card.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -232,7 +232,7 @@ class SecretShape(StrEnum):
 
 @tagged_union(frozen=True)
 class SecretTier:
-    # the discriminant IS the resolver — never a `Probe` callable type plus parallel free probe functions; `cloud` carries the Secret
+    # discriminant IS the resolver — never a `Probe` callable type plus parallel free probe functions; `cloud` carries the Secret
     # Manager namespace prefix its secret ids mint under.
     tag: Literal["keystore", "cloud", "file"] = tag()
     keystore: bool = case()
@@ -242,9 +242,13 @@ class SecretTier:
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# the one secret-mount anchor the `secrets_dir` source target and the `secrets_mount` field default both read; a deployment override
+# one secret-mount anchor the `secrets_dir` source target and the `secrets_mount` field default both read; a deployment override
 # threads the paired `secrets_mount=` field + `_secrets_dir=` kwarg so the two never split.
 _SECRETS_MOUNT: Final[str] = "/run/secrets"
+
+# secret-probe thread bound: this tier sits below the lanes bands, so it carries its own explicit limiter sized just past the
+# ladder depth, bounding every concurrent resolve without leaning on the ambient default limiter.
+_PROBE_BAND: Final[anyio.CapacityLimiter] = anyio.CapacityLimiter(4)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -255,7 +259,7 @@ class BasicCredential(Struct, frozen=True):
 
 
 class SettingsAdmission(BaseSettings):
-    # the pydantic edge carries pydantic-native types and `| None`, lifted to `Option` at the read site — never an `expression.Option`
+    # pydantic's edge carries pydantic-native types and `| None`, lifted to `Option` at the read site — never an `expression.Option`
     # field pydantic-core cannot build a core schema for.
     model_config = SettingsConfigDict(frozen=True, extra="forbid", env_prefix="RASM_PY_", env_nested_delimiter="__", secrets_dir=_SECRETS_MOUNT)
 
@@ -321,7 +325,7 @@ class SecretBoundary(Struct, frozen=True):
                         return Nothing
                     return Option.of_optional(found).map(lambda c: BasicCredential(c.username, SecretStr(c.password)))
 
-                return await guarded(row.retry_class, anyio.to_thread.run_sync, keystore_read, subject="secret")
+                return await guarded(row.retry_class, anyio.to_thread.run_sync, keystore_read, subject="secret", limiter=_PROBE_BAND)
             case SecretTier(tag="cloud", cloud=namespace):
                 match Option.of_optional(self.settings.gcp_project_id):
                     case Option(tag="some", some=project):
@@ -335,12 +339,12 @@ class SecretBoundary(Struct, frozen=True):
                             except NotFound:
                                 return Nothing
                             if google_crc32c.value(payload.data) != payload.data_crc32c:
-                                # the client does NOT self-verify `data_crc32c`: a mismatch is corrupted transport — a retryable
+                                # Secret Manager's client does NOT self-verify `data_crc32c`: a mismatch is corrupted transport — a retryable
                                 # `OSError` transient, never a MISS and never a silently-trusted payload.
                                 raise OSError(f"secret-crc32c:{name}")
                             return Some(BasicCredential(username or service, SecretStr(payload.data.decode("utf-8").strip())))
 
-                        return await guarded(row.retry_class, anyio.to_thread.run_sync, cloud_read, subject="secret")
+                        return await guarded(row.retry_class, anyio.to_thread.run_sync, cloud_read, subject="secret", limiter=_PROBE_BAND)
                     case _:
                         # no admitted project root: the arm folds to a miss, no client constructed.
                         return Ok(Nothing)
@@ -352,7 +356,7 @@ class SecretBoundary(Struct, frozen=True):
                         Some(BasicCredential(username or service, SecretStr(path.read_text(encoding="utf-8").strip()))) if path.exists() else Nothing
                     )
 
-                return await guarded(row.retry_class, anyio.to_thread.run_sync, file_read, subject="secret")
+                return await guarded(row.retry_class, anyio.to_thread.run_sync, file_read, subject="secret", limiter=_PROBE_BAND)
             case _ as unreachable:
                 assert_never(unreachable)
 
@@ -364,7 +368,7 @@ class SecretBoundary(Struct, frozen=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-# the one secret-naming correspondence the file mount and the cloud namespace both read.
+# one secret-naming correspondence the file mount and the cloud namespace both read.
 def _secret_name(service: str, username: str | None) -> str:
     return Option.of_optional(username).map(lambda u: f"{service}_{u}").default_value(service)
 

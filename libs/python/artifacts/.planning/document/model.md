@@ -1,24 +1,24 @@
 # [PY_ARTIFACTS_MODEL]
 
-The semantic document algebra — the single interior representation the `document` axis lowers FROM and recovers TO. `DocumentNode` is one recursive `msgspec` tagged-union tree carrying a closed `NodeMeta` on every node, and `DocumentDelta` is the one diff/merge edit algebra keyed by the stable content key; every `document/emit#DOCUMENT` backend is a lowering arm folding from this tree and `document/lens#LENS` rebuilds it, so production and extraction are inverses over one node algebra and a structural object-graph diff reuses the delta defined here once.
+`DocumentNode` is the single semantic document representation the `document` axis lowers FROM and recovers TO. One recursive `msgspec` tagged-union tree carries a closed `NodeMeta` on every node, and `DocumentDelta` is the sole diff/merge edit algebra keyed by the stable content key; every `document/emit#DOCUMENT` backend folds from this tree and `document/lens#LENS` rebuilds it, so production and extraction are inverses over one node algebra and a structural object-graph diff reuses the delta defined here once.
 
-The tree round-trips through one shared deterministic `msgspec` codec, so a multi-PDF corpus is a content-keyed serialized value; identity comes from `ContentIdentity.of`, never re-minted. The `CorpusRow`/`CorpusRecord` egress projections feed the `data/tabular/columnar#SCAN` wire; `NodeMeta.classification` carries the CSI/OmniClass notation as a bounded string, so the substrate tree never depends on the `specification/classify#CLASSIFY` folder that lowers INTO it; `TextDirection` rides as interior data while the `../typography/shape#SHAPE` shaper owns the bidi reorder.
+One deterministic `msgspec` codec round-trips the tree, so a multi-PDF corpus is a content-keyed serialized value; identity comes from `ContentIdentity.key`, never re-minted. `CorpusRow`/`CorpusRecord` egress projections feed the `data/tabular/columnar#SCAN` wire; `NodeMeta.classification` carries the CSI/OmniClass notation as a bounded string, so the substrate tree never depends on the `specification/classify#CODE` folder that lowers INTO it; `TextDirection` rides as interior data while the `typography/shape#SHAPE` shaper owns the bidi reorder.
 
 ## [01]-[INDEX]
 
 - [01]-[NODE]: the recursive tagged-union tree, its `StructRole` PDF/UA vocabulary, and the projection algebra every backend lowers from.
-- [02]-[DELTA]: the four-variant edit algebra with `diff`/`merge`/`invert` defined once over the tree.
+- [02]-[DELTA]: the five-variant edit algebra with `diff`/`merge`/`invert` defined once over the tree.
 
 ## [02]-[NODE]
 
 - Owner: `DocumentNode` — one `tag`-discriminated `Union` on `tag_field="kind"`, every variant a frozen `Struct` carrying a `NodeMeta` value object; a flat class with a `kind: str` field and an `if kind ==` cascade is the rejected non-total shape.
-- Cases: `TableNode` carries `spans` merged-cell quads plus `header_rows`/`footer_rows` counts BOTH lowerings honor and the lens recovers, and a `caption` run sequence — a publication table and an AEC schedule both title their grid. `FormulaNode` keeps the LaTeX source tree-resident, so an equation is source-addressable rather than only a pre-rendered `FigureNode`; `AnnotTarget` closes the link family with the AEC `Xref` detail-on-sheet/spec-section case.
-- Entry: one shared deterministic `_ENCODER` serves the node digest, the corpus byte projection, and the public `encode` — never parallel identical instances; `node_digest` content-addresses the tree.
-- Auto: `node_digest` folds `_own_bytes` (the container's non-child fields) beside the child digests, so an identical sub-tree keys identically while a re-parametrized container re-keys rather than colliding on its unchanged children. `alt_of` derives one `(AltText, AltStatus)` pair over the `FigureNode | FormulaNode` or-pattern, so the accessibility audit reads alt presence as one column predicate — and the Typst `_image` emitter writes `alt: none` for an un-authored figure, never a meaningless `alt: ""` that erases the `ABSENT` fact. `to_corpus(node, view)` is one view-keyed entrypoint whose `RECORD` projection exists because `pa.Table.from_pylist` rejects a `msgspec.Struct` — the producer owns the flat-record mapping so producer and consumer agree on the Arrow column shape. `_STRUCT_CATEGORY` is the one frozen behavior table keyed by `StructEltKind` carrying each role's `StructCategory` and `heading_level`, so the audit's nesting and heading-monotonicity checks fold one table row rather than a parallel `match`, `_STANDARD_FOR` derives from it by first-wins category inversion so the `document/tagged#ACCESS` `/RoleMap` foreign-to-standard lowering reads a derived row rather than a hand-kept parallel dict, `ForeignRole` is the one open arm over a `Meta`-constrained non-empty role, and `role_of`/`role_category`/`standard_for` are the model's one role-projection family the tagged owner consumes whole. `to_typst_source` escapes markup-context and string-context interpolations through one shared `maketrans` algebra, and a decorative `BlockKind.ARTIFACT` block lowers through `pdf.artifact[..]` so it is excluded from the tagged structure tree.
+- Cases: `TableNode` carries `spans` merged-cell quads plus `header_rows`/`footer_rows`/`header_cols` counts BOTH lowerings honor and the lens recovers — `header_cols` is the row-header axis a PDF/UA complex table associates through `scope` — and a `caption` run sequence, so a publication table and an AEC schedule both title their grid. `FormulaNode` keeps the LaTeX source tree-resident with an optional `mathml` island (the ISO 14289 accessible-math representation the HTML lowering prefers), so an equation is source-addressable rather than only a pre-rendered `FigureNode`; `AnnotTarget` closes the link family with one `Xref` whose `Citation` payload selects a detail-on-sheet or classification-section coordinate without empty-field combinations. `FieldNode.field` is the closed per-mode `FieldValue` family for text, checkbox, radio, combo, list, signature, and button payloads; common required/read-only policy stays on the node while mode-only data stays on its case. East-Asian ruby/warichu content authors as `StructureNode` composition — a `RUBY` parent over `RB`/`RT`/`RP` children each carrying `RunNode` content — so the role vocabulary needs no dedicated node variant. `NodeMeta` carries the full ISO 14289 struct-element attribute set: `lang`, `actual_text`, `expansion` (the `/E` abbreviation expansion), and `associated` content keys (the PDF 2.0 `/AF` associated-files edge the `A_3A` deliverable seals).
+- Entry: one shared deterministic `_ENCODER` serves the node digest, the corpus byte projection, and the public `encode` — never parallel identical instances; `decode` captures `msgspec.DecodeError` once as the closed `ModelFault` rail before the value enters the interior; `node_digest` content-addresses the tree through `ContentIdentity.key` (the bare-`ContentKey` mint — `ContentIdentity.of` returns the `RuntimeRail` and never feeds the digest fold); `json_schema` publishes the JSON Schema contract the `to_json` interchange consumer validates against.
+- Auto: `node_digest` folds `_own_bytes` (the container's non-child fields) beside the child digests, so an identical sub-tree keys identically while a re-parametrized container re-keys rather than colliding on its unchanged children. `walk(node, prune=(TableNode,))` stops descent below any caller-named node type, so a lowering that owns a composite's interior never re-walks its cells as loose blocks. `alt_of` derives one `(AltText, AltStatus)` pair over the `FigureNode | FormulaNode` or-pattern, so the accessibility audit reads alt presence as one column predicate — and the Typst `_image` emitter writes `alt: none` for an un-authored figure, never a meaningless `alt: ""` that erases the `ABSENT` fact. `to_corpus(node, view)` is one view-keyed entrypoint whose `RECORD` projection exists because `pa.Table.from_pylist` rejects a `msgspec.Struct` — the producer owns the flat-record mapping so producer and consumer agree on the Arrow column shape. `_STRUCT_CATEGORY` is the one frozen behavior table keyed by `StructEltKind` carrying each role's `StructCategory` and `heading_level`, so the audit's nesting and heading-monotonicity checks fold one table row rather than a parallel `match` — it rides `frozendict`, never `Map`, because the first-wins inversion depends on declaration order and `Map` iterates key-sorted; `_STANDARD_FOR` derives from it by first-wins category inversion so the `document/tagged#ACCESS` `/RoleMap` foreign-to-standard lowering reads a derived row rather than a hand-kept parallel dict, `ForeignRole` is the one open arm over a `Meta`-constrained non-empty role, and `role_of`/`role_category`/`standard_for` are the model's one role-projection family the tagged owner consumes whole. `to_typst_source` escapes markup-context and string-context interpolations through one shared `maketrans` algebra, and a decorative `BlockKind.ARTIFACT` block lowers through `pdf.artifact[..]` so it is excluded from the tagged structure tree.
 - Receipt: owns the tree type and its digest, never a receipt fold — authoring receipts stay at `document/emit`, recovery receipts at `document/lens`.
 - Packages: `lxml.etree` defers under module-scope `lazy from`, so a Typst-only or corpus-only consumer never pays the libxml2 load; `msgspec` `UNSET` markers round-trip the wire-absent `NodeMeta` fields under `omit_defaults`.
-- Growth: a new document concept is one variant plus one arm in each lowering the total `match` forces; a new standard PDF/UA role is one `StructEltKind` member plus one `_STRUCT_CATEGORY` row — `_STANDARD_FOR` absorbs a new category for free; a new run decoration, direction, baseline, list dialect, or link-target kind is one vocabulary member plus its markup row.
-- Boundary: `to_json` is a real `msgspec.json` interchange serialization of the node tree a downstream consumer decodes — never a schema-shape blob no consumer reads; a Typst `label()`-anchored intra-compilation link is the rejected `Xref` form because the target sheet is a separate compilation the imposition assembly resolves; a `ClassCode` field on the interior tree is the rejected coupling that inverts the `specification`-to-`document` dependency.
+- Growth: a new document concept is one variant plus one arm in each lowering the total `match` forces; a new standard PDF/UA role is one `StructEltKind` member plus one `_STRUCT_CATEGORY` row — `_STANDARD_FOR` absorbs a new category for free; a new run decoration, direction, baseline, list dialect, field mode, citation kind, or link-target kind is one vocabulary member or payload case plus its total lowering arm.
+- Boundary: `to_json` is a real `msgspec.json` interchange serialization of the node tree a downstream consumer decodes — never a schema-shape blob no consumer reads; a Typst `label()`-anchored intra-compilation link is the rejected `Xref` form because the target sheet is a separate compilation the imposition assembly resolves; a `ClassCode` field on the interior tree is the rejected coupling that inverts the `specification`-to-`document` dependency. Recursion depth splits by provenance: `walk`/`node_digest` run depth-safe frontiers because they consume lens-recovered, potentially adversarial trees, while the `to_*` lowerings recurse natively — an authored document's structural nesting is data-bounded, and a lowering of a lens-recovered tree crosses `walk` first.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -28,13 +28,15 @@ from functools import reduce
 from typing import TYPE_CHECKING, Annotated, Final, Literal, assert_never, overload
 
 import msgspec
-from expression import pipe
+from expression import Result, pipe
 from expression.collections import Block, Map
+from expression.extra.result import catch
+from builtins import frozendict
 from msgspec import Meta, Struct, UnsetType, UNSET
 
 from rasm.runtime.identity import ContentIdentity, ContentKey
 
-lazy from lxml import etree  # the tree -> HTML/`_Element` lowering builder; cold, deferred to first `to_html`/`to_lxml_tree`
+lazy from lxml import etree
 
 if TYPE_CHECKING:
     from lxml.etree import _Element
@@ -62,7 +64,7 @@ class BlockKind(StrEnum):
     QUOTE = "quote"
     CODE = "code"
     CAPTION = "caption"
-    ARTIFACT = "artifact"  # decorative content -> Typst `pdf.artifact`, excluded from the tag tree
+    ARTIFACT = "artifact"
 
 
 class ListKind(StrEnum):
@@ -78,9 +80,9 @@ class RunScript(StrEnum):
 
 
 class TextDirection(StrEnum):
-    AUTO = "auto"  # shaper resolves the base level from content (`bidi.get_base_level` → 0/1)
+    AUTO = "auto"
     LTR = "ltr"
-    RTL = "rtl"  # the `bidi.get_display(base_dir="R")` paragraph the shaper reorders
+    RTL = "rtl"
 
 
 class TextDecoration(StrEnum):
@@ -89,19 +91,14 @@ class TextDecoration(StrEnum):
     OVERLINE = "overline"
 
 
-class FieldKind(StrEnum):
-    TEXT = "text"
-    CHECKBOX = "checkbox"
-    CHOICE = "choice"
-    SIGNATURE = "signature"
-    BUTTON = "button"
-
-
-class FieldFlag(StrEnum):
-    REQUIRED = "required"
-    READONLY = "readonly"
+class TextMode(StrEnum):
+    SINGLE = "single"
     MULTILINE = "multiline"
     PASSWORD = "password"
+
+
+class ModelFault(StrEnum):
+    DECODE = "decode"
 
 
 class AnnotKind(StrEnum):
@@ -113,7 +110,7 @@ class AnnotKind(StrEnum):
 
 
 class StructEltKind(StrEnum):
-    DOCUMENT = "Document"  # grouping
+    DOCUMENT = "Document"
     PART = "Part"
     ART = "Art"
     SECT = "Sect"
@@ -121,44 +118,44 @@ class StructEltKind(StrEnum):
     TOC = "TOC"
     TOCI = "TOCI"
     INDEX = "Index"
-    NONSTRUCT = "NonStruct"  # grouping with no inherent structure (PDF/UA generic container)
-    PRIVATE = "Private"  # producer-private content outside the logical structure tree
-    H1 = "H1"  # headings
+    NONSTRUCT = "NonStruct"
+    PRIVATE = "Private"
+    H1 = "H1"
     H2 = "H2"
     H3 = "H3"
     H4 = "H4"
     H5 = "H5"
     H6 = "H6"
-    P = "P"  # block-level
+    P = "P"
     BLOCKQUOTE = "BlockQuote"
     NOTE = "Note"
     BIBENTRY = "BibEntry"
     CODE = "Code"
     CAPTION = "Caption"
-    SPAN = "Span"  # inline-level
+    SPAN = "Span"
     QUOTE = "Quote"
     LINK = "Link"
     REFERENCE = "Reference"
     ANNOT = "Annot"
-    RUBY = "Ruby"  # East-Asian ruby (furigana) assembly over its RB/RT/RP parts
-    RB = "RB"  # ruby base text
-    RT = "RT"  # ruby annotation text
-    RP = "RP"  # ruby punctuation (fallback delimiters)
-    WARICHU = "Warichu"  # East-Asian inline warichu assembly over its WT/WP parts
-    WT = "WT"  # warichu text
-    WP = "WP"  # warichu punctuation
-    L = "L"  # list grouping
+    RUBY = "Ruby"
+    RB = "RB"
+    RT = "RT"
+    RP = "RP"
+    WARICHU = "Warichu"
+    WT = "WT"
+    WP = "WP"
+    L = "L"
     LI = "LI"
     LBL = "Lbl"
     LBODY = "LBody"
-    TABLE = "Table"  # table grouping
+    TABLE = "Table"
     THEAD = "THead"
     TBODY = "TBody"
     TFOOT = "TFoot"
     TR = "TR"
     TH = "TH"
     TD = "TD"
-    FIGURE = "Figure"  # illustration
+    FIGURE = "Figure"
     FORMULA = "Formula"
     FORM = "Form"
 
@@ -193,13 +190,22 @@ class CorpusView(StrEnum):
 # --- [BOUNDARIES] -----------------------------------------------------------------------
 
 type ForeignRoleStr = Annotated[str, Meta(min_length=1, max_length=64, pattern=r"\A[A-Za-z][\w.\-]*\Z")]
+type ReferencePart = Annotated[str, Meta(min_length=1, max_length=64, pattern=r"\A[A-Za-z0-9][\w .\-]*\Z")]  # `cite()` interpolates into LaTeX labels, Typst links, and markdown anchors, so admission excludes every markup-special character
+type FieldName = Annotated[str, Meta(min_length=1, max_length=256)]
+type ChoiceOptions = Annotated[tuple[str, ...], Meta(min_length=1)]
 type AltText = Annotated[str, Meta(max_length=2048)]
 type LangTag = Annotated[str, Meta(min_length=2, max_length=35, pattern=r"\A[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*\Z")]
 type MediaType = Annotated[str, Meta(min_length=3, max_length=127, pattern=r"\A[\w.+-]+/[\w.+-]+\Z")]
+type NonnegativeInt = Annotated[int, Meta(ge=0)]
+type PositiveInt = Annotated[int, Meta(ge=1)]
+type HeadingLevel = Annotated[int, Meta(ge=1, le=6)]
+type PositiveFloat = Annotated[float, Meta(gt=0)]
+type FontWeight = Annotated[int, Meta(ge=1, le=1000)]
+type RgbChannel = Annotated[int, Meta(ge=0, le=255)]
 type ClassificationCode = Annotated[
     str, Meta(min_length=1, max_length=32, pattern=r"\A[A-Za-z0-9][\w .\-]*\Z")
-]  # CSI/OmniClass notation `classify#CLASSIFY` renders/parses
-type Rgb = tuple[int, int, int]
+]
+type Rgb = tuple[RgbChannel, RgbChannel, RgbChannel]
 type Rect = tuple[float, float, float, float]
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -208,13 +214,13 @@ type Rect = tuple[float, float, float, float]
 class NodeMeta(Struct, frozen=True, omit_defaults=True):
     key: ContentKey
     role: str
-    page: int
+    page: NonnegativeInt
     bounds: Rect | None = None
-    lang: LangTag | UnsetType = UNSET  # PDF/UA `/Lang` BCP-47 tag; absent under `omit_defaults`
-    actual_text: str | UnsetType = UNSET  # PDF/UA `/ActualText` replacement for non-textual glyphs
-    classification: ClassificationCode | UnsetType = (
-        UNSET  # CSI/OmniClass code the `specification/classify#CLASSIFY` resolver keys the drawing<->spec cross-reference on
-    )
+    lang: LangTag | UnsetType = UNSET
+    actual_text: str | UnsetType = UNSET
+    expansion: str | UnsetType = UNSET
+    associated: tuple[ContentKey, ...] = ()
+    classification: ClassificationCode | UnsetType = UNSET
 
 
 class StandardRole(Struct, frozen=True, tag="standard", tag_field="role_kind"):
@@ -233,21 +239,33 @@ class Uri(Struct, frozen=True, tag="uri", tag_field="target"):
 
 
 class Dest(Struct, frozen=True, tag="dest", tag_field="target"):
-    page: int
+    page: NonnegativeInt
     point: tuple[float, float] | None = None
 
 
+class DetailCitation(Struct, frozen=True, tag="detail", tag_field="citation"):
+    sheet: ReferencePart
+    detail: ReferencePart
+
+
+class SectionCitation(Struct, frozen=True, tag="section", tag_field="citation"):
+    code: ClassificationCode
+
+
+type Citation = DetailCitation | SectionCitation
+
+
 class Xref(Struct, frozen=True, tag="xref", tag_field="target"):
-    # the AEC cross-reference target the drawing/detail#DETAIL callout and the specification keynote both cite:
-    # `detail`/`sheet` the `DetailRef.cite()` "3/A-501" detail-on-sheet coordinate, `code` the governing
-    # `specification/classify#CLASSIFY` `ClassCode.render()` section — so a drawing<->spec cross-reference
-    # resolves over the one tree, its cross-sheet target string resolved at `composition/imposition` assembly.
-    sheet: str = ""
-    detail: str = ""
-    code: str = ""
+    value: Citation
 
     def cite(self) -> str:
-        return f"{self.detail}/{self.sheet}" if self.detail and self.sheet else self.sheet or self.code
+        match self.value:
+            case DetailCitation(sheet=sheet, detail=detail):
+                return f"{detail}/{sheet}"
+            case SectionCitation(code=code):
+                return code
+            case _ as unreachable:
+                assert_never(unreachable)
 
 
 class NoTarget(Struct, frozen=True, tag="none", tag_field="target"):
@@ -255,6 +273,46 @@ class NoTarget(Struct, frozen=True, tag="none", tag_field="target"):
 
 
 type AnnotTarget = Uri | Dest | Xref | NoTarget
+
+
+class TextField(Struct, frozen=True, tag="text", tag_field="field"):
+    value: str = ""
+    mode: TextMode = TextMode.SINGLE
+    max_length: NonnegativeInt | None = None  # AcroForm /MaxLen; None = unbounded, and a negative bound never reaches HTML maxlength
+
+
+class CheckboxField(Struct, frozen=True, tag="checkbox", tag_field="field"):
+    checked: bool = False
+    export: str = "Yes"
+
+
+class RadioField(Struct, frozen=True, tag="radio", tag_field="field"):
+    options: ChoiceOptions
+    selected: str = ""
+
+
+class ComboField(Struct, frozen=True, tag="combo", tag_field="field"):
+    options: ChoiceOptions
+    selected: str = ""
+    editable: bool = False
+
+
+class ListField(Struct, frozen=True, tag="list", tag_field="field"):
+    options: ChoiceOptions
+    selected: tuple[str, ...] = ()
+
+
+class SignatureField(Struct, frozen=True, tag="signature", tag_field="field"):
+    signer: str = ""
+    reason: str = ""
+
+
+class ButtonField(Struct, frozen=True, tag="button", tag_field="field"):
+    label: str = ""
+    action: AnnotTarget = msgspec.field(default_factory=NoTarget)
+
+
+type FieldValue = TextField | CheckboxField | RadioField | ComboField | ListField | SignatureField | ButtonField
 
 
 class PageNode(Struct, frozen=True, tag=NodeKind.PAGE.value, tag_field="kind"):
@@ -265,7 +323,7 @@ class PageNode(Struct, frozen=True, tag=NodeKind.PAGE.value, tag_field="kind"):
 
 class SectionNode(Struct, frozen=True, tag=NodeKind.SECTION.value, tag_field="kind"):
     meta: NodeMeta
-    level: int
+    level: HeadingLevel
     heading: tuple[RunNode, ...] = ()
     children: tuple[DocumentNode, ...] = ()
 
@@ -273,7 +331,7 @@ class SectionNode(Struct, frozen=True, tag=NodeKind.SECTION.value, tag_field="ki
 class BlockNode(Struct, frozen=True, tag=NodeKind.BLOCK.value, tag_field="kind"):
     meta: NodeMeta
     block: BlockKind
-    level: int = 1
+    level: HeadingLevel = 1
     runs: tuple[RunNode, ...] = ()
     children: tuple[DocumentNode, ...] = ()
 
@@ -282,29 +340,32 @@ class RunNode(Struct, frozen=True, tag=NodeKind.RUN.value, tag_field="kind"):
     meta: NodeMeta
     text: str
     font_key: str
-    size: float
-    weight: int = 400
+    size: PositiveFloat
+    weight: FontWeight = 400
     italic: bool = False
     direction: TextDirection = TextDirection.AUTO
     script: RunScript = RunScript.NORMAL
     decorations: tuple[TextDecoration, ...] = ()
     color: Rgb = (0, 0, 0)
+    features: tuple[str, ...] = ()
+    letter_spacing: float = 0.0
 
 
 class ListNode(Struct, frozen=True, tag=NodeKind.LIST.value, tag_field="kind"):
     meta: NodeMeta
     list_kind: ListKind = ListKind.UNORDERED
-    start: int = 1  # `ORDERED` first ordinal -> Typst `#enum(start:)`
-    items: tuple[DocumentNode, ...] = ()  # one `LI` sub-tree per item
+    start: PositiveInt = 1
+    items: tuple[DocumentNode, ...] = ()
 
 
 class TableNode(Struct, frozen=True, tag=NodeKind.TABLE.value, tag_field="kind"):
     meta: NodeMeta
     rows: tuple[tuple[DocumentNode, ...], ...] = ()
-    spans: tuple[tuple[int, int, int, int], ...] = ()  # (row, present-cell index, col_span, row_span) merged-cell quads BOTH lowerings honor
-    header_rows: int = 0  # leading `THead` rows -> Typst `table.header(repeat: true)` + `Table.header`
-    footer_rows: int = 0  # trailing `TFoot` rows -> Typst `table.footer`
-    caption: tuple[RunNode, ...] = ()  # table title -> Typst `#figure(kind: table, caption:)` + HTML `<caption>`, the PDF/UA `Caption` child
+    spans: tuple[tuple[NonnegativeInt, NonnegativeInt, PositiveInt, PositiveInt], ...] = ()
+    header_rows: NonnegativeInt = 0
+    footer_rows: NonnegativeInt = 0
+    header_cols: NonnegativeInt = 0
+    caption: tuple[RunNode, ...] = ()
 
 
 class FigureNode(Struct, frozen=True, tag=NodeKind.FIGURE.value, tag_field="kind"):
@@ -312,26 +373,25 @@ class FigureNode(Struct, frozen=True, tag=NodeKind.FIGURE.value, tag_field="kind
     asset_key: ContentKey
     alt: AltText = ""
     media_type: MediaType = "image/png"
-    intrinsic: tuple[float, float] | None = None
+    intrinsic: tuple[PositiveFloat, PositiveFloat] | None = None
     caption: tuple[RunNode, ...] = ()
 
 
 class FormulaNode(Struct, frozen=True, tag=NodeKind.FORMULA.value, tag_field="kind"):
-    # the tree-resident equation the `FORMULA` `StructEltKind` role lowers, so a formula is source-addressable
-    # (journal manuscript egress + AEC `ziamath` SVG) rather than only a pre-rendered `FigureNode`.
     meta: NodeMeta
-    tex: str  # LaTeX math source `to_latex`/`to_markdown` emit verbatim, `ziamath` lowers to SVG; a TRUSTED authored math island, never markup-escaped
-    display: bool = False  # block/display math (`\[..\]`, `$$..$$`, Typst `#mitex`) vs inline (`$..$`, Typst `#mi`)
-    alt: AltText = ""  # the ISO 14289 `Formula` structure-element `/Alt` text equivalent the `folder:document/tagged#ACCESS` AUDIT verifies
+    tex: str
+    display: bool = False
+    alt: AltText = ""
+    mathml: str = ""
 
 
 class FieldNode(Struct, frozen=True, tag=NodeKind.FIELD.value, tag_field="kind"):
     meta: NodeMeta
-    name: str
-    field: FieldKind
-    value: str | bool | None = None
-    flags: tuple[FieldFlag, ...] = ()
-    options: tuple[str, ...] = ()  # `CHOICE` candidate values
+    name: FieldName
+    field: FieldValue
+    required: bool = False
+    readonly: bool = False
+    tooltip: str = ""  # AcroForm /TU alternate description — the accessibility label lens recovery preserves
 
 
 class AnnotationNode(Struct, frozen=True, tag=NodeKind.ANNOTATION.value, tag_field="kind"):
@@ -363,18 +423,18 @@ class CorpusRow(Struct, frozen=True):
     alt_status: AltStatus = AltStatus.NA
     lang: str = ""
     actual_text: str = ""
-    classification: str = ""  # the `NodeMeta.classification` CSI/OmniClass column the `classify#CLASSIFY` resolver queries
-    xref: str = ""  # the `AnnotationNode` `Xref.cite()` column the drawing<->spec cross-reference resolver reads
+    expansion: str = ""
+    classification: str = ""
+    xref: str = ""
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_ENCODER: Final = msgspec.msgpack.Encoder(order="deterministic")  # one deterministic codec for node, digest, and corpus
-_JSON_ENCODER: Final = msgspec.json.Encoder(
-    order="deterministic"
-)  # the structured-data (JSON-LD/JATS-adjacent) tree egress, the `to_json` interchange codec
+_ENCODER: Final = msgspec.msgpack.Encoder(order="deterministic")
+_JSON_ENCODER: Final = msgspec.json.Encoder(order="deterministic")
 _DOCUMENT_DECODER: Final = msgspec.msgpack.Decoder(DocumentNode)
-_CHILD_FIELDS: Final[frozenset[str]] = frozenset({"children", "heading", "runs", "items", "caption", "rows"})  # every `children`-projected field
+_NULL_KEY: Final = ContentKey(value=0, fmt="", byte_length=0)  # the blanked key leaf digest preimages carry in place of a live mint
+_CHILD_FIELDS: Final[frozenset[str]] = frozenset({"children", "heading", "runs", "items", "caption", "rows"})
 _TYPST_ESCAPE: Final[Map[TypstScope, dict[int, str]]] = Map.of_seq([
     (TypstScope.STRING, str.maketrans({"\\": "\\\\", '"': '\\"'})),
     (TypstScope.MARKUP, str.maketrans({c: f"\\{c}" for c in "\\[]#*_@$<>`"})),
@@ -395,17 +455,15 @@ _BLOCK_HTML: Final[Map[BlockKind, str]] = Map.of_seq([
     (BlockKind.QUOTE, "blockquote"),
     (BlockKind.CAPTION, "figcaption"),
     (BlockKind.ARTIFACT, "div"),
-])  # `HEADING` -> `h{level}` and `CODE` -> `pre`/`code` are arm-built; this table carries the flat one-tag block kinds
+])
 _LIST_HTML: Final[Map[ListKind, str]] = Map.of_seq([(ListKind.UNORDERED, "ul"), (ListKind.ORDERED, "ol"), (ListKind.DESCRIPTION, "dl")])
-# the plain-text manuscript spelling tables the `to_markdown`/`to_latex` lowerings read — the same
-# markup-table discipline `_TYPST_ESCAPE`/`_BLOCK_HTML` hold, one row per active char / decoration / depth.
 _MD_ESCAPE: Final[dict[int, str]] = str.maketrans({
     c: f"\\{c}" for c in "\\`*_[]<>|"
-})  # CommonMark inline-active set: neutralize emphasis/code/link/autolink/table-pipe, never mangle every hyphen/period
+})
 _MD_DECORATION: Final[Map[TextDecoration, tuple[str, str]]] = Map.of_seq([
-    (TextDecoration.UNDERLINE, ("<u>", "</u>")),  # GFM raw-HTML — CommonMark has no native underline
-    (TextDecoration.STRIKETHROUGH, ("~~", "~~")),  # GFM strikethrough
-    (TextDecoration.OVERLINE, ('<span style="text-decoration:overline">', "</span>")),  # GFM raw-HTML — no native overline
+    (TextDecoration.UNDERLINE, ("<u>", "</u>")),
+    (TextDecoration.STRIKETHROUGH, ("~~", "~~")),
+    (TextDecoration.OVERLINE, ('<span style="text-decoration:overline">', "</span>")),
 ])
 _LATEX_ESCAPE: Final[dict[int, str]] = str.maketrans({
     "\\": "\\textbackslash{}",
@@ -418,7 +476,7 @@ _LATEX_ESCAPE: Final[dict[int, str]] = str.maketrans({
     "_": "\\_",
     "{": "\\{",
     "}": "\\}",
-})  # the ten LaTeX-active characters — the three control-word forms plus the seven single-backslash escapes
+})
 _LATEX_SECTION: Final[Map[int, str]] = Map.of_seq([
     (1, "section"),
     (2, "subsection"),
@@ -431,13 +489,32 @@ _LATEX_DECORATION: Final[Map[TextDecoration, str]] = Map.of_seq([
     (TextDecoration.UNDERLINE, "uline"),
     (TextDecoration.STRIKETHROUGH, "sout"),
     (TextDecoration.OVERLINE, "overline"),
-])  # the `document/emit#DOCUMENT LATEX` preamble carries `ulem` (uline/sout) and a math-mode overline; the emit arm declares the package set
+])
+_MASKED: Final = "••••••"  # the one redaction marker a PASSWORD field projects; the secret value never reaches any text egress
+# Link-safety owner every actionable backend reads: `_SAFE_SCHEMES` is the explicit scheme allowlist, `_MD_HREF`
+# percent-encodes the markdown destination's structural characters, `_LATEX_HREF` escapes the `\href` URL argument.
+_SAFE_SCHEMES: Final[frozenset[str]] = frozenset({"http", "https", "mailto", "tel", "ftp", "ftps"})
+_MD_HREF: Final[dict[int, str]] = str.maketrans({"<": "%3C", ">": "%3E", "(": "%28", ")": "%29", " ": "%20", "\n": "%0A"})
+_LATEX_HREF: Final[dict[int, str]] = str.maketrans({"\\": "\\\\", "%": "\\%", "#": "\\#", "{": "\\{", "}": "\\}"})
+# MathML Core presentation element set — `annotation-xml` (the HTML-island injection vector) and `maction`
+# (actiontype/href) are deliberately absent, so a hostile island can never append into the HTML tree.
+_MATHML: Final[frozenset[str]] = frozenset({
+    "math", "mrow", "mi", "mn", "mo", "ms", "mtext", "mspace", "msqrt", "mroot", "mfrac", "mstyle", "merror",
+    "mpadded", "mphantom", "menclose", "msub", "msup", "msubsup", "munder", "mover", "munderover",
+    "mmultiscripts", "mprescripts", "none", "mtable", "mtr", "mtd", "mlabeledtr", "mglyph", "semantics", "annotation",
+})
+
+
+def _actionable(href: str) -> bool:
+    # Scheme allowlist over the RFC 3986 scheme cut: a scheme-less relative reference stays actionable, and an
+    # explicit scheme outside `_SAFE_SCHEMES` (javascript:, vbscript:, data:, file:) demotes the link to inert
+    # text at EVERY backend — HTML, Typst, Markdown, and LaTeX all read this one gate, never a per-arm re-check.
+    head, sep, _ = href.partition(":")
+    return not sep or any(mark in head for mark in "/?#") or head.lower() in _SAFE_SCHEMES
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# The ONE primary correspondence: role -> (category, heading_level). The FIRST row of each category
-# is its canonical role, so `_STANDARD_FOR` derives by first-wins inversion rather than a parallel literal.
-_STRUCT_CATEGORY: Final[Map[StructEltKind, tuple[StructCategory, int]]] = Map.of_seq([
+_STRUCT_CATEGORY: Final[frozendict[StructEltKind, tuple[StructCategory, int]]] = frozendict([
     (StructEltKind.SECT, (StructCategory.GROUPING, 0)),
     (StructEltKind.DOCUMENT, (StructCategory.GROUPING, 0)),
     (StructEltKind.PART, (StructCategory.GROUPING, 0)),
@@ -490,10 +567,8 @@ _STRUCT_CATEGORY: Final[Map[StructEltKind, tuple[StructCategory, int]]] = Map.of
 _FOREIGN_CATEGORY: Final[tuple[StructCategory, int]] = (
     StructCategory.GROUPING,
     0,
-)  # an unknown role maps to a neutral grouping, never a figure carrying mandatory alt
-# DERIVED secondary: category -> its canonical standard role (the `/RoleMap` target the tagged owner reads),
-# first-wins inversion of `_STRUCT_CATEGORY` so the canonical is the first-declared role of each category.
-_STANDARD_FOR: Final[Map[StructCategory, StructEltKind]] = Map.of_seq(
+)
+_STANDARD_FOR: Final[frozendict[StructCategory, StructEltKind]] = frozendict(
     (category, elt) for elt, (category, _level) in reversed(tuple(_STRUCT_CATEGORY.items()))
 )
 
@@ -520,31 +595,37 @@ def children(node: DocumentNode) -> tuple[DocumentNode, ...]:
             assert_never(unreachable)
 
 
-def walk(node: DocumentNode) -> Iterator[DocumentNode]:
+def walk(node: DocumentNode, *, prune: tuple[type, ...] = ()) -> Iterator[DocumentNode]:
     stack = Block.singleton(node)
-    while not stack.is_empty():  # Exemption: iterative pre-order frontier — native recursion overflows on an adversarial-depth tree
+    while not stack.is_empty():
         head, stack = stack.head(), stack.tail()
         yield head
-        stack = Block.of_seq(children(head)).append(stack)  # children before siblings keeps document order
+        if not isinstance(head, prune):
+            stack = Block.of_seq(children(head)).append(stack)
+
+
+def _keyable(node: DocumentNode, /) -> DocumentNode:
+    # digest preimage blanks the node's OWN key leaf — identity derives from content, never a prior mint.
+    return msgspec.structs.replace(node, meta=msgspec.structs.replace(node.meta, key=_NULL_KEY))
 
 
 def _own_bytes(node: DocumentNode, /) -> bytes:
-    return _ENCODER.encode(msgspec.structs.replace(node, **{name: () for name in node.__struct_fields__ if name in _CHILD_FIELDS}))
+    # deterministic JSON is the digest codec: msgpack cannot integer-encode the live u128 `ContentKey.value`
+    # a sub-payload cell's meta carries, while JSON carries bignums natively under the same field order.
+    return _JSON_ENCODER.encode(msgspec.structs.replace(_keyable(node), **{name: () for name in node.__struct_fields__ if name in _CHILD_FIELDS}))
 
 
 def node_digest(node: DocumentNode) -> ContentKey:
-    # depth-safe expand/combine frontier: a leaf keys its encoded bytes, a branch keys (own, *child keys)
-    # in document order; the two immutable stacks replace the native recursion an adversarial tree overflows.
-    frontier: Block[tuple[bool, DocumentNode]] = Block.singleton((False, node))  # (combine?, node)
+    frontier: Block[tuple[bool, DocumentNode]] = Block.singleton((False, node))
     results: Block[ContentKey] = Block.empty()
-    while not frontier.is_empty():  # Exemption: depth-safe digest frontier over the recursive node tree
+    while not frontier.is_empty():
         (combine, current), frontier = frontier.head(), frontier.tail()
         kids = children(current)
         if not kids:
-            results = results.cons(ContentIdentity.of(current.meta.key.fmt, _ENCODER.encode(current)))
-        elif combine:  # the reversed child push above resolves the kids onto `results` head in document order
-            own = ContentIdentity.of(current.meta.key.fmt, _own_bytes(current))
-            results = results.skip(len(kids)).cons(ContentIdentity.of(current.meta.key.fmt, (own, *results.take(len(kids)))))
+            results = results.cons(ContentIdentity.key(current.meta.key.fmt, _JSON_ENCODER.encode(_keyable(current))))
+        elif combine:
+            own = ContentIdentity.key(current.meta.key.fmt, _own_bytes(current))
+            results = results.skip(len(kids)).cons(ContentIdentity.key(current.meta.key.fmt, (own, *tuple(results.take(len(kids)))[::-1])))
         else:
             frontier = Block.of_seq((False, kid) for kid in reversed(kids)).append(frontier.cons((True, current)))
     return results.head()
@@ -591,8 +672,6 @@ def alt_of(node: DocumentNode) -> tuple[AltText, AltStatus]:
 
 
 def _link_cite(node: DocumentNode) -> str:
-    # the `AnnotationNode` `Xref` citation projected to the corpus `xref` column so the drawing<->spec
-    # cross-reference resolver reads a column predicate over the corpus, exactly as the audit reads `alt_status`.
     match node:
         case AnnotationNode(link=Xref() as xref):
             return xref.cite()
@@ -613,11 +692,14 @@ def to_corpus(node: DocumentNode, view: CorpusView = CorpusView.STRUCT, /) -> Co
         kind=NodeKind(node.__struct_config__.tag),
         role=role_of(node),
         page=node.meta.page,
-        text="".join(run.text for run in walk(node) if isinstance(run, RunNode)),
+        text="".join(
+            live.text if isinstance(live, RunNode) else field_text(live.field) if isinstance(live, FieldNode) else "" for live in walk(node)
+        ),
         alt=alt,
         alt_status=status,
         lang="" if isinstance(node.meta.lang, UnsetType) else node.meta.lang,
         actual_text="" if isinstance(node.meta.actual_text, UnsetType) else node.meta.actual_text,
+        expansion="" if isinstance(node.meta.expansion, UnsetType) else node.meta.expansion,
         classification="" if isinstance(node.meta.classification, UnsetType) else node.meta.classification,
         xref=_link_cite(node),
     )
@@ -626,17 +708,13 @@ def to_corpus(node: DocumentNode, view: CorpusView = CorpusView.STRUCT, /) -> Co
             return row
         case CorpusView.BYTES:
             return _ENCODER.encode(row)
-        case CorpusView.RECORD:  # `from_pylist` rejects a `Struct`; the producer owns the flat-record projection
+        case CorpusView.RECORD:
             return msgspec.to_builtins(row)
         case _ as unreachable:
             assert_never(unreachable)
 
 
 def to_typst_source(node: DocumentNode, *, title: str | None = None) -> str:
-    # `title` prepends the escaped `#set document(title: "..")` set-rule the `document/emit#DOCUMENT` PDF/UA
-    # variants require (a `ua-1` render hard-errors `missing document title` without it); the STRING-context
-    # `_typst` escaper owns the quoting, so the emit seam composes this rather than a hand-rolled `.replace`.
-    # The recursion routes through the default-`title=None` path, so the set-rule lands ONCE at the root.
     prelude = f'#set document(title: "{_typst(title, TypstScope.STRING)}")\n' if title is not None else ""
     return prelude + _typst_body(node)
 
@@ -648,13 +726,13 @@ def _typst_body(node: DocumentNode) -> str:
         case BlockNode(block=BlockKind.HEADING, level=level, runs=runs):
             return _heading(level, runs)
         case BlockNode(block=BlockKind.ARTIFACT, runs=runs, children=kids):
-            return f"#pdf.artifact[{_runs(runs)}{''.join(to_typst_source(child) for child in kids)}]\n"
+            return f"#pdf.artifact[{_runs(runs)}{''.join(_typst_body(child) for child in kids)}]\n"
         case BlockNode(block=BlockKind.QUOTE, runs=runs, children=kids):
-            return f"#quote(block: true)[{_runs(runs)}{''.join(to_typst_source(child) for child in kids)}]\n"
+            return f"#quote(block: true)[{_runs(runs)}{''.join(_typst_body(child) for child in kids)}]\n"
         case BlockNode(block=BlockKind.CODE, runs=runs):
             return f'#raw("{_typst("".join(run.text for run in runs), TypstScope.STRING)}", block: true)\n'
         case BlockNode(runs=runs, children=kids):
-            return _runs(runs) + "".join(to_typst_source(child) for child in kids) + "\n"
+            return _runs(runs) + "".join(_typst_body(child) for child in kids) + "\n"
         case ListNode(list_kind=ListKind.DESCRIPTION, items=items):
             return f"#terms({', '.join(_term_pair(item) for item in items)})\n"
         case ListNode(list_kind=ListKind.ORDERED, start=start, items=items):
@@ -662,11 +740,11 @@ def _typst_body(node: DocumentNode) -> str:
         case ListNode(list_kind=kind, items=items):
             return f"#{_LIST_MARKUP[kind]}({_items(items)})\n"
         case SectionNode(level=level, heading=head, children=kids):
-            return _heading(level, head) + "".join(to_typst_source(child) for child in kids)
+            return _heading(level, head) + "".join(_typst_body(child) for child in kids)
         case PageNode(children=kids):
-            return "".join(to_typst_source(child) for child in kids) + "#pagebreak()\n"
+            return "".join(_typst_body(child) for child in kids) + "#pagebreak()\n"
         case StructureNode(children=kids):
-            return "".join(to_typst_source(child) for child in kids)
+            return "".join(_typst_body(child) for child in kids)
         case TableNode(rows=rows, spans=spans, header_rows=head_n, footer_rows=foot_n, caption=caption):
             span_map, body_end = _span_map(spans), len(rows) - foot_n
             bands = (
@@ -679,20 +757,21 @@ def _typst_body(node: DocumentNode) -> str:
         case FigureNode(asset_key=asset_key, alt=alt, caption=caption):
             return f"#figure({_image(asset_key, alt)}, caption: [{_runs(caption)}])\n"
         case FormulaNode(tex=tex, display=display):
-            # the LaTeX source rides Typst's `mitex` LaTeX-math bridge (the `@preview` registry package the
-            # `document/emit#DOCUMENT` Typst preamble imports as `#import "@preview/mitex": mi, mitex`, resolved
-            # through the typst compiler's package cache) — `#mitex` for a display block, `#mi` inline; the tex is
-            # STRING-escaped so a `\`/`"` survives the Typst string literal into the LaTeX the bridge parses.
             return f'#mitex("{_typst(tex, TypstScope.STRING)}")\n' if display else f'#mi("{_typst(tex, TypstScope.STRING)}")'
         case AnnotationNode(annot=AnnotKind.LINK, contents=text, link=Uri(href=href)):
-            return f'#link("{_typst(href, TypstScope.STRING)}")[{_typst(text, TypstScope.MARKUP)}]'
+            return f'#link("{_typst(href, TypstScope.STRING)}")[{_typst(text, TypstScope.MARKUP)}]' if _actionable(href) else _typst(text, TypstScope.MARKUP)
         case AnnotationNode(annot=AnnotKind.LINK, contents=text, link=Dest(page=page, point=point)):
             x, y = point if point else (0.0, 0.0)
             return f"#link((page: {page + 1}, x: {x}pt, y: {y}pt))[{_typst(text, TypstScope.MARKUP)}]"
         case AnnotationNode(annot=AnnotKind.LINK, contents=text, link=Xref() as xref):
-            # the cross-sheet citation is a destination string `composition/imposition` sheet-set assembly resolves — never a `label()` this compilation carries
             return f'#link("{_typst(xref.cite(), TypstScope.STRING)}")[{_typst(text, TypstScope.MARKUP)}]'
-        case FieldNode() | AnnotationNode():
+        case AnnotationNode(annot=AnnotKind.NOTE, contents=text) if text:
+            return f"#footnote[{_typst(text, TypstScope.MARKUP)}]"
+        case AnnotationNode(annot=AnnotKind.HIGHLIGHT, contents=text) if text:
+            return f"#highlight[{_typst(text, TypstScope.MARKUP)}]"
+        case FieldNode(field=field):
+            return _typst(field_text(field), TypstScope.MARKUP)
+        case AnnotationNode():
             return ""
         case _ as unreachable:
             assert_never(unreachable)
@@ -702,8 +781,8 @@ def encode(node: DocumentNode) -> bytes:
     return _ENCODER.encode(node)
 
 
-def decode(payload: bytes) -> DocumentNode:
-    return _DOCUMENT_DECODER.decode(payload)
+def decode(payload: bytes) -> Result[DocumentNode, ModelFault]:
+    return catch(exception=msgspec.DecodeError)(_DOCUMENT_DECODER.decode)(payload).map_error(lambda _raised: ModelFault.DECODE)
 
 
 def _styled(run: RunNode) -> str:
@@ -723,7 +802,7 @@ def _typst(value: str, scope: TypstScope) -> str:
 
 
 def _items(items: tuple[DocumentNode, ...]) -> str:
-    return ", ".join(f"[{to_typst_source(item).strip()}]" for item in items)
+    return ", ".join(f"[{_typst_body(item).strip()}]" for item in items)
 
 
 def _span_map(spans: tuple[tuple[int, int, int, int], ...]) -> frozendict[tuple[int, int], tuple[int, int]]:
@@ -731,12 +810,11 @@ def _span_map(spans: tuple[tuple[int, int, int, int], ...]) -> frozendict[tuple[
 
 
 def _column_count(rows: tuple[tuple[DocumentNode, ...], ...], span_map: frozendict[tuple[int, int], tuple[int, int]]) -> int:
-    # grid width folds row 0's per-cell colspans (a top-row cell is never covered from above), so a merged header spans correctly
     return sum(span_map.get((0, col), (1, 1))[0] for col in range(len(rows[0]))) if rows else 0
 
 
 def _cells(rows: tuple[tuple[DocumentNode, ...], ...], span_map: frozendict[tuple[int, int], tuple[int, int]], base: int) -> str:
-    return ", ".join(_cell_markup(to_typst_source(cell), span_map.get((base + r, c))) for r, row in enumerate(rows) for c, cell in enumerate(row))
+    return ", ".join(_cell_markup(_typst_body(cell), span_map.get((base + r, c))) for r, row in enumerate(rows) for c, cell in enumerate(row))
 
 
 def _cell_markup(content: str, span: tuple[int, int] | None) -> str:
@@ -750,8 +828,8 @@ def _cell_markup(content: str, span: tuple[int, int] | None) -> str:
 
 def _term_pair(item: DocumentNode) -> str:
     kids = children(item)
-    term = to_typst_source(kids[0]).strip() if kids else to_typst_source(item).strip()
-    body = "".join(to_typst_source(child) for child in kids[1:]).strip()
+    term = _typst_body(kids[0]).strip() if kids else _typst_body(item).strip()
+    body = "".join(_typst_body(child) for child in kids[1:]).strip()
     return f"terms.item([{term}], [{body}])"
 
 
@@ -759,8 +837,8 @@ def _runs(runs: tuple[RunNode, ...]) -> str:
     return "".join(_styled(run) for run in runs)
 
 
-def _heading(level: int, runs: tuple[RunNode, ...]) -> str:
-    return f"{'=' * min(max(level, 1), 6)} {_runs(runs)}\n"
+def _heading(level: HeadingLevel, runs: tuple[RunNode, ...]) -> str:
+    return f"{'=' * level} {_runs(runs)}\n"
 
 
 def _image(asset_key: ContentKey, alt: AltText) -> str:
@@ -770,47 +848,42 @@ def _image(asset_key: ContentKey, alt: AltText) -> str:
 
 
 def to_html(node: DocumentNode) -> str:
-    # the tree -> HTML lowering the `document/emit#DOCUMENT PDF_HTML` weasyprint arm consumes; serialized
-    # from the one escape-safe `_element` builder so a run carrying `<`/`&`/`"` produces valid markup,
-    # never an f-string splice the TEMPLATE-SAFETY law rejects.
     return etree.tostring(_element(node), method="html", encoding="unicode")
 
 
 def to_lxml_tree(node: DocumentNode) -> "_Element":
-    # the tree -> lxml `_Element` lowering the `XML`/`XML_TRANSFORM`/`XML_VALIDATE`/`XML_QUERY` arms fold
-    # through `etree.tostring`/`XSLT`/`XPath`; one builder serves both HTML and the XML object tree.
     return _element(node)
 
 
 def to_c14n(node: DocumentNode) -> bytes:
-    # the deterministic canonical-XML (Canonical XML 2.0) egress the journal/archival JATS-adjacent structured
-    # interchange consumes: `method="c14n2"` fixes attribute order, namespace prefixes, and whitespace so two
-    # structurally-identical trees serialize byte-identically, the archival counterpart to the `method="html"`
-    # `to_html` presentation lowering the same `_element` builder feeds — a stable content key over the XML form.
     return etree.tostring(_element(node), method="c14n2")
 
 
 def to_json(node: DocumentNode) -> bytes:
-    # the structured-data interchange egress: the whole recursive tagged-union tree lowered to deterministic JSON
-    # the JSON-LD/JATS-adjacent structured lowering, distinct from the msgpack `encode`/`to_corpus(BYTES)` byte forms.
     return _JSON_ENCODER.encode(node)
 
 
+def json_schema() -> dict[str, object]:
+    return msgspec.json.schema(DocumentNode)
+
+
 def _wrapped(inner: "_Element", tag: str) -> "_Element":
-    outer = etree.Element(tag)  # Exemption: the `lxml.etree` element builder is the platform-forced markup seam the template-safety law mandates
+    outer = etree.Element(tag)
     outer.append(inner)
     return outer
 
 
 def _run_element(run: RunNode) -> "_Element":
     inner = etree.Element("span")
-    inner.text = run.text  # lxml escapes on serialize; never an f-string interpolation into markup
+    inner.text = run.text
     decoration = " ".join(_DECORATION_CSS[deco] for deco in run.decorations)
     style = "; ".join(
         part
         for part in (
             f"color:rgb({run.color[0]},{run.color[1]},{run.color[2]})" if run.color != (0, 0, 0) else "",
             f"text-decoration:{decoration}" if decoration else "",
+            f"letter-spacing:{run.letter_spacing}pt" if run.letter_spacing else "",
+            "font-feature-settings:" + ", ".join(f'"{tag}"' for tag in run.features) if run.features else "",
         )
         if part
     )
@@ -827,11 +900,123 @@ def _run_element(run: RunNode) -> "_Element":
 
 
 def _filled(element: "_Element", runs: tuple[RunNode, ...], kids: tuple[DocumentNode, ...] = ()) -> "_Element":
-    for run in runs:  # Exemption: lxml element assembly is the platform markup builder, escape-safe by construction
+    for run in runs:
         element.append(_run_element(run))
     for kid in kids:
         element.append(_element(kid))
     return element
+
+
+def field_text(value: FieldValue, /) -> str:
+    match value:
+        case TextField(mode=TextMode.PASSWORD):
+            return _MASKED  # a password value is non-exportable — every corpus/Typst/Markdown/LaTeX projection reads the marker
+        case TextField(value=text):
+            return text
+        case CheckboxField(checked=True, export=export):
+            return export
+        case CheckboxField():
+            return ""
+        case RadioField(selected=selected) | ComboField(selected=selected):
+            return selected
+        case ListField(selected=selected):
+            return ", ".join(selected)
+        case SignatureField(signer=signer, reason=reason):
+            return signer or reason
+        case ButtonField(label=label):
+            return label
+        case _ as unreachable:
+            assert_never(unreachable)
+
+
+def _field_element(node: FieldNode, /) -> "_Element":
+    match node.field:
+        case TextField(value=value, mode=TextMode.MULTILINE, max_length=bound):
+            control, root = etree.Element("textarea"), None
+            control.text = value
+            if bound is not None:
+                control.set("maxlength", str(bound))
+        case TextField(value=value, mode=mode, max_length=bound):
+            control, root = etree.Element("input"), None
+            control.set("type", "password" if mode is TextMode.PASSWORD else "text")
+            if mode is not TextMode.PASSWORD:  # the secret never lands in markup; the control stays an empty password input
+                control.set("value", value)
+            if bound is not None:
+                control.set("maxlength", str(bound))
+        case CheckboxField(checked=checked, export=export):
+            control, root = etree.Element("input"), None
+            control.set("type", "checkbox")
+            control.set("value", export)
+            if checked:
+                control.set("checked", "checked")
+        case RadioField(options=options, selected=selected):
+            control = etree.Element("fieldset")
+            root = control
+            etree.SubElement(control, "legend").text = node.name
+            for option in options:
+                label = etree.SubElement(control, "label")
+                choice = etree.SubElement(label, "input", type="radio", name=node.name, value=option)
+                if option == selected:
+                    choice.set("checked", "checked")
+                choice.tail = option
+        case ComboField(options=options, selected=selected, editable=True):
+            root = etree.Element("span")
+            control = etree.SubElement(root, "input", type="text", value=selected, list=f"{node.name}-options")
+            choices = etree.SubElement(root, "datalist", id=f"{node.name}-options")
+            for option in options:
+                etree.SubElement(choices, "option", value=option)
+        case ComboField(options=options, selected=selected):
+            control, root = etree.Element("select"), None
+            for option in options:
+                choice = etree.SubElement(control, "option", value=option)
+                choice.text = option
+                if option == selected:
+                    choice.set("selected", "selected")
+        case ListField(options=options, selected=selected):
+            control, root = etree.Element("select"), None
+            control.set("multiple", "multiple")
+            for option in options:
+                choice = etree.SubElement(control, "option", value=option)
+                choice.text = option
+                if option in selected:
+                    choice.set("selected", "selected")
+        case SignatureField(signer=signer, reason=reason):
+            control, root = etree.Element("input"), None
+            control.set("type", "text")
+            control.set("value", signer)
+            control.set("data-signature-reason", reason)
+        case ButtonField(label=label, action=action):
+            control, root = etree.Element("button"), None
+            control.set("type", "button")
+            control.text = label or node.name
+            match action:
+                case Uri(href=href) if _actionable(href):  # an unsafe scheme drops the action; the button body survives
+                    control.set("data-href", href)
+                case Uri():
+                    pass
+                case Dest(page=page):
+                    control.set("data-destination", f"page-{page + 1}")
+                case Xref() as xref:
+                    control.set("data-xref", xref.cite())
+                case NoTarget():
+                    pass
+                case _ as unreachable:
+                    assert_never(unreachable)
+        case _ as unreachable:
+            assert_never(unreachable)
+    control.set("name", node.name)
+    if node.required:
+        control.set("required", "required")
+    if node.readonly:
+        # Native policy attribute per control kind: `readonly` holds only on text entry; a checkbox, select,
+        # radio fieldset, or button disables — a fieldset `disabled` natively disables every contained input.
+        text_entry = control.tag == "textarea" or (control.tag == "input" and control.get("type") in ("text", "password"))
+        control.set("readonly" if text_entry else "disabled", "readonly" if text_entry else "disabled")
+        control.set("aria-readonly", "true")
+    if node.tooltip:  # AcroForm /TU projects as the visual tooltip and the accessible name
+        control.set("title", node.tooltip)
+        control.set("aria-label", node.tooltip)
+    return control if root is None else root
 
 
 def _element(node: DocumentNode) -> "_Element":
@@ -839,7 +1024,7 @@ def _element(node: DocumentNode) -> "_Element":
         case RunNode():
             return _run_element(node)
         case BlockNode(block=BlockKind.HEADING, level=level, runs=runs):
-            return _filled(etree.Element(f"h{min(max(level, 1), 6)}"), runs)
+            return _filled(etree.Element(f"h{level}"), runs)
         case BlockNode(block=BlockKind.CODE, runs=runs):
             pre = etree.Element("pre")
             etree.SubElement(pre, "code").text = "".join(run.text for run in runs)
@@ -857,7 +1042,7 @@ def _element(node: DocumentNode) -> "_Element":
             return ordered
         case SectionNode(level=level, heading=head, children=kids):
             section = _filled(etree.Element("section"), (), kids)
-            section.insert(0, _filled(etree.Element(f"h{min(max(level, 1), 6)}"), head))
+            section.insert(0, _filled(etree.Element(f"h{level}"), head))
             return section
         case PageNode(children=kids):
             page = _filled(etree.Element("div"), (), kids)
@@ -867,45 +1052,82 @@ def _element(node: DocumentNode) -> "_Element":
             structured = _filled(etree.Element("div"), (), kids)
             structured.set("role", role_of(node))
             return structured
-        case TableNode(rows=rows, spans=spans, header_rows=head_n, footer_rows=foot_n, caption=caption):
-            return _table_element(rows, head_n, foot_n, _span_map(spans), caption)
+        case TableNode(rows=rows, spans=spans, header_rows=head_n, footer_rows=foot_n, header_cols=head_c, caption=caption):
+            return _table_element(rows, head_n, foot_n, head_c, _span_map(spans), caption)
         case FigureNode(asset_key=asset_key, alt=alt, caption=caption):
             figure = etree.Element("figure")
             image = etree.SubElement(figure, "img")
             image.set("src", asset_key.hex)
-            image.set("alt", alt)  # the `AltStatus.ABSENT` empty string stays the audited fact, never invented
+            image.set("alt", alt)
             return _filled(figure, caption) if caption else figure
-        case FormulaNode(tex=tex, display=display, alt=alt):
-            math = etree.Element("div" if display else "span")  # MathJax/KaTeX-delimited LaTeX — the journal-web math convention
+        case FormulaNode(tex=tex, display=display, alt=alt, mathml=mathml):
+            math = etree.Element("div" if display else "span")
             math.set("class", "math display" if display else "math")
             math.set("role", "math")
             if alt:
-                math.set("aria-label", alt)  # the WCAG text equivalent for the `Formula` structure element
-            math.text = (
-                f"\\[{tex}\\]" if display else f"\\({tex}\\)"
-            )  # lxml escapes `<`/`&`/`"` on serialize; the LaTeX body is never an f-string markup splice
+                math.set("aria-label", alt)
+            if mathml and (island := _mathml(mathml)) is not None:
+                math.append(island)
+            else:
+                # a missing, malformed, or scrub-refused island falls back to the TeX text the serializer escapes
+                math.text = f"\\[{tex}\\]" if display else f"\\({tex}\\)"
             return math
         case AnnotationNode(annot=AnnotKind.LINK, contents=text, link=Uri(href=href)):
             return _anchor(href, text)
         case AnnotationNode(annot=AnnotKind.LINK, contents=text, link=Dest(page=page)):
             return _anchor(f"#page-{page + 1}", text)
         case AnnotationNode(annot=AnnotKind.LINK, contents=text, link=Xref() as xref):
-            return _anchor(f"#{xref.cite()}", text)  # the sheet-set cross-reference fragment the imposition assembly resolves
-        case FieldNode() | AnnotationNode():
-            return etree.Element("span")  # a non-link annotation or form field carries no inline HTML body
+            return _anchor(f"#{xref.cite()}", text)
+        case AnnotationNode(annot=AnnotKind.NOTE, contents=text) if text:
+            aside = etree.Element("aside")
+            aside.set("role", "doc-footnote")
+            aside.text = text
+            return aside
+        case AnnotationNode(annot=AnnotKind.HIGHLIGHT, contents=text) if text:
+            mark = etree.Element("mark")
+            mark.text = text
+            return mark
+        case FieldNode() as field:
+            return _field_element(field)
+        case AnnotationNode():
+            return etree.Element("span")
         case _ as unreachable:
             assert_never(unreachable)
 
 
+def _mathml(payload: str) -> "_Element | None":
+    # MathML admission: entity/network-hardened parse, then the `_MATHML` whitelist scrub — a comment, PI, or
+    # element outside the set drops with its subtree and script-capable attributes (on*, href, src) strip — so
+    # only presentation MathML ever appends into the HTML tree; a refused island returns None for the TeX fallback.
+    parser = etree.XMLParser(resolve_entities=False, huge_tree=False, no_network=True)
+    parsed = catch(exception=etree.XMLSyntaxError)(etree.fromstring)(payload, parser).default_value(None)
+    if parsed is None or not isinstance(parsed.tag, str) or etree.QName(parsed).localname != "math":
+        return None
+    for element in tuple(parsed.iter()):  # Exemption: whitelist scrub mutates the parsed island at the lxml provider seam
+        if not isinstance(element.tag, str) or etree.QName(element).localname not in _MATHML:
+            parent = element.getparent()
+            if parent is not None:
+                parent.remove(element)
+            continue
+        for name in tuple(element.attrib):
+            local = etree.QName(name).localname.lower()
+            if local.startswith("on") or local in ("href", "src"):
+                del element.attrib[name]
+    return parsed
+
+
 def _anchor(href: str, text: str) -> "_Element":
-    anchor = etree.Element("a")
-    anchor.set("href", href)
+    # an unsafe scheme degrades to an inert span carrying the text — the link body survives, the actionability drops
+    live = _actionable(href)
+    anchor = etree.Element("a" if live else "span")
+    if live:
+        anchor.set("href", href)
     anchor.text = text
     return anchor
 
 
 def _filled_terms(dl: "_Element", items: tuple[DocumentNode, ...]) -> "_Element":
-    for item in items:  # one `<dt>`/`<dd>` pair per description item, the head child the term and the tail the body
+    for item in items:
         kids = children(item)
         etree.SubElement(dl, "dt").append(_element(kids[0]) if kids else _element(item))
         _filled(etree.SubElement(dl, "dd"), (), kids[1:])
@@ -916,11 +1138,12 @@ def _table_element(
     rows: tuple[tuple[DocumentNode, ...], ...],
     head_n: int,
     foot_n: int,
+    head_c: int,
     span_map: frozendict[tuple[int, int], tuple[int, int]],
     caption: tuple[RunNode, ...],
 ) -> "_Element":
     table = etree.Element("table")
-    if caption:  # the PDF/UA `Caption` element is the first child of `<table>`
+    if caption:
         _filled(etree.SubElement(table, "caption"), caption)
     body_end = len(rows) - foot_n
     bands = (("thead", rows[:head_n], "th", 0), ("tbody", rows[head_n:body_end], "td", head_n), ("tfoot", rows[body_end:], "td", body_end))
@@ -932,7 +1155,10 @@ def _table_element(
             line = etree.SubElement(band, "tr")
             for c, cell in enumerate(row):
                 span = span_map.get((base + r, c))
-                td = etree.SubElement(line, cell_tag)
+                header_cell = cell_tag == "th" or c < head_c
+                td = etree.SubElement(line, "th" if header_cell else "td")
+                if header_cell:
+                    td.set("scope", "col" if cell_tag == "th" else "row")
                 if span and span[0] != 1:
                     td.set("colspan", str(span[0]))
                 if span and span[1] != 1:
@@ -942,16 +1168,11 @@ def _table_element(
 
 
 def to_markdown(node: DocumentNode) -> str:
-    # the tree -> CommonMark/GFM manuscript lowering the `document/emit#DOCUMENT MARKDOWN` arm encodes: the
-    # plain-text diffable egress of the SAME bound tree the PDF/HTML/Typst arms lower, every interpolated
-    # `RunNode.text`/heading/caption escaped through the `_MD_ESCAPE` maketrans (trusted-node input, the same
-    # f-string-plus-escaper form `to_typst_source` holds) so a `*`/`_`/`[`/`|` never opens spurious markup,
-    # the super/sub/underline/overline/colour appearance carried as GFM raw HTML CommonMark cannot express.
     match node:
         case RunNode():
             return _md_styled(node)
         case BlockNode(block=BlockKind.HEADING, level=level, runs=runs):
-            return f"{'#' * min(max(level, 1), 6)} {_md_runs(runs)}\n\n"
+            return f"{'#' * level} {_md_runs(runs)}\n\n"
         case BlockNode(block=BlockKind.CODE, runs=runs):
             return f"```\n{''.join(run.text for run in runs)}\n```\n\n"
         case BlockNode(block=BlockKind.QUOTE, runs=runs, children=kids):
@@ -966,7 +1187,7 @@ def to_markdown(node: DocumentNode) -> str:
         case ListNode(items=items):
             return "".join(f"- {to_markdown(item).strip()}\n" for item in items) + "\n"
         case SectionNode(level=level, heading=head, children=kids):
-            return f"{'#' * min(max(level, 1), 6)} {_md_runs(head)}\n\n" + "".join(to_markdown(child) for child in kids)
+            return f"{'#' * level} {_md_runs(head)}\n\n" + "".join(to_markdown(child) for child in kids)
         case PageNode(children=kids):
             return "".join(to_markdown(child) for child in kids)
         case StructureNode(children=kids):
@@ -977,29 +1198,29 @@ def to_markdown(node: DocumentNode) -> str:
             figure = f"![{_md(alt)}]({asset_key.hex})\n"
             return f"{figure}\n{_md_runs(caption)}\n\n" if caption else f"{figure}\n"
         case FormulaNode(tex=tex, display=display):
-            return f"$$\n{tex}\n$$\n\n" if display else f"${tex}$"  # GFM/Pandoc math; the LaTeX island is verbatim, never `_md`-escaped
+            return f"$$\n{tex}\n$$\n\n" if display else f"${tex}$"
         case AnnotationNode(annot=AnnotKind.LINK, contents=text, link=Uri(href=href)):
-            return f"[{_md(text)}]({href})"
+            return f"[{_md(text)}]({href.translate(_MD_HREF)})" if _actionable(href) else _md(text)
         case AnnotationNode(annot=AnnotKind.LINK, contents=text, link=Dest(page=page)):
             return f"[{_md(text)}](#page-{page + 1})"
         case AnnotationNode(annot=AnnotKind.LINK, contents=text, link=Xref() as xref):
             return f"[{_md(text)}](#{xref.cite()})"
-        case FieldNode() | AnnotationNode():
+        case AnnotationNode(annot=AnnotKind.NOTE, contents=text) if text:
+            return f"^[{_md(text)}]"
+        case FieldNode(field=field):
+            return _md(field_text(field))
+        case AnnotationNode():
             return ""
         case _ as unreachable:
             assert_never(unreachable)
 
 
 def to_latex(node: DocumentNode) -> str:
-    # the tree -> LaTeX manuscript lowering the `document/emit#DOCUMENT LATEX` arm encodes: the journal-submission
-    # egress of the SAME bound tree, every interpolated `RunNode.text`/heading/caption escaped through the
-    # `_LATEX_ESCAPE` maketrans so a `&`/`%`/`$`/`_`/`#`/`{`/`}`/`~`/`^`/`\` never breaks the source, the section
-    # depth keyed by `_LATEX_SECTION` and the `hyperref`/`graphicx`/`ulem` control words the emit-side preamble carries.
     match node:
         case RunNode():
             return _latex_styled(node)
         case BlockNode(block=BlockKind.HEADING, level=level, runs=runs):
-            return f"\\{_LATEX_SECTION[min(max(level, 1), 6)]}{{{_latex_runs(runs)}}}\n\n"
+            return f"\\{_LATEX_SECTION[level]}{{{_latex_runs(runs)}}}\n\n"
         case BlockNode(block=BlockKind.CODE, runs=runs):
             return f"\\begin{{verbatim}}\n{''.join(run.text for run in runs)}\n\\end{{verbatim}}\n\n"
         case BlockNode(block=BlockKind.QUOTE, runs=runs, children=kids):
@@ -1014,7 +1235,7 @@ def to_latex(node: DocumentNode) -> str:
         case ListNode(items=items):
             return f"\\begin{{itemize}}\n{_latex_items(items)}\\end{{itemize}}\n\n"
         case SectionNode(level=level, heading=head, children=kids):
-            return f"\\{_LATEX_SECTION[min(max(level, 1), 6)]}{{{_latex_runs(head)}}}\n\n" + "".join(to_latex(child) for child in kids)
+            return f"\\{_LATEX_SECTION[level]}{{{_latex_runs(head)}}}\n\n" + "".join(to_latex(child) for child in kids)
         case PageNode(children=kids):
             return "".join(to_latex(child) for child in kids) + "\\clearpage\n"
         case StructureNode(children=kids):
@@ -1023,19 +1244,21 @@ def to_latex(node: DocumentNode) -> str:
             return _latex_table(rows, head_n, foot_n, _span_map(spans), caption)
         case FigureNode(asset_key=asset_key, alt=alt, caption=caption):
             cap = f"\\caption{{{_latex_runs(caption)}}}\n" if caption else ""
-            note = f"% alt: {_latex(alt)}\n" if alt else ""  # the alt equivalent rides a source comment — LaTeX carries no figure `alt` slot
+            note = f"% alt: {_latex(alt)}\n" if alt else ""
             return f"\\begin{{figure}}\n\\centering\n{note}\\includegraphics{{{asset_key.hex}}}\n{cap}\\end{{figure}}\n\n"
         case FormulaNode(tex=tex, display=display):
-            return (
-                f"\\[\n{tex}\n\\]\n\n" if display else f"${tex}$"
-            )  # native LaTeX math, the source verbatim (escaping the `tex` island would corrupt the math)
+            return f"\\[\n{tex}\n\\]\n\n" if display else f"${tex}$"
         case AnnotationNode(annot=AnnotKind.LINK, contents=text, link=Uri(href=href)):
-            return f"\\href{{{href}}}{{{_latex(text)}}}"
+            return f"\\href{{{href.translate(_LATEX_HREF)}}}{{{_latex(text)}}}" if _actionable(href) else _latex(text)
         case AnnotationNode(annot=AnnotKind.LINK, contents=text, link=Dest(page=page)):
             return f"\\hyperlink{{page-{page + 1}}}{{{_latex(text)}}}"
         case AnnotationNode(annot=AnnotKind.LINK, contents=text, link=Xref() as xref):
-            return f"\\hyperref[{xref.cite()}]{{{_latex(text)}}}"  # the sheet-set cross-reference the imposition assembly resolves
-        case FieldNode() | AnnotationNode():
+            return f"\\hyperref[{xref.cite()}]{{{_latex(text)}}}"
+        case AnnotationNode(annot=AnnotKind.NOTE, contents=text) if text:
+            return f"\\footnote{{{_latex(text)}}}"
+        case FieldNode(field=field):
+            return _latex(field_text(field))
+        case AnnotationNode():
             return ""
         case _ as unreachable:
             assert_never(unreachable)
@@ -1061,7 +1284,6 @@ def _md_runs(runs: tuple[RunNode, ...]) -> str:
 
 
 def _md_term(item: DocumentNode) -> str:
-    # the pandoc description-list spelling: a bold term line then a `: `-prefixed body the head/tail child split feeds
     kids = children(item)
     term = to_markdown(kids[0]).strip() if kids else to_markdown(item).strip()
     body = "".join(to_markdown(child) for child in kids[1:]).strip()
@@ -1069,9 +1291,6 @@ def _md_term(item: DocumentNode) -> str:
 
 
 def _md_table(rows: tuple[tuple[DocumentNode, ...], ...], header_rows: int, caption: tuple[RunNode, ...]) -> str:
-    # a GFM pipe table — the leading `header_rows or 1` rows form the header band above the `---` delimiter,
-    # merged cells flattening to their top-left content (GFM carries no colspan/rowspan), the `caption` a
-    # titling paragraph below; a cell's own newlines/pipes are neutralized so one logical row stays one line.
     if not rows:
         return ""
     width = max(len(row) for row in rows)
@@ -1126,9 +1345,6 @@ def _latex_table(
     span_map: frozendict[tuple[int, int], tuple[int, int]],
     caption: tuple[RunNode, ...],
 ) -> str:
-    # a `tabular` inside a `table` float — the column spec folds row 0's colspans to the grid width, an `\hline`
-    # rules the header/footer band boundaries (the `head_n`/`foot_n` counts), a colspan cell rides `\multicolumn`
-    # (rowspan flattens to the top-left cell, `\multirow` an emit-preamble growth axis), the `caption` titling the float.
     if not rows:
         return ""
     width = _column_count(rows, span_map)
@@ -1152,30 +1368,55 @@ def _latex_cell(cell: DocumentNode, r: int, c: int, span_map: frozendict[tuple[i
 ## [03]-[DELTA]
 
 - Owner: `DocumentDelta` — every edit keyed by the stable `NodeMeta.key` of the node it acts on; `diff` and `merge` are defined once over the tree, never re-minted per consumer.
-- Entry: `diff(before, after)` folds the two trees into an ordered edit tuple, `merge(tree, deltas)` folds the patch back, and `invert(before, deltas)` maps each edit to its inverse — a redaction patch is reversible until burned in; the patch round-trips through `msgspec.msgpack` as a content-keyed serialized value.
-- Auto: `_index` keys each node by its structural PATH-vector (the child-ordinal sequence from the root), so two identical-content siblings stay distinct slots where a content-derived key silently overwrites one; `_identities` derives the `Map[ContentKey, Path]` so move/reparametrize detection keys on the position-stable `NodeMeta.key` — NEVER on `node_digest`, whose Merkle fold re-keys every ancestor when a descendant changes and spuriously `Moved`s every sibling of an edit. Two distinct keyings, never conflated. A node whose key is new under an also-new parent is carried inside that parent's `Inserted` subtree and emits nothing — only the topmost insert and the topmost survivor delete are edits.
+- Entry: `diff(before, after)` folds the two trees into an ordered edit tuple, `merge(tree, deltas)` folds the patch back, and `invert(before, deltas)` maps each edit to its inverse — a redaction patch is reversible until burned in; `Replaced` carries a changed root identity or kind inside the same algebra, and `decode` converts malformed MessagePack once into `DeltaFault.DECODE`. `redline(before, after, style)` is the visible form of the same algebra: the diff folded back as an annotated tree — inserted runs decorated by the `RedlineStyle` insert row, deleted subtrees retained struck-through at their old slot, a per-delta summary `TableNode` appended — so addendum re-issue and track-changes review render through EVERY `document/emit#DOCUMENT` backend with zero new emission arm.
+- Auto: `_index` keys each node by its structural PATH-vector (the child-ordinal sequence from the root) through one iterative frontier — the delta operates on lens-recovered, adversarial-depth trees, so no delta walker recurses natively, and `_stained` re-inks a whole subtree through the `_flat`/`_regrown` expand-combine frontier for the same reason; `_identities` derives the `Map[ContentKey, Path]` so move/reparametrize detection keys on the position-stable `NodeMeta.key` — NEVER on `node_digest`, whose Merkle fold re-keys every ancestor when a descendant changes and spuriously `Moved`s every sibling of an edit. Two distinct keyings, never conflated. A node whose key is new under an also-new parent is carried inside that parent's `Inserted` subtree and emits nothing — only the topmost insert and the topmost survivor delete are edits; a root whose own fields change emits `Reparametrized` on the root key, so `merge(before, diff(before, after)) == after` holds for root-only changes. `_rebuilt` is the one path-rebuild kernel splice, prune, and retarget all resolve through — locate the path off `_identities`, apply at the target, rebuild the ancestor spine bottom-up — never three parallel recursive walkers.
 - Receipt: the delta count and changed-node keys ride the lens introspection receipt facts; `DocumentDelta` mints no receipt of its own.
-- Growth: a new edit kind is one variant plus one `diff` emit arm and one `merge` apply arm — the totality `match` forces both; a new diff granularity is a `node_digest` policy change, never a parallel delta family.
-- Boundary: a per-consumer diff type (a document diff beside a geometry diff beside a wire diff) is the deleted form — `DocumentDelta` is the one edit algebra keyed by `ContentKey`. No positional list patching by index-shift heuristics outside the key algebra, and no second merge owner. Structural insertion/deletion/move targets the spine containers that own a `children` field through `_spine`/`_with_spine`; a `TableNode` cell grid, a `FigureNode` caption, a `SectionNode` heading, a `ListNode` item bag, and a `BlockNode` inline-run bag are bounded OWN-content sub-payloads re-keyed as a whole through `Reparametrized`, so `_spine` carries only the container `children` field and the sub-payload edits ride the own-field overlay. The fold is total over the four-variant union; a missing arm is an `assert_never` static failure.
+- Growth: a new edit kind is one variant plus one `diff` emit arm and one `merge` apply arm — the totality `match` forces both; a new diff granularity is a `node_digest` policy change, never a parallel delta family; a new redline appearance is one `RedlineStyle` row, never a second annotator.
+- Boundary: a per-consumer diff type (a document diff beside a geometry diff beside a wire diff) is the deleted form — `DocumentDelta` is the one edit algebra keyed by `ContentKey`. No positional list patching by index-shift heuristics outside the key algebra, and no second merge owner. Structural insertion/deletion/move targets the spine containers that own a `children` field through `_spine`/`_with_spine`; a `TableNode` cell grid, a `FigureNode` caption, a `SectionNode` heading, a `ListNode` item bag, and a `BlockNode` inline-run bag are bounded OWN-content sub-payloads re-keyed as a whole through `Reparametrized`, so `_spine` carries only the container `children` field and the sub-payload edits ride the own-field overlay. Root identity anchors the algebra: roots sharing `meta.key` and kind diff as edits, while a changed root identity or kind emits one `Replaced` case. One total fold spans the five-variant union; a missing arm is an `assert_never` static failure.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable
+from enum import StrEnum
+from functools import reduce
+from itertools import accumulate
 from typing import Final, assert_never
 
 import msgspec
-from expression import Nothing, Option, Some
+from expression import Nothing, Option, Result, Some
 from expression.collections import Block, Map
+from expression.extra.result import catch
 from msgspec import Struct
 
-from rasm.runtime.identity import ContentKey
+from rasm.runtime.identity import ContentIdentity, ContentKey
 
-from .model import BlockNode, DocumentNode, ListNode, PageNode, SectionNode, StructureNode, walk
+from rasm.artifacts.document.model import (
+    AnnotationNode,
+    BlockNode,
+    DocumentNode,
+    FieldNode,
+    FigureNode,
+    FormulaNode,
+    ListNode,
+    NodeMeta,
+    PageNode,
+    Rgb,
+    RunNode,
+    SectionNode,
+    StructureNode,
+    TableNode,
+    TextDecoration,
+    walk,
+)
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Path = tuple[int, ...]  # the child-ordinal vector from the root: a node's structural uid
+type Path = tuple[int, ...]
 type IndexEntry = tuple[DocumentNode, ContentKey | None, int]
+
+
+class DeltaFault(StrEnum):
+    DECODE = "decode"
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -1196,17 +1437,45 @@ class Moved(Struct, frozen=True, tag="moved", tag_field="edit"):
     index: int
 
 
+class Replaced(Struct, frozen=True, tag="replaced", tag_field="edit"):
+    node: DocumentNode
+
+
+class FieldPatch(Struct, frozen=True, gc=False):
+    name: str
+    value: msgspec.Raw
+
+
 class Reparametrized(Struct, frozen=True, tag="reparametrized", tag_field="edit"):
     key: ContentKey
-    fields: dict[str, msgspec.Raw]
+    fields: tuple[FieldPatch, ...]
 
 
-type DocumentDelta = Inserted | Deleted | Moved | Reparametrized
+type DocumentDelta = Inserted | Deleted | Moved | Replaced | Reparametrized
+
+
+class RedlineInk(Struct, frozen=True):
+    color: Rgb
+    decorations: tuple[TextDecoration, ...]
+
+
+class RedlineStyle(Struct, frozen=True):
+    insert: RedlineInk
+    delete: RedlineInk
+    change: RedlineInk
+    summary: bool = True
+
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _DELTA_ENCODER: Final = msgspec.msgpack.Encoder(order="deterministic")
 _DELTA_DECODER: Final = msgspec.msgpack.Decoder(tuple[DocumentDelta, ...])
+_SPINE_FIELDS: Final[frozenset[str]] = frozenset({"children", "items"})
+REDLINE: Final = RedlineStyle(
+    insert=RedlineInk(color=(0, 102, 204), decorations=(TextDecoration.UNDERLINE,)),
+    delete=RedlineInk(color=(204, 0, 0), decorations=(TextDecoration.STRIKETHROUGH,)),
+    change=RedlineInk(color=(178, 102, 0), decorations=(TextDecoration.UNDERLINE,)),
+)
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -1232,19 +1501,17 @@ def _with_spine(node: DocumentNode, kids: tuple[DocumentNode, ...]) -> DocumentN
 
 
 def _own(node: DocumentNode, /) -> tuple[tuple[str, object], ...]:
-    return tuple((name, getattr(node, name)) for name in node.__struct_fields__ if name not in {"children", "items"})
+    return tuple((name, getattr(node, name)) for name in node.__struct_fields__ if name not in _SPINE_FIELDS)
 
 
 def _index(root: DocumentNode, /) -> Map[Path, IndexEntry]:
-    # keyed by the structural path-vector so two identical-content siblings never collide on a content-derived
-    # `NodeMeta.key`; the entry carries the parent `NodeMeta.key` and ordinal the ContentKey-addressed deltas need.
-    def walk_spine(table: Map[Path, IndexEntry], node: DocumentNode, path: Path, parent: ContentKey | None, position: int) -> Map[Path, IndexEntry]:
-        seeded = table.add(path, (node, parent, position))
-        return Block.of_seq(enumerate(_spine(node))).fold(
-            lambda acc, pair: walk_spine(acc, pair[1], (*path, pair[0]), node.meta.key, pair[0]), seeded
-        )
-
-    return walk_spine(Map.empty(), root, (), None, 0)
+    table: Map[Path, IndexEntry] = Map.empty()
+    frontier: Block[tuple[DocumentNode, Path, ContentKey | None, int]] = Block.singleton((root, (), None, 0))
+    while not frontier.is_empty():
+        (node, path, parent, position), frontier = frontier.head(), frontier.tail()
+        table = table.add(path, (node, parent, position))
+        frontier = Block.of_seq((kid, (*path, ordinal), node.meta.key, ordinal) for ordinal, kid in enumerate(_spine(node))).append(frontier)
+    return table
 
 
 def _identities(index: Map[Path, IndexEntry], /) -> Map[ContentKey, Path]:
@@ -1256,6 +1523,9 @@ def _by_key(index: Map[Path, IndexEntry], /) -> Map[ContentKey, IndexEntry]:
 
 
 def diff(before: DocumentNode, after: DocumentNode, /) -> tuple[DocumentDelta, ...]:
+    if before.meta.key != after.meta.key or type(before) is not type(after):
+        return (Replaced(node=after),)
+
     old, new = _index(before), _index(after)
     old_at, new_at = _identities(old), _identities(new)
 
@@ -1268,7 +1538,13 @@ def diff(before: DocumentNode, after: DocumentNode, /) -> tuple[DocumentDelta, .
     def edits_for(item: tuple[Path, IndexEntry]) -> Block[DocumentDelta]:
         _path, (node, parent, index) = item
         if parent is None:
-            return Block.empty()
+            prior_root = old.try_find(()).map(lambda entry: entry[0])
+            return (
+                prior_root
+                .filter(lambda held: held.meta.key == node.meta.key and _own(held) != _own(node))
+                .map(lambda held: Block.singleton(Reparametrized(key=node.meta.key, fields=_field_delta(held, node))))
+                .default_value(Block.empty())
+            )
         key = node.meta.key
         return (
             old_at
@@ -1294,33 +1570,159 @@ def merge(tree: DocumentNode, deltas: tuple[DocumentDelta, ...], /) -> DocumentN
     def apply(patched: DocumentNode, delta: DocumentDelta) -> DocumentNode:
         match delta:
             case Inserted(parent=parent, index=index, node=node):
-                return _splice(patched, parent, index, node)
+                return _spliced(patched, parent, index, node)
             case Deleted(key=key):
-                return _prune(patched, key)
+                return _pruned(patched, key)
             case Moved(key=key, parent=parent, index=index):
-                return _splice(_prune(patched, key), parent, index, _find(tree, key))
+                return _spliced(_pruned(patched, key), parent, index, _find(tree, key))
+            case Replaced(node=node):
+                return node
             case Reparametrized(key=key, fields=fields):
-                return _retarget(patched, key, lambda node: _apply_fields(node, fields))
+                return _retargeted(patched, key, lambda node: _apply_fields(node, fields))
             case _ as unreachable:
                 assert_never(unreachable)
 
     return Block.of_seq(deltas).fold(apply, tree)
 
 
+def redline(before: DocumentNode, after: DocumentNode, style: RedlineStyle = REDLINE, /) -> DocumentNode:
+    deltas = diff(before, after)
+    old = _by_key(_index(before))
+
+    def annotated(tree: DocumentNode, delta: DocumentDelta, /) -> DocumentNode:
+        match delta:
+            case Inserted(node=node):
+                return _retargeted(tree, node.meta.key, lambda live: _stained(live, style.insert))
+            case Reparametrized(key=key) | Moved(key=key):
+                return _retargeted(tree, key, lambda live: _stained(live, style.change))
+            case Replaced(node=node):
+                return _stained(node, style.change)
+            case Deleted(key=key):
+                return (
+                    old
+                    .try_find(key)
+                    .bind(lambda entry: Option.of_optional(entry[1]).map(lambda parent: _spliced(tree, parent, entry[2], _stained(entry[0], style.delete))))
+                    .default_value(tree)
+                )
+            case _ as unreachable:
+                assert_never(unreachable)
+
+    marked = Block.of_seq(deltas).fold(annotated, after)
+    return _with_summary(marked, deltas) if style.summary and deltas else marked
+
+
+def _flat(node: DocumentNode, /) -> tuple[DocumentNode, ...]:
+    match node:
+        case PageNode(children=kids) | StructureNode(children=kids):
+            return kids
+        case SectionNode(heading=head, children=kids):
+            return (*head, *kids)
+        case BlockNode(runs=runs, children=kids):
+            return (*runs, *kids)
+        case ListNode(items=items):
+            return items
+        case TableNode(rows=rows, caption=caption):
+            return (*(cell for row in rows for cell in row), *caption)
+        case FigureNode(caption=caption):
+            return caption
+        case RunNode() | FormulaNode() | FieldNode() | AnnotationNode():
+            return ()
+        case _ as unreachable:
+            assert_never(unreachable)
+
+
+def _regrown(node: DocumentNode, flat: tuple[DocumentNode, ...], /) -> DocumentNode:
+    match node:
+        case PageNode() | StructureNode():
+            return msgspec.structs.replace(node, children=flat)
+        case SectionNode(heading=head):
+            return msgspec.structs.replace(node, heading=flat[: len(head)], children=flat[len(head) :])
+        case BlockNode(runs=runs):
+            return msgspec.structs.replace(node, runs=flat[: len(runs)], children=flat[len(runs) :])
+        case ListNode():
+            return msgspec.structs.replace(node, items=flat)
+        case TableNode(rows=rows):
+            cells = iter(flat)
+            return msgspec.structs.replace(node, rows=tuple(tuple(next(cells) for _ in row) for row in rows), caption=tuple(cells))
+        case FigureNode():
+            return msgspec.structs.replace(node, caption=flat)
+        case _:
+            return node
+
+
+def _inked(node: DocumentNode, ink: RedlineInk, /) -> DocumentNode:
+    match node:
+        case RunNode(decorations=decos):
+            return msgspec.structs.replace(node, color=ink.color, decorations=(*decos, *(d for d in ink.decorations if d not in decos)))
+        case _:
+            return node
+
+
+def _stained(node: DocumentNode, ink: RedlineInk, /) -> DocumentNode:
+    frames: Block[tuple[bool, DocumentNode]] = Block.singleton((False, node))
+    results: Block[DocumentNode] = Block.empty()
+    while not frames.is_empty():
+        (combine, current), frames = frames.head(), frames.tail()
+        parts = _flat(current)
+        if combine:
+            results = results.skip(len(parts)).cons(_regrown(current, tuple(results.take(len(parts)))[::-1]))
+        elif parts:
+            frames = Block.of_seq((False, part) for part in reversed(parts)).append(frames.cons((True, current)))
+        else:
+            results = results.cons(_inked(current, ink))
+    return results.head()
+
+
+def _delta_row(delta: DocumentDelta, /) -> tuple[str, str]:
+    match delta:
+        case Inserted(node=node):
+            return ("inserted", node.meta.key.hex)
+        case Deleted(key=key):
+            return ("deleted", key.hex)
+        case Moved(key=key, index=index):
+            return ("moved", f"{key.hex}@{index}")
+        case Replaced(node=node):
+            return ("replaced", node.meta.key.hex)
+        case Reparametrized(key=key, fields=fields):
+            return ("reparametrized", f"{key.hex}:{','.join(sorted(field.name for field in fields))}")
+        case _ as unreachable:
+            assert_never(unreachable)
+
+
+def _with_summary(tree: DocumentNode, deltas: tuple[DocumentDelta, ...], /) -> DocumentNode:
+    fmt = tree.meta.key.fmt
+
+    def cell(text: str, /) -> RunNode:
+        meta = NodeMeta(key=ContentIdentity.key(fmt, text.encode()), role="redline", page=tree.meta.page)
+        return RunNode(meta=meta, text=text, font_key="", size=9.0)
+
+    rows = ((cell("edit"), cell("node")), *tuple((cell(kind), cell(target)) for kind, target in map(_delta_row, deltas)))
+    meta = NodeMeta(key=ContentIdentity.key(fmt, _DELTA_ENCODER.encode(deltas)), role="redline-summary", page=tree.meta.page)
+    summary = TableNode(meta=meta, rows=rows, header_rows=1)
+    # A leaf root carries no spine for `_with_spine` to grow, so the summary materializes a grouping wrapper
+    # instead of vanishing through the replace no-op — every redline promising a summary shows one.
+    match tree:
+        case PageNode() | StructureNode() | SectionNode() | BlockNode() | ListNode():
+            return _with_spine(tree, (*_spine(tree), summary))
+        case _:
+            wrapper = NodeMeta(key=ContentIdentity.key(fmt, tree.meta.key.hex.encode() + meta.key.hex.encode()), role="redline-summary", page=tree.meta.page)
+            return StructureNode(meta=wrapper, role=StandardRole(elt=StructEltKind.DIV), children=(tree, summary))
+
+
 def invert(before: DocumentNode, deltas: tuple[DocumentDelta, ...], /) -> tuple[DocumentDelta, ...]:
     by_key = _by_key(_index(before))
-    return tuple(Block.of_seq(deltas).map(lambda delta: _invert(delta, by_key)))[::-1]
+    return tuple(Block.of_seq(deltas).map(lambda delta: _invert(delta, by_key, before)))[::-1]
 
 
 def encode(deltas: tuple[DocumentDelta, ...]) -> bytes:
     return _DELTA_ENCODER.encode(deltas)
 
 
-def decode(payload: bytes) -> tuple[DocumentDelta, ...]:
-    return _DELTA_DECODER.decode(payload)
+def decode(payload: bytes) -> Result[tuple[DocumentDelta, ...], DeltaFault]:
+    return catch(exception=msgspec.DecodeError)(_DELTA_DECODER.decode)(payload).map_error(lambda _raised: DeltaFault.DECODE)
 
 
-def _invert(delta: DocumentDelta, old: Map[ContentKey, IndexEntry], /) -> DocumentDelta:
+def _invert(delta: DocumentDelta, old: Map[ContentKey, IndexEntry], root: DocumentNode, /) -> DocumentDelta:
     match delta:
         case Inserted(node=node):
             return Deleted(key=node.meta.key)
@@ -1328,52 +1730,72 @@ def _invert(delta: DocumentDelta, old: Map[ContentKey, IndexEntry], /) -> Docume
             return old.try_find(key).map(lambda e: Inserted(parent=e[1], index=e[2], node=e[0]) if e[1] is not None else delta).default_value(delta)
         case Moved(key=key):
             return old.try_find(key).map(lambda e: Moved(key=key, parent=e[1], index=e[2]) if e[1] is not None else delta).default_value(delta)
+        case Replaced():
+            return Replaced(node=root)
         case Reparametrized(key=key):
             return old.try_find(key).map(lambda e: Reparametrized(key=key, fields=_all_fields(e[0]))).default_value(delta)
         case _ as unreachable:
             assert_never(unreachable)
 
 
-def _field_delta(prior: DocumentNode, current: DocumentNode, /) -> dict[str, msgspec.Raw]:
+def _field_delta(prior: DocumentNode, current: DocumentNode, /) -> tuple[FieldPatch, ...]:
     prior_fields = dict(_own(prior))
-    return {name: msgspec.Raw(_DELTA_ENCODER.encode(value)) for name, value in _own(current) if prior_fields.get(name) != value}
+    return tuple(FieldPatch(name=name, value=msgspec.Raw(_DELTA_ENCODER.encode(value))) for name, value in _own(current) if prior_fields.get(name) != value)
 
 
-def _all_fields(node: DocumentNode, /) -> dict[str, msgspec.Raw]:
-    return {name: msgspec.Raw(_DELTA_ENCODER.encode(value)) for name, value in _own(node)}
+def _all_fields(node: DocumentNode, /) -> tuple[FieldPatch, ...]:
+    return tuple(FieldPatch(name=name, value=msgspec.Raw(_DELTA_ENCODER.encode(value))) for name, value in _own(node))
 
 
-def _apply_fields(node: DocumentNode, fields: dict[str, msgspec.Raw], /) -> DocumentNode:
-    merged = {**msgspec.to_builtins(node), **{name: msgspec.msgpack.decode(raw) for name, raw in fields.items()}}
-    return msgspec.convert(merged, type(node))
+def _apply_fields(node: DocumentNode, fields: tuple[FieldPatch, ...], /) -> DocumentNode:
+    # Total admission over the decoded overlay — one hostile member voids the WHOLE patch, degrading to the
+    # established merge no-op rather than a silent partial apply: an unknown, tag, or spine name never rewrites the
+    # discriminant or child spine, a duplicate name never last-wins, a torn or mistyped Raw payload never raises past
+    # the merge, and a `meta` overlay that would re-key the target is refused so the applied node retains its located key.
+    patchable = frozenset(node.__struct_fields__) - _SPINE_FIELDS
+    names = tuple(field.name for field in fields)
+    if not fields or len(frozenset(names)) != len(names) or not patchable.issuperset(names):
+        return node
+    merged = catch(exception=msgspec.MsgspecError)(
+        lambda: msgspec.convert({**msgspec.to_builtins(node), **{field.name: msgspec.msgpack.decode(field.value) for field in fields}}, type(node))
+    )()
+    return merged.map(lambda applied: node if applied.meta.key != node.meta.key else applied).default_value(node)
 
 
-def _splice(tree: DocumentNode, parent: ContentKey, index: int, node: DocumentNode, /) -> DocumentNode:
-    return _retarget(tree, parent, lambda target: _with_spine(target, (*_spine(target)[:index], node, *_spine(target)[index:])))
+def _rebuilt(tree: DocumentNode, path: Path, fn: Callable[[DocumentNode], DocumentNode | None], /) -> DocumentNode:
+    chain = tuple(accumulate(path, lambda node, ordinal: _spine(node)[ordinal], initial=tree))
+
+    def stitched(child: DocumentNode | None, ancestor: tuple[DocumentNode, int], /) -> DocumentNode:
+        parent, ordinal = ancestor
+        kids = _spine(parent)
+        return _with_spine(parent, (*kids[:ordinal], *(() if child is None else (child,)), *kids[ordinal + 1 :]))
+
+    patched = reduce(stitched, zip(reversed(chain[:-1]), reversed(path), strict=True), fn(chain[-1]))
+    return tree if patched is None else patched
 
 
-def _prune(tree: DocumentNode, key: ContentKey, /) -> DocumentNode:
-    kids = _spine(tree)
-    if any(child.meta.key == key for child in kids):
-        return _with_spine(tree, tuple(child for child in kids if child.meta.key != key))
-    return _with_spine(tree, tuple(_prune(child, key) for child in kids)) if kids else tree
+def _located(tree: DocumentNode, key: ContentKey, /) -> Option[Path]:
+    return _identities(_index(tree)).try_find(key)
 
 
-def _retarget(tree: DocumentNode, key: ContentKey, fn: Callable[[DocumentNode], DocumentNode], /) -> DocumentNode:
-    if tree.meta.key == key:
-        return fn(tree)
-    kids = _spine(tree)
-    return _with_spine(tree, tuple(_retarget(child, key, fn) for child in kids)) if kids else tree
+def _spliced(tree: DocumentNode, parent: ContentKey, index: int, node: DocumentNode, /) -> DocumentNode:
+    def grown(target: DocumentNode) -> DocumentNode:
+        kids = _spine(target)
+        # A stale or hostile index outside 0..len(kids) degrades to the established merge no-op — never a
+        # negative index silently wrapping onto the tail through slicing.
+        return target if not 0 <= index <= len(kids) else _with_spine(target, (*kids[:index], node, *kids[index:]))
+
+    return _located(tree, parent).map(lambda path: _rebuilt(tree, path, grown)).default_value(tree)
+
+
+def _pruned(tree: DocumentNode, key: ContentKey, /) -> DocumentNode:
+    return _located(tree, key).map(lambda path: _rebuilt(tree, path, lambda _target: None)).default_value(tree)
+
+
+def _retargeted(tree: DocumentNode, key: ContentKey, fn: Callable[[DocumentNode], DocumentNode], /) -> DocumentNode:
+    return _located(tree, key).map(lambda path: _rebuilt(tree, path, fn)).default_value(tree)
 
 
 def _find(tree: DocumentNode, key: ContentKey, /) -> DocumentNode:
     return next(node for node in walk(tree) if node.meta.key == key)
 ```
-
-## [04]-[RESEARCH]
-
-<!-- source-only: research row template:
-[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
--->
-
-(none)

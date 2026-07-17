@@ -1,8 +1,8 @@
 # [PY_RUNTIME_REPRODUCTION]
 
-The cross-runtime seed-parity binding, the module `rasm.runtime.reproduction`: `SeedReproduction` asserts `ContentIdentity` reproduces the one C#-owned `XxHash128` seed bit-identically across the frozen `ONE_WIRE_FIXTURE_CORPUS` federation index. It re-mints no digest and authors no fixture byte — it consumes the production `ContentIdentity.of`/`ContentKey.project` surface, so a derivation or render regression surfaces as a failed parity receipt, never a pass against a parallel path.
+Cross-runtime seed parity binds here, the module `rasm.runtime.reproduction`: `SeedReproduction` asserts `ContentIdentity` reproduces the one C#-owned `XxHash128` seed bit-identically across the frozen `ONE_WIRE_FIXTURE_CORPUS` federation index. It re-mints no digest and authors no fixture byte — it consumes the production `ContentIdentity.of`/`ContentKey.project` surface, so a derivation or render regression surfaces as a failed parity receipt, never a pass against a parallel path.
 
-The suite is one fault-combining fold — `reliability/faults#FAULT` `traversed(by=Disposition.ACCUMULATE)` — so a single fixture's fault never masks a later fixture's evidence, and `contribute` satisfies the `observability/receipts#RECEIPT` `ReceiptContributor` port, each pending fixture riding a state-keyed `planned` obligation. The module splits out of `evidence/identity` so its `receipts` import stays DAG-legal (`identity < receipts < reproduction`).
+One fault-combining fold carries the suite — `reliability/faults#FAULT` `traversed(by=Disposition.ACCUMULATE)` — so a single fixture's fault never masks a later fixture's evidence, and `contribute` satisfies the `observability/receipts#RECEIPT` `ReceiptContributor` port, each pending fixture riding a state-keyed `planned` obligation. This module splits out of `evidence/identity` so its `receipts` import stays DAG-legal (`identity < receipts < reproduction`).
 
 ## [01]-[INDEX]
 
@@ -11,7 +11,7 @@ The suite is one fault-combining fold — `reliability/faults#FAULT` `traversed(
 ## [02]-[SEED_REPRODUCTION]
 
 - Owner: `_CORPUS` transcribes the `csharp:Rasm/Spatial/reconciliation#ONE_WIRE_FIXTURE_CORPUS` federation index plus the admitted compute fixtures, each row binding its producer under the one C# seed — the single mint this binding never re-authors: a REAL fixture transcribes the producer-frozen reference verbatim, a GATED or DESIGN-PIN fixture carries `Nothing` and no rows until the producer freezes or the gate confirms the reference. A fixture `name` IS the producer's wire `fmt` tag, so a name-vs-fmt drift fails the hex row rather than passing silently. `key_identity` grades the whole `ContentKey` by structural equality, so the `fmt` threading and the `byte_length` ledger ride the parity fold — evidence no scalar view reaches.
-- Auto: `xxhash` returns the digest as a Python `int` whose `to_bytes(16, "little")` IS the C# `UInt128` in-memory layout `BinaryPrimitives.WriteUInt128LittleEndian` writes, so value-equality holds with no byte-swap when both sides read seed zero. The corpus seed is zero because the C# `NamingHashOps.Encode`/`GeometryHash` path calls `XxHash128.HashToUInt128(span)` with no seed parameter — the settings-folded `ContentIdentity.seed` governs only the re-tessellation cache identity, never this parity. Row [1] proves digest value, `fmt` threading, LE layout, and the byte-length ledger off one frozen literal pair; row [7] is the only fixture exercising the C# `CanonicalWriter` `Double`/`Measure` float canon the integer-topology row cannot reach.
+- Auto: `xxhash` returns the digest as a Python `int` whose `to_bytes(16, "little")` IS the C# `UInt128` in-memory layout `BinaryPrimitives.WriteUInt128LittleEndian` writes, so value-equality holds with no byte-swap when both sides read seed zero. Corpus seed is zero because the C# `NamingHashOps.Encode`/`GeometryHash` path calls `XxHash128.HashToUInt128(span)` with no seed parameter — the settings-folded `ContentIdentity.seed` governs only the re-tessellation cache identity, never this parity. Row [1] proves digest value, `fmt` threading, LE layout, and the byte-length ledger off one frozen literal pair; row [7] is the corpus's one carrier for the C# `CanonicalWriter` `Double`/`Measure` float canon the integer-topology row cannot reach, grading only once its producer freezes the reference and its rows land.
 - Growth: a new parity aspect is one `ParityAspect` member plus one `ParityRow` on the owning fixture; a new cross-runtime fixture one `_CORPUS` row; a pending fixture graduates by one `Some(payload)` plus its rows plus the `state="real"` flip, zero new method; a sibling-authored corpus (data's icechunk snapshot-seed fixtures) is the `corpus` constructor argument over the same exported row types, never a second suite; a new derivation modality is one `FixturePayload` member only when `IdentitySource` itself grows one.
 - Boundary: the corpus is read-only and the C# seed is the single mint — a Python-fabricated byte set for an unpinned row is the one forbidden authorship. Pending rows graduate producer-side through their fence-anchored producers; the harness driver feeding payloads and grading rows is a `python:testing` consumer of this same corpus, never a second fixture store here.
 
@@ -32,7 +32,7 @@ from rasm.runtime.receipts import Receipt
 type ParityAspect = Literal["value_identity", "hex_identity", "memory_layout", "key_identity"]
 # `real` grades NOW; `gated` awaits the one-time harness reproof, `design_pin` the producer's freeze — both ride the `planned` obligation.
 type FixtureState = Literal["real", "gated", "design_pin"]
-# the payload SHAPE keys the `IdentitySource.lift` arm (whole/stream/merkle); a live `Struct` is excluded because the corpus transcribes
+# payload SHAPE keys the `IdentitySource.lift` arm (whole/stream/merkle); a live `Struct` is excluded because the corpus transcribes
 # producer-frozen bytes and a local canonical re-encode would be a second mint.
 type FixturePayload = bytes | tuple[bytes, ...] | tuple[ContentKey, ...]
 
@@ -48,7 +48,7 @@ CANONICAL_STREAM: Final[bytes] = bytes.fromhex(
 )
 CANONICAL_DIGEST: Final[int] = 0x9462A71A5DD13DCFA3B1D6D225FCBE70
 CANONICAL_LE_MEMORY: Final[bytes] = bytes.fromhex("70befc25d2d6b1a3cf3dd15d1aa76294")
-# the C# InterchangeIdentity.Key `{value:032x}:{fmt}` render of the frozen digest — derived, never a second literal.
+# C# InterchangeIdentity.Key's `{value:032x}:{fmt}` render of the frozen digest — derived, never a second literal.
 CANONICAL_HEX: Final[str] = f"{CANONICAL_DIGEST:032x}:{IDENTITY_FMT}"
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -133,8 +133,8 @@ _CORPUS: Final[Block[CorpusFixture]] = Block.of_seq((
         payload=Nothing,
         rows=Block.empty(),
     ),
-    # [8] cross-backend array-layout bit-identity — compute keys canonical array bytes and freezes
-    # the reference on its array-admission owner.
+    # [8] cross-backend array-layout bit-identity — graduates when the array-admission owner keys canonical
+    # array bytes and freezes the reference; until then the row carries no payload and grades nothing.
     CorpusFixture(name="array-layout", state="design_pin", producer="python:compute/numerics/array#PAYLOAD", payload=Nothing, rows=Block.empty()),
     # [9] the C#-minted graduation-evidence golden bundle — pairs the bundle bytes with the expected
     # generated-stub projection so the corpus proves decode AND emit round-trip byte-stability.

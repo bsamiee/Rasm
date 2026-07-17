@@ -1,8 +1,8 @@
 # [PY_RUNTIME_WIRE]
 
-The single wire-codec owner the companion transport composes: it decodes every C#-minted wire shape, mints no wire vocabulary of its own, and owns the `msgspec`-interior-to-`protobuf`-wire projection plus the CRDT op-log decode. The vocabulary and binding table are `transport/shapes#REGISTRY_AND_DRIFT`'s — this page imports the rows and owns only transcode machinery, so a registry re-mint here is the deleted `shapes -> wire` back-edge.
+One wire-codec owner serves the companion transport: it decodes every C#-minted wire shape, mints no wire vocabulary of its own, and owns the `msgspec`-interior-to-`protobuf`-wire projection plus the CRDT op-log decode. Vocabulary and binding table are `transport/shapes#REGISTRY_AND_DRIFT`'s — this page imports the rows and owns only transcode machinery, so a registry re-mint here is the deleted `shapes -> wire` back-edge.
 
-Every transcode rides the one `Decode` aspect: a direction-parameterized OTel span plus the `reliability/faults#FAULT` `boundary` fence, the network-fed leg delegating retry to `reliability/resilience#RESILIENCE` `guarded(RetryClass.WIRE)` rather than re-implementing the loop. The CRDT op-log crosses as MessagePack under a `Lz4BlockArray` envelope distinct from the gRPC proto wire, and `decompress` is a dependency-injected `DecompressFn` seam — never a hardwired `lz4` import, LZ4 being worker-gated with the envelope decode deferred.
+Every transcode rides the one `Decode` aspect: a direction-parameterized OTel span plus the `reliability/faults#FAULT` `boundary` fence, the network-fed leg delegating retry to `reliability/resilience#RESILIENCE` `guarded(RetryClass.WIRE)` rather than re-implementing the loop. CRDT op-log bytes cross as MessagePack under a `Lz4BlockArray` envelope distinct from the gRPC proto wire, and `decompress` is a dependency-injected `DecompressFn` seam — never a hardwired `lz4` import, LZ4 being worker-gated with the envelope decode deferred.
 
 ## [01]-[INDEX]
 
@@ -90,7 +90,7 @@ class Decode:
 - Owner: `WireProtoCodec` is generic over the `(Struct, Message)` pair through the message-agnostic `google.protobuf.proto` façade, so interior code never touches a `Message` and the wire never sees a `Struct`; `WIRE_REGISTRY` derives one codec per imported `PROTO_VOCABULARY` row, so the message family is rows rather than hand clients and this page holds zero shape knowledge.
 - Entry: the frame pair exists because a bare per-message `proto.serialize` concatenation loses the record-per-frame boundary the server-stream and bidi contracts need — one framing owner for every streamed leg, never a hand-rolled varint.
 - Growth: a new wire message is one `PROTO_VOCABULARY` row in `transport/shapes#REGISTRY_AND_DRIFT` — the codec, both rails, and the frame pair already carry it; zero new surface here.
-- Boundary: the deterministic protobuf binary is the gRPC wire and `json_format` the boundary projection only — never JSON-as-wire-format on the production path. The `fault_detail` trailer obligations are `transport/serve#SERVE`'s, and the `clock#CLOCK` `CausalFrame.of` lift is the inbound owner's — `decode` stays the pure generic transcode.
+- Boundary: the deterministic protobuf binary is the gRPC wire and `json_format` the boundary projection only — never JSON-as-wire-format on the production path. `fault_detail` trailer obligations are `transport/serve#SERVE`'s, and the `clock#CLOCK` `CausalFrame.of` lift is the inbound owner's — `decode` stays the pure generic transcode.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -199,7 +199,7 @@ class CrdtOp(Struct, frozen=True, tag_field="tag", array_like=True):
 
 
 class _Stamped(CrdtOp):
-    # the `WireU64` slot floor already rejected a negative half at decode and the ceiling rides the single-mint producer
+    # `WireU64`'s slot floor already rejected a negative half at decode and the ceiling rides the single-mint producer
     # domain, so the lift is the unchecked interior construction the clock `tick` law licenses.
     @property
     def cell(self) -> Hlc:

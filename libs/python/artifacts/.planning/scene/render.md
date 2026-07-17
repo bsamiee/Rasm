@@ -1,677 +1,191 @@
 # [PY_ARTIFACTS_SCENE_RENDER]
 
-The 3D scientific-visualization render owner. `Scene3d` renders pyvista datasets on the VTK engine to a host-free offscreen image and emits the orbit/turntable rgb24 frame sequence the cross-folder `media/container#CONTAINER` encoder consumes. `SceneOp` is ONE closed-payload `expression.tagged_union` over the `Image`/`Export`/`Frames`/`Ingest`/`Compose` modalities, each carrying its typed payload, dispatched by one total `match` returning `RuntimeRail[ArtifactReceipt]` so every render mints its content key AND its evidence receipt in one carrier. The render path is offscreen software GL (osmesa/EGL) so a scene rasterizes with zero display, browser, or GPU.
+`Scene3d` renders admitted datasets through `VTK` to a host-free offscreen image and emits the `rgb24` `Frames` sequence `Media.of(frames)` encodes through `av.VideoFrame.from_ndarray`. `SceneOp` is one closed-payload `expression.tagged_union` over the `Image`/`Export`/`Frames`/`Ingest`/`Compose` modalities, each carrying its typed payload and returning `RuntimeRail[ArtifactReceipt]` through one total `match`. Offscreen rendering requires no display or browser.
 
-The owner rides the native-VTK worker lane: the runtime process imports neither `pyvista` nor `vtk`, and the whole render crosses the runtime subprocess lane. `RenderSpec` is the one frozen render-policy value folded into every arm through its bound `staged`/`added`/`viewed` projections, never loose constructor fields the implementer re-derives per call. `FieldFilter` is the one closed-payload filter family folding to a new `DataSet` through one total `apply` `match`, so a repair-then-slice-then-threshold-then-glyph visualization is a `RenderSpec.filters` tuple, never a parallel filtered-mesh type; the raw mesh is admitted EXACTLY ONCE through `pyvista.wrap` on the worker, so the interior never re-validates a provider shape. The `Frames` arm returns the `tuple[NDArray[np.uint8], ...]` keyed rgb24 raster `media/container#CONTAINER` ingests directly through `VideoFrame.from_ndarray`, never a lossy PNG-bytes intermediary. The `Export` file-target arms compose this owner's offscreen plotter through `scene/export#EXPORT` for the render sinks, while the USD/USDZ arm authors the extracted surface through `scene/stage#STAGE` with no render pass; both ride this owner's worker, never re-owning the render policy. `SceneTarget` — the closed file-target vocabulary those arms key — lives HERE (hoisted; `scene/export#EXPORT` composes it downward), so the eager scene module graph runs export → render only.
+Every payload arrives settled from `scene/spec#SPEC` — `SceneGrid` admission evidence, `RenderSpec`, `OrbitPath`, the target and source vocabularies — and every body executes in `scene/render_worker#WORKER`: each arm crosses as one `HOSTILE`-trait runtime `Kernel` named against the spec floor's `WORKER_MODULE`, so this runtime module imports the spec floor alone and never a worker module, while isolation, band, worker-death retry, and the crossing gate all derive at `execution/workers#FABRIC`. Every kernel declares `idempotent=True` explicitly — a render is content-keyed and run-scoped, so a worker-death re-run is safe by declaration, never by assumption — and the frames and compose arms declare `Enforcement.TERMINAL`: a hung native orbit capture and a boolean fold spinning on coincident surfaces obey only the pebble wall-clock kill. Lane policy arrives projected from the caller's admitted context through `LanePolicy.of`; a capacity literal has no owner here. `SceneGrid` wraps its buffers inside a struct, so the crossing stays `Wire.PICKLE` — the shared-memory span channel crosses bare ndarray arguments alone. `glb` carries geometry-plane bytes and `parents` carries its producer key as a data edge per `core/plan#PLAN`.
 
 ## [01]-[INDEX]
 
-- [02]-[SCENE]: the one `Scene3d` owner over the closed-payload `SceneOp` family, every arm folding into one `RuntimeRail[ArtifactReceipt]` through the `RenderSpec` policy value's bound `staged`/`added`/`viewed` projections.
+- [02]-[SCENE]: the one `Scene3d` owner over the closed-payload `SceneOp` family, every arm folding into one `RuntimeRail[ArtifactReceipt]` through the offloaded worker kernel, plus the `framed()` rgb24 egress the media plane composes.
 
 ## [02]-[SCENE]
 
-- Owner: `Scene3d` discriminates modality over the closed `SceneOp` family; every case carries its own typed payload, never a shared erased `params` bag nor a per-modality subclass. `RenderSpec` carries its own `staged`/`added`/`viewed` projections so a new render knob is one field bound into an existing projection, never a constructor-parameter tail. `RenderStyle` collapses the prior two-body `volume: bool` flag into one style vocabulary that admits the point-cloud, vector-arrow, point-label, and drawing-edge-linework modalities the flag cannot name — the `SURFACE` arm carrying BOTH the PBR and the classic-lighting bands, the `VOLUME` arm the `add_volume` transfer-function/`blending`/`mapper` band a raw scalar `opacity` float cannot name. `RenderFeature` collapses eight parallel bool fields into one behavior-carrying `frozenset` the `_FEATURE` table folds. `CameraPose` is one camera-policy value a static viewpoint and the orbit trajectory share, never loose camera kwargs. The binary CSG `boolean_*`/`sample` are NOT `FieldFilter` cases — they need a second fielded mesh operand `FieldFilter.apply` cannot construct, so they ride the dedicated two-operand `Compose` modality. `OrbitPath` is an `Enum` carrying `(factor, elevation)` member columns, never a `StrEnum` whose string value is mis-passed as a float. The offscreen `Plotter(off_screen=True)` is one render capsule per modality, never retained across arms.
-- Cases: `Frames` is one arm the rotating-scene and chart-over-time frame sources share, never a parallel producer; its rgb24 rasters cross to `media/container#CONTAINER` with zero file round-trip. `Ingest` is the render-tune-re-export round-trip inverse — an existing scene re-admitted through the pyvista importer keyed by `SceneSource`, re-tuned by `RenderSpec.viewed`, re-serialized through `scene/export#EXPORT`'s `render_ingest`. `Compose` carries the two-operand boolean-CSG/field-sample a single-operand `FieldFilter` cannot: `render_compose` surface-extracts BOTH grids, folds the `BoolOp`, renders the composite — a wall cut by an opening, intersected solids, a field resampled across meshes.
-- Auto: `RenderSpec.staged` folds the `FieldFilter` tuple through `functools.reduce`, so a mesh-repair pre-pass (`clean`→`fill_holes`→`smooth`) composes into the same tuple as a `slice`→`threshold`→`glyph` visualization. `RenderSpec.added` binds every provider kwarg through one shared `drop`-`None` dict; for `VOLUME` the `opacity` transfer-function name wins over the scalar float. The `Frames` arm reads the auto-framed `camera_position` for the orbit center and radius, scales the radius by `OrbitPath.factor` and the height by `OrbitPath.elevation`, and walks the `numpy.linspace` azimuth sweep.
-- Receipt: every arm mints `ArtifactReceipt.Scene(key, target, bytes, facts)` where `key` is the node's PRE-RUN input key (`receipt.slot == node.key`) and the produced payload's own content address rides the `facts` band as `address` — evidence for the store, never the elision key. The `pyvista` point/cell counts land as one more band key once the render worker returns them, never a new receipt case.
-- Growth: a new render knob is one `RenderSpec` field bound into an existing projection; a new quality toggle is one `RenderFeature` member plus one `_FEATURE` row; a new render style is one `RenderStyle` member plus one `added` `match` arm; a new filter is one `FieldFilter` case plus one `apply` arm, and a filter kwarg is one payload slot on its existing case; a new two-operand op is one `BoolOp` member plus one `render_compose` arm; a new orbit trajectory is one `OrbitPath` member with its own `(factor, elevation)` columns; a new scene file-export is one `SceneTarget` row plus one exporter arm in `scene/export#EXPORT` or `scene/stage#STAGE`; a new render-evidence fact is one key on the `ArtifactReceipt.Scene` `facts` band, never a new receipt case nor a widened tuple; a new importable format is one `SceneSource` member plus one `import_*` arm. Zero new surface — the modality space stays five cases on one owner.
+- Owner: `Scene3d` discriminates modality over the closed `SceneOp` family; every case carries its own typed payload — a `SceneGrid` admitted owner, never an erased `object` the worker discovers the shape of. Binary CSG and sampling ride the dedicated two-operand `Compose` modality because `FieldFilter.apply` has one fielded operand.
+- Cases: `Frames` is one arm the rotating-scene and chart-over-time sources share; its `rgb24` rasters cross to `media/container#CONTAINER` through `framed()` without a file round-trip, and a non-frames op refuses the egress at the boundary. `Image` is the raster fast path minting the `_sized` dims band; `Export` at the same `PNG` target rides the `ExportRow` law and threads dataset facts — one target, two evidence bands. `Ingest` re-admits an existing scene through the worker importer, applies `RenderSpec.viewed`, and re-serializes through `render_ingest`. `Compose` folds two grids through the worker's boolean-CSG or field-sample table under the terminal arm — the worker refuses a non-manifold operand, yet a watertight fold can still spin on coincident surfaces, so the kill budget bounds it where a cooperative cancel cannot.
+- Auto: `_canon` lowers each arm onto `scene/spec#SPEC`'s `framed`/`CANON` identity-preimage discipline — `SceneGrid.spans` shape-plus-buffer chunks beside one deterministic-msgpack spec chunk — so `_key` mints through the bare `ContentIdentity.key` and merkle-folds `parents` when present.
+- Receipt: every arm mints `ArtifactReceipt.Scene(key, target, bytes, facts)` where `key` is the node's input key (`receipt.slot == node.key`) and the produced payload's content address rides `facts.address`. `Export` adds the staged dataset's `points` and `cells` counts to that band, and USD targets merge stage evidence without a parallel receipt case.
+- Growth: a new modality is one `SceneOp` case plus one `_rendered` arm, one `_canon` arm, and one worker kernel name; a new render-evidence fact is one `ArtifactReceipt.Scene.facts` key. `SceneOp` remains the single modality owner.
+- Boundary: `_emit` runs the arm under `async_boundary` and flattens the boundary-faulted offload rail exactly once, so the composed signature stays one `RuntimeRail` and a worker raise lands as the boundary fault, never a custom exception re-crossed inward.
 
 ```python signature
-import os
-from collections.abc import Callable
-from enum import Enum, StrEnum
-from functools import reduce
-from typing import Final, Literal, NamedTuple, assert_never
+# --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+from typing import Literal, assert_never
 
+from builtins import frozendict
 from expression import case, tag, tagged_union
 from msgspec import Struct
 
-from rasm.runtime.identity import CANONICAL_POLICY, ContentIdentity, ContentKey
 from rasm.runtime.faults import RuntimeRail, async_boundary
-from rasm.runtime.lanes import LanePolicy, Modality
-from rasm.runtime.resilience import RetryClass
+from rasm.runtime.identity import ContentIdentity, ContentKey
+from rasm.runtime.lanes import LanePolicy
+from rasm.runtime.workers import Enforcement, Kernel, KernelTrait
 
-from artifacts.core.plan import Admission, ArtifactWork
-from artifacts.core.receipt import ArtifactReceipt
+from rasm.artifacts.core.plan import Admission, ArtifactWork
+from rasm.artifacts.core.receipt import ArtifactReceipt
+from rasm.artifacts.scene.spec import BoolOp, CANON, Frames, OrbitPath, RenderSpec, SceneGrid, SceneSource, SceneTarget, WORKER_MODULE, framed
 
-lazy from artifacts.scene.render_worker import render_compose, render_export, render_frames, render_image, render_ingest
+# --- [TYPES] ---------------------------------------------------------------------------
 
-type Vec3 = tuple[float, float, float]
-type Plane = tuple[Vec3, Vec3]
-type Bounds = tuple[float, float, float, float, float, float]
-type ScalarRange = tuple[float, float]
-type Palette = (
-    str | tuple[str, ...]
-)  # a matplotlib colormap NAME or the graphic/color/derive#DERIVE resolved CSS-colour LIST; add_mesh(cmap=) accepts both
-type FieldFilterTag = Literal[
-    "clip",
-    "clip_box",
-    "clip_scalar",
-    "slice",
-    "slice_orthogonal",
-    "threshold",
-    "contour",
-    "warp",
-    "warp_vector",
-    "glyph",
-    "streamlines",
-    "decimate",
-    "surface",
-    "smooth",
-    "subdivide",
-    "fill_holes",
-    "clean",
-    "cell_to_point",
-    "point_to_cell",
-    "combine",
-]
 type SceneOpTag = Literal["image", "export", "frames", "ingest", "compose"]
 
+# --- [CONSTANTS] -----------------------------------------------------------------------
+
 _FRAME_FORMAT = "rgb24"
-_ORIGIN: Vec3 = (0.0, 0.0, 0.0)
-_UP: Vec3 = (0.0, 0.0, 1.0)
 
-class RenderStyle(StrEnum):
-    SURFACE = "surface"
-    VOLUME = "volume"
-    POINTS = "points"
-    ARROWS = "arrows"  # add_arrows vector-field glyphs over the active vector field
-    LABELS = "labels"  # add_point_labels text annotation at each point
-    LINES = "lines"  # add_mesh(style="wireframe") drawing-edge linework for the AEC drawing plane
-
-
-class SceneTarget(StrEnum):
-    # the SceneOp.Export/Ingest file-target vocabulary, hoisted HERE so scene/export#EXPORT composes it downward
-    PNG = "png"
-    GLTF = "gltf"
-    VRML = "vrml"
-    OBJ = "obj"
-    HTML = "html"
-    USD = "usdc"
-    USDZ = "usdz"
-
-
-class SceneSource(StrEnum):
-    # the scene formats the pyvista importer round-trips; a subset of SceneTarget — PNG/USD/USDZ are export-only
-    GLTF = "gltf"
-    OBJ = "obj"
-    VRML = "vrml"
-
-
-class BoolOp(StrEnum):
-    # the two-operand composite ops the single-operand FieldFilter cannot carry; dispatched by the worker `_BOOL` closure table (SAMPLE the field-transfer)
-    UNION = "union"
-    DIFFERENCE = "difference"
-    INTERSECTION = "intersection"
-    SAMPLE = "sample"
-
-
-class AntiAlias(StrEnum):
-    SSAA = "ssaa"
-    MSAA = "msaa"
-    FXAA = "fxaa"
-
-
-class RenderFeature(StrEnum):
-    AXES = "axes"
-    SCALAR_BAR = "scalar_bar"
-    SSAO = "ssao"
-    DEPTH_PEEL = "depth_peel"
-    EYE_DOME = "eye_dome"
-    SHADOWS = "shadows"
-    PARALLEL = "parallel"
-
-
-# feature -> plotter-enable correspondence `viewed` folds the policy `frozenset` onto
-_FEATURE: frozendict[RenderFeature, Callable[[object], object]] = frozendict({
-    RenderFeature.AXES: lambda plotter: plotter.add_axes(),
-    RenderFeature.SCALAR_BAR: lambda plotter: plotter.add_scalar_bar(),
-    RenderFeature.SSAO: lambda plotter: plotter.enable_ssao(),
-    RenderFeature.DEPTH_PEEL: lambda plotter: plotter.enable_depth_peeling(),
-    RenderFeature.EYE_DOME: lambda plotter: plotter.enable_eye_dome_lighting(),
-    RenderFeature.SHADOWS: lambda plotter: plotter.enable_shadows(),
-    RenderFeature.PARALLEL: lambda plotter: plotter.enable_parallel_projection(),
-})
-
-
-class OrbitPath(Enum):
-    AZIMUTH = (1.0, 0.0)
-    WIDE = (2.0, 0.3)
-    TIGHT = (0.5, 0.5)
-
-    def __init__(self, factor: float, elevation: float) -> None:
-        self.factor = factor
-        self.elevation = elevation
-
-
-class CameraPose(NamedTuple):
-    position: Vec3 | None = None
-    focal_point: Vec3 | None = None
-    view_up: Vec3 | None = None
-
-
-@tagged_union(frozen=True)
-class FieldFilter:
-    tag: FieldFilterTag = tag()
-    clip: tuple[Plane, bool] = case()  # (plane, crinkle) — crinkle keeps whole boundary cells rather than a clean cut
-    clip_box: Bounds = case()
-    clip_scalar: tuple[float, bool] = case()
-    slice: Plane = case()
-    slice_orthogonal: Vec3 = case()
-    threshold: ScalarRange = case()
-    contour: tuple[tuple[float, ...], str] = case()  # (isovalues, method='contour'/'marching_cubes'/'flying_edges')
-    warp: float = case()
-    glyph: tuple[float, bool, float | None, bool] = case()  # (factor, orient, tolerance, clamping)
-    streamlines: tuple[Vec3, float | None, int, str, float | None] = (
-        case()
-    )  # (source_center, source_radius, n_points, integration_direction, max_time)
-    decimate: tuple[float, bool] = case()  # (reduction, volume_preservation)
-    surface: bool = case()
-    warp_vector: float = case()  # warp_by_vector displacement over the active vector field
-    smooth: int = case()  # n_iter Laplacian surface smoothing (mesh repair)
-    subdivide: int = case()  # nsub recursive triangle subdivision (mesh refinement)
-    fill_holes: float = case()  # hole_size boundary-hole fill (mesh repair)
-    clean: bool = case()  # merge duplicate/degenerate points (mesh repair)
-    cell_to_point: bool = case()  # cell_data_to_point_data field transfer
-    point_to_cell: bool = case()  # point_data_to_cell_data field transfer
-    combine: bool = case()  # MultiBlock.combine merge (merge_points), e.g. after slice_orthogonal
-
-    @staticmethod
-    def Clip(normal: Vec3, origin: Vec3, crinkle: bool = False) -> "FieldFilter":
-        return FieldFilter(clip=((normal, origin), crinkle))
-
-    @staticmethod
-    def ClipBox(bounds: Bounds) -> "FieldFilter":
-        return FieldFilter(clip_box=bounds)
-
-    @staticmethod
-    def ClipScalar(value: float, invert: bool = False) -> "FieldFilter":
-        return FieldFilter(clip_scalar=(value, invert))
-
-    @staticmethod
-    def Slice(normal: Vec3, origin: Vec3) -> "FieldFilter":
-        return FieldFilter(slice=(normal, origin))
-
-    @staticmethod
-    def SliceOrthogonal(center: Vec3) -> "FieldFilter":
-        return FieldFilter(slice_orthogonal=center)
-
-    @staticmethod
-    def Threshold(lo: float, hi: float) -> "FieldFilter":
-        return FieldFilter(threshold=(lo, hi))
-
-    @staticmethod
-    def Contour(*isovalues: float, method: str = "contour") -> "FieldFilter":
-        return FieldFilter(contour=(isovalues, method))
-
-    @staticmethod
-    def Warp(factor: float) -> "FieldFilter":
-        return FieldFilter(warp=factor)
-
-    @staticmethod
-    def Glyph(factor: float, orient: bool = True, tolerance: float | None = None, clamping: bool = False) -> "FieldFilter":
-        return FieldFilter(glyph=(factor, orient, tolerance, clamping))
-
-    @staticmethod
-    def Streamlines(
-        source_center: Vec3,
-        source_radius: float | None = None,
-        n_points: int = 100,
-        integration_direction: str = "both",
-        max_time: float | None = None,
-    ) -> "FieldFilter":
-        return FieldFilter(streamlines=(source_center, source_radius, n_points, integration_direction, max_time))
-
-    @staticmethod
-    def Decimate(reduction: float, volume_preservation: bool = False) -> "FieldFilter":
-        return FieldFilter(decimate=(reduction, volume_preservation))
-
-    @staticmethod
-    def Surface() -> "FieldFilter":
-        return FieldFilter(surface=True)
-
-    @staticmethod
-    def WarpVector(factor: float = 1.0) -> "FieldFilter":
-        return FieldFilter(warp_vector=factor)
-
-    @staticmethod
-    def Smooth(n_iter: int = 20) -> "FieldFilter":
-        return FieldFilter(smooth=n_iter)
-
-    @staticmethod
-    def Subdivide(nsub: int = 1) -> "FieldFilter":
-        return FieldFilter(subdivide=nsub)
-
-    @staticmethod
-    def FillHoles(hole_size: float) -> "FieldFilter":
-        return FieldFilter(fill_holes=hole_size)
-
-    @staticmethod
-    def Clean() -> "FieldFilter":
-        return FieldFilter(clean=True)
-
-    @staticmethod
-    def CellToPoint() -> "FieldFilter":
-        return FieldFilter(cell_to_point=True)
-
-    @staticmethod
-    def PointToCell() -> "FieldFilter":
-        return FieldFilter(point_to_cell=True)
-
-    @staticmethod
-    def Combine(merge_points: bool = False) -> "FieldFilter":
-        return FieldFilter(combine=merge_points)
-
-    def apply(self, dataset: object, scalars: str) -> object:
-        match self:
-            case FieldFilter(tag="clip", clip=((normal, origin), crinkle)):
-                return dataset.clip(normal=normal, origin=origin, crinkle=crinkle)
-            case FieldFilter(tag="clip_box", clip_box=bounds):
-                return dataset.clip_box(bounds=bounds)
-            case FieldFilter(tag="clip_scalar", clip_scalar=(value, invert)):
-                return dataset.clip_scalar(scalars=scalars, value=value, invert=invert)
-            case FieldFilter(tag="slice", slice=(normal, origin)):
-                return dataset.slice(normal=normal, origin=origin)
-            case FieldFilter(tag="slice_orthogonal", slice_orthogonal=(x, y, z)):
-                return dataset.slice_orthogonal(x=x, y=y, z=z)
-            case FieldFilter(tag="threshold", threshold=value_range):
-                return dataset.threshold(value=value_range, scalars=scalars)
-            case FieldFilter(tag="contour", contour=(isovalues, method)):
-                return dataset.contour(isosurfaces=list(isovalues), scalars=scalars, method=method)
-            case FieldFilter(tag="warp", warp=factor):
-                return dataset.warp_by_scalar(scalars=scalars, factor=factor)
-            case FieldFilter(tag="glyph", glyph=(factor, orient, tolerance, clamping)):
-                return dataset.glyph(scale=scalars, factor=factor, orient=orient, tolerance=tolerance, clamping=clamping)
-            case FieldFilter(tag="streamlines", streamlines=(source_center, source_radius, n_points, direction, max_time)):
-                return dataset.streamlines(
-                    vectors=scalars,
-                    source_center=source_center,
-                    source_radius=source_radius,
-                    n_points=n_points,
-                    integration_direction=direction,
-                    max_time=max_time,
-                )
-            case FieldFilter(tag="decimate", decimate=(reduction, volume_preservation)):
-                return dataset.decimate(target_reduction=reduction, volume_preservation=volume_preservation)
-            case FieldFilter(tag="surface", surface=_):
-                return dataset.extract_surface()
-            case FieldFilter(tag="warp_vector", warp_vector=factor):
-                return dataset.warp_by_vector(vectors=scalars, factor=factor)
-            case FieldFilter(tag="smooth", smooth=n_iter):
-                return dataset.smooth(n_iter=n_iter)
-            case FieldFilter(tag="subdivide", subdivide=nsub):
-                return dataset.subdivide(nsub)
-            case FieldFilter(tag="fill_holes", fill_holes=hole_size):
-                return dataset.fill_holes(hole_size)
-            case FieldFilter(tag="clean", clean=_):
-                return dataset.clean()
-            case FieldFilter(tag="cell_to_point", cell_to_point=_):
-                return dataset.cell_data_to_point_data()
-            case FieldFilter(tag="point_to_cell", point_to_cell=_):
-                return dataset.point_data_to_cell_data()
-            case FieldFilter(tag="combine", combine=merge_points):
-                return dataset.combine(merge_points=merge_points)
-            case _:
-                assert_never(self)
-
-
-class RenderSpec(Struct, frozen=True):
-    scalars: str
-    colormap: Palette
-    window: tuple[int, int] = (1024, 768)
-    background: str = "white"
-    clim: ScalarRange | None = None
-    opacity: float | None = None
-    style: RenderStyle = RenderStyle.SURFACE
-    filters: tuple[FieldFilter, ...] = ()
-    transparent: bool = False
-    pbr: bool = False
-    metallic: float | None = None
-    roughness: float | None = None
-    show_edges: bool = False
-    line_width: float | None = None  # RenderStyle.LINES wireframe pen width (AEC drawing-edge linework)
-    ambient: float | None = None  # add_mesh classic-lighting Phong band, orthogonal to the pbr metallic/roughness pair
-    diffuse: float | None = None
-    specular: float | None = None
-    smooth_shading: bool = False  # per-vertex Gouraud shading (vs the default per-face flat)
-    volume_opacity: str | None = None  # add_volume opacity transfer-function name ('linear'/'sigmoid'/'sigmoid_6'), overriding the scalar float
-    blending: str | None = None  # add_volume ray blending ('composite'/'maximum'/'minimum'/'average'/'additive')
-    volume_mapper: str | None = None  # add_volume mapper ('smart'/'gpu'/'fixed_point'/'ugrid')
-    features: frozenset[RenderFeature] = frozenset()
-    anti_aliasing: AntiAlias | None = None
-    camera: CameraPose = CameraPose()
-    title: str | None = None  # add_text figure title at the upper edge
-    annotations: tuple[tuple[str, str], ...] = ()  # add_text (text, position) callouts for the documentation-figure plane
-    up_axis: Literal["y", "z"] = "z"  # AEC/USD deliverable metadata: the scene/stage#STAGE UpAxis the USD export threads
-    meters_per_unit: float = 1.0  # AEC/USD deliverable metadata: the real-world scale the USD/AR export anchors on
-    labels: frozendict[str, tuple[str, ...]] = (
-        frozendict()
-    )  # AEC/USD deliverable metadata: taxonomy -> discipline/classification labels the USD MeshScene.labels carries
-
-    def staged(self, dataset: object) -> object:
-        return reduce(lambda field, flt: flt.apply(field, self.scalars), self.filters, dataset)
-
-    def added(self, plotter: object, mesh: object) -> None:
-        shared = {"scalars": self.scalars, "cmap": self.colormap, "clim": self.clim, "opacity": self.opacity}
-        drop = lambda row: {
-            key: value for key, value in row.items() if value is not None
-        }  # every provider kwarg dropped when unset, never a None passed through
-        match self.style:
-            case RenderStyle.SURFACE:
-                material = {
-                    "pbr": self.pbr or None,
-                    "metallic": self.metallic,
-                    "roughness": self.roughness,
-                    "show_edges": self.show_edges or None,
-                    "ambient": self.ambient,
-                    "diffuse": self.diffuse,
-                    "specular": self.specular,
-                    "smooth_shading": self.smooth_shading or None,
-                }
-                plotter.add_mesh(mesh, **drop(shared | material))
-            case RenderStyle.VOLUME:
-                volume = {**shared, "opacity": self.volume_opacity or self.opacity, "blending": self.blending, "mapper": self.volume_mapper}
-                plotter.add_volume(mesh, **drop(volume))  # opacity is the transfer-function NAME when set, else the scalar float
-            case RenderStyle.POINTS:
-                plotter.add_points(mesh, **drop(shared))
-            case RenderStyle.LINES:
-                plotter.add_mesh(mesh, style="wireframe", **drop(shared | {"line_width": self.line_width}))  # drawing-edge linework
-            case RenderStyle.ARROWS:
-                plotter.add_arrows(mesh.points, mesh[self.scalars])  # centers = points, directions = the active vector field
-            case RenderStyle.LABELS:
-                plotter.add_point_labels(mesh.points, mesh[self.scalars])  # text labels rendered from the active scalar field
-            case _:
-                assert_never(self.style)
-
-    def viewed(self, plotter: object) -> None:
-        plotter.set_background(self.background)
-        for feature in self.features:
-            _FEATURE[feature](plotter)
-        if self.title is not None:
-            plotter.add_text(self.title, position="upper_edge")
-        for text, position in self.annotations:
-            plotter.add_text(text, position=position)
-        if self.anti_aliasing is not None:
-            plotter.enable_anti_aliasing(self.anti_aliasing.value)
-        if (pose := self.camera).position is not None:
-            plotter.camera_position = [pose.position, pose.focal_point or _ORIGIN, pose.view_up or _UP]
+# --- [MODELS] --------------------------------------------------------------------------
 
 
 @tagged_union(frozen=True)
 class SceneOp:
     tag: SceneOpTag = tag()
-    image: tuple[object, RenderSpec] = case()
-    export: tuple[object, SceneTarget, RenderSpec] = case()
-    frames: tuple[object, OrbitPath, int, RenderSpec] = case()
+    image: tuple[SceneGrid, RenderSpec] = case()
+    export: tuple[SceneGrid, SceneTarget, RenderSpec] = case()
+    frames: tuple[SceneGrid, OrbitPath, RenderSpec] = case()
     ingest: tuple[bytes, SceneSource, SceneTarget, RenderSpec] = case()
-    compose: tuple[object, object, BoolOp, RenderSpec] = case()
+    compose: tuple[SceneGrid, SceneGrid, BoolOp, RenderSpec] = case()
 
     @staticmethod
-    def Image(grid: object, spec: RenderSpec) -> "SceneOp":
+    def Image(grid: SceneGrid, spec: RenderSpec) -> "SceneOp":
         return SceneOp(image=(grid, spec))
 
     @staticmethod
-    def Export(grid: object, target: SceneTarget, spec: RenderSpec) -> "SceneOp":
+    def Export(grid: SceneGrid, target: SceneTarget, spec: RenderSpec) -> "SceneOp":
         return SceneOp(export=(grid, target, spec))
 
     @staticmethod
-    def Frames(grid: object, orbit: OrbitPath, steps: int, spec: RenderSpec) -> "SceneOp":
-        return SceneOp(frames=(grid, orbit, steps, spec))
+    def Frames(grid: SceneGrid, orbit: OrbitPath, spec: RenderSpec) -> "SceneOp":
+        return SceneOp(frames=(grid, orbit, spec))
 
     @staticmethod
     def Ingest(scene: bytes, source: SceneSource, target: SceneTarget, spec: RenderSpec) -> "SceneOp":
         return SceneOp(ingest=(scene, source, target, spec))
 
     @staticmethod
-    def Compose(grid_a: object, grid_b: object, op: BoolOp, spec: RenderSpec) -> "SceneOp":
+    def Compose(grid_a: SceneGrid, grid_b: SceneGrid, op: BoolOp, spec: RenderSpec) -> "SceneOp":
         return SceneOp(compose=(grid_a, grid_b, op, spec))
 
 
 class Scene3d(Struct, frozen=True):
+    # `lane` arrives projected via LanePolicy.of(context) at the composition root — a capacity literal has no owner.
     op: SceneOp
+    lane: LanePolicy
+    parents: tuple[ContentKey, ...] = ()
 
     def emit(self, /) -> ArtifactWork:
-        return ArtifactWork(key=self._key, work=self._emit, parents=(), admission=Admission(keyed=None), cost=1.0)
+        return ArtifactWork(key=self._key, work=self._emit, parents=self.parents, admission=Admission(keyed=None), cost=4.0)
+
+    async def framed(self) -> RuntimeRail[Frames]:
+        match self.op:
+            case SceneOp(tag="frames", frames=(grid, orbit, spec)):
+                return await self._offload("render_frames", grid, orbit, spec, enforcement=Enforcement.TERMINAL)
+            case _:
+                return await async_boundary(f"scene.{self.op.tag}", _no_sequence)
 
     @property
     def _key(self) -> ContentKey:
-        # key-over-INPUT: minted PRE-RUN so keyed admission probes the warm seed before any VTK render runs.
-        return ContentIdentity.of(f"scene-{self.op.tag}", self.op, policy=CANONICAL_POLICY)
+        # Canonical admitted buffers mint the bare input key before work, so keyed admission probes warm state first;
+        # a parented node merkle-folds its producer keys per core/plan#PLAN.
+        minted = ContentIdentity.key(f"scene-{self.op.tag}", _canon(self.op))
+        return minted if not self.parents else ContentIdentity.key(f"scene-{self.op.tag}", (minted, *self.parents))
+
+    async def _offload[T](self, kernel: str, /, *args: object, enforcement: Enforcement = Enforcement.COOPERATIVE) -> RuntimeRail[T]:
+        # one crossing spelling: the (module, name) pair rides the runtime Kernel — trait supplies isolation and the
+        # worker-death retry, the explicit idempotent declaration gates it, and TERMINAL routes the pebble kill arm.
+        return await self.lane.offload(Kernel.of((WORKER_MODULE, kernel), KernelTrait.HOSTILE, enforcement=enforcement, idempotent=True), *args)
 
     async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
-        return await async_boundary(f"scene.{self.op.tag}", self._rendered)
+        railed = await async_boundary(f"scene.{self.op.tag}", self._rendered)
+        return railed.bind(lambda rail: rail)
 
-    async def _rendered(self) -> ArtifactReceipt:
-        # every arm crosses the runtime PROCESS lane (VTK is GIL-hostile native).
+    async def _rendered(self) -> RuntimeRail[ArtifactReceipt]:
         key = self._key
         match self.op:
             case SceneOp(tag="image", image=(grid, spec)):
-                data = _crossed(await LanePolicy.offload(render_image, grid, spec, modality=Modality.PROCESS, retry=RetryClass.OCCT))
-                return ArtifactReceipt.Scene(
-                    key,
-                    SceneTarget.PNG.value,
-                    len(data),
-                    frozendict({"width": spec.window[0], "height": spec.window[1], "address": ContentIdentity.key(SceneTarget.PNG.value, data)}),
+                return (await self._offload("render_image", grid, spec)).map(
+                    lambda data: ArtifactReceipt.Scene(
+                        key,
+                        SceneTarget.PNG.value,
+                        len(data),
+                        frozendict({**_sized(spec), "address": ContentIdentity.key(SceneTarget.PNG.value, data).hex}),
+                    )
                 )
             case SceneOp(tag="export", export=(grid, target, spec)):
-                data, facts = _crossed(await LanePolicy.offload(render_export, grid, target.value, spec, modality=Modality.PROCESS, retry=RetryClass.OCCT))
-                # `facts` carries the `scene/stage#STAGE` stage-stats band on the USD arms, empty on the render sinks
-                return ArtifactReceipt.Scene(key, target.value, len(data), frozendict({**facts, "address": ContentIdentity.key(target.value, data)}))
-            case SceneOp(tag="frames", frames=(grid, orbit, steps, spec)):
-                sequence = _crossed(await LanePolicy.offload(render_frames, grid, orbit, steps, spec, modality=Modality.PROCESS, retry=RetryClass.OCCT))
-                merkle = ContentIdentity.key(_FRAME_FORMAT, tuple(ContentIdentity.key(_FRAME_FORMAT, frame.tobytes()) for frame in sequence))
-                return ArtifactReceipt.Scene(
-                    key,
-                    _FRAME_FORMAT,
-                    sum(frame.nbytes for frame in sequence),
-                    frozendict({"frames": len(sequence), "width": spec.window[0], "height": spec.window[1], "address": merkle}),
+                return (await self._offload("render_export", grid, target.value, spec)).map(
+                    lambda pair: ArtifactReceipt.Scene(key, target.value, len(pair[0]), frozendict({**pair[1], "address": ContentIdentity.key(target.value, pair[0]).hex}))
+                )
+            case SceneOp(tag="frames", frames=(grid, orbit, spec)):
+                # TERMINAL: a hung native orbit capture dies at the caller's wall-clock budget and reclaims its worker.
+                return (await self._offload("render_frames", grid, orbit, spec, enforcement=Enforcement.TERMINAL)).map(
+                    lambda sequence: ArtifactReceipt.Scene(
+                        key,
+                        _FRAME_FORMAT,
+                        sum(frame.nbytes for frame in sequence),
+                        frozendict({
+                            "frames": float(len(sequence)),
+                            **_sized(spec),
+                            "address": ContentIdentity.key(_FRAME_FORMAT, tuple(ContentIdentity.key(_FRAME_FORMAT, frame.tobytes()) for frame in sequence)).hex,
+                        }),
+                    )
                 )
             case SceneOp(tag="ingest", ingest=(scene, source, target, spec)):
-                data, facts = _crossed(
-                    await LanePolicy.offload(render_ingest, scene, source.value, target.value, spec, modality=Modality.PROCESS, retry=RetryClass.OCCT)
+                return (await self._offload("render_ingest", scene, source.value, target.value, spec)).map(
+                    lambda pair: ArtifactReceipt.Scene(key, target.value, len(pair[0]), frozendict({**pair[1], "address": ContentIdentity.key(target.value, pair[0]).hex}))
                 )
-                return ArtifactReceipt.Scene(key, target.value, len(data), frozendict({**facts, "address": ContentIdentity.key(target.value, data)}))
             case SceneOp(tag="compose", compose=(grid_a, grid_b, op, spec)):
-                data = _crossed(
-                    await LanePolicy.offload(render_compose, grid_a, grid_b, op.value, spec, modality=Modality.PROCESS, retry=RetryClass.OCCT)
-                )
-                return ArtifactReceipt.Scene(
-                    key,
-                    SceneTarget.PNG.value,
-                    len(data),
-                    frozendict({
-                        "boolean": op.value,
-                        "width": spec.window[0],
-                        "height": spec.window[1],
-                        "address": ContentIdentity.key(SceneTarget.PNG.value, data),
-                    }),
+                # TERMINAL: a boolean fold spinning on coincident surfaces dies at the kill budget the manifold refusal cannot preclude.
+                return (await self._offload("render_compose", grid_a, grid_b, op.value, spec, enforcement=Enforcement.TERMINAL)).map(
+                    lambda data: ArtifactReceipt.Scene(
+                        key,
+                        SceneTarget.PNG.value,
+                        len(data),
+                        frozendict({
+                            "boolean": op.value,
+                            **_sized(spec),
+                            "address": ContentIdentity.key(SceneTarget.PNG.value, data).hex,  # the Scene band admits float|str — a scalar hex address, never a structured key
+                        }),
+                    )
                 )
             case _:
                 assert_never(self.op)
 
 
-def _crossed[T](rail: "RuntimeRail[T]", /) -> T:
-    # terminal collapse at the render boundary: an offload fault reconstructs the raise the node's rail folds.
-    return rail.default_with(_scene_raise)
+# --- [OPERATIONS] ----------------------------------------------------------------------
 
 
-def _scene_raise(fault: object) -> object:
-    raise ValueError(str(fault))
-```
-
-The worker bodies are module-level functions dispatched by qualified name across the runtime PROCESS lane (the seam cannot target a bound method or closure), so they import `pyvista`/`numpy`/`matplotlib` at module scope inside the gated sub-3.13 worker only, never on the runtime owner. `render_export`/`render_ingest` are the `Export`/`Ingest` seam entries that re-admit the crossed `SceneTarget` and compose the `scene/export#EXPORT` `plotted`/`authored`/`captured` machinery — the worker boundary is its sole composer, so the eager module graph (worker → export → render) is acyclic. `render_plotter` is the shared render window the `Image`/`Frames`/`Compose` sinks and the export/stage arms all read.
-
-```python signature
-from collections.abc import Callable
-from pathlib import Path
-from tempfile import TemporaryDirectory
-from typing import assert_never
-
-import numpy as np
-import pyvista as pv
-from matplotlib import colormaps
-from matplotlib.colors import ListedColormap, Normalize
-from msgspec.structs import replace
-from numpy.typing import NDArray
-
-from artifacts.scene.export import RENDER_SINKS, ROW, USD_SINKS, ExportError, Sink, authored, captured, plotted
-from artifacts.scene.render import BoolOp, FieldFilter, OrbitPath, RenderSpec, SceneTarget, Vec3
-
-# the BoolOp two-operand PolyData ops as one closure table (mirroring the scene/export#EXPORT `_EXPORTER` row), never a string-built getattr
-_BOOL: frozendict[BoolOp, Callable[[object, object], object]] = frozendict({
-    BoolOp.UNION: lambda a, b: a.boolean_union(b),
-    BoolOp.DIFFERENCE: lambda a, b: a.boolean_difference(b),
-    BoolOp.INTERSECTION: lambda a, b: a.boolean_intersection(b),
-    BoolOp.SAMPLE: lambda a, b: a.sample(b),
-})
+def _sized(spec: RenderSpec) -> frozendict[str, float]:
+    # one dims fact stream for every raster arm: capture rasterizes at window-times-scale, so the receipt reports the rasterized dims, never the request
+    factor = float(spec.scale or 1)
+    return frozendict({"width": spec.window[0] * factor, "height": spec.window[1] * factor})
 
 
-def render_plotter(grid: object, spec: RenderSpec) -> "pv.Plotter":
-    plotter = pv.Plotter(off_screen=True)
-    spec.added(plotter, spec.staged(pv.wrap(grid)))
-    spec.viewed(plotter)
-    return plotter
+def _canon(op: SceneOp) -> tuple[bytes, ...]:
+    match op:
+        case SceneOp(tag="image", image=(grid, spec)):
+            return framed(b"image", CANON.encode(spec), *grid.spans())
+        case SceneOp(tag="export", export=(grid, target, spec)):
+            return framed(b"export", target.value.encode(), CANON.encode(spec), *grid.spans())
+        case SceneOp(tag="frames", frames=(grid, orbit, spec)):
+            return framed(b"frames", CANON.encode(orbit), CANON.encode(spec), *grid.spans())
+        case SceneOp(tag="ingest", ingest=(scene, source, target, spec)):
+            return framed(b"ingest", source.value.encode(), target.value.encode(), CANON.encode(spec), scene)
+        case SceneOp(tag="compose", compose=(grid_a, grid_b, boolean, spec)):
+            return framed(b"compose", boolean.value.encode(), CANON.encode(spec), *framed(*grid_a.spans()), *framed(*grid_b.spans()))
+        case _ as unreachable:
+            assert_never(unreachable)
 
 
-def import_plotter(scene: bytes, source: str, spec: RenderSpec) -> "pv.Plotter":
-    # the `render_ingest` round-trip's plotter: the import loads the whole scene into the render window, so the
-    # temp file is free to drop before `RenderSpec.viewed` re-tunes it; `source` is the `SceneSource` `.value`.
-    plotter = pv.Plotter(off_screen=True)
-    with TemporaryDirectory() as work:
-        path = Path(work) / f"scene.{source}"
-        path.write_bytes(scene)
-        match source:
-            case "gltf":
-                plotter.import_gltf(str(path))
-            case "obj":
-                plotter.import_obj(str(path))
-            case _:  # "vrml"
-                plotter.import_vrml(str(path))
-    spec.viewed(plotter)
-    return plotter
-
-
-def surface_arrays(grid: object, spec: RenderSpec) -> tuple[NDArray[np.float32], NDArray[np.int32], NDArray[np.float32], NDArray[np.float32] | None]:
-    surf = pv.wrap(grid).extract_surface().triangulate()  # admit ONCE, reduce to a uniform-triangle boundary so regular_faces is (M,3)
-    return (
-        np.asarray(surf.points, dtype=np.float32),
-        surf.regular_faces.astype(np.int32),
-        np.asarray(surf.point_normals, dtype=np.float32),
-        _mapped_rgb(
-            surf, spec
-        ),  # the `scene/stage#STAGE` displayColor primvar RGB; None when the field is absent
-    )
-
-
-def _mapped_rgb(surf: object, spec: RenderSpec) -> NDArray[np.float32] | None:
-    # map the active scalar field through the render colormap (a matplotlib NAME or the graphic/color/derive#DERIVE palette LIST) to per-vertex RGB
-    if spec.scalars not in surf.point_data:
-        return None
-    scalars = np.asarray(surf.point_data[spec.scalars], dtype=np.float64)
-    lo, hi = spec.clim if spec.clim is not None else (float(scalars.min()), float(scalars.max()))
-    cmap = ListedColormap(list(spec.colormap)) if isinstance(spec.colormap, tuple) else colormaps[spec.colormap]
-    rgba = cmap(Normalize(vmin=lo, vmax=hi)(scalars))
-    return np.asarray(rgba[:, :3], dtype=np.float32)
-
-
-def shoot(plotter: "pv.Plotter", spec: RenderSpec) -> NDArray[np.uint8]:
-    return plotter.screenshot(filename=None, return_img=True, window_size=list(spec.window), transparent_background=spec.transparent)
-
-
-def png(plotter: "pv.Plotter", out: Path, spec: RenderSpec) -> bytes:
-    plotter.screenshot(str(out), window_size=list(spec.window), transparent_background=spec.transparent)
-    return out.read_bytes()
-
-
-def render_image(grid: object, spec: RenderSpec) -> bytes:
-    plotter = render_plotter(grid, spec)
-    try:
-        with TemporaryDirectory() as work:
-            return png(plotter, Path(work) / "scene.png", spec)
-    finally:
-        plotter.close()  # deterministic VTK render-window teardown; the GL context is never left for GC
-
-
-def render_compose(grid_a: object, grid_b: object, op: str, spec: RenderSpec) -> bytes:
-    # `boolean_*`/`sample` live on PolyData, so both operands reduce to triangulated surfaces first, then the BoolOp
-    # closure folds the composite `render_plotter` renders.
-    a = pv.wrap(grid_a).extract_surface().triangulate()
-    b = pv.wrap(grid_b).extract_surface().triangulate()
-    composite = _BOOL[BoolOp(op)](a, b)
-    plotter = render_plotter(composite, spec)
-    try:
-        with TemporaryDirectory() as work:
-            return png(plotter, Path(work) / "scene.png", spec)
-    finally:
-        plotter.close()
-
-
-def render_export(grid: object, target: str, spec: RenderSpec) -> tuple[bytes, frozendict[str, float | str]]:
-    # the Export seam entry: re-admit the crossed target, read the ROW law, split the Sink match between the
-    # render sinks (live plotter) and the USD sinks (plotter-free author).
-    kind = SceneTarget(target)
-    row = ROW[kind]
-    with TemporaryDirectory() as work:
-        out = Path(work) / f"scene.{row.suffix}"
-        facts: frozendict[str, float | str] = frozendict()  # USD sinks fill it from `authored`'s ComputeUsdStageStats band; render sinks leave it empty
-        try:
-            match row.sink:
-                case Sink.RASTER | Sink.PLOTTER:
-                    surfaced = replace(spec, filters=(*spec.filters, FieldFilter.Surface())) if row.surface else spec
-                    plotted(render_plotter(grid, surfaced), kind, row, spec, out)
-                case Sink.USD_LAYER | Sink.USDZ_PACKAGE:
-                    facts = authored(surface_arrays(grid, spec), row, spec, out)
-                case _:
-                    assert_never(row.sink)
-        except ExportError:
-            raise
-        except Exception as failed:  # noqa: BLE001 — every pyvista/VTK/pxr provider raise converges on the closed cause here
-            raise ExportError("<usd-failed>" if row.sink in USD_SINKS else "<write-failed>") from failed
-        return captured(Path(work), out, row.bundle), facts
-
-
-def render_ingest(scene: bytes, source: str, target: str, spec: RenderSpec) -> tuple[bytes, frozendict[str, float | str]]:
-    # the Ingest round-trip seam entry: re-serialize an imported scene to a render-sink target; a USD target
-    # rails <write-failed> (no grid to extract).
-    kind = SceneTarget(target)
-    row = ROW[kind]
-    with TemporaryDirectory() as work:
-        out = Path(work) / f"scene.{row.suffix}"
-        try:
-            if row.sink not in RENDER_SINKS:
-                raise ExportError("<write-failed>")
-            plotted(import_plotter(scene, source, spec), kind, row, spec, out)
-        except ExportError:
-            raise
-        except Exception as failed:  # noqa: BLE001
-            raise ExportError("<write-failed>") from failed
-        return captured(Path(work), out, row.bundle), frozendict()  # an imported scene carries no authored-stage stats
-
-
-def _orbit(plotter: "pv.Plotter", orbit: OrbitPath, steps: int) -> tuple[tuple[Vec3, Vec3, Vec3], ...]:
-    start, focal, up = plotter.camera_position
-    center = np.asarray(focal, dtype=np.float64)
-    radius = float(np.linalg.norm(np.asarray(start, dtype=np.float64) - center)) * orbit.factor
-    height = float(center[2]) + radius * orbit.elevation
-    focal3: Vec3 = (float(center[0]), float(center[1]), float(center[2]))
-    up3: Vec3 = (float(up[0]), float(up[1]), float(up[2]))
-    return tuple(
-        ((float(center[0] + radius * np.cos(a)), float(center[1] + radius * np.sin(a)), height), focal3, up3)
-        for a in np.linspace(0.0, 2.0 * np.pi, steps, endpoint=False)
-    )
-
-
-def render_frames(grid: object, orbit: OrbitPath, steps: int, spec: RenderSpec) -> tuple[NDArray[np.uint8], ...]:
-    plotter = render_plotter(grid, spec)
-    try:
-
-        def _capture(view: tuple[Vec3, Vec3, Vec3]) -> NDArray[np.uint8]:
-            plotter.camera_position = list(view)
-            return shoot(plotter, spec)
-
-        return tuple(_capture(view) for view in _orbit(plotter, orbit, steps))
-    finally:
-        plotter.close()  # deterministic VTK render-window teardown; the GL context is never left for GC
+async def _no_sequence() -> Frames:
+    raise ValueError("frames egress requires a frames op")
 ```
 
 ## [03]-[RESEARCH]
