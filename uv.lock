@@ -3225,6 +3225,18 @@ wheels = [
 ]
 
 [[package]]
+name = "loky"
+version = "3.5.6"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "cloudpickle" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/76/61/690a4503ede61d36cc7fa2d5fa11fe02d94f030bd82155cd8935b2694580/loky-3.5.6.tar.gz", hash = "sha256:d96935ed689aa53eeb7b329769544950fa10a52706968f5d0af3d9c33a761e77", size = 102275, upload-time = "2025-08-27T09:53:52.4Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ce/80/7f1f1bf8c2d5dfd8e9c0e1191aa355ff8b80b5619f84d6dcc2703fa7fd5a/loky-3.5.6-py3-none-any.whl", hash = "sha256:6d5300ac68cbd5084e89a6a0a187785d6a79950d461c80223d2c9a41d672b3d4", size = 56515, upload-time = "2025-08-27T09:53:51.145Z" },
+]
+
+[[package]]
 name = "luigi"
 version = "3.3.0"
 source = { registry = "https://pypi.org/simple" }
@@ -4434,6 +4446,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/05/56/6f450312ba05a27d7713b73857c1a25100dbda04fbc1331b13fb227a607d/pdfplumber-0.11.10.tar.gz", hash = "sha256:b95b2d28c66efb0a794a83b88c6c6aea5987532a445d20a1cbcfa657022e6e57", size = 102892, upload-time = "2026-06-15T03:31:31.035Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a2/9a/07d658e1e7fad860f1c541ab941348125dbdab773be3a0afaf32361866c7/pdfplumber-0.11.10-py3-none-any.whl", hash = "sha256:7741ea81bf165b474b153e6789d10d18e06b6ddcf3ec84289c3ef2fed6802580", size = 60047, upload-time = "2026-06-15T03:31:29.702Z" },
+]
+
+[[package]]
+name = "pebble"
+version = "5.2.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/66/3b/7debef984e227a70798963cf2e5ea90882f62bca659b33cbd421a453abd1/pebble-5.2.0.tar.gz", hash = "sha256:8e0a5f6a1cfdd0ac1bfc4a789e20d2b4b895de976e547d23b7de23b71ef39b34", size = 39811, upload-time = "2026-01-25T12:05:11.422Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b5/de/1cce5274efcb921484998864820f2ba41679ea472daef748a7bc03fc0bb7/pebble-5.2.0-py3-none-any.whl", hash = "sha256:6237a792a78524648857ec6d2dae069c91a45bdef18daf957078a56e2dd8e0a8", size = 34881, upload-time = "2026-01-25T12:05:09.714Z" },
 ]
 
 [[package]]
@@ -7179,6 +7200,7 @@ dependencies = [
     { name = "bw2io" },
     { name = "c2pa-python" },
     { name = "clarabel" },
+    { name = "cloudpickle" },
     { name = "coloraide" },
     { name = "colour-cxf" },
     { name = "colour-science" },
@@ -7244,6 +7266,7 @@ dependencies = [
     { name = "laszip" },
     { name = "lazrs" },
     { name = "lbt-recipes" },
+    { name = "loky" },
     { name = "lxml" },
     { name = "lz4" },
     { name = "manifold3d" },
@@ -7282,6 +7305,7 @@ dependencies = [
     { name = "pdf-oxide" },
     { name = "pdfimpose" },
     { name = "pdfplumber" },
+    { name = "pebble" },
     { name = "pikepdf" },
     { name = "pillow" },
     { name = "pint" },
@@ -7351,6 +7375,7 @@ dependencies = [
     { name = "structlog" },
     { name = "svgelements" },
     { name = "sympy" },
+    { name = "tblib" },
     { name = "tifffile" },
     { name = "tomlkit" },
     { name = "tree-sitter" },
@@ -7452,6 +7477,7 @@ requires-dist = [
     { name = "c2pa-python" },
     { name = "cadquery-ocp", marker = "python_full_version < '3.15'" },
     { name = "clarabel" },
+    { name = "cloudpickle" },
     { name = "coloraide" },
     { name = "colour-cxf" },
     { name = "colour-science" },
@@ -7525,6 +7551,7 @@ requires-dist = [
     { name = "lbt-recipes" },
     { name = "lets-plot", marker = "python_full_version < '3.15'" },
     { name = "lineax", marker = "python_full_version < '3.15'" },
+    { name = "loky" },
     { name = "lxml" },
     { name = "lz4" },
     { name = "manifold3d" },
@@ -7568,6 +7595,7 @@ requires-dist = [
     { name = "pdf-oxide" },
     { name = "pdfimpose" },
     { name = "pdfplumber" },
+    { name = "pebble" },
     { name = "photoshopapi", marker = "python_full_version < '3.15'" },
     { name = "pikepdf" },
     { name = "pillow" },
@@ -7647,6 +7675,7 @@ requires-dist = [
     { name = "structlog" },
     { name = "svgelements" },
     { name = "sympy" },
+    { name = "tblib" },
     { name = "tensorstore", marker = "python_full_version < '3.15'" },
     { name = "tifffile" },
     { name = "tomlkit" },

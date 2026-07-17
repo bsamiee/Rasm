@@ -77,6 +77,7 @@
         "@geoarrow/deck.gl-geoarrow": "catalog:",
         "@google/model-viewer": "catalog:",
         "@lume/kiwi": "catalog:",
+        "@mermaid-js/mermaid-cli": "catalog:",
         "@modelcontextprotocol/sdk": "catalog:",
         "@msgpack/msgpack": "catalog:",
         "@nats-io/jetstream": "catalog:",

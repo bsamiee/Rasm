@@ -5,6 +5,10 @@ requires-python = ">=3.15"
 dependencies = [
     # --- [GENERAL]
     "anyio",
+    "cloudpickle",                                   # [RUNTIME]: kernel and closure shipping across the worker process/subinterpreter seams
+    "tblib",                                         # [RUNTIME]: cross-process traceback fidelity for worker faults
+    "loky",                                          # [RUNTIME]: warm reusable crash-respawning process pool for the worker fabric
+    "pebble",                                        # [RUNTIME]: terminal-deadline worker kill and per-worker task recycling
     "protobuf",                                      # [RUNTIME]: transport wire codec
     "grpcio",                                        # [RUNTIME]: gRPC transport for ServerHost serve paths
     "grpcio-health-checking",                        # [RUNTIME]: gRPC health servicer wired into ServerHost lifecycle

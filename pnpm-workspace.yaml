@@ -207,6 +207,7 @@ catalog:
   '@types/k6': 2.0.0
   happy-dom: 20.10.6
   jsdom: 29.1.1
+  '@mermaid-js/mermaid-cli': 11.16.0
   # tooling — compilers, workspace, build, lint, codegen
   typescript: 6.0.3
   '@typescript/native-preview': 7.0.0-dev.20260702.3
@@ -310,6 +311,7 @@ allowBuilds:
   unrs-resolver: true
   '@pulumi/docker-build': true
   cbor-extract: true
+  puppeteer: set this to true or false
 
 preferWorkspacePackages: true
 
