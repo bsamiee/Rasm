@@ -1,7 +1,6 @@
 ---
 title: Rasm Architecture Integrity
 input: full_diff
-reasoning: high
 effort: medium
 conclusion: neutral
 include:

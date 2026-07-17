@@ -2,7 +2,6 @@
 include:
   - "libs/python/**"
   - "**/*.py"
-  - "**/pyproject.toml"
 ---
 
 # [PYTHON_DOCTRINE]

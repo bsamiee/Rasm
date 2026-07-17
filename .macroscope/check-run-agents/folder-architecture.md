@@ -1,7 +1,6 @@
 ---
 title: Rasm Folder Architecture
 input: full_diff
-reasoning: medium
 effort: medium
 conclusion: neutral
 include:

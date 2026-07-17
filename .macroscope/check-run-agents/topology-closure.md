@@ -1,12 +1,13 @@
 ---
 title: Rasm Topology Closure
 input: full_diff
-reasoning: medium
 effort: low
 conclusion: neutral
 include:
   - "docs/stacks/**"
+  - "docs/laws/**"
   - "libs/.planning/architecture.md"
+  - "tests/csharp/_architecture/**"
   - ".claude/skills/**"
   - "CLAUDE.md"
   - "AGENTS.md"
@@ -26,6 +27,6 @@ Hunt these classes, each finding naming the edited surface and the missing count
 - Skill propagation: a `.claude/skills/` master tree edited where the sibling-repo copies are byte-identical propagation targets; when the copies lie outside the diff, record an explicit unreachable naming them rather than a silent pass.
 - Constitution split: a `CLAUDE.md` fact landed without its `AGENTS.md` cross-reference, or a fact duplicated into both where one acting reader owns it.
 - Tool-runtime coupling: a `.config/dotnet-tools.json` tool row edited without the `tools/assay` decompile rails that depend on it.
-- Admission-ladder breach: a new `docs/laws/` page without its pages-index row in the same change, a fact copied into the laws corpus that an existing owner already carries, or a scar or pattern row that no longer binds and demotes to its surviving owner.
+- Admission-ladder breach: a new `docs/laws/` page without its pages-index row in the same change, a fact copied into the laws corpus that an existing owner already carries, or a scar or pattern row that no longer binds and demotes to its surviving owner. Flag the miss as hard as the spam: an addition without recurrence evidence or branch-spanning blast radius, and equally the neighboring clause that owed the collapse and was left untouched.
 
 Capability extends the owner before it mints a page, and a fact owned elsewhere never gains a copy in the laws corpus. Adding nothing is a first-class verdict, stated plainly.

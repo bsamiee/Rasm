@@ -1,6 +1,7 @@
 ---
 title: Rasm Doctrine Check
 input: full_diff
+effort: low
 conclusion: neutral
 include:
   - "libs/**"
@@ -11,7 +12,6 @@ include:
 Convention layer beside the built-in correctness check: enforce the design-corpus doctrine the correctness reviewer does not own. Judge every changed `libs/` page against `libs/.planning/campaign-method.md` and the owning `docs/stacks/<language>/` doctrine, reading both before any finding.
 
 Hunt exactly these classes, each finding naming file, anchor, defect, and the stronger form demanded:
-
 - Phantom members: an external member a fence settles that the folder's `.api/` catalogue does not verify — browse the catalogue before claiming either presence or absence.
 - Prose-fence drift: an `Entry`/`Auto` card row whose parameter list, rail, or return diverges from its fence declaration.
 - Entry-point sprawl: sibling verb families, arity twins, or mode flags where one polymorphic entry discriminating on input shape is the ruled form.

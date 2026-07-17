@@ -70,7 +70,7 @@
         },
         {
             "id": "fence-as-product",
-            "rule": "Code fences in planning design pages are the work product: transcription-complete declarations verified against the folder's .api/ catalogue. Abstract sketches, pseudo-code fences, hand-waved contracts, and phantom members are defects.",
+            "rule": "Code fences in planning design pages are the work product: transcription-complete declarations verified against the folder's .api/ catalogue. Abstract sketches, pseudo-code fences, hand-waved contracts, and phantom members are defects. A research row is recorded epistemic debt: a fence settling a member a sibling research row still declares unverified is a defect, and a resolved row deletes whole with no tombstone.",
             "severity": "high",
             "enabled": true,
             "scope": ["libs/**"]
@@ -91,14 +91,14 @@
         },
         {
             "id": "workflow-determinism",
-            "rule": "Workflow scripts are deterministic orchestration: schema-typed agent outputs, bounded loops, stage products written to disk with path receipts. Bare promises, unbounded polling, wall-clock branching, and subagents instructed to wait are defects.",
+            "rule": "Operator and workflow code is deterministic orchestration judged as production source: schema-typed agent outputs (every agent() call carries a label, model tier, effort, and a closed JSON schema), bounded loops, stage products written to disk with path receipts, per-run scratch paths minted deterministically from the target set so a resume rehydrates the same directory. Bare promises, unbounded polling, wall-clock branching, subagents instructed to wait, and hand-authored exit semantics beside a typed envelope contract are defects. Completed-with-failures and Fault ride distinct channels — a tool that ran and found defects stays Completed, and exit codes project from the one status owner, never re-derived per caller; host-exclusive work acquires the shared lease through the one combinator, never a hand-rolled lockfile; artifact writes route through the artifact store, and a tool write at repo root is a defect by name; a pass whose acceptance gate runs a network-bound toolchain stays native, never routed onto a codex wrapper. A promoted rule — a cs-analyzer RuleRow or a tools/biome GritQL row — describes the semantic shape of one anti-pattern (trigger, predicate, exemption) and ships with witnesses that must fire and compact code that must not; reviewer prose never restates what those gates enforce.",
             "severity": "medium",
             "enabled": true,
-            "scope": [".claude/workflows/**"]
+            "scope": ["tools/**", ".claude/workflows/**"]
         },
         {
             "id": "test-proof-bar",
-            "rule": "A test falsifies production behavior with an independent oracle. Existence tests, mirror tests asserting a constructed value's own fields, specs proving only their own doubles were called, raw carrier-flag inspection where kit gates exist, failure-message substring dispatch, wall-clock sleeps in the unit lane, and vacuous greens over an absent producer are defects. A spec-local helper, generator, or tolerance constant shadowing a _testkit owner extends the kit, never duplicates beside the spec.",
+            "rule": "A test falsifies production behavior with an independent oracle. Existence tests, mirror tests asserting a constructed value's own fields, specs proving only their own doubles were called, raw carrier-flag inspection where kit gates exist, failure-message substring dispatch, wall-clock sleeps in the unit lane, and vacuous greens over an absent producer are defects. A spec-local helper, generator, or tolerance constant shadowing a _testkit owner extends the kit, never duplicates beside the spec, and every kit capability lands with its falsification twin proving it can fail. Graph under test is the production composition with edges re-provided — a substitute is a Layer against the same Tag with interior edges real, and a proof against a hand-assembled parallel graph proves only the parallel graph; process-boundary output decodes through NdjsonOracle, never stdout string-scraping. Estate placement holds: tests/contracts/ assets are C#-produced only, a container image pinned anywhere but tests/containers.json is a defect, markers are closed and auto-applied from membership, and a benchmark without its registry row (absolute budget plus dispersion ceiling) is a defect.",
             "severity": "high",
             "enabled": true,
             "scope": ["tests/**"]
@@ -112,10 +112,24 @@
         },
         {
             "id": "registry-closure",
-            "rule": "A dependency admission is a same-change multi-surface fact: central manifest row, consuming csproj reference, folder README registry row, and .api catalogue tier move together — a package present in one surface but missing from another is registry drift. Folder README router entries resolve 1:1 to on-disk .planning pages, and a page rename ripples its router row and ARCHITECTURE codemap node in the same diff.",
+            "rule": "A dependency admission is a same-change multi-surface fact: central manifest row, consuming csproj reference, folder README registry row, and .api catalogue tier move together — a package present in one surface but missing from another is registry drift. Folder README router entries resolve 1:1 to on-disk .planning pages, and a page rename ripples its router row and ARCHITECTURE codemap node in the same diff. A README package card row is the backticked package id plus at most one dash-led charter clause — version pins, parentheticals, .api links, and multi-line depth are defects. Seam ledgers mirror: every cross-folder edge appears on both endpoint ARCHITECTURE pages with mirrored glyph and identical [KIND], and an in-package relation stays in the codemap, never a seam.",
             "severity": "medium",
             "enabled": true,
             "scope": ["libs/**", "Directory.Packages.props", "**/*.csproj", "**/pyproject.toml", "**/pnpm-workspace.yaml"]
+        },
+        {
+            "id": "substrate-composition",
+            "rule": "Pinned-substrate composition defects worth hunting: a lifecycle-gate read guarding an effectful entrypoint evaluated at composition time instead of inside the deferred effect body; a bounded fixpoint iteration spelled as a Schedule instead of a Range.Fold; a zone-less foreign wall-clock stamp fabricated into a UTC Instant instead of NodaTime LocalDateTime/LocalDate; an Effect Layer minted by calling a factory twice where one shared const belongs — memoization is by reference identity, Layer.fresh the only sharing opt-out; a RequestResolver rebuilt per call site, re-minting identity and defeating the batch window; a Ref mutated inside map/tap where Stream.mapAccum/scan owns element state; a value beside a generated union without its Record<GeneratedUnion, V> annotation and (x satisfies never) residue proof; an import-time side-effect plugin registry silently emptied by lazy import where importlib.metadata.entry_points owns discovery.",
+            "severity": "high",
+            "enabled": true,
+            "scope": ["libs/csharp/**", "libs/typescript/**", "libs/python/**"]
+        },
+        {
+            "id": "prose-law",
+            "rule": "Durable markdown is agent-facing law: a fact a fresh agent regenerates from disk plus stated invariants is a mirror demanding deletion; enumeration anchors (member rosters freezing a census, forbidden-alternative litanies, frozen counts) are defects whose replacement is the extension rule; hedges and report frames are defects while contract qualifiers survive; one owner per fact — a second prose copy at any altitude is a fork; a fact lands at the lowest tier that owns it, and index-tier prose carrying spec-tier mechanism demotes to the owning spec; links and cross-references belong only to README, SKILL, CLAUDE/AGENTS, and MEMORY files; permission verbs (supports, allows, enables, provides, offers) where an owning verb states law, and sentences opening on the definite article, are defects.",
+            "severity": "low",
+            "enabled": true,
+            "scope": ["**/*.md"]
         }
     ]
 }

@@ -3,6 +3,8 @@ include:
   - "libs/typescript/**"
   - "**/*.ts"
   - "**/*.tsx"
+  - "**/tsconfig*.json"
+  - "**/biome.json"
 ---
 
 # [TYPESCRIPT_SURFACE_FACTS]

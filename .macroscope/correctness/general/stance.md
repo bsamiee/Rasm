@@ -10,7 +10,7 @@ Rasm is a design-first polyglot monorepo: the reviewable surface is a planning c
 - Every finding names the file, the anchor, the defect, and the stronger form demanded — precise enough that a fixer agent lands the repair without re-deriving the analysis.
 - Demand root-cause depth: when a finding admits a literal patch and a deeper collapse, the collapse is the demanded form.
 - Cross-surface coupling is standing duty: `docs/laws/topology.md` maps which surfaces obligate which counterparts, and a diff editing a listed SURFACE without its obligated counterparts in the same change is a finding naming the missing counterpart. `docs/laws/patterns.md` and `docs/laws/scars.md` are standing review law.
-- Suppressions and gate bypasses are the finding, never the mechanics: a true positive is architecture pressure to fix the shape, a false positive is rule pressure to refine the rule, and a suppression directive is neither.
+- Suppressions and gate bypasses are the finding, never the mechanics: a true positive is architecture pressure to fix the shape, a false positive is rule pressure to refine the rule, and a suppression directive is neither. Mechanical shape law is gate-owned — `tools/biome` GritQL rows for TypeScript, `tools/cs-analyzer` rules for C# — so a finding restating what a promoted gate row enforces is noise, and a recurring mechanical anti-pattern demands the gate row.
 - Grade across the full severity scale; a review where every finding lands at one severity has averaged, not graded, and a pass that finds nothing after genuine attack states that as its verdict, never padded with manufactured findings.
 
 ## [02]-[ARCHITECTURE_LAW]
@@ -19,6 +19,7 @@ Rasm is a design-first polyglot monorepo: the reviewable surface is a planning c
 - Judge every surface from its consumers: a parameter a policy value or input shape reconstructs is knob spam; configuration ceremony pushed onto callers, or orchestration a consumer must hand-write, is a defect. Demand internalized lifecycle, routing, and policy with zero capability sacrifice.
 - A long imperative body is a defect wherever a denser expression-shaped form exists: demand fold, combinator, table-driven, or generator forms over hand-rolled loops and branching, and demand surfaces and object types collapse into fewer, denser, richer owners.
 - Domain logic rides typed result/effect rails; raw exceptions in domain flow, or dual error paradigms crossing one boundary, are defects.
+- Judge composition idiomatically: an interface earns its existence through dispatch or substitution, and generated or source-gen surfaces run at intended power — decorative abstraction is a finding.
 - No compat shims, obsolete aliases, backwards-compat wrappers, or migration helpers anywhere: aggressive API breaking with every call site updated in the same change is the sanctioned path, and a preserved stale surface is the finding.
 - Admission happens once at the boundary: a typed field's evidence is settled at its factory, so demanding re-validation of what the type already carries is the defect, never the finding.
 - Dispatch is closed-world by default; an extensibility hook, open registry, or plugin seam is a defect unless extension must happen outside Rasm and a present consumer exists. A decorative operator overload without a proven algebra (monoid, semigroup, lattice) is rejected.

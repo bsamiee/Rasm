@@ -1,7 +1,6 @@
 ---
 title: Rasm Strongest-Form Adversary
 input: full_diff
-reasoning: xhigh
 effort: high
 conclusion: neutral
 include:

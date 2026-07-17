@@ -3,9 +3,6 @@ include:
   - "libs/typescript/**"
   - "**/*.ts"
   - "**/*.tsx"
-  - "**/pnpm-workspace.yaml"
-  - "**/tsconfig*.json"
-  - "**/biome.json"
 ---
 
 # [TYPESCRIPT_DOCTRINE]

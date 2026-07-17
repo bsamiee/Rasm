@@ -2,13 +2,6 @@
 include:
   - "libs/csharp/**"
   - "**/*.cs"
-  - "**/*.csproj"
-  - "**/*.props"
-  - "**/*.targets"
-  - "**/*.slnx"
-  - "**/NuGet.config"
-  - "**/global.json"
-  - "**/.config/**"
 ---
 
 # [CSHARP_DOCTRINE]
