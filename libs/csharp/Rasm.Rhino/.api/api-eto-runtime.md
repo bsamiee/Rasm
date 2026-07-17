@@ -80,9 +80,10 @@ The three dispatch shapes are the boundary between a background thread and the c
 |  [04]   | `Application.InvokeAsync`        | `(Action) → Task`           | awaitable marshalled action                    |
 |  [05]   | `Application.InvokeAsync<T>`     | `(Func<T>) → Task<T>`       | awaitable marshalled read                      |
 |  [06]   | `Application.EnsureUIThread`     | `()`                        | throws off the UI thread — the affinity assert |
-|  [07]   | `Application.RunIteration`       | `()`                        | pump one message-loop pass                     |
-|  [08]   | `UITimer` ctor                   | `(EventHandler<EventArgs>)` | construct a clock bound to an elapsed handler  |
-|  [09]   | `UITimer.Start` / `UITimer.Stop` | `()`                        | run and halt the repeating clock               |
+|  [07]   | `Application.IsUIThread`         | `→ bool`                    | tests current-thread affinity                  |
+|  [08]   | `Application.RunIteration`       | `()`                        | pump one message-loop pass                     |
+|  [09]   | `UITimer` ctor                   | `(EventHandler<EventArgs>)` | construct a clock bound to an elapsed handler  |
+|  [10]   | `UITimer.Start` / `UITimer.Stop` | `()`                        | run and halt the repeating clock               |
 
 [ENTRYPOINT_SCOPE]: display, input, and cursor state
 - rail: eto-runtime
@@ -121,9 +122,12 @@ The three dispatch shapes are the boundary between a background thread and the c
 |  [11]   | `DataObject.SetString`             | `(string value, string type)`   | write onto the drag payload          |
 |  [12]   | `DataObject.GetObject<T>`          | `(string type) → T`             | read from the drag payload           |
 |  [13]   | `DragEventArgs.SetDropDescription` | `(string format, string inner)` | annotate the OS drop cursor          |
-|  [14]   | `Notification.Show`                | `(TrayIndicator = null)`        | deliver a toast, optionally anchored |
-|  [15]   | `TrayIndicator.SetMenu`            | `(ContextMenu)`                 | bind the tray context menu           |
-|  [16]   | `TrayIndicator.Show` / `.Hide`     | `()`                            | show and hide the tray presence      |
+|  [14]   | `Notification.Show`                     | `(TrayIndicator = null)` | deliver a toast, optionally anchored          |
+|  [15]   | `TrayIndicator.SetMenu`                 | `(ContextMenu)`          | bind the tray context menu                    |
+|  [16]   | `TrayIndicator.Show` / `.Hide`          | `()`                     | show and hide the tray presence               |
+|  [17]   | `Application.NotificationActivated`     | event                    | route notification activation by user data   |
+|  [18]   | `Notification.UserData`                 | property                 | carry the activation correlation value       |
+|  [19]   | `Notification.RequiresTrayIndicator`    | property                 | declare whether delivery needs a tray host    |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

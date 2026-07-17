@@ -108,6 +108,7 @@ This catalog owns the interactive command boundary: the `Rhino.Commands.Command`
 - `Rhino.Input.RhinoGet.GetMultipleObjects(string prompt, bool acceptNothing, ObjectType filter, out ObjRef[] rhObjects) : Result` — multiple filtered object pick.
 - `Rhino.Input.RhinoGet.GetString(string prompt, bool acceptNothing, ref string outputString) : Result` — string acquisition.
 - `Rhino.Input.RhinoGet.GetBool(string prompt, bool acceptNothing, string offPrompt, string onPrompt, ref bool boolValue) : Result` — toggle acquisition.
+- `Rhino.Input.RhinoGet.GetColor(string prompt, bool acceptNothing, ref System.Drawing.Color color) : Result` — color acquisition.
 - `Rhino.Input.RhinoGet.GetNumber(string prompt, bool acceptNothing, ref double outputNumber, double lowerLimit, double upperLimit) : Result` — bounded number acquisition.
 - `Rhino.Input.RhinoGet.GetInteger(string prompt, bool acceptNothing, ref int outputNumber, int lowerLimit, int upperLimit) : Result` — bounded integer acquisition.
 - `Rhino.Input.RhinoGet.GetPlane(out Plane plane) : Result` — plane acquisition.
@@ -198,6 +199,7 @@ This catalog owns the interactive command boundary: the `Rhino.Commands.Command`
 - `Rhino.Input.Custom.GetObject.Objects() : ObjRef[]` — acquired object references; each returned `ObjRef` owns its native reference copy, may outlive the getter, and remains caller-disposed.
 - `Rhino.DocObjects.ObjRef.CurveParameter(out double parameter) : Curve` / `SurfaceParameter(out double u, out double v) : Surface` — nullable parametric projections; the returned geometry is non-null only when the reference addresses that part.
 - `Rhino.DocObjects.ObjRef.SelectionMethod() : SelectionMethod` / `SelectionPoint() : Point3d` / `SelectionView() : RhinoView` / `SelectionViewDetailSerialNumber() : uint` — detached pick method, point, nullable view, and detail serial evidence.
+- `Rhino.Display.RhinoView.RuntimeSerialNumber : uint` — process-stable view identity projected immediately from the pointer-backed `ObjRef.SelectionView()` wrapper.
 - `Rhino.DocObjects.ObjRef.Geometry()` / `Object()` / `Curve()` / `Surface()` / `Brep()` / `Face()` / `Edge()` / `Trim()` / `Mesh()` / `SubD()` / `SubDFace()` / `SubDEdge()` / `SubDVertex()` / `Point()` / `InstanceDefinitionPart()` / `ClippingPlaneSurface()` / `TextDot()` / `TextEntity()` / `PointCloud()` / `Light()` / `Hatch()` — nullable typed projections selected by the referenced whole object or component.
 - `Rhino.Input.Custom.PickContext : IDisposable` — per-pick context with `View`, `PickLine`, `PickStyle`, `PickMode`, `PickGroupsEnabled`, `SubObjectSelectionEnabled`, `GetObjectUsed`, `SetPickTransform(Transform)`, and `UpdateClippingPlanes()`; `PickStyle` is `None`/`PointPick`/`WindowPick`/`CrossingPick`, and `PickMode` is `Wireframe`/`Shaded`.
 - `Rhino.DocObjects.Tables.ObjectTable.PickObjects(PickContext pickContext) : ObjRef[]` — programmatic pick; the context and every returned reference are caller-disposed after projection.
@@ -207,6 +209,7 @@ This catalog owns the interactive command boundary: the `Rhino.Commands.Command`
 - `Rhino.Input.Custom.GetPoint.MouseDown : EventHandler<GetPointMouseEventArgs>` — dynamic mouse-down signal.
 - `Rhino.Input.Custom.GetPoint.DynamicDraw : EventHandler<GetPointDrawEventArgs>` — per-frame dynamic-draw signal.
 - `Rhino.Input.Custom.GetPoint.PostDrawObjects : EventHandler<DrawEventArgs>` — post-object overlay-draw signal.
+- `Rhino.Input.Custom.GetPoint.InterruptMouseMove() : bool` — exits the native mouse-move loop so a callback-captured fault can return through the managed rail.
 - `Rhino.Input.Custom.GetPoint.SetBasePoint(Point3d basePoint, bool showDistanceInStatusBar) : void` — anchors the base point.
 - `Rhino.Input.Custom.GetPoint.Constrain(Curve curve, bool allowPickingPointOffObject) : bool` — constrains acquisition to a curve.
 - `Rhino.Input.Custom.GetPoint.Constrain(Surface surface, bool allowPickingPointOffObject) : bool` — constrains acquisition to a surface.

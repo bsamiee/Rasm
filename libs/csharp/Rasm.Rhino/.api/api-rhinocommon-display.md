@@ -50,6 +50,8 @@
 |  [05]   | `CullObjectEventArgs`           | culling args      | per-object visibility handle |
 |  [06]   | `CalculateBoundingBoxEventArgs` | bounds args       | zoom-extents contribution    |
 
+`DrawEventArgs` exposes `Viewport : RhinoViewport`, `RhinoDoc : RhinoDoc`, and `Display : DisplayPipeline`. `DrawObjectEventArgs.RhinoObject : RhinoObject` names the object entering `PreDrawObject`/`PostDrawObject`; `CullObjectEventArgs.RhinoObject : RhinoObject` and `RhinoObjectSerialNumber : uint` name the object under the `ObjectCulling` decision. `DrawObjectEventArgs.DrawObject : bool` and `CullObjectEventArgs.CullObject : bool` are per-phase draw-suppression flags an observer never mutates.
+
 [PUBLIC_TYPE_SCOPE]: draw appearance, effect, and attribute vocabulary
 - rail: host-boundary display
 
@@ -70,7 +72,10 @@
 |  [09]   | `LineJoinStyle`             | draw enum        | pen-join vocabulary               |
 |  [10]   | `CullFaceMode`              | draw enum        | state-stack face culling          |
 |  [11]   | `PointStyle`                | draw enum        | `CustomDisplay` point markers     |
-|  [12]   | `Text3d`                    | world text       | `CustomDisplay.AddText` primitive |
+|  [12]   | `CullFaceMode.DrawFrontAndBack` / `DrawFrontFaces` / `DrawBackFaces` | enum rows | complete cull policy |
+|  [13]   | `PointStyle.Simple` through `PointStyle.None` | enum rows | complete marker policy |
+|  [14]   | `BlendMode.Zero` through `BlendMode.SourceAlphaSaturate` | enum rows | complete blend-factor policy |
+|  [15]   | `Text3d`                    | world text       | `CustomDisplay.AddText` primitive |
 
 `IsoDrawEffect` carries `IsoDrawMode`, `Direction`, `Frequency`, and per-band color access.
 
@@ -109,6 +114,8 @@
 |  [11]   | `PostDrawObjects(DrawEventArgs e)`                      | override     | depth-tested opaque draw |
 |  [12]   | `DrawForeground(DrawEventArgs e)`                       | override     | 2D foreground draw       |
 |  [13]   | `DrawOverlay(DrawEventArgs e)`                          | override     | depth-free overlay       |
+
+`DisplayConduit.GeometryFilter : ObjectType` scopes the per-object phases to a geometry-type mask; `DisplayConduit.SpaceFilter : ActiveSpace` scopes participation to model or page space.
 
 [ENTRYPOINT_SCOPE]: `DisplayPipeline` — events, state stacks, and draw families
 - rail: host-boundary display
@@ -171,7 +178,7 @@ Static events admit frame-phase participation without a conduit subclass.
 [ENTRYPOINT_SCOPE]: view, viewport, and page-view
 - rail: host-boundary display
 
-`TryGetPaperLength` and `TryGetModelLength` expose the paper↔model length correspondence under the live detail scale.
+`TryGetPaperLength` and `TryGetModelLength` expose the paper↔model length correspondence under the live detail scale. `DetailViewObject.GetFormattedScale(ScaleFormat, out string)` returns `true` with the human-readable scale string; the nested `DetailViewObject.ScaleFormat` enum selects the rendering, `OneToModelLength` spelling the `1:N` model ratio.
 
 | [INDEX] | [SURFACE]                                                                          | [CALL_SHAPE]  | [CAPABILITY]             |
 | :-----: | :--------------------------------------------------------------------------------- | :------------ | :----------------------- |
@@ -202,6 +209,7 @@ Static events admit frame-phase participation without a conduit subclass.
 |  [25]   | `DetailView.IsProjectionLocked`                                                    | detail state  | mutable projection lock  |
 |  [26]   | `DetailView.PageToModelRatio`                                                      | detail scale  | live scale ratio         |
 |  [27]   | `DetailView.SetScale(double, LengthUnit, double, LengthUnit)`                      | detail scale  | detail scale write       |
+|  [28]   | `DetailViewObject.GetFormattedScale(ScaleFormat, out string) : bool`               | detail scale  | formatted scale text     |
 
 [ENTRYPOINT_SCOPE]: camera pose, frustum, depth, and gesture families
 - rail: host-boundary display
@@ -367,6 +375,10 @@ Configuration invalidates the cached grayscale bitmap, so mode and channels writ
 
 `DisplayPipelineAttributes` has no public constructor — it is reached through `DisplayModeDescription.DisplayAttributes` or handed in by host hooks (`VisualAnalysisMode.SetUpDisplayAttributes`, `RealtimeDisplayMode.OnDisplayPipelineSettingsChanged`). `CopyDisplayMode` registers in memory only; `UpdateDisplayMode` persists to disk. Its technical color/thickness members and technical-parameter mask are internal — the seven since-9.0 `Show*` toggles (`ShowHiddenLines`/`ShowEdges`/`ShowSilhouttes`/`ShowCreases`/`ShowSeams`/`ShowIntersections`/`ShowLighting`) are the whole public technical axis. `FlairDefinition`/`FlairParameters` are internal; `FlairLayer` alone is public and reaches no behavior. Usage members pair `Set*` with a `Get*` twin; the three dynamic effects add a `Has*` probe.
 
+`BackfaceStyle` defines `UseFrontFaceSettings`, `CullBackfaces`, `UseObjectColor`, `SingleColorAllBackfaces`, `UseRenderMaterial`, and `CustomMaterialAllBackfaces`. `LightingSchema` defines `None`, `DefaultLighting`, `SceneLighting`, `CustomLighting`, and `AmbientOcclusion`. `ClippingPlaneFillColorUse` defines `ViewportColor`, `RenderMaterialColor`, `PlaneMaterialColor`, and `SolidColor`; `ClippingFillColorUse` does not exist. `ClippingEdgeColorUse` defines `PlaneColor`, `SolidColor`, and `ObjectColor`. `LockedObjectUse` defines `UseObjectAttributes`, `SpecifyColor`, and `UseAppSettings`.
+
+`ActiveSpace` defines `None`, `ModelSpace`, `PageSpace`, `UVEditorSpace`, and `BlockEditorSpace`; `ActiveSpaceUse` maps the complete family for conduit filtering and gumball seating.
+
 Beyond the method rows below, the attribute model is property families written by direct assignment: shading/material (`ShadingEnabled`, `ShadeVertexColors`, `FrontFlatShaded`, `UseAssignedObjectMaterial`/`UseCustomObjectColor`/`UseCustomObjectMaterial`, `ObjectColor`, `BackfaceDisplayStyle`, `CullBackfaces`, `Front`/`BackMaterialShine`/`Transparency`, `FrontDiffuse`, `BackMaterialDiffuseColor`, `HighlightSurfaces`, backface material source (`UseBackfaceMaterial`, `UseObjectBackfaceMaterial`, `UseCustomBackface`, `UseCustomObjectColorBackfaces`) and front/back object overrides (`FrontOverrideObject{Color,Transparency,Reflectivity}`, `BackOverrideObject{Transparency,Reflectivity}`)), curve/surface/iso edges (`ShowCurves`, `CurveThickness`/`Scale`/`Color`, `UseSingleCurveColor`, `ShowSurfaceEdges`, `ShowSurfaceNakedEdge`, `ShowTangentEdges`/`Seams`, `ShowIsoCurves`, `Surface*Edge*` color/thickness/reduction/pattern, `SurfaceIso*` UV colors and thicknesses), lighting/shadows (`LightingScheme`, `AmbientLightingColor`, `UseLightColor`, `ShowLights`, `CastShadows`, `Shadows*`, `SkylightShadowQuality`), ground plane (`GroundPlaneUsage`, `CustomGroundPlane*`), grid (`GridTransparency`, `GridPlaneTransparency`/`Visibility`/`Color`, `WorldAxesIconColorUsage`, `PlaneUsesGridColor`, `AxesSizePercentage`, plus the nested `ViewSpecificAttributes` grid/axes/scale members incl. Rhino 9 `GridFade`/`GridCornerRadius`/`GridBoundaryThickness`), SubD edge classes (`SubD{SmoothInterior,CreaseInterior,NonManifold,Boundary}*` color/usage/reduction/thickness/scale/pattern, `ShowSubD*`, reflection-plane members), mesh edges (`Mesh{,Naked,Nonmanifold}Edge*`, `MeshVertexSize`, nested `MeshSpecificAttributes`), clipping (`ShowClipping*`, `ShowClipIntersection*`, `Clipping*Color`/`Usage`/`Thickness`/`Transparency`, `UseSectionStyles`), locked objects (`LockedObjectUsage`/`Transparency`, `LockedColor`, `GhostLockedObjects`, `LockedObjectsDrawBehindOthers`, `LayersFollowLockUsage`), points/grips (`ShowPoints`/`PointStyle`/`PointRadius`, `ShowPointClouds`, `PointCloud*`, `ShowGrips`, `ControlPolygon*`), and scene/pipeline (`XrayAllObjects`, `IgnoreHighlights`, `DisableConduits`, `DisableTransparency`, `ShowText`, `ShowAnnotations`, `BoundingBoxMode`, `DynamicDisplayUsage`, `LinearWorkflowUsage`, `PreProcess*`, `PostProcess*`). Policy vocabularies are the public nested enums (`FrameBufferFillMode`, `BoundingBoxDisplayMode`, `BackfaceStyle`, `LightingSchema`, `ContextsForDraw`, the `*Use` families, `GridPlaneVisibilityMode`, `WorldAxesIconColorUse`, `GroundPlaneUsages`, `LinearWorkflowUsages`).
 
 | [INDEX] | [SURFACE]                                                                       | [CALL_SHAPE]  | [CAPABILITY]                       |
@@ -409,6 +421,8 @@ Beyond the method rows below, the attribute model is property families written b
 |  [36]   | `RhinoView.CaptureToBitmap(Size, DisplayModeDescription)`                       | capture       | sized mode-scoped capture          |
 |  [37]   | `RhinoView.CaptureToBitmap(DisplayPipelineAttributes)`                          | capture       | attribute-scoped capture           |
 |  [38]   | `RhinoView.CaptureToBitmap(Size, DisplayPipelineAttributes)`                    | capture       | sized attribute-scoped capture     |
+|  [39]   | `RhinoView.RuntimeSerialNumber`                                                  | identity      | detached view identity              |
+|  [40]   | `RhinoViewport.Id`                                                              | identity      | detached viewport identity          |
 
 [ENTRYPOINT_SCOPE]: built-in visual-analysis ids and object enablement
 - rail: host-boundary display

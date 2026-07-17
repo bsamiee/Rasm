@@ -33,37 +33,57 @@
 [PUBLIC_TYPE_SCOPE]: imaging and transform contracts
 - rail: host-ui-compile
 
-| [INDEX] | [SYMBOL]        | [CAPABILITY]                      |
-| :-----: | :-------------- | :-------------------------------- |
-|  [01]   | `ImageFormat`   | image codec discriminator         |
-|  [02]   | `PixelFormat`   | bitmap pixel format discriminator |
-|  [03]   | `BitmapData`    | locked bitmap memory descriptor   |
-|  [04]   | `ImageLockMode` | bitmap lock access discriminator  |
-|  [05]   | `GraphicsPath`  | vector path carrier               |
-|  [06]   | `Matrix`        | drawing transform matrix          |
+| [INDEX] | [SYMBOL]            | [CAPABILITY]                      |
+| :-----: | :------------------ | :-------------------------------- |
+|  [01]   | `ImageFormat`       | image codec discriminator         |
+|  [02]   | `PixelFormat`       | bitmap pixel format discriminator |
+|  [03]   | `BitmapData`        | locked bitmap memory descriptor   |
+|  [04]   | `ImageLockMode`     | bitmap lock access discriminator  |
+|  [05]   | `GraphicsPath`      | vector path carrier               |
+|  [06]   | `Matrix`            | drawing transform matrix          |
+|  [07]   | `ImageCodecInfo`    | installed image encoder metadata  |
+|  [08]   | `Encoder`           | encoder parameter category        |
+|  [09]   | `EncoderValue`      | encoder option vocabulary         |
+|  [10]   | `EncoderParameters` | owned encoder parameter roster    |
+|  [11]   | `EncoderParameter`  | scalar encoder parameter row      |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: host UI image seam
 - rail: host-ui-compile
 
-| [INDEX] | [SURFACE]                                                       | [CALL_SHAPE] | [CAPABILITY]                 |
-| :-----: | :-------------------------------------------------------------- | :----------- | :--------------------------- |
-|  [01]   | `new Bitmap(int width, int height)`                             | constructor  | creates a bitmap             |
-|  [02]   | `new Bitmap(Stream)` / `new Bitmap(string)`                     | constructor  | loads bitmap content         |
-|  [03]   | `Image.FromStream(Stream)`                                      | static read  | loads an image               |
-|  [04]   | `Image.Save(Stream, ImageFormat)` / `Save(string, ImageFormat)` | instance     | writes encoded image content |
-|  [05]   | `Bitmap.LockBits(Rectangle, ImageLockMode, PixelFormat)`        | instance     | locks pixel memory           |
-|  [06]   | `Bitmap.UnlockBits(BitmapData)`                                 | instance     | releases locked pixel memory |
-|  [07]   | `Graphics.FromImage(Image)`                                     | static       | creates a drawing context    |
-|  [08]   | `Color.FromArgb(...)`                                           | static       | creates an ARGB colour       |
+| [INDEX] | [SURFACE]                                                       | [CALL_SHAPE] | [CAPABILITY]                  |
+| :-----: | :-------------------------------------------------------------- | :----------- | :---------------------------- |
+|  [01]   | `new Bitmap(int width, int height)`                             | constructor  | creates a bitmap              |
+|  [02]   | `new Bitmap(Stream)` / `new Bitmap(string)`                     | constructor  | loads bitmap content          |
+|  [03]   | `Image.FromStream(Stream)`                                      | static read  | loads an image                |
+|  [04]   | `Image.Save(Stream, ImageFormat)` / `Save(string, ImageFormat)` | instance     | writes encoded image content  |
+|  [05]   | `Bitmap.LockBits(Rectangle, ImageLockMode, PixelFormat)`        | instance     | locks pixel memory            |
+|  [06]   | `Bitmap.UnlockBits(BitmapData)`                                 | instance     | releases locked pixel memory  |
+|  [07]   | `Graphics.FromImage(Image)`                                     | static       | creates a drawing context     |
+|  [08]   | `Color.FromArgb(...)`                                           | static       | creates an ARGB colour        |
+|  [09]   | `ImageCodecInfo.GetImageEncoders()`                             | static read  | enumerates installed encoders |
+|  [10]   | `new EncoderParameters(int)`                                    | constructor  | creates an encoder roster     |
+|  [11]   | `new EncoderParameter(Encoder, long)`                           | constructor  | creates one encoder row       |
+|  [12]   | `Image.Save(string, ImageCodecInfo, EncoderParameters)`         | instance     | writes parameterized content  |
+|  [13]   | `Encoder.Quality` / `Encoder.Compression`                       | static field | selects encoder parameter     |
+|  [14]   | `EncoderValue.CompressionNone`                                  | enum field   | selects TIFF compression      |
+|  [15]   | `EncoderValue.CompressionLZW`                                   | enum field   | selects TIFF compression      |
+|  [16]   | `EncoderValue.CompressionCCITT3`                                | enum field   | selects TIFF compression      |
+|  [17]   | `EncoderValue.CompressionCCITT4`                                | enum field   | selects TIFF compression      |
+|  [18]   | `EncoderValue.CompressionRle`                                   | enum field   | selects TIFF compression      |
+|  [19]   | `ImageFormat.Png` / `ImageFormat.Jpeg`                          | static value | selects raster codec          |
+|  [20]   | `ImageFormat.Tiff` / `ImageFormat.Bmp`                          | static value | selects raster codec          |
+|  [21]   | `ImageFormat.Guid` / `ImageCodecInfo.FormatID`                  | property     | matches codec identity        |
+|  [22]   | `EncoderParameters.Param`                                       | property     | indexes encoder rows          |
+|  [23]   | `Color.Empty`                                                   | static field | carries absent draw colour    |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [COMPILE_ONLY]:
-- The package reference excludes runtime assets.
+- Package reference excludes runtime assets.
 - `NeedsRhinoHostUiSurface` binds the host reference through `HintPath`.
-- The seam compiles against `System.Drawing` types where Rhino/Eto APIs expose them; it does not select or deploy a runtime provider.
+- Seam compiles against `System.Drawing` types where Rhino/Eto APIs expose them; it does not select or deploy a runtime provider.
 
 [LOCAL_ADMISSION]:
 - Host UI interop may name `Bitmap`, `Image`, `Icon`, `Graphics`, and primitive drawing values at the boundary.

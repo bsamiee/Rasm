@@ -8,7 +8,7 @@
 - package: `Eto.Forms` (host-provided; bound in-place from the Rhino-loaded `Eto.dll`, never a second NuGet admission)
 - license: BSD-3-Clause
 - assembly: `Eto.dll` (Rhino `RhCore` framework)
-- namespace: `Eto.Forms`
+- namespace: `Eto.Forms`, `Eto.Forms.ThemedControls`, `Eto.Threading`
 - asset: the Rhino process loads one `Eto.dll`; Rasm.Rhino binds that instance so widgets share the host application, dispatcher, and platform handler
 - rail: native-ui
 
@@ -121,7 +121,7 @@ Control.DoDragDrop(DataObject data, DragEffects allowedEffects, Image image, Poi
 - namespace: `Eto.Forms`
 - rail: native-ui
 
-The four layouts are distinct strategies, not overloads: `DynamicLayout` is a region-stack builder, `TableLayout` a scaling grid, `StackLayout` a linear run, `PixelLayout` absolute placement.
+Four distinct strategies, not overloads: `DynamicLayout` is a region-stack builder, `TableLayout` a scaling grid, `StackLayout` a linear run, `PixelLayout` absolute placement.
 
 | [INDEX] | [SYMBOL]          | [KIND]      | [CAPABILITY]                                               |
 | :-----: | :---------------- | :---------- | :--------------------------------------------------------- |
@@ -198,13 +198,37 @@ Binding is a first-class surface: `IndirectBinding<T>` reads/writes a value agai
 |  [07]   | `DataObject`                | transfer  | typed drag/clipboard payload consumed by `DoDragDrop`           |
 |  [08]   | `DragEffects`               | enum      | permitted drag operation flags                                  |
 
+[PUBLIC_TYPE_SCOPE]: themed dialogs and editors
+- namespace: `Eto.Forms.ThemedControls`
+- rail: native-ui
+
+`Eto.Forms.ThemedControls` is the custom-drawn, cross-platform-uniform control family; its consumable surface is three constructible controls and two spinner-config enums, while the `Themed*Handler` backend classes are platform-handler registration plumbing routed to `api-eto-platform.md`, never a widget-construction row.
+
+| [INDEX] | [SYMBOL]                 | [KIND]  | [CAPABILITY]                                                    |
+| :-----: | :----------------------- | :------ | :-------------------------------------------------------------- |
+|  [01]   | `ThemedMessageBox`       | dialog  | themed modal message box with arbitrary result-typed buttons    |
+|  [02]   | `ThemedPropertyGrid`     | control | themed reflected property editor over one or many bound objects |
+|  [03]   | `ThemedCollectionEditor` | control | themed add/remove editor over a homogeneous object collection   |
+|  [04]   | `ThemedSpinnerMode`      | enum    | themed-spinner glyph shape (`Line`/`Circle`)                    |
+|  [05]   | `ThemedSpinnerDirection` | enum    | themed-spinner rotation (`Clockwise`/`CounterClockwise`)        |
+
+[PUBLIC_TYPE_SCOPE]: thread marshal
+- namespace: `Eto.Threading`
+- rail: native-ui
+
+`Eto.Threading.Thread` is the managed thread abstraction carrying main-thread identity; it stays subordinate to the Rhino host marshal owner (`RhinoApp.InvokeOnUiThread`, `api-rhino-ui.md`) and answers only an Eto-level main-thread test.
+
+| [INDEX] | [SYMBOL] | [KIND] | [CAPABILITY]                                                   |
+| :-----: | :------- | :----- | :------------------------------------------------------------- |
+|  [01]   | `Thread` | thread | managed thread with `IsMain`/`MainThread` main-thread identity |
+
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: DynamicLayout region building
 - namespace: `Eto.Forms`
 - rail: native-ui
 
-The `Begin*` builders open a nested scope; `Add*` members place children into the open region. Verified signatures:
+`Begin*` builders open a nested scope; `Add*` members place children into the open region. Verified signatures:
 
 ```csharp signature
 DynamicLayout.BeginVertical(Padding? padding = null, Size? spacing = null, bool? xscale = null, bool? yscale = null)
@@ -233,15 +257,51 @@ DynamicLayout.AddAutoSized(Control control, Padding? padding = null, Size? spaci
 |  [07]   | `PixelLayout.Add(Control control, int x, int y)`                                         | places a control at an absolute pixel    |
 |  [08]   | `PixelLayout.Move(Control control, int x, int y)`                                        | repositions a placed control             |
 
+[ENTRYPOINT_SCOPE]: control configuration and owned collections
+- namespace: `Eto.Forms`
+- rail: native-ui
+
+| [INDEX] | [SURFACE]                                                                           | [CAPABILITY]                                     |
+| :-----: | :---------------------------------------------------------------------------------- | :----------------------------------------------- |
+|  [01]   | `TextArea.Wrap { get; set; }`                                                       | controls line wrapping                           |
+|  [02]   | `Calendar.MinDate { get; set; }` / `Calendar.MaxDate { get; set; }`                 | bounds selectable calendar dates                 |
+|  [03]   | `FilePicker.Filters { get; }`                                                       | owns the mutable file-filter collection          |
+|  [04]   | `GridItem(params object[] values)` / `GridItem.Tag { get; set; }`                   | constructs a row and retains typed identity      |
+|  [05]   | `TreeGridItem(IEnumerable<ITreeGridItem> children, params object[] values)`         | constructs one hierarchical grid row             |
+|  [06]   | `StackLayoutItem(Control control, bool expand = false)`                             | places one linear-layout child                   |
+|  [07]   | `TableRow(IEnumerable<TableCell> cells)`                                            | constructs one table placement row               |
+|  [08]   | `TableCell(Control control, bool scaleWidth = false)`                               | places one control in a table cell               |
+|  [09]   | `CheckBox.ThreeState { get; set; }` / `CheckBox.Checked { get; set; }`              | selects binary or nullable toggle semantics      |
+|  [10]   | `PropertyGrid.ShowCategories { get; set; }`                                         | selects categorized property presentation        |
+|  [11]   | `GridColumn.Width / Resizable / AutoSize / Visible { get; set; }`                   | column width, resize, autosize, visibility       |
+|  [12]   | `Splitter.FixedPanel { get; set; }` (`SplitterFixedPanel` `Panel1`/`Panel2`/`None`) | selects which pane keeps its size on resize      |
+|  [13]   | `DocumentControl.Pages / SelectedIndex / AllowReordering { get; set; }`             | closable, reorderable document-tab host          |
+|  [14]   | `DocumentPage.Content / Text / Closable { get; set; }`                              | one closable document tab over a content control |
+|  [15]   | `Window.Location / WindowState / Icon { get; set; }`                                | window placement, min/max state, menu-bar icon   |
+
 [ENTRYPOINT_SCOPE]: modal dialog result
 - namespace: `Eto.Forms`
 - rail: native-ui
 
-| [INDEX] | [SURFACE]                                 | [CALL_SHAPE]              | [CAPABILITY]                                |
-| :-----: | :---------------------------------------- | :------------------------ | :------------------------------------------ |
-|  [01]   | `Dialog<T>.ShowModal(Control owner)`      | instance call → `T`       | shows modal and blocks for the typed result |
-|  [02]   | `Dialog<T>.ShowModalAsync(Control owner)` | instance call → `Task<T>` | shows modal and awaits the typed result     |
-|  [03]   | `Dialog<T>.Close(T result)`               | instance call             | closes and sets the returned result         |
+| [INDEX] | [SURFACE]                                    | [CALL_SHAPE]              | [CAPABILITY]                                |
+| :-----: | :------------------------------------------- | :------------------------ | :------------------------------------------ |
+|  [01]   | `Dialog<T>.ShowModal(Control owner)`         | instance call → `T`       | shows modal and blocks for the typed result |
+|  [02]   | `Dialog<T>.ShowModalAsync(Control owner)`    | instance call → `Task<T>` | shows modal and awaits the typed result     |
+|  [03]   | `Dialog<T>.Close(T result)`                  | instance call             | closes and sets the returned result         |
+|  [04]   | `CommonDialog.ShowDialog(Control parent)`    | call → `DialogResult`     | shows against an owning window              |
+|  [05]   | `FontDialog.Font { get; set; }`              | property                  | seeds and returns the selected font         |
+|  [06]   | `SelectFolderDialog.Title { get; set; }`     | property                  | configures the chooser title                |
+|  [07]   | `SelectFolderDialog.Directory { get; set; }` | property                  | seeds and returns the selected path         |
+
+[ENTRYPOINT_SCOPE]: command projection and invocation
+- namespace: `Eto.Forms`
+- rail: native-ui
+
+| [INDEX] | [SURFACE]                  | [CALL_SHAPE]               | [CAPABILITY]                               |
+| :-----: | :------------------------- | :------------------------- | :----------------------------------------- |
+|  [01]   | `Command.Execute()`        | instance call              | raises the shared execution event          |
+|  [02]   | `Command.CreateMenuItem()` | instance call → `MenuItem` | projects the command into one menu item    |
+|  [03]   | `Command.CreateToolItem()` | instance call → `ToolItem` | projects the command into one toolbar item |
 
 [ENTRYPOINT_SCOPE]: binding construction and transform
 - namespace: `Eto.Forms`
@@ -263,7 +323,7 @@ BindableBinding<T, TValue>.BindDataContext(IndirectBinding<TValue> dataContextBi
 |  [04]   | `IndirectBinding<T>.Child<TNewValue>(Expression<Func<T,TNewValue>> property)`                 | descends into a bound-value member |
 |  [05]   | `IndirectBinding<T>.AfterDelay(TimeSpan delay, bool reset = false)`                           | debounces write propagation        |
 
-The delegate factories, the write-path `Convert` pair, the exception funnel, and the direct-channel value seam. In every `Convert`/`Delegate` setter the first lambda argument is the source-side VALUE (or data item for the two-generic `Delegate`), never the binding instance:
+Delegate factories, the write-path `Convert` pair, the exception funnel, and the direct-channel value seam follow. In every `Convert`/`Delegate` setter the first lambda argument is the source-side VALUE (or data item for the two-generic `Delegate`), never the binding instance:
 
 ```csharp signature
 Binding.Delegate<TValue>(Func<TValue> getValue, Action<TValue> setValue = null, Action<EventHandler<EventArgs>> addChangeEvent = null, Action<EventHandler<EventArgs>> removeChangeEvent = null)
@@ -283,11 +343,27 @@ BindableWidget.UpdateBindings(BindingUpdateMode mode = BindingUpdateMode.Source)
 
 `CatchException` lives on `DirectBinding<T>`/`IndirectBinding<T>` and returns that binding shape — `BindableBinding` carries no such member, so the funnel attaches to the source side of a dual link, never to the control selector.
 
+[ENTRYPOINT_SCOPE]: themed controls and thread identity
+- namespace: `Eto.Forms.ThemedControls`, `Eto.Threading`
+- rail: native-ui
+
+`ThemedMessageBox` builds a result-typed button set and reads its outcome; `ThemedPropertyGrid` binds one or many objects; `ThemedCollectionEditor` edits a homogeneous collection; `Thread` answers main-thread identity. Verified signatures:
+
+```csharp signature
+ThemedMessageBox.AddButton(string text, object result, bool isDefault = false, bool isAbort = false)
+ThemedMessageBox.Result / Text / TextAlignment / Image { get; set; }
+ThemedPropertyGrid.SelectedObject / SelectedObjects / ShowCategories / ShowDescription { get; set; }
+ThemedPropertyGrid.Refresh() ; event PropertyValueChanged
+ThemedCollectionEditor.DataStore / ElementType / ExtraContent { get; set; }
+Thread(Action action) ; Start() ; Abort() ; IsMain ; IsAlive
+Thread.MainThread / CurrentThread / IsMainThread (static)
+```
+
 ## [04]-[IMPLEMENTATION_LAW]
 
 [FORMS_TOPOLOGY]:
 - Every widget derives from `Control` and resolves a backend handler through the ambient platform; the same construction code produces a native control on each host, and host divergence lives in the handler, never in the construction row.
-- The four layouts are orthogonal placement strategies: `DynamicLayout` opens nested regions and scales flags per region, `TableLayout` scales grid cells, `StackLayout` runs children on one axis with alignment, `PixelLayout` places absolutely. A screen composes them, never merges them.
+- Four orthogonal placement strategies own layout: `DynamicLayout` opens nested regions and scales flags per region, `TableLayout` scales grid cells, `StackLayout` runs children on one axis with alignment, `PixelLayout` places absolutely. A screen composes them, never merges them.
 - `GridView`/`TreeGridView`/`TreeView` separate the bound store from the `GridColumn`+`Cell` presentation; the cell kind selects the in-cell editor, and one column definition drives every row.
 - Binding is bidirectional through `IndirectBinding<T>` with a `DualBindingMode`; `Convert`/`Child`/`AfterDelay` chain the transform, and `BindDataContext` reuses one binding graph across every data item swapped into `DataContext`.
 - One `Command` projects into both a menu item and a tool item, so a command row drives the menu bar, the context menu, and the toolbar from a single enablement and shortcut definition.
@@ -296,14 +372,16 @@ BindableWidget.UpdateBindings(BindingUpdateMode mode = BindingUpdateMode.Source)
 - `Thinktecture.Runtime.Extensions`(`../../.api/api-thinktecture-runtime-extensions.md`): a `[SmartEnum]` owns the closed control-kind, cell-kind, layout-strategy, and dialog-outcome vocabularies a generator-shaped UI layer folds to rows, and a `[Union]` owns the discriminated screen-element tree; the generated `Switch`/`Map` drives construction dispatch instead of a hand-written control-type ladder.
 - `LanguageExt.Core`(`../../.api/api-languageext.md`): `Fin<A>` rails `ShowModal`/`ShowModalAsync` outcomes and file-dialog results (cancellation is a `Fail`, not a null sentinel); `Option<A>` carries the nullable `bool?` scale flags and optional selection; `Eff<A>` wraps `DoDragDrop` and native-attach effects; `Seq<A>` is the child-collection carrier a layout region folds over.
 - `Wacton.Unicolour`(`../../.api/api-unicolour.md`): the canonical colour value behind `ColorPicker` and `ColorDialog`; an `Eto.Drawing.Color` maps to and from `Unicolour` at the view edge (`api-eto-drawing.md`) so theme ramps and perceptual selection stay in the perceptual model.
-- `api-eto-platform.md`: `NativeControlHost`, `Control.AttachNative`/`DetachNative`, and `TriggerStyleChanged` cross into the platform-handler and theme-transition seam.
+- `api-eto-platform.md`: `NativeControlHost`, `Control.AttachNative`/`DetachNative`, and `TriggerStyleChanged` cross into the platform-handler and theme-transition seam, and the `Eto.Forms.ThemedControls` `Themed*Handler` backend classes register through `Platform.Add<TWidget.IHandler>` at that same seam, never as a widget-construction row.
 
 [LOCAL_ADMISSION]:
 - Eto is admitted from the Rhino-loaded `Eto.dll`; Rasm.Rhino references that instance so its widgets share the host application, dispatcher, and platform handler. A second Eto copy is never pulled through NuGet.
 - A screen is built once from generated element rows against these construction, layout, and binding surfaces; `Eto.Forms.*` types stay behind the Rasm.Rhino UI owner, and downstream code composes screen definitions rather than raw widget calls.
+- `Eto.IO` is admitted as nothing: every type (`SystemIcons`, `IconSize`, `StaticIconType`) carries `[Obsolete]` redirecting to `Eto.Drawing.SystemImages`/`SystemIconSize`/`SystemIconType`, so the drawing catalog (`api-eto-drawing.md`) owns that surface and no `Eto.IO` row lands.
+- `Eto.Threading.Thread` stays subordinate to the Rhino host marshal owner (`RhinoApp.InvokeOnUiThread`/`InvokeAndWait`, `api-rhino-ui.md`); an Eto-level `Thread.IsMainThread` test never replaces the host marshal seam.
 
 [RAIL_LAW]:
 - Package: `Eto.Forms`
-- Owns: the native widget roster, the cell/item/grid families, the four layout containers, the window/dialog/menu/toolbar/command hierarchy, and the `IndirectBinding`/`DirectBinding`/`BindableBinding`/`DualBinding` data-binding surface.
-- Accept: native UI construction, layout composition, modal/modeless presentation, menu and command chrome, and control-to-model binding through `DataContext`.
-- Reject: immediate 2D painting (`api-eto-drawing.md` owns `Graphics`), platform-handler and native-hosting selection (`api-eto-platform.md`), document-owned Rhino windows and panels (`api-rhino-ui.md`), and leaking `Eto.Forms.*` types past the UI owner.
+- Owns: the native widget roster, the cell/item/grid families, the four layout containers, the window/dialog/menu/toolbar/command hierarchy, the `IndirectBinding`/`DirectBinding`/`BindableBinding`/`DualBinding` data-binding surface, the `Eto.Forms.ThemedControls` themed dialog/editor trio, and the `Eto.Threading.Thread` main-thread identity.
+- Accept: native UI construction, layout composition, modal/modeless presentation, menu and command chrome, control-to-model binding through `DataContext`, and a themed message-box, property-grid, or collection-editor over the construction surface.
+- Reject: immediate 2D painting (`api-eto-drawing.md` owns `Graphics`), platform-handler and native-hosting selection plus the `Themed*Handler` backend classes (`api-eto-platform.md`), document-owned Rhino windows and panels (`api-rhino-ui.md`), the obsolete `Eto.IO` icon surface (`api-eto-drawing.md` owns `SystemImages`), and leaking `Eto.Forms.*` types past the UI owner.

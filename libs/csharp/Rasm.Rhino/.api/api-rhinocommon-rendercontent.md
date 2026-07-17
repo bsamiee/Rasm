@@ -78,6 +78,8 @@
 - `public enum Rhino.Render.RenderMaterial.AssignToBlockChoices` — `Always`, `Never`, `Ask`.
 - `public enum Rhino.Render.RenderContentChangeReason` — `None`, `Attach`, `Detach`, `ChangeAttach`, `ChangeDetach`, `AttachUndo`, `DetachUndo`, `Open`, `Delete`; the `RenderContentEventArgs.Reason` payload.
 - `public enum Rhino.Render.RenderContent.EmbedFilesChoice` — `NeverEmbed`, `AlwaysEmbed`, `AskUser`; the `SaveToFile` embed policy.
+- `public enum Rhino.Render.DynamicIconUsage` — `TreeControl`, `SubnodeControl`, `ContentControl`, `General`.
+- `public enum Rhino.Render.Utilities.PreviewQuality` — `None`, `Low`, `Medium`, `IntermediateProgressive`, `Full`; the `PreviewRenderedEventArgs.Quality` payload.
 - `public enum Rhino.Render.RenderContent.ContentInstanceBrowserButtons` — `None`, `NewButton`, `EditButton`; the `ShowContentInstanceBrowser` button set.
 - `public enum Rhino.Render.SimulatedTexture.ProjectionModes` / `SimulatedTexture.EnvironmentMappingModes` — the baked-texture projection and environment-mapping vocabularies.
 - `public enum Rhino.Render.RenderMaterial.PreviewGeometryType` / `RenderMaterial.PreviewBackgroundType` — the default preview-pane geometry and background vocabularies.

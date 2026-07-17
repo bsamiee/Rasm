@@ -40,6 +40,7 @@ This catalog owns the instance-definition boundary: `InstanceDefinitionTable` id
 [ENUM_ROSTERS]:
 - `public enum Rhino.DocObjects.InstanceDefinitionUpdateType` — `Static = 0`, obsolete `Embedded = 1`, `LinkedAndEmbedded = 2`, `Linked = 3`.
 - `public enum Rhino.DocObjects.InstanceDefinitionArchiveFileStatus` — `NotALinkedInstanceDefinition = -3`, `LinkedFileNotReadable = -2`, `LinkedFileNotFound = -1`, `LinkedFileIsUpToDate = 0`, `LinkedFileIsNewer = 1`, `LinkedFileIsOlder = 2`, `LinkedFileIsDifferent = 3`.
+- `public enum Rhino.DocObjects.InstanceDefinitionLayerStyle` — `None = 0`, `Active = 1`, `Reference = 2`; the setter is effective only for linked definitions.
 - `public enum Rhino.LinkedInstanceDefinitionUpdateStyle` — `Prompt = 1`, `AlwaysUpdate = 2`, `NeverUpdate = 3`.
 
 ## [03]-[ENTRYPOINTS]
@@ -50,6 +51,8 @@ This catalog owns the instance-definition boundary: `InstanceDefinitionTable` id
 - `Rhino.DocObjects.Tables.InstanceDefinitionTable.Find(Guid instanceId, bool ignoreDeletedInstanceDefinitions) : InstanceDefinition` — resolves a definition by id.
 - `Rhino.DocObjects.Tables.InstanceDefinitionTable.GetList(bool ignoreDeleted) : InstanceDefinition[]` — returns a non-null, possibly empty roster whose zero-pointer slots contain null.
 - `Rhino.DocObjects.Tables.InstanceDefinitionTable.GetUnusedInstanceDefinitionName(string root) : string` — mints an unused definition name; the `(string, uint defaultSuffix)` overload is obsolete.
+- `Rhino.DocObjects.Tables.InstanceDefinitionTable.GetUnusedInstanceDefinitionName() : string` — mints an unused definition name from the host default root.
+- `Rhino.DocObjects.Tables.InstanceDefinitionTable.Count : int` — slot count, including deleted definitions.
 
 [DEFINITION_AUTHORING]:
 - `Rhino.DocObjects.Tables.InstanceDefinitionTable.Add(string name, string description, string url, string urlTag, Point3d basePoint, IEnumerable<GeometryBase> geometry, IEnumerable<ObjectAttributes> attributes) : int` — adds a definition with hyperlink metadata.
@@ -76,9 +79,13 @@ This catalog owns the instance-definition boundary: `InstanceDefinitionTable` id
 - `Rhino.DocObjects.Tables.InstanceDefinitionTable.Export(int idefIndex, string filename) : bool` — exports a definition to a standalone archive.
 
 [REFERENCE_TOPOLOGY]:
+- `Rhino.DocObjects.InstanceDefinition.Id : Guid` / `Index : int` / `Name : string` / `Description : string` / `IsDeleted : bool` — live component identity and deletion state.
 - `Rhino.DocObjects.InstanceDefinition.ObjectCount : int` — member-object count.
 - `Rhino.DocObjects.InstanceDefinition.UpdateType : InstanceDefinitionUpdateType` — static/linked/embedded mode.
 - `Rhino.DocObjects.InstanceDefinition.ArchiveFileStatus : InstanceDefinitionArchiveFileStatus` — linked-source availability.
+- `Rhino.DocObjects.InstanceDefinition.LayerStyle { get; set; } : InstanceDefinitionLayerStyle` — linked-definition layer policy; writes are no-ops unless the definition is linked.
+- `Rhino.DocObjects.InstanceDefinition.IsTenuous : bool` — linked source is missing or unloadable.
+- `Rhino.DocObjects.InstanceDefinition.SkipNestedLinkedDefinitions : bool` — nested linked definitions are excluded from load.
 - `Rhino.DocObjects.InstanceDefinition.Object(int index) : RhinoObject` — a member object by index.
 - `Rhino.DocObjects.InstanceDefinition.GetObjects() : RhinoObject[]` — the member-object roster.
 - `Rhino.DocObjects.InstanceDefinition.GetReferences(int wheretoLook) : InstanceObject[]` — the placed references of this definition.
@@ -98,12 +105,15 @@ This catalog owns the instance-definition boundary: `InstanceDefinitionTable` id
 - `Rhino.DocObjects.InstanceDefinition.CreatePreviewBitmap(Guid displayModeId, DefinedViewportProjection viewportProjection, IsometricCamera isometricCamera, bool drawDecorations, Size bitmapSize, bool applyDpiScaling) : Bitmap` — renders a definition preview with an isometric camera and display-mode id.
 
 [INSTANCE_RESOLUTION]:
+- `Rhino.DocObjects.InstanceObject.InstanceDefinition : InstanceDefinition` — the live definition this placement references; the member-object count reads through `InstanceDefinition.ObjectCount`, and the archive-only `GetObjectIds()` is not exposed on the live definition.
 - `Rhino.DocObjects.InstanceObject.UsesDefinition(int definitionIndex, out int nestingLevel) : bool` — whether this instance uses a definition, with nesting level.
 - `Rhino.DocObjects.InstanceObject.Explode(bool explodeNestedInstances, out RhinoObject[] pieces, out ObjectAttributes[] pieceAttributes, out Transform[] pieceTransforms) : void` — explodes the instance through the viewport overload.
 - `Rhino.DocObjects.InstanceObject.Explode(bool skipHiddenPieces, Guid viewportId, bool explodeNestedInstances, out RhinoObject[] pieces, out ObjectAttributes[] pieceAttributes, out Transform[] pieceTransforms) : void` — allocates all three non-null arrays from one native piece count, so their lengths are equal, including zero.
 - `Rhino.DocObjects.InstanceObject.SubObjectFromComponentIndex(ComponentIndex ci) : RhinoObject` — resolves a sub-object by component index.
 
 [INSTANCE_OPERATIONS]:
+- `Rhino.DocObjects.Tables.ObjectTable.AddInstanceObject(int instanceDefinitionIndex, Transform instanceXform) : Guid` — places an instance with a transform.
+- `Rhino.DocObjects.Tables.ObjectTable.AddInstanceObject(int instanceDefinitionIndex, Transform instanceXform, ObjectAttributes attributes) : Guid` — places an attributed instance.
 - `Rhino.DocObjects.Tables.ObjectTable.AddInstanceObject(int instanceDefinitionIndex, Transform instanceXform, ObjectAttributes attributes, HistoryRecord history, bool reference) : Guid` — places an instance with a transform and history.
 - `Rhino.DocObjects.Tables.ObjectTable.ReplaceInstanceObject(Guid objectId, int instanceDefinitionIndex) : bool` — repoints an instance to another definition.
 - `Rhino.DocObjects.Tables.ObjectTable.AddExplodedInstancePieces(InstanceObject instance, bool explodeNestedInstances = true, bool deleteInstance = false) : Guid[]` — bakes exploded pieces into the document; the implementation returns null when no non-empty ids are produced despite the non-nullable public signature.
@@ -120,6 +130,9 @@ This catalog owns the instance-definition boundary: `InstanceDefinitionTable` id
 [ARCHIVE_READS]:
 - `Rhino.FileIO.File3dm.AllInstanceDefinitions : File3dmInstanceDefinitionTable` — the standalone-archive definition table.
 - `Rhino.FileIO.File3dm.InstanceDefinitions : IList<InstanceDefinitionGeometry>` — the archive-side definition geometry roster.
+- `Rhino.DocObjects.InstanceDefinitionGeometry.Id : Guid` / `Name : string` / `SourceArchive : string` — archive definition identity and stored linked-source path.
+- `Rhino.DocObjects.InstanceDefinitionGeometry.GetObjectIds() : Guid[]` — archive member-object ids; linked definitions return an empty roster because their members are not persisted in the containing archive.
+- `Rhino.Geometry.InstanceReferenceGeometry.ParentIdefId : Guid` — referenced definition identity carried by an archive or live instance-reference geometry.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

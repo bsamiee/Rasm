@@ -77,6 +77,7 @@
 |  [06]   | `Platform.Initialize(string platformType)` | static                   | sets the ambient platform by type name           |
 |  [07]   | `Platform.ThreadStart()`                   | instance → `IDisposable` | scopes the ambient platform to a worker thread   |
 |  [08]   | `Platform.Invoke(Action action)`           | instance                 | runs an action under the platform context        |
+|  [09]   | `Platform.Invoke<T>(Func<T> action)`       | instance → `T`           | runs a value projection under platform context   |
 
 [ENTRYPOINT_SCOPE]: native-control lifecycle
 - namespace: `Eto.Forms`
@@ -85,7 +86,7 @@
 | [INDEX] | [SURFACE]                                                                                      | [CAPABILITY]                    |
 | :-----: | :--------------------------------------------------------------------------------------------- | :------------------------------ |
 |  [01]   | `NativeControlHost(object nativeControl)`                                                      | wraps a native control          |
-|  [02]   | `NativeControlHost.OnCreateNativeControl(NativeControlHost widget, CreateNativeControlArgs e)` | lazy native-control supply      |
+|  [02]   | `NativeControlHost.OnCreateNativeControl(CreateNativeControlArgs e)`                           | lazy native-control supply      |
 |  [03]   | `Control.AttachNative()`                                                                       | attaches to a native parent     |
 |  [04]   | `Control.DetachNative()`                                                                       | detaches from the native parent |
 
@@ -95,8 +96,9 @@
 
 | [INDEX] | [SURFACE]                                     | [CALL_SHAPE] | [CAPABILITY]                                        |
 | :-----: | :-------------------------------------------- | :----------- | :-------------------------------------------------- |
-|  [01]   | `Rhino.UI.EtoExtensions.Get(Control control)` | seam         | resolves the Rhino theme notifier for a control     |
-|  [02]   | `Control.TriggerStyleChanged()`               | member       | re-applies style handlers when the host theme flips |
+|  [01]   | `Style.Add<TWidget>(string style, StyleWidgetHandler<TWidget> handler)` | registration | registers a named widget-style callback             |
+|  [02]   | `Rhino.UI.EtoExtensions.Get(Control control)`                          | seam         | resolves the Rhino theme notifier for a control     |
+|  [03]   | `Control.TriggerStyleChanged()`                                        | member       | re-applies style handlers when the host theme flips |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

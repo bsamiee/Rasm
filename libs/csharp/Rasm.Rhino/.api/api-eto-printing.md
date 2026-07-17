@@ -46,6 +46,9 @@
 |  [05]   | `PrintDocument.OnPrinting`  | `(EventArgs)`          | job-start lifecycle callback             |
 |  [06]   | `PrintDocument.OnPrintPage` | `(PrintPageEventArgs)` | render one page into the page `Graphics` |
 |  [07]   | `PrintDocument.OnPrinted`   | `(EventArgs)`          | job-complete lifecycle callback          |
+|  [08]   | `PrintDocument.Printing`    | event                  | observes job-start lifecycle             |
+|  [09]   | `PrintDocument.PrintPage`   | event                  | observes each page render callback       |
+|  [10]   | `PrintDocument.Printed`     | event                  | observes job completion                  |
 
 [ENTRYPOINT_SCOPE]: presentation and progress
 - rail: eto-printing
@@ -59,6 +62,20 @@
 |  [03]   | `PrintPreviewDialog.Document`   | `get → PrintDocument`                            | the previewed document           |
 |  [04]   | `PrintPreviewDialog.ShowDialog` | `(Window parent) → DialogResult`                 | present the on-screen preview    |
 |  [05]   | `Taskbar.SetProgress`           | `(TaskbarProgressState state, float = 0f)`       | project job progress onto the OS |
+
+[ENTRYPOINT_SCOPE]: page and job settings
+- rail: eto-printing
+
+| [INDEX] | [SURFACE]                                        | [CAPABILITY]                              |
+| :-----: | :----------------------------------------------- | :---------------------------------------- |
+|  [01]   | `PageSettings.PrintableArea { get; }`           | reads printer-resolved page bounds        |
+|  [02]   | `PrintSettings.MaximumPageRange { get; set; }`  | bounds the selectable page interval       |
+|  [03]   | `PrintSettings.SelectedPageRange { get; set; }` | carries the chosen page interval          |
+|  [04]   | `PrintSettings.PrintSelection { get; set; }`    | selects all, host selection, or page span |
+|  [05]   | `PrintSettings.Orientation { get; set; }`       | selects portrait or landscape geometry    |
+|  [06]   | `PrintSettings.Copies { get; set; }`            | sets copy cardinality                     |
+|  [07]   | `PrintSettings.Collate { get; set; }`           | selects copy collation                    |
+|  [08]   | `PrintSettings.Reverse { get; set; }`           | selects reverse page order                |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

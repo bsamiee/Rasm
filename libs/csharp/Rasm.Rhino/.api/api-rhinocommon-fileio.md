@@ -106,13 +106,13 @@ Direct engines receive their typed option carrier directly; `RhinoDoc.Import`/`E
 - `FilePdfReadOptions` — `PDF_UNITS` (`inches`, `centimeters`, `millimeters`, `points` — lowercase host spellings); `PreserveModelScale`, `RhinoScale` (1.0), `PdfUnits`, `PDFScale` (1.0), `ImportFillsAsHatches` (true), `LoadText` (true); `ToDictionary()`
 - `FileTxtWriteOptions` — `DelimiterMode` (`Comma`, `Semicolon`, `Space`, `Tab`, `Other`); `Delimiter`, `DelimiterCharacter` (','), `Precision` (16), `ExportVertexColors` (true), `SurroundWithDoubleQuotes` (true); `ToDictionary()`
 - `FileTxtReadOptions` — `DelimiterMode` adds `Automatic` (the default); `Delimiter`, `DelimiterCharacter` (','), `CreatePointCloud` (true); `ToDictionary()`
-- `FileCsvWriteOptions` — twenty-six column booleans `Header` (true), `LayerName` (true), `LayerIndex`, `LayerColor`, `LayerHierarchy` (true), `GroupName`, `GroupIndexes`, `ObjectName` (true), `ObjectColor`, `ObjectID`, `ObjectMaterial`, `ObjectDescription` (true), `SurroundPointsWithDoubleQuotes` (true), `Length`, `Perimeter`, `Area`, `Volume`, `AreaCentroid`, `VolumeCentroid`, `AreaMoments`, `VolumeMoments`, `CumulativeMassProperties`, `AttributesKeys` (true), `AttributesTexts` (true), `ObjectKeys` (true), `ObjectsTexts` (true); `ToDictionary()`
+- `FileCsvWriteOptions` — column-inclusion booleans `Header` (true), `LayerName` (true), `LayerIndex`, `LayerColor`, `LayerHierarchy` (true), `GroupName`, `GroupIndexes`, `ObjectName` (true), `ObjectColor`, `ObjectID`, `ObjectMaterial`, `ObjectDescription` (true), `SurroundPointsWithDoubleQuotes` (true), `Length`, `Perimeter`, `Area`, `Volume`, `AreaCentroid`, `VolumeCentroid`, `AreaMoments`, `VolumeMoments`, `CumulativeMassProperties`, `AttributesKeys` (true), `AttributesTexts` (true), `ObjectKeys` (true), `ObjectsTexts` (true); `ToDictionary()`
 - `FileUsdWriteOptions` — `BlockHandling : USDExportBlockHandling` (namespace-level enum: `SeparateFiles`, `Ignore`, `Embedded`; default `SeparateFiles`), `DefaultLayer` (setter coerces null/empty to `"Default"`), `ModelName`, `ForceMeshes`, `IncludeUserStrings` (true), `MeshingParameters` (unset by default)
 - `FileXamlWriteOptions` — `AnimationMode` (`X`, `Y`, `Z`); `UseExistingRenderMeshes` (true), `AddRotationScrollbars`, `UseOriginForRotationCenter` (true), `AddRotationAnimation`, `AnimationAxis`, `MeshingParameters`; `ToDictionary()`
 - `FileGHSReadOptions` — `ReadViewType` (`Body`, `Profile`, `Plan`, `Wire`, `Solid`, `Camera`, `Custom`; default `Solid`); `AttachGhsData` (true), `RemoveColinearPoints` (true), `ViewType`
 - `FileNwdWriteOptions` — `Version : NavisWorksVersion` (namespace-level enum: `Navisworks2016`, `Navisworks2026`, `NavisworksCache`; default `Navisworks2016`), `MeshingParameters`
 - `FileSlcWriteOptions` — `StartPoint` ((0,0,0)), `EndPoint` ((0,0,1)), `SliceDistance` (0.0381), `UseMeshes` (true), `AngleBetweenSegmentsDegrees` (5.0)
-- `FileVdaWriteOptions` — the eleven header strings `SendingCompany`, `SendersName`, `TelephoneNumber`, `Address`, `ProjectName`, `ObjectCode`, `Variant`, `Confidentiality`, `DateEffective`, `CompanyName`, `ReceivingDepartment` plus `PointDeviationHairsAsMDI`
+- `FileVdaWriteOptions` — the header-string fields `SendingCompany`, `SendersName`, `TelephoneNumber`, `Address`, `ProjectName`, `ObjectCode`, `Variant`, `Confidentiality`, `DateEffective`, `CompanyName`, `ReceivingDepartment` plus `PointDeviationHairsAsMDI`
 - `File3mfWriteOptions` — `Title`, `Designer`, `Description`, `Copyright`, `LicenseTerms`, `Rating`, `MoveOutputToPositiveXYZOctant` (true), and the get-only `Metadata : Dictionary<string, string>`
 - `File3dsWriteOptions` — `SaveViews` (true), `SaveLights` (true), `MeshingParameters`; `File3dsReadOptions` — `Unweld`/`UnweldAngle` (true, 22.5), `ImportLights` (true), `ImportCameras` (true)
 - `FileDgnReadOptions` — `ImportUnreferencedLayers`/`ImportUnreferencedBlocks` (both false — the DWG counterparts default true), `ImportUnreferencedLineStyles` (true), `ImportViews`, `GroupCellHeaders` (true)
@@ -159,7 +159,7 @@ Exchange-relevant knobs include `File3dsWriteOptions.SaveViews`/`SaveLights`; th
 - `public bool File3dm.Write(string path, int version)` / `public bool Write(string path, File3dmWriteOptions? options)`; `null` options create defaults
 - `public bool File3dm.WriteWithLog(string path, int version, out string errorLog)` / `public bool WriteWithLog(string path, File3dmWriteOptions? options, out string errorLog)`
 - runtime-nullable `public byte[]? File3dm.ToByteArray()` / `public byte[]? ToByteArray(File3dmWriteOptions? options)`; native serialization failure returns `null`
-- `[Obsolete]` `File3dm.IsValid` returns true, and `[Obsolete]` `Audit`/`Polish` do not provide archive validation; `public bool CommonObject.IsValidWithLog(out string log)` is the per-object validity surface
+- archive validity is per-object through `public bool CommonObject.IsValidWithLog(out string log)`; no archive-level validity method exists, and a read-time diagnostic comes only from the `ReadWithLog`/`WriteWithLog` error log
 - runtime-nullable `public Bitmap? File3dm.GetPreviewImage()` / `public void SetPreviewImage(Bitmap? image)`; the returned bitmap is caller-owned, `null` clears the stored preview, and a non-null image is copied into native storage during the call
 
 [ENTRYPOINT_SCOPE]: archive tables and write options
@@ -248,3 +248,8 @@ Exchange-relevant knobs include `File3dsWriteOptions.SaveViews`/`SaveLights`; th
 - Owns: the standalone `.3dm` archive, direct format conversion, PDF page authoring, document-attached exchange
 - Accept: filtered, metadata, and byte archive access, typed-option conversion, vector PDF authoring
 - Reject: document identity and table mutation, block-definition graph depth, native file-dialog registration
+
+[NAMESPACE_CENSUS]:
+- covered public surface: `Rhino.FileIO` (`File3dm` + archive tables, the direct format-engine roster and typed `*Options`, `FilePdf` page authoring), `Rhino` (document-attached I/O), `Rhino.DocObjects` (`EarthAnchorPoint`)
+- access-excluded (internal, never lands): `Rhino.FileIO.Nrbf` — the entire NRBF binary-serialization record surface (`ObjectReader`/`ObjectWriter`/`SerializationHeaderRecord`/`BinaryFormatter`/`RecordType`/`PrimitiveType`/`BinaryType`/`ISerializationRecord`/`ClassWithMembersAndTypesRecord`/… decompile-verified `internal`) is host-private serialization glue with no public entry point; the census weight counted internal types, not accessible surface
+- native file-dialog registration and dispatch (`FileImportPlugIn`/`FileExportPlugIn`/`FileTypeList`/`FileReadOptions`) are owned by `api-rhinocommon-plugins.md`

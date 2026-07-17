@@ -23,14 +23,16 @@
 | [INDEX] | [SYMBOL]                            | [KIND]             | [CAPABILITY]                                                |
 | :-----: | :---------------------------------- | :----------------- | :---------------------------------------------------------- |
 |  [01]   | `Drawable`                          | host (`Eto.Forms`) | custom-paint control raising `Paint` with a live `Graphics` |
-|  [02]   | `Drawable.CreateGraphics()`         | member             | acquires an off-event `Graphics` handle                     |
-|  [03]   | `Drawable.Update(Rectangle region)` | member             | forces an immediate bounded repaint                         |
-|  [04]   | `Drawable.CancelTextComposition()`  | member             | cancels an in-progress IME composition                      |
-|  [05]   | `Drawable.CommitTextComposition()`  | member             | commits an in-progress IME composition                      |
-|  [06]   | `Graphics`                          | command stream     | immediate 2D draw/fill/text/clip/transform surface          |
-|  [07]   | `Graphics.AntiAlias`                | property           | anti-alias toggle for the stream                            |
-|  [08]   | `Graphics.ImageInterpolation`       | property           | image resampling quality (`ImageInterpolation` enum)        |
-|  [09]   | `Graphics.PixelOffsetMode`          | property           | half-pixel offset policy for crisp lines                    |
+|  [02]   | `Drawable.Paint`                    | event              | supplies the live paint-event `Graphics`                    |
+|  [03]   | `Drawable.SupportsCreateGraphics`   | property           | advertises off-event graphics acquisition                   |
+|  [04]   | `Drawable.CreateGraphics()`         | member             | acquires an off-event `Graphics` handle                     |
+|  [05]   | `Drawable.Update(Rectangle region)` | member             | forces an immediate bounded repaint                         |
+|  [06]   | `Drawable.CancelTextComposition()`  | member             | cancels an in-progress IME composition                      |
+|  [07]   | `Drawable.CommitTextComposition()`  | member             | commits an in-progress IME composition                      |
+|  [08]   | `Graphics`                          | command stream     | immediate 2D draw/fill/text/clip/transform surface          |
+|  [09]   | `Graphics.AntiAlias`                | property           | anti-alias toggle for the stream                            |
+|  [10]   | `Graphics.ImageInterpolation`       | property           | image resampling quality (`ImageInterpolation` enum)        |
+|  [11]   | `Graphics.PixelOffsetMode`          | property           | half-pixel offset policy for crisp lines                    |
 
 [PUBLIC_TYPE_SCOPE]: geometry, pens, and paths
 - namespace: `Eto.Drawing`
@@ -45,7 +47,7 @@
 |  [05]   | `PenLineCap`               | enum     | butt/round/square cap selector                                              |
 |  [06]   | `PenLineJoin`              | enum     | miter/round/bevel join selector                                             |
 |  [07]   | `DashStyle`                | value    | dash pattern over a stroke                                                  |
-|  [08]   | `DashStyles`               | statics  | named dash presets (`Solid`, `Dash`, `Dot`, `DashDot`)                      |
+|  [08]   | `DashStyles`               | statics  | named dash presets (`Solid`, `Dash`, `Dot`, `DashDot`, `DashDotDot`)        |
 |  [09]   | `GraphicsPath`             | geometry | retained path with construction, transform, and hit-testing                 |
 |  [10]   | `IGraphicsPath`            | contract | path contract consumed by `Graphics.DrawPath`/`FillPath`                    |
 
@@ -195,6 +197,10 @@ GraphicsPath.Clone()
 |  [10]   | `Bitmap.ToByteArray(ImageFormat imageFormat)`                                                 | encodes to a byte stream        |
 |  [11]   | `Bitmap.Clone(Rectangle? rectangle = null)`                                                   | copies whole or sub-region      |
 |  [12]   | `SystemFonts.Default/Bold/Label/Menu/MenuBar/Message/Palette/StatusBar/TitleBar/ToolTip/User` | host UI font roster             |
+|  [13]   | `GraphicsPath.Bounds { get; }`                                                               | reads retained path bounds      |
+|  [14]   | `BitmapData.SetPixel(Point position, Color color)`                                            | writes inside one bitmap lock   |
+|  [15]   | `FormattedText.ForegroundBrush { get; set; }`                                                 | assigns shaped-text foreground  |
+|  [16]   | `FormattedText.Text/Font/MaximumSize/Wrap/Alignment/Trimming`                                  | configures shaped-text layout   |
 
 The three gradient and texture brush constructors:
 

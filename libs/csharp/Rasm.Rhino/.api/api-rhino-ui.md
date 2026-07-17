@@ -1,6 +1,6 @@
 # [RASM_RHINO_API_RHINO_UI]
 
-The `Rhino.UI` boundary owns host integration for native chrome: panel and page registration and lifecycle, the Eto host bridge that gives a document-owned window to an Eto control and styles it as native, the built-in native dialogs, the gumball manipulator, the mouse-callback and in-viewport interaction surface, the status-bar and toolbar/RUI state, and the SVG/preview resource utilities. The surface spans two host assemblies — `RhinoEtoApp` and `EtoExtensions` resolve from `Rhino.UI.dll`, while `Panels`, `StatusBar`, `StackedDialogPage`, `DrawingUtilities`, and the `RhinoApp` UI-thread members resolve from `RhinoCommon.dll`. The Eto framework itself (controls, layouts, drawing, runtime dispatch) is owned by the folder's Eto catalogs (`api-eto-forms.md`, `api-eto-drawing.md`, `api-eto-runtime.md`); this boundary owns only the seam that hosts an Eto surface inside Rhino, and the in-viewport `UserInterfaceObject` family that draws through the display pipeline of `api-rhinocommon-display.md`.
+`Rhino.UI` boundary owns host integration for native chrome: panel and page registration and lifecycle, the Eto host bridge that gives a document-owned window to an Eto control and styles it as native, the built-in native dialogs, the gumball manipulator, the mouse-callback and in-viewport interaction surface, the status-bar and toolbar/RUI state, and the SVG/preview resource utilities. This surface spans two host assemblies — `RhinoEtoApp` and `EtoExtensions` resolve from `Rhino.UI.dll`, while `Panels`, `StatusBar`, `StackedDialogPage`, `DrawingUtilities`, and the `RhinoApp` UI-thread members resolve from `RhinoCommon.dll`. Eto framework itself (controls, layouts, drawing, runtime dispatch) is owned by the folder's Eto catalogs (`api-eto-forms.md`, `api-eto-drawing.md`, `api-eto-runtime.md`); this boundary owns only the seam that hosts an Eto surface inside Rhino, and the in-viewport `UserInterfaceObject` family that draws through the display pipeline of `api-rhinocommon-display.md`.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -11,7 +11,8 @@ The `Rhino.UI` boundary owns host integration for native chrome: panel and page 
 - assembly: `RhinoCommon.dll` (`Panels`, `StatusBar`, `StackedDialogPage`, `DrawingUtilities`, gumball, mouse, toolbar, UI-thread)
 - namespace: `Rhino.UI` (panels, dialogs, pages, mouse, status, toolbar, resources, in-viewport UI objects)
 - namespace: `Rhino.UI.Gumball` (`GumballObject`, `GumballDisplayConduit`, `GumballFrame`)
-- namespace: `Rhino.UI.Controls` (`EtoCollapsibleSection`, `EtoCollapsibleSectionHolder`)
+- namespace: `Rhino.UI.Controls` (`EtoCollapsibleSection`(+`Holder`) section hosts; the full `Rhino.UI.dll` control library is `api-rhino-ui-controls.md`)
+- namespace: `Rhino.UI.Controls.DataSource` (`ProviderIds` provider-identity roster, `EventArgs`/`EventInfoArgs` payloads — `RhinoCommon.dll`)
 - asset: host-resolved managed reference; the boundary composes it, the manifest never pins it
 - rail: host-boundary native-ui
 
@@ -90,6 +91,18 @@ The `Rhino.UI` boundary owns host integration for native chrome: panel and page 
 |  [07]   | `RhinoApp` (UI-thread members) | thread marshal   | main-thread dispatch             |
 |  [08]   | `RhinoView.ShowToast`          | transient notice | viewport toast                   |
 |  [09]   | `Localization`                 | locale service   | language id + unit formatting    |
+
+[PUBLIC_TYPE_SCOPE]: RDK data-source provider identities
+- namespace: `Rhino.UI.Controls.DataSource`
+- rail: host-boundary native-ui
+
+`DataSource.ProviderIds` is the RDK data-provider identity roster — a static `Guid` set naming the sun, environment, render-settings, content-database, decal, and post-effect providers a UI data source binds; `EventArgs`/`EventInfoArgs` are the read-only event payloads a provider raises. Full `Rhino.UI.dll` control library (collapsible sections, layouts, panels, buttons, numeric/text controls, viewport control) is `api-rhino-ui-controls.md`; `Rhino.UI.Controls.ThumbnailUI` is a dead RDK-legacy surface (every member `[deprecated 6.6]` or an unimplemented stub) and admits nothing.
+
+| [INDEX] | [SYMBOL]                   | [KIND]        | [CAPABILITY]                                                            |
+| :-----: | :------------------------- | :------------ | :---------------------------------------------------------------------- |
+|  [01]   | `DataSource.ProviderIds`   | Guid roster   | RDK provider ids: sun, environment, render, content, decal, post-effect |
+|  [02]   | `DataSource.EventArgs`     | event payload | read-only `DataType` on a provider event                                |
+|  [03]   | `DataSource.EventInfoArgs` | event payload | read-only `DataType` and native `EventInfoPtr`                          |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -171,6 +184,8 @@ The `Rhino.UI` boundary owns host integration for native chrome: panel and page 
 |  [71]   | `StackedDialogPage.SetEnglishPageTitle(string)`                           | page         | retitle page                   |
 |  [72]   | `StackedDialogPage.Modified` (get/set)                                    | page         | dirty-state flag               |
 |  [73]   | `StackedDialogPage.RemovePage()`                                          | page         | remove own page                |
+|  [74]   | `StackedDialogPage.NavigationTextColor` (get/set)                         | page         | Windows navigation color       |
+|  [75]   | `StackedDialogPage.NavigationTextIsBold` (get/set)                        | page         | Windows navigation bold        |
 
 `ThemeSettings.ThemeChanged` is a public static `EventHandler` field subscribed through `+=`; the notifier behind `EtoExtensions` is private.
 
@@ -185,19 +200,31 @@ The `Rhino.UI` boundary owns host integration for native chrome: panel and page 
 |  [04]   | `Dialogs.ShowCheckListBox(...)`                                                           | dialog       | check-list selection      |
 |  [05]   | `Dialogs.ShowPropertyListBox(...)`                                                        | dialog       | property-list selection   |
 |  [06]   | `Dialogs.ShowSelectMultipleLayersDialog(...)`                                             | dialog       | multi-layer selection     |
-|  [07]   | `GumballDisplayConduit.SetBaseGumball(GumballObject, GumballAppearanceSettings)`          | gumball      | seat manipulator          |
-|  [08]   | `GumballDisplayConduit.PickGumball(PickContext, GetPoint)`                                | gumball      | pick manipulator          |
-|  [09]   | `GumballDisplayConduit.UpdateGumball(Point3d, Line)`                                      | gumball      | update drag from line     |
-|  [10]   | `GumballDisplayConduit.UpdateGumball(Plane)`                                              | gumball      | update drag from plane    |
-|  [11]   | `MouseCallback.OnMouseMove(MouseCallbackEventArgs)`                                       | override     | begin mouse-move phase    |
-|  [12]   | `MouseCallback.OnEndMouseMove(...)`                                                       | override     | end mouse-move phase      |
-|  [13]   | `MouseCallback.OnMouseDown(MouseCallbackEventArgs)`                                       | override     | begin mouse-down phase    |
-|  [14]   | `MouseCallback.OnEndMouseDown(...)`                                                       | override     | end mouse-down phase      |
-|  [15]   | `MouseCallback.OnMouseUp(MouseCallbackEventArgs)`                                         | override     | begin mouse-up phase      |
-|  [16]   | `MouseCallback.OnEndMouseUp(...)`                                                         | override     | end mouse-up phase        |
-|  [17]   | `MouseCallbackEventArgs.ViewportPoint`                                                    | read         | callback viewport point   |
-|  [18]   | `MouseCallbackEventArgs.IsOverGumball()`                                                  | read         | test gumball hover        |
-|  [19]   | `MouseCursor.SetToolTip(string)`                                                          | read         | set cursor tooltip        |
+|  [07]   | `Dialogs.ShowTextDialog(string, string)`                                                  | dialog       | text transcript           |
+|  [08]   | `Dialogs.ShowContextMenu(IEnumerable<string>, Point, IEnumerable<int>)`                   | dialog       | context-menu selection    |
+|  [09]   | `Dialogs.ShowListBox(string, string, IList)` / `(string, string, IList, object)`          | dialog       | single-list selection     |
+|  [10]   | `Dialogs.ShowEditBox(string, string, string, bool, out string)`                           | dialog       | text edit                 |
+|  [11]   | `Dialogs.ShowNumberBox(string, string, ref double)` / `(..., double, double)`             | dialog       | number edit               |
+|  [12]   | `Dialogs.ShowSelectLayerDialog(ref int, string, bool, bool, ref bool)`                    | dialog       | single-layer selection    |
+|  [13]   | `Dialogs.ShowLayerMaterialDialog(RhinoDoc, IEnumerable<int>)`                             | dialog       | layer-material edit       |
+|  [14]   | `Dialogs.ShowLineTypes(string, string, RhinoDoc, Guid)`                                   | dialog       | linetype identity choice  |
+|  [15]   | `Dialogs.ShowSelectLinetypeDialog(ref int, bool)`                                         | dialog       | linetype index choice     |
+|  [16]   | `Dialogs.ShowPrintWidths(string, string)` / `(string, string, double)`                    | dialog       | print-width choice        |
+|  [17]   | `Dialogs.ShowSunDialog(Sun)`                                                              | dialog       | sun editor                |
+|  [18]   | `OpenFileDialog.ShowOpenDialog()` / `SaveFileDialog.ShowSaveDialog()`                     | dialog       | native file selection     |
+|  [19]   | `GumballDisplayConduit.SetBaseGumball(GumballObject, GumballAppearanceSettings)`          | gumball      | seat manipulator          |
+|  [20]   | `GumballDisplayConduit.PickGumball(PickContext, GetPoint)`                                | gumball      | pick manipulator          |
+|  [21]   | `GumballDisplayConduit.UpdateGumball(Point3d, Line)`                                      | gumball      | update drag from line     |
+|  [22]   | `GumballDisplayConduit.UpdateGumball(Plane)`                                              | gumball      | update drag from plane    |
+|  [23]   | `MouseCallback.OnMouseMove(MouseCallbackEventArgs)`                                       | override     | begin mouse-move phase    |
+|  [24]   | `MouseCallback.OnEndMouseMove(...)`                                                       | override     | end mouse-move phase      |
+|  [25]   | `MouseCallback.OnMouseDown(MouseCallbackEventArgs)`                                       | override     | begin mouse-down phase    |
+|  [26]   | `MouseCallback.OnEndMouseDown(...)`                                                       | override     | end mouse-down phase      |
+|  [27]   | `MouseCallback.OnMouseUp(MouseCallbackEventArgs)`                                         | override     | begin mouse-up phase      |
+|  [28]   | `MouseCallback.OnEndMouseUp(...)`                                                         | override     | end mouse-up phase        |
+|  [29]   | `MouseCallbackEventArgs.ViewportPoint`                                                    | read         | callback viewport point   |
+|  [30]   | `MouseCallbackEventArgs.IsOverGumball()`                                                  | read         | test gumball hover        |
+|  [31]   | `MouseCursor.SetToolTip(string)`                                                          | read         | set cursor tooltip        |
 
 [ENTRYPOINT_SCOPE]: in-viewport UI objects
 - rail: host-boundary native-ui
@@ -238,7 +265,7 @@ The `Rhino.UI` boundary owns host integration for native chrome: panel and page 
 [ENTRYPOINT_SCOPE]: status, toolbar, resources, and UI thread
 - rail: host-boundary native-ui
 
-The trailing `kind` channel of `DrawingUtilities.CreateLinetypePreviewGeometryEx` selects `0` dash fill, `1` curve-shape stroke, or `2` text-shape even-odd fill.
+A trailing `kind` channel of `DrawingUtilities.CreateLinetypePreviewGeometryEx` selects `0` dash fill, `1` curve-shape stroke, or `2` text-shape even-odd fill.
 
 | [INDEX] | [SURFACE]                                                                                        | [KIND]   | [CAPABILITY]            |
 | :-----: | :----------------------------------------------------------------------------------------------- | :------- | :---------------------- |
@@ -269,11 +296,19 @@ The trailing `kind` channel of `DrawingUtilities.CreateLinetypePreviewGeometryEx
 |  [25]   | `Toolbar.BitmapSize` / `TabSize` (static `Size` get/set)                                         | toolbar  | global toolbar sizing   |
 |  [26]   | `StatusBar.SetMessagePane(string)` / `ClearMessagePane()`                                        | status   | message pane write      |
 |  [27]   | `StatusBar.SetDistancePane(double)` / `SetNumberPane(double)` / `SetPointPane(Point3d)`          | status   | value pane writes       |
+|  [28]   | `DrawingUtilities.IconFromResource(string, Size, Assembly)`                                      | resource | load sized icon         |
+|  [29]   | `DrawingUtilities.BitmapFromIconResource(string, Size, Assembly)`                                | resource | load icon bitmap        |
+|  [30]   | `DrawingUtilities.ImageFromResource(string, Assembly)`                                           | resource | load drawing image      |
+|  [31]   | `DrawingUtilities.LoadBitmapWithScaleDown(string, int, Assembly)`                                | resource | load reduced bitmap     |
+|  [32]   | `DrawingUtilities.LoadIconWithScaleDown(string, int, Assembly)`                                  | resource | load reduced icon       |
+|  [33]   | `DrawingUtilities.CreateCurvePreviewGeometry(Curve, Linetype, int, int)`                         | resource | create curve preview    |
+|  [34]   | `NamedColorList.Default`                                                                         | resource | default named palette   |
+|  [35]   | `WaitCursor()` / `Dispose()`                                                                     | cursor   | scope host wait cursor  |
 
 [ENTRYPOINT_SCOPE]: `Localization` — locale identity and unit-aware formatting
 - rail: host-boundary native-ui
 
-`Localization` is a `RhinoCommon.dll` static in the `Rhino.UI` namespace. The `LocalizeString`/`LocalizeCommandName`/`LocalizeDialogItem`/`LocalizeForm` family resolves plug-in XML string tables and returns the English input unchanged when none ship; the locale-identity and unit-formatting members are table-free. Unit-aware `FormatNumber` overloads order `(value, units, mode, precision, appendUnitSystemName)`.
+`Localization` is a `RhinoCommon.dll` static in the `Rhino.UI` namespace. Its `LocalizeString`/`LocalizeCommandName`/`LocalizeDialogItem`/`LocalizeForm` family resolves plug-in XML string tables and returns the English input unchanged when none ship; the locale-identity and unit-formatting members are table-free. Unit-aware `FormatNumber` overloads order `(value, units, mode, precision, appendUnitSystemName)`.
 
 | [INDEX] | [SURFACE]                                                                                 | [KIND]     | [CAPABILITY]                   |
 | :-----: | :---------------------------------------------------------------------------------------- | :--------- | :----------------------------- |
@@ -292,23 +327,36 @@ The trailing `kind` channel of `DrawingUtilities.CreateLinetypePreviewGeometryEx
 |  [13]   | `LocalizeCommandOptionName(string english, int contextId) : LocalizeStringPair`           | string map | option-name pair               |
 |  [14]   | `LocalizeCommandOptionValue(string english, int contextId) : LocalizeStringPair`          | string map | option-value pair              |
 
+[ENTRYPOINT_SCOPE]: RDK data-source provider identities
+- namespace: `Rhino.UI.Controls.DataSource`
+- rail: host-boundary native-ui
+
+`ProviderIds` members are static `Guid` getters grouped by concern; a UI data source binds a provider by its identity, and the event payloads carry the changed data type.
+
+- `DataSource.ProviderIds` render-settings ids: `Sun`, `CurrentEnvironment`, `RhinoSettings`, `Skylight`, `GroundPlane`, `Dithering`, `LinearWorkflow`, `RenderChannels`.
+- `DataSource.ProviderIds` content and decal ids: `ContentDatabase`, `ContentLookup`, `ContentSelection`, `ContentParam`, `Decals`.
+- `DataSource.ProviderIds` rendering-pipeline ids: `RdkRendering`, `RdkRenderingProgress`, `RdkRenderingGamma`, `RdkRenderingToneMapping`, `RdkRenderingPostEffects`, `RdkRenderingPostEffectDOF`, `RdkRenderingPostEffectGlare`.
+- `DataSource.EventArgs.DataType : Guid` / `DataSource.EventInfoArgs.EventInfoPtr : nint` — event-payload changed-data-type and native info pointer.
+
 ## [04]-[IMPLEMENTATION_LAW]
 
 [UI_TOPOLOGY]:
 - Native chrome registers once per plug-in and lives in one owner: `Panels.RegisterPanel` seats a panel type, `StackedDialogPage`/`OptionsDialogPage`/`ObjectPropertiesPage` seat pages, and the returned host resolves instances through `GetPanel`/`GetPanels<T>` — a second registration of the same type is the collapsed form.
-- The Eto host bridge is the only path from an Eto surface to a Rhino window: `RhinoEtoApp` resolves the document-owned parent, `EtoExtensions.UseRhinoStyle` applies native styling, and `ShowSemiModal`/`Show` present it against a document; the Eto control tree itself is authored through the folder Eto catalogs, and the bridge never re-implements a control.
-- Interaction has two tiers: `MouseCallback` is the document-wide viewport mouse hook (begin/end phase pairs), while a `UserInterfaceObjectBase` and its grip/slider subclasses are registered in-viewport widgets that draw through the display pipeline and receive a picked `MouseState`. The gumball is the third, dedicated manipulator — a `GumballDisplayConduit` seated from a `GumballObject`, never a hand-rolled grip cluster.
+- Eto host bridge is the only path from an Eto surface to a Rhino window: `RhinoEtoApp` resolves the document-owned parent, `EtoExtensions.UseRhinoStyle` applies native styling, and `ShowSemiModal`/`Show` present it against a document; the Eto control tree itself is authored through the folder Eto catalogs, and the bridge never re-implements a control.
+- Interaction has two tiers: `MouseCallback` is the document-wide viewport mouse hook (begin/end phase pairs), while a `UserInterfaceObjectBase` and its grip/slider subclasses are registered in-viewport widgets that draw through the display pipeline and receive a picked `MouseState`. A gumball is the third, dedicated manipulator — a `GumballDisplayConduit` seated from a `GumballObject`, never a hand-rolled grip cluster.
 - Every host callback runs on the UI thread: work that touches document or UI state from a background context marshals through `RhinoApp.InvokeOnUiThread`/`InvokeAndWait`, gated by `IsOnMainThread` — a direct cross-thread UI mutation is the deleted form.
 
 [STACKING]:
 - `api-eto-forms.md` / `api-eto-drawing.md` / `api-eto-runtime.md`: the Eto framework is the folder's own sub-domain; this boundary composes it through the host bridge only. A panel or dialog's content is an Eto control tree from those catalogs; `Rhino.UI` supplies the window ownership, native styling, and semi-modal presentation the tree lacks on its own.
 - `api-languageext.md`(`../../.api/api-languageext.md`): panel registration, page activation, dialog results, and resource loads are trapped onto the rail — `Try.lift(() => Panels.RegisterPanel(...)).Run()` and `Optional(Dialogs.ShowColorDialog(...)).ToFin(error)`; a dialog result or a loaded preview image crosses as `Fin<A>`, never as a nullable host handle.
 - `api-thinktecture-runtime-extensions.md`(`../../.api/api-thinktecture-runtime-extensions.md`): the host UI enums (`PanelType`, `FloatPanelMode`, `ShowPanelReason`, `MouseButton`, `GumballMode`, `PropertyPageType`, the dialog button/icon selectors) map at the edge to `[SmartEnum]` owners, and a panel/page `Guid` is a `[ValueObject<Guid>]`; the domain composes the bounded owner.
-- `api-rhinocommon-display.md`: the in-viewport `UserInterfaceObjectBase.OnDraw` receives a `DrawEventArgs` and draws through the same `DisplayPipeline` the display catalog owns, and the gumball is a display conduit — the UI widget is a pipeline participant, not a private renderer.
+- `api-rhinocommon-display.md`: in-viewport `UserInterfaceObjectBase.OnDraw` receives a `DrawEventArgs` and draws through the same `DisplayPipeline` the display catalog owns, and the gumball is a display conduit — the UI widget is a pipeline participant, not a private renderer.
+- `api-rhino-ui-controls.md`: full `Rhino.UI.dll` control library (collapsible-section family, layout/panel/button/label/color/list/numeric-text controls, `ViewportControl`) composes into a panel or page hosted through this boundary; a `DataSource.ProviderIds` `Guid` binds a UI data source, and an `EventInfoArgs.EventInfoPtr` native pointer traps at the edge, never crossing into a domain signature.
 
 [LOCAL_ADMISSION]:
-- The `Rhino.UI` types are host handles trapped and mapped at the boundary; a `Panels` registration id, a `Dialogs` result, or a `MouseState` never appears in a domain signature — the domain sees a `Fin<A>`, a bounded owner, or a canonical shape.
+- `Rhino.UI` types are host handles trapped and mapped at the boundary; a `Panels` registration id, a `Dialogs` result, or a `MouseState` never appears in a domain signature — the domain sees a `Fin<A>`, a bounded owner, or a canonical shape.
 - One panel type, one page host, one gumball conduit, and one mouse hook own their concern; a parallel registration or a second hook drawing the same overlay is the collapsed form.
+- `Rhino.UI.Controls.DataSource.EventInfoArgs.EventInfoPtr` is a raw native pointer trapped at the boundary and never a domain field; the dead `Rhino.UI.Controls.ThumbnailUI` surface (deprecated 6.6, stub implementations) is never admitted.
 
 [RAIL_LAW]:
 - Package: `RhinoCommon` + `Rhino.UI` (host UI bridge)

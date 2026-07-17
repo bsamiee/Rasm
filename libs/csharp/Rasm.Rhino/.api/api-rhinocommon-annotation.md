@@ -80,7 +80,7 @@ This catalog owns the annotation model boundary: `DimensionStyle` drafting-confi
 - `Rhino.DocObjects.Tables.DimStyleTable.FindIndex(int index) : DimensionStyle` — resolves by runtime index.
 - `Rhino.DocObjects.Tables.DimStyleTable.FindRoot(Guid styleId, bool ignoreDeleted) : DimensionStyle` — walks the parent chain to the inheritance root.
 - `Rhino.DocObjects.Tables.DimStyleTable.BuiltInStyles : DimensionStyle[]` — the built-in style roster.
-- `Rhino.DocObjects.Tables.DimStyleTable.GetUnusedStyleName(string rootName) : string` — mints an unused style name.
+- `Rhino.DocObjects.Tables.DimStyleTable.GetUnusedStyleName() : string` / `GetUnusedStyleName(string rootName) : string` — mints an unused style name, the parameterless form seeding off the default root.
 
 [STYLE_AUTHORING]:
 - `Rhino.DocObjects.Tables.DimStyleTable.Add(string name) : int` — adds a default-config style; `Add(string name, bool reference)` and `Add(DimensionStyle dimstyle, bool reference)` seed from config or reference-source flag.
