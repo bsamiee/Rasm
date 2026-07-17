@@ -6,7 +6,7 @@ include:
 
 # [PYTHON_SURFACE_FACTS]
 
-Corpus floor is py3.15 — its surface is never flagged as invalid syntax, a missing import, or a hallucinated API. Every entry below is a verified truth a generic reviewer misfires on; flagging one is a false positive.
+Corpus floor is py3.15 — its surface is never flagged as invalid syntax, a missing import, or a hallucinated API, at any severity, because doctrine fences themselves spell these forms. Pinned-newest provider surfaces — anyio, loky, pebble among them — are corpus law, so a released-library semantics claim verifies against the owning doctrine page before flagging. Every entry below is a verified truth a generic reviewer misfires on; flagging one is a false positive.
 
 ## [01]-[LANGUAGE_SURFACE]
 
@@ -33,3 +33,13 @@ Truths that flip the polarity of a naive finding — the listed shape is the FIX
 - A definition-time `@beartype` aspect never raises into domain flow: the weave catches `BeartypeCallHintViolation` and lifts it onto the fault rail; a bare `@beartype` throwing into the interior is the finding.
 - `expression.MailboxProcessor` is forbidden on the anyio substrate (it reaches `asyncio.get_event_loop()`); the single-consumer anyio send/receive drain is the ruled replacement.
 - Platform-gated type suppressions in the operator estate are irreducible pairs — removing one flips the rejection between `ty` and `mypy`; demanding their removal is the false positive.
+- `tg.start_soon(...)` returns `TaskHandle[T]` and a child result reads `handle.return_value` — the pinned-anyio CHILD_CARRIER law `docs/stacks/python/concurrency.md` rules; a returns-None claim applies released-library semantics to the pinned surface.
+- SHM release-in-finally is the legislated POSIX semantics: an attached mapping outlives the unlink, so the finally release is the fix and deferred cleanup leaks blocks for workers that never run; `Wire.SHARED_MEMORY` dispatches per argument shape — only bare ndarrays ride the span channel.
+- Pool self-healing is structural: `reuse='auto'` replaces broken singletons and pool-DEAD is capsule absence, so a broken-probe `alive()` demand re-litigates the design; pebble ships no public pid roster — the complement over owned sets IS the pebble set under the custody law.
+- A msgspec tagged-union fault carries no BaseException lineage: it is consumed as a value by `match` and never re-raised — an exception-subclass mint inverts the one-direction exception-to-fault law.
+- Preview is the five-field contract with the trailing band per `core/receipt.md`; a DEGRADED roll double-buffers so capacity never gaps, and demanding NOT_SERVING before the roll advertises a phantom outage.
+- An in-place delta bounds by shift-displaced occupancy over one shared region; a from-plus-to size sum contradicts in-place patching's defining property.
+- `expression.extra.result.catch(exception=X)` is the substrate's single-exception trap minting `Result[T, X]` from a named raise; `effect.try_` composes `Try` values through `yield from` and never catches a provider raise — demanding `effect.try_` as the exception adapter is a false positive.
+- `msgspec.UNSET` (a field typed `T | UnsetType = UNSET` round-trips absent under `omit_defaults`) and `pydantic.experimental.MISSING` are the codec's own presence sentinels collapsed at the seam; a domain absence axis that changes dispatch is a `@tagged_union` case, never the wire sentinel leaked inward.
+- `expression.Map` is an ordered tree requiring a total order on every key — a second insert over an unordered or heterogeneous key set raises `TypeError` after every single-entry test passes — so an insertion-order-dependent derivation rides `frozendict`, never `Map`.
+- An owned enum mirroring a provider vocabulary admits the provider's full member roster: the mirror construction `EnumType(foreign_value)` raises `ValueError` on every dropped member, so mirrored-vocabulary coverage is a totality obligation, not styling.

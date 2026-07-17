@@ -84,7 +84,7 @@
         },
         {
             "id": "admission-depth",
-            "rule": "Hunt the proven defect classes at root-cause depth: required-field threading dropped by signature migrations, finiteness admission before range checks, identity preimages omitting output-affecting inputs, match/dispatch totality, frozen-payload discipline (mutable defaults, unsorted iteration reaching egress), per-stream timestamp re-basing, resource custody on every exit path, archive and metadata bomb gates, deterministic egress ordering. When a finding admits a literal patch and a deeper collapse, demand the collapse.",
+            "rule": "Hunt the proven defect classes at root-cause depth: required-field threading dropped by signature migrations, finiteness admission before range checks, identity preimages omitting output-affecting inputs, match/dispatch totality, frozen-payload discipline (mutable defaults, unsorted iteration reaching egress), per-stream timestamp re-basing, resource custody on every exit path, archive and metadata bomb gates, deterministic egress ordering. When a finding admits a literal patch and a deeper collapse, demand the collapse. End-state depth: a guard fixed at one site demands the shared owner across every sibling site; a defect in one family arm demands the family fix; use-time evidence moves to construction; invalid states become unspellable rather than guarded; converging paths unify on one seam and delete the dead hop; a protocol gap demands the whole admission fold; provider behavior verifies against the installed distribution; canonicalization lands at intake so every consumer reads one regime.",
             "severity": "high",
             "enabled": true,
             "scope": ["libs/**", "tools/**"]
@@ -95,6 +95,27 @@
             "severity": "medium",
             "enabled": true,
             "scope": [".claude/workflows/**"]
+        },
+        {
+            "id": "test-proof-bar",
+            "rule": "A test falsifies production behavior with an independent oracle. Existence tests, mirror tests asserting a constructed value's own fields, specs proving only their own doubles were called, raw carrier-flag inspection where kit gates exist, failure-message substring dispatch, wall-clock sleeps in the unit lane, and vacuous greens over an absent producer are defects. A spec-local helper, generator, or tolerance constant shadowing a _testkit owner extends the kit, never duplicates beside the spec.",
+            "severity": "high",
+            "enabled": true,
+            "scope": ["tests/**"]
+        },
+        {
+            "id": "folder-architecture",
+            "rule": "A folder is earned only by 2+ distinct non-eponymous children: a single-file folder flattens to the parent (graph.md, never graph/graph.md), a child echoing its parent folder's name — case-insensitive, singular or plural — renames to the distinct concept it owns, a folder names a larger domain concept that accretes siblings without rename, and grab-bag names (misc, utils, common, helpers, shared) are defects. Deep nesting is earned only when every intermediate level itself passes the floor.",
+            "severity": "medium",
+            "enabled": true,
+            "scope": ["libs/**", "tools/**", "tests/**", "docs/**"]
+        },
+        {
+            "id": "registry-closure",
+            "rule": "A dependency admission is a same-change multi-surface fact: central manifest row, consuming csproj reference, folder README registry row, and .api catalogue tier move together — a package present in one surface but missing from another is registry drift. Folder README router entries resolve 1:1 to on-disk .planning pages, and a page rename ripples its router row and ARCHITECTURE codemap node in the same diff.",
+            "severity": "medium",
+            "enabled": true,
+            "scope": ["libs/**", "Directory.Packages.props", "**/*.csproj", "**/pyproject.toml", "**/pnpm-workspace.yaml"]
         }
     ]
 }
