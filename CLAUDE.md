@@ -1,6 +1,6 @@
 # [CLAUDE_MANIFEST]
 
-The project is in a long-term planning phase, working strictly within design/spec-sheets, not code files. List all files in `libs/.planning` for all guidance:
+Rasm is in a long-term planning phase, working strictly within design/spec-sheets, not code files. List all files in `libs/.planning` for all guidance:
 - All spec sheet docs in `libs/` are meant to be aggressively rebuilt ground-up, every pass is an opportunity to make improvements, changes in direction, and adjustments prior to code implementation. NEVER hesitate to do considerable rebuilding of content within `libs/` while all content is still being planned.
 - Each `lib/<language>/` has an `.api/` folder, each sub-folder within a language lib has one as well; all work MUST fully stack as much external lib capabilities from BOTH altitudes where possible. External libs reduce handrolling, they ALSO enable new functionality, capabilities, as well as extending existing code capabilities, use them as guidance for ideation on new code features.
 
