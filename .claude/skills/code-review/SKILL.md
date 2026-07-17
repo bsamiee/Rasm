@@ -61,9 +61,13 @@ A `finding` event carries `severity` (`critical` | `major` | `minor` | `trivial`
 
 ## [04]-[AUTONOMOUS_CYCLE]
 
-An implement-plus-review request runs the cycle without per-step prompts: implement the feature, run `coderabbit review --agent` with the requested scope flags (only when CodeRabbit review is not disabled for the current work), build a task list from the findings, fix critical and warning issues, re-run to verify, and repeat until clean or only info-level findings remain.
+An implement-plus-review request runs the cycle without per-step prompts: implement the feature, run `coderabbit review --agent` with the requested scope flags (only when CodeRabbit review is not disabled for the current work), triage every finding, fix, re-run to verify, and repeat until clean or only info-level findings remain.
 
 A review battery gains an additional independent perspective from an agy (Gemini) read-only lane when the change carries visual, design-judgment, or cross-model blind-spot weight: the lane returns typed findings the reviewing Claude agent adjudicates alongside CodeRabbit's, and the agy skill owns that lane's contract.
+
+Triage rules each finding against current disk and settled corpus law: a confirmed finding gets implemented; a finding refuted by disk or by a ruled design is pushed back with its falsifiable citation and collected — refutations are output, never discards. A fix lands at the root and exceeds it — a finding is a symptom of an improvable owner, so a missing case completes its whole family, a weak arm collapses the dispatch surface it rides, and every fix leaves the owner denser than the finding demanded. Delegated fixers arm on the owning language's production standard before editing and land every fix at that bar.
+
+Distillation closes the cycle: refuted classes harden the repo's reviewer instruction surfaces so each false-positive class never re-litigates, and transformative upgrades land as end-state lessons — the pattern, never the instance — each at its surface's own idiom, universal where the lesson generalizes, language-scoped where bound; a lesson enters the durable law corpus only where refute-first proves no surface already owns it, one owner per fact.
 
 ## [05]-[CONFIGURATION_REFERENCE]
 

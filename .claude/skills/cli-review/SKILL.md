@@ -44,6 +44,8 @@ A usage error on `--json` falls back to `greptile review --agent`. When both fai
 
 JSON output reports review status, finding count, highest-severity findings first, files needing edits, and the suggested next command or fix path. Plain-text output preserves the same structure. Summaries stay concise and actionable.
 
+Acting on findings holds the review discipline: every finding verifies against current disk and settled corpus law before any edit — a refuted finding is pushed back with its falsifiable citation and kept as output, a confirmed finding fixes at the root and exceeds it, leaving the owner denser than the finding demanded. Refutations and end-state lessons distill at close into the repo's reviewer instruction surfaces — and into the durable law corpus only where no surface already owns the rule — one owner per fact.
+
 ## [06]-[CONFIGURATION_REFERENCE]
 
 A `.greptile/` directory in any directory of the repository configures reviews for that directory tree; all three files are optional, and a `.greptile/` directory beats a same-directory legacy `greptile.json`.

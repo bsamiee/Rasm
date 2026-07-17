@@ -32,8 +32,8 @@ Ship landed work through review to a merged PR with nothing left behind: branch,
 
 Declared once at entry; holds for the whole run without per-fix prompts.
 
-- Fix every independently-confirmed real finding — no severity floor; the smallest change that fully corrects it.
-- Skips are exactly: false-positive (pushed back with disk evidence), unvalidatable locally, out-of-branch scope — each reported, never edited.
+- Fix every independently-confirmed real finding — no severity floor; each fix corrects the defect at its root.
+- Skips are exactly: false-positive (refuted with falsifiable disk or corpus-law evidence), unvalidatable locally, out-of-branch scope — each reported, never edited.
 - Never weaken to converge: deleting, skipping, or xfail-ing tests, loosening assertions, or removing code to green a check is a failure, not a pass.
 - Merge is the terminal act (squash); history is append-only until the squash-merge collapses it.
 - Forbidden: `git push --force*`, `git commit --amend`/`git rebase` of pushed history, `git reset --hard`, any `git stash`, `.github/workflows/**`.
@@ -85,7 +85,7 @@ python3 ${CLAUDE_SKILL_DIR}/scripts/merge-comments.py --dir <workdir> --md > <wo
 
 ### [03.5]-[PHASE_4_TRIAGE_AND_FIX]
 
-Machine pre-filter first, no judgment: a fix candidate is a `surface=="thread"` row with `is_resolved==false`, fresh or `is_outdated==false`, carrying a concrete anchor. `is_outdated` or stale bot rows become bare-resolve candidates (`verdict: "stale"`); `surface=="issue"` rows are context only. Then the disk verdict per candidate — TRUST-BUT-VERIFY, the reviewer text is only a hint where to look: actionable (confirmed on disk; 100% get implemented), pushed-back (confirmed wrong; falsifiable disk citation), deferred (below 80% confidence; the open question recorded). Round class is a pure predicate: every actionable row `severity_rank <= 1` -> the MAIN AGENT fixes inline under the fixer's own laws (verify on disk, upgrade weak suggestions, never weaken), commits, pushes — no dispatch. Any row `severity_rank >= 2` -> exactly ONE `pr-fixer` dispatch per `references/fixer-contract.md`, nits folded in; verify the returned ledger before PHASE 5 — a malformed or short ledger is a hard stop.
+Machine pre-filter first, no judgment: a fix candidate is a `surface=="thread"` row with `is_resolved==false`, fresh or `is_outdated==false`, carrying a concrete anchor. `is_outdated` or stale bot rows become bare-resolve candidates (`verdict: "stale"`); `surface=="issue"` rows are context only. Then the verdict per candidate — TRUST-BUT-VERIFY against current disk AND settled corpus law, the reviewer text only a hint where to look: actionable (confirmed; 100% get implemented), pushed-back (refuted by disk or by a ruled design the finding contradicts; falsifiable citation), deferred (below 80% confidence; the open question recorded). Refutations are collected output, never discards — every pushed-back row rides the disposition into the close-out distillation. Round class is a pure predicate: every actionable row `severity_rank <= 1` -> the MAIN AGENT fixes inline under the fixer's own laws (verify on disk, land the fix at the root and exceed it, never weaken), commits, pushes — no dispatch. Any row `severity_rank >= 2` -> exactly ONE `pr-fixer` dispatch per `references/fixer-contract.md`, nits folded in; verify the returned ledger before PHASE 5 — a malformed or short ledger is a hard stop.
 
 ### [03.6]-[PHASE_5_RESOLVE_AND_RETRIGGER]
 
@@ -107,7 +107,9 @@ Proceed to PHASE 7 only on `met: true` confirmed on TWO consecutive reads (absor
 
 ### [03.8]-[PHASE_7_MERGE_AND_CLOSEOUT]
 
-`gh pr merge <PR> --squash --delete-branch`, then `git checkout <base> && git pull --ff-only`, then `git branch -d <branch>` (`-d`, never `-D` — it asserts the squash landed), then verify clean: `git status --porcelain=v2` empty, `git branch --list <branch>` empty, `git ls-remote --heads origin <branch>` empty (toolkit S9). Report.
+`gh pr merge <PR> --squash --delete-branch`, then `git checkout <base> && git pull --ff-only`, then `git branch -d <branch>` (`-d`, never `-D` — it asserts the squash landed), then verify clean: `git status --porcelain=v2` empty, `git branch --list <branch>` empty, `git ls-remote --heads origin <branch>` empty (toolkit S9).
+
+Distill the run's two streams before the report: pushed-back rows harden the repo's reviewer instruction surfaces so each refuted class never re-litigates, and `upgraded` rows land as end-state lessons — family completion over the single-case patch, collapse over addition, the pattern never the instance — each at its surface's own idiom, universal where the lesson generalizes, language-scoped where bound; a lesson enters the durable law corpus only where refute-first proves no surface already owns it, one owner per fact. Reviewer instruction surfaces carry the corpus's own eye into every automated review — pushing toward the end-state the doctrine demands, the denser owner over the local patch — so review quality and code quality converge on one bar. Report.
 
 ## [04]-[GUARDS]
 
@@ -120,7 +122,7 @@ Proceed to PHASE 7 only on `met: true` confirmed on TWO consecutive reads (absor
 
 ## [05]-[REPORT]
 
-Every run ends — merged or bounded — with a structured report and one PR comment written from the loop's own state (no raw reviewer prompts, no secret-bearing output): PR number and title, iterations run, final state; fixes applied grouped by file with the reviewers each addressed and `upgraded` forms named; findings left, by reviewer and disposition (pushed-back, deferred, dropped-reviewer), each with its reason; the merge outcome (merged SHA, branch deleted local and remote, base clean) or the exact bounded-stop reason. Silent give-up is worse than no automation.
+Every run ends — merged or bounded — with a structured report and one PR comment written from the loop's own state (no raw reviewer prompts, no secret-bearing output): PR number and title, iterations run, final state; fixes applied grouped by file with the reviewers each addressed and `upgraded` forms named; findings left, by reviewer and disposition (pushed-back, deferred, dropped-reviewer), each with its reason; distillation landed — reviewer-surface edits and any law-corpus entry, each named; the merge outcome (merged SHA, branch deleted local and remote, base clean) or the exact bounded-stop reason. Silent give-up is worse than no automation.
 
 ## [06]-[MAINTENANCE]
 

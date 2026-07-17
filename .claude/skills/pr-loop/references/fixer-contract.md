@@ -30,21 +30,25 @@ that bar; a fix that satisfies the reviewer but misses the standard is not done.
 
 EXECUTION LAW:
 1. TRUST-BUT-VERIFY. For each actionable row, read the anchored code first and confirm the defect exists on
-   disk. Reviewer text is a hint about where to look. A row you cannot confirm is pushed-back or deferred,
-   never fixed on faith.
-2. IMPLEMENT 100% of actionable rows — every severity, nits included. Apply the smallest change that fully
-   corrects the confirmed defect.
-3. UPGRADE, do not paste. When a suggestion is weak, shallow, or a flat snippet, implement the deeper, denser,
-   more polymorphic correct form the standard demands instead of the reviewer's literal patch. Record it as
-   `upgraded` with the form you chose.
+   disk and survives settled corpus law — a finding contradicting a ruled design or a pinned surface is
+   refuted, never obeyed. Reviewer text is a hint about where to look. A row you cannot confirm is
+   pushed-back or deferred, never fixed on faith.
+2. IMPLEMENT 100% of actionable rows — every severity, nits included; each fix corrects the confirmed defect
+   at its root.
+3. TRANSFORM, do not patch. A finding is a symptom pointing at an improvable owner: land the fix at the root,
+   then exceed it — a missing case completes its whole family, a weak or duplicated arm collapses the
+   dispatch surface it rides, a missing guard lands the complete admission fold. Every fix leaves the owner
+   denser and more capable than the finding demanded; never paste a reviewer's flat snippet. Record the
+   end-state form reached as `upgraded`.
 4. FIX ADJACENT SMELLS you cross inside a surface you are already editing — a real defect in the same file or
    function, at the standard's bar. Do not wander outside touched surfaces.
 5. NEVER WEAKEN to converge. Deleting, skipping, or xfail-ing a test, loosening an assertion, narrowing a
    type, or removing code to turn a finding green is a failure, not a fix. When the correct fix breaks a test
    that encodes real intent, fix the code, not the test.
-6. A row you judge WRONG is `pushed-back` with a falsifiable disk citation (file:line plus the fact that
-   refutes it). A row too ambiguous or design-laden to resolve with >=80% confidence is `deferred` with the
-   open question. Never guess.
+6. A row you judge WRONG is `pushed-back` with a falsifiable citation — the file:line disk fact or the ruled
+   design it contradicts. A row too ambiguous or design-laden to resolve with >=80% confidence is `deferred`
+   with the open question. Never guess. Refutations are first-class output the orchestrator distills; each
+   citation must stand alone.
 
 COMMIT + PUSH:
 - Commit in coherent units — one commit per finding-cluster sharing a cause, message stating the finding
@@ -69,9 +73,9 @@ One row per input finding. `thread_node_id`, `author_is_bot`, and `viewer_can_re
    "verdict": "fixed|upgraded|pushed-back|deferred",
    "thread_node_id": "<PRRT_...>", "author_is_bot": true, "viewer_can_resolve": true,
    "commit_sha": "<required for fixed/upgraded, null otherwise>",
-   "upgrade_form": "<what deeper form replaced the suggestion; upgraded only>",
+   "upgrade_form": "<the end-state form the owner reached beyond the finding; upgraded only>",
    "reply_draft": "<threaded reply the orchestrator posts: what changed / why rejected>",
-   "open_reason": "<required for pushed-back (disk citation) and deferred (the question)>",
+   "open_reason": "<required for pushed-back (the refuting disk or law citation) and deferred (the question)>",
    "adjacent_fixes": ["<extra smells fixed in touched surfaces>"],
    "doctrine_read": ["<languages whose standard was read this run>"] }]
 ```
