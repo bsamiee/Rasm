@@ -240,7 +240,12 @@ knowledge_base:
             - "README.md"
             - "docs/laws/*.md"
             - "docs/standards/*.md"
-            - "docs/stacks/**/*.md"
+            - files: "docs/stacks/python/**/*.md"
+              applyTo: "libs/python/**, **/*.py, **/pyproject.toml"
+            - files: "docs/stacks/csharp/**/*.md"
+              applyTo: "libs/csharp/**, **/*.cs, **/*.csproj, **/*.props, **/*.targets, **/*.slnx"
+            - files: "docs/stacks/typescript/**/*.md"
+              applyTo: "libs/typescript/**, **/*.ts, **/*.tsx, **/pnpm-workspace.yaml, **/tsconfig*.json, **/biome.json"
             - files: "libs/.planning/campaign-method.md"
               applyTo: "libs/**"
     learnings:
