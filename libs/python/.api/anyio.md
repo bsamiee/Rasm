@@ -193,7 +193,7 @@
 |  [09]   | `getaddrinfo(host, port, *, family=0, type=0, ...)`          | resolve        | async DNS resolution                                |
 |  [10]   | `getnameinfo(sockaddr, flags=0)`                             | resolve        | async reverse DNS resolution                        |
 |  [11]   | `as_connectable(obj)`                                        | connectable    | normalize into a reusable connect target            |
-|  [12]   | `open_signal_receiver(*signals)`                             | signals        | `async with` → async iterator of received signals   |
+|  [12]   | `open_signal_receiver(*signals)`                             | signals        | sync `with` → async iterator of received signals    |
 |  [13]   | `wait_readable(obj)` / `wait_writable(obj)`                  | readiness      | await fd readiness without owning the loop          |
 |  [14]   | `wait_socket_readable(sock)` / `wait_socket_writable(sock)`  | readiness      | await socket readiness without owning the loop      |
 |  [15]   | `notify_closing(obj)`                                        | readiness      | wake readiness waiters before closing an fd         |
