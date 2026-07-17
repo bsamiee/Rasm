@@ -47,6 +47,7 @@ reviews:
         - "!**/__pycache__/**"
         - "!**/.venv/**"
         - "!**/.cache/**"
+        - "!**/.cacheuv/**"
         - "!**/.artifacts/**"
     path_instructions:
         - path: "**"

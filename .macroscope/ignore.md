@@ -21,6 +21,7 @@
 **/.venv/**
 **/.artifacts/**
 **/.cache/**
+**/.cacheuv/**
 **/bin/**
 **/obj/**
 **/dist/**
