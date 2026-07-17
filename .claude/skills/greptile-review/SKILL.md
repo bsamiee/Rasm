@@ -24,7 +24,9 @@ greptile whoami
 
 ## [02]-[RUN]
 
-Committed-changes law: `greptile review` reviews committed unmerged commits on the current branch against the base — the repository default, or `-b/--branch <base>` — and uncommitted changes never enter the review, so commit first; the exclusion is structural, not ceremony. Work sitting on the base branch with nothing to diff moves to a branch first or passes `-b`. A never-pushed branch reviews cleanly — the run needs no PR and no remote head.
+Committed-changes law: `greptile review` reviews committed unmerged commits on the current branch against the base — the repository default, or `-b/--branch <base>`, which accepts remote-tracking refs (`origin/main`) — and uncommitted changes never enter the review, so commit first; the exclusion is structural, not ceremony. Work sitting on the base branch with nothing to diff moves to a branch first or passes `-b`. A never-pushed branch reviews cleanly — the run needs no PR and no remote head.
+
+Size law: the CLI refuses an oversized diff client-side — `error: this review is too large to send. Split it into smaller commits and try again.` on stderr with empty stdout, exit 1, no ledger row, no credit spent. A large campaign lands as slice commits and reviews incrementally, each run passing `-b` at the prior slice boundary; a single monolithic commit spanning a whole campaign is unreviewable by this surface.
 
 ```bash copy-safe
 greptile review --json
@@ -40,6 +42,8 @@ greptile review --json
 |  [06]   | `--layout` / `--diff`             | Finding layout `comments` (default) or `diff`; `--diff` shorthands the latter |
 |  [07]   | `--context <N>`                   | Nearby code lines around findings, default 15                               |
 |  [08]   | `--width`, `--color`/`--no-color` | Render width and color                                                      |
+
+Background law: the run always rides a background task with stdout to a file — never a foreground call holding the session, never a sleep-probe waiting on it. Completion or refusal arrives as the task notification; results read from the output file, the ledger, or `review show` after the fact.
 
 `greptile review show [id]` reopens a finished review. Persistent defaults ride `greptile settings list|get|set|unset|path` over the keys `color`, `review.output` (`auto`|`text`|`json`), `review.layout` (`comments`|`diff`), `review.context`, and `review.width`. A review completes in roughly 60 seconds to a few minutes; `review show`, the local ledger, and MCP retrieval cover status and results, so no supervisor script exists.
 
