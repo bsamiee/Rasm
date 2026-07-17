@@ -73,7 +73,7 @@ An implement-plus-review request runs the cycle without per-step prompts: implem
 Guidance channels, one owner each:
 
 - [01]-[PATH_INSTRUCTIONS]: durable reviewer law versioned in the repo — `reviews.path_instructions` rows of `{path, instructions}` in `.coderabbit.yaml`.
-- [02]-[GUIDELINE_FILES]: doctrine files the reviewer absorbs wholesale — `knowledge_base.code_guidelines.filePatterns` globs; defaults cover the `CLAUDE.md`/`AGENTS.md` agent-rule family, and this repo extends the list with `docs/laws/*.md`, `docs/standards/*.md`, and `docs/stacks/**/*.md` so every language doctrine reads as standing law. A new repo replicates by listing its doctrine globs under that key.
+- [02]-[GUIDELINE_FILES]: doctrine files the reviewer absorbs wholesale — `knowledge_base.code_guidelines.filePatterns` rows, each a plain glob or a `{files, applyTo}` object scoping a guideline to the paths it governs; defaults cover the `CLAUDE.md`/`AGENTS.md` agent-rule family, and this repo extends the list with `docs/laws/*.md`, `docs/standards/*.md`, `docs/stacks/**/*.md`, and campaign method scoped `applyTo: libs/**`. A new repo replicates by listing its doctrine globs under that key.
 - [03]-[RUN_CONTEXT]: per-run instruction files — `-c <files...>` passed through `launch`.
 - [04]-[LEARNINGS]: chat-taught persistent review facts CodeRabbit stores server-side per repo or organization — taught with `@coderabbitai remember ...` on hosted PRs, bulk-imported with `@coderabbitai add a learning using <file>`, and auto-captured from review conversations; `knowledge_base.learnings.scope` picks `local`/`global`/`auto`, `approval_delay` (0-30 days) gates chat-taught entries, `app.coderabbit.ai/learnings` manages them, and `opt_out: true` erases them irrevocably.
 
