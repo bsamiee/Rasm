@@ -6,7 +6,7 @@ description: >-
     examples from live indexed docs instead of training-data recall. Use for setup or
     configuration questions, code generation involving a library, API references, or any
     mention of a specific framework — React, Vue, Next.js, Prisma, Supabase, and peers.
-    General web research beyond indexed library docs belongs to tavily-dynamic-search.
+    General web research beyond indexed library docs belongs to tavily-search.
 ---
 
 # [CONTEXT7_MCP]
@@ -35,4 +35,4 @@ Specific, task-shaped queries return targeted sections; bare keywords return noi
 
 ## [03]-[FALLBACK]
 
-A library or version absent from the index routes to its own repository or documentation site through tavily-dynamic-search — never to memory.
+A library or version absent from the index routes to its own repository or documentation site through tavily-search — never to memory.
