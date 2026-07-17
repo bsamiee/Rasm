@@ -52,12 +52,13 @@ flowchart LR
 
 - Keys are case-sensitive; a misspelled key silently no-ops, and malformed YAML kills the whole diagram.
 - Fence delimiters stay at column one.
-- Precedence runs Mermaid defaults, then site `initialize()`, then diagram frontmatter; the fence owns its render face.
+- Precedence runs Mermaid defaults, then site `initialize()`, then diagram frontmatter.
 - `secure`, `securityLevel`, `startOnLoad`, `maxTextSize`, `suppressErrorRendering`, and `maxEdges` are blocked from frontmatter by the secure config model — they resolve through `initialize()` alone; `look`, `theme`, `themeVariables`, and `themeCSS` are not on that list, so the fence always owns its own appearance.
 - Root keys with render impact: `htmlLabels`, `markdownAutoWrap`, `deterministicIds`/`deterministicIDSeed`, `handDrawnSeed`, `themeCSS`; `fontFamily` lives in `themeVariables`, never at config root.
+- Root `htmlLabels: false` renders labels as native SVG `<text>` for flowchart, class, and state — the machine-parseable form a pure-SVG consumer needs; per-diagram `flowchart.htmlLabels` is deprecated, and the root key wins over it.
 - Config block holds one key order on every fence: `theme`, `look`, `layout`, root render keys, per-type blocks, `themeVariables` (opening `darkMode`, `fontFamily`, `useGradient`, `dropShadow`, then colors), `themeCSS` last.
 - Diagram padding is `25` universally — `flowchart.padding: 25` and every family's equivalent breathing-room knob take the same value, so no fence crowds its viewport edge.
-- Every diagram type nests its own block — `flowchart:`, `sequence:`, `er:`, `architecture:`, `kanban:`, and the rest — carrying that type's own keys.
+- Every diagram type nests its own block — `flowchart:`, `sequence:`, `er:`, `architecture:`, `kanban:`, `treemap:` with `showValues` and `valueFormat`, and the rest — carrying that type's own keys.
 
 Frontmatter requests capability; the host grants it. `layout: elk`, icon packs, zenuml, and tidy-tree each need a registered loader — the CLI registers ELK, zenuml, and `@mermaid-js/layout-tidy-tree` itself, a browser must register the rest.
 
@@ -116,21 +117,23 @@ flowchart TD
 
 ELK tuning nests under `elk:`:
 
-| [INDEX] | [KEY]                   | [VALUES]                                                                          |
-| :-----: | :---------------------- | :-------------------------------------------------------------------------------- |
-|  [01]   | `mergeEdges`            | `true` \| `false`                                                                 |
-|  [02]   | `nodePlacementStrategy` | `SIMPLE` \| `NETWORK_SIMPLEX` \| `LINEAR_SEGMENTS` \| `BRANDES_KOEPF`             |
-|  [03]   | `cycleBreakingStrategy` | `GREEDY` \| `DEPTH_FIRST` \| `INTERACTIVE` \| `MODEL_ORDER` \| `SCC_CONNECTIVITY` |
-|  [04]   | `forceNodeModelOrder`   | `true` \| `false`                                                                 |
-|  [05]   | `considerModelOrder`    | `NONE` \| `NODES_AND_EDGES` \| `PREFER_EDGES` \| `PREFER_NODES`                   |
+| [INDEX] | [KEY]                   | [VALUES]                                                                            |
+| :-----: | :---------------------- | :---------------------------------------------------------------------------------- |
+|  [01]   | `mergeEdges`            | `true` \| `false`                                                                   |
+|  [02]   | `nodePlacementStrategy` | `SIMPLE` \| `NETWORK_SIMPLEX` \| `LINEAR_SEGMENTS` \| `BRANDES_KOEPF`               |
+|  [03]   | `cycleBreakingStrategy` | `GREEDY` \| `DEPTH_FIRST` \| `INTERACTIVE` \| `MODEL_ORDER` \| `GREEDY_MODEL_ORDER` |
+|  [04]   | `forceNodeModelOrder`   | `true` \| `false`                                                                   |
+|  [05]   | `considerModelOrder`    | `NONE` \| `NODES_AND_EDGES` \| `PREFER_EDGES` \| `PREFER_NODES`                     |
 
 ELK engine facts, each carrying its authoring rule:
 
-- `mergeEdges: true` fuses same-endpoint segments into one trunk carrying one terminal marker painted by a single edge's stroke — differently railed edges into one target lose their own colors and their `--x`/`--o` end markers, so only a mono-rail diagram may declare it.
+- `mergeEdges: true` fuses edges sharing a routing corridor into a common trunk — railed edges into one target can lose their own colors and their `--x`/`--o` end markers, so only a mono-rail diagram may declare it.
 - `nodeSpacing` and `rankSpacing` are inert under ELK — density tunes through `nodePlacementStrategy` and the split move, never those keys.
+- An edge may target a subgraph id, landing its arrowhead on the cluster boundary — the styling reference owns the fan-to-foundation recipe built on it.
+- A cluster-target skip edge can make ELK's cycle breaking re-rank the top stratum to the bottom, and `cycleBreakingStrategy: MODEL_ORDER` never rescues a cluster-edge cycle — the repair is declaration order plus an invisible `~~~` rank pin between a top-stratum member and a lower-stratum member.
 - A nested subgraph title wider than its content overflows the parent — a subgraph title stays shorter than its member row.
 - `subGraphTitleMargin` displaces edge labels — the key stays out of ELK diagrams.
-- An inner subgraph `direction` drops when any member links outside the block — the containers rule owned by the styling reference.
+- An inner subgraph `direction` holds while the block is closed and drops the moment any member links outside it — the containers rule owned by the styling reference.
 - An invisible `~~~` link renders visible and an open link grows a phantom arrowhead — rank control under ELK rides `considerModelOrder` and `forceNodeModelOrder`, and every edge declares its ends.
 - A self-referential edge lands misplaced — a self-loop routes through an explicit intermediate node.
 - Interactive link tooltips are dead under ELK — the label carries the fact.
@@ -143,7 +146,7 @@ Architecture layout is fcose, tuned under `architecture:` — `nodeSeparation`, 
 
 ## [04]-[ACCESSIBILITY]
 
-`accTitle:` (one line) and `accDescr:` (one line, or `accDescr { ... }` for a block) follow the diagram header and generate the SVG `<title>`/`<desc>` with aria attributes. `accDescr` states the relation the diagram encodes, not a roster of its nodes. Seven families refuse the directives — `block`, `mindmap`, `kanban`, and `ishikawa` mis-handle them as nodes, `eventmodeling` breaks at parse when they precede its frames, and `sankey` and `venn` reject them at parse — so there the relation sentence sits beside the fence.
+`accTitle:` (one line) and `accDescr:` (one line, or `accDescr { ... }` for a block) follow the diagram header and generate the SVG `<title>`/`<desc>` with aria attributes. `accDescr` states the relation the diagram encodes, not a roster of its nodes. Eight families mis-serve the directives — `block`, `sankey`, `venn`, and `mindmap` reject them at parse, `kanban` and `ishikawa` mis-handle them as nodes, and `timeline` and `eventmodeling` parse both while emitting neither — so there the relation sentence sits beside the fence.
 
 ## [05]-[RENDER_ENVIRONMENT]
 
@@ -196,22 +199,3 @@ A fully offline deterministic render pins every input: the toolchain pins the CL
 - Repeated runs are not byte-identical, so render comparison keys on raster output, never SVG hashes; `deterministicIds` stabilizes internal SVG ids, and ids are diagram-prefixed, so CSS targeting exact ids moves to suffix or semantic selectors.
 - Markdown-mode fence detection misses a fence whose info string carries irregular whitespace.
 
-## [06]-[TRAPS]
-
-- A `>` combinator anywhere in `themeCSS` makes the sanitizer drop the entire injected block, silently reverting every rule in it; descendant space selectors only.
-- A hyphenated family token in `themeVariables.fontFamily` — `ui-monospace`, `SFMono-Regular` — makes the engine drop the whole declaration and fall back to the sans default; hyphen-free family names only.
-- A `text-transform` in `themeCSS` clips its target: the engine measures label boxes before CSS applies, so case changes ride the label text itself, never a transform.
-- `xychart` point labels render only on `line`; the syntax parses on `bar` but the labels are silently ignored.
-- Packet `themeVariables` are inert.
-- TreeView icons need registered packs; an unregistered icon renders as `?`.
-- Flowchart image shapes distort the node box without `constraint: on`.
-- Sequence actor links and menus die under strict-security or sandboxed hosts.
-- Sankey CSV must have exactly three columns; blank lines are permitted only without comma separators.
-- `architecture.randomize: false` is not determinism — `architecture.seed` is the lock.
-- Architecture `align row|column` fails when declared order contradicts a directional-edge constraint; a CSS transform on `polygon.arrow` erases the arrow's placement translate.
-- Theme resolution converts ordinal color variables through hsl and strips 8-digit alpha — `cScale`/`git` translucency rides `fill-opacity` stamps, while `fillType`, quadrant fills, and tag backgrounds pass alpha hexes intact.
-- `classDef` styles land as inline `!important` declarations; on treemap they lock section fills against every stylesheet correction, so that family carries no classes.
-- Wardley emits no stylesheet — `themeCSS` and the mono stack never reach it, and its anchor label inks engine-black.
-- EBNF railroad dialect reads `? ... ?` as a special sequence: optionality spells `[ ... ]` and repetition `{ ... }`, never a postfix `?`.
-- C4 packs loose shapes in rows above every boundary; a third loose shape lands beneath the first where relations cross it, so externals home in their own `Boundary`.
-- Kanban column classes index from `section-1`, one past the `cScale` ordinals, so the full range is set.

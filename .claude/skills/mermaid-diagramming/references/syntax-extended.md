@@ -1,41 +1,40 @@
 # [SYNTAX_EXTENDED]
 
-Diagram types beyond the five core types populate this roster — each admitted row carries its working form and the traps that bind it, and a registered row outside the admitted scope carries its registry entry alone.
+Diagram types beyond the five core types populate this roster — each row carries its working form and the traps that bind it in the numbered section its index names.
 
 ## [01]-[REGISTRY]
 
-Pick a type by intent, then its section for the minimal fence and traps; a dash marks an extended-family registry entry.
+Pick a type by intent, then its section for the minimal fence and traps; rows run in section order.
 
 | [INDEX] | [TYPE]               | [INTENT]                 |
 | :-----: | :------------------- | :----------------------- |
-|  [01]   | `mindmap`            | radial hierarchy         |
-|  [02]   | `block`              | manual grid layout       |
-|  [03]   | `journey`            | phase sentiment          |
-|  [04]   | `requirementDiagram` | requirement traceability |
-|  [05]   | `pie`                | part-to-whole share      |
-|  [06]   | `quadrantChart`      | two-axis position map    |
-|  [07]   | `sankey`             | weighted directed flow   |
-|  [08]   | `xychart`            | bar or line chart        |
-|  [09]   | `radar-beta`         | multivariate profile     |
-|  [10]   | `gantt`              | dated schedule           |
-|  [11]   | `treemap-beta`       | area-weighted hierarchy  |
-|  [12]   | `C4`                 | system landscape views   |
-|  [13]   | `architecture-beta`  | infrastructure groups    |
-|  [14]   | `packet`             | bit-field layout         |
-|  [15]   | `timeline`           | chronological periods    |
-|  [16]   | `gitGraph`           | branch and merge history |
-|  [17]   | `kanban`             | workflow-stage board     |
-|  [18]   | `treeView-beta`      | file-tree hierarchy      |
-|  [19]   | `venn-beta`          | set-overlap regions      |
-|  [20]   | `ishikawa-beta`      | cause-effect fishbone    |
-|  [21]   | `wardley-beta`       | value-chain evolution    |
-|  [22]   | `cynefin-beta`       | decision-domain sort     |
-|  [23]   | `railroad-beta`      | grammar syntax rails     |
-|  [24]   | `swimlane-beta`      | laned process flow       |
-|  [25]   | `zenuml`             | sequence via zenuml      |
-|  [26]   | `eventmodeling`      | command-event timeline   |
+|  [02]   | `mindmap`            | radial hierarchy         |
+|  [03]   | `block`              | manual grid layout       |
+|  [04]   | `journey`            | phase sentiment          |
+|  [05]   | `requirementDiagram` | requirement traceability |
+|  [06]   | `pie`                | part-to-whole share      |
+|  [07]   | `quadrantChart`      | two-axis position map    |
+|  [08]   | `sankey`             | weighted directed flow   |
+|  [09]   | `xychart`            | bar or line chart        |
+|  [10]   | `radar-beta`         | multivariate profile     |
+|  [11]   | `gantt`              | dated schedule           |
+|  [12]   | `treemap-beta`       | area-weighted hierarchy  |
+|  [13]   | `C4`                 | system landscape views   |
+|  [14]   | `architecture-beta`  | infrastructure groups    |
+|  [15]   | `packet`             | bit-field layout         |
+|  [16]   | `timeline`           | chronological periods    |
+|  [17]   | `gitGraph`           | branch and merge history |
+|  [18]   | `kanban`             | workflow-stage board     |
+|  [19]   | `treeView-beta`      | file-tree hierarchy      |
+|  [20]   | `cynefin-beta`       | decision-domain sort     |
+|  [21]   | `railroad-*-beta`    | grammar syntax rails     |
+|  [22]   | `swimlane-beta`      | laned process flow       |
+|  [23]   | `eventmodeling`      | command-event timeline   |
+|  [24]   | `venn-beta`          | set-overlap regions      |
+|  [25]   | `wardley-beta`       | value-chain evolution    |
+|  [26]   | `ishikawa-beta`      | cause-effect fishbone    |
 
-`zenuml` is an external diagram the CLI registers.
+`zenuml` renders sequence exchanges through an external plugin the CLI registers; it carries this registry mention alone. Eight families outrun older hosts — `eventmodeling` parses from mermaid 11.15, `swimlane-beta`, `cynefin-beta`, and the `railroad-*-beta` dialects from 11.16, and `treeView-beta`, `venn-beta`, `wardley-beta`, and `ishikawa-beta` from the post-11.12 line — a host below its floor throws `UnknownDiagramError`.
 
 ## [02]-[MINDMAP]
 
@@ -145,7 +144,7 @@ block-beta
   class SVG,PNG success
 ```
 
-Fence content asserts a two-row render raster feeding a nested proof group; the family mis-handles `accTitle`/`accDescr` as nodes, so the relation sentence rides beside the fence. `block-beta` is the portable keyword; `columns N` precedes a row, a `:n` span widens a block, `space` inserts a filler, and a nested `block:id:span ... end` holds its own `columns`. A block arrow is `blockArrowId<["Label"]>(dir)` with `dir` one of `right`, `left`, `up`, `down`, `x`, `y`, or a compound like `(x, down)`. Links route straight from source center through a midpoint to target center with no obstacle awareness, so a committed raster links only adjacent cells — that placement discipline is the whole of the no-crossing law here. Family stylesheet never reaches its marker children, so the `themeCSS` `.marker path`/`.marker circle` fill-and-stroke stamp is the arrowhead-color floor, and the nested-group rect restyles through `rect.composite` — the engine's own composite paint is a faded gray that never survives review. `classDef`, `class`, and `style` bind by block id.
+Fence content asserts a two-row render raster feeding a nested proof group; the family rejects `accTitle`/`accDescr` at parse, so the relation sentence rides beside the fence. `block-beta` is the portable keyword; `columns N` precedes a row, a `:n` span widens a block, `space` inserts a filler, and a nested `block:id:span ... end` holds its own `columns`. A block arrow is `blockArrowId<["Label"]>(dir)` with `dir` one of `right`, `left`, `up`, `down`, `x`, `y`, or a compound like `(x, down)`. Links route straight from source center through a midpoint to target center with no obstacle awareness, so a committed raster links only adjacent cells — that placement discipline is the whole of the no-crossing law here. Family stylesheet never reaches its marker children, so the `themeCSS` `.marker path`/`.marker circle` fill-and-stroke stamp is the arrowhead-color floor, and the nested-group rect restyles through `rect.composite` — the engine's own composite paint is a faded gray that never survives review. `classDef`, `class`, and `style` bind by block id.
 
 ## [04]-[JOURNEY]
 
@@ -417,7 +416,7 @@ Logic,Warn,15
 Logic,Fail,5
 ```
 
-Fence content asserts a corpus splitting through render and logic gates into pass, warn, and fail sinks; the family rejects `accTitle`/`accDescr` at parse, so the relation sentence rides beside the fence. `sankey` is the keyword; the body is three-column CSV `source,target,value` with CSV quoting for embedded commas. Config carries `linkColor` (`gradient`, `source`, `target`, or a hex), `nodeAlignment`, `showValues`, `prefix`/`suffix`, the geometry knobs, and the `nodeColors` name-to-hex map — a committed sankey maps every node to a palette hex. Default blending applies `mix-blend-mode: multiply`, which erases links into a dark canvas, so the `.link` stamp restores normal blending at a `.35` stroke opacity; `labelStyle` stays `legacy` — the outlined mode strokes a surface-colored halo that mushes on dark — and `.node-labels text` inks Foreground at the label floor.
+Fence content asserts a corpus splitting through render and logic gates into pass, warn, and fail sinks; the family rejects `accTitle`/`accDescr` at parse, so the relation sentence rides beside the fence. `sankey` is the keyword; the body is strictly three-column CSV `source,target,value` with CSV quoting for embedded commas, and blank lines are permitted only without comma separators. Config carries `linkColor` (`gradient`, `source`, `target`, or a hex), `nodeAlignment`, `showValues`, `prefix`/`suffix`, the geometry knobs, and the `nodeColors` name-to-hex map — a committed sankey maps every node to a palette hex. Default blending applies `mix-blend-mode: multiply`, which erases links into a dark canvas, so the `.link` stamp restores normal blending at a `.35` stroke opacity; `labelStyle` stays `legacy` — the outlined mode strokes a surface-colored halo that mushes on dark — and `.node-labels text` inks Foreground at the label floor.
 
 ## [09]-[XYCHART]
 
@@ -460,7 +459,7 @@ xychart
   line [42, 100 "100", 166 "166", 220 "220", 291 "291", 354 "354", 393 "393"]
 ```
 
-`xychart` is the keyword; `xychart horizontal` flips orientation and each `bar` or `line` array matches the x-axis category count. Bar width derives from the category count against a fixed padding percent — width tunes by adding categories, never by a knob. `showDataLabel` prints the first declared plot's values at a size computed from bar width, so the bar plot declares first, `showDataLabelOutsideBar` lifts the values above the bars, and the `.plot text` stamp caps the computed size at the label floor. Bars carry the translucent law through `.bar-plot-0 rect{fill-opacity:.75;stroke-width:1.5px}` — the engine already strokes each bar in its own hue at width zero. Line point labels render on `line` only and ink the line's palette hue; a label omitted on a point suppresses that one chip, which clears the first-category collision when line and bar meet at the origin.
+`xychart` is the keyword; `xychart horizontal` flips orientation and each `bar` or `line` array matches the x-axis category count. Bar width derives from the category count against a fixed padding percent — width tunes by adding categories, never by a knob. `showDataLabel` prints the first declared plot's values at a size computed from bar width, so the bar plot declares first, `showDataLabelOutsideBar` lifts the values above the bars, and the `.plot text` stamp caps the computed size at the label floor. Bars carry the translucent law through `.bar-plot-0 rect{fill-opacity:.75;stroke-width:1.5px}` — the engine already strokes each bar in its own hue at width zero. Inline point labels (`50 "50"`, from mermaid 11.16) render on `line` only — the syntax parses on `bar` while the labels silently drop — and ink the line's palette hue; a label omitted on a point suppresses that one chip, which clears the first-category collision when line and bar meet at the origin.
 
 ## [10]-[RADAR]
 
@@ -507,7 +506,7 @@ radar-beta
   min 0
 ```
 
-`axis` names the axes, a positional curve `name["Label"]{...}` follows axis order and a keyed curve binds by axis id. Curves fill and stroke `cScale0`–`cScale11` in declaration order with `radar.curveOpacity` on the fill alone, so two curves at `.35` both read while their full-hue 2px strokes hold the border law — identical data across curves cancels into one pale polygon, so each curve carries distinct values, and hues follow the ordinal order so the legend reads as the palette does — two curves compare, four is the legibility edge. `graticule` accepts `polygon` or `circle`, config admits `axisScaleFactor` and `curveTension`, and theme variables nest under `radar:`. Axis labels anchor just outside the chart radius and clip at the viewport edge — the `radar:` config margins own that clearance, and the hardcoded legend position demands short curve labels. Axis lines read `radar.axisColor` while axis text falls through to root `textColor`.
+`axis` names the axes, a positional curve `name["Label"]{...}` follows axis order and a keyed curve binds by axis id. Curves fill and stroke `cScale0`–`cScale11` in declaration order with `radar.curveOpacity` on the fill alone, so two curves at `.35` both read while their full-hue 2px strokes hold the border law — identical data across curves cancels into one pale polygon, so each curve carries distinct values, and hues follow the ordinal order so the legend reads as the palette does; the subject-count law is the construction reference's property. `graticule` accepts `polygon` or `circle`, config admits `axisScaleFactor` and `curveTension`, and theme variables nest under `radar:`. Axis labels anchor just outside the chart radius and clip at the viewport edge — the `radar:` config margins own that clearance, and the hardcoded legend position demands short curve labels. Axis lines read `radar.axisColor` while axis text falls through to root `textColor`.
 
 ## [11]-[GANTT]
 
@@ -702,7 +701,7 @@ C4Context
   UpdateRelStyle(reader, docs, $textColor="#F8F8F2", $lineColor="#8BE9FD", $offsetY="-14")
 ```
 
-Family coverage spans `C4Context`, `C4Container`, `C4Component`, `C4Dynamic`, `C4Deployment`; an alias exists before `Rel()` and named parameters take `$`. Element colors are config keys — `person_bg_color`, `system_border_color`, `external_system_bg_color`, and kin under `c4:` — so the palette lands without per-element calls, while `UpdateRelStyle` colors each relation and offsets its label clear of boxes with `$offsetX`/`$offsetY`. Fonts are config keys too: every shape family carries a `*FontFamily`/`*FontSize`/`*FontWeight` triplet — `themeVariables.fontFamily` never reaches C4 text, so the triplets carry the mono stack and the ramp, and the sizes feed the engine's own box measurement. Boundary strokes, boundary titles, and the diagram title hardcode `#444444`, and the `rect[stroke='#444444']`/`text[fill='#444444']` attribute hooks re-ink them Lavender at the container rhythm; the `[id$='-arrowhead']`/`[id$='-arrowend']` markers default black and take canon pink at the unified scale anchored on their ref points. Person sprites are baked raster images — `image{display:none}` retires them and the `<<person>>` stereotype carries the role. Loose shapes pack in rows above every boundary and a third loose shape lands beneath the first where relations cross it, so external systems live in their own `Boundary` and the boundaries pack side by side.
+Family coverage spans `C4Context`, `C4Container`, `C4Component`, `C4Dynamic`, `C4Deployment`; an alias exists before `Rel()` and named parameters take `$`. Element colors are config keys — `person_bg_color`, `system_border_color`, `external_system_bg_color`, and kin under `c4:` — so the palette lands without per-element calls, while `UpdateRelStyle` colors each relation and offsets its label clear of boxes with `$offsetX`/`$offsetY`. Fonts are config keys too: every shape family carries a `*FontFamily`/`*FontSize`/`*FontWeight` triplet — element, boundary, and relation text hardcodes its per-family default inline, leaving `themeVariables.fontFamily` to reach only the free diagram title, so the triplets carry the mono stack and the ramp, and the sizes feed the engine's own box measurement. Boundary strokes, boundary titles, and the diagram title hardcode `#444444`, and the `rect[stroke='#444444']`/`text[fill='#444444']` attribute hooks re-ink them Lavender at the container rhythm; the `[id$='-arrowhead']`/`[id$='-arrowend']` markers default black and take canon pink at the unified scale anchored on their ref points. Person sprites are baked raster images — `image{display:none}` retires them and the `<<person>>` stereotype carries the role. Loose shapes pack in rows above every boundary and a third loose shape lands beneath the first where relations cross it, so external systems live in their own `Boundary` and the boundaries pack side by side.
 
 ## [14]-[ARCHITECTURE]
 
@@ -749,7 +748,7 @@ architecture-beta
   align column cache registry
 ```
 
-`group` and `service` place nodes, a member declares `in group`, edge ports are `T|B|L|R`, a `junction` joins edges, a group-boundary edge takes `{group}`, and an Iconify icon resolves as `pack:name`. Layout is cytoscape fcose: the port pairs plus `align row|column` rows fully determine the grid, so a committed fence aligns every rank both ways and earns orthogonal edges — unaligned members scatter diagonally. Arrowheads are `polygon.arrow` elements filled from `archEdgeArrowColor`, which derives gray unless set; a CSS transform on those polygons erases their placement translate, so arrow size tunes only through `iconSize` (the arrow is one sixth of it). Built-in icons hardcode a blue plate on services and groups alike — the paired `.architecture-service svg rect,.architecture-groups svg rect` stamp re-fills both to Selection — group titles are bare `text` under `.architecture-groups` and take the Lavender container-title stamp there, service labels take the node-label ramp through `.architecture-services text`, `archGroupBorderColor` with the `5 4` dash rhythm draws the Lavender containment, and `architecture.seed` is the deterministic lock. Junction endpoints shift arrow polygons off their lines, so junctions stay grammar for genuine multi-way joins rather than demo decoration.
+`group` and `service` place nodes, a member declares `in group`, edge ports are `T|B|L|R`, a `junction` joins edges, a group-boundary edge takes `{group}`, and an Iconify icon resolves as `pack:name`. Layout is cytoscape fcose: the port pairs plus `align row|column` rows fully determine the grid, so a committed fence aligns every rank both ways and earns orthogonal edges — unaligned members scatter diagonally, and an `align` row fails where its declared order contradicts a directional-edge constraint. Arrowheads are `polygon.arrow` elements filled from `archEdgeArrowColor`, which derives gray unless set; a CSS transform on those polygons erases their placement translate, so arrow size tunes only through `iconSize` (the arrow is one sixth of it). Built-in icons hardcode a blue plate on services and groups alike — the paired `.architecture-service svg rect,.architecture-groups svg rect` stamp re-fills both to Selection — group titles are bare `text` under `.architecture-groups` and take the Lavender container-title stamp there, service labels take the node-label ramp through `.architecture-services text`, `archGroupBorderColor` with the `5 4` dash rhythm draws the Lavender containment, and `architecture.seed` is the deterministic lock. Junction endpoints shift arrow polygons off their lines, so junctions stay grammar for genuine multi-way joins rather than demo decoration.
 
 ## [15]-[PACKET]
 
@@ -827,7 +826,7 @@ timeline
     Visual : Marker scale : Translucent fills
 ```
 
-A multi-event row repeats `:`, sections group periods, and timeline takes `LR`/`TD` direction headers. Ordinal fills read `cScale0`–`cScale11`, but theme resolution converts them through hsl and strips alpha, so translucency rides `.node-bkg{fill-opacity:.5}` with per-section full-hue borders — section classes index from `-1`, so the first section is `.section--1` — while `cScaleLabel0`–`cScaleLabel11` carry Foreground ink over the composited fills and the engine underline strips retire through `[class^='node-line']`. Unclassed axis (`line[stroke-width='4']`) and dashed event connectors (`line[stroke-dasharray='5,5']`) restyle by attribute into one Comment wayfinding system at ladder weights, and the single shared `[id$='-arrowhead']` marker takes the same hue — one marker serves the axis and every connector, so the wayfinding layer holds one color.
+A multi-event row repeats `:`, sections group periods, and timeline takes `LR`/`TD` direction headers. Family parses `accTitle`/`accDescr` while emitting neither into the SVG, so the relation sentence also rides beside the fence. Ordinal fills read `cScale0`–`cScale11`, but theme resolution converts them through hsl and strips alpha, so translucency rides `.node-bkg{fill-opacity:.5}` with per-section full-hue borders — section classes index from `-1`, so the first section is `.section--1` — while `cScaleLabel0`–`cScaleLabel11` carry Foreground ink over the composited fills and the engine underline strips retire through `[class^='node-line']`. Unclassed axis (`line[stroke-width='4']`) and dashed event connectors (`line[stroke-dasharray='5,5']`) restyle by attribute into one Comment wayfinding system at ladder weights, and the single shared `[id$='-arrowhead']` marker takes the same hue — one marker serves the axis and every connector, so the wayfinding layer holds one color.
 
 ## [17]-[GITGRAPH]
 
@@ -968,7 +967,7 @@ accDescr: The diagram skill folder with its law owners annotated and the theming
 │   ├── theming.md :::highlight ## palette and scale law
 │   ├── styling.md ## grammar and floors
 │   ├── config.md ## frontmatter law
-│   └── syntax-extended.md ## 24-type registry
+│   └── syntax-extended.md ## 25-type registry
 ├── templates/
 │   ├── spine.mmd.md
 │   └── lifecycle.mmd.md
@@ -1145,7 +1144,7 @@ swimlane-beta
   style validator fill:#BD93F91A,stroke:#BD93F9
 ```
 
-A standalone diagram reusing the flowchart body under a layered orthogonal layout: every top-level `subgraph` is a lane, nodes inside it belong to it, and loose nodes fall into a synthetic unlabeled lane. Full flowchart styling travels — `classDef`, `class`, `linkStyle`, edge labels — so the six-rail edge law binds here verbatim; `swimlane.lineHops: arc` hops edge crossings, and `style laneId fill:...,stroke:...` emphasizes the critical-path lane as a translucent purple band. Lane titles are `.cluster-label` container titles taking the 13.5px/700 Lavender stamp over a recessed `.swimlane-title` band with `.swimlane-body` Lavender walls. A label on a return edge orphans away from its stroke, so the fault return rides the Red rail alone — color carries the semantics the label cannot.
+A standalone diagram reusing the flowchart body under a layered orthogonal layout: every top-level `subgraph` is a lane, nodes inside it belong to it, and loose nodes fall into a synthetic unlabeled lane. Full flowchart styling travels — `classDef`, `class`, `linkStyle`, edge labels — so the edge-rail law binds here verbatim; `swimlane.lineHops: arc` hops edge crossings, and `style laneId fill:...,stroke:...` emphasizes the critical-path lane as a translucent purple band. Lane titles are `.cluster-label` container titles taking the 13.5px/700 Lavender stamp over a recessed `.swimlane-title` band with `.swimlane-body` Lavender walls. A label on a return edge orphans away from its stroke, so the fault return rides the Red rail alone — color carries the semantics the label cannot.
 
 ## [23]-[EVENTMODELING]
 
@@ -1188,7 +1187,7 @@ eventmodeling
   tf 09 evt PaymentRequested `json`{ "total": 42 }
 ```
 
-Fence content asserts a cart flow from UI through commands and events into a read model and a payment processor; `accTitle`/`accDescr` break the parser before the frames, so the relation sentence rides beside the fence. `tf`/`timeframe` orders frames left to right and `rf`/`resetframe` restarts the clock; frame kinds are `ui`, `cmd`, `evt`, `pcr` (processor), and `rmo` (read model), an inline `{ ... }` or `` `json`{ ... } `` payload annotates a frame, and each kind reads its `em*Fill`/`em*Stroke` pair. Relations infer from the nearest prior frame in a different lane, so declaration order draws the chain. Frame text hardcodes a bold 16px sans inside `foreignObject` spans — the `.em-box span` stamp restores the mono stack at 13px with Foreground ink, `.em-box code` inks payloads Cyan at 11px, and `.em-swimlane text` carries the lane titles in Lavender mono. Namespaced frame ids (`stream.Name`) map onto extra swimlanes.
+Fence content asserts a cart flow from UI through commands and events into a read model and a payment processor; `accTitle`/`accDescr` parse but emit nothing into the SVG, so the relation sentence rides beside the fence. `tf`/`timeframe` orders frames left to right and `rf`/`resetframe` restarts the clock; frame kinds are `ui`, `cmd`, `evt`, `pcr` (processor), and `rmo` (read model), an inline `{ ... }` or `` `json`{ ... } `` payload annotates a frame, and each kind reads its `em*Fill`/`em*Stroke` pair. Relations infer from the nearest prior frame in a different lane, so declaration order draws the chain. Frame text hardcodes a bold 16px sans inside `foreignObject` spans — the `.em-box span` stamp restores the mono stack at 13px with Foreground ink, `.em-box code` inks payloads Cyan at 11px, and `.em-swimlane text` carries the lane titles in Lavender mono. Namespaced frame ids (`stream.Name`) map onto extra swimlanes.
 
 ## [24]-[VENN]
 

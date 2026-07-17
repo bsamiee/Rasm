@@ -20,15 +20,15 @@ Dracula is the skill's theme system — every committed diagram opens `theme: ba
 |  [12]   | Red        | `#FF5555` | error rail + rejection             |
 |  [13]   | Yellow     | `#FFD866` | payload + literal content          |
 
-Current Line and Comment share `#6272A4`; Selection `#44475A` is the fill shade. `themeVariables` take hex only — the theming engine rejects named colors there, and this corpus carries palette hexes on every styling surface.
+Comment `#6272A4` is the muted-line and annotation ink; Selection `#44475A` is the node-fill shade. `themeVariables` take hex only — the theming engine rejects named colors there, and this corpus carries palette hexes on every styling surface.
 
 Lavender is Purple lifted two lightness steps at the same hue — OKLCH `0.84 0.089 304` against Purple's `0.74 0.149 302` — so a container boundary reads as the ownership hue with the luminance a 1px dashed line needs on the dark canvas (8.4:1 against Background, versus Purple's 5.9:1). One hue family carries all ownership; lightness alone separates the node border from the container boundary. Lavender projects into the html-studio system as the `--boundary` token, so both skills draw containment in one color.
 
-Yellow sits at OKLCH `0.89 0.139 90` — true gold, clear of the green-adjacent lemon zone above hue 105 and below near-white lightness, so a payload chip holds shape instead of bleaching. Gold at hue 90 is near-complementary to the violet ground at hue 290, and it stays 24 OKLCH degrees from Orange's 67, so payload and data never blur.
+Yellow sits at OKLCH `0.89 0.139 90` — true gold, clear of the green-adjacent lemon zone above hue 105 and below near-white lightness, so a payload chip holds shape instead of bleaching. Gold at hue 90 is near-complementary to the violet ground near hue 277, and it stays 24 OKLCH degrees from Orange's 67, so payload and data never blur.
 
 ## [02]-[ROLE_MAP]
 
-Every token carries its role on two surfaces at once: the `themeVariables` that spend it diagram-wide and the `classDef` or `linkStyle` rail that spends it per node and per edge. A token holding a role with no rail is unspendable, so every token names both surfaces. Same meaning, same token, across every diagram in a corpus; a role outside this set composes from the nearest listed role, never a new hex.
+Every token carries its role on two surfaces at once: the `themeVariables` that spend it diagram-wide and the `classDef` or `linkStyle` rail that spends it per node and per edge. A token holding a role with no rail is unspendable, so every token names both surfaces. Same meaning, same token, across every diagram in a corpus; a role outside this set composes from the nearest listed role, never a new hex. Rank, tier, and altitude are not color roles: a stacked or tiered structure encodes rank by Y-position and subgraph membership, never by spending accents as tier ordinals, and the ordinal-palette families — `pie*`, `cScale*`, `fillType*`, `git*` — sequence hues as arbitrary category identity only.
 
 [BACKGROUND]:
 - Role: canvas + bright-fill text
@@ -303,7 +303,7 @@ config:
 - `critBkgColor` carries the ruled translucent Red `#FF555580` under a solid `critBorderColor`, so a critical gantt bar reads as the same alarm chip an `error` node paints; `excludeBkgColor` recesses excluded date bands and `taskTextDarkColor` joins the Foreground ink set because done bars recess to Darker.
 - Neutral notes fill Selection under a Comment border for sequence and state; the class-diagram note overrides to the translucent Yellow chip per [04].
 - Bright translucent fills take `#282A36` text on the dark-ink tier and `#F8F8F2` text on the light-ink tier — the two-tier table in [04] is the owner. Journey's `fillType` set, the gitgraph tag, and the face chip ship in light-ink form here.
-- Ordinal families run their full engine range here — `pie1`–`pie12`, `cScale0`–`cScale11` with `cScaleLabel0`–`cScaleLabel11`, `fillType0`–`fillType7`, `git0`–`git7` — so no band derives to `primaryColor` mud. `cScaleLabel` dark ink serves opaque ordinal fills; a family compositing translucent or recessed ordinal surfaces — timeline, treemap, kanban — overrides its `cScaleLabel` range to Foreground or Lavender in its own fence.
+- Ordinal families run their full engine range here — `pie1`–`pie12`, `cScale0`–`cScale11` with `cScaleLabel0`–`cScaleLabel11`, `fillType0`–`fillType7`, `git0`–`git7` — so no band derives to `primaryColor` mud. `cScaleLabel` dark ink serves opaque ordinal fills; a family compositing translucent or recessed ordinal surfaces — timeline, treemap, kanban — overrides its `cScaleLabel` range to Foreground or Lavender in its own fence. Theme resolution converts ordinal color variables through hsl and strips 8-digit alpha, so `cScale` and `git` translucency rides `fill-opacity` stamps while `fillType`, quadrant fills, and tag backgrounds pass alpha hexes intact.
 - Per-type nested objects `xyChart` and `radar` nest inside `themeVariables`, alongside any other type that admits a nested block.
 - Partial-consumers: C4 reads `personBorder`/`personBkg` from this block and themes element surfaces through `c4:` config color keys plus `UpdateRelStyle`; packet themes through its `themeCSS` class stamp because the nested `themeVariables.packet` block half-applies; sankey and ishikawa take global vars only; wardley emits no stylesheet, so only its nested `wardley:` colors land.
 - This block is the single home for every corpus-wide token: an extended fence demonstrates the keys it consumes and never privately defines a role — `architecture`, `journey`, and C4 tokens live here, not in their fences.
@@ -377,12 +377,15 @@ linkStyle 5 stroke:#6272A4,color:#F8F8F2,stroke-width:1.5px,stroke-dasharray:4 6
 Rail semantics: Pink primary, Green success, Red error — mandatory on every fault edge — Cyan external, Orange data-carrying, Comment-dashed trace and secondary. Every rail declares `color:#F8F8F2` so its label never falls to a derived color; a rail without an explicit width rides the standing `2px` the micro-scale stamps, the fault rail carries the `3px` emphasis weight, and the trace rail carries the `1.5px` dashed weight — the one ladder in [05]. Every styled edge's arrowhead colors from its resolved stroke, so a Red rail terminates in a Red head with no extra key, and `arrowheadColor` governs only unstyled edges. A rail binds two ways with identical semantics: positionally through `linkStyle N` — indices are 0-based parse positions, so every edge insertion or deletion recounts every positional index before the diagram ships — or insertion-stably through an edge id, `A e1@--> B` then `class e1 edgeError`, where the id form survives the insertions that renumber every positional index; a fence under ongoing edits binds through the id form. Canonical edge classes mirror the non-default rails:
 
 ```text
+classDef edgeControl stroke:#FF79C6,color:#F8F8F2
 classDef edgeSuccess stroke:#50FA7B,color:#F8F8F2
 classDef edgeError stroke:#FF5555,stroke-width:3px,color:#F8F8F2
 classDef edgeExternal stroke:#8BE9FD,color:#F8F8F2
 classDef edgeData stroke:#FFB86C,color:#F8F8F2
 classDef edgeTrace stroke:#6272A4,color:#F8F8F2,stroke-width:1.5px,stroke-dasharray:4 6
 ```
+
+`edgeControl` spells the Pink rail as an id-bound class: a kinded control or import edge — a seam `[KIND]:` label, a labeled dependency — binds it explicitly so the edge survives insertion, reading identically to the default rail while asserting the binding was chosen, never forgotten.
 
 ## [05]-[MICRO_SCALE]
 
@@ -414,6 +417,8 @@ Line-weight ladder — one scale, every stroke on the canvas, stated here once a
 |  [06]   | container border                 |  `1px`   |   50%   | dashed `5 4`, Lavender     |
 |  [07]   | grid / divider stroke            |  `1px`   |   50%   | family-owned dash          |
 
+A dotted fault hop keeps the `3px` fault weight — dash rhythm marks the hop's modality, weight marks the fault.
+
 Marker and circle scale tie to one factor: every arrowhead across every family scales `.8` linear, and every terminal circle scales `.48` — the `.8` squared area factor cut a further 25%, radius `3.4px` on the state start disc — because a filled disc reads by area while a head reads by length, and a circle at the old `.64` still shouldered its label. Circle factor binds every terminal and endpoint disc: state start and terminal ring, flowchart `--o` endpoints, gitgraph commit dots (`.75` transform on the engine radii, preserving merge-ring ratios), journey actor dots (`r:5.25px`), quadrant points (`radius: 4`), railroad start and end (`markerRadius: 4`). ER cardinality rings stay at the `.8` marker scale — they pair with crow's-foot paths as one glyph, never as terminal dots.
 
 Canonical `themeCSS` strings — one per family, copied verbatim into the fence frontmatter. Every node-bearing string carries `filter:none!important` across the node shapes and cluster rects: the belt that outranks any host-injected halo even when a host forces the neo look, since `themeCSS` lands after the engine's look rules and `!important` wins there. Attribute selectors inside a `themeCSS` string quote with single quotes — a double quote closes the YAML string — and no string uses the `>` combinator, which the sanitizer rejects by dropping the whole block.
@@ -432,8 +437,7 @@ gantt:     ".sectionTitle{font-size:13.5px;font-weight:700;fill:#D6BCFA}.taskTex
 - Weight law: the ladder above is the only weight source — the standing `2px` edge stamps through the engine's own thickness classes, the pattern classes pull every dashed and dotted edge to `1.5px` at the trace rhythm, and a rail that needs another weight carries it inline where it wins by inline precedence.
 - Dashed-rhythm law: `4 6` reads as trace and annotation, `6 6` as planned and deferred, `5 4` as container containment, solid as realized — one rhythm system across every diagram; the trace gap runs longer than its dash so a dotted line reads as a distinct rhythm, not a broken solid.
 - Canvas law: flowchart fences carry `layout: elk` and `flowchart: { curve: linear, padding: 25 }` — ELK routes orthogonally on its own and paints its bends through a fixed rounded joint, while the `curve: linear` key holds the elbow posture on any host that falls back to the non-ELK renderer; `subGraphTitleMargin` stays out of ELK diagrams, since it displaces edge labels there.
-- Marker scale law: Arrowheads scale at `.8`; terminal circles scale at `.48`; state markers stay at `.4`.
-- Marker route law: Requirement, C4, and architecture markers use family routes. Every unfilled marker declares fill and stroke.
+- Marker route law: Requirement, C4, and architecture markers use family routes; state barb markers stay at `.4`. Every unfilled marker declares fill and stroke.
 - Terminus law: every terminus mark rides its line's color — Pink arrowheads, the Pink `state-start` disc at `r:3.4px`, the Pink terminal ring scaled `.48` around its Purple core, the Pink lollipop ring, and ER cardinality marks on the relation stroke with a canvas-filled hollow ring for the zero side; a terminus carries no label while a named state always does. Terminal scale rides `.node[id*='_end'] .outer-path` — the engine draws the ring as a path group, never a circle element.
 - Text-color law: container and namespace titles ink Lavender through `titleColor` — the state string carries the ink explicitly because its composite title ignores that key — matching their border so containment reads as one object; node labels ink Foreground; bright translucent fills ink per the [04] table; canvas text takes a surgical color only through these owners, never a blanket dim gray — a family whose title derives gray is missing its `titleColor` key.
 
@@ -445,7 +449,7 @@ One border system for both skills — every stroke around a shape resolves here,
 - Container borders — flowchart subgraph, state composite and region, class namespace, architecture group, sequence loop/alt frame — are dashed `1px` Lavender `#D6BCFA` at the `5 4` rhythm: half the standing edge weight, brightness carrying what the thinness gives up at 8.4:1 against the canvas. Container title inks the same Lavender, and html-studio spends the color as its `--boundary` token on every SVG zone border — one containment language across both skills.
 - Gradients never render: `useGradient: false` disables the gradient definition and drops the engine's neo stroke back to `nodeBorder`, and `look: classic` keeps the neo selectors from matching at all. No fence, string, or template references a gradient.
 - Shadows never render: `dropShadow: "none"` empties the halo variable, and the `filter:none!important` belt in every node-bearing `themeCSS` string overrides the halo rule even on a host that forces `look: neo` at initialize, because user styles land after the look rules and inline-`!important` class styles never carry filters. Engine's halo — a full-opacity light-gray drop shadow that stacks where nodes crowd — never survives this lock.
-- This lock runs four layers deep because each layer fails differently: `look: classic` wins config resolution, `useGradient`/`dropShadow` win the variable derivation, and the `!important` belt wins the cascade; a host defeats all four only by stripping frontmatter entirely, which no themed fence can survive by any means.
+- A host defeats this lock only by stripping frontmatter entirely, which no themed fence survives by any means.
 
 ## [07]-[DUAL_HOST]
 

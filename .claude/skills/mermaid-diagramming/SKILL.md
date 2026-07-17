@@ -43,7 +43,7 @@ Select the archetype by intent, copy its template, and refill — a catalog temp
 |  [01]   | [SPINE](templates/spine.mmd.md)                 | main path through owners       | `flowchart LR`      | split at the readiness gate      |
 |  [02]   | [SEAM_GRAPH](templates/seam-graph.mmd.md)       | shapes across a boundary       | `flowchart LR`      | partition by counterpart package |
 |  [03]   | [LOGIC_FLOW](templates/logic-flow.mmd.md)       | one operation dispatch         | `flowchart LR`      | extract an arm subflow           |
-|  [04]   | [LIFECYCLE](templates/lifecycle.mmd.md)         | guarded state transitions      | `stateDiagram-v2`   | nest a composite state           |
+|  [04]   | [LIFECYCLE](templates/lifecycle.mmd.md)         | guarded state transitions      | `stateDiagram-v2`   | extract the composite lifecycle  |
 |  [05]   | [WIRE_SEQUENCE](templates/wire-sequence.mmd.md) | ordered boundary exchange      | `sequenceDiagram`   | split by interaction phase       |
 |  [06]   | [SCHEMA](templates/schema.mmd.md)               | persistent entity relations    | `erDiagram`         | split by aggregate root          |
 |  [07]   | [STRATA](templates/strata.mmd.md)               | layer dependency direction     | `flowchart TB`      | collapse peer layers             |
@@ -64,45 +64,32 @@ A diagram is not done until its fence passes both stages: graph-logic checks ove
 uv run scripts/validate_mermaid.py <file.md ...>
 ```
 
-Each fence emits `file:line: STATUS check detail` rows with check kinds `render`, `legibility`, `frontmatter`, `contract`, `logic`, `export`, `setup`, `read`, and `collect`; `--json` emits identical-key NDJSON for tooling. Contract, logic, legibility, and frontmatter rows fire only on findings — a clean fence prints its render row alone, and silence from a check is a pass. Graph-logic analysis covers the families the validator implements; any family outside that set emits a `logic-unimplemented` warn instead of silent approval. A logic failure blocks on a structural break the graph cannot resolve, and a logic warn demands a split or a stated reason; the emitted row names the exact condition. Contract warnings cover accessibility presence and order, `theme: base`, the flat-look lock (`look: classic`, `useGradient`, `dropShadow`), the mono-stack floors, `clusterBkg`, label backing, canonical classes, linkStyle index drift, semantic edge rails, sequence grouping, and palette drift including translucent-alpha discipline. `--no-render` runs the logic and frontmatter checks alone for a fast loop; the process exits nonzero when any fence fails. A render failure splits `syntax` from `environment`, so a missing browser never masquerades as a broken diagram. After a fence renders, the `legibility` pass parses the SVG geometry for the graph families (flowchart, state, ER, class) and emits `node-overlap` (fail), `edge-over-node`, and `edge-crossings:N` rows — the mechanical arm of the legibility audit, computed from node bounding boxes and edge routing rather than eyeballed; sequence, gantt, and quantitative families carry inherent crossings and are exempt.
+Each fence emits `file:line: STATUS check detail` rows with check kinds `render`, `legibility`, `frontmatter`, `contract`, `logic`, `export`, `proof`, `setup`, `read`, and `collect`; `--json` emits identical-key NDJSON for tooling. Contract, logic, legibility, and frontmatter rows fire only on findings — a clean fence prints its render row alone, and silence from a check is a pass. Graph-logic analysis covers the families the validator implements; any family outside that set emits a `logic-unimplemented` warn instead of silent approval. A logic failure blocks on a structural break the graph cannot resolve, and a logic warn demands a split or a stated reason; the emitted row names the exact condition. Contract warnings enforce the theming, styling, and config canon per family. `--no-render` runs the logic and frontmatter checks alone for a fast loop; the process exits nonzero when any fence fails. A render failure splits `syntax` from `environment`, so a missing browser never masquerades as a broken diagram. After a fence renders, the `legibility` pass parses the SVG geometry for the graph families (flowchart, state, ER, class) and emits `node-overlap` (fail), `edge-over-node`, and `edge-crossing-pairs:N` rows — N counts crossing edge pairs, a lower bound, computed from node bounding boxes and edge routing rather than eyeballed; sequence, gantt, and quantitative families carry inherent crossings and are exempt.
 
-`uv run scripts/check_canon.py <file.md ...>` runs the canon checker beside the validator — a render-free, table-driven enforcement of the theming, styling, and config canon per family (palette closure, alpha tiers, yellow law, micro-scale stamps, per-family floors) emitting the same `file:line: STATUS canon rule detail` row shape with `--json` NDJSON and a nonzero exit on any fail. `--explain <rule-id>` prints a finding's canon sentence and owning reference.
+`uv run scripts/check_canon.py <file.md ...>` runs the canon checker beside the validator — a render-free, table-driven enforcement of the theming, styling, and config canon per family emitting the same `file:line: STATUS canon rule detail` row shape with `--json` NDJSON and a nonzero exit on any fail. `--explain <rule-id>` prints a finding's canon sentence and owning reference.
 
-`mmdc` on PATH renders every fence; the machine toolchain installs it (Nix `mermaid-cli`) and `--renderer CMD` overrides it. Each render binds the pinned Chromium through `PUPPETEER_EXECUTABLE_PATH`, so the real Google Chrome app never launches. A fence the machine renderer rejects re-proves through the pinned release renderer the validator invokes over the pnpm dlx cache, verified by the emitted SVG — so a lagging toolchain never masquerades as broken syntax; the passing row lands as `rendered-release:`, and a fence the pinned renderer also rejects stays a real syntax failure. `--export DIR` writes every passing fence as an embed-ready SVG — unique root id, aria title and description preserved, Dracula canvas baked — the mechanical arm of the embedding contract.
+Renderer resolution walks the workspace first — `node_modules/.bin/mmdc` from any cwd ancestor, then PATH `mmdc`, `--renderer CMD` overriding both. Each render binds the pinned Chromium through the generated puppeteer-config `executablePath`, so the real Google Chrome app never launches. A fence the resolved renderer rejects re-proves through the pinned release renderer the validator invokes over the pnpm dlx cache, verified by the emitted SVG — so a lagging toolchain never masquerades as broken syntax; the passing row lands as `rendered-release:`, and a fence the pinned renderer also rejects stays a real syntax failure. `--export DIR` writes every passing fence as an embed-ready SVG — unique root id, aria title and description preserved, Dracula canvas baked — the mechanical arm of the embedding contract. `--proof` rasterizes each rendered SVG browserlessly through resvg into a per-run ephemeral dir cleaned on exit — `--keep` preserves it and prints `proof-dir:` — with mmdc's own PNG as the fallback where a family still carries `foreignObject` labels; a proof failure lands as a typed `proof` row, never a silent pass.
 
 ## [05]-[CONTRACT]
 
-- Frontmatter opens every fence body above the diagram header, carrying `theme: base` and `look: classic` with the Dracula subset its type consumes.
+- Frontmatter opens every fence body above the diagram header, carrying `theme: base` and `look: classic` with the Dracula subset its type consumes; a fence opening with `%%{init:...}%%` converts to frontmatter.
 - Local style law replaces that subset on `packet`, C4 element surfaces, and host-themed docs.
 - Token system, role map, and dual-host law are [references/theming.md](references/theming.md).
 - Every themed fence renders flat by construction: `look: classic`, `useGradient: false`, `dropShadow: "none"`, and the family `themeCSS` filter belt.
 - Flat construction kills gradient borders and node halos on every host, including one that initializes the neo look.
 - Theming's border canon owns the lock, the weight ladder, and the Lavender container boundary.
 - `accTitle` and `accDescr` follow the header on every committed diagram, stating the encoded relation so the exported SVG reads outside its source.
-- `block`, `mindmap`, `sankey`, and `venn` refuse the directives, so their relation sentence sits beside the fence.
+- `block`, `mindmap`, `sankey`, and `venn` refuse the directives, `ishikawa` mis-handles them as nodes, and `kanban` as columns, so their relation sentence sits beside the fence; `timeline` and `eventmodeling` parse them but emit nothing into the SVG, so their relation sentence rides beside the fence too.
 - Node and edge labels carry concept names, never mechanism detail — the owning page carries the bytes.
 - Semantic node classes and edge rails ride the canonical Dracula `classDef` set with its ruled translucent accent fills; an ad-hoc hex is a defect.
-- `fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"` and the recessed `#21222C` label backing reach every themed fence.
-- Per-element sizes ride the theming micro-scale `themeCSS` stamps, and no canvas text renders below 12px.
+- Flowchart edge rails bind insertion-stably through `eN@` edge-id classes; positional `linkStyle` indices drift on every insertion.
+- One `animate: true` edge per diagram may mark a genuinely live, streaming, or hot path with its semantic stated; unmotivated animation is a defect, and a raster export stills it.
+- Theming's ruled mono stack and the recessed `#21222C` label backing reach every themed fence, and no canvas text renders below 12px through the micro-scale `themeCSS` stamps.
 
 ## [06]-[LEGIBILITY]
 
-Legibility bounds a diagram, not syntax capacity. A rendered diagram ships only after both arms clear.
+Legibility bounds a diagram, not syntax capacity. A rendered diagram ships only after the validator's geometry rows clear and the reviewer clears what geometry cannot — untruncated labels, reading-order orientation, light/dark host contrast, type matching subject. A faulted fence converges on its own source across at most five render-inspect-edit rounds; each correction is a minimal text edit to the fence itself, never a sibling file.
 
-- [MACHINE]: Validator's `legibility` pass scores the rendered SVG geometry: `node-overlap` blocks, `edge-over-node` and `edge-crossings:N` warn.
-- [CROSSINGS]: A crossing is a defect unless the crossing is the subject, repaired at the source by reorder, re-home, re-port, or split.
-- [JUDGMENT]: Reviewer clears what geometry cannot — untruncated labels, reading-order orientation, light/dark host contrast, type matching subject.
-
-A faulted fence converges on its own source across at most five render-inspect-edit rounds; each correction is a minimal text edit to the fence itself, never a sibling file.
-
-## [07]-[GOTCHAS]
-
-- Frontmatter owns initialization; a fence opening with `%%{init:...}%%` converts to frontmatter.
-- Reserved words `end`, `default`, `subgraph`, `class` break node IDs — quote the label, rename the ID.
-- `layout: elk` outside flowchart needs a host-registered loader and has no dagre fallback — only flowchart fences declare it.
-- Edge labels containing `[`, `]`, or `:` need double quotes: `A -->|"[WIRE]: shape"| B`.
-- Extended-family fences validate whenever touched.
-
-## [08]-[REPO_INTEGRATION]
+## [07]-[REPO_INTEGRATION]
 
 When the host repo declares a docs gate, that gate consumes `scripts/validate_mermaid.py --json`; the bundled script is the same engine everywhere else.
