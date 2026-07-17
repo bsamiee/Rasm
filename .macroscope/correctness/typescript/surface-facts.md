@@ -19,6 +19,9 @@ Verified Effect and compiler truths a generic reviewer misfires on — each list
 - Overloaded `function` declarations (multiple signatures over one wider implementation) are required for overload sets — a `const` arrow forces a cast; narrow-to-wide ordering is deliberate.
 - `Effect.uninterruptibleMask` + `restore` over `Effect.uninterruptible`, and `Effect.onInterrupt` versus `Effect.ensuring`, are real distinctions, never redundancy; `Match.instanceOf` ladders with `orElse` are correct over foreign thrown values (the closed-family `orElse` ban does not apply there).
 - A foreign value resurfacing past the seam — a nested `unknown` band, a second source read — decodes again: a second admission site, not a duplicate validation.
+- `Schema.optionalWith(S, { as: "Option" })` is the sole absence spelling on a decoded field — total `Option<A>` interior, optional encoded; bare `Schema.optional` leaks `| undefined` into the decoded type, and `Schema.NullOr` on a domain field or a sentinel-for-absence is the rejected form.
+- `Redacted` implements `Equal`, prints `<redacted>` on every string, JSON, and inspect channel, and `unsafeWipe` makes later `value` reads throw terminally — a sealed secret comparing through `Redacted.getEquivalence` and unwrapping once at the consuming boundary is safety by construction, not missing discipline.
+- `Arbitrary.make`/`Pretty.make` throw `Missing annotation` at first derivation over a bare `Schema.declare`, while `Schema.equivalence` silently falls back to `Equal.equals` (reference identity on a foreign instance) — the silent fallback is the audit line, so a foreign owner admits with its annotation set complete or not at all.
 
 ## [02]-[COMPILER_SURFACE]
 

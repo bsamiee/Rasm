@@ -2,6 +2,13 @@
 include:
   - "libs/csharp/**"
   - "**/*.cs"
+  - "**/*.csproj"
+  - "**/*.props"
+  - "**/*.targets"
+  - "**/*.slnx"
+  - "**/NuGet.config"
+  - "**/global.json"
+  - "**/.config/**"
 ---
 
 # [CSHARP_DOCTRINE]
@@ -15,6 +22,8 @@ include:
 - `Validate` is the admission factory bridging to rails via `[ValidationError<TCustom>]`; hand-written `Equals`/`GetHashCode` on a generated owner, a language `switch` ladder over smart-enum items where generated `Switch` exists, and `default`-minting a generated owner are findings.
 - Smart-enum behavior rides `[UseDelegateFromConstructor]` columns; a row-to-row column reference is deferred (`static () => Row`), never eager.
 - Each `Switch` arm constructs its own `Op.Of(name: nameof(CaseName))` provenance; a hoisted single `Op` shared across arms is the bug, not duplication to consolidate.
+- A member-less marker interface is admissible only as a generic bound, never read by `is` or reflection; direction of extension discriminates the open instance-interface floor (foreign code plugs in) from the closed `[Union]`/`Switch` family (the owner controls) — an interface over a closed family forfeits `Switch` totality, and a `[Union]` foreign code must extend forfeits the seal.
+- A domain graph is two closed `[Union]` owners — a neutral verb edge union carrying exactly one `Generic` passthrough case plus a keyed node union — never a per-relation class roster, and a consumer-facing aggregate is a derived fold over the reachable subgraph, never a second stored record beside the graph.
 
 ## [02]-[RAILS]
 
@@ -22,6 +31,8 @@ include:
 - Independent faults accumulate applicatively (`.Apply`/`.Traverse`); a `Bind`/`from..select` chain over independent operands silently drops all but the first fault. `Validation<Seq<Error>, T>` and `Validation<string, T>` miss the required `Monoid<E>` and are findings.
 - A `Fin` to `Option` to `Fin` round trip stamps `Errors.None` over the original fault; ad-hoc delay and retry loops where `Schedule` composes are findings.
 - Composition-time policy — retry, recover, bracket — attaches as effect transformers whose stack order is a value (a `Concern` union with a rank column folded in order); a bracket-retry-catch tower hand-spelled per call site is the finding.
+- A lifecycle-gate read guarding an effectful entrypoint executes inside the deferred effect body, never at composition time — a `gate.Value ? IO.pure(...) : IO.fail(...)` ternary evaluates the fence when the effect is built, so an effect composed before the gate transition and run after it bypasses the gate silently.
+- A bounded fixpoint iteration (idempotent past tolerance, count as budget cap) is a `Range.Fold`, never a `Schedule`, which is retry-or-repeat policy; a threshold or tolerance derivation never pays the complexity class of the operation it gates — a policy constructor hiding the gated kernel's own decomposition is a second solve the receipt never shows.
 
 ## [03]-[DISPATCH_AND_BOUNDARIES]
 
@@ -29,8 +40,11 @@ include:
 - Optional context is one `Option<T> x = default` consumed via `IfNone(policy)`; a nullable flag tail is the finding.
 - Foreign material crosses exactly once: only the seam names a provider type, catches a provider exception, or holds a native lifetime, and every native crossing mints a closed `Fault` union case — a bare `Error.New(ex)` flattening a multi-cause crossing is a finding. `Some(null!)`, sentinels riding past the seam, and stored `Span<T>`/`ref struct` views are findings.
 - Owner-to-DTO projection rides `[Mapper]`/`[MapProperty]` generation; a hand-written field-by-field projection where the generator owns it is a finding. `CultureInfo.InvariantCulture` pins wire and persisted seams.
+- A foreign wall-clock stamp with no zone evidence crosses as NodaTime `LocalDateTime`/`LocalDate`, never an `Instant` fabricated by stamping the value UTC — the fabricated instant re-bases every date by the reader's offset and survives review because it type-checks.
+- A boundary memo key joins the foreign identity content alone cannot recover (path plus length plus last-write stamp, session token, capability fingerprint) to the content axis; a structural-index key joins the node's path-vector or sibling ordinal to the content digest so identical-content siblings key distinctly, and a process-randomized `GetHashCode` persisted as stable identity is rejected.
+- A derived scope isolates exactly one named axis — resources, cancellation, or environment — and the wrong derivation silently shares the axis the caller meant to isolate; scope registration keys on object identity, release is idempotent and per-key, and one throwing release never aborts the remaining sweep.
 - Numeric operands admit once through a finite/symmetry/singularity gate; operand shape selects the factorization via one `Route` `[SmartEnum]`; results leave as domain receipts carrying route, scale-derived tolerance, and recomputed true relative residual — never a `Matrix<T>` or factorization instance. A bare absolute tolerance literal and a `bool computeVectors` knob are findings.
-- A runtime API replaces a local loop only when it owns the concern: hand-built static `Regex`, `string.Split` on a parse path, `TryGetValue`-then-`Add` double probes, `BitConverter` endian frames, and `[DllImport]` are findings — `[GeneratedRegex]`, `SearchValues<T>`, `FrozenDictionary`, `CollectionsMarshal`, `XxHash3`, and `[LibraryImport]` are the owners.
+- A runtime API replaces a local loop only when it owns the concern: hand-built static `Regex`, `string.Split` on a parse path, `TryGetValue`-then-`Add` double probes, `BitConverter` endian frames, and `[DllImport]` are findings — `[GeneratedRegex]`, `SearchValues<T>`, `FrozenDictionary`, `CollectionsMarshal`, `XxHash3`, and `[LibraryImport]` are the owners. Use the deepest operator, combinator, or generated surface an admitted package itself reaches for; a BCL-first reflex where a richer admitted package owns the invariant is the rejected form.
 
 ## [04]-[FORBIDDEN_SHAPES]
 
