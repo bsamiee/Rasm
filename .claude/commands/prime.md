@@ -1,6 +1,7 @@
 ---
 description: Ground a new planning session — topology, campaign state, planning law — then take the session objective
 argument-hint: [target folder path(s) or a language (csharp|python|typescript); empty = branch-level grounding]
+disable-model-invocation: true
 ---
 
 # [SESSION_PRIME]

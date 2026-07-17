@@ -1,5 +1,6 @@
 ---
 description: Checkpoint-commit the entire working tree as one labeled snapshot
+disable-model-invocation: true
 ---
 
 # [SNAPSHOT]
