@@ -126,7 +126,7 @@
 - `psutil`(`.api/psutil.md`): `cpu_count(only_physical_cores=True)` reads the physical-core count through psutil to size the loky pool. `Supervisor` reads pool worker RSS via `psutil.Process().children(recursive=True)` under one `oneshot()` against the `SupervisionPolicy` ceiling, scoped to the arm through `WorkerPool.pids()` — the cooperative arm's `_processes` `{pid: worker}` map — while liveness reads `WorkerPool._live` presence plus `alive()`.
 
 [LOCAL_ADMISSION]:
-- `WorkerPool.acquire(WorkerKind.PROCESS, Enforcement.COOPERATIVE)` is the acquisition path — it wraps `get_reusable_executor` behind the memoized arm; a bare `ProcessPoolExecutor()` or a raw `get_reusable_executor` per task is admitted only for a one-shot pool whose warm reuse carries no value.
+- `WorkerPool.acquire(WorkerKind.PROCESS, Enforcement.COOPERATIVE)` is the acquisition path — it wraps `get_reusable_executor` behind the memoized arm; a standalone `ProcessPoolExecutor` is admitted for the `WorkerKind.GPU` device arm, whose per-device `env=` the process-global singleton cannot hold, and otherwise only for a one-shot pool whose warm reuse carries no value.
 - `max_workers` defaults to `cpu_count()`; the pool pins it to `cpu_count(only_physical_cores=True)` once so concurrent process crossings never oversubscribe the host against each package's internal thread pool.
 - Wrap `submit`/`result` in the resilience retry so a `TerminatedWorkerError` respawns a fresh pool rather than propagating a worker crash as a hard failure; a pure transform never rides the pool.
 - Fix `context` and `initializer`/`env` per owner identity so worker warm state is reproducible; mixing start methods or env overrides across acquisitions of the same singleton is rejected.

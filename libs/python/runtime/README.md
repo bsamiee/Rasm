@@ -24,15 +24,16 @@ One polymorphic owner per sub-domain mints the shared value shapes once, and eve
 [EXECUTION]:
 - [10]-[ADMISSION](.planning/execution/admission.md): Runtime context, causal frames, and settings admission.
 - [11]-[LANES](.planning/execution/lanes.md): Lane-policy task groups and the stage-plan DAG.
-- [12]-[RECIPE](.planning/execution/recipe.md): Content-keyed recipe execution on the thread lane.
+- [12]-[WORKERS](.planning/execution/workers.md): Worker fabric — kind family, kernel crossing, warm pools, remote/device/guest arms, and supervision.
+- [13]-[RECIPE](.planning/execution/recipe.md): Content-keyed recipe execution on the thread lane.
 
 [EVIDENCE]:
-- [13]-[IDENTITY](.planning/evidence/identity.md): Content identity and key reproducing the C# seed bit-identically.
-- [14]-[REPRODUCTION](.planning/evidence/reproduction.md): Seed-reproduction corpus and its parity fold.
-- [15]-[EVIDENCE](.planning/evidence/evidence.md): Evidence union, catalogue member facts, and grammar registry.
+- [14]-[IDENTITY](.planning/evidence/identity.md): Content identity and key reproducing the C# seed bit-identically.
+- [15]-[REPRODUCTION](.planning/evidence/reproduction.md): Seed-reproduction corpus and its parity fold.
+- [16]-[EVIDENCE](.planning/evidence/evidence.md): Evidence union, catalogue member facts, and grammar registry.
 
 [CLOCK]:
-- [16]-[CLOCK](.planning/clock/clock.md): HLC stamp, element id, tenant, and causal frame.
+- [17]-[CLOCK](.planning/clock/clock.md): HLC stamp, element id, tenant, and causal frame.
 
 ## [02]-[DOMAIN_PACKAGES]
 
@@ -55,6 +56,7 @@ Domain libraries this folder admits directly; versions centralize in the one roo
 
 [EXECUTION]:
 - `apscheduler` — one cron and interval scheduler owner.
+- `wasmtime` — in-process guest sandbox for the WASM worker kind.
 - `queenbee`
 - `lbt-recipes`
 - `pollination-handlers`
@@ -77,6 +79,10 @@ Branch-wide substrate this folder consumes; the canonical registry and API evide
 
 [CONCURRENCY]:
 - `anyio`
+- `cloudpickle`
+- `tblib`
+- `loky`
+- `pebble`
 
 [OBSERVABILITY]:
 - `structlog`
@@ -84,6 +90,9 @@ Branch-wide substrate this folder consumes; the canonical registry and API evide
 - `opentelemetry-sdk`
 - `opentelemetry-exporter-otlp-proto-http`
 - `psutil`
+
+[NUMERIC_SUBSTRATE]:
+- `numpy` — shared-memory span reconstruction at the worker crossing, deferred behind the wire axis.
 
 [IDENTITY]:
 - `xxhash`

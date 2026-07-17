@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_IDEAS]
 
-The folder's forward pool of higher-order concepts, each grounded in artifact production and the host-free companion charter. Open ideas are cards in `[1]-[OPEN]`; a finished or dropped idea moves to `[2]-[CLOSED]` with a one-line disposition. Each idea drives one or more `TASKLOG.md` tasks.
+Forward pool of the folder's higher-order concepts, each grounded in artifact production and the host-free companion charter. Open ideas are cards in `[1]-[OPEN]`; a finished or dropped idea moves to `[2]-[CLOSED]` with a one-line disposition. Each idea drives one or more `TASKLOG.md` tasks.
 
 OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOCKED` keeps open but non-actionable work; `CLOSED` separates finished `COMPLETE` items from unimplemented `DROPPED` items. `Ripple` names the origin or counterpart card a cross-folder entry pairs with.
 
@@ -24,4 +24,6 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 [ID]-[COMPLETE|DROPPED]: <one-line disposition>; keep closed tasks collapsed unless a second retained fact changes future routing.
 -->
 
-(none)
+[DIAGRAM-DXF]-[COMPLETE]: realized as `export/dxf`'s `Diagram` arm — `DiagramLower` lowers the positioned glyph sequence to `DxfEntity` cases under `Standard.seed` regime-pen layers, glyphset owning the shared lowering derivations (`mark`, `Port.seat`, `AreaMark.centroid`, `ER_CAPS`, `ENTITY_BAND`); draw stays two-arm.
+
+[WTPDF-AUDIT]-[COMPLETE]: landed as `UaCheck.WTPDF_ACCESSIBILITY`/`WTPDF_REUSE` clause rows on `document/tagged#ACCESS` — `pdfd:conformsTo` spellings confirmed at the PDF Association source (erratum-canonical `wtpdf#accessibility1.0`/`wtpdf#reuse1.0` plus the as-published `/#` forms), read off the raw `/Metadata` packet because the pikepdf mapping view cannot decode the declarations bag.
