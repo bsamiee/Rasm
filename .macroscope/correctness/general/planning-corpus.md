@@ -14,6 +14,7 @@ include:
 - Sweep every fence for local compilability — planning fences have no compiler, so these fictions survive fluent prose: a `ref struct` captured by a lambda or riding a generic carrier, an identifier neither declared in scope nor owned by the page, a value returned from a `void` member, a type name written as an invocation, a generated-owner row whose positional argument count drifts from its declared constructor arity, a railed factory result bound into a bare-typed slot with no flatten, a payload passed outside the factory's declared admitted union, a derivation from a registry row that does not exist.
 - Prose signatures byte-match their fence declarations: an `Entry`/`Auto` row whose parameter list, rail, or return drifts from the fence is a wrong contract, and a fence signature edit ripples its prose rows in the same diff.
 - A composing fence binds the seam member's current landed declaration — spelling, accessibility, arity, rail shape, owning namespace — never name presence; a member edit on any of those axes sweeps every composing fence repo-wide in the same change. No compiler exists here; the sweep is the build.
+- An admitted manifest package is design-real: a central-manifest row carrying a sanctioned gate comment and named follow-up licenses every fence composing it — verification is the manifest admission, never wheel or distribution availability, and demanding a page drop an admitted package over a temporary distribution gap is the capability-gating defect.
 
 ## [02]-[DISPATCH_AND_FOLDS]
 
