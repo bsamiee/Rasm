@@ -2,7 +2,7 @@
 
 `@effect/ai-amazon-bedrock` catalog · MIT · dual CJS+ESM, `sideEffects:[]`, per-module `exports` subpaths (`@effect/ai-amazon-bedrock/AmazonBedrockClient`) · marker TSDECL `node_modules/@effect/ai-amazon-bedrock/dist/dts/*.d.ts` · peers `@effect/ai`, `@effect/ai-anthropic`, `@effect/platform`, `@effect/experimental`, `effect` through catalog ownership · tier node (SigV4-signed regional HTTPS; no browser binding)
 
-The Amazon Bedrock binding onto `@effect/ai`: it resolves the provider-agnostic `LanguageModel`/`Tool` tags against the Bedrock Converse/ConverseStream API. It is the most divergent row on the capability-asymmetry table — SigV4 credentials instead of a bearer key, a hand-written `AmazonBedrockSchema` codec instead of an OpenAPI `Generated` module, an AWS binary event-stream channel (`EventStreamEncoding`) instead of SSE, native guardrail assessment (the `GuardrailConfiguration` request field → the full `GuardrailTraceAssessment` response tree), and a peer dependency on `@effect/ai-anthropic` whose `prepareTools` + `BetaCacheControlEphemeral` it reuses to run Claude on Bedrock. No embedding, tokenizer, or telemetry owner. Six owner modules re-export through the barrel (`AmazonBedrockClient`, `AmazonBedrockConfig`, `AmazonBedrockLanguageModel`, `AmazonBedrockSchema`, `AmazonBedrockTool`, `EventStreamEncoding`). Success/failure flows through the core `AiError.AiError`; all I/O is `Effect`/`Stream`/`Channel`.
+Amazon Bedrock binding onto `@effect/ai` resolves the provider-agnostic `LanguageModel`/`Tool` tags against the Bedrock Converse/ConverseStream API. It is the most divergent row on the capability-asymmetry table — SigV4 credentials instead of a bearer key, a hand-written `AmazonBedrockSchema` codec instead of an OpenAPI `Generated` module, an AWS binary event-stream channel (`EventStreamEncoding`) instead of SSE, native guardrail assessment (the `GuardrailConfiguration` request field → the full `GuardrailTraceAssessment` response tree), and a peer dependency on `@effect/ai-anthropic` whose `prepareTools` + `BetaCacheControlEphemeral` it reuses to run Claude on Bedrock. No embedding, tokenizer, or telemetry owner. Six owner modules re-export through the barrel (`AmazonBedrockClient`, `AmazonBedrockConfig`, `AmazonBedrockLanguageModel`, `AmazonBedrockSchema`, `AmazonBedrockTool`, `EventStreamEncoding`). Success/failure flows through the core `AiError.AiError`; all I/O is `Effect`/`Stream`/`Channel`.
 
 ## [01]-[ASYMMETRY]
 
@@ -14,7 +14,7 @@ The Amazon Bedrock binding onto `@effect/ai`: it resolves the provider-agnostic 
 |  [04]   | tokenizer              | —                                          | `make({model})`             | value             | —                |
 |  [05]   | provider-defined tools | 8 ctors / 3 tags                           | 4                           | 5 families        | 4                |
 |  [06]   | telemetry module       | —                                          | `OpenAiTelemetry`           | —                 | —                |
-|  [07]   | model-id kind          | 91-id `Encoded`                            | enum                        | 21-id enum        | free `string`    |
+|  [07]   | model-id kind          | 90-id `Encoded`                            | enum                        | 21-id enum        | free `string`    |
 |  [08]   | auth                   | SigV4: `accessKeyId`/`Redacted`            | apiKey+org/proj             | apiKey+version    | apiKey           |
 |  [09]   | codec module           | `AmazonBedrockSchema` (66, hand-written)   | OpenAPI `Generated` (~1238) | OpenAPI (341)     | OpenAPI (~238)   |
 |  [10]   | stream decode          | AWS binary event-stream                    | SSE                         | SSE               | SSE              |
@@ -54,10 +54,10 @@ declare const layerConfig: (options: { accessKeyId: Config.Config<string>; secre
 
 ## [03]-[LANGUAGE_MODEL]
 
-`AmazonBedrockLanguageModel` binds Converse onto the core `LanguageModel`/`Model` contracts; the model argument is `(string & {}) | Model` over the 91-id `BedrockFoundationModelId` (or a cross-region inference-profile ARN via the open-string arm). ONE model/layer family, narrower than OpenAI/Anthropic: `model`/`make`/`layer`/`withConfigOverride` — no `modelWithTokenizer`/`layerWithTokenizer` (no tokenizer) and no `prepareTools` (it consumes Anthropic's).
+`AmazonBedrockLanguageModel` binds Converse onto the core `LanguageModel`/`Model` contracts; the model argument is `(string & {}) | Model` over the 90-id `BedrockFoundationModelId` (or a cross-region inference-profile ARN via the open-string arm). ONE model/layer family, narrower than OpenAI/Anthropic: `model`/`make`/`layer`/`withConfigOverride` — no `modelWithTokenizer`/`layerWithTokenizer` (no tokenizer) and no `prepareTools` (it consumes Anthropic's).
 
 ```ts signature
-export type Model = typeof BedrockFoundationModelId.Encoded   // 91 ids, section [05]
+export type Model = typeof BedrockFoundationModelId.Encoded   // 90 ids, section [05]
 declare const model: (model: (string & {}) | Model, config?: Omit<Config.Service, "model">) => AiModel.Model<"amazon-bedrock", LanguageModel.LanguageModel, AmazonBedrockClient>
 declare const make / layer / withConfigOverride   // same shapes as the OpenAI family, minus the tokenizer arms
 export type AmazonBedrockReasoningInfo =
@@ -71,7 +71,7 @@ export type AmazonBedrockReasoningInfo =
 namespace Config { interface Service extends Simplify<Partial<Omit<typeof ConverseRequest.Encoded, "messages"|"system"|"toolConfig">>> {} }
 ```
 
-The `declare module` augmentations attach an optional `bedrock` key — ONE boundary-hook pattern. `cachePoint` is the caching breakpoint; `FinishPartMetadata.bedrock.trace` carries the full guardrail assessment tree.
+`declare module` augmentations attach an optional `bedrock` key — ONE boundary-hook pattern. `cachePoint` is the caching breakpoint; `FinishPartMetadata.bedrock.trace` carries the full guardrail assessment tree.
 
 | [INDEX] | [AUGMENTS] | [INTERFACES]                                | [BEDROCK_SLOT]                                                 |
 | :-----: | :--------- | :------------------------------------------ | :------------------------------------------------------------- |
@@ -82,9 +82,9 @@ The `declare module` augmentations attach an optional `bedrock` key — ONE boun
 
 ## [04]-[TOOL]
 
-`AmazonBedrockTool` exports eight constructors across three tags — the Anthropic-on-Bedrock local tools, each ONE instance of `<Mode extends Tool.FailureMode | undefined>(args) => Tool.ProviderDefined<"Anthropic<Name>", { …; failureMode: Mode extends undefined ? "error" : Mode }, true>` (`requiresHandler:true`; the app runs them). The `cache_control` arg reuses `@effect/ai-anthropic/Generated.BetaCacheControlEphemeral`. Unlike `@effect/ai-anthropic`'s `AnthropicTool`, this module exposes no `ProviderDefinedTools` union, `Coordinate`, or `getProviderDefinedToolName` — only the eight date-suffixed constructors.
+`AmazonBedrockTool` exports eight constructors across three tags — the Anthropic-on-Bedrock local tools, each ONE instance of `<Mode extends Tool.FailureMode | undefined>(args) => Tool.ProviderDefined<"Anthropic<Name>", { …; failureMode: Mode extends undefined ? "error" : Mode }, true>` (`requiresHandler:true`; the app runs them). Each `cache_control` arg reuses `@effect/ai-anthropic/Generated.BetaCacheControlEphemeral`. Unlike `@effect/ai-anthropic`'s `AnthropicTool`, this module exposes no `ProviderDefinedTools` union, `Coordinate`, or `getProviderDefinedToolName` — only the eight date-suffixed constructors.
 
-The `action`/`command` axes are `Schema.Literal` verb sets; `AnthropicComputerUse` also carries coordinate args.
+`action`/`command` axes are `Schema.Literal` verb sets; `AnthropicComputerUse` also carries coordinate args.
 
 | [INDEX] | [TAG]                  | [CTORS]                                                            | [PARAMETERS_AXIS_SUCCESS]          |
 | :-----: | :--------------------- | :----------------------------------------------------------------- | :--------------------------------- |
@@ -92,16 +92,16 @@ The `action`/`command` axes are `Schema.Literal` verb sets; `AnthropicComputerUs
 |  [02]   | `AnthropicComputerUse` | `AnthropicComputerUse_20241022`/`_20250124`                        | `action` (5→15 verbs) / `String`   |
 |  [03]   | `AnthropicTextEditor`  | `AnthropicTextEditor_20241022`/`_20250124`/`_20250429`/`_20250728` | `command` (5→4 verbs) / `Void`     |
 
-`failure` is `Schema.Never` on all eight; `ComputerUse`/`TextEditor` carry `cache_control` args, `Bash` carries only `failureMode`. The `args` JSDoc tag is misspelled `@catgory` upstream (no runtime effect).
+`failure` is `Schema.Never` on all eight; `ComputerUse`/`TextEditor` carry `cache_control` args, `Bash` carries only `failureMode`. Each `args` JSDoc tag is misspelled `@catgory` upstream (no runtime effect).
 
 ## [05]-[SCHEMA]
 
 `AmazonBedrockSchema` is a hand-written Converse codec (66 exported owners — `Schema.Class` wire schemas, `Schema.Literal` enums, `Schema.Union` families), not OpenAPI-generated. Planning code composes it by `typeof X.Encoded` (wire) / `typeof X.Type` (decoded); `AmazonBedrockClient` consumes `ConverseRequest`/`ConverseResponse`/`ConverseResponseStreamEvent`.
 
-`BedrockFoundationModelId` is a 91-id `Schema.Literal` spanning every Bedrock provider family — Amazon Titan/Nova, Stability, AI21 Jamba, Anthropic Claude, Cohere Command/Embed, DeepSeek, Meta Llama, Mistral. Regenerable via `aws bedrock list-foundation-models --output json | jq '[.modelSummaries[].modelId]'`.
+`BedrockFoundationModelId` is a 90-id `Schema.Literal` spanning every Bedrock provider family — Amazon Titan/Nova, Stability, AI21 Jamba, Anthropic Claude, Cohere Command/Embed, DeepSeek, Meta Llama, Mistral. Regenerable via `aws bedrock list-foundation-models --output json | jq '[.modelSummaries[].modelId]'`.
 
 ```ts signature
-declare const BedrockFoundationModelId: Schema.Literal<[/* 91 ids: amazon.titan-*, amazon.nova-*, stability.*, ai21.jamba-*, anthropic.claude-*, cohere.*, deepseek.r1-*, meta.llama*, mistral.* */]>
+declare const BedrockFoundationModelId: Schema.Literal<[/* 90 ids: amazon.titan-*, amazon.nova-*, stability.*, ai21.jamba-*, anthropic.claude-*, cohere.*, deepseek.r1-*, meta.llama*, mistral.* */]>
 export declare class ConverseRequest {
   readonly modelId: string; readonly messages: readonly Message[]
   readonly system?: readonly SystemContentBlock[]   // Union: { cachePoint } | { guardContent } | { text }
@@ -118,7 +118,7 @@ declare const StopReason: Schema.Literal<["end_turn","tool_use","max_tokens","st
 
 `ContentBlock` is the ONE `type`-tagged content union (9 arms: `cachePoint`, `document`, `guardContent`, `image`, `reasoningContent`, `text`, `toolResult`, `toolUse`, `video`), with leaf owners `DocumentBlock`/`ImageBlock`/`VideoBlock`/`ToolUseBlock`/`ToolResultBlock`/`ReasoningContentBlock`/`CachePointBlock`. `ConverseResponseStreamEvent` is the ONE streaming-fold surface — an 11-member `type`-tagged union: `messageStart`/`messageStop`/`contentBlockStart`/`contentBlockDelta`/`contentBlockStop`/`metadata` plus five AWS exception frames (`internalServerException`, `modelStreamErrorException`, `serviceUnavailableException`, `throttlingException`, `validationException`); the per-event owners are `MessageStartEvent`/`MessageStopEvent`/`ContentBlockStartEvent`/`ContentBlockDeltaEvent`/`ContentBlockStopEvent`/`ConverseStreamMetadataEvent` (+ `ContentBlockStart`/`ToolUseBlockStart`/`ContentBlockDelta`/`ToolUseBlockDelta`/`ReasoningContentBlockDelta`).
 
-The guardrail-trace corpus is ONE assessment tree parameterized by policy kind, feeding `ConverseTrace`/`ConverseStreamTrace` → `FinishPartMetadata.bedrock.trace`. `GuardrailTraceAssessment` holds `inputAssessment`/`outputAssessments` maps of `GuardrailAssessment`, each a record over six policy owners:
+Guardrail-trace corpus is ONE assessment tree parameterized by policy kind, feeding `ConverseTrace`/`ConverseStreamTrace` → `FinishPartMetadata.bedrock.trace`. `GuardrailTraceAssessment` holds `inputAssessment`/`outputAssessments` maps of `GuardrailAssessment`, each a record over six policy owners:
 
 ```ts signature
 class GuardrailAssessment {
@@ -142,7 +142,7 @@ declare const makeChannel: <A, I, R, IE, Done>(schema: Schema.Schema<A, I, R>, o
 
 ## [07]-[CONFIG]
 
-`AmazonBedrockConfig` (`Context.TagClass`, `static getOrUndefined`) is the request-scoped client transform, dual data-first/data-last. The tag id is the upstream copy-paste **`@effect/ai-google/AmazonBedrockConfig`** (not `@effect/ai-amazon-bedrock/…`); planning owners referencing the tag must match this exact spelling.
+`AmazonBedrockConfig` (`Context.TagClass`, `static getOrUndefined`) is the request-scoped client transform, dual data-first/data-last. Its tag id is the upstream copy-paste **`@effect/ai-google/AmazonBedrockConfig`** (not `@effect/ai-amazon-bedrock/…`); planning owners referencing the tag must match this exact spelling.
 
 ```ts signature
 namespace AmazonBedrockConfig { interface Service { readonly transformClient?: (client: HttpClient) => HttpClient } }
@@ -154,6 +154,6 @@ declare const withClientTransform: { (t: (c: HttpClient) => HttpClient): <A,E,R>
 - Universal Effect rails: `AmazonBedrockLanguageModel.model(id)` produces the same `LanguageModel.LanguageModel` tag as every sibling — provider choice is a single `Layer` swap in `ai/model.ts`. `Config`+`Redacted` own SigV4 credential resolution (`layerConfig`); `Stream`+`Channel` fold `ConverseResponseStreamEvent` through `EventStreamEncoding.makeChannel`; `Schema` decodes the hand-written Converse codec; `Match.discriminator("type")` dispatches the 11-member stream union (including the five AWS exception frames) and the 9-arm `ContentBlock`; `Effect.catchTag` branches `AiError`. Compose top-down: `Effect.provide(AmazonBedrockLanguageModel.model(id))` over `AmazonBedrockClient.layer({ accessKeyId, secretAccessKey, region })` over a node `HttpClient` layer.
 - `@effect/platform` seam: every `layer*` requires `HttpClient.HttpClient` from the `net/client` default-policy row; node-only (`NodeHttpClient.layer`) because SigV4 signing has no browser binding.
 - `@effect/ai` core (sibling catalog `effect-ai.md`): satisfies `LanguageModel.LanguageModel`, `Tool.ProviderDefined`/`Tool.FailureMode`; augments `Prompt`/`Response` provider slots. No `EmbeddingModel`, `Tokenizer`, or `Telemetry` tag.
-- Sibling providers: this row peer-depends on `@effect/ai-anthropic` (see `effect-ai-anthropic.md`) — it consumes that package's `prepareTools` and `Generated.BetaCacheControlEphemeral` to run Claude-on-Bedrock tools, and forwards Anthropic beta opt-ins via `params["anthropic-beta"]`. The `AmazonBedrockConfig` tag id copy-paste bug (`@effect/ai-google/…`) is a spelling hazard `ai/model.ts` must respect.
+- Sibling providers: this row peer-depends on `@effect/ai-anthropic` (see `effect-ai-anthropic.md`) — it consumes that package's `prepareTools` and `Generated.BetaCacheControlEphemeral` to run Claude-on-Bedrock tools, and forwards Anthropic beta opt-ins via `params["anthropic-beta"]`. That `AmazonBedrockConfig` tag id copy-paste bug (`@effect/ai-google/…`) is a spelling hazard `ai/model.ts` must respect.
 - Native guardrails: Bedrock is the provider whose asymmetry populates the `ai/model.ts` guardrail-gate cell natively — set `Config.Service.guardrailConfig` per call, and the `GuardrailTraceAssessment` tree surfaces on `FinishPartMetadata.bedrock.trace`, an alternative to the design's app-level moderation folds.
 - Design consumers: `ai/model.ts` (row + tier-routing via `Config` + the guardrail gate, read from `FinishPartMetadata.bedrock.trace`), `ai/tool.ts`+`ai/tool.ts` (the eight `requiresHandler:true` tools bound via `Toolkit.toLayer`). No `ai/model.ts` or `ai/embed.ts` binding — both asymmetry cells are empty.

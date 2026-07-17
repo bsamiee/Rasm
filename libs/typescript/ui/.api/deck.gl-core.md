@@ -18,7 +18,7 @@
 
 [TYPE_SCOPE]: the `Deck` root — one instance owns the canvas, device, render loop, and picker; `setProps` is the single reconciliation entry.
 - `layers`, `effects`, `views`, `viewState`/`initialViewState`, and every callback are a partial patch — `Deck` diffs against the prior props and redraws only what changed. `viewState` (controlled) vs `initialViewState` (deck-tracked) is the camera-ownership discriminant; under `@deck.gl/mapbox` the map owns the camera and both are stripped.
-- the async pick pair is `pickObjectAsync({x,y,radius?,layerIds?,unproject3D?}) => Promise<PickingInfo|null>` and `pickObjectsAsync({x,y,width?,height?,layerIds?,maxObjects?}) => Promise<PickingInfo[]>`; the row `[SIGNATURE]` carries only the return.
+- Async pick pair `pickObjectAsync({x,y,radius?,layerIds?,unproject3D?}) => Promise<PickingInfo|null>` and `pickObjectsAsync({x,y,width?,height?,layerIds?,maxObjects?}) => Promise<PickingInfo[]>`; each row `[SIGNATURE]` carries only the return.
 
 | [INDEX] | [SYMBOL]                   | [SIGNATURE]                                  | [CONSUMER_BOUNDARY]                                          |
 | :-----: | :------------------------- | :------------------------------------------- | :----------------------------------------------------------- |
@@ -27,9 +27,9 @@
 |  [03]   | `Deck.finalize`            | `() => void`                                 | `Scope` release — disposes device, loop, buffers             |
 |  [04]   | `Deck.pickObjectAsync`     | `(opts) => Promise<PickingInfo \| null>`     | top object at a point → `mark/selection` `GlobalId`          |
 |  [05]   | `Deck.pickObjectsAsync`    | `(opts) => Promise<PickingInfo[]>`           | marquee box → `GlobalId[]` selection set                     |
-|  [06]   | `Deck.pickObject`          | sync single-point, `@deprecated`             | retired sync top-object; prefer async under WebGPU           |
-|  [07]   | `Deck.pickObjects`         | sync region, `@deprecated`                   | retired sync marquee; prefer async under WebGPU              |
-|  [08]   | `Deck.pickMultipleObjects` | sync stacked, `@deprecated`                  | retired all-objects-under-a-pixel; prefer async              |
+|  [06]   | `Deck.pickObject`          | sync single-point, `@deprecated`             | WebGL-only sync top-object; async pair replaces it          |
+|  [07]   | `Deck.pickObjects`         | sync region, `@deprecated`                   | WebGL-only sync marquee; async pair replaces it             |
+|  [08]   | `Deck.pickMultipleObjects` | sync stacked, `@deprecated`                  | WebGL-only stacked pick; async pair replaces it             |
 |  [09]   | `Deck.redraw`              | `(reason?: string) => void`                  | force a frame; `_animate` forces every-frame (TripsLayer)    |
 |  [10]   | `Deck.needsRedraw`         | `({clearRedrawFlags}) => false\|string`      | query the redraw flag                                        |
 |  [11]   | `Deck.getViewports`        | `(rect?) => Viewport[]`                      | screen↔world math + BCF/overlay anchor projection            |
@@ -38,7 +38,7 @@
 |  [14]   | `Deck.getCanvas`           | `() => HTMLCanvasElement \| null`            | ref wiring                                                   |
 |  [15]   | `Deck.isInitialized`       | `boolean`                                    | `onLoad` gate before public calls                            |
 |  [16]   | `DeckProps<ViewsT>`        | props record (below)                         | full prop contract; `MapboxOverlayProps` minus camera        |
-|  [17]   | `DeckMetrics`              | `{fps,gpuTime,cpuTime,pickTime,gpuMemory,…}` | `_onMetrics` perf sink → `probe/benchmark`                   |
+|  [17]   | `DeckMetrics`              | `{fps,gpuTime,cpuTime,pickTime,gpuMemory,…}` | `_onMetrics` payload → `probe/benchmark` perf sink           |
 
 [TYPE_SCOPE]: `DeckProps` axes — canvas/device, data-flow, interaction, and lifecycle callbacks; one callback family carries `PickingInfo`.
 - interaction callbacks `onHover`/`onClick`/`onDragStart`/`onDrag`/`onDragEnd` all receive `(info: PickingInfo, event: MjolnirEvent)` — one pointer-event family, not five shapes. `getTooltip(info) => TooltipContent` and `getCursor(state) => string` are the declarative HUD hooks. `onViewStateChange(p: ViewStateChangeParameters) => ViewStateT|null|void` intercepts camera changes.
@@ -47,30 +47,32 @@
 | :-----: | :---------------------------------- | :----------------------------------------------- | :---------------------------------------------- |
 |  [01]   | `layers`                            | `LayersList` (nested/falsy-tolerant)             | layer tree diffed each `setProps`               |
 |  [02]   | `effects`                           | `Effect[]`                                       | empty adds a default `LightingEffect`           |
-|  [03]   | `views`                             | `ViewsT` (`View \| View[]`, default `MapView`)   | viewport partition; multi-view = split/inset    |
-|  [04]   | `viewState` / `initialViewState`    | `ViewStateMap<ViewsT>`                           | controlled vs deck-tracked camera               |
-|  [05]   | `controller`                        | `View['props']['controller']`                    | `ControllerOptions` for the default view        |
-|  [06]   | `device` / `deviceProps`            | `Device` / `CreateDeviceProps`                   | share a luma device or spec `webgpu`/`webgl`    |
-|  [07]   | `parameters`                        | luma `Parameters`                                | GPU state (blend, depth) set before each frame  |
-|  [08]   | `layerFilter`                       | `(ctx: FilterContext) => boolean`                | per-view/per-pass layer gating                  |
-|  [09]   | `useDevicePixels` / `pickingRadius` | `boolean\|number` / `number`                     | DPR control + pick tolerance                    |
-|  [10]   | `onViewStateChange`                 | `(p) => ViewStateT\|null\|void`                  | camera-change interception (constrain/redirect) |
-|  [11]   | `onHover`/`onClick`/`onDrag*`       | `(info, event) => void`                          | one `PickingInfo`-carrying pointer family       |
-|  [12]   | `getTooltip` / `getCursor`          | `(info) => TooltipContent` / `(state) => string` | declarative HUD/cursor                          |
-|  [13]   | `onLoad` / `onError`                | lifecycle callbacks                              | boot gate + error rail                          |
-|  [14]   | `onResize`                          | `({width,height}) => void`                       | viewport-resize hook                            |
-|  [15]   | `onBeforeRender` / `onAfterRender`  | frame callbacks                                  | per-frame hooks                                 |
-|  [16]   | `onDeviceInitialized`               | `(device: Device) => void`                       | device-ready hook                               |
-|  [17]   | `_animate`                          | `boolean`                                        | force every-frame redraw (trips)                |
-|  [18]   | `_pickable`                         | `boolean`                                        | disable picking globally                        |
-|  [19]   | `_framebuffer`                      | `Framebuffer`                                    | offscreen render target                         |
-|  [20]   | `_typedArrayManagerProps`           | overlay                                          | attribute memory tuning                         |
+|  [03]   | `widgets`                           | `Widget[]`                                       | HUD widgets mounted on the parent element       |
+|  [04]   | `views`                             | `ViewsT` (`View \| View[]`, default `MapView`)   | viewport partition; multi-view = split/inset    |
+|  [05]   | `viewState` / `initialViewState`    | `ViewStateMap<ViewsT>`                           | controlled vs deck-tracked camera               |
+|  [06]   | `controller`                        | `View['props']['controller']`                    | `ControllerProps` for the default view          |
+|  [07]   | `device` / `deviceProps`            | `Device` / `CreateDeviceProps`                   | share a luma device or spec `webgpu`/`webgl`    |
+|  [08]   | `parameters`                        | luma `Parameters`                                | GPU state (blend, depth) set before each frame  |
+|  [09]   | `layerFilter`                       | `(ctx: FilterContext) => boolean`                | per-view/per-pass layer gating                  |
+|  [10]   | `useDevicePixels` / `pickingRadius` | `boolean\|number` / `number`                     | DPR control + pick tolerance                    |
+|  [11]   | `pickAsync`                         | `'sync'\|'async'\|'auto'`                         | deck-managed pick policy (async where able)     |
+|  [12]   | `onViewStateChange`                 | `(p) => ViewStateT\|null\|void`                  | camera-change interception (constrain/redirect) |
+|  [13]   | `onHover`/`onClick`/`onDrag*`       | `(info, event) => void`                          | one `PickingInfo`-carrying pointer family       |
+|  [14]   | `getTooltip` / `getCursor`          | `(info) => TooltipContent` / `(state) => string` | declarative HUD/cursor                          |
+|  [15]   | `onLoad` / `onError`                | lifecycle callbacks                              | boot gate + error rail                          |
+|  [16]   | `onResize`                          | `({width,height}) => void`                       | viewport-resize hook                            |
+|  [17]   | `onBeforeRender` / `onAfterRender`  | frame callbacks                                  | per-frame hooks                                 |
+|  [18]   | `onDeviceInitialized`               | `(device: Device) => void`                       | device-ready hook                               |
+|  [19]   | `_animate`                          | `boolean`                                        | force every-frame redraw (trips)                |
+|  [20]   | `_pickable`                         | `boolean`                                        | disable picking globally                        |
+|  [21]   | `_framebuffer`                      | `Framebuffer`                                    | offscreen render target                         |
+|  [22]   | `_typedArrayManagerProps`           | overlay                                          | attribute memory tuning                         |
 
 ## [03]-[LAYER_MODEL]
 
 [TYPE_SCOPE]: the `Layer`/`CompositeLayer`/`LayerExtension` lattice — every layer is `_XxxProps<DataT> & (Layer|Composite)Props`, generic over the row type; one lifecycle, one accessor mechanism, one extension hook.
 - primitive `Layer` renders GPU models; `CompositeLayer` renders other layers via `renderLayers()` and bubbles picking through `getSubLayers()`/`getSubLayerProps()`. `LayerExtension` injects shaders/state/props into any layer — the polymorphic capability-injection seam the viewer uses instead of subclassing.
-- the layer lifecycle is `initializeState`/`updateState`/`shouldUpdateState`/`finalizeState`/`draw`/`getPickingInfo`; `CompositeLayer` adds `renderLayers`/`getSubLayerProps`/`getSubLayerAccessor`/`getSubLayerClass`/`getSubLayerRow`, `LayerExtension` mirrors the lifecycle plus `getShaders`/`onNeedsRedraw`. Instance helpers `project`/`unproject`/`projectPosition`, `getBounds`/`getNumInstances`/`getModels` sit on `Layer`; custom `getShaders` include deck's shader modules `project`/`project32`/`picking`/`color`/`gouraudMaterial`/`phongMaterial`/`shadow` + `getShaderAssembler` so GPU code shares deck's projection + picking.
+- Layer lifecycle `initializeState`/`updateState`/`shouldUpdateState`/`finalizeState`/`draw`/`getPickingInfo`; `CompositeLayer` adds `renderLayers`/`getSubLayerProps`/`getSubLayerAccessor`/`getSubLayerClass`/`getSubLayerRow`, `LayerExtension` mirrors the lifecycle plus `getShaders`/`onNeedsRedraw`. Instance helpers `project`/`unproject`/`projectPosition`, `getBounds`/`getNumInstances`/`getModels` sit on `Layer`; custom `getShaders` include deck's shader modules `project`/`project32`/`picking`/`color`/`gouraudMaterial`/`phongMaterial`/`shadow` + `getShaderAssembler` so GPU code shares deck's projection + picking.
 
 | [INDEX] | [SYMBOL]                                      | [SIGNATURE]                              | [CONSUMER_BOUNDARY]                          |
 | :-----: | :-------------------------------------------- | :--------------------------------------- | :------------------------------------------- |
@@ -85,15 +87,15 @@
 |  [09]   | `Tesselator` / `createIterable`               | geometry helpers                         | `fp64LowPart` for custom extruded/path (BIM) |
 
 [TYPE_SCOPE]: `LayerProps` shared axes — one base every layer inherits; the accessor + unit-normalization axes are shared mechanisms, not per-layer props.
-- `Accessor<In,Out> = Out | ((object:In, ctx:AccessorContext<In>) => Out)` — one type owns every `get*` prop across every layer; the function form receives `{index,data,target}` where `target` is a reusable output buffer to skip GC. `updateTriggers` names which accessors to re-evaluate when a closed-over value changes (react-compiler memoizes the tree; `updateTriggers` memoizes GPU attributes — orthogonal planes). The `*Units`/`*Scale`/`*MinPixels`/`*MaxPixels` quartet is one radius/width normalization axis reused by scatterplot/path/polygon/arc/line/column, not a per-layer invention.
-- `data` accepts `LayerData<T>` = `Iterable | {length,attributes} | string(URL) | Promise | AsyncIterable | null`; the `{length,attributes}` form is the Arrow columnar fast path. Projection vocab: `coordinateSystem` (`COORDINATE_SYSTEM.*`), `coordinateOrigin`, `modelMatrix`, `wrapLongitude` (180° meridian), `positionFormat` (`XY`/`XYZ`); the string unions `CoordinateSystem`/`Operation`/`Unit` are the public API, the `COORDINATE_SYSTEM`/`OPERATION`/`UNIT` const maps `@deprecated`.
+- `Accessor<In,Out> = Out | ((object:In, ctx:AccessorContext<In>) => Out)` — one type owns every `get*` prop across every layer; the function form receives `{index,data,target}` where `target` is a reusable output buffer to skip GC. `updateTriggers` names which accessors to re-evaluate when a closed-over value changes (react-compiler memoizes the tree; `updateTriggers` memoizes GPU attributes — orthogonal planes). `*Units`/`*Scale`/`*MinPixels`/`*MaxPixels` form one radius/width normalization axis reused by scatterplot/path/polygon/arc/line/column, not a per-layer invention.
+- `data` accepts `LayerDataSource<T>` = `LayerData<T> | string(URL) | Promise | AsyncIterable | null`, where `LayerData<T>` = `Iterable<T> | {length, attributes}`; the `{length, attributes}` form is the Arrow columnar fast path. Projection vocab: `coordinateSystem` (`CoordinateSystem` string), `coordinateOrigin`, `modelMatrix`, `wrapLongitude` (180° meridian), `positionFormat` (`XY`/`XYZ`), `colorFormat` (`RGBA`/`RGB`); the string unions `CoordinateSystem`/`Operation`/`Unit` are the public API, the `COORDINATE_SYSTEM`/`OPERATION` const maps `@deprecated` in favor of them, `UNIT` a numeric-code map.
 
 | [INDEX] | [SYMBOL]                                    | [TYPE]                                    | [ROLE]                                      |
 | :-----: | :------------------------------------------ | :---------------------------------------- | :------------------------------------------ |
 |  [01]   | `Accessor<In,Out>`                          | `Out \| ((obj,ctx)=>Out)`                 | the `get*` parameterization; `target` reuse |
 |  [02]   | `Position` / `Color`                        | `[n,n,n?]` / `[r,g,b,a?]` (+typed arrays) | accessor output vocab                       |
 |  [03]   | `Unit` / `Operation` / `Material`           | string unions + lighting settings         | dimension unit, render op, PBR material     |
-|  [04]   | `data`                                      | `LayerData<T>` (above)                    | async/URL/promise/binary-columnar source    |
+|  [04]   | `data`                                      | `LayerDataSource<T>` (above)              | async/URL/promise/binary-columnar source    |
 |  [05]   | `dataComparator` / `dataTransform`          | hooks                                     | change detection + pre-render transform     |
 |  [06]   | `_dataDiff` / `fetch`                       | hooks                                     | partial GPU update + custom loader          |
 |  [07]   | `updateTriggers`                            | `Record<string,any>`                      | accessor re-eval discriminant               |
@@ -109,7 +111,7 @@
 [TYPE_SCOPE]: `View`→`Viewport` projection + `Controller` interaction + interpolators — the camera the `viewer/geo/project` seam syncs.
 - a `View` (declarative viewport spec + controller config) makes a `Viewport` (immutable coordinate-transform snapshot) from a `viewState`. `Viewport` is accessor-only: mutate by constructing a new one. `WebMercatorViewport` is the geospatial transform whose `project`/`unproject`/`fitBounds` the overlay-mark and camera-sync rows call. Free-standing `Deck` drives the camera from atom state through `FlyToInterpolator`/`LinearInterpolator`; under `@deck.gl/mapbox` the map owns it.
 - `CommonViewProps` = `{id,x,y,width,height,padding,clear,controller,viewState}`; every `View` exposes `makeViewport({width,height,viewState})`, `clone`, `equals`. `MapViewState` = `{longitude,latitude,zoom,pitch,bearing,min/maxZoom,min/maxPitch,position,nearZ,farZ}`, `MapViewProps` adds `{repeat,orthographic,altitude,fovy,nearZMultiplier,farZMultiplier}`.
-- `Viewport` methods `project(xyz,{topLeft?})`/`unproject(xyz,{topLeft?,targetZ?})`/`projectFlat`/`unprojectFlat`/`getBounds`/`getFrustumPlanes`/`containsPixel`/`getDistanceScales`; `WebMercatorViewport` adds `fitBounds([[lng,lat],[lng,lat]],{padding,maxZoom,minExtent,offset})`, `addMetersToLngLat`, `panByPosition3D`. `ControllerOptions` = `{scrollZoom,dragPan,dragRotate,doubleClickZoom,touchZoom,touchRotate,keyboard,dragMode,inertia,maxBounds}`; concrete controllers `MapController`/`OrbitController`/`TerrainController`/`_GlobeController`/`FirstPersonController` extend `Controller`.
+- `Viewport` methods `project(xyz,{topLeft?})`/`unproject(xyz,{topLeft?,targetZ?})`/`projectFlat`/`unprojectFlat`/`getBounds`/`getFrustumPlanes`/`containsPixel`/`getDistanceScales`; `WebMercatorViewport` adds `fitBounds([[lng,lat],[lng,lat]],{padding,maxZoom,minExtent,offset})`, `addMetersToLngLat`, `panByPosition`/`panByPosition3D`. `ControllerProps` (the exported controller config) folds the interaction toggles `{scrollZoom,dragPan,dragRotate,doubleClickZoom,touchZoom,touchRotate,keyboard,dragMode,inertia,maxBounds}` plus transition props; concrete controllers `MapController`/`OrbitController`/`OrthographicController`/`TerrainController`/`_GlobeController`/`FirstPersonController` extend `Controller`.
 - `InteractionState` = `{isDragging,isPanning,isRotating,isZooming,inTransition}`; `ViewStateChangeParameters` = `{viewId,viewState,oldViewState,interactionState}`; camera transitions `FlyToInterpolator({curve,speed,maxDuration})` and `LinearInterpolator({transitionProps,around})` under `TransitionInterpolator`, driven from atom state.
 
 | [INDEX] | [SYMBOL]                                        | [SIGNATURE]                        | [CONSUMER_BOUNDARY]                             |
@@ -122,7 +124,7 @@
 |  [06]   | `_GlobeView` / `_GlobeViewport`                 | globe transform                    | 3D globe (`_` overlay)                          |
 |  [07]   | `Viewport`                                      | methods above                      | immutable screen↔world; BCF/overlay anchor math |
 |  [08]   | `WebMercatorViewport`                           | + `fitBounds` (above)              | geospatial camera fit + meter offsets           |
-|  [09]   | `Controller`                                    | `ControllerOptions` (above)        | interaction config per view                     |
+|  [09]   | `Controller`                                    | `ControllerProps` (above)          | interaction config per view                     |
 |  [10]   | `InteractionState`                              | fields above                       | drag/pan/rotate/zoom flags                      |
 |  [11]   | `ViewStateChangeParameters`                     | fields above                       | `onViewStateChange` payload → atom camera fold  |
 |  [12]   | `FlyToInterpolator`                             | ctor above                         | animated geo camera transition                  |
@@ -133,7 +135,7 @@
 
 [TYPE_SCOPE]: `PickingInfo` (the pick result), the `Effect` compositing pipeline, and the `Widget` HUD base.
 - `PickingInfo<DataT,ExtraInfo>` is generic — `object: DataT` is the picked row and layers extend `ExtraInfo` (e.g. `MVTLayerPickingInfo` adds the tile). `Effect` is the pre/post-render pass interface: `LightingEffect` composites lights + shadows, `PostProcessEffect` wraps a shadertools `ShaderPass` for screen-space effects. `Widget` is the imperative HUD base (core ships the base only; `@deck.gl/widgets` is unadmitted).
-- `PickingInfo` fields `{object?:DataT,index,picked,layer,sourceLayer,coordinate?,pixel?,x,y,viewport?,pixelRatio,color} & ExtraInfo`; `Effect` fields `{id,props,order?,useInPicking?,preRender,postRender?,getShaderModuleProps?,setup,setProps?,cleanup}`; `Widget<PropsT,ViewsT>` lifecycle `onAdd`/`onRemove`/`onRenderHTML`/`onViewportChange`/`onRedraw`/`onHover`/`onClick`, props `WidgetProps` = `{id,style,className,_container,placement}` + `WidgetPlacement`. `LightingEffect({ambient,dir1,point1,…})` builds the light rig.
+- `PickingInfo` fields `ExtraInfo & {object?:DataT,index,picked,layer,sourceLayer?,coordinate?,pixel?,devicePixel?,x,y,viewport?,pixelRatio,color}`; `Effect` fields `{id,props,order?,useInPicking?,preRender,postRender?,getShaderModuleProps?,setup,setProps?,cleanup}`; `Widget<PropsT,ViewsT>` lifecycle `onAdd`/`onRemove`/`onRenderHTML`/`onViewportChange`/`onRedraw`/`onHover`/`onClick`/`onDrag`/`onDragStart`/`onDragEnd`, props `WidgetProps` = `{id,style,className,_container}` with `placement:WidgetPlacement`/`className` as abstract class members. `LightingEffect({ambient,dir1,point1,…})` builds the light rig from a `Record<string,Light>`.
 
 | [INDEX] | [SYMBOL]                                    | [SIGNATURE]                            | [CONSUMER_BOUNDARY]                           |
 | :-----: | :------------------------------------------ | :------------------------------------- | :-------------------------------------------- |
@@ -149,8 +151,8 @@
 ## [06]-[IMPLEMENTATION_LAW]
 
 [ENGINE_TOPOLOGY]:
-- one instance, one loop: a `Deck` owns its luma.gl `Device`, `AnimationLoop`, and canvas; it renders outside the Effect/atom fold on its own rAF cadence. The viewer holds exactly one `Deck` (or one `MapboxOverlay` wrapping one `Deck`) per map surface — a second engine on the same canvas is the named defect.
-- declarative in, imperative sink: `layers`/`viewState`/`effects` are pure values derived from the `@effect-atom` state fold; `Deck.setProps` is the single imperative sink where the value tree meets the GPU. The engine diffs against prior props and touches only changed attributes — never rebuild the `Deck`, always `setProps`.
+- one instance, one loop: a `Deck` owns its luma.gl `Device`, `AnimationLoop`, and canvas; it renders outside the Effect/atom fold on its own rAF cadence. `viewer` holds exactly one `Deck` (or one `MapboxOverlay` wrapping one `Deck`) per map surface — a second engine on the same canvas is the named defect.
+- declarative in, imperative sink: `layers`/`viewState`/`effects` are pure values derived from the `@effect-atom` state fold; `Deck.setProps` is the single imperative sink where the value tree meets the GPU. `Deck` diffs against prior props and touches only changed attributes — never rebuild it, always `setProps`.
 - immutable viewports: `Viewport` is accessor-only; camera moves construct a new `WebMercatorViewport`. Coordinate math (`project`/`unproject`/`fitBounds`) is pure and side-effect-free — safe to call inside a derived atom for BCF/overlay anchor placement.
 - accessor is the collapse: every `get*` across every layer is one `Accessor<In,Out>`; a "new styling rule" is a function accessor + an `updateTriggers` key, never a new prop or layer. Enumerated per-object variation lives in the accessor closure, not in parallel props.
 
@@ -163,7 +165,7 @@
 
 [LOCAL_ADMISSION]:
 - imported only inside the `ui/viewer` Nx project (`scope:viewer`); the `ui` core never resolves it — heavy GPU deps stay compile-time excluded from non-spatial apps.
-- the `Deck` is a bracketed resource, never an Effect service — its render loop is imperative by construction; wrapping the loop itself in Effect is a category error.
+- `Deck` is a bracketed resource, never an Effect service — its render loop is imperative by construction; wrapping the loop itself in Effect is a category error.
 - `@deck.gl/react` is unadmitted on purpose: bind imperatively through a React 19 ref callback, never reach for `<DeckGL>`. Core ships only the `LayerExtension`/`Widget` bases; `@deck.gl/extensions` is admitted centrally as the concrete `LayerExtension` roster (`.api/deck.gl-extensions.md`), while `@deck.gl/aggregation-layers`/`@deck.gl/widgets` stay absent.
 - peer substrate (`luma.gl`/`math.gl`/`mjolnir.js`/`loaders.gl`) is deck-owned and never imported directly; touch it only through deck props (`device`, `parameters`, `loaders`, `loadOptions`).
 

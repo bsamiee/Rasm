@@ -63,7 +63,7 @@ type Doc<A> =
 
 [PUBLIC_TYPE_SCOPE]: typeclass instances (annotation-parametric)
 - rail: render
-- The instances make `Doc<A>` a first-class monoidal, mappable value; compose documents with `effect/Monoid` folds and retarget annotations with the `Covariant` map instead of restructuring the tree.
+- Instances make `Doc<A>` a first-class monoidal, mappable value; compose documents with `effect/Monoid` folds and retarget annotations with the `Covariant` map instead of restructuring the tree.
 
 | [INDEX] | [SYMBOL]                                       | [TYPE_FAMILY] | [RAIL]                                                     |
 | :-----: | :--------------------------------------------- | :------------ | :--------------------------------------------------------- |
@@ -99,7 +99,7 @@ type Doc<A> =
 
 [ENTRYPOINT_SCOPE]: layout combinators (`Doc`)
 - rail: render
-- The layout-decision surface: `group` is the fit-or-break primitive (tries the flattened form, falls back on overflow); `flatAlt`/`union` supply the two alternatives it chooses between. `nest`/`align`/`hang`/`indent` control indentation; `column`/`nesting`/`width`/`pageWidth` react to the current render position. All are dual (data-first and data-last) where they take a numeric or doc argument.
+- Layout-decision surface: `group` is the fit-or-break primitive (tries the flattened form, falls back on overflow); `flatAlt`/`union` supply the two alternatives it chooses between. `nest`/`align`/`hang`/`indent` control indentation; `column`/`nesting`/`width`/`pageWidth` react to the current render position. All are dual (data-first and data-last) where they take a numeric or doc argument.
 
 | [INDEX] | [SURFACE]                                    | [ENTRY_FAMILY] | [RAIL]                                                       |
 | :-----: | :------------------------------------------- | :------------- | :----------------------------------------------------------- |
@@ -160,7 +160,7 @@ type Doc<A> =
 - `Doc<A>` is an immutable algebraic tree; `A` is a phantom annotation carried unchanged through every combinator and resolved only by a renderer or `reAnnotate`. Layout and annotation are orthogonal axes — never encode color/markup as text nodes.
 - rendering is a two-stage pipeline: a layout algorithm (`pretty`/`smart`/`compact`) lowers `Doc<A>` to the `DocStream<A>` token stream, then `renderStream` folds the stream to `string`. `Doc.render` collapses both stages behind one `RenderConfig` discriminant.
 - `group` is the sole fit-or-break decision point; layout width is governed by the active `PageWidth` (`AvailablePerLine` ribbon or `Unbounded`). Never compute column positions manually — use `column`/`nesting`/`width`/`pageWidth`.
-- the separator folds (`hsep`/`vsep`/`fillSep`/`hcat`/`vcat`/`fillCat`/`seps`) are fixed rows over `concatWith`, and `list`/`tupled` are fixed rows over `encloseSep`; extend by choosing the parameterized owner with a new separator/delimiter, never by hand-rolling a `reduce`.
+- Separator folds (`hsep`/`vsep`/`fillSep`/`hcat`/`vcat`/`fillCat`/`seps`) are fixed rows over `concatWith`, and `list`/`tupled` are fixed rows over `encloseSep`; extend by choosing the parameterized owner with a new separator/delimiter, never by hand-rolling a `reduce`.
 
 [STACKS_WITH]:
 - `@effect/printer-ansi` (`.api/effect-printer-ansi.md`): the ANSI renderer instantiates `A = Ansi`. `AnsiDoc = Doc<Ansi>`; `Ansi.color`/`bold`/`underlined` are the concrete annotations that `Doc.annotate` attaches, and `AnsiDoc.render` (not `Doc.render`) is the terminal renderer that resolves `Ansi` to SGR escape codes via the `Push/PopAnnotation` stream events. Author documents once against abstract `Doc<A>`; bind `A` at the terminal edge.
@@ -168,7 +168,7 @@ type Doc<A> =
 - `effect` (`.api/effect.md`): the `Doc` union is refined with `Match.type<Doc<A>>().pipe(Match.tag(...))` for structure-aware backends; `Doc.getMonoid`/`getSemigroup` plug into `effect/Array.combineAll` folds, and `Doc.Covariant` into `effect/Effect.map`-style annotation retargeting. `Doc.render` is a pure `string` producer wrapped in `Effect.sync` at the effectful edge.
 
 [LOCAL_ADMISSION]:
-- The `cli/render` folder authors output as `Doc<Ansi>` (the `AnsiDoc` alias), composing structure with the concatenation/layout/enclosure combinators and semantic markup with `Doc.annotate`, then folds to a terminal string at the boundary with `AnsiDoc.render`. Prose columns use `reflow`/`fill`; tables use `align`/`encloseSep`.
+- `cli/render` folder authors output as `Doc<Ansi>` (the `AnsiDoc` alias), composing structure with the concatenation/layout/enclosure combinators and semantic markup with `Doc.annotate`, then folds to a terminal string at the boundary with `AnsiDoc.render`. Prose columns use `reflow`/`fill`; tables use `align`/`encloseSep`.
 - Keep `A` abstract in reusable render helpers (`Doc<A>` in, `Doc<A>` out); resolve `A` to `Ansi` only at the leaf where a color/weight is chosen, so the same document renders plain or styled by swapping the renderer.
 - Choose the algorithm by intent: `pretty` for normal terminal output, `smart` for deeply-nested structures needing earlier breaks, `compact`/`Unbounded` for machine-readable single-line emission (log lines, `--json`-adjacent plain forms).
 

@@ -1,6 +1,6 @@
 # [DEFECTS]
 
-Classes here are the failures only an instruction bundle can commit; a finding cites the class and line, and each class owns the copyable before-and-after that repairs it, so detection and fix have one owner. Repair the trigger before the body — a body no task selects is dead law. Prose-register defects inside bundle files — hedges, meta-frames, ledgers, litanies — belong to the docgen catalog and are cited from there.
+Classes here are the failures only an instruction bundle can commit; a finding cites the class and line, and each class owns the copyable before-and-after that repairs it, so detection and fix have one owner. Repair the trigger before the body — a body no task selects is dead law.
 
 ## [01]-[TRIGGER_CLASSES]
 
@@ -276,31 +276,7 @@ Body accretes one guard per past incident until dead threats outweigh live law.
 - Reason: A skill is an executable supply-chain artifact; an instructed fetch is an injection channel wearing documentation.
 - Reframe: Bundle the mechanics; an owned install surface carries source, scope, and verification in one row.
 
-### [03.15]-[DECORATIVE_DIAGRAM]
-
-A fence restates the table beside it, so every activation pays render validation and reader traversal for information the prose already carries.
-
-- Detection: A diagram fence restating an adjacent table, roster, or two-step sequence — no topology, state, or flow the prose fails to carry.
-- Rejected:
-    ```mermaid rejected
-    flowchart LR
-      accTitle: Decorative reading-order chain
-      accDescr: A linear description-to-references chain restating the loading tiers in reading order.
-      A[description] --> B[SKILL.md] --> C[references]
-    ```
-- Accepted:
-    ```mermaid accepted
-    flowchart TD
-      accTitle: Eval-miss routing
-      accDescr: Each eval-miss class routes to the repair surface that owns it.
-      M{eval miss} -->|must-fire miss| D[starved discriminant: repair the first clause]
-      M -->|must-not-fire hit| B[collision: repair both descriptions]
-      M -->|adherence tie| L[dead law: delete the body rule]
-    ```
-- Reason: The rejected fence repeats an adjacent table in reading order and carries no structure; the accepted fence is a dispatch whose labeled edges route each miss class to its repair surface — shape is the content.
-- Reframe: Admit a fence only where edges carry routing, state, or interaction that prose spends a paragraph per arm to state; construction and render validation ride the mermaid-diagramming skill.
-
-### [03.16]-[INERT_EXAMPLE]
+### [03.15]-[INERT_EXAMPLE]
 
 - Detection: An example whose accepted half cannot drop into a template or live bundle unchanged — narrative retelling, elided bodies, placeholder residue.
 - Rejected: An entry narrating how a weak description was once improved, with the improved description elided.
@@ -308,7 +284,7 @@ A fence restates the table beside it, so every activation pays render validation
 - Reason: Examples exist because agents copy; a pair that resists copying calibrates nothing and feeds no template.
 - Reframe: Rebuild the pair at copyable scale or delete it; templates distill from examples, and an example no template inherits is an illustration.
 
-### [03.17]-[FORM_MISMATCH]
+### [03.16]-[FORM_MISMATCH]
 
 A well-founded instruction wears the wrong form for its failure, so it misfires the way the wrong tool does.
 

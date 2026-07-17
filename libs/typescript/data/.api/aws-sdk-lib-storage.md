@@ -1,13 +1,13 @@
 # [TS_DATA_API_AWS_SDK_LIB_STORAGE]
 
-`@aws-sdk/lib-storage` ships one class: `Upload` takes the object plane's live `S3Client` plus a `params` record and moves a body of unknown or streaming length — below the part threshold it issues one `PutObject`, above it it creates a multipart upload, fans `UploadPart` calls across a `queueSize`-wide queue at `partSize` bytes each, and completes atomically. The load-bearing verified fact: `params` is typed `PutObjectCommandInput & Partial<CreateMultipartUploadCommandInput & UploadPartCommandInput & CompleteMultipartUploadCommandInput>` and the implementation spreads `...params` into the `PutObjectCommand`, the `CreateMultipartUploadCommand`, and the `CompleteMultipartUploadCommand` alike — so `IfNoneMatch: "*"` on `params` rides the single-shot put AND the multipart complete, and the content-addressed 412-noop algebra holds unchanged for a streaming body the hand-composed part fold cannot serve without buffering. `abort()` (or an injected `abortController`) tears down in flight and issues `AbortMultipartUpload`; `httpUploadProgress` events carry per-part progress.
+`@aws-sdk/lib-storage` ships one class: `Upload` takes the object plane's live `S3Client` plus a `params` record and moves a body of unknown or streaming length — below the part threshold it issues one `PutObject`, above it it creates a multipart upload, fans `UploadPart` calls across a `queueSize`-wide queue at `partSize` bytes each, and completes atomically. `params` carries the load-bearing type `PutObjectCommandInput & Partial<CreateMultipartUploadCommandInput & UploadPartCommandInput & CompleteMultipartUploadCommandInput>`, and the implementation spreads `...params` into the `PutObjectCommand`, the `CreateMultipartUploadCommand`, and the `CompleteMultipartUploadCommand` alike — so `IfNoneMatch: "*"` on `params` rides the single-shot put AND the multipart complete, and the content-addressed 412-noop algebra holds unchanged for a streaming body the hand-composed part fold cannot serve without buffering. `abort()` (or an injected `abortController`) tears down in flight and issues `AbortMultipartUpload`; `httpUploadProgress` events carry per-part progress.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@aws-sdk/lib-storage`
 - package: `@aws-sdk/lib-storage`
 - license: `Apache-2.0`
-- peer: `@aws-sdk/client-s catalog` (the client and command inputs it composes; `.api/aws-sdk-client-s3.md`)
+- peer: `@aws-sdk/client-s3` (the client and command inputs it composes; `.api/aws-sdk-client-s3.md`)
 - module format: ESM/CJS dual (`dist-es`/`dist-cjs`/`dist-types`), `sideEffects: false`
 - runtime: node and browser runtime configs ship; the data plane composes it server-side
 - rail: the streaming-put arm of `object/store` and the finalize re-home of `object/stream`

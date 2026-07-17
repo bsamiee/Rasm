@@ -10,7 +10,7 @@
 - import: `@pulumiverse/acme` → `{ Registration, Certificate, Provider, getServerUrl, getServerUrlOutput, types }`
 - owner: `iac`
 - rail: fabric / cert (the CA-trusted lane beside `@pulumi/tls`'s self-signed lane)
-- runtime: Node deploy-host; DNS-0 catalog needs the DNS provider API reachable, HTTP/TLS challenges need the target host to answer on 80/443
+- runtime: Node deploy-host; DNS-01 needs the DNS provider API reachable, HTTP/TLS challenges need the target host to answer on 80/443
 - depends-on: `@pulumi/pulumi`; composes `@pulumi/tls` (CSR mode), `@pulumi/cloudflare` (the challenged zone), `@pulumiverse/doppler` (challenge credentials)
 - capability: ACME account registration (EAB-capable), certificate order/issue/renew as one resource lifecycle, DNS-01/HTTP-01/TLS-ALPN challenge rows, CSR-mode or provider-minted keys, ARI-driven renewal windows, revoke-on-destroy
 - abi-note: every `Certificate` output mirrors its arg resolved through `Output<T>`; the issued material rides `certificatePem`/`issuerPem`/`privateKeyPem` with the private key state-encrypted and present only when the provider minted the key
@@ -33,7 +33,7 @@
 
 [CERTIFICATE_SCOPE]: the one lifecycle resource
 - rail: cert
-- Two key postures on one resource: provider-minted (`commonName` + `subjectAlternativeNames` + `keyType`, the key lands in `privateKeyPem`) or CSR mode (`certificateRequestPem` from a `tls.CertRequest`, the key never leaves the `tls` owner), mutually exclusive. `accountKeyPem` is the required account bind; exactly one challenge family activates per certificate. The DNS-01 rows are `dnsChallenges: Input<Input<CertificateDnsChallenge>[]>`, each element `{ provider: Input<string>, config?: Input<{[k]: Input<string>}> }` — the lego provider slug plus its credential map. The non-DNS rows carry `httpChallenge` `{port?, proxyHeader?}`, `httpWebrootChallenge` `{directory}`, `httpMemcachedChallenge` `{hosts}`, `httpS3Challenge` `{s3Bucket}`, `tlsChallenge` `{port?}`.
+- Two key postures on one resource: provider-minted (`commonName` + `subjectAlternativeNames` + `keyType`, the key lands in `privateKeyPem`) or CSR mode (`certificateRequestPem` from a `tls.CertRequest`, the key never leaves the `tls` owner), mutually exclusive. `accountKeyPem` is the required account bind; exactly one challenge family activates per certificate. DNS-01 rows are `dnsChallenges: Input<Input<CertificateDnsChallenge>[]>`, each element `{ provider: Input<string>, config?: Input<{[k]: Input<string>}> }` — the lego provider slug plus its credential map. Non-DNS rows carry `httpChallenge` `{port?, proxyHeader?}`, `httpWebrootChallenge` `{directory}`, `httpMemcachedChallenge` `{hosts}`, `httpS3Challenge` `{s3Bucket}`, `tlsChallenge` `{port?}`.
 
 | [INDEX] | [MEMBER]                                                                     | [SHAPE_MEANING]                                           |
 | :-----: | :--------------------------------------------------------------------------- | :-------------------------------------------------------- |
@@ -45,7 +45,7 @@
 |  [06]   | `httpS3Challenge` / `tlsChallenge`                                           | S3-served + TLS-ALPN rows (shapes in lead)                |
 |  [07]   | `recursiveNameservers` / `disableCompletePropagation`                        | DNS-01 propagation: resolver + skip-check                 |
 |  [08]   | `preCheckDelay` / `propagationWait`                                          | DNS-01 propagation timing                                 |
-|  [09]   | `minDaysRemaining` / `useRenewalInfo`                                        | renewal threshold days + ARI toggle                       |
+|  [09]   | `minDaysRemaining` / `minDaysDynamic` / `useRenewalInfo`                     | fixed-days + lifetime-fraction threshold, ARI toggle      |
 |  [10]   | `renewalInfoMaxSleep` / `renewalInfoIgnoreRetryAfter`                        | ARI max-sleep + retry-after override                      |
 |  [11]   | `revokeCertificateOnDestroy` / `revokeCertificateReason`                     | revoke on teardown + reason                               |
 |  [12]   | `deactivateAuthorizations`                                                   | deactivate pending authz on teardown                      |
@@ -64,7 +64,7 @@
 - lane law: three cert lanes, one sink shape — `Certs.root`/`issue` (self-signed, mesh-internal), cert-manager CRDs (in-cluster ACME on the k8s arm), and this package (CA-trusted, cluster-external); a hostname served to browsers from the docker arm or bare metal issues here, and duplicating an in-cluster cert-manager issuance through this provider is the split-brain the lane split forbids.
 - CSR law: prefer the CSR posture — `tls.PrivateKey → tls.CertRequest → Certificate.certificateRequestPem` keeps every private key in the one `tls` owner (`.api/pulumi-tls.md`) and the issued `certificatePem`/`issuerPem` join that key at the sink; the minted posture is admitted only where a P12 bundle (`certificateP12`) is the consumer's required form.
 - challenge law: DNS-01 through `dnsChallenges: [{ provider: "cloudflare", config }]` against the zone the traffic rows manage — the config map binds Doppler fan-in reads (`.api/pulumiverse-doppler.md`), never literals, and the HTTP/TLS/webroot/S3/memcached rows exist for hosts a DNS API cannot reach; wildcard names are DNS-01-only.
-- rotation law: renewal is this resource's own diff — inside `minDaysRemaining` (or the ARI-selected window under `useRenewalInfo`) the next `up` reissues as an `update` step the drift fold surfaces, the exact analog of `earlyRenewalHours`/`readyForRenewal` on the self-signed lane; deleting a certificate to rotate it is the same named defect.
+- rotation law: renewal is this resource's own diff — inside `minDaysRemaining` (or `minDaysDynamic`, which derives the threshold as one-third the certificate lifetime and excludes `minDaysRemaining`, or the ARI-selected window under `useRenewalInfo`) the next `up` reissues as an `update` step the drift fold surfaces, the exact analog of `earlyRenewalHours`/`readyForRenewal` on the self-signed lane; deleting a certificate to rotate it is the same named defect.
 - account law: one `Registration` per directory per estate, `serverUrl` as provider data — a staging directory for proof stacks, production for live ones, switched by provider construction, never by resource edits; `revokeCertificateOnDestroy: true` wherever a torn-down stack must not leave a live cert.
 
 [RAIL_LAW]:

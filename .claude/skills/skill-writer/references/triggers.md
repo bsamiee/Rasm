@@ -1,11 +1,10 @@
 # [TRIGGERS]
 
-Selection is a one-shot classification over name and description alone, run against every installed sibling on every prompt; the body never influences the choice. Under-triggering dominates the failure field — a skill that never fires teaches nothing — so descriptions lean assertive about the work they own while a single negative boundary keeps them off the neighbors' work.
+Selection is a one-shot classification over name and description alone, run against every installed sibling on every prompt; the body never influences the choice. Under-triggering dominates the failure field, descriptions lean assertive about the work they own while a single negative boundary keeps them off the neighbors' work.
 
 ## [01]-[CONSTRUCTION]
 
 Description construction runs in fixed order because truncation eats from the tail:
-
 - [DELIVERABLE]: First clause names what the skill produces or owns, as a total claim — the one fact that survives every truncation. It names the deliverable, never the procedure that makes it: a description enumerating the skill's internal steps invites the model to obey the description and skip the loaded body, collapsing a multi-step method to a single pass; the method lives in the body, the description carries the produced artifact and the triggers that select it.
 - [DISCRIMINANTS]: Concrete objects and verbs that select the skill — file kinds, fence kinds, commands, artifact names, verb-plus-object trigger contexts. Precision comes from discriminating nouns, never from breadth or synonym volume.
 - [UTTERANCES]: Quoted user phrasings that select the skill even when the domain noun is absent — the phrases a task actually arrives wearing.
@@ -20,14 +19,11 @@ Selection gates on task substance as well as description quality: the model cons
 ## [02]-[LISTING_ECONOMICS]
 
 A budgeted listing shapes authoring law:
-
 - Names always survive; descriptions are what the budget spends. Default budget is 1% of the model's context window, raised by `skillListingBudgetFraction` or fixed in characters by `SLASH_COMMAND_TOOL_CHAR_BUDGET`.
 - Under overflow, the least-invoked skills lose their descriptions first — a rarely used skill degrades to a bare name, keeping invocability while losing trigger semantics. Frequency of use is earned protection.
 - Each entry's combined description text truncates at 1536 characters regardless of budget (`skillListingMaxDescChars`); 1024 is the open-standard validation cap on `description`, so a description authored to 1024 survives both the listing truncation and every other loader's validation.
 - `skillOverrides` sets per-skill visibility without editing the bundle: `on`, `name-only`, `user-invocable-only`, `off`. Demoting low-priority siblings to `name-only` frees budget for the skills whose triggers matter.
 - `/doctor` reports which descriptions are shortened or dropped; `/context` reports the listing's post-budget size. A skill that mysteriously stopped firing is checked here before its description is rewritten.
-
-Codex-side listing budgets, discovery roots, and format deltas are the codex skill's authoring reference; a port keeps the same description and inherits that loader's truncation behavior.
 
 ## [03]-[INVOCATION_MODES]
 
@@ -48,7 +44,6 @@ Two skills matching one prompt is a boundary defect on both, repaired in both de
 ## [05]-[DESCRIPTION_AB]
 
 Description tuning is a measured competition, never a rewrite on taste:
-
 - [CANDIDATES]: Rival descriptions vary the discriminants, utterances, and boundary while holding the first clause fixed — the deliverable claim is identity, not a tuning surface.
 - [MEASUREMENT]: Every candidate runs the same must-fire and must-not-fire sets under the eval loop's holdout split; the adopted winner is the one that wins on the held-out half, and a candidate that wins only its tuning half memorized phrasings.
 - [NEIGHBOR_PROOF]: Winner re-runs every adjacent sibling's must-not-fire set before shipping; a candidate that wins its own suite and fires on a neighbor's queries is a collision, repaired symmetrically on both descriptions.

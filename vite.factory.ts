@@ -320,7 +320,6 @@ const config: {
                 ignored: [
                     '**/node_modules/**',
                     '**/.git/**',
-
                     '**/dist/**',
                     '**/build/**',
                     '**/out/**',

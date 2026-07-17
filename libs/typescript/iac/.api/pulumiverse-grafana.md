@@ -1,18 +1,18 @@
 # [TS_IAC_API_PULUMIVERSE_GRAFANA]
 
 [PACKAGE_SURFACE]:
-- package: `@pulumiverse/grafana` · version `` · license `Apache-2.0`
-- module: CJS (`type: commonjs`); barrel `index.d.ts` re-exports `provider` flat + 18 resource namespaces + `types` as `import * as ns`.
+- package: `@pulumiverse/grafana` · license `Apache-2.0`
+- module: CJS (`type: commonjs`); barrel `index.d.ts` re-exports `provider` flat, one `import * as ns` per resource namespace, plus `config` and `types`.
 - asset: `index.d.ts` (barrel), `provider.d.ts` (the `Provider` + `ProviderArgs`), one `.d.ts` per resource under each namespace folder (class + `Args` + `State`, or a `get*` data-source fn).
-- target: a Pulumi bridged provider (Terraform-bridge over the Grafana TF provider). The JS package is the typed SDK ONLY; the `pulumi-resource-grafana` plugin binary is a deploy-host fact resolved by the Pulumi CLI / `LocalWorkspace.installPlugin` at `up` time — never a JS import.
+- target: a Pulumi bridged provider (Terraform-bridge over the Grafana TF provider). JS package is the typed SDK ONLY; the `pulumi-resource-grafana` plugin binary is a deploy-host fact resolved by the Pulumi CLI / `LocalWorkspace.installPlugin` at `up` time — never a JS import.
 - plane: `plane:deploy` — the generated ban list scopes `@pulumi/*` and `@pulumiverse/*` to `iac` alone; depended on by nothing at runtime.
 - rail: deployment / observability-resource.
 
-`@pulumiverse/grafana` is the terminal applier of the `observe/apply` page: the `telemetry/board` design functions emit dashboard models and alert specs, and this provider realizes them as Grafana resources — `oss.Dashboard`/`oss.Folder`/`oss.DataSource` for the boards, `alerting.RuleGroup`/`alerting.ContactPoint`/`alerting.NotificationPolicy` for the alerts, `slo.Slo` for SLOs — inside the same Automation-API inline program that stands up the LGTM stack via `@pulumi/kubernetes` `helm.v4`. Every resource is a row on the `@pulumi/pulumi` `CustomResource` model (`pulumi-pulumi.md`); this package adds Grafana's resource vocabulary, not a new deployment mechanism.
+`@pulumiverse/grafana` is the terminal applier of the `observe/apply` page: the `telemetry/board` design functions emit dashboard models and alert specs, and this provider realizes them as Grafana resources — `oss.Dashboard`/`oss.Folder`/`oss.DataSource` for the boards, `alerting.RuleGroup`/`alerting.ContactPoint`/`alerting.NotificationPolicy` for the alerts, `slo.SLO` for SLOs — inside the same Automation-API inline program that stands up the LGTM stack via `@pulumi/kubernetes` `helm.v4`. Every resource is a row on the `@pulumi/pulumi` `CustomResource` model (`pulumi-pulumi.md`); this package adds Grafana's resource vocabulary, not a new deployment mechanism.
 
 ## [01]-[PROVIDER]
 
-One `Provider` (a `pulumi.ProviderResource`) carries the full auth surface; every resource either rides package-wide config or takes an explicit `Provider` via `opts.provider`. The `auth` token is Doppler-sourced (`secret/doppler`), passed as a `pulumi.Input<string>` — never inline.
+One `Provider` (a `pulumi.ProviderResource`) carries the full auth surface; every resource either rides package-wide config or takes an explicit `Provider` via `opts.provider`. `auth` token is Doppler-sourced (`secret/doppler`), passed as a `pulumi.Input<string>` — never inline.
 
 | [INDEX] | [SYMBOL]       | [TYPE_FAMILY]             | [CAPABILITY_BOUNDARY]                              |
 | :-----: | :------------- | :------------------------ | :------------------------------------------------- |
@@ -49,7 +49,7 @@ export interface ProviderArgs {
 Every resource in every namespace is the SAME parameterized shape — not a per-resource API. Documenting it once is the mechanism; the namespace roster in [03] is seed data. Each class extends `pulumi.CustomResource`, each carries an input `*Args` and a rehydration `*State`, and each namespace pairs resources with `get*` data-source functions.
 
 ```ts signature
-// The uniform resource shape (exemplar: oss.Folder — every resource matches this).
+// Uniform resource shape (exemplar: oss.Folder — every resource matches this).
 export declare class Folder extends pulumi.CustomResource {
   constructor(name: string, args: FolderArgs, opts?: pulumi.CustomResourceOptions)   // opts.provider = the Provider
   static get(name: string, id: pulumi.Input<pulumi.ID>, state?: FolderState, opts?: pulumi.CustomResourceOptions): Folder
@@ -58,18 +58,18 @@ export declare class Folder extends pulumi.CustomResource {
 }
 export interface FolderArgs { title: pulumi.Input<string>; uid?: pulumi.Input<string>; parentFolderUid?: pulumi.Input<string>; orgId?: pulumi.Input<string>; preventDestroyIfNotEmpty?: pulumi.Input<boolean> }
 export interface FolderState { /* every Args field, optional, for adoption via get() */ }
-// The uniform data-source shape (exemplar: oss.getDashboard):
+// Uniform data-source shape (exemplar: oss.getDashboard):
 export declare function getDashboard(args?: GetDashboardArgs, opts?: pulumi.InvokeOptions): Promise<GetDashboardResult>
 ```
 
 ## [03]-[NAMESPACE_ROSTER]
 
-18 resource namespaces + `types` + the `Provider`, all SEED DATA on the [02] pattern. The telemetry consumer touches `oss`, `alerting`, and `slo` (full rosters below); the rest are prepared rows a future capability finalizes.
+Resource namespaces plus `types` and `config` are SEED DATA on the [02] pattern; a new namespace is a new row, never a new mechanism. Telemetry consumers touch `oss`, `alerting`, and `slo` (rosters below); every other namespace is a prepared row a future capability finalizes.
 
-[CONSUMED]: the three telemetry-touched namespaces and their full resource rosters
-- [01]-`oss` (boards): `Dashboard` (`DashboardArgs { configJson (required), folder?, message?, orgId?, overwrite? }`), `DashboardPublic`, `Folder`, `DataSource`, `DataSourceConfig`, `LibraryPanel`, `Playlist`, `Organization`, `Team`, `User`, `ServiceAccount`, `ServiceAccountToken`, `SsoSettings`, `Annotation` + `get*`.
+[CONSUMED]: the three telemetry-touched namespaces and their resource rosters
+- [01]-`oss` (boards): `Dashboard` (`DashboardArgs { configJson (required), folder?, message?, orgId?, overwrite? }`), `DashboardPublic`, `Folder`, `DataSource`, `DataSourceConfig`, `LibraryPanel`, `Playlist`, `Organization`, `OrganizationPreferences`, `Team`, `User`, `ServiceAccount`, `ServiceAccountToken`, `ServiceAccountRotatingToken`, `SsoSettings`, `Annotation`, plus a `<resource>Permission`/`<resource>PermissionItem` RBAC grant pair per dashboard, folder, and service account, and `get*` data sources.
 - [02]-`alerting` (alerts): `RuleGroup` (`RuleGroupArgs { folderUid (required), intervalSeconds (required), rules (required), name?, orgId?, disableProvenance? }`), `ContactPoint` (`name` + one array per channel: `emails`, `slacks`, `webhooks`, …), `NotificationPolicy`, `MuteTiming`, `MessageTemplate`, `AlertEnrichment`, `AlertRuleV0Alpha1`, `RecordingRuleV0Alpha1`.
-- [03]-`slo` (SLOs): `Slo` + `getSlos`.
+- [03]-`slo` (SLOs): `SLO` + `getSlos`.
 
 [PREPARED]: the remaining namespaces on the same pattern (`types` is the shared interface library, not a resource row)
 
@@ -89,11 +89,11 @@ export declare function getDashboard(args?: GetDashboardArgs, opts?: pulumi.Invo
 
 ## [04]-[INTEGRATION]
 
-[STACK: `@pulumi/pulumi` `Output`/`Input`] — resources bind to the LGTM stack outputs, not literals. The Prometheus/Loki/Tempo service URLs the `observe/stack` Helm release exposes are `Output<string>`; an `oss.DataSource` takes them directly (`{ url: prometheus.url, type: "prometheus" }`), and `pulumi.interpolate`/`Output.apply` weave dashboard JSON that references those data-source UIDs. `storeDashboardSha256: true` makes the drift diff compare dashboard content hashes, aligning with the kernel `ContentKey` discipline.
+[STACK: `@pulumi/pulumi` `Output`/`Input`] — resources bind to the LGTM stack outputs, not literals. Prometheus/Loki/Tempo service URLs the `observe/stack` Helm release exposes are `Output<string>`; an `oss.DataSource` takes them directly (`{ url: prometheus.url, type: "prometheus" }`), and `pulumi.interpolate`/`Output.apply` weave dashboard JSON that references those data-source UIDs. `storeDashboardSha256: true` makes the drift diff compare dashboard content hashes, aligning with the kernel `ContentKey` discipline.
 
-[STACK: Automation-API inline program] — grafana resources are constructed INSIDE the `program: PulumiFn` of `LocalWorkspace.createOrSelectStack` (`pulumi-pulumi.md`), one `new grafana.Provider(...)` sourced from the `StackSpec`'s Grafana endpoint, every resource passed `{ provider }`. The program returns dashboard/folder UIDs as stack outputs → `output.ts` typed `StackOutputs`. No `Pulumi.yaml`, zero authored YAML — the whole board topology is lib code.
+[STACK: Automation-API inline program] — grafana resources are constructed INSIDE the `program: PulumiFn` of `LocalWorkspace.createOrSelectStack` (`pulumi-pulumi.md`), one `new grafana.Provider(...)` sourced from the `StackSpec`'s Grafana endpoint, every resource passed `{ provider }`. Program returns dashboard/folder UIDs as stack outputs → `output.ts` typed `StackOutputs`. No `Pulumi.yaml`, zero authored YAML — the whole board topology is lib code.
 
-[STACK: `effect` rails] — the provider-arm choice is the closed `Match.exhaustive` dispatch (`provider/dispatch`); `Layer` composes the observability sub-program; `Schema` types the `StackSpec` (Grafana URL, org, Doppler ref) and the `StackOutputs` receipt. The `auth` token is `@pulumiverse/doppler`-provisioned and injected via `doppler run` (`secret/inject`) — the Grafana API token never enters a span, log, or state file in cleartext.
+[STACK: `effect` rails] — the provider-arm choice is the closed `Match.exhaustive` dispatch (`provider/dispatch`); `Layer` composes the observability sub-program; `Schema` types the `StackSpec` (Grafana URL, org, Doppler ref) and the `StackOutputs` receipt. `auth` token is `@pulumiverse/doppler`-provisioned and injected via `doppler run` (`secret/inject`) — the Grafana API token never enters a span, log, or state file in cleartext.
 
 [STACK: drift fold] — `policy/drift` runs `Stack.previewRefresh({ onEvent })` read-only against the live Grafana state; each dashboard/alert divergence arrives as a `resourcePreEvent` whose `StepEventMetadata.op` is an `OpType` and whose `detailedDiff` is the per-property delta, folded into the drift ledger and reconciled against `PreviewResult.changeSummary` (`OpMap`). A hand-edited dashboard in the Grafana UI surfaces here as an `update` op — the board is code, the UI is drift.
 

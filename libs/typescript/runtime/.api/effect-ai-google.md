@@ -2,7 +2,7 @@
 
 `@effect/ai-google` catalog · MIT · dual CJS+ESM, `sideEffects:[]`, per-module `exports` subpaths (`@effect/ai-google/GoogleClient`) · marker TSDECL `node_modules/@effect/ai-google/dist/dts/*.d.ts` · peers `@effect/ai`, `@effect/platform`, `@effect/experimental`, `effect` through catalog ownership · tier node|browser (platform-neutral; depends only on `@effect/ai`, `@effect/platform`, `effect`)
 
-The Google Generative AI (Gemini) binding onto `@effect/ai`: it resolves the provider-agnostic `LanguageModel`/`Tool` tags against the Gemini generateContent API. Its asymmetry row is the leanest of the admitted providers — a language model and four provider-defined tools, but no curated embedding, tokenizer, or telemetry owner module; embeddings and token-counting exist only through the raw `Generated.Client` (`EmbedContent`/`BatchEmbedContents`/`CountTokens`), so `ai/embed.ts` cannot bind a Google `EmbeddingModel` the way it binds OpenAI, and the design routes Google embeddings through the low-level client. Five owner modules re-export through the barrel (`GoogleClient`, `GoogleConfig`, `GoogleLanguageModel`, `GoogleTool`, `Generated`); the Gemini wire corpus (`Generated`) is a category with named anchors. Success/failure flows through the core `AiError.AiError`; all I/O is `Effect`/`Stream`.
+`@effect/ai-google` binds the Google Generative AI (Gemini) generateContent API onto `@effect/ai`, resolving the provider-agnostic `LanguageModel`/`Tool` tags against Gemini. Its asymmetry row is the leanest of the admitted providers — a language model and four provider-defined tools, but no curated embedding, tokenizer, or telemetry owner module; embeddings and token-counting exist only through the raw `Generated.Client` (`EmbedContent`/`BatchEmbedContents`/`CountTokens`), so `ai/embed.ts` cannot bind a Google `EmbeddingModel` the way it binds OpenAI, and the design routes Google embeddings through the low-level client. Five owner modules re-export through the barrel (`GoogleClient`, `GoogleConfig`, `GoogleLanguageModel`, `GoogleTool`, `Generated`); the Gemini wire corpus (`Generated`) is a category with named anchors. Success/failure flows through the core `AiError.AiError`; all I/O is `Effect`/`Stream`.
 
 ## [01]-[ASYMMETRY]
 
@@ -47,7 +47,7 @@ declare const layerConfig: (options: { apiKey?: Config.Config<Redacted | undefin
 
 ## [03]-[LANGUAGE_MODEL]
 
-`GoogleLanguageModel` binds generateContent onto the core `LanguageModel`/`Model` contracts. The model argument is `(string & {}) | Model` where `Model = string` — Gemini ships no generated model-id enum, so autocomplete is open. ONE model/layer family, narrower than OpenAI/Anthropic: `model`/`make`/`layer` only — no `modelWithTokenizer`/`layerWithTokenizer` (no tokenizer binding) and no `withConfigOverride` (per-effect override is absent; use the `Config` tag directly).
+`GoogleLanguageModel` binds generateContent onto the core `LanguageModel`/`Model` contracts. Model argument is `(string & {}) | Model` where `Model = string` — Gemini ships no generated model-id enum, so autocomplete stays open. ONE model/layer family, narrower than OpenAI/Anthropic: `model`/`make`/`layer` only — no `modelWithTokenizer`/`layerWithTokenizer` (no tokenizer binding) and no `withConfigOverride` (per-effect override is absent; use the `Config` tag directly).
 
 ```ts signature
 export type Model = string
@@ -66,7 +66,7 @@ namespace Config {
 }
 ```
 
-The `declare module` augmentations attach an optional `google` key — ONE boundary-hook pattern. `google.thoughtSignature` is the reasoning-continuity carrier threaded across the Prompt and Response part interfaces below; `FinishPartMetadata.google` is the single surface aggregating `groundingMetadata?`, `safetyRatings?`, `urlContextMetadata?`, and `usageMetadata?` off a finished response — the `safetyRatings?` slot is what the `ai/model.ts` guardrail gate reads for output moderation.
+`declare module` augmentations attach an optional `google` key — ONE boundary-hook pattern. `google.thoughtSignature` is the reasoning-continuity carrier threaded across the Prompt and Response part interfaces below; `FinishPartMetadata.google` is the single surface aggregating `groundingMetadata?`, `safetyRatings?`, `urlContextMetadata?`, and `usageMetadata?` off a finished response — the `safetyRatings?` slot is what the `ai/model.ts` guardrail gate reads for output moderation.
 
 | [INDEX] | [AUGMENTS] | [INTERFACES]                                                                                       | [GOOGLE_SLOT]       |
 | :-----: | :--------- | :------------------------------------------------------------------------------------------------- | :------------------ |
@@ -97,11 +97,11 @@ declare const withClientTransform: { (t: (c: HttpClient) => HttpClient): <A,E,R>
 
 ## [06]-[GENERATED]
 
-`Generated` is the machine-generated Google Generative AI REST surface: ~238 schema owners (176 `Schema.Class`, 31 `Schema.Literal`, 23 `Schema.Struct`, 8 `Schema.Record`) plus one 80-method `Client` interface. It is not enumerated — the owner modules reach it through named anchors, and planning code reaches REST via `GoogleClient.Service.client.<PascalCaseOperationId>(...)`. Each method returns `Effect.Effect<typeof <Response>.Type, HttpClientError.HttpClientError | ParseError>`. Note the `Generated`-internal client `transformClient` is effectful (`(client) => Effect.Effect<HttpClient>`), unlike the synchronous transform on the public `make`/`layer`/`GoogleConfig` surfaces.
+`Generated` is the machine-generated Google Generative AI REST surface: exported owners (`Schema.Class` wire schemas, `Schema.Literal` enums, `Schema.Struct`/`Schema.Record` shapes) plus one `Client` interface of PascalCase-operation endpoints. It is not enumerated — owner modules reach it through named anchors, and planning code reaches REST via `GoogleClient.Service.client.<PascalCaseOperationId>(...)`. Each method returns `Effect.Effect<typeof <Response>.Type, HttpClientError.HttpClientError | ParseError>`. `Generated`-internal client `transformClient` is effectful (`(client) => Effect.Effect<HttpClient>`), unlike the synchronous transform on the public `make`/`layer`/`GoogleConfig` surfaces.
 
 Load-bearing anchors (exact spelling): `GenerateContentRequest` (Config derives from its `Encoded`), `GenerateContentResponse`, `FunctionCallingConfig`/`FunctionCallingConfigMode` (`MODE_UNSPECIFIED|AUTO|ANY|NONE|VALIDATED`), `GroundingMetadata`, `SafetyRating`, `UrlContextMetadata`, `UsageMetadata` (the four `FinishPartMetadata.google` payloads), `ExecutableCodeLanguage`, `CodeExecutionResult`, `DynamicRetrievalConfigMode` (the `GoogleTool` sub-schemas), and the Gemini content algebra (`Content`, `Part`, `Blob`, `FileData`, `FunctionCall`, `FunctionResponse`, `ExecutableCode`, `Tool`, `FunctionDeclaration`, plus `Schema`/`Type` — the Gemini function-parameter JSON-schema dialect, NOT `effect/Schema`).
 
-The only curated `Service` entries are `generateContent`/`generateContentStream`; embeddings (`EmbedContent`/`BatchEmbedContents`, anchors `EmbedContentRequest`/`CountTokensRequest`), token-counting (`CountTokens`), context caching (`*CachedContent*`), batches (`BatchGenerateContent`), files, tuned models, and long-running operations (`GetOperation`/`ListOperations`/`CancelOperation`) are reached only through the raw `client.*` rail — there is no high-level `createEmbedding` wrapper.
+Curated `Service` entries cover `generateContent`/`generateContentStream` alone; embeddings (`EmbedContent`/`BatchEmbedContents`, anchor `EmbedContentRequest`), token-counting (`CountTokens`, anchor `CountTokensRequest`), context caching (`CreateCachedContent` family), semantic file-search stores (`CreateFileSearchStore`/`UploadToFileSearchStore` family), batches (`BatchGenerateContent`), files, tuned models, and long-running operations (`GetOperation`/`ListOperations`/`CancelOperation`) reach only through the raw `client.*` rail — no high-level `createEmbedding` wrapper exists.
 
 ## [07]-[INTEGRATION]
 

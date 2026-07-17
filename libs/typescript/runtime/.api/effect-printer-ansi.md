@@ -48,7 +48,7 @@
 
 [ENTRYPOINT_SCOPE]: text style + color directives (`Ansi`)
 - rail: render
-- Weight/style directives are constants; color is four parameterized constructors over a `Color` (`color`/`brightColor` for foreground, `bgColor`/`bgColorBright` for background). The 32 named color constants (`Ansi.red`, `Ansi.bgBlueBright`, …) are fixed rows over those four constructors — reach for the constant when the color is literal, the constructor when the `Color` is computed.
+- Weight/style directives are constants; color is four parameterized constructors over a `Color` (`color`/`brightColor` for foreground, `bgColor`/`bgColorBright` for background). Named color constants (`Ansi.red`, `Ansi.bgBlueBright`, …) are fixed rows over those four constructors — reach for the constant when the color is literal, the constructor when the `Color` is computed.
 
 | [INDEX] | [SURFACE]                                                   | [ENTRY_FAMILY] | [RAIL]                                      |
 | :-----: | :---------------------------------------------------------- | :------------- | :------------------------------------------ |
@@ -60,15 +60,17 @@
 
 [ENTRYPOINT_SCOPE]: cursor + erase + bell directives (`Ansi`)
 - rail: render
-- The terminal-control directives for live/interactive output (progress bars, spinners, wizards). Each is an `Ansi` annotation; the `AnsiDoc` namespace re-exports the same names as `Doc<Ansi>` values so they compose inside a document.
+- Terminal-control directives drive live/interactive output (progress bars, spinners, wizards). Each is an `Ansi` annotation; the `AnsiDoc` namespace re-exports the same names as `Doc<Ansi>` values so they compose inside a document.
 
 | [INDEX] | [SURFACE]                                                                      | [ENTRY_FAMILY] | [RAIL]                                 |
 | :-----: | :----------------------------------------------------------------------------- | :------------- | :------------------------------------- |
 |  [01]   | `Ansi.cursorTo(col, row?)` / `Ansi.cursorMove(col, row?)`                      | cursor         | absolute / relative cursor positioning |
 |  [02]   | `Ansi.cursorUp(n?)`/`cursorDown`/`cursorForward`/`cursorBackward`/`cursorLeft` | cursor         | directional cursor movement            |
-|  [03]   | `Ansi.cursorSavePosition`/`cursorRestorePosition`/`cursorHide`/`cursorShow`    | cursor         | save/restore/visibility                |
-|  [04]   | `Ansi.eraseLines(rows)` / `Ansi.eraseLine`/`eraseScreen`/`eraseDown`/`eraseUp` | erase          | region-scoped clear directives         |
-|  [05]   | `Ansi.beep`                                                                    | signal         | terminal bell directive                |
+|  [03]   | `Ansi.cursorNextLine(n?)`/`cursorPrevLine(n?)`                                 | cursor         | line-start move down / up              |
+|  [04]   | `Ansi.cursorSavePosition`/`cursorRestorePosition`/`cursorHide`/`cursorShow`    | cursor         | save/restore/visibility                |
+|  [05]   | `Ansi.eraseLines(rows)`/`eraseLine`/`eraseEndLine`/`eraseStartLine`            | erase          | line-scoped clear directives           |
+|  [06]   | `Ansi.eraseScreen`/`eraseDown`/`eraseUp`                                       | erase          | screen-region clear directives         |
+|  [07]   | `Ansi.beep`                                                                    | signal         | terminal bell directive                |
 
 [ENTRYPOINT_SCOPE]: monoid ops + color codes
 - rail: render
@@ -94,17 +96,17 @@
 
 [ANSI_TOPOLOGY]:
 - `Ansi` is a monoid of terminal directives; accumulate style with `Ansi.combine` and attach the composite with a single `Doc.annotate`, never one `annotate` per style bit. `bold`/`italicized`/`underlined`/`strikethrough` are constants; color is four constructors (`color`/`brightColor`/`bgColor`/`bgColorBright`) over the closed `Color` union, with 32 named constants as their fixed rows.
-- `AnsiDoc = Doc<Ansi>`: the full `@effect/printer` combinator surface applies unchanged; styling is orthogonal to layout. Author structure with `Doc` combinators, attach `Ansi` with `annotate`, render with `AnsiDoc.render`.
+- `AnsiDoc = Doc<Ansi>` inherits the full `@effect/printer` combinator surface unchanged; styling is orthogonal to layout. Author structure with `Doc` combinators, attach `Ansi` with `annotate`, render with `AnsiDoc.render`.
 - rendering resolves annotations at stream `PushAnnotation`/`PopAnnotation` boundaries, emitting the SGR escape and its reset in balanced pairs so nested styles do not leak. `Doc.render` (annotation-erasing) is the wrong renderer for styled output.
 - cursor/erase directives exist as both `Ansi` annotations and `AnsiDoc` documents; live output (spinners, progress, wizards) composes the `AnsiDoc` directive values into the document stream rather than emitting raw escapes.
 
 [STACKS_WITH]:
 - `@effect/printer` (`.api/effect-printer.md`): this package *is* the `A = Ansi` instantiation of that algebra. Every `Doc` constructor/combinator (`hsep`/`group`/`align`/`encloseSep`/`reflow`) produces `AnsiDoc` values directly; `Doc.reAnnotate` retargets `Ansi => OtherAnsi` for theme remapping, and `Doc.unAnnotate` strips styling to a plain `Doc<never>` for non-TTY output. Compose the document abstractly, bind `Ansi` only where a literal style is chosen.
-- `@effect/cli` (`.api/effect-cli.md`): the `cli/render` rows fold structured verb output to `AnsiDoc` and terminate with `AnsiDoc.render`; `@effect/cli`'s `HelpDoc`/usage rendering already targets this renderer. The doctor/replay/inspect ops family emits `AnsiDoc` diagnostics, and a `--no-color`/non-TTY branch swaps in `Doc.unAnnotate` before render — one document, two egress forms.
+- `@effect/cli` (`.api/effect-cli.md`): the `cli/render` rows fold structured verb output to `AnsiDoc` and terminate with `AnsiDoc.render`; `@effect/cli`'s `HelpDoc`/usage rendering already targets this renderer. doctor/replay/inspect ops family emits `AnsiDoc` diagnostics, and a `--no-color`/non-TTY branch swaps in `Doc.unAnnotate` before render — one document, two egress forms.
 - `effect` (`.api/effect.md`): `Color` is refined with `Match.type<Color>()`; `Ansi` composes through `effect/Monoid.combineAll` for directive accumulation, and `AnsiDoc.render` is wrapped in `Effect.sync` (or written to `Console`) at the effectful edge. TTY capability detection (`process.stdout.isTTY`) gates the styled-vs-plain renderer choice via a `Match` on the terminal context.
 
 [LOCAL_ADMISSION]:
-- The `cli/render` folder builds every styled terminal artifact as `AnsiDoc`: semantic roles (error/warn/path/emphasis) map to reusable `Ansi` monoid values, structure composes through `@effect/printer` combinators, and the boundary folds with `AnsiDoc.render(config)` under the appropriate layout algorithm.
+- `cli/render` folder builds every styled terminal artifact as `AnsiDoc`: semantic roles (error/warn/path/emphasis) map to reusable `Ansi` monoid values, structure composes through `@effect/printer` combinators, and the boundary folds with `AnsiDoc.render(config)` under the appropriate layout algorithm.
 - Gate color at the terminal-context edge, not per call site: a non-TTY or `--no-color` context strips annotations with `Doc.unAnnotate` before render so the same document serves both piped and interactive output.
 - Live/interactive output composes the `AnsiDoc` cursor/erase directives into the document stream (progress redraw, spinner frames), keeping raw escape sequences out of application code entirely.
 

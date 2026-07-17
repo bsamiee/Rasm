@@ -77,7 +77,7 @@
 
 [VOCABULARY_TOPOLOGY]:
 - one shape law: every layer is `_XxxProps<DataT> & (LayerProps | CompositeLayerProps)`, generic over `DataT`. A new mark is a `Layer`/`CompositeLayer` subclass with distinctive `get*` accessors, never a fork of an existing layer's props.
-- accessor is the styling collapse: per-object color/size/position is one function `Accessor<In,Out>` closing over the row + `AccessorContext`; a data-driven style is `getFillColor: d => scale(d.value)` + an `updateTriggers.getFillColor` key, never a parallel prop. The unit quartet (`*Units`/`*Scale`/`*MinPixels`/`*MaxPixels`) is one normalization axis — do not re-derive per layer.
+- accessor is the styling collapse: per-object color/size/position is one function `Accessor<In,Out>` closing over the row + `AccessorContext`; a data-driven style is `getFillColor: d => scale(d.value)` + an `updateTriggers.getFillColor` key, never a parallel prop. Unit quartet (`*Units`/`*Scale`/`*MinPixels`/`*MaxPixels`) is one normalization axis — do not re-derive per layer.
 - fill/stroke separation: `PolygonLayer` = `SolidPolygonLayer` (GPU-tesselated fill) + `PathLayer` (mitered outline); the cell family and `GeoJsonLayer` inherit this split. Extrusion (`extruded` + `getElevation` + `material`) reuses the core `LightingEffect`.
 - composite dispatch: `GeoJsonLayer` is the parameterized entry — one Feature stream, `pointType` discriminant, six accessor sub-groups fanning to the mark sublayers. Prefer it over hand-wiring per-geometry layers when the source is a mixed Feature collection.
 

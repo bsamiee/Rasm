@@ -32,14 +32,14 @@
 [TYPE_SCOPE]: the shared placement axis both layers inherit — one anchor accessor plus an orientation/scale/translation triple (or a single matrix override) and a size multiplier; identical semantics across both layers, never re-derived per layer.
 - `getTransformMatrix` is mutually exclusive with the triple: when supplied it overrides `getOrientation`/`getScale`/`getTranslation`. Each accessor is a core `Accessor<In,Out>` (uniform value or per-object function) memoized by `updateTriggers` exactly like any layer accessor.
 
-| [INDEX] | [SYMBOL]                      | [TYPE]                                         | [ROLE]                                        |
-| :-----: | :---------------------------- | :--------------------------------------------- | :-------------------------------------------- |
-|  [01]   | `getPosition`                 | `Accessor<DataT, Position>`                    | the world anchor each instance is placed at   |
-|  [02]   | `getOrientation`              | `Accessor<DataT, [pitch,yaw,roll]>` (°, Euler) | per-instance rotation                         |
-|  [03]   | `getScale` / `getTranslation` | `Accessor<DataT, [x,y,z]>` (meters)            | per-instance scale + offset from anchor       |
-|  [04]   | `getTransformMatrix`          | `Accessor<DataT, number[]>` (4×4)              | full transform; overrides the o/s/t triple    |
-|  [05]   | `sizeScale`                   | `number` (default 1)                           | global multiplier over every instance         |
-|  [06]   | `getColor`                    | `Accessor<DataT, Color>`                       | per-instance tint; ignored when `texture` set |
+| [INDEX] | [SYMBOL]                      | [TYPE]                                         | [ROLE]                                         |
+| :-----: | :---------------------------- | :--------------------------------------------- | :--------------------------------------------- |
+|  [01]   | `getPosition`                 | `Accessor<DataT, Position>`                    | the world anchor each instance is placed at    |
+|  [02]   | `getOrientation`              | `Accessor<DataT, [pitch,yaw,roll]>` (°, Euler) | per-instance rotation                          |
+|  [03]   | `getScale` / `getTranslation` | `Accessor<DataT, [x,y,z]>`                     | per-axis scale factor + offset (m) from anchor |
+|  [04]   | `getTransformMatrix`          | `Accessor<DataT, number[]>` (4×4)              | full transform; overrides the o/s/t triple     |
+|  [05]   | `sizeScale`                   | `number` (default 1)                           | global multiplier over every instance          |
+|  [06]   | `getColor`                    | `Accessor<DataT, Color>`                       | per-instance tint; ignored when `texture` set  |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

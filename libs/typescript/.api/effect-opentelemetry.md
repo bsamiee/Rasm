@@ -1,6 +1,6 @@
 # [TS_BRANCH_API_EFFECT_OPENTELEMETRY]
 
-`@effect/opentelemetry` bridges Effect's built-in `Tracer`/`Metric`/`Logger` signals to OpenTelemetry export in two lanes over ONE `Resource`. The NATIVE lane — `Otlp`/`OtlpTracer`/`OtlpMetrics`/`OtlpLogger`/`OtlpResource`/`OtlpSerialization` — serializes spans/metrics/logs to an OTLP endpoint directly over a `@effect/platform` `HttpClient` (JSON or protobuf), with zero `@opentelemetry/sdk-*` dependency; this is the `[R3]`-collapse target that retires the SDK block once native parity closes. The SDK-BRIDGE lane — `NodeSdk`/`WebSdk`/`Tracer`/`Metrics`/`Logger`/`Resource` — wraps concrete `@opentelemetry/sdk-*` processors/readers/exporters when SDK-only capability is required, and carries the heavy `@opentelemetry/*` peer block that the `edge/live` ledger fences to `scope:runtime`. The `Tracer` module owns the W3C span-context bridge (`makeExternalSpan`/`withSpanContext`/`currentOtelSpan`) every ingress uses to extract-and-continue. The `Resource` derives from the same `AppIdentity` value `browser` boot and `StoreHandle` use, so hundreds of apps emit through one identity spine.
+`@effect/opentelemetry` bridges Effect's built-in `Tracer`/`Metric`/`Logger` signals to OpenTelemetry export in two lanes over ONE `Resource`. Native lane — `Otlp`/`OtlpTracer`/`OtlpMetrics`/`OtlpLogger`/`OtlpResource`/`OtlpSerialization` — serializes spans/metrics/logs to an OTLP endpoint directly over a `@effect/platform` `HttpClient` (JSON or protobuf), with zero `@opentelemetry/sdk-*` dependency; this is the `[R3]`-collapse target that retires the SDK block once native parity closes. SDK-bridge lane — `NodeSdk`/`WebSdk`/`Tracer`/`Metrics`/`Logger`/`Resource` — wraps concrete `@opentelemetry/sdk-*` processors/readers/exporters when SDK-only capability is required, and carries the heavy `@opentelemetry/*` peer block that the `edge/live` ledger fences to `scope:runtime`. `Tracer` owns the W3C span-context bridge (`makeExternalSpan`/`withSpanContext`/`currentOtelSpan`) every ingress uses to extract-and-continue. `Resource` derives from the same `AppIdentity` value `browser` boot and `StoreHandle` use, so hundreds of apps emit through one identity spine.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -17,7 +17,7 @@
 
 [PUBLIC_TYPE_SCOPE]: native OTLP export lane
 - rail: observability/native
-- The self-contained path: `Otlp.layer` produces the trace + metric + log exporter wiring over an injected `HttpClient` + `OtlpSerialization` (JSON or protobuf frame). No `@opentelemetry/sdk-*` — Effect's own tracer/meter/logger feed the OTLP serializer directly. This is the `otel/emit` primary rail and the `[R3]` future-default.
+- Self-contained path: `Otlp.layer` produces the trace + metric + log exporter wiring over an injected `HttpClient` + `OtlpSerialization` (JSON or protobuf frame). No `@opentelemetry/sdk-*` — Effect's own tracer/meter/logger feed the OTLP serializer directly. This is the `otel/emit` primary rail and the `[R3]` future-default.
 
 | [INDEX] | [SYMBOL]                                                             | [TYPE_FAMILY]   | [CONSUMER_BOUNDARY]                          |
 | :-----: | :------------------------------------------------------------------- | :-------------- | :------------------------------------------- |
@@ -105,8 +105,9 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [DUAL_LANE_TOPOLOGY]:
-- native-first: `Otlp.layer` is the default export rail — Effect's built-in `Tracer`/`Metric`/`Logger` serialize straight to the OTLP endpoint over `HttpClient`, no `@opentelemetry/sdk-*`. `NodeSdk`/`WebSdk` are the recovery for SDK-only exporters. `[R3]` closes when native parity retires the `@opentelemetry` sdk/exporter MACHINERY; `semantic-conventions` (convention vocabulary), `resources` (the shared `Resource`-identity substrate), and the directly-imported `@opentelemetry/core` W3C propagation family survive as the native lane's substrate.
-- runtime split by lane, never by fork: `WebSdk` binds `sdk-trace-web`, `NodeSdk` binds `sdk-trace-node`; the native `Otlp` lane is runtime-neutral and rides whichever `HttpClient` the runtime provides. A Node↔Bun↔browser change is an `HttpClient`/SDK Layer selection at the app root, not a second exporter.
+- native-first: `Otlp.layer` is the default export rail — Effect's built-in `Tracer`/`Metric`/`Logger` serialize straight to the OTLP endpoint over `HttpClient`, no `@opentelemetry/sdk-*`; `NodeSdk`/`WebSdk` recover only SDK-only exporters.
+- `[R3]` collapse: native parity retires the `@opentelemetry` sdk/exporter machinery, while `semantic-conventions` (convention vocabulary), `resources` (the shared `Resource`-identity substrate), and the directly-imported `@opentelemetry/core` W3C propagation family survive as the native lane's substrate.
+- runtime split by lane, never by fork: `WebSdk` binds `sdk-trace-web`, `NodeSdk` binds `sdk-trace-node`; the native `Otlp` lane is runtime-neutral and rides whichever `HttpClient` the runtime supplies. A Node↔Bun↔browser change is an `HttpClient`/SDK Layer selection at the app root, not a second exporter.
 - one resource, one identity: both lanes consume one `Resource` derived from `AppIdentity`; `core/observe/board` dashboards are `AppIdentity -> DashboardModel` total functions, so a per-app telemetry fork is structurally impossible.
 
 [INTEGRATION_LAW]:
@@ -118,7 +119,7 @@
 [LOCAL_ADMISSION]:
 - `@opentelemetry/*` is admitted ONLY inside `scope:runtime` (edge-ledger ban); no other folder imports the SDK. Folders emit through Effect's built-in tracing/metrics/logging and `telemetry` owns the export boundary.
 - exporters are constructed at the composition root; instrumentation code uses Effect's native `Effect.withSpan`/`Metric`/`Effect.log` and never imports this package.
-- prefer the native `Otlp` lane; reach for `NodeSdk`/`WebSdk` only for an SDK-only exporter, and record it as an `[R3]` non-collapsed dependency.
+- native `Otlp` lane is the default; `NodeSdk`/`WebSdk` bind only for an SDK-only exporter, recorded as an `[R3]` non-collapsed dependency.
 
 [RAIL_LAW]:
 - Package: `@effect/opentelemetry`

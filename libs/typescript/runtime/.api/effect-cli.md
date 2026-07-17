@@ -1,15 +1,15 @@
 # [TS_RUNTIME_API_EFFECT_CLI]
 
-`@effect/cli` is the terminal entry family under the one edge assembly law. Each verb family in `cli/verb.ts` is a `Command<Name, R, E, A>` VALUE — itself an `Effect` yielding its parsed config — exported as data; the APP folds selected families through `Command.withSubcommands` into exactly one root and runs it via `Command.run({name, version})` under the platform `Environment` (`FileSystem | Path | Terminal`). The god-CLI is structurally impossible because the root has no lib-side existence. doctor/replay/inspect ship as the lib ops family, their handlers executing over `proc/exec`. `cli/render.ts` renders output through `@effect/printer`(-ansi), and the package's own `HelpDoc` lowers onto that same rail. This is the terminal peer of the `@effect/rpc` `RpcGroup` contribution family.
+`@effect/cli` is the terminal entry family under the one edge assembly law. Each verb family in `cli/verb.ts` is a `Command<Name, R, E, A>` VALUE — itself an `Effect` yielding its parsed config — exported as data; the APP folds selected families through `Command.withSubcommands` into exactly one root and runs it via `Command.run({name, version})` under the platform `Environment` (`FileSystem | Path | Terminal`). No root `Command` exists lib-side, so the god-CLI cannot be spelled. doctor/replay/inspect ship as the lib ops family, their handlers executing over `proc/exec`. `cli/render.ts` renders output through `@effect/printer`(-ansi), and the package's own `HelpDoc` lowers onto that same rail. This is the terminal peer of the `@effect/rpc` `RpcGroup` contribution family.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@effect/cli`
-- package: `@effect/cli` `` — license `MIT`
+- package: `@effect/cli` — license `MIT`
 - module: dual ESM/CJS; types `dist/dts/index.d.ts`; per-module subpaths `Command`, `Args`, `Options`, `Prompt`, `CliApp`, `CliConfig`, `ConfigFile`, `HelpDoc` (+ `HelpDoc/Span`), `Primitive`, `Usage`, `ValidationError`, `CommandDescriptor`, `CommandDirective`, `BuiltInOptions`, `AutoCorrect`
-- peers: `effect` `^catalog`, `@effect/platform` `^catalog`, `@effect/printer` + `@effect/printer-ansi` `^catalog` (catalog-resolved to `catalog` / `catalog` / `catalog`); the `Environment` is satisfied by `@effect/platform-node` `NodeContext.layer` or `@effect/platform-bun`
-- bound asset: TSDECL `node_modules/@effect/cli/dist/dts/*.d.ts` (`assay api resolve @effect/cli` → catalog-bound)
-- admission: folder-local `# edge` catalog group; version centralized in `pnpm-workspace.yaml`
+- peers: `effect`, `@effect/platform`, `@effect/printer`, `@effect/printer-ansi`; `Environment` is satisfied by `@effect/platform-node` `NodeContext.layer` or `@effect/platform-bun`
+- asset: `.d.ts` declaration surface under `dist/dts/`
+- admission: folder-local `# edge` catalog group; versions centralized in `pnpm-workspace.yaml`
 - role: `cli/verb.ts` (Command contribution families + the one-root assembly), `cli/render.ts` (Doc-composed output); the ops family executes over `proc/exec`
 - rail: `edge/cli`
 
@@ -17,7 +17,7 @@
 
 A `Command` is an `Effect` that yields its parsed config and requires its own tag; the handler is the effectful action. Constructors build a leaf; combinators nest and inject; `run` is the argv boundary.
 
-```ts
+```ts signature
 // @effect/cli/Command — Command<Name, R, E, A> extends Effect<A, never, Command.Context<Name>>, Pipeable
 declare const make: {
   <Name extends string>(name: Name): Command<Name, never, never, {}>
@@ -51,7 +51,7 @@ Consumer note: each verb family is a `Command` value; the app folds selected fam
 
 `Options<A>` (named flags) and `Args<A>` (positionals) are one combinator algebra over a variance carrier — arity, cardinality, recovery, and decode live in the combinators, never in parallel per-type constructors. Constructors differ only by the leading `name` (Options) vs an optional config (Args).
 
-```ts
+```ts signature
 // constructors (shared): boolean · text · integer · float · date · choice · redacted · file · directory · fileSchema · none · all · isOptions/isArgs
 // Options-only: choiceWithValue · fileContent · fileText · fileParse · keyValueMap        Args-only: path · getMinSize · getMaxSize
 declare const boolean: (name: string, config?: Options.BooleanOptionsConfig) => Options<boolean>
@@ -65,13 +65,13 @@ declare const withSchema:         <A, I extends A, B>(schema: Schema<B, I, FileS
 declare const withFallbackPrompt: <B>(prompt: Prompt<B>) => <A>(self: Options<A>) => Options<B | A>   // prompt when the flag is absent
 ```
 
-Consumer note: `withFallbackConfig(Config)` is the bridge that unifies a CLI flag with an `effect/Config` value (env / config provider) in one declaration — the canonical way a verb resolves a flag from `proc/config`. `withSchema(Schema)` decodes a flag straight into a kernel-branded value, so the terminal boundary decodes-once exactly like the wire and route boundaries. The one asymmetry: `Args.mapEffect` fails with `HelpDoc` while `Options.mapEffect` fails with `ValidationError`; `Args.validate` returns `[leftover, A]` and `Options.processCommandLine` returns `[Option<ValidationError>, leftover, A]`.
+Consumer note: `withFallbackConfig(Config)` is the bridge that unifies a CLI flag with an `effect/Config` value (env / config provider) in one declaration — the canonical way a verb resolves a flag from `proc/config`. `withSchema(Schema)` decodes a flag straight into a kernel-branded value, so the terminal boundary decodes-once exactly like the wire and route boundaries. One asymmetry remains: `Args.mapEffect` fails with `HelpDoc` while `Options.mapEffect` fails with `ValidationError`; `Args.validate` returns `[leftover, A]` and `Options.processCommandLine` returns `[Option<ValidationError>, leftover, A]`.
 
 ## [04]-[PROMPT]
 
-`Prompt<Output>` is both a variance carrier and an `Effect<Output, QuitException, Terminal>`, so a prompt is yieldable directly in `Effect.gen`. The constructor roster is a fixed set of interaction atoms; `custom` owns any bespoke render/process loop.
+`Prompt<Output>` is both a variance carrier and an `Effect<Output, QuitException, Terminal>`, so a prompt is yieldable directly in `Effect.gen`. A fixed constructor roster covers the interaction atoms; `custom` owns any bespoke render/process loop.
 
-```ts
+```ts signature
 // @effect/cli/Prompt — constructors: text · hidden · password · integer · float · confirm · toggle · date · list · file · select · multiSelect · succeed · custom · all
 declare const select: <const A>(options: { message: string; choices: ReadonlyArray<{ title: string; value: A; description?: string; disabled?: boolean }>; maxPerPage?: number }) => Prompt<A>
 declare const custom: <State, Output>(initialState: State | Effect<State, never, Prompt.Environment>, handlers: Prompt.Handlers<State, Output>) => Prompt<Output>
@@ -82,9 +82,9 @@ Consumer note: a prompt plugs into a command two ways — `Command.prompt(name, 
 
 ## [05]-[CONFIG_ERRORS_DOCS]
 
-The app description, parser policy, the closed parse-error rail, the help algebra, and the config-file provider.
+App description, parser policy, the closed parse-error rail, the help algebra, and the config-file provider.
 
-```ts
+```ts signature
 // @effect/cli/CliApp
 declare namespace CliApp { type Environment = FileSystem | Path | Terminal; interface ConstructorArgs<A> { name; version; command; executable?; summary?; footer? } }
 declare const make: <A>(config: CliApp.ConstructorArgs<A>) => CliApp<A>   // Command.run constructs one internally

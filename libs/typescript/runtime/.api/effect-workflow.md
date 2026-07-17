@@ -57,6 +57,7 @@
 |  [07]   | `Workflow.withCompensation(effect, (value, cause) => cleanup)`    | saga           | top-level finalizer; runs on whole-workflow failure |
 |  [08]   | `Workflow.intoResult` / `wrapActivityResult`                      | result         | lift an effect to the `Result` ADT                  |
 |  [09]   | `suspend` / `provideScope`                                        | control        | request suspension; scope an activity               |
+|  [10]   | `SuspendOnFailure` / `CaptureDefects` / `workflow.annotate`       | annotate       | suspend run on error; capture defect                |
 
 [ENTRYPOINT_SCOPE]: activities — the once-executed durable steps with retry budgets
 - rail: durable-execution
@@ -71,7 +72,7 @@
 
 [ENTRYPOINT_SCOPE]: durable primitives — deferred, clock, queue, rate limiter
 - rail: durable-execution
-- The external-signal, timer, queue, and throttle surfaces. `DurableDeferred` resolves out-of-band by `Token`; `DurableClock.sleep` runs sub-window sleeps in memory below `inMemoryThreshold` (default 60s). `DurableQueue` wraps `@effect/experimental` `PersistedQueue`, and `DurableQueue.process` retries a `PersistedQueueError` on its `retrySchedule` (the DLQ/replay budget). `DurableRateLimiter.rateLimit({ name, algorithm?, window, limit, key, tokens? })` wraps the `@effect/experimental` `RateLimiter` with `algorithm` a `fixed-window`/`token-bucket` policy value.
+- External-signal, timer, queue, and throttle surfaces. `DurableDeferred` resolves out-of-band by `Token`; `DurableClock.sleep` runs sub-window sleeps in memory below `inMemoryThreshold` (default 60s). `DurableQueue` wraps `@effect/experimental` `PersistedQueue`, and `DurableQueue.process` retries a `PersistedQueueError` on its `retrySchedule` (the DLQ/replay budget). `DurableRateLimiter.rateLimit({ name, algorithm?, window, limit, key, tokens? })` wraps the `@effect/experimental` `RateLimiter` with `algorithm` a `fixed-window`/`token-bucket` policy value.
 
 | [INDEX] | [SURFACE]                                                                | [ENTRY_FAMILY]  | [CONSUMER_BOUNDARY]                         |
 | :-----: | :----------------------------------------------------------------------- | :-------------- | :------------------------------------------ |
@@ -89,29 +90,30 @@
 
 [ENTRYPOINT_SCOPE]: engine layers + wire exposure
 - rail: durable-execution/boundaries
-- The engine Layer selection and the proxy that exposes workflows over the wire.
+- Engine Layer selection plus the proxy that exposes workflows over the wire.
 
-| [INDEX] | [SURFACE]                                                               | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                           |
-| :-----: | :---------------------------------------------------------------------- | :------------- | :-------------------------------------------- |
-|  [01]   | `WorkflowEngine.layerMemory`                                            | engine (spec)  | in-memory execution for specs; no durability  |
-|  [02]   | `WorkflowEngine.makeUnsafe(encoded)` / `WorkflowEngine.Encoded`         | engine (raw)   | custom engine behind the erased interface     |
-|  [03]   | `WorkflowProxy.toRpcGroup(workflows, { prefix? })`                      | wire expose    | workflow set → `RpcGroup` (`edge`)            |
-|  [04]   | `WorkflowProxy.toHttpApiGroup(name, workflows)` / `WorkflowProxyServer` | wire expose    | `HttpApiGroup` + server binding; typed client |
+| [INDEX] | [SURFACE]                                                               | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                          |
+| :-----: | :---------------------------------------------------------------------- | :------------- | :------------------------------------------- |
+|  [01]   | `WorkflowEngine.layerMemory`                                            | engine (spec)  | in-memory execution for specs; no durability |
+|  [02]   | `WorkflowEngine.makeUnsafe(encoded)` / `WorkflowEngine.Encoded`         | engine (raw)   | custom engine behind the erased interface    |
+|  [03]   | `WorkflowProxy.toRpcGroup(workflows, { prefix? })`                      | wire expose    | workflow set → `RpcGroup` (`edge`)           |
+|  [04]   | `WorkflowProxy.toHttpApiGroup(name, workflows)` / `WorkflowProxyServer` | wire expose    | `HttpApiGroup`; execute/discard/resume       |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [WORKFLOW_TOPOLOGY]:
-- one definition, swappable engine: every `Workflow`/`Activity`/`DurableDeferred`/`DurableClock`/`DurableQueue` runs against the `WorkflowEngine` Tag. `WorkflowEngine.layerMemory` is the spec engine; `ClusterWorkflowEngine.layer` (over `Sharding` + `MessageStorage`) is the durable sharded engine. The definition never names its engine — the app root selects, so promoting a workflow from spec to durable is a Layer swap, not a rewrite.
+- one definition, swappable engine: every `Workflow`/`Activity`/`DurableDeferred`/`DurableClock`/`DurableQueue` runs against the `WorkflowEngine` Tag. `WorkflowEngine.layerMemory` is the spec engine; `ClusterWorkflowEngine.layer` (over `Sharding` + `MessageStorage`) is the durable sharded engine. Definition never names its engine — the app root selects, so promoting a workflow from spec to durable is a Layer swap, not a rewrite.
 - durability is suspend/replay, not re-run: an `Activity` executes exactly once and its exit is persisted through the engine's `MessageStorage` (`ClusterSchema.Persisted` on the durable path). On resume the workflow REPLAYS recorded activities from the durable log — side effects never repeat. `idempotencyKey` (workflow) and `Activity.idempotencyKey` (step) are the replay keys; `executionId(payload)` makes re-execution of an equal payload resume the same run.
-- compensation is the saga rail, top-level only: `withCompensation(effect, (value, cause) => cleanup)` registers a finalizer that runs when the WHOLE workflow fails — the saga rollback. The documented constraint is load-bearing: compensation registers for top-level workflow effects, not for effects nested inside an activity; a rollback belongs at the workflow body, not inside a step.
+- compensation is the saga rail, top-level only: `withCompensation(effect, (value, cause) => cleanup)` registers a finalizer that runs when the WHOLE workflow fails — the saga rollback. Compensation registers for top-level workflow effects, not for effects nested inside an activity; a rollback belongs at the workflow body, not inside a step.
 - retry/timeout budgets are `Schedule`, not loops: `interruptRetryPolicy`, `Activity.retry`, `suspendedRetrySchedule`, and `DurableQueue` `retrySchedule` all take an `effect/Schedule` sourced from `core/value/fault` degradation budgets (`Schedule.exponential`/`.jittered`). A hand-rolled retry counter or sleep loop is the defect.
-- external signals are token-addressed: a workflow `await`s a `DurableDeferred`; an out-of-band caller resolves it by `Token` (`tokenFromPayload`/`tokenFromExecutionId` → `succeed`/`fail`/`done`). The suspended workflow resumes when the token is set — the human-approval / webhook-callback pattern.
+- failure policy is an annotation, not a try/catch: `SuspendOnFailure` on a workflow suspends the whole run on any error for a later `resume(executionId)` instead of failing it, and `CaptureDefects` (default on) folds a defect into the `Result` rather than crashing the fiber. Both ride `workflow.annotate`/`annotateContext` or `make`'s `annotations?` — the durable-failure switch is data on the definition.
+- external signals are token-addressed: a workflow `await`s a `DurableDeferred`; an out-of-band caller resolves it by `Token` (`tokenFromPayload`/`tokenFromExecutionId` → `succeed`/`fail`/`done`). Suspended workflow resumes when the token is set — the human-approval / webhook-callback pattern.
 
 [STACKS_WITH]:
 - `@effect/cluster` (`runtime/.api/effect-cluster.md`): `ClusterWorkflowEngine.layer` satisfies `WorkflowEngine` over `Sharding` + `MessageStorage` — durable workflows run sharded on the cluster runtime. THE core seam: `work/flow` defines, `work/entity` provides the engine.
-- `@effect/experimental` (`.api/effect-experimental.md`): `DurableQueue` wraps `PersistedQueue`/`PersistedQueueFactory`; `DurableRateLimiter` wraps `RateLimiter` (the SAME limiter the `serve/api` middleware uses, here durable-wrapped as an `Activity` with `algorithm` as a policy value). The persisted backing is the data-owned `KeyValueStore`/SQL driver.
+- `@effect/experimental` (`.api/effect-experimental.md`): `DurableQueue` wraps `PersistedQueue`/`PersistedQueueFactory`; `DurableRateLimiter` wraps `RateLimiter` (the SAME limiter the `serve/api` middleware uses, here durable-wrapped as an `Activity` with `algorithm` as a policy value). Persisted backing is the data-owned `KeyValueStore`/SQL driver.
 - `effect` (`.api/effect.md`): payload/success/error are `Schema`; the `Result` ADT folds through `Match`; retry budgets are `Schedule`; a `Workflow` composes ordinary `Effect.gen` bodies with `Activity` steps and `DurableClock.sleep` — the durable layer adds no new rail, it is `effect` made replay-durable.
-- `@effect/rpc` + `@effect/platform` (`.api/effect-platform.md`, `runtime/.api/effect-rpc.md`): `WorkflowProxy.toRpcGroup`/`toHttpApiGroup` turns a workflow set into a `serve` contribution group (execute/poll/interrupt endpoints) with the typed client and OpenAPI for free — a workflow is invokable over the wire, and `interchange/invoke` or `work/deliver` resolves a `DurableDeferred` `Token` from an inbound signed callback.
+- `@effect/rpc` + `@effect/platform` (`.api/effect-platform.md`, `runtime/.api/effect-rpc.md`): `WorkflowProxy.toRpcGroup`/`toHttpApiGroup` turns a workflow set into a `serve` contribution group — one `execute`, one `discard`-to-executionId, and one `resume` endpoint per workflow — with the typed client and OpenAPI for free, `WorkflowProxyServer.layerRpcHandlers`/`layerHttpApi` binding the handlers; `interchange/invoke` or `work/deliver` resolves a `DurableDeferred` `Token` from an inbound signed callback.
 - `work/report` + `work/deliver` (`runtime/.api/exceljs.md`, `runtime/.api/nodemailer.md`): a `deliver` job is one `Activity` in a workflow — idempotent, retryable, resumable; the compensation finalizer un-sends or marks-suppressed on rollback.
 
 [LOCAL_ADMISSION]:
@@ -124,6 +126,6 @@
 
 [RAIL_LAW]:
 - Package: `@effect/workflow`
-- Owns: the `Workflow`/`Activity` durable definitions, the `Result` suspend/complete ADT, `withCompensation` saga folds, `DurableDeferred` token-addressed external signals, `DurableClock` durable timers, `DurableQueue` persisted jobs, `DurableRateLimiter` durable throttles, the `WorkflowEngine`/`WorkflowInstance` Tags, and `WorkflowProxy` wire exposure
+- Owns: the `Workflow`/`Activity` durable definitions, the `Result` suspend/complete ADT, `withCompensation` saga folds, the `SuspendOnFailure`/`CaptureDefects` failure annotations, `DurableDeferred` token-addressed external signals, `DurableClock` durable timers, `DurableQueue` persisted jobs, `DurableRateLimiter` durable throttles, the `WorkflowEngine`/`WorkflowInstance` Tags, and `WorkflowProxy` wire exposure
 - Accept: definitions bound to the `WorkflowEngine` Tag (memory for specs, `ClusterWorkflowEngine` for durable), Schema-typed payload/success/error, deterministic `idempotencyKey`/`executionId`, `withCompensation` top-level saga finalizers, `Schedule`-sourced retry budgets, `DurableDeferred` `Token` external resolution, `DurableQueue`/`DurableRateLimiter` over the `@effect/experimental` persisted primitives, `WorkflowProxy` for edge exposure
 - Reject: a hand-rolled saga/state-machine/retry-persistence loop, a definition hardcoding its engine, a re-run of an activity for its side effect, compensation nested inside an activity, a manual poll for an external signal, a second persisted-queue or distributed-rate-limiter implementation, a hand-rolled durable timer

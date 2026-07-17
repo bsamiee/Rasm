@@ -17,7 +17,7 @@
 
 [PUBLIC_TYPE_SCOPE]: EventLog local-first event-sourcing family
 - rail: overlay/local-first
-- The client stack: `Event.make` declares a tagged event with a `Schema` payload and primary-key extractor; `EventGroup` collects events into a compaction/reactivity unit; `EventLog` is the append surface + reducer registry; `EventJournal` is the append-only entry store (memory | IndexedDB) with `RemoteId`/`EntryId` HLC-style identity. Events are closed `Schema.TaggedClass` families with app-authored versioning — the same closed-family law as `store/journal`.
+- Client stack: `Event.make` declares a tagged event with a `Schema` payload and primary-key extractor; `EventGroup` collects events into a compaction/reactivity unit; `EventLog` is the append surface + reducer registry; `EventJournal` is the append-only entry store (memory | IndexedDB) with `RemoteId`/`EntryId` HLC-style identity. Events are closed `Schema.TaggedClass` families with app-authored versioning — the same closed-family law as `store/journal`.
 
 | [INDEX] | [SYMBOL]                                          | [TYPE_FAMILY]     | [CONSUMER_BOUNDARY]                                            |
 | :-----: | :------------------------------------------------ | :---------------- | :------------------------------------------------------------- |
@@ -34,7 +34,7 @@
 
 [PUBLIC_TYPE_SCOPE]: EventLog sync transport + server + encryption
 - rail: overlay/local-first
-- The sync stack: `EventLogRemote` is the client-side WebSocket sync protocol (MsgPack request/response union, chunking, ping/pong); `EventLogServer` mounts the server side as a socket handler or an `HttpApp` (the `edge/live` protocol-handler mount port — the store EventLog sync server is the standing example); `EventLogEncryption` makes the server zero-knowledge (Web Crypto SubtleCrypto client-side E2E, encrypted entries at rest).
+- Sync stack: `EventLogRemote` is the client-side WebSocket sync protocol (MsgPack request/response union, chunking, ping/pong); `EventLogServer` mounts the server side as a socket handler or an `HttpApp` (the `edge/live` protocol-handler mount port — the store EventLog sync server is the standing example); `EventLogEncryption` makes the server zero-knowledge (Web Crypto SubtleCrypto client-side E2E, encrypted entries at rest).
 
 | [INDEX] | [SYMBOL]                                                     | [TYPE_FAMILY] | [CONSUMER_BOUNDARY]                                     |
 | :-----: | :----------------------------------------------------------- | :------------ | :------------------------------------------------------ |
@@ -83,7 +83,7 @@
 
 [ENTRYPOINT_SCOPE]: EventLog client assembly
 - rail: overlay/local-first
-- One `schema(...groups)` freezes the event universe; `layer(schema)` provides the `EventLog` service (requiring the group services + `EventJournal` + `Identity` + `Reactivity`); `makeClient(schema)` yields the typed command dispatcher. Storage and identity are swappable dependencies — `layerIndexedDb` + `layerIdentityKvs` for browsers, `layerMemory` for specs.
+- One `schema(...groups)` freezes the event universe; `layer(schema)` mounts the `EventLog` service (requiring the group services + `EventJournal` + `Identity` + `Reactivity`); `makeClient(schema)` yields the typed command dispatcher. Storage and identity are swappable dependencies — `layerIndexedDb` + `layerIdentityKvs` for browsers, `layerMemory` for specs.
 - call: `EventLog.schema(...groups: EventGroup.Any[]): EventLogSchema`
 - call: `EventLog.group(group, (handlers) => handlers)` / `groupCompaction(group, effect)` / `groupReactivity(group, keys)`
 - call: `EventLog.layer(schema): Layer<EventLog, never, EventGroup.ToService<…> | …>`
@@ -101,7 +101,7 @@
 
 [ENTRYPOINT_SCOPE]: EventLog sync transport + mountable server
 - rail: overlay/local-first
-- Client sync is one Layer: `layerWebSocketBrowser(url)` is self-contained (needs only `EventLog`); `layerWebSocket(url)` needs a `Socket.WebSocketConstructor` (from `BrowserSocket`/`BunSocket`) plus `EventLogEncryption`. The server is `makeHandlerHttp` mounted as an `HttpApp` at the `edge/live` protocol-handler port, or `makeHandler` over a raw `Socket`.
+- Client sync is one Layer: `layerWebSocketBrowser(url)` is self-contained (needs only `EventLog`); `layerWebSocket(url)` needs a `Socket.WebSocketConstructor` (from `BrowserSocket`/`BunSocket`) plus `EventLogEncryption`. `makeHandlerHttp` mounts the server as an `HttpApp` at the `edge/live` protocol-handler port; `makeHandler` serves it over a raw `Socket`.
 - call: `EventLogRemote.layerWebSocketBrowser(url, { disablePing? }): Layer<never, never, EventLog>`
 - call: `EventLogRemote.layerWebSocket(url, opts): Layer<never, never, WebSocketConstructor | EventLog | EventLogEncryption>`
 - call: `EventLogServer.makeHandlerHttp: Effect<Effect<HttpServerResponse, …>, never, Storage>`
@@ -144,11 +144,12 @@
 
 [OVERLAY_TOPOLOGY]:
 - `[R19]` system-of-record boundary: `store/journal` on `@effect/sql` is the durable authority; EventLog, PersistedQueue, and PersistedCache are OVERLAYS that accelerate local-first reads and offline queues. A record whose loss corrupts state never lives only in an EventLog journal or a persisted queue — it is projected from, or mirrored to, the SQL journal. `store` catalogues `@effect/experimental` as EventLog-overlay-only; `browser` as the EventLog client; `work` as the durable-execution substrate.
-- one service, swappable storage: each lane is a `Context.Tag` whose backing is a Layer dependency. `EventJournal` = `layerMemory` (spec) | `layerIndexedDb` (browser) | `@effect/sql` `SqlEventJournal.layer` (durable) `[R4]`. `Persistence` = `layerMemory` | `layerKeyValueStore`. The durable `PersistedQueueStore`/`EventLogServer.Storage` backings ship in `@effect/sql` (`SqlPersistedQueue.layerStore`/`SqlEventLogServer.layerStorage` — `data/.api/effect-sql.md`); `RateLimiterStore` = `layerStoreMemory`. The lane code never names its storage; the app root selects it.
+- one service, swappable storage: each lane is a `Context.Tag` whose backing is a Layer dependency, never named in lane code — the app root selects it. `EventJournal` selects `layerMemory` (spec), `layerIndexedDb` (browser), or `@effect/sql` `SqlEventJournal.layer` (durable) `[R4]`; `Persistence` selects `layerMemory` or `layerKeyValueStore`; `RateLimiterStore` selects `layerStoreMemory`.
+- durable store backings ship in `@effect/sql`: `PersistedQueueStore` binds `SqlPersistedQueue.layerStore`, `EventLogServer.Storage` binds `SqlEventLogServer.layerStorage` (`data/.api/effect-sql.md`).
 - closed event families: `Event.make` payloads are `Schema.TaggedClass` closed families with app-authored versioning; read-time upcasting is a `store/journal/upcast` total fold, never a journal rewrite — the same law the SQL journal holds.
 
 [INTEGRATION_LAW]:
-- Stack with `@effect/platform-browser` / `@effect/platform-bun`: EventLog client identity rides `EventLog.layerIdentityKvs({ key })` over a `KeyValueStore` satisfied by `BrowserKeyValueStore.layerLocalStorage` (browser) or `BunKeyValueStore.layerFileSystem` (node/bun). WebSocket sync rides `EventLogRemote.layerWebSocket` over a `Socket.WebSocketConstructor` from `BrowserSocket.layerWebSocketConstructor` / `BunSocket.layerWebSocketConstructor`. The overlay declares the `@effect/platform` Tag; the platform binding satisfies it.
+- Stack with `@effect/platform-browser` / `@effect/platform-bun`: EventLog client identity rides `EventLog.layerIdentityKvs({ key })` over a `KeyValueStore` satisfied by `BrowserKeyValueStore.layerLocalStorage` (browser) or `BunKeyValueStore.layerFileSystem` (node/bun). WebSocket sync rides `EventLogRemote.layerWebSocket` over a `Socket.WebSocketConstructor` from `BrowserSocket.layerWebSocketConstructor` / `BunSocket.layerWebSocketConstructor`. Each overlay declares the `@effect/platform` Tag; the platform binding satisfies it.
 - Stack with `@effect/platform` HttpApp: `EventLogServer.makeHandlerHttp` mounts at `edge/live/socket` as the protocol-handler mount port (an `HttpApp` port Tag); the `BunHttpServer`/`NodeHttpServer` serve row hosts it. `EventLogEncryption.layerSubtle` composes `security/secret` key material so the server stays zero-knowledge.
 - Stack with `store`/`state`: EventLog reducers fold into `state` vocabulary; `Reactivity.invalidate` is the read-your-writes signal `store/project/inline` emits after an OCC append; `Machine` actors persist through `PersistedQueue`/`Persistence` onto the store-owned `KeyValueStore` driver.
 - Stack with `stamina`-equivalent retry / `net/client`: sync reconnection and `Sse.Retry` reconnection budgets ride `core/value/fault` degradation budgets, not a hand-rolled loop; `edge/api/middleware` reads `RateLimiter` `RateLimitExceeded` into a 429/Retry-After problem detail.

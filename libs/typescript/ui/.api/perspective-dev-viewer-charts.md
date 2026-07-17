@@ -1,6 +1,6 @@
 # [TS_UI_API_PERSPECTIVE_DEV_VIEWER_CHARTS]
 
-`@perspective-dev/viewer-charts` is the default chart plugin family for `<perspective-viewer>`: the bare root import evaluates the bundled renderer and registers the full chart roster — series charts (`X Bar`, `Y Bar`, `Y Area`, `X/Y Line`, `X/Y Scatter`), hierarchical charts (`Treemap`, `Sunburst`), `Heatmap`/`Density`, financial charts (`Candlestick`, `OHLC`), and the map family (`Map Scatter`, `Map Line`, `Map Density`) — each selectable through the config's `plugin` field and `restore`, with axis, color, size, label, and tooltip channels driven by the config's column assignments. The package bundles its rendering stack (zero runtime deps) and supersedes the trailing `viewer-d catalogfc` per-chart subpaths; chart-level options ride `plugin_config` inside the one config value, never element attributes.
+`@perspective-dev/viewer-charts` is the default chart plugin family for `<perspective-viewer>`: the bare root import evaluates the bundled WebGL renderer and registers the full chart roster — series charts (`X Bar`, `Y Bar`, `Y Area`, `X/Y Line`, `Y Line`, `X/Y Scatter`, `Y Scatter`), hierarchical charts (`Treemap`, `Sunburst`), `Heatmap`/`Density`, financial charts (`Candlestick`, `OHLC`), and the map family (`Map Scatter`, `Map Line`, `Map Density`) — each selectable through the config's `plugin` field and `restore`, with axis, color, size, label, and tooltip channels driven by the config's column assignments. Bundled rendering stack carries zero runtime deps and supersedes the trailing `viewer-d3fc` per-chart subpaths; chart-level options ride `plugin_config` inside the one config value, never element attributes.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -21,8 +21,8 @@
 | [INDEX] | [SYMBOL]                                    | [TYPE_FAMILY]   | [CONSUMER_BOUNDARY]                                           |
 | :-----: | :------------------------------------------ | :-------------- | :------------------------------------------------------------ |
 |  [01]   | `register(...plugin_names: string[]): void` | selective entry | narrows the roster to named charts; bare import registers all |
-|  [02]   | `PerspectiveSelectDetail`                   | event detail    | chart selection event `detail`; pairs with the select seam    |
-|  [03]   | `PerspectiveClickDetail` (type)             | event detail    | click event `detail`: row values + config under the pointer   |
+|  [02]   | `PerspectiveSelectDetail`                   | event detail    | select-event `detail`, re-exported from the viewer's surface   |
+|  [03]   | `PerspectiveClickDetail` (type)             | event detail    | click `detail` — row, column_names, restore({ filter }) patch  |
 
 ## [03]-[INTEGRATION]
 

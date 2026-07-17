@@ -1,6 +1,6 @@
 # [TS_IAC_API_PULUMI_AWSX]
 
-`@pulumi/awsx` is the higher-level ComponentResource crosswalk backing the prepared `aws` dispatch row — intent-level compositions that expand to dozens of raw `@pulumi/aws` resources. It is NOT a bridged provider: every class extends `pulumi.ComponentResource` (not `CustomResource`), so there is no `static get`, no `id`, and no `Provider` credential of its own — an empty `ProviderArgs` marks that awsx components ride the ambient/passed `aws.Provider` via `opts.provider`. One composition ABI (`new X(name, XArgs, opts?: ComponentResourceOptions)`, intent args in, raw `pulumiAws.*` sub-resources out) owns five families: `ec catalogVpc` (subnet/NAT/IGW/route topology from an AZ+strategy spec), `ecs.FargateService`/`EC catalogService` (+ TaskDefinition), `ecr.Repository`/`Image` (build-and-push to ECR via bundled `@pulumi/docker-build`), `lb.ApplicationLoadBalancer`/`NetworkLoadBalancer`, and `cloudtrail.Trail`. awsx bundles `@pulumi/aws catalog` + `@pulumi/docker-build` as its own deps, so its outputs are typed `aws` resources the `aws` arm composes further.
+`@pulumi/awsx` is the higher-level ComponentResource crosswalk backing the prepared `aws` dispatch row — intent-level compositions that expand to dozens of raw `@pulumi/aws` resources. It is NOT a bridged provider: every class extends `pulumi.ComponentResource` (not `CustomResource`), so there is no `static get`, no `id`, and no `Provider` credential of its own — an empty `ProviderArgs` marks that awsx components ride the ambient/passed `aws.Provider` via `opts.provider`. One composition ABI (`new X(name, XArgs, opts?: ComponentResourceOptions)`, intent args in, raw `pulumiAws.*` sub-resources out) owns five families: `ec2.Vpc` (subnet/NAT/IGW/route topology from an AZ+strategy spec), `ecs.FargateService`/`EC2Service` (+ TaskDefinition), `ecr.Repository`/`Image` (build-and-push to ECR via bundled `@pulumi/docker-build`), `lb.ApplicationLoadBalancer`/`NetworkLoadBalancer`, and `cloudtrail.Trail`. awsx bundles `@pulumi/aws` + `@pulumi/docker-build` as its own deps, so its outputs are typed `aws` resources the `aws` arm composes further.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -12,7 +12,7 @@
 - rail: cloud-row / aws (ComponentResource tier)
 - runtime: the `aws.Provider` credential context; `ecr.Image` build also needs a local Docker/buildx CLI on the deploy host
 - build-floor: `@pulumi/pulumi` `^catalog`
-- depends-on: `@pulumi/pulumi` (`ComponentResource`/`Output`), `@pulumi/aws catalog` (every arg/output is a raw `aws` type — awsx composes it, `.api/pulumi-aws.md`), `@pulumi/docker-build` (the `ecr.Image` buildx path — the same admitted builder the selfhosted arm uses directly, `.api/pulumi-docker-build.md`)
+- depends-on: `@pulumi/pulumi` (`ComponentResource`/`Output`), `@pulumi/aws` (every arg/output is a raw `aws` type — awsx composes it, `.api/pulumi-aws.md`), `@pulumi/docker-build` (the `ecr.Image` buildx path — the same admitted builder the selfhosted arm uses directly, `.api/pulumi-docker-build.md`)
 - namespaces: `awsx.ec2` (Vpc/DefaultVpc), `awsx.ecs` (Fargate/EC2 Service+TaskDefinition), `awsx.ecr` (Repository/Image/RegistryImage), `awsx.lb` (Application/Network LB + TargetGroupAttachment), `awsx.cloudtrail` (Trail), `awsx.classic` (retired pre-schema components — superseded), `awsx.types`
 - capability: opinionated multi-resource compositions (VPC topology, ECS services, ECR build+push, load balancers, CloudTrail) that expand an intent spec into the raw `aws` resource graph
 - abi-note: outputs are raw `pulumiAws.*` resources (`vpc.subnets: aws.ec2.Subnet[]`, `alb.loadBalancer: aws.lb.LoadBalancer`), NOT scalars — the composition exposes its sub-resources for further wiring
@@ -33,7 +33,7 @@
 
 [NETWORK_SCOPE]: `awsx.ec2` — VPC topology
 - rail: aws
-- `Vpc` turns an AZ+strategy intent into the full subnet/NAT/IGW/route graph; `DefaultVpc` adopts the account default. The subnet ids feed every compute/LB composition.
+- `Vpc` turns an AZ+strategy intent into the full subnet/NAT/IGW/route graph; `DefaultVpc` adopts the account default. Subnet ids feed every compute/LB composition.
 - `Vpc` shape: args `{ cidrBlock, numberOfAvailabilityZones, natGateways, subnetSpecs, subnetStrategy, vpcEndpointSpecs }` → `vpcId`, `publicSubnetIds`/`privateSubnetIds`/`isolatedSubnetIds`, `subnets: aws.ec2.Subnet[]`, `natGateways`, `internetGateway`, `vpc: aws.ec2.Vpc`
 
 | [INDEX] | [SYMBOL]         | [ROLE]                                               |
@@ -90,7 +90,7 @@
 [LOCAL_ADMISSION]:
 - awsx components share the `aws` arm's single `aws.Provider` (creds from `StackSpec`/`@pulumiverse/doppler`, `.api/pulumiverse-doppler.md`); raw `@pulumi/aws` resources (`.api/pulumi-aws.md`) are the wiring currency between compositions and the return type of every output.
 - `ecr.Image` bundles `@pulumi/docker-build` (`.api/pulumi-docker-build.md`); the ECR-pushed image digest and the selfhosted arm's direct `docker-build.Image` `ref`/`digest` are the two arm-specific build outputs a mixed stack selects between by dispatch arm — one buildx-native builder, two egress registries.
-- the arm folds composition failures into the `program/automation` typed run receipt (`@pulumi/pulumi` `automation.UpResult`, `.api/pulumi-pulumi.md`); `effect` owns arm dispatch and the StackSpec/StackOutputs `Schema`; `opts.parent` threads the ComponentResource hierarchy of `stack/component`.
+- `aws` arm folds composition failures into the `program/automation` typed run receipt (`@pulumi/pulumi` `automation.UpResult`, `.api/pulumi-pulumi.md`); `effect` owns arm dispatch and the StackSpec/StackOutputs `Schema`; `opts.parent` threads the ComponentResource hierarchy of `stack/component`.
 - canonical law: the modern `ec2`/`ecs`/`ecr`/`lb` modules over `classic`; raw-resource outputs wired via `Input`, never re-read.
 
 [RAIL_LAW]:

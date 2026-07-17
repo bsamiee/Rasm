@@ -2,7 +2,7 @@
 
 `@effect/ai-anthropic` catalog · MIT · dual CJS+ESM, `sideEffects:[]`, per-module `exports` subpaths (`@effect/ai-anthropic/AnthropicClient`) · marker TSDECL `node_modules/@effect/ai-anthropic/dist/dts/*.d.ts` · peers `@effect/ai`, `@effect/platform`, `@effect/experimental`, `effect` through catalog ownership · tier node|browser (`FetchHttpClient.layer`)
 
-The Anthropic binding onto `@effect/ai`: it resolves the provider-agnostic `LanguageModel`/`Tokenizer`/`Tool` tags against the Anthropic Messages (beta) API. Its asymmetry row carries a language model, the `AnthropicTokenizer` that `ai/model.ts` names as one of its two budget owners, and the richest provider-defined tool family — but no embedding or telemetry module. It uniquely exports `prepareTools`, the tool-preparation helper `@effect/ai-amazon-bedrock` reuses to run Claude on Bedrock, so this catalog is the upstream seam for that sibling. Six owner modules re-export through the barrel (`AnthropicClient`, `AnthropicConfig`, `AnthropicLanguageModel`, `AnthropicTokenizer`, `AnthropicTool`, `Generated`); every provider-facing symbol is one parameterized surface, and the OpenAPI wire corpus (`Generated`) is a category with named anchors. Success/failure flows through the core `AiError.AiError`; all I/O is `Effect`/`Stream`.
+Anthropic binding onto `@effect/ai` resolves the provider-agnostic `LanguageModel`/`Tokenizer`/`Tool` tags against the Anthropic Messages (beta) API. Its asymmetry row carries a language model, the `AnthropicTokenizer` that `ai/model.ts` names as one of its two budget owners, and the richest provider-defined tool family — but no embedding or telemetry module. It uniquely exports `prepareTools`, the tool-preparation helper `@effect/ai-amazon-bedrock` reuses to run Claude on Bedrock, so this catalog is the upstream seam for that sibling. Six owner modules re-export through the barrel (`AnthropicClient`, `AnthropicConfig`, `AnthropicLanguageModel`, `AnthropicTokenizer`, `AnthropicTool`, `Generated`); every provider-facing symbol is one parameterized surface, and the OpenAPI wire corpus (`Generated`) is a category with named anchors. Success/failure flows through the core `AiError.AiError`; all I/O is `Effect`/`Stream`.
 
 ## [01]-[ASYMMETRY]
 
@@ -14,7 +14,7 @@ The Anthropic binding onto `@effect/ai`: it resolves the provider-agnostic `Lang
 |  [04]   | tokenizer              | `AnthropicTokenizer.make` (bare value)    | `make({model})`      | —                | —                |
 |  [05]   | provider-defined tools | 5 families / 11 date-suffixed ctors       | 4                    | 4                | 8 (via this pkg) |
 |  [06]   | telemetry module       | —                                         | `OpenAiTelemetry`    | —                | —                |
-|  [07]   | model-id kind          | `Generated.Model.Encoded` (21 claude ids) | enum                 | free `string`    | 91-id enum       |
+|  [07]   | model-id kind          | `Generated.Model.Encoded` (21 claude ids) | enum                 | free `string`    | 90-id enum       |
 |  [08]   | auth                   | `Redacted` apiKey + version + org/project | apiKey + org/project | apiKey           | SigV4 keys       |
 |  [09]   | per-request Config     | `Config` + `disableParallelToolCalls`     | `strict`/`verbosity` | `toolConfig`     | Converse fields  |
 |  [10]   | streaming fold         | `MessageStreamEvent` (8-member union)     | 49-member            | response re-emit | 11-member        |
@@ -94,7 +94,7 @@ export type AnthropicReasoningInfo =
 namespace Config { interface Service extends Simplify<Partial<Omit<typeof Generated.CreateMessageParams.Encoded, "messages"|"tools"|"tool_choice"|"stream">>> { readonly disableParallelToolCalls?: boolean } }
 ```
 
-The `declare module` augmentations attach an optional `anthropic` key — ONE boundary-hook pattern. Prompt caching is the dominant one: every message/part options interface gains `cacheControl?: CacheControlEphemeral.Encoded`.
+`declare module` augmentations attach an optional `anthropic` key — ONE boundary-hook pattern. Prompt caching is the dominant one: every message/part options interface gains `cacheControl?: CacheControlEphemeral.Encoded`.
 
 | [INDEX] | [AUGMENTS] | [INTERFACES]                                | [ANTHROPIC_SLOT]                                   |
 | :-----: | :--------- | :------------------------------------------ | :------------------------------------------------- |
@@ -109,7 +109,7 @@ The `declare module` augmentations attach an optional `anthropic` key — ONE bo
 
 ## [04]-[TOKENIZER]
 
-`AnthropicTokenizer.make` is a bare `Tokenizer.Service` value (not a factory function — distinct from `OpenAiTokenizer.make`, which takes `{ model }`); `layer` provides the `Tokenizer.Tokenizer` tag dependency-free, and `AnthropicLanguageModel.layerWithTokenizer`/`modelWithTokenizer` fold it in. This is the canonical tokenizer `ai/model.ts` names as its primary budget owner.
+`AnthropicTokenizer.make` is a bare `Tokenizer.Service` value (not a factory function — distinct from `OpenAiTokenizer.make`, which takes `{ model }`); `layer` binds the `Tokenizer.Tokenizer` tag dependency-free, and `AnthropicLanguageModel.layerWithTokenizer`/`modelWithTokenizer` fold it in. This is the canonical tokenizer `ai/model.ts` names as its primary budget owner.
 
 ```ts signature
 declare const make: Tokenizer.Service
@@ -118,7 +118,7 @@ declare const layer: Layer.Layer<Tokenizer.Tokenizer>
 
 ## [05]-[TOOL]
 
-`AnthropicTool` exports the closed-form `ProviderDefinedTools` union schema plus date-suffixed constructors, each ONE instance of `<Mode extends Tool.FailureMode | undefined>(args) => Tool.ProviderDefined<"Anthropic<Name>", { …; failureMode: Mode extends undefined ? "error" : Mode }, requiresHandler>`. The `requiresHandler` flag is the intra-family asymmetry: locally-executed tools (`Bash`/`ComputerUse`/`TextEditor`) are `true` and need an app handler; provider-executed tools (`CodeExecution`/`WebSearch`) are `false`. Versioning is by date suffix — the same tag with an evolving `parameters` literal.
+`AnthropicTool` exports the closed-form `ProviderDefinedTools` union schema plus date-suffixed constructors, each ONE instance of `<Mode extends Tool.FailureMode | undefined>(args) => Tool.ProviderDefined<"Anthropic<Name>", { …; failureMode: Mode extends undefined ? "error" : Mode }, requiresHandler>`. `requiresHandler` marks the intra-family asymmetry: locally-executed tools (`Bash`/`ComputerUse`/`TextEditor`) are `true` and need an app handler; provider-executed tools (`CodeExecution`/`WebSearch`) are `false`. Versioning is by date suffix — the same tag with an evolving `parameters` literal.
 
 | [INDEX] | [TAG]                    | [CTORS]                                            | [PARAMETERS_AXIS_SUCCESS]                                |
 | :-----: | :----------------------- | :------------------------------------------------- | :------------------------------------------------------- |
@@ -145,7 +145,7 @@ declare const withClientTransform: { (t: (c: HttpClient) => HttpClient): <A,E,R>
 
 ## [07]-[GENERATED]
 
-`Generated` is the machine-generated Anthropic REST surface: 341 exported owners (`Schema.Class` wire schemas, `Schema.Literal` enums, `Schema.Union` families) plus the `make` factory, a `Client` interface (27 stable endpoints, each mirrored by a `Beta*` method), and the `ClientError` rail. The surface is doubled: a stable family and a `Beta*` mirror carrying beta-only blocks (MCP tool blocks, web-fetch, code-execution result blocks, container/skill params). Planning code composes by `typeof X.Encoded` (wire) / `typeof X.Type` (decoded) and reaches REST via `AnthropicClient.Service.client.<endpoint>`; the high-level methods use the `Beta*` owners. Stable endpoints fail with `ClientError<"ErrorResponse", …>`, beta with `ClientError<"BetaErrorResponse", …>`, both joined by `HttpClientError | ParseError`.
+`Generated` is the machine-generated Anthropic REST surface: 341 exported owners (`Schema.Class` wire schemas, `Schema.Literal` enums, `Schema.Union` families) plus the `make` factory, a `Client` interface spanning the stable endpoints and their `Beta*` mirrors, and the `ClientError` rail. That surface doubles: a stable family and a `Beta*` mirror carrying beta-only blocks (MCP tool blocks, web-fetch, code-execution result blocks, container/skill params). Planning code composes by `typeof X.Encoded` (wire) / `typeof X.Type` (decoded) and reaches REST via `AnthropicClient.Service.client.<endpoint>`; the high-level methods use the `Beta*` owners. Stable endpoints fail with `ClientError<"ErrorResponse", …>`, beta with `ClientError<"BetaErrorResponse", …>`, both joined by `HttpClientError | ParseError`.
 
 Load-bearing anchors (exact spelling): `Model` (the 21-id literal), `CreateMessageParams`/`BetaCreateMessageParams`, `Message`/`BetaMessage`, `MessagesPostParams`/`BetaMessagesPostParams`, `ContentBlock`/`BetaContentBlock`, `Usage`/`BetaUsage`, `StopReason`/`BetaStopReason` (Beta adds `model_context_window_exceeded`), `ToolChoice`/`BetaToolChoice`, `CacheControlEphemeral`/`BetaCacheControlEphemeral` (the caching breakpoint — also consumed by `@effect/ai-amazon-bedrock`), `ResponseThinkingBlock`, `RequestRedactedThinkingBlock`, `RequestCitationsConfig`, `ErrorResponse`/`BetaErrorResponse`, and the `Beta*Tool20*` provider-tool schemas. Endpoints span messages, message-batches, token-counting, models, files, and skills — each with its `Beta*` mirror.
 

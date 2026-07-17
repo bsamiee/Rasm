@@ -20,7 +20,7 @@
 | [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]     | [CONSUMER]                                                                              |
 | :-----: | :----------------------- | :---------------- | :-------------------------------------------------------------------------------------- |
 |  [01]   | `UseFloatingOptions<RT>` | hook config       | `Partial<ComputePositionConfig>` + `whileElementsMounted`/`open`/`elements`/`transform` |
-|  [02]   | `UseFloatingReturn<RT>`  | hook result       | `refs`/`elements` + `floatingStyles` + `update()` + `context` + `UseFloatingData`       |
+|  [02]   | `UseFloatingReturn<RT>`  | hook result       | `refs`/`elements` + `floatingStyles` + `update()` + `UseFloatingData`; no `context` here |
 |  [03]   | `UseFloatingData`        | position snapshot | `ComputePositionReturn & { isPositioned: boolean }` — `x`/`y`/`placement`/`strategy`    |
 |  [04]   | `ReferenceType`          | reference union   | `Element \| VirtualElement` — real node or virtual rect (cursor/selection)              |
 |  [05]   | `ArrowOptions`           | arrow config      | `{ element, padding? }`; `element` is the `arrow` ref target (React ref or node)        |
@@ -44,7 +44,7 @@
 
 [ENTRYPOINT_SCOPE]: positioning hook
 - rail: position
-- `useFloating<RT>(options?)` returns `{ refs, elements, floatingStyles, update, placement, middlewareData, isPositioned, context }`
+- `useFloating<RT>(options?)` returns `{ refs, elements, floatingStyles, update, placement, middlewareData, isPositioned }`; the interaction-layer `context` is added only by `@floating-ui/react`'s `useFloating`, never this hook
 
 | [INDEX] | [SURFACE]                   | [ENTRY_FAMILY] | [CONSUMER]                                                                          |
 | :-----: | :-------------------------- | :------------- | :---------------------------------------------------------------------------------- |
@@ -76,14 +76,14 @@
 [POSITION_TOPOLOGY]:
 - `useFloating` returns `refs.setReference`/`refs.setFloating` callback setters and a `floatingStyles: React.CSSProperties` object; spreading `floatingStyles` onto the float's `style` prop is the only correct application — the hook owns `position`/`top`/`left`/`transform`, and hand-writing them fights the engine. `isPositioned` is `false` until the first calculation resolves, so a float renders hidden until placed, killing first-paint flicker.
 - Middleware is an ordered pipeline: each factory returns a `Middleware` whose `fn` reads and mutates `MiddlewareState`, and order is semantic — `offset` before `flip` before `shift` before `arrow`/`size`, because each stage consumes the prior stage's coordinates. `MiddlewareData` keys each stage's output by name so the consumer reads `middlewareData.arrow.x` or `middlewareData.hide.referenceHidden`.
-- The `deps` second argument and `Derivable` options are the React-reactivity seam: pass `deps` when a middleware's options derive from reactive state (a dynamic `offset` from a prop), and use a `Derivable` (`(state) => options`) when the option depends on the live placement — both prevent the stale-closure bug a plain object option does cause.
+- `deps` second argument and `Derivable` options are the React-reactivity seam: pass `deps` when a middleware's options derive from reactive state (a dynamic `offset` from a prop), and use a `Derivable` (`(state) => options`) when the option depends on the live placement — both prevent the stale-closure bug a plain object option does cause.
 - `whileElementsMounted: autoUpdate` is mandatory for a persistent float: it re-runs positioning on scroll, resize, DOM mutation, and layout shift, and returns a cleanup the hook calls on unmount. Without it a float positions once and drifts.
 - `Strategy` `'fixed'` escapes `overflow`/`transform`/`contain` clipping ancestors; `'absolute'` (default) positions within the nearest positioned ancestor — a portaled float uses `fixed` to break out of a scroll container.
 
 [STACKS_WITH]:
 - `@floating-ui/dom` (dep): the framework-agnostic engine this package wraps — `computePosition`, the middleware algorithms, and the geometry types are `dom`'s; react-dom adds the `useFloating` hook, `floatingStyles`, the `deps` arrays, and React ref integration. No positioning logic is re-implemented here.
 - `@floating-ui/react` (dependent, `libs/typescript/ui/.api/floating-ui-react.md`): the full surface that re-exports everything here and adds interaction/focus/portal/tree. A `view/compose` row imports `@floating-ui/react`; it drops to `@floating-ui/react-dom` directly only for interaction-free anchoring (a static badge, a measured decorative pointer) where `useClick`/`useDismiss`/`FloatingFocusManager` are dead weight.
-- `react` (peer `>=16.8`): `floatingStyles` is `React.CSSProperties`, the ref setters are React callback refs, and `deps` is a `React.DependencyList` — the hook is the React-native form of the imperative `computePosition` + `autoUpdate` pair.
+- `react` (peer): `floatingStyles` is `React.CSSProperties`, the ref setters are React callback refs, and `deps` is a `React.DependencyList` — the hook is the React-native form of the imperative `computePosition` + `autoUpdate` pair.
 - `token/theme` (sibling row): the float element carries the design-token classes/styles beside the spread `floatingStyles`; the two never conflict because floating-ui owns only `position`/`top`/`left`/`transform` and the token layer owns the visual box.
 - react-aria overlay hooks (sibling rows, via `@floating-ui/react`): react-aria's `useOverlayPosition` is the react-aria-native positioner; when a row commits to floating-ui for geometry it uses this engine and lets react-aria own only ARIA/dismiss — the two positioners never both drive one element.
 

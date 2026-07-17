@@ -34,7 +34,7 @@
 
 [ENTRYPOINT_SCOPE]: constructing the browser lane and its OPFS worker
 - rail: rails-and-effects
-- Two make paths select durability: `makeMemory`/`layerMemory` for ephemeral in-thread (specs, previews), `make`/`layer` for the durable OPFS lane whose `worker` Effect spawns/attaches the worker that runs `OpfsWorker.run`. `installReactivityHooks` wires `Reactivity` so `sql.reactive` drives `browser/persist` read-your-writes; `withTransferables` moves large `Uint8Array`s to the worker without a copy. Every surface is a `SqliteClient` static unless the row names another owner (`OpfsWorker.run`, `client.*`); the `layer*` forms return `Layer<SqliteClient \| SqlClient, ConfigError \| SqlError>`, `make`/`makeMemory` return `Effect<SqliteClient, SqlError, Scope \| Reactivity>`. `layerConfig`/`layerMemoryConfig` take `Config.Wrap<SqliteClientConfig>`; `currentTransferables` is a `FiberRef`; `OpfsWorker.run` returns `Effect<void, SqlError>`.
+- Two make paths select durability: `makeMemory`/`layerMemory` are ephemeral in-thread; `make`/`layer` back the durable OPFS lane whose `worker` Effect spawns the thread running `OpfsWorker.run`. `layer*` forms wire `Reactivity` internally and return `Layer<SqliteClient \| SqlClient, ConfigError \| SqlError>`; `make`/`makeMemory` return `Effect<SqliteClient, SqlError, Scope \| Reactivity>`, `OpfsWorker.run` returns `Effect<void, SqlError>`.
 
 | [INDEX] | [SURFACE]                                                  | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                     |
 | :-----: | :--------------------------------------------------------- | :------------- | :------------------------------------------------------ |
@@ -65,7 +65,7 @@
 - Run `OpfsWorker.run` in the worker thread and hold the `SqliteClient` on the main thread; never attempt OPFS from the main thread (the sync access handle is worker-only).
 - Use `export`/`import` for seed/restore and memory-lane persistence, moving blobs with `withTransferables` (zero-copy); never serialize a DB through a string.
 - Express dialect variance via `sql.onDialect` (`updateValues: never`, single-writer OPFS); never fork a journal/projection row per runtime — the wasm lane is one `capability/matrix` degradation row.
-- The `SqliteMigrator` re-export is banned; browser schema is `iac`-owned declarative ensure verified at lane startup, never a migration run.
+- `SqliteMigrator` re-export stays banned; browser schema is `iac`-owned declarative ensure verified at lane startup, never a migration run.
 
 [RAIL_LAW]:
 - Package: `@effect/sql-sqlite-wasm`

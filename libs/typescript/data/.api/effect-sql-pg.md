@@ -9,7 +9,7 @@
 - license: `MIT`
 - effect-peer: `effect catalog`, `@effect/sql catalog` (the `SqlClient` core this extends; `.api/effect-sql.md`), `@effect/experimental catalog` (`Reactivity` — `make`/`reactive`/`reactiveMailbox` require it; `.api/effect-experimental.md`), `@effect/platform catalog` (`FileSystem`/`Path`/`CommandExecutor` — `PgMigrator` only; `.api/effect-platform.md`)
 - backing: bundles `pg catalog` (`node-postgres`) with `pg-pool` (connection pool), `pg-cursor` (server-side streaming cursor behind `SqlStream`), `pg-types` (OID codec), `pg-connection-string`
-- runtime: `runtime:node`/bun — imports `node:stream`, `node:tls`; the PG journal spine. The browser plane never imports it — `lane/wasm` on `@effect/sql-sqlite-wasm` is the browser durability lane
+- runtime: `runtime:node`/bun — imports `node:stream`, `node:tls`; the PG journal spine. Browser plane never imports it — `lane/wasm` on `@effect/sql-sqlite-wasm` is the browser durability lane
 - modules: `PgClient`, `PgMigrator`
 
 ## [02]-[PUBLIC_TYPES]
@@ -42,7 +42,7 @@
 
 [PUBLIC_TYPE_SCOPE]: the inherited `SqlClient` core the pg rows compose
 - rail: store/journal
-- The pg-specific surface is thin because the durable law is SQL. These `@effect/sql` members (`.api/effect-sql.md`) carry the journal, projection, and lane contracts; `PgClient` supplies the pooled, LISTEN/NOTIFY-capable connection they run over. The `sql` `Constructor` exposes `in`/`unsafe`/`literal`/`insert`/`update`/`updateValues`/`and`/`or`/`csv`/`join`; `pg` is an `onDialect` arm-KEY, not a `sql.pg` method. `Model.makeRepository`/`makeDataLoaders` build typed tables with `Generated`/`Sensitive`/`DateTimeInsert` variant schemas.
+- pg-specific surface is thin because the durable law is SQL: these `@effect/sql` members (`.api/effect-sql.md`) carry the journal, projection, and lane contracts, and `PgClient` binds the pooled, LISTEN/NOTIFY-capable connection they run over. `sql` `Constructor` exposes `in`/`unsafe`/`literal`/`insert`/`update`/`updateValues`/`and`/`or`/`csv`/`join`; `pg` is an `onDialect` arm-KEY, not a `sql.pg` method. `Model.makeRepository`/`makeDataLoaders` build typed tables with `Generated`/`Sensitive`/`DateTimeInsert` variant schemas.
 
 | [INDEX] | [SYMBOL]                                                           | [TYPE_FAMILY]  | [CONSUMER_BOUNDARY]                               |
 | :-----: | :----------------------------------------------------------------- | :------------- | :------------------------------------------------ |
@@ -74,7 +74,7 @@
 
 [ENTRYPOINT_SCOPE]: the pg journal patterns — SQL over `reserve`/`withTransaction`/`listen`
 - rail: store/journal
-- The advisory-lock, COPY, idempotency, and SKIP-LOCKED capabilities are `sql` statements, not driver methods. Each is one parameterized fragment run over the inherited surface, so a new lane is a new statement, never a new API. The RLS GUC binds through `set_config(..., true)` inside `withTransaction` because a bare `SET LOCAL` cannot bind parameters.
+- advisory-lock, COPY, idempotency, and SKIP-LOCKED capabilities are `sql` statements, not driver methods. Each is one parameterized fragment run over the inherited surface, so a new lane is a new statement, never a new API. RLS GUC binds through `set_config(..., true)` inside `withTransaction` because a bare `SET LOCAL` cannot bind parameters.
 
 | [INDEX] | [SURFACE]                                                                | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                        |
 | :-----: | :----------------------------------------------------------------------- | :------------- | :----------------------------------------- |
@@ -90,15 +90,15 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [PG_SPINE_TOPOLOGY]:
-- `PgClient` IS a `SqlClient`: `layer*` provides `PgClient | SqlClient`, so domain rows depend on the neutral `SqlClient` Tag and stay dialect-agnostic; only rows using `listen`/`notify`/`json` yield the `PgClient` Tag. This is what lets `sql.onDialect({ pg, sqlite })` compile one journal/projection statement that the PG spine and the `lane/sqlite` rows both run.
-- the durable law is SQL, not driver API: advisory locks (`pg_advisory_xact_lock` / `pg_advisory_lock`), COPY, `ON CONFLICT … RETURNING (xmax = 0)`, `FOR UPDATE SKIP LOCKED`, and the RLS `set_config('app.current_tenant', …, true)` GUC are parameterized `sql` fragments over `reserve` (dedicated `Connection`) and `withTransaction` (transaction scope). The driver owns the pool, the wire protocol, LISTEN/NOTIFY, and the OTel span — nothing more. A new capability is a new statement.
+- `PgClient` IS a `SqlClient`: `layer*` binds `PgClient | SqlClient`, so domain rows depend on the neutral `SqlClient` Tag and stay dialect-agnostic; only rows using `listen`/`notify`/`json` yield the `PgClient` Tag. This is what lets `sql.onDialect({ pg, sqlite })` compile one journal/projection statement that the PG spine and the `lane/sqlite` rows both run.
+- durable law is SQL, not driver API: advisory locks (`pg_advisory_xact_lock` / `pg_advisory_lock`), COPY, `ON CONFLICT … RETURNING (xmax = 0)`, `FOR UPDATE SKIP LOCKED`, and the RLS `set_config('app.current_tenant', …, true)` GUC are parameterized `sql` fragments over `reserve` (dedicated `Connection`) and `withTransaction` (transaction scope). Driver owns the pool, the wire protocol, LISTEN/NOTIFY, and the OTel span — nothing more. A new capability is a new statement.
 - one atomic commit: `journal/append` + `journal/outbox` + the idempotency ledger share one `withTransaction`, so the event, the outbox row, and the `(xmax = 0)` claim commit or roll back together — the exactly-once boundary.
 - `reserve` is the session-state boundary: session advisory locks and COPY streams need a connection pinned across statements; `reserve` yields a scoped `Connection` from the pool that returns on scope close. A bare `client`\``…`\` runs pool-per-statement and cannot hold session locks.
 - extension capability is fail-closed SQL: each `capability/row` `probeSql` runs through `sql` and gates the feature; extensions are `iac`/CNPG deployment-image facts (`pgvector`, `vchord`, `vchord_bm25`, `pg_cron`, `pg_ivm`, `pg_partman`), never a JS dependency — identity mint is native `uuidv7()`, no extension row.
 
 [INTEGRATION_LAW]:
-- Stack with `@effect/sql` core (`.api/effect-sql.md`): `PgClient` supplies the pooled connection; `SqlSchema.findAll`/`findOne` decode rows into `Schema` models, `SqlResolver.grouped`/`findById` batch reads to kill N+1, `Model.makeRepository` types the journal/projection tables with `Generated`/`Sensitive`/`DateTimeInsert` variant schemas, and `SqlStream.asyncPauseResume` streams a `pg-cursor` under backpressure. The pg catalog documents stacking ONTO this core, never re-implementing it.
-- Stack with `@effect/experimental` (`.api/effect-experimental.md`): `make`/`reactive`/`reactiveMailbox` require the `Reactivity` service — `project/inline` emits `Reactivity.invalidate(keys)` after an OCC append and `reactive(keys, query)` re-runs the read (read-your-writes). `SqlEventJournal`/`SqlEventLogServer`/`SqlPersistedQueue` are the SQL backings the EventLog sync server and durable queue bind to; the store's own journal is raw `@effect/sql`, and EventLog stays an overlay, never the record of truth.
+- Stack with `@effect/sql` core (`.api/effect-sql.md`): `PgClient` binds the pooled connection; `SqlSchema.findAll`/`findOne` decode rows into `Schema` models, `SqlResolver.grouped`/`findById` batch reads to kill N+1, `Model.makeRepository` types the journal/projection tables with `Generated`/`Sensitive`/`DateTimeInsert` variant schemas, and `SqlStream.asyncPauseResume` streams a `pg-cursor` under backpressure — stacked onto this core, never re-implemented.
+- Stack with `@effect/experimental` (`.api/effect-experimental.md`): `make`/`reactive`/`reactiveMailbox` require the `Reactivity` service — `project/inline` emits `Reactivity.invalidate(keys)` after an OCC append, and `reactive(keys, query)` re-runs the read (read-your-writes). `SqlEventJournal`/`SqlEventLogServer`/`SqlPersistedQueue` are the SQL backings the EventLog sync server and durable queue bind to; the store's journal is raw `@effect/sql`, EventLog an overlay, never the record of truth.
 - Stack with `@effect/opentelemetry` (`.api/effect-opentelemetry.md`): every statement auto-opens a span carrying `PgClientConfig.spanAttributes` plus the SQL text; the `NodeSdk`/`Otlp.layer` under the graph exports them with no per-query wiring. `applicationName` correlates the span to `pg_stat_activity`.
 - Stack with the sqlite lanes (`.api/effect-sql-sqlite-bun.md`, `-node`, `-wasm`): `sql.onDialect`'s `pg`/`sqlite` arms write one statement across dialects; the `lane/sqlite` capability-degradation table names what the sqlite lanes drop against this spine — RLS → file-per-app, `pg_ivm` → in-process folds, LISTEN/NOTIFY → in-process `Reactivity`, `updateValues` → `never`, COPY → chunked inserts.
 - Stack with `iac`/`security`: extensions and pool budgets are CNPG deployment-image facts `iac` provisions and `store` verifies at startup (the DDL split); `PgClientConfig.url`/`password` are `Redacted` from `host/config`, and `journal/retain` composes the `security/sign` `Shredder` for crypto-shredding — the one direct `store → security` edge.

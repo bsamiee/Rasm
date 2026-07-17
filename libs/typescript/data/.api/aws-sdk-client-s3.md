@@ -1,6 +1,6 @@
 # [TS_DATA_API_AWS_SDK_CLIENT_S3]
 
-`@aws-sdk/client-s3` is the S3 protocol client the `object` plane wraps: one `S3Client` whose single polymorphic `send(command)` discriminates over ~113 command values, tuned to any S3-compatible endpoint (AWS, MinIO, Cloudflare R2, Tigris, Ceph) by `endpoint` + `forcePathStyle`, never a per-verb method family. The store composes it under Effect — the client is `acquireRelease`d, each `send` is an `Effect.tryPromise` with the fiber's `AbortSignal` bridging interruption to SDK cancellation, and the `S3ServiceException` hierarchy maps to a tagged error rail. Content-addressed idempotency is one parameterized pattern: `PutObjectCommand{ Key: contentKey, IfNoneMatch: "*", ChecksumSHA256 }` — the key IS the kernel `ContentKey` digest, the checksum verifies integrity server-side, and a caught `S3ServiceException` with `$metadata.httpStatusCode === 412` is the idempotent noop (there is no `PreconditionFailed` class). The client carries its own `requestHandler` (`@smithy/node-http-handler`), so it does NOT ride the `@effect/platform` `HttpClient` Tag; the Effect seam is the wrap, not the transport.
+`@aws-sdk/client-s3` is the S3 protocol client the `object` plane wraps: one `S3Client` whose single polymorphic `send(command)` discriminates over every S3 command value, tuned to any S3-compatible endpoint (AWS, MinIO, Cloudflare R2, Tigris, Ceph) by `endpoint` + `forcePathStyle`, never a per-verb method family. Under Effect the store composes it — the client is `acquireRelease`d, each `send` is an `Effect.tryPromise` with the fiber's `AbortSignal` bridging interruption to SDK cancellation, and the `S3ServiceException` hierarchy maps to a tagged error rail. Content-addressed idempotency is one parameterized pattern: `PutObjectCommand{ Key: contentKey, IfNoneMatch: "*", ChecksumSHA256 }` — the key IS the kernel `ContentKey` digest, the checksum verifies integrity server-side, and a caught `S3ServiceException` with `$metadata.httpStatusCode === 412` is the idempotent noop (there is no `PreconditionFailed` class). This client carries its own `requestHandler` (`@smithy/node-http-handler`), so it does NOT ride the `@effect/platform` `HttpClient` Tag; the Effect seam is the wrap, not the transport.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -9,7 +9,7 @@
 - license: `Apache-2.0`
 - peer: none — self-contained; `@smithy/*` and `@aws-sdk/*` submodules bundled
 - transport: own `requestHandler` — `@smithy/node-http-handler` (Node `https.Agent` pool / HTTP2) or `@smithy/fetch-http-handler` (browser); NOT the `@effect/platform` `HttpClient`
-- runtime: `runtime:node` (server object plane) and browser (presigned direct-to-S catalog uploads); `credentialDefaultProvider` (`@aws-sdk/credential-provider-node`) is node-only
+- runtime: `runtime:node` (server object plane) and browser (presigned direct-to-S3 uploads); `credentialDefaultProvider` (`@aws-sdk/credential-provider-node`) is node-only
 - module format: ESM/CJS dual, `sideEffects: false`, tree-shakeable command imports; deep-import subpaths per command
 - admitted companion: `@aws-sdk/lib-storage` (managed `Upload`; `.api/aws-sdk-lib-storage.md`) owns streaming/unknown-length bodies — bounded-bytes multipart stays hand-composed from the low-level command family under an Effect scope
 
@@ -34,12 +34,12 @@
 - [03]-[TRANSPORT]: `@smithy/node-http-handler` pool tuning; adaptive retry budget.
 - [04]-[CHECKSUM]: default checksum policy (`WHEN_SUPPORTED`/`WHEN_REQUIRED`).
 - [05]-[ENDPOINT]: dualstack/FIPS/ARN routing.
-- [06]-[FLAT_CLIENT]: convenience only; prefer the command form under Effect for tree-shaking.
+- [06]-[FLAT_CLIENT]: convenience only; command form under Effect is the tree-shakeable target.
 - [07]-[EXTENSION]: credential/handler/checksum extension hooks at construction.
 
 [PUBLIC_TYPE_SCOPE]: the object command rows — the space `send` discriminates
 - rail: store/object
-- These are the seed rows of the content-addressed plane; the full ~113-command surface is the space one `send` owns. Each command's `*CommandInput` carries the conditional, checksum, encryption, and range fields the store composes.
+- These are the seed rows of the content-addressed plane; the full command surface is the space one `send` owns. Each command's `*CommandInput` carries the conditional, checksum, encryption, and range fields the store composes.
 
 | [INDEX] | [SYMBOL]                                                                            | [TYPE_FAMILY] |
 | :-----: | :---------------------------------------------------------------------------------- | :------------ |
@@ -65,7 +65,7 @@
 
 [PUBLIC_TYPE_SCOPE]: multipart, pagination, waiters, and the error rail
 - rail: store/object
-- Multipart is the low-level command family (no `lib-storage`), composed under an Effect scope that `Abort`s on interrupt. Paginators and waiters are `AsyncIterable`/promise helpers the Effect wrap lifts. The error hierarchy is the tagged rail's source.
+- Multipart is the low-level command family (no `lib-storage`), composed under an Effect scope that `Abort`s on interrupt. Paginators and waiters are `AsyncIterable`/promise helpers the Effect wrap lifts. Error hierarchy seeds the tagged rail.
 
 | [INDEX] | [SYMBOL]                                                                                                            | [TYPE_FAMILY]   |
 | :-----: | :------------------------------------------------------------------------------------------------------------------ | :-------------- |
@@ -97,7 +97,7 @@
 
 [ENTRYPOINT_SCOPE]: the Effect wrap — client lifecycle and typed send
 - rail: store/object
-- The store never touches the SDK imperatively. The client is a scoped resource; every command is a typed `Effect`; the `AbortSignal` bridges Effect interruption; the exception hierarchy folds to a tagged rail.
+- Store code never touches the SDK imperatively; the client is a scoped resource; every command is a typed `Effect`; the `AbortSignal` bridges Effect interruption; the exception hierarchy folds to a tagged rail.
 
 | [INDEX] | [SURFACE]                                                                                                  | [ENTRY_FAMILY] |
 | :-----: | :--------------------------------------------------------------------------------------------------------- | :------------- |
@@ -138,17 +138,17 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [OBJECT_CLIENT_TOPOLOGY]:
-- one polymorphic `send`, commands as rows: the store wraps `client.send(command)` exactly once; the ~113 commands are values that discriminate the operation, so a new object operation is a new command row, never a new method. The `S3` flat client is convenience only.
+- one polymorphic `send`, commands as rows: the store wraps `client.send(command)` exactly once; commands are values that discriminate the operation, so a new object operation is a new command row, never a new method. This `S3` flat client is convenience only.
 - content-address idempotency, not a lock: the object `Key` IS the kernel `ContentKey` digest, so two writers producing the same bytes produce the same key. `IfNoneMatch: "*"` makes the first `PutObject` win and every re-put fail with HTTP 412; the store catches the `S3ServiceException`, reads `$metadata.httpStatusCode === 412`, and returns a noop. There is no `PreconditionFailed` error class — 412 is a status on the base exception, and mistaking it for a named class is a phantom.
 - checksums are the integrity proof: `ChecksumSHA256` + `ChecksumAlgorithm: "SHA256"` on write and `ChecksumMode: "ENABLED"` on read make S3 verify the content-address digest end to end; `requestChecksumCalculation`/`responseChecksumValidation` set the default policy at the client.
 - own transport, Effect is the wrap: the SDK uses its own `requestHandler` (`@smithy/node-http-handler` pool), NOT the `@effect/platform` `HttpClient` — so the Effect seam is the resource wrap and the `AbortSignal` bridge, not the wire. Interruption of the fiber aborts the in-flight request; the client is `destroy`ed on scope close.
-- S3-compatible by parameterization: `endpoint` + `forcePathStyle: true` target MinIO/R2/Tigris/Ceph; `credentials` are static keys or a provider; nothing is hardcoded to AWS. The provider is a `Config` fact.
+- S3-compatible by parameterization: `endpoint` + `forcePathStyle: true` target MinIO/R2/Tigris/Ceph; `credentials` are static keys or a provider; nothing is hardcoded to AWS. Provider selection is a `Config` fact.
 - multipart splits by body shape: bounded bytes ride the low-level `CreateMultipartUpload`/`UploadPart`/`CompleteMultipartUpload` family under `Effect.acquireRelease` that `AbortMultipartUpload`s on interrupt — part size is a parameter, not a library default; a streaming or unknown-length body rides `@aws-sdk/lib-storage`'s `Upload` (`.api/aws-sdk-lib-storage.md`), whose params spread carries the same conditional and checksum members onto both its legs.
 
 [INTEGRATION_LAW]:
-- Stack with `effect` (`.api/effect.md`): `Layer.scoped` holds the `S3Client` via `acquireRelease`; `Effect.tryPromise` with `{ abortSignal }` lifts each `send`; the `S3ServiceException` hierarchy maps through `Match` to `Data.TaggedError` (`ObjectMissing`/`ObjectConflict`/`ObjectFault`); `Stream.fromAsyncIterable` lifts a paginator; `Config.redacted` supplies credentials; `Schedule` policy composes with `maxAttempts`/`retryMode`. The client adds no rail — Effect owns lifecycle, cancellation, and error.
+- Stack with `effect` (`.api/effect.md`): `Layer.scoped` holds the `S3Client` via `acquireRelease`; `Effect.tryPromise` with `{ abortSignal }` lifts each `send`; the `S3ServiceException` hierarchy maps through `Match` to `Data.TaggedError` (`ObjectMissing`/`ObjectConflict`/`ObjectFault`); `Stream.fromAsyncIterable` lifts a paginator; `Config.redacted` supplies credentials; `Schedule` policy composes with `maxAttempts`/`retryMode`. This client adds no rail — Effect owns lifecycle, cancellation, and error.
 - Stack with `@aws-sdk/s3-request-presigner` (`.api/aws-sdk-s3-request-presigner.md`): `getSignedUrl(client, command, { expiresIn })` mints a presigned URL from the SAME `S3Client` + command values, inheriting `credentials`/`region`/`endpoint`/`forcePathStyle` — the `object/presign` browser-direct upload/download rows.
-- Stack with `sharp` (`.api/sharp.md`): the `object/presign` codec fan-out collects the `GetObjectCommand` response `Body` (`SdkStream<Readable>`) once via `Body.transformToByteArray()` into a `Buffer`, decodes it in `sharp(buffer)`, then `clone()` + `toFormat(row.format, row.options)` per derivative-spec row (the `Body` is single-consume, so buffer-then-clone, never a re-piped stream per derivative), and writes each derivative back through the SAME conditional-put idempotency row this client owns — `PutObjectCommand{ Key: derivativeContentKey, IfNoneMatch: "*", ChecksumSHA256 }`, 412-by-status ⇒ idempotent noop — so every derivative is content-addressed and re-put-safe exactly like its source. This client owns the fetch and the idempotent write; `sharp` owns the codec.
+- Stack with `sharp` (`.api/sharp.md`): the `object/presign` codec fan-out collects the `GetObjectCommand` response `Body` (`SdkStream<Readable>`) once via `Body.transformToByteArray()` into a `Buffer`, decodes it in `sharp(buffer)`, then `clone()` + `toFormat(row.format, row.options)` per derivative-spec row, and writes each derivative back through the SAME conditional-put idempotency row this client owns — `PutObjectCommand{ Key: derivativeContentKey, IfNoneMatch: "*", ChecksumSHA256 }`, 412-by-status ⇒ idempotent noop — so every derivative is content-addressed and re-put-safe exactly like its source. This client owns the fetch and the idempotent write; `sharp` owns the codec.
 - Stack with `@effect/opentelemetry` (`.api/effect-opentelemetry.md`): wrap each `send` in `Effect.withSpan("s3.putObject", { attributes: { bucket, key } })`; the span rides the same exporter Layer as the SQL spans, correlating an object write to its journal event.
 - Stack with `kernel`/`security`: `object/key` `ObjectKey` = kernel `ContentKey` (the digest that is the S3 Key); `credentials` and `SSECustomerKey` are `Redacted` from `host/config`; a presigned URL is a bounded-TTL capability token `security` reasons about.
 

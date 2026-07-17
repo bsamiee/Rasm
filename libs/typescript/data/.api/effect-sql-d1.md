@@ -1,14 +1,14 @@
 # [TS_DATA_API_EFFECT_SQL_D1]
 
-`@effect/sql-d1` binds the neutral `@effect/sql` `SqlClient` (`.api/effect-sql.md`) to a Workers `D1Database` binding — the managed-edge profile of the ONE sqlite lane. The binding arrives as a value from the Workers environment (`env.DB`), so the config takes the live handle, never a connection string. D1 admits no interactive transaction: statements run batch/exec-shaped, `updateValues` is `never`, and the lane degradation table records both refusals. Read replication (sequential consistency per session) and PITR are platform facts outside the driver.
+`@effect/sql-d1` binds the neutral `@effect/sql` `SqlClient` (`.api/effect-sql.md`) to a Workers `D1Database` binding — the managed-edge profile of the ONE sqlite lane. Binding arrives as a value from the Workers environment (`env.DB`), so the config adopts the live handle, never a connection string. D1 admits no interactive transaction (`transactionAcquirer` dies): statements run batch/exec-shaped over a prepared-statement cache, `updateValues` is `never`, and the lane degradation table records both refusals. Read replication (sequential consistency per session) and PITR are platform facts outside the driver.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@effect/sql-d1`
 - package: `@effect/sql-d1`
 - license: `MIT`
-- effect-peer: `effect`, `@effect/sql` (`.api/effect-sql.md`)
-- backing: the Workers `D1Database` runtime binding (no bundled driver)
+- effect-peer: `effect`, `@effect/sql` (`.api/effect-sql.md`), `@effect/experimental` (`Reactivity`), `@effect/platform`
+- backing: the Workers `D1Database` runtime binding (no bundled driver); `@cloudflare/workers-types` supplies the binding types
 - runtime: Cloudflare Workers only; the node/bun lanes are `-sqlite-node`/`-sqlite-bun`, the browser lane `-sqlite-wasm`
 - modules: `D1Client`
 
@@ -16,7 +16,7 @@
 
 [PUBLIC_TYPE_SCOPE]: the `D1Client` service and its config
 - rail: data/lane
-- `D1Client extends SqlClient` — the layer yields both Tags; neutral rows compose `SqlClient`. `D1ClientConfig` carries the shared `spanAttributes`/`transformResultNames`/`transformQueryNames` transforms over the Workers binding.
+- `D1Client extends SqlClient`, so providing the layer yields both Tags; neutral rows compose `SqlClient`. `D1ClientConfig` carries the shared `spanAttributes`/`transformResultNames`/`transformQueryNames` transforms over the Workers binding.
 
 | [INDEX] | [SYMBOL]                                               | [TYPE_FAMILY]       | [CONSUMER_BOUNDARY]                             |
 | :-----: | :----------------------------------------------------- | :------------------ | :---------------------------------------------- |
@@ -30,7 +30,7 @@
 
 [ENTRYPOINT_SCOPE]: constructing the driver Layer
 - rail: data/lane
-- `layer`/`layerConfig` provide `D1Client \| SqlClient` in one Layer, error `ConfigError \| SqlError`; `make` returns `Effect<D1Client, SqlError, Scope>`. The `env.DB` handle stays a value, never a connection string.
+- `layer`/`layerConfig` yield `D1Client \| SqlClient` in one Layer, error only `ConfigError` (each wires `Reactivity` internally); `make` returns `Effect<D1Client, never, Scope \| Reactivity>`. Handle `env.DB` stays a value, never a connection string; the prepared-statement cache defaults to 200 entries over a 10-minute TTL.
 
 | [INDEX] | [SURFACE]                                           | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                 |
 | :-----: | :-------------------------------------------------- | :------------- | :-------------------------------------------------- |
@@ -46,7 +46,7 @@
 
 [LOCAL_ADMISSION]:
 - Provide the layer at the Workers composition root only; neutral rows yield `SqlClient`.
-- The 10 GB per-database cap and Sessions/Time-Travel semantics are platform facts consumed as lane degradation rows, never re-modeled.
+- 10 GB per-database cap plus Sessions/Time-Travel semantics are platform facts consumed as lane degradation rows, never re-modeled.
 
 [RAIL_LAW]:
 - Package: `@effect/sql-d1`

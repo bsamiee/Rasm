@@ -2,7 +2,7 @@
 
 `@pulumi/kubernetes` is the first-class engine of the `selfhosted-k8s` arm: strongly-typed resource classes for every Kubernetes API group (`core/v1`, `apps/v1`, `batch/v1`, `networking/v1`, `rbac/v1`, `storage/v1`, `apiextensions/v1`, …), the `helm.v4.Chart` / `helm.v3.Release` component wrappers that render upstream charts as typed value objects, the `apiextensions.CustomResource` carrier for operator CRDs (the CNPG `Cluster`, cert-manager `Certificate`, Prometheus `ServiceMonitor`), the `yaml`/`kustomize` manifest components, and the `Provider` that binds a kubeconfig. Two shapes cover the whole package: the generated TYPED resource (`apiVersion`/`kind`/`metadata`/`spec`/`status` as `Output`s) and the bespoke COMPONENT (`Chart`/`Release`/`Directory`/`ConfigGroup` over `pulumi.ComponentResource`). In `iac` this is the workload/data/traffic spine — the cluster-bootstrap row (`@pulumi/command`) yields the kubeconfig, `helm.v4.Chart` installs the CNPG operator + LGTM stack + OTel collector as typed values (zero authored YAML), `apiextensions.CustomResource` declares the CNPG cluster whose host feeds `@pulumi/postgresql`, and `@pulumiverse/grafana` applies dashboards onto the rendered Grafana.
 
-```ts
+```ts conceptual
 // @pulumi/kubernetes — Provider + API-group namespaces + component wrappers
 export { Provider }                        // pulumi.ProviderResource (kubeconfig binding)
 export {                                    // typed resource groups (each with v1/v2/… sub-namespaces)
@@ -88,7 +88,7 @@ interface DeploymentArgs {
 |  [06]   | `storage.k8s.io/v1`            | `StorageClass`, `VolumeAttachment`                                                              |
 |  [07]   | `apiextensions.k8s.io/v1`      | `CustomResourceDefinition` (`apiextensions.v1.CustomResourceDefinition`)                        |
 
-The remaining generated groups follow this exact pattern: `policy`, `autoscaling`, `coordination`, `scheduling`, `admissionregistration`, `certificates`, `discovery`, `events`, `flowcontrol`, `node`, `settings`, `apiregistration`, `storagemigration`. Every group additionally exposes `*Patch` (SSA) and `*List` twins; `meta.v1.ObjectMeta` is the shared metadata input carrying `name`/`namespace`/`labels`/`annotations`.
+Remaining generated groups follow this exact pattern: `policy`, `autoscaling`, `coordination`, `scheduling`, `admissionregistration`, `certificates`, `discovery`, `events`, `flowcontrol`, `node`, `settings`, `apiregistration`, `storagemigration`, `auditregistration`, `extensions`. Every group additionally exposes `*Patch` (SSA) and `*List` twins; `meta.v1.ObjectMeta` is the shared metadata input carrying `name`/`namespace`/`labels`/`annotations`.
 
 ### [02.3]-[HELM_V4_CHART_UPSTREAM_CHARTS_AS_TYPED_VALUE_OBJECTS]
 
@@ -111,13 +111,14 @@ The remaining generated groups follow this exact pattern: `policy`, `autoscaling
 |  [09]   | `namespace`         | `Input<string>` — release namespace (bind to `core.v1.Namespace.metadata.name`)      |
 |  [10]   | `skipCrds`          | `Input<boolean>` — omit chart CRDs                                                   |
 |  [11]   | `skipAwait`         | `Input<boolean>` — do not block on readiness                                         |
-|  [12]   | `postRenderer`      | `{ command, args }` kustomize/post-render hook                                       |
-|  [13]   | `dependencyUpdate`  | `Input<boolean>` — chart dependency rebuild                                          |
-|  [14]   | `verify`            | `Input<boolean>` — provenance verification                                           |
-|  [15]   | `keyring`           | provenance keyring asset                                                             |
-|  [16]   | `plainHttp`         | `Input<boolean>` — insecure HTTP fetch                                               |
-|  [17]   | `resourcePrefix`    | `Input<string>` — rendered-resource name prefix                                      |
-|  [18]   | `name`              | `Input<string>` — release name override                                              |
+|  [12]   | `includeHooks`      | `Input<boolean>` — emit `helm.sh/hook` resources under `renderYamlToDirectory` mode  |
+|  [13]   | `postRenderer`      | `{ command, args }` kustomize/post-render hook                                       |
+|  [14]   | `dependencyUpdate`  | `Input<boolean>` — chart dependency rebuild                                          |
+|  [15]   | `verify`            | `Input<boolean>` — provenance verification                                           |
+|  [16]   | `keyring`           | provenance keyring asset                                                             |
+|  [17]   | `plainHttp`         | `Input<boolean>` — insecure HTTP fetch                                               |
+|  [18]   | `resourcePrefix`    | `Input<string>` — rendered-resource name prefix                                      |
+|  [19]   | `name`              | `Input<string>` — release name override                                              |
 
 ```ts signature
 import * as pulumi from "@pulumi/pulumi"
@@ -138,6 +139,7 @@ interface ChartArgs {
   readonly namespace?: pulumi.Input<string | undefined>
   readonly skipCrds?: pulumi.Input<boolean | undefined>
   readonly skipAwait?: pulumi.Input<boolean | undefined>
+  readonly includeHooks?: pulumi.Input<boolean | undefined>
   readonly postRenderer?: pulumi.Input<inputs.helm.v4.PostRenderer | undefined>
   readonly dependencyUpdate?: pulumi.Input<boolean | undefined>
   readonly verify?: pulumi.Input<boolean | undefined>
@@ -157,7 +159,7 @@ interface RepositoryOpts {
 interface PostRenderer { readonly command: pulumi.Input<string>; readonly args?: pulumi.Input<pulumi.Input<string>[] | undefined> }
 ```
 
-`helm.v3` exposes `Release` only (no `v3.Chart` in this release line) — the stateful `helm install` release where Pulumi drives the Helm SDK directly, with `atomic` / `skipAwait` / `waitForJobs` / `timeout` / `recreatePods` / `skipCrds` lifecycle knobs. Prefer `helm.v4.Chart` for Pulumi-managed resources (policy/transform visibility over every rendered object); reach `helm.v3.Release` only when a chart requires true release lifecycle (hooks, rollback, atomic install).
+`helm.v3` exposes both `Chart` and `Release`. `helm.v3.Chart` extends `yaml.CollectionComponentResource` and renders client-side, exposing rendered objects only through `transformations` callbacks; `helm.v3.Release` is the stateful `helm install` where Pulumi drives the Helm SDK directly, with `atomic` / `skipAwait` / `waitForJobs` / `timeout` / `recreatePods` / `skipCrds` lifecycle knobs. `helm.v4.Chart` supersedes `v3.Chart` — server-side render keeps every rendered object under Pulumi diff, policy, and transform, and stays the default for Pulumi-managed resources; reach `helm.v3.Release` only when a chart requires true release lifecycle (hooks, rollback, atomic install).
 
 ### [02.4]-[APIEXTENSIONS_CUSTOMRESOURCE_THE_OPERATOR_CRD_CARRIER]
 
@@ -243,19 +245,19 @@ interface ProviderArgs {
 ## [03]-[IMPLEMENTATION_LAW]
 
 [WORKLOAD_TOPOLOGY]:
-- Typed resources thread `meta.v1.ObjectMeta` (name/namespace/labels/annotations) and the group's `Spec` shape as `Input`s; the realized object exposes `metadata`/`spec`/`status` as `Output`s. Compose across resources with `Output.apply` and `pulumi.all` — e.g. bind a `Service.spec.clusterIP` into an `Ingress` rule. The literal-typed `apiVersion`/`kind` discriminants make `isInstance`/type-narrowing exhaustive.
-- Prefer typed classes for the app's own workloads (`Deployment`/`Service`/`Ingress`/`Secret`); reach `apiextensions.CustomResource` only for operator CRDs with no generated class, and `yaml`/`kustomize` only when adopting an unmodifiable upstream manifest bundle.
+- Typed resources thread `meta.v1.ObjectMeta` (name/namespace/labels/annotations) and the group's `Spec` shape as `Input`s; the realized object exposes `metadata`/`spec`/`status` as `Output`s. Compose across resources with `Output.apply` and `pulumi.all`, binding a `Service.spec.clusterIP` into an `Ingress` rule. Literal-typed `apiVersion`/`kind` discriminants make `isInstance`/type-narrowing exhaustive.
+- Typed classes carry the app's own workloads (`Deployment`/`Service`/`Ingress`/`Secret`); reach `apiextensions.CustomResource` only for operator CRDs with no generated class, and `yaml`/`kustomize` only when adopting an unmodifiable upstream manifest bundle.
 
 [HELM_TOPOLOGY]:
 - `helm.v4.Chart` renders server-side and hands Pulumi the manifests, so `values` is the typed configuration surface — the LGTM stack, the OTel collector, and the CNPG operator are each ONE `Chart` with a typed `values` object (no `Pulumi.yaml`, no authored chart YAML). `repositoryOpts.repo` or an `oci://` `chart` ref selects the source; `version` pins it; `namespace` binds to a `core.v1.Namespace`.
 - `chart.resources` is the rendered child set — feed it to CrossGuard (`validateStack`) or to `@pulumiverse/grafana` when a chart emits a Grafana whose dashboards this run must populate. Use `helm.v3.Release` ONLY for true release lifecycle; the `Chart` path keeps every resource under Pulumi diff/policy.
 
 [CRD_TOPOLOGY]:
-- `apiextensions.CustomResource` is the CNPG `Cluster` owner: `apiVersion: "postgresql.cnpg.io/v1"`, `kind: "Cluster"`, with `spec.instances`/`spec.imageName` (the PG18.4-extension image)/`spec.storage`/`spec.backup` (scheduled-backup + PITR to the object-store row) in the `[field]` catch-all. Install the operator itself via a `helm.v4.Chart`; declare cluster instances via `CustomResource`. The `-rw` Service that the CNPG operator creates is the host handed to `@pulumi/postgresql`.
+- `apiextensions.CustomResource` is the CNPG `Cluster` owner: `apiVersion: "postgresql.cnpg.io/v1"`, `kind: "Cluster"`, with `spec.instances`/`spec.imageName` (the PG18.4-extension image)/`spec.storage`/`spec.backup` (scheduled-backup + PITR to the object-store row) in the `[field]` catch-all. Install the operator itself via a `helm.v4.Chart`; declare cluster instances via `CustomResource`. `-rw` Service the CNPG operator creates is the host handed to `@pulumi/postgresql`.
 
 [STACK_LAW]:
 - SELFHOSTED-K8S ARM: the `provider/dispatch` `Match.exhaustive` `selfhosted-k8s` arm is a `Layer`-composed program — (1) `@pulumi/command` `remote.Command` bootstraps the cluster and emits the kubeconfig; (2) `new kubernetes.Provider({ kubeconfig, enableServerSideApply: true })`; (3) `helm.v4.Chart` installs CNPG operator + LGTM + OTel collector with typed `values`; (4) `apiextensions.CustomResource` declares the CNPG `Cluster`; (5) its host `Output` feeds `@pulumi/postgresql.Provider` (`kube/data` seam); (6) `@pulumi/tls`/`@pulumi/random` cert+key material lands in a `core.v1.Secret` (`type: "kubernetes.io/tls"`, `stringData: { "tls.crt", "tls.key" }` — the TLS-secret sink) that `networking.v1.Ingress.spec.tls[].secretName` references to realize `kube/traffic`; (7) `@pulumiverse/grafana` applies `telemetry/board` dashboards onto the rendered Grafana.
-- SUBSTRATE WEAVE: authored inside the arm the `dispatch` selects; run by `program/automation` `LocalWorkspace.createOrSelectStack`. Realized workload `Output`s (service host/port, ingress hostname) project through a `Schema`-decoded `StackOutputs` record — the sole `iac`→`work` value crossing (`ShardingConfig`). `@pulumi/policy` `validateResourceOfType(kubernetes.apps.v1.Deployment, …)` narrows against the very classes exported here.
+- SUBSTRATE WEAVE: authored inside the arm the `dispatch` selects; run by `program/automation` `LocalWorkspace.createOrSelectStack`. Realized workload `Output`s (service host/port, ingress hostname) project through a `Schema`-decoded `StackOutputs` record — the sole `iac`→`work` value crossing (`ShardingConfig`). `@pulumi/policy` `validateResourceOfType(kubernetes.apps.v1.Deployment, …)` narrows against the classes exported here.
 
 [RAIL_LAW]:
-- iac / kubernetes rail; `node`-tier. The plugin shells `helm template` and drives the API server, so this arm runs only where the kubeconfig resolves to a reachable cluster (bootstrap host or in-cluster job). Apply failures ride the Automation-API `diagnostics` event stream folded into the typed run receipt; there is no in-band typed error class — the failure channel is the engine event stream. Chart provenance (`verify`/`keyring`) and SSA field-management (`enableServerSideApply`) are the correctness knobs, not app config.
+- iac / kubernetes rail; `node`-tier. Plugin shells `helm template` and drives the API server, so this arm runs only where the kubeconfig resolves to a reachable cluster (bootstrap host or in-cluster job). Apply failures ride the Automation-API `diagnostics` event stream folded into the typed run receipt; there is no in-band typed error class — the failure channel is the engine event stream. Chart provenance (`verify`/`keyring`) and SSA field-management (`enableServerSideApply`) are the correctness knobs, not app config.

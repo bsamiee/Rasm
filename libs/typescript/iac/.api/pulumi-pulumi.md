@@ -14,7 +14,7 @@
 
 ## [02]-[OUTPUT_ALGEBRA]
 
-The async-dependency monad every resource arg and output flows through. `Output<T>` is `OutputInstance<T> & Lifted<T>` — property access on `Output<{a:string}>` yields `Output<string>` without `.apply`. All lifting is `output`/`secret`; all joining is `all` (pick the tuple overload to preserve element types); all string shaping is `interpolate`/`concat`; serialization is `jsonStringify`/`jsonParse`.
+Every resource arg and output flows through `Output<T>`, the async-dependency monad. `Output<T>` is `OutputInstance<T> & Lifted<T>` — property access on `Output<{a:string}>` yields `Output<string>` without `.apply`. All lifting is `output`/`secret`; all joining is `all` (pick the tuple overload to preserve element types); all string shaping is `interpolate`/`concat`; serialization is `jsonStringify`/`jsonParse`.
 
 [PUBLIC_TYPE_SCOPE]: output types
 - rail: deployment
@@ -51,7 +51,7 @@ The async-dependency monad every resource arg and output flows through. `Output<
 
 ## [03]-[RESOURCE_MODEL]
 
-The class hierarchy the `stack` ComponentResource tiers extend and the `kube`/`secret`/`observe` rows instantiate. `ComponentResource` is the grouping owner every tier subclasses (call `registerOutputs` last); `parent`/`dependsOn`/`protect`/`ignoreChanges` on the option interfaces build the ownership DAG; `mergeOptions` folds a base option bag into per-resource overrides so a tier passes ONE inherited `opts` down its children.
+`stack` ComponentResource tiers extend this class hierarchy, and the `kube`/`secret`/`observe` rows instantiate it. `ComponentResource` is the grouping owner every tier subclasses (call `registerOutputs` last); `parent`/`dependsOn`/`protect`/`ignoreChanges` on the option interfaces build the ownership DAG; `mergeOptions` folds a base option bag into per-resource overrides so a tier passes ONE inherited `opts` down its children.
 
 [PUBLIC_TYPE_SCOPE]: resource classes + options
 - rail: deployment
@@ -92,7 +92,7 @@ The class hierarchy the `stack` ComponentResource tiers extend and the `kube`/`s
 
 ## [04]-[AUTOMATION_API]
 
-The programmatic lifecycle (`@pulumi/pulumi/automation`) — the ONLY entry `iac` uses. `LocalWorkspace.createOrSelectStack({stackName, projectName, program})` is idempotent; `program: PulumiFn` is the inline typed program whose returned record becomes stack outputs. `LocalWorkspaceOptions` carries every deploy-host fact — the CLI wrap, self-managed backend, state-secrets provider, env — so nothing leaks to disk. Every lifecycle method returns a typed result folded into the run receipt.
+`@pulumi/pulumi/automation` is the programmatic lifecycle — the ONLY entry `iac` uses. `LocalWorkspace.createOrSelectStack({stackName, projectName, program})` is idempotent; `program: PulumiFn` is the inline typed program whose returned record becomes stack outputs. `LocalWorkspaceOptions` carries every deploy-host fact — the CLI wrap, self-managed backend, state-secrets provider, env — so nothing leaks to disk. Every lifecycle method returns a typed result folded into the run receipt.
 
 [PUBLIC_TYPE_SCOPE]: workspace + program
 - rail: deployment
@@ -145,7 +145,7 @@ The programmatic lifecycle (`@pulumi/pulumi/automation`) — the ONLY entry `iac
 
 ## [05]-[ENGINE_EVENT_STREAM]
 
-The native drift + progress pipeline the receipt ledger folds. Every lifecycle `opts.onEvent` delivers a discriminated `EngineEvent` per engine step; `previewRefresh` re-reads provider state read-only and streams `resourcePreEvent` steps where `StepEventMetadata.op` classifies the divergence and `detailedDiff` carries the per-property delta — the desired-vs-actual drift source, reconciled against `PreviewResult.changeSummary`. `OpType` is the 15-member operation vocabulary the drift fold buckets over.
+Native drift + progress pipeline the receipt ledger folds. Every lifecycle `opts.onEvent` delivers a discriminated `EngineEvent` per engine step; `previewRefresh` re-reads provider state read-only and streams `resourcePreEvent` steps where `StepEventMetadata.op` classifies the divergence and `detailedDiff` carries the per-property delta — the desired-vs-actual drift source, reconciled against `PreviewResult.changeSummary`. `OpType` is the 15-member operation vocabulary the drift fold buckets over.
 
 [PUBLIC_TYPE_SCOPE]: engine events
 - rail: deployment
@@ -198,21 +198,21 @@ export interface PreviewResult { stdout: string; stderr: string; changeSummary: 
 
 // GlobalOpts ∩ UpOptions — the option surface the Effect rail parameterizes
 interface GlobalOpts {
-  color?: "always" | "never" | "raw" | "auto"; message?: string
-  debug?: boolean; tracing?: string; suppressOutputs?: boolean; suppressProgress?: boolean
+  color?: "always" | "never" | "raw" | "auto"; tracing?: string
+  debug?: boolean; suppressOutputs?: boolean; suppressProgress?: boolean
 }
 interface UpOptions extends GlobalOpts {
-  parallel?: number; expectNoChanges?: boolean; refresh?: boolean; diff?: boolean
-  target?: string[]; replace?: string[]; exclude?: string[]; targetDependents?: boolean
-  policyPacks?: string[]; policyPackConfigs?: string[]; plan?: string; continueOnError?: boolean
+  parallel?: number; message?: string; expectNoChanges?: boolean; refresh?: boolean; diff?: boolean
+  target?: string[]; replace?: string[]; exclude?: string[]; excludeDependents?: boolean; targetDependents?: boolean
+  policyPacks?: string[]; policyPackConfigs?: string[]; plan?: string; continueOnError?: boolean; attachDebugger?: boolean
   onOutput?: (out: string) => void; onEvent?: (event: EngineEvent) => void; onError?: (err: string) => void
-  signal?: AbortSignal        // ← Effect.async's AbortSignal binds here; Effect.interrupt aborts the run
+  signal?: AbortSignal        // Effect.async's AbortSignal binds here; Effect.interrupt aborts the run
 }
 ```
 
 ## [06]-[INTEGRATION]
 
-The receipt-ledger rail — how `@pulumi/pulumi` stacks onto the `effect` substrate into ONE typed program. The Automation API is Promise-shaped and callback-driven; the rail wraps it once so every downstream row composes typed Effects, never raw promises.
+Receipt-ledger rail — how `@pulumi/pulumi` stacks onto the `effect` substrate into ONE typed program. Automation API is Promise-shaped and callback-driven; the rail wraps it once so every downstream row composes typed Effects, never raw promises.
 
 [RAIL]: `automation → effect` — the stacking seams (all `effect` members verified real)
 
@@ -266,7 +266,7 @@ const run = (stack: Stack, op: LedgerOp, spec: StackSpec) =>
 
 [AUTOMATION_TOPOLOGY]:
 - `LocalWorkspace` is the sole workspace for inline programs; `PulumiFn` returns the outputs record. Configure the CLI wrap, `backend.url`, and `secretsProvider` through `LocalWorkspaceOptions` — never author `Pulumi.yaml`.
-- The ledger is ONE `Match.exhaustive` over the op tag; `previewRefresh` is the non-mutating drift leg; `expectNoChanges`/`plan` gate CI runs; `policyPacks` attach CrossGuard.
+- `Match.exhaustive` over the op tag is the whole ledger; `previewRefresh` is the non-mutating drift leg; `expectNoChanges`/`plan` gate CI runs; `policyPacks` attach CrossGuard.
 - Adopt existing cloud resources with `Stack.import`; back up state with `exportStack`; attach ESC with `addEnvironments`.
 
 [RAIL_LAW]:

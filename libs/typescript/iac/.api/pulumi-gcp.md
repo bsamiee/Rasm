@@ -1,11 +1,11 @@
 # [TS_IAC_API_PULUMI_GCP]
 
-`@pulumi/gcp` is the Terraform-bridged Pulumi provider SDK for Google Cloud: 138 service namespaces (`container`, `sql`, `storage`, `dns`, `compute`, `cloudrunv2`, `secretmanager`, `serviceaccount`, `projects`, `certificatemanager`, `artifactregistry`, …), each carrying the same generated resource quadruple (`class X extends pulumi.CustomResource` + `XArgs` + `XState` + `X.get`/`X.isInstance`) plus `get*`/`get*Output` data sources, under one `Provider` that binds project/region/zone/credentials. The package is ONE codegen pattern (identical to `@pulumi/postgresql`) applied across a service axis — never a bespoke API per resource. In `iac` this is a PREPARED cloud row, not a first-class arm: it is instantiated only when an app supplies a `gcp` `StackSpec` VALUE, and the value that makes it worth carrying is the SERVICE-EQUIVALENCE MAP — each `selfhosted-k8s` capability has a named managed-GCP counterpart (GKE↔workloads, Cloud SQL↔CNPG, GCS↔object-store, Cloud DNS↔traffic, Secret Manager↔Doppler), so finalizing the `gcp` target is app data, and adding it was one `provider/dispatch` arm + one `provider/surface` column.
+`@pulumi/gcp` is the Terraform-bridged Pulumi provider SDK for Google Cloud: one service namespace per GCP service (`container`, `sql`, `storage`, `dns`, `compute`, `cloudrunv2`, `secretmanager`, `serviceaccount`, `projects`, `certificatemanager`, `artifactregistry`, …), each carrying the same generated resource quadruple (`class X extends pulumi.CustomResource` + `XArgs` + `XState` + `X.get`/`X.isInstance`) plus `get*`/`get*Output` data sources, under one `Provider` that binds project/region/zone/credentials. This package is ONE codegen pattern (identical to `@pulumi/postgresql`) applied across a service axis — never a bespoke API per resource. In `iac` this is a PREPARED cloud row, not a first-class arm: it is instantiated only when an app supplies a `gcp` `StackSpec` VALUE, and the value that makes it worth carrying is the SERVICE-EQUIVALENCE MAP — each `selfhosted-k8s` capability has a named managed-GCP counterpart (GKE↔workloads, Cloud SQL↔CNPG, GCS↔object-store, Cloud DNS↔traffic, Secret Manager↔Doppler), so finalizing the `gcp` target is app data, and adding it was one `provider/dispatch` arm + one `provider/surface` column.
 
 ```ts
-// @pulumi/gcp — Provider + 138 service namespaces (each: resources · get* data sources) + config/types
+// @pulumi/gcp — Provider + one service namespace per GCP service (each: resources · get* data sources) + config/types
 export { Provider }                        // pulumi.ProviderResource (project/region/zone/credentials)
-export {                                   // service namespaces (equivalence-map subset shown; 138 total)
+export {                                   // service namespaces (equivalence-map subset shown)
   container, sql, storage, dns, compute, cloudrunv2, cloudrun, secretmanager,
   serviceaccount, projects, organizations, certificatemanager, artifactregistry,
   redis, pubsub, kms, iam, monitoring, logging, /* …+118 more */
@@ -32,7 +32,7 @@ export { config, types }                   // package-wide config reads + input/
 - rail: iac / cloud-prepared
 - entry: `@pulumi/gcp/<service>`
 
-Identical to `@pulumi/postgresql`'s pattern — the shared Pulumi Terraform-bridge codegen. Every resource across all 138 namespaces is this quadruple; the service axis is the only variable.
+Identical to `@pulumi/postgresql`'s pattern — the shared Pulumi Terraform-bridge codegen. Every resource across every service namespace is this quadruple; the service axis is the only variable, and a new service is a new namespace on the same shape.
 
 | [INDEX] | [MEMBER]           | [SHAPE]                                                                                   |
 | :-----: | :----------------- | :---------------------------------------------------------------------------------------- |
@@ -73,7 +73,7 @@ interface ClusterArgs {
 - rail: iac / cloud-prepared
 - entry: `@pulumi/gcp/<service>`
 
-This is the integration shape of the prepared row: the `provider/surface` `gcp` column maps each `store/capability` and `selfhosted-k8s` concern to a named managed-GCP resource. Finalizing the `gcp` target = instantiating this subset with the `StackSpec` values; the other 130 namespaces stay dormant.
+This is the integration shape of the prepared row: the `provider/surface` `gcp` column maps each `store/capability` and `selfhosted-k8s` concern to a named managed-GCP resource. Finalizing the `gcp` target = instantiating this subset with the `StackSpec` values; every namespace outside the profile stays dormant.
 
 | [INDEX] | [SELFHOSTED_K8S_CONCERN]           | [GCP_SERVICE_RESOURCE]                                                          |
 | :-----: | :--------------------------------- | :------------------------------------------------------------------------------ |
@@ -95,7 +95,7 @@ This is the integration shape of the prepared row: the `provider/surface` `gcp` 
 - rail: iac / cloud-prepared
 - entry: `@pulumi/gcp`
 
-One explicit `Provider` per target project binds every resource in the arm. Credentials are polymorphic: a `credentials` JSON string, an `accessToken`, or `impersonateServiceAccount` — one shape, mode by field. The huge per-service `*CustomEndpoint` roster (`containerCustomEndpoint`, `sqlCustomEndpoint`, … one `Output<string | undefined>` per service) is a uniform override family, not app config — document as a pattern, never enumerate.
+One explicit `Provider` per target project binds every resource in the arm. Credentials are polymorphic: a `credentials` JSON string, an `accessToken`, or `impersonateServiceAccount` — one shape, mode by field. `Provider`'s per-service `*CustomEndpoint` roster (`containerCustomEndpoint`, `sqlCustomEndpoint`, … one `Output<string | undefined>` per service) is a uniform override family, not app config — document as a pattern, never enumerate.
 
 | [INDEX] | [MEMBER]                                 | [SIGNATURE_FIELD]                                                                         |
 | :-----: | :--------------------------------------- | :---------------------------------------------------------------------------------------- |
@@ -134,14 +134,14 @@ interface ProviderArgs {
 ## [03]-[IMPLEMENTATION_LAW]
 
 [RESOURCE_TOPOLOGY]:
-- The quadruple is identical to `@pulumi/postgresql` — same Pulumi Terraform-bridge codegen. `XArgs` fields are `pulumi.Input<T>`, `X` attributes are `pulumi.Output<T>`, `X.get` adopts, `X.isInstance` brand-checks. Compose cross-resource with `Output.apply`/`pulumi.all`; never read an `Output` synchronously.
+- Quadruple is identical to `@pulumi/postgresql` — same Pulumi Terraform-bridge codegen. `XArgs` fields are `pulumi.Input<T>`, `X` attributes are `pulumi.Output<T>`, `X.get` adopts, `X.isInstance` brand-checks. Compose cross-resource with `Output.apply`/`pulumi.all`; never read an `Output` synchronously.
 - Replace-on-change fields (region/zone/name on most resources) are `StackSpec` create-time constants, not mutable knobs.
 
 [PROVIDER_TOPOLOGY]:
 - One `new gcp.Provider(name, { project, region, zone, credentials })` per target project; every resource passes `{ provider }` in `opts`. Credential mode is discriminated by field presence (`credentials` JSON / `accessToken` / `impersonateServiceAccount`), never a mode enum — the same polymorphism as the postgresql provider's auth family.
 
 [EQUIVALENCE_TOPOLOGY]:
-- The prepared row's worth is the equivalence map, not the resource count. The `provider/surface` `gcp` column names the exact `service.Resource` per `store/capability` and `selfhosted-k8s` concern; the arm instantiates only that subset. A new capability is one new row in the map (one more `service.Resource`), never a structural change — the same row-shaped growth as the dispatch itself.
+- Prepared row's worth is the equivalence map, not the resource count. `provider/surface` `gcp` column names the exact `service.Resource` per `store/capability` and `selfhosted-k8s` concern; the arm instantiates only that subset. A new capability is one new row in the map (one more `service.Resource`), never a structural change — the same row-shaped growth as the dispatch itself.
 
 [STACK_LAW]:
 - PREPARED-ROW FINALIZATION: an app supplies a `StackSpec` VALUE (`{ target: "gcp", region, domain, capabilityProfile, dopplerRef }`); `provider/dispatch` `Match.exhaustive` selects the `gcp` arm; the arm builds `gcp.Provider` from the value + the Doppler-sourced SA key, then the equivalence-map resources for the capability profile. Adding `gcp` was one dispatch arm + one surface column; finalizing is app data — never a lib edit, never a fork.
@@ -149,4 +149,4 @@ interface ProviderArgs {
 - CROSSGUARD: `@pulumi/policy` gates the gcp resources by class — `validateResourceOfType(gcp.storage.Bucket, (b, _, report) => …)`, `validateResourceOfType(gcp.sql.DatabaseInstance, …)` — narrowing against the exact classes exported here; the pack is the compliance gate on every prepared-row run.
 
 [RAIL_LAW]:
-- iac / cloud-prepared rail; `node`-tier. Instantiated ONLY when an app targets `gcp`; dormant otherwise. The plugin provisions against live Google APIs, so the arm runs only where GCP credentials resolve. Apply failures ride the Automation-API `diagnostics` event stream folded into the typed run receipt — no in-band typed error class. Prepared (not first-class): the `selfhosted-k8s` arm is the default; `gcp` is carried for the service-equivalence path, not the primary deploy target.
+- iac / cloud-prepared rail; `node`-tier. Instantiated ONLY when an app targets `gcp`; dormant otherwise. Plugin provisions against live Google APIs, so the arm runs only where GCP credentials resolve. Apply failures ride the Automation-API `diagnostics` event stream folded into the typed run receipt — no in-band typed error class. Prepared (not first-class): the `selfhosted-k8s` arm is the default; `gcp` is carried for the service-equivalence path, not the primary deploy target.

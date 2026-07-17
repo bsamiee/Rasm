@@ -8,7 +8,7 @@
 - package: `@effect/cluster`
 - license: `MIT`
 - effect-peer: `effect catalog`, `@effect/platform catalog`, `@effect/rpc catalog`, `@effect/sql catalog`, `@effect/workflow catalog` (universal-tier + sibling substrate; `.api/effect.md`, `.api/effect-platform.md`, `runtime/.api/effect-workflow.md`)
-- deps: `kubernetes-types` (the K catalogs pod shapes `K catalogsHttpClient` discovery types against)
+- deps: `kubernetes-types` (the K8s pod shapes `K8sHttpClient` discovery types against)
 - runtime: node/bun durable lanes — runners use `@effect/platform` `Socket`/`HttpClient`/`FileSystem`; `MessageStorage`/`RunnerStorage` persist on `@effect/sql` (a store-owned driver); no browser lane
 - catalog-verdict: KEEP — the one durable-actor + sharding engine; a hand-rolled actor mailbox, shard assigner, or message-replay store is the named reinvention defect
 - port-law: `MessageStorage` and `SqlClient` are Tags `work` composes; the `store`-owned SQL driver Layer satisfies them at the app root — the `-pg`/`-sqlite-*` drivers stay banned outside `store`
@@ -63,7 +63,7 @@
 
 [CONSUMER_BOUNDARY]:
 - [01]-`MessageStorage`: `work/entity` — `saveRequest`/`saveReply`/`unprocessedMessages`/`repliesFor`; satisfied by `SqlMessageStorage.layer`
-- [02]-`SaveResult`: the at-least-once dedup verdict keyed on `Snowflake` + primary key
+- [02]-`SaveResult`: at-least-once dedup verdict keyed on `Snowflake` + primary key
 - [03]-`ClusterSchema.Persisted`: mark an Rpc's messages saved + replayed; the durable-vs-ephemeral message switch
 - [04]-`ClusterSchema` policy: interrupt policy (`boolean`|`"client"`|`"server"`), per-tenant shard-group fn, client-span toggle
 - [05]-`MailboxFull`/`AlreadyProcessingMessage`: the mailbox-capacity + in-flight-dedup faults `edge/hook` fenced-quota rows read
@@ -88,9 +88,9 @@
 
 [CONSUMER_BOUNDARY]:
 - [01]-`Entity.make`/`fromRpcGroup`: `work/entity` — the actor from its `@effect/rpc` protocol
-- [02]-`entity.toLayer`: the entity `Layer`; `options` = `{ maxIdleTime, concurrency, mailboxCapacity, disableFatalDefects, defectRetryPolicy, spanAttributes }`, where `mailboxCapacity`/`concurrency` are the fenced-quota bounds
-- [03]-`entity.toLayerMailbox`: the mailbox-draining form for streaming/batched entities
-- [04]-`entity.client`: the typed per-id client; faults are `MailboxFull`/`AlreadyProcessingMessage`/`PersistenceError`
+- [02]-`entity.toLayer`: entity `Layer`; `options` = `{ maxIdleTime, concurrency, mailboxCapacity, disableFatalDefects, defectRetryPolicy, spanAttributes }`, where `mailboxCapacity`/`concurrency` are the fenced-quota bounds
+- [03]-`entity.toLayerMailbox`: mailbox-draining form for streaming/batched entities
+- [04]-`entity.client`: typed per-id client; faults are `MailboxFull`/`AlreadyProcessingMessage`/`PersistenceError`
 - [05]-`entity.annotateRpcs`/`.annotate`: apply durability/shard-group/interrupt policy to the Rpcs above the call
 - [06]-`makeTestClient`/`keepAlive`: in-process test client for kit-driven specs; keep an idle entity resident
 - [07]-`EntityResource.make`/`makeK8sPod`: an entity-held resource kept alive across restarts; released on idle TTL or `close`; `makeK8sPod` the K8s pod form over `K8sHttpClient`
@@ -111,12 +111,12 @@
 - [01]-`SqlMessageStorage.layer`: `work/entity` — the durable message store; `SqlClient` satisfied by the store driver at the app root
 - [02]-`MessageStorage.layerMemory`/`layerNoop`: in-memory / no-op storage for specs and single-node dev
 - [03]-`ShardingConfig.layerFromEnv`/`.layer`/`.config`/`.configFromEnv`: `iac/stack` `StackOutputs → ShardingConfig` `[SHAPE]` seam; env-driven runner config
-- [04]-`Sharding.layer`: the composed routing service the app root wires
+- [04]-`Sharding.layer`: composed routing service the app root wires
 - [05]-`SqlRunnerStorage.layer`/`RunnerStorage.layerMemory`: durable/memory runner registry backing
 
 [ENTRYPOINT_SCOPE]: runners, health discovery, cron, singleton, and the workflow bridge
 - rail: durable-actor/composition
-- The runner entrypoint Layers (selected via `proc/exec` at the app root), K8s discovery, the durable scheduled job, the cluster singleton, and the `@effect/workflow` bridge.
+- Runner entrypoint Layers (selected via `proc/exec` at the app root), K8s discovery, the durable scheduled job, the cluster singleton, and the `@effect/workflow` bridge.
 
 | [INDEX] | [SURFACE]                                                                                                 | [ENTRY_FAMILY]  |
 | :-----: | :-------------------------------------------------------------------------------------------------------- | :-------------- |
@@ -137,7 +137,7 @@
 
 [CONSUMER_BOUNDARY]:
 - [01]-[RUNNER_ENTRYPOINTS]: the runner entrypoint `Layer`s; `SingleRunner` single-node, `TestRunner` for kit-driven specs
-- [02]-`layerWebsocket`: the websocket-transport form of the HTTP runner
+- [02]-`layerWebsocket`: websocket-transport form of the HTTP runner
 - [03]-`layerHttpClientOnly`/`layerWebsocketClientOnly`: the client-only-embed forms of the HTTP runner
 - [04]-`layerHttpOptions`/`layerWebsocketOptions`: mount the HTTP runner on an existing `HttpRouter` at `{ path }`
 - [05]-`layerClient`/`*Default`: `layerClient` the client stack over a supplied `RpcClientProtocol`, the `*Default` forms the fixed-path variants
@@ -154,16 +154,16 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [CLUSTER_TOPOLOGY]:
-- an entity is an RPC group with durable identity: `Entity.make(type, rpcs)` binds an `@effect/rpc` `RpcGroup` to a sharded per-id singleton. The RPC protocol's payload/success/error `Schema`s ARE the message contract; `.toLayer(handlers)` registers the handler map (checked exhaustively) with `Sharding`. `work/entity` codes the actor, never the mailbox or shard math.
+- an entity is an RPC group with durable identity: `Entity.make(type, rpcs)` binds an `@effect/rpc` `RpcGroup` to a sharded per-id singleton. RPC protocol's payload/success/error `Schema`s ARE the message contract; `.toLayer(handlers)` registers the handler map (checked exhaustively) with `Sharding`. `work/entity` codes the actor, never the mailbox or shard math.
 - storage is a swappable port: `MessageStorage` is a Tag with `layerMemory`/`layerNoop` (spec) and `SqlMessageStorage.layer` (durable, over `SqlClient` + `ShardingConfig`). `work/entity` composes the Tag; the `store`-owned SQL driver satisfies `SqlClient` at the app root — `work` never imports a `-pg`/`-sqlite-*` driver. Durability of a given message is the per-Rpc `ClusterSchema.Persisted` annotation, and dedupe is `SaveResult.Duplicate` keyed on `Snowflake` + primary key (at-least-once, exactly-once-effect).
-- topology is config, discovery is a Layer: `ShardingConfig.layerFromEnv` reads runner address/weight, shard groups, lock intervals, and the entity mailbox/idle/timeout budgets from env/`Config` — the `iac/stack` `StackOutputs → ShardingConfig` `[SHAPE]` seam. Runner discovery is `RunnerHealth.layerK8s` over `K8sHttpClient` (`HttpClient` + `FileSystem`), discovery-only. The runner entrypoint (`HttpRunner.layerHttp`/`SocketRunner.layer`/`SingleRunner`) is selected via `proc/exec` at the app root — `work` imports no `platform-node/bun` binding.
+- topology is config, discovery is a Layer: `ShardingConfig.layerFromEnv` reads runner address/weight, shard groups, lock intervals, and the entity mailbox/idle/timeout budgets from env/`Config` — the `iac/stack` `StackOutputs → ShardingConfig` `[SHAPE]` seam. Runner discovery is `RunnerHealth.layerK8s` over `K8sHttpClient` (`HttpClient` + `FileSystem`), discovery-only. Runner entrypoint (`HttpRunner.layerHttp`/`SocketRunner.layer`/`SingleRunner`) is selected via `proc/exec` at the app root — `work` imports no `platform-node/bun` binding.
 - fenced quotas are entity bounds + shard groups: the per-tenant fenced-quota rows are `mailboxCapacity`/`concurrency` on `.toLayer` plus a `ClusterSchema.ShardGroup` function partitioning ids per tenant — a tenant's mailbox saturates to `MailboxFull` without starving another. `edge/hook` types its fenced-quota port against these faults.
 - faults are the closed `ClusterError` family: `MailboxFull`/`AlreadyProcessingMessage`/`PersistenceError`/`EntityNotAssignedToRunner`/`RunnerNotRegistered`/`RunnerUnavailable`/`MalformedMessage` are `Schema.TaggedError` — routed through the `Effect` error channel with `catchTag`, never exceptions. A routing fault (`EntityNotAssignedToRunner`) drives re-route/retry, not a crash.
 
 [STACKS_WITH]:
 - `@effect/rpc` (`runtime/.api/effect-rpc.md`): an `Entity` IS an `RpcGroup` — the message protocol, handler exhaustiveness, and the typed `.client` are the RPC surface. `EntityProxy.toRpcGroup`/`toHttpApiGroup` re-exposes an entity as a `serve` contribution group with the typed client for free.
 - `@effect/sql` (`data/.api/effect-sql.md`): `SqlMessageStorage.layer`/`SqlRunnerStorage.layer` bind message + runner storage to the `SqlClient` Tag; the `data`-owned driver (`effect-sql-pg`/`-sqlite-*`) satisfies it at the app root. `work` composes the Tag as a `[PORT]` and never imports the driver.
-- `@effect/platform` (`.api/effect-platform.md`): runners ride `Socket`/`HttpClient`; `K8sHttpClient` rides `HttpClient` + `FileSystem` (the service-account token mount); `HttpRunner.toHttpEffect` mounts the runner server as an `HttpApp`. The runtime binding (`platform-node`/`-bun`) is an app-root Layer selection.
+- `@effect/platform` (`.api/effect-platform.md`): runners ride `Socket`/`HttpClient`; `K8sHttpClient` rides `HttpClient` + `FileSystem` (the service-account token mount); `HttpRunner.toHttpEffect` mounts the runner server as an `HttpApp`. Runtime binding (`platform-node`/`-bun`) is an app-root Layer selection.
 - `@effect/workflow` (`runtime/.api/effect-workflow.md`): `ClusterWorkflowEngine.layer` satisfies the `WorkflowEngine` Tag over `Sharding` + `MessageStorage` — durable workflows run sharded on this runtime. `work/flow` defines the workflow; `work/entity` provides the engine.
 - `effect` (`.api/effect.md`): `ClusterCron`'s `cron` is an `effect/Cron`; `Snowflake` decodes through `Schema` and derives `DateTime`; the `ClusterError` family is `Schema.TaggedError`; `Sharding.layer`/`SqlMessageStorage.layer` compose as `Layer`s. `Singleton.make` uses the same effect the app runs elsewhere, cluster-fenced to one instance.
 - `iac/stack` (`iac`): `ShardingConfig.layerFromEnv` reads deployment topology — the sole `iac ↔ work` meeting, a `[SHAPE]` seam, never an `iac` import.

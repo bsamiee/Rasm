@@ -23,8 +23,6 @@ A skill is deployed law plus packaged capability: the description competes for s
 - [01]-[ANATOMY](references/anatomy.md): bundle anatomy, budgets, frontmatter policy, the root schema, freedom calibration
 - [02]-[TRIGGERS](references/triggers.md): trigger science and listing economics
 - [03]-[DEFECTS](references/defects.md): catalogs each authoring defect class with its copyable repair
-- [04]-[EVALS](references/evals.md): runs the eval loop that proves firing and adherence
-- [05]-[ESTATE](references/estate.md): fleet-scale governance, audit cadence, mirror discipline
 
 [TEMPLATES]:
 - [01]-[SKILL](templates/skill.template.md): carries the root schema as a copyable skeleton; fill the slots, leave zero residual tokens
@@ -32,20 +30,7 @@ A skill is deployed law plus packaged capability: the description competes for s
 [SCRIPTS]:
 - [01]-[ESTATE_AUDIT](scripts/estate_audit.py): one-pass fleet sweep; invocation in the estate section
 
-## [02]-[PLACEMENT]
-
-A skill exists only when its material is a reusable procedure or deliverable-bound doctrine that recurs across tasks; everything else has a cheaper owner.
-
-- [MEMORY]: An always-true project convention rides the memory hierarchy — it binds every session, so on-demand loading only delays it.
-- [RULE]: A convention true only for a subtree rides a path-scoped rule; the path predicate is the trigger, no description competes.
-- [SKILL]: A procedure, doctrine, or artifact contract selected by task shape rides a skill; the description is the classifier.
-- [SUBAGENT]: Work whose transcript pollutes the parent context moves to a subagent.
-- [AXES]: A skill changes what the active agent knows, a subagent changes where work happens — orthogonal, freely combined.
-- [SCRIPT]: Deterministic mechanics ride an executable the skill invokes, never prose the agent re-derives.
-
-A recurring prompt pattern graduates into a skill after it has recurred, never before; a skill authored for an imagined future task is deleted, not improved.
-
-## [03]-[BUDGETS]
+## [02]-[BUDGETS]
 
 - [ROOT]: `SKILL.md` holds at most 500 lines and is the bundle's only router; a `README.md` or secondary index at any depth is a defect.
 - [DEPTH]: References carry depth one hop down, and a route's target never routes onward.
@@ -53,34 +38,24 @@ A recurring prompt pattern graduates into a skill after it has recurred, never b
 - [BODY]: A loaded body persists across turns and lands late where attention is dense — its law binds, and every dead line taxes the whole session.
 - [SCRIPTS]: Execute without entering context; their cost is invocation and receipt, never implementation.
 
-Admission tests per file kind, the frontmatter policy surface, and the freedom bands are [references/anatomy.md](references/anatomy.md).
+## [03]-[TRIGGERS]
 
-## [04]-[TRIGGERS]
+Selection runs on name and description alone — the body is invisible until after the choice is made. Each description names the owned deliverable, the discriminating objects and verbs that select it, and the adjacent deliverable it refuses; under-triggering is the dominant field failure, so descriptions lean assertive.
 
-Selection runs on name and description alone — the body is invisible until after the choice is made. Each description names the owned deliverable, the discriminating objects and verbs that select it, and the adjacent deliverable it refuses; under-triggering is the dominant field failure, so descriptions lean assertive. Listing truncation law, invocation-mode policy, path scoping, measured description A/B, and collision repair are [references/triggers.md](references/triggers.md).
+## [04]-[EVALS]
 
-## [05]-[DEFECTS]
+A skill is proven, never assumed: trigger evals show it fires on the tasks it owns and stays silent on its neighbors; adherence evals show the loaded body changes output against a baseline run. A body rule that never changes an output across the suite is dead weight and is deleted.
 
-Findings cite class and line; definitions, detection tests, and reframes are [references/defects.md](references/defects.md).
-
-[TRIGGER]: `OVER_BROAD_TRIGGER` `STARVED_TRIGGER` `KEYWORD_STUFFING` `SELF_VOICED_DISCOVERY` `COLLIDING_TRIGGERS`
-[DISCLOSURE]: `MONOLITH_ROOT` `REFERENCE_MAZE` `UNEARNED_HOP`
-[BODY]: `NO_OP_INTENSIFIER` `FILLER_LEAD` `CHAIN_RESTATEMENT` `QUALITY_LADDER` `COMMAND_CATALOG` `LIFECYCLE_SCRIPT` `CHECKLIST_TAIL` `SCRIPT_AS_PROSE` `BARE_ABSTRACTION` `FIXED_OUTPUT` `DEGREES_OF_FREEDOM` `SEDIMENT` `NEGATION_ONLY` `SUPPLY_CHAIN` `DECORATIVE_DIAGRAM` `INERT_EXAMPLE` `FORM_MISMATCH`
-
-## [06]-[EVALS]
-
-A skill is proven, never assumed: trigger evals show it fires on the tasks it owns and stays silent on its neighbors; adherence evals show the loaded body changes output against a baseline run. A body rule that never changes an output across the suite is dead weight and is deleted. Query-set construction, paired blind comparison, grader doctrine, tooling separation, and suite maintenance are [references/evals.md](references/evals.md).
-
-## [07]-[GATE]
+## [05]-[GATE]
 
 Every bundle file passes the docgen skill's prose gate before return — it mechanically binds frontmatter shape, name and directory identity, description voice and budgets, the root line ceiling, orphan bundle files, and nested reference hops, beside the full prose floor. Register inside every bundle file answers to the docgen catalog; this skill owns what the bundle is, docgen owns how its prose speaks.
 
-## [08]-[COMPOSITION]
+## [06]-[COMPOSITION]
 
 - Each skill owns one deliverable kind and names the adjacent one it refuses; two skills matching one prompt is a defect on both descriptions.
 - Shared doctrine has one owning skill every sibling composes silently; a policy sentence or marker vocabulary spelled in two bundles is a fork.
 - A mixed task routes by deliverable, never by topic: prose to the prose owner, fences to the fence owner, bundles to this skill, in sequence.
 
-## [09]-[ESTATE]
+## [07]-[ESTATE]
 
-An installed fleet is one selection system: descriptions compete in a shared listing, the budget is common property, and a defect in one bundle degrades its neighbors' selection. `${CLAUDE_SKILL_DIR}/scripts/estate_audit.py <roots...>` sweeps every bundle beneath the given roots in one pass and receipts description budgets, starved triggers, pairwise trigger overlap, cross-bundle prose forks, shadowed names, and the listing spend — text rows by default, `--json` for machine consumers, nonzero exit on hard failures. Audit cadence, finding-to-repair routing, and mirror and port discipline are [references/estate.md](references/estate.md).
+An installed fleet is one selection system: descriptions compete in a shared listing, the budget is common property, and a defect in one bundle degrades its neighbors' selection. `${CLAUDE_SKILL_DIR}/scripts/estate_audit.py <roots...>` sweeps every bundle beneath the given roots in one pass and receipts description budgets, starved triggers, pairwise trigger overlap, cross-bundle prose forks, shadowed names, and the listing spend — text rows by default, `--json` for machine consumers, nonzero exit on hard failures.

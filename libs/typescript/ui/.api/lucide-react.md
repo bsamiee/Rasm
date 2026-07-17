@@ -1,6 +1,6 @@
 # [TS_UI_API_LUCIDE_REACT]
 
-`lucide-react` ships ~1746 SVG icons as named `ForwardRefExoticComponent` exports, every one the same `LucideIcon` type — the roster is a vocabulary, not an API surface. The collapse is that a design keys a named icon per domain row (a `CommandAction` → its `LucideIcon`); the icon is the row's identity, never a hand-authored SVG. `LucideProps` (`size`/`strokeWidth`/`absoluteStrokeWidth`/`color` + SVG attrs) is uniform across the roster, `LucideProvider`/`useLucideContext` sets project-wide defaults once, `Icon` renders a runtime-chosen `iconNode`, and `createLucideIcon` mints a custom icon in the same shape. Named imports are individually tree-shaken (`sideEffects: false`) — importing five icons bundles five, never the roster.
+`lucide-react` ships its full SVG-icon roster as named `ForwardRefExoticComponent` exports, every one the same `LucideIcon` type — the roster is a vocabulary, not an API surface. Collapse keys a named icon per domain row (a `CommandAction` → its `LucideIcon`); the icon is the row's identity, never a hand-authored SVG. `LucideProps` (`size`/`strokeWidth`/`absoluteStrokeWidth`/`color` + SVG attrs) is uniform across the roster, `LucideProvider`/`useLucideContext` sets project-wide defaults once, `Icon` renders a runtime-chosen `iconNode`, and `createLucideIcon` mints a custom icon in the same shape. Named imports are individually tree-shaken (`sideEffects: false`) — importing five icons bundles five, never the roster.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -35,14 +35,14 @@ type SVGAttributes = Partial<SVGProps<SVGSVGElement>>
 type IconNode = [elementName: SVGElementType, attrs: Record<string, string>][]                          // input to Icon/createLucideIcon
 type IconComponentProps = LucideProps & { iconNode: IconNode }                                          // the dynamic Icon prop shape
 type LucideConfig = { size?; color?; strokeWidth?; absoluteStrokeWidth?; className? }                   // the provider defaults
-interface LucideProviderProps extends LucideConfig { children: ReactNode }
+type LucideProviderProps = Partial<LucideConfig> & { children: ReactNode }                              // provider props
 ```
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: named vocabulary, dynamic + custom icons, and default-prop context
 - rail: token/icon
-- The named export is the common case (static, tree-shaken, vocabulary-keyed); `Icon`/`createLucideIcon` are the runtime/custom escape hatches; `LucideProvider` is the one place project defaults live. Every named export is `LucideIcon`-typed with the uniform `LucideProps`.
+- Named export is the common case (static, tree-shaken, vocabulary-keyed); `Icon`/`createLucideIcon` are the runtime/custom escape hatches; `LucideProvider` is the one place project defaults live. Every named export is `LucideIcon`-typed with the uniform `LucideProps`.
 
 | [INDEX] | [SURFACE]                                          | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                              |
 | :-----: | :------------------------------------------------- | :------------- | :--------------------------------------------------------------- |
@@ -56,8 +56,8 @@ interface LucideProviderProps extends LucideConfig { children: ReactNode }
 ## [04]-[IMPLEMENTATION_LAW]
 
 [ICON_TOPOLOGY]:
-- one shape, N names: every named export is `LucideIcon`; the roster is domain vocabulary, so a catalog documents the shape and the selection law, never enumerates 1746 rows. Selection is by named import keyed to a design row.
-- prop law: `size` (default `24`) drives both `width` and `height`; `strokeWidth` (default `2`); `absoluteStrokeWidth` renders stroke as `strokeWidth / size` so line weight stays constant across sizes; `color` maps to the SVG `stroke`. The ref forwards to the `<svg>` element.
+- one shape, N names: every named export is `LucideIcon`; the roster is domain vocabulary, so a catalog documents the shape and the selection law, never enumerates the roster. Selection is by named import keyed to a design row.
+- prop law: `size` (default `24`) drives both `width` and `height`; `strokeWidth` (default `2`); `absoluteStrokeWidth` renders stroke as `strokeWidth / size` so line weight stays constant across sizes; `color` maps to the SVG `stroke`; `ref` forwards to the `<svg>` element.
 - tree-shaken, no barrel side-effects: `sideEffects: false` means five named imports bundle five icons; a `import * as Icons` or an icon picked from a `Record` of all icons defeats it. Dynamic `Icon` + `iconNode` is the only runtime-selection path and is opt-in per call.
 - dual naming: the main barrel exports both `Activity` and `ActivityIcon`; the `.prefixed`/`.suffixed` barrels give a single naming scheme when an icon name collides with a DOM global — pick one convention per app.
 
@@ -76,6 +76,6 @@ interface LucideProviderProps extends LucideConfig { children: ReactNode }
 
 [RAIL_LAW]:
 - Package: `lucide-react`
-- Owns: the ~1746-icon `LucideIcon` vocabulary (one shared forwardRef SVG shape), the `LucideProps` size/stroke/color surface, the dynamic `Icon`, the `createLucideIcon` custom factory, and the `LucideProvider`/`useLucideContext` default-prop context
+- Owns: the `LucideIcon` icon vocabulary (one shared forwardRef SVG shape), the `LucideProps` size/stroke/color surface, the dynamic `Icon`, the `createLucideIcon` custom factory, and the `LucideProvider`/`useLucideContext` default-prop context
 - Accept: static named imports keyed by a design vocabulary row, `LucideProvider` defaults at the root, `Icon` for runtime selection, `createLucideIcon` for genuinely-absent glyphs, the alias entries for collisions, `className`/`size` through the `cn` recipe
 - Reject: a hand-crafted SVG for an icon the roster ships, `import * as Icons` / all-icons `Record` indexing, `createLucideIcon` per existing icon, repeating default props at every call site, an icon carried outside its owning domain-vocabulary row

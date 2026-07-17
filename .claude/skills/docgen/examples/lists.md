@@ -88,7 +88,6 @@ A list whose entries answer different reader questions — what exists, how it r
 
     ```markdown accepted
     [Row model]:
-
     - Fields: `format`, `extent`, `style`.
 
     [Decode]: the `mesh` arm folds `Reader.Decode` over the accessor contract.

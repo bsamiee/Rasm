@@ -1,6 +1,6 @@
 ---
 name: ifc-bim
-description: Inspect, query, validate, edit, and convert IFC/BIM building models. Use when working with .ifc files, IfcOpenShell, IFC schema entities, spatial or element structure, selector queries, relations, Psets/Qtos, GlobalIds, clash detection, quantity takeoff, cost or work schedules, IDS/ifctester validation, geometry tessellation, 2D plots or 3D renders, or exporting IFC to GLB/OBJ/glTF/DAE/STEP. Covers a live in-memory model (load once, then query and edit across calls) and deterministic batch file-to-file conversion, validation, and extraction. Not the system of record for the Rasm BimModel semantic graph, which C#/Rasm.Bim owns.
+description: Inspect, query, validate, edit, and convert IFC/BIM building models. Use when working with .ifc files, IfcOpenShell, IFC schema entities, spatial or element structure, selector queries, relations, Psets/Qtos, GlobalIds, clash detection, quantity takeoff, cost or work schedules, IDS/ifctester validation, geometry tessellation, 2D plots or 3D renders, or exporting IFC to GLB/OBJ/glTF/DAE/STEP. Covers a live in-memory model (load once, then query and edit across calls) and deterministic batch file-to-file conversion, validation, and extraction.
 ---
 
 # [IFC_BIM]

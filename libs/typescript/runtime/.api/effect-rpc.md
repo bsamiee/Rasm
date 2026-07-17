@@ -19,7 +19,7 @@
 
 [PUBLIC_TYPE_SCOPE]: procedure model (`Rpc`)
 - rail: rpc
-- `Rpc<Tag, Payload, Success, Error, Middleware>` is one Schema-typed procedure. The `Rpc.*` type projections (`Payload`/`Success`/`Error`/`Exit`/`Context`/`Middleware`) recover each axis for handler and client typing without re-declaration. `Rpc.Wrapper` marks a handler response `fork`ed (concurrent) or `uninterruptible`.
+- `Rpc<Tag, Payload, Success, Error, Middleware>` is one Schema-typed procedure. `Rpc.*` type projections (`Payload`/`Success`/`Error`/`Exit`/`Context`/`Middleware`) recover each axis for handler and client typing without re-declaration. `Rpc.Wrapper` marks a handler response `fork`ed (concurrent) or `uninterruptible`.
 
 | [INDEX] | [SYMBOL]                                                         | [TYPE_FAMILY]   | [RAIL]                                             |
 | :-----: | :--------------------------------------------------------------- | :-------------- | :------------------------------------------------- |
@@ -43,7 +43,7 @@
 
 [PUBLIC_TYPE_SCOPE]: server, client, streaming, middleware
 - rail: rpc
-- The server is a `Layer` demanding a `Protocol`; the client is derived from the group so it shares every Schema. `RpcSchema.Stream<A, E>` types a streaming response as an `effect/Stream`. `RpcMiddleware.TagClass` is a schema-typed middleware definition usable on both ends.
+- Server is a `Layer` demanding a `Protocol`; the client is derived from the group so it shares every Schema. `RpcSchema.Stream<A, E>` types a streaming response as an `effect/Stream`. `RpcMiddleware.TagClass` is a schema-typed middleware definition usable on both ends.
 
 | [INDEX] | [SYMBOL]                                             | [TYPE_FAMILY] | [RAIL]                                                    |
 | :-----: | :--------------------------------------------------- | :------------ | :-------------------------------------------------------- |
@@ -59,7 +59,7 @@
 
 [ENTRYPOINT_SCOPE]: procedure definition (`Rpc`)
 - rail: rpc
-- `Rpc.make(tag, options)` is the one procedure constructor: `payload`/`success`/`error` are `Schema`s (or `Struct.Fields`), `stream: true` lifts `success` to `RpcSchema.Stream`, `primaryKey` enables request dedup, `defect` schemas an uncaught failure. `fromTaggedRequest` bridges an existing `Schema.TaggedRequest`. Handler responses wrap in `fork`/`uninterruptible`.
+- `Rpc.make(tag, options)` is the one procedure constructor: `payload`/`success`/`error` are `Schema`s (or `Struct.Fields`), `stream: true` lifts `success` to `RpcSchema.Stream`, `primaryKey` keys request dedup, `defect` schemas an uncaught failure. `fromTaggedRequest` bridges an existing `Schema.TaggedRequest`. Handler responses wrap in `fork`/`uninterruptible`.
 
 | [INDEX] | [SURFACE]                                        | [ENTRY_FAMILY] | [RAIL]                                               |
 | :-----: | :----------------------------------------------- | :------------- | :--------------------------------------------------- |
@@ -101,7 +101,7 @@
 
 [ENTRYPOINT_SCOPE]: client protocol rows + per-request headers (`RpcClient`)
 - rail: rpc
-- `RpcClient.make(group, options?)` derives a fully-typed caller from the *same* group. The client protocol rows mirror the server; `currentHeaders` is a `FiberRef<Headers>` and `withHeaders` scopes per-call headers (auth token, trace context) without threading them through every call. Every surface is an `RpcClient.*` member.
+- `RpcClient.make(group, options?)` derives a fully-typed caller from the *same* group. Client protocol rows mirror the server; `currentHeaders` is a `FiberRef<Headers>`, `withHeaders` scopes per-call headers (auth token, trace context), and `withHeadersEffect` derives them from an effect — no header threads through every call. Every surface is an `RpcClient.*` member.
 
 | [INDEX] | [SURFACE]                                                             | [ENTRY_FAMILY] | [RAIL]                                     |
 | :-----: | :-------------------------------------------------------------------- | :------------- | :----------------------------------------- |
@@ -112,21 +112,21 @@
 |  [05]   | `makeProtocolHttp(client)`                                            | protocol (raw) | unlayered HTTP client `Protocol`           |
 |  [06]   | `makeProtocolSocket(options?)`                                        | protocol (raw) | unlayered socket client `Protocol`         |
 |  [07]   | `makeProtocolWorker(options)`                                         | protocol (raw) | unlayered worker client `Protocol`         |
-|  [08]   | `withHeaders(effect, headers)` / `currentHeaders`                     | headers        | per-call headers / the `FiberRef<Headers>` |
+|  [08]   | `withHeaders` / `withHeadersEffect` / `currentHeaders`                | headers        | per-call / effect-derived / the `FiberRef` |
 
 [ENTRYPOINT_SCOPE]: serialization codec rows (`RpcSerialization`)
 - rail: rpc
-- Serialization is the second orthogonal axis: a bare `RpcSerialization` Layer crossed with any protocol. The `layer*` rows are the wire codecs, `makeMsgPack` tunes `msgpackr`, and the bare `json`/`ndjson`/`msgPack` values back the layers.
+- Serialization is the second orthogonal axis: a bare `RpcSerialization` Layer crossed with any protocol. `layer*` rows are the wire codecs, `makeMsgPack` tunes `msgpackr`, and the bare `json`/`ndjson`/`jsonRpc`/`ndJsonRpc`/`msgPack` values back the layers.
 
-| [INDEX] | [SURFACE]                                        | [CODEC_FAMILY] | [RAIL]                                      |
-| :-----: | :----------------------------------------------- | :------------- | :------------------------------------------ |
-|  [01]   | `RpcSerialization.layerJson`                     | layer          | JSON serialization Layer                    |
-|  [02]   | `RpcSerialization.layerNdjson`                   | layer          | NDJSON serialization Layer                  |
-|  [03]   | `RpcSerialization.layerJsonRpc(options?)`        | layer          | JSON-RPC serialization Layer                |
-|  [04]   | `RpcSerialization.layerNdJsonRpc(options?)`      | layer          | NDJSON-RPC serialization Layer              |
-|  [05]   | `RpcSerialization.layerMsgPack`                  | layer          | MessagePack serialization Layer             |
-|  [06]   | `RpcSerialization.makeMsgPack(msgpackrOptions?)` | tuned          | msgpack Layer with tuned `msgpackr` options |
-|  [07]   | `RpcSerialization.json` / `ndjson` / `msgPack`   | bare           | the bare codec values behind the layers     |
+| [INDEX] | [SURFACE]                                                        | [CODEC_FAMILY] | [RAIL]                                      |
+| :-----: | :--------------------------------------------------------------- | :------------- | :------------------------------------------ |
+|  [01]   | `RpcSerialization.layerJson`                                     | layer          | JSON serialization Layer                    |
+|  [02]   | `RpcSerialization.layerNdjson`                                   | layer          | NDJSON serialization Layer                  |
+|  [03]   | `RpcSerialization.layerJsonRpc(options?)`                        | layer          | JSON-RPC serialization Layer                |
+|  [04]   | `RpcSerialization.layerNdJsonRpc(options?)`                      | layer          | NDJSON-RPC serialization Layer              |
+|  [05]   | `RpcSerialization.layerMsgPack`                                  | layer          | MessagePack serialization Layer             |
+|  [06]   | `RpcSerialization.makeMsgPack(msgpackrOptions?)`                 | tuned          | msgpack Layer with tuned `msgpackr` options |
+|  [07]   | `RpcSerialization.json`/`ndjson`/`jsonRpc`/`ndJsonRpc`/`msgPack` | bare           | the bare codec values behind the layers     |
 
 [ENTRYPOINT_SCOPE]: middleware, streaming, worker, test
 - rail: rpc
@@ -145,7 +145,7 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [RPC_TOPOLOGY]:
-- `RpcGroup` is the second contribution family under the edge assembly law (peer to `HttpApiGroup`): domain folders export groups as *data*, the app merges selected groups and assembles exactly one served value at the app root. The god-contract is structurally impossible — the assembled server has no lib-side existence.
+- `RpcGroup` is the second contribution family under the edge assembly law (peer to `HttpApiGroup`): domain folders export groups as *data*, the app merges selected groups and assembles exactly one served value at the app root. No assembled server exists lib-side, so the god-contract cannot be spelled.
 - a procedure is defined once by `Rpc.make` from Schemas; the request/response/error/stream types flow into both the handler (`RpcGroup.toLayer`) and the derived client (`RpcClient.make`) from the same group, so client and server can never drift.
 - transport and serialization are two orthogonal `Layer` axes crossed at the app root: one `RpcServer.layerProtocol*` (http | websocket | socket-server | worker | stdio) × one `RpcSerialization.layer*` (json | ndjson | jsonRpc | ndJsonRpc | msgpack). Switch transport or codec by swapping one Layer row, never by rewriting procedures or handlers.
 - middleware is a schema-typed `RpcMiddleware.TagClass` scoped to a group via `.middleware(M)`; `provides` narrows the handler `R`, `failure` types the rejection, and `requiredForClient` forces the client to satisfy it — one definition governs both ends.
@@ -158,9 +158,9 @@
 - `wire` + `security` + `telemetry` (folder rails): `RpcSerialization.layerMsgPack`/`makeMsgPack` is the binary codec the `wire` folder standardizes for internal service-to-service RPC; `RpcMiddleware` carries the `security` auth/API-key admission (the same closed middleware family the HTTP path uses) with `provides` injecting the authenticated principal; `disableTracing`/`spanPrefix` and the `telemetry` W3C trace-context headers flow through `RpcClient.currentHeaders` so a call is one continuous distributed span.
 
 [LOCAL_ADMISSION]:
-- Domain folders export `RpcGroup` values (procedures + group middleware) as data and their handler `Layer` via `toLayer`; the app root merges the selected groups, crosses one protocol row with one serialization row, and provides the concrete serve layer — the whole RPC surface is assembled, never centrally declared.
-- The `live` socket row selects `layerProtocolWebsocket`, the `work` compute rows select `layerProtocolWorkerRunner`, MCP/CLI rows select `layerProtocolStdio`, and edge/fetch runtimes select `toWebHandler` — one group, many protocol rows, chosen by deployment.
-- Internal service-to-service calls select `layerMsgPack` for compactness; browser/public calls select `layerJson`/`layerNdjson`. The client is always `RpcClient.make(group)` against the exact group — a hand-written fetch client for a procedure is forbidden.
+- Domain folders export `RpcGroup` values (procedures + group middleware) as data and their handler `Layer` via `toLayer`; the app root merges the selected groups, crosses one protocol row with one serialization row, and binds the concrete serve layer — the whole RPC surface is assembled, never centrally declared.
+- `live` socket row selects `layerProtocolWebsocket`, the `work` compute rows select `layerProtocolWorkerRunner`, MCP/CLI rows select `layerProtocolStdio`, and edge/fetch runtimes select `toWebHandler` — one group, many protocol rows, chosen by deployment.
+- Internal service-to-service calls select `layerMsgPack` for compactness; browser/public calls select `layerJson`/`layerNdjson`. Client is always `RpcClient.make(group)` against the exact group — a hand-written fetch client for a procedure is forbidden.
 - Specs drive `RpcTest.makeClient(group)` to exercise handlers with full Schema typing and zero transport; the same group backs the test and production clients.
 
 [RAIL_LAW]:

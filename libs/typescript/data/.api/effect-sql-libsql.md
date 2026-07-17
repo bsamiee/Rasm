@@ -1,14 +1,14 @@
 # [TS_DATA_API_EFFECT_SQL_LIBSQL]
 
-`@effect/sql-libsql` binds the neutral `@effect/sql` `SqlClient` (`.api/effect-sql.md`) to the libSQL client — the edge-replica profile of the ONE sqlite lane: a local replica file serves microsecond reads while writes forward to the remote primary, and the sync cadence is a config fact. The driver adds no query surface of its own; every journal, projection, and lane statement is the spine's, routed through `sql.onDialect`'s `sqlite` arm. Tenancy on this profile is database-per-tenant (cheap-database model) — the lane degradation table records the verdict.
+`@effect/sql-libsql` binds the neutral `@effect/sql` `SqlClient` (`.api/effect-sql.md`) to the `@libsql/client` SDK — the edge-replica profile of the ONE sqlite lane: a local replica file serves microsecond reads while writes forward to the remote primary, and the sync cadence is a config fact. Query, transaction, and typed-IO surface stay the spine's, routed through `sql.onDialect`'s `sqlite` arm; this driver owns only connection, embedded-replica sync, span, and a real interactive `withTransaction` (write-mode `transaction` plus `SAVEPOINT` nesting) the D1 profile refuses. Tenancy on this profile is database-per-tenant (cheap-database model) — the lane degradation table records the verdict.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@effect/sql-libsql`
 - package: `@effect/sql-libsql`
 - license: `MIT`
-- effect-peer: `effect`, `@effect/sql` (the `SqlClient` core this extends; `.api/effect-sql.md`)
-- backing: `@libsql/client` (embedded-replica + remote sync protocol)
+- effect-peer: `effect`, `@effect/sql` (the `SqlClient` core this extends; `.api/effect-sql.md`), `@effect/experimental` (`Reactivity`), `@effect/platform`
+- backing: `@libsql/client` (embedded-replica + remote sync protocol; direct dependency, not peer)
 - runtime: `runtime:node`/bun server and edge hosts; never the browser plane (`@effect/sql-sqlite-wasm` owns it)
 - modules: `LibsqlClient`
 
@@ -34,7 +34,7 @@
 
 [ENTRYPOINT_SCOPE]: constructing the driver Layer on the `./server` subpath
 - rail: data/lane
-- `layer`/`layerConfig` provide `LibsqlClient \| SqlClient` in one Layer, error `ConfigError \| SqlError`; `make` returns `Effect<LibsqlClient, SqlError, Scope>`.
+- `layer` yields `Layer<LibsqlClient \| SqlClient>` infallibly, `layerConfig` adds only `ConfigError`; `make` returns `Effect<LibsqlClient, never, Scope \| Reactivity>`. Providing either Layer yields both Tags; only construction reaches the concrete `LibsqlClient`.
 
 | [INDEX] | [SURFACE]                                                   | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                            |
 | :-----: | :---------------------------------------------------------- | :------------- | :--------------------------------------------- |
