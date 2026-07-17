@@ -169,6 +169,7 @@ public static class ViewBoundary {
 - Law: a subscription is the disposable detacher returned by attach, holding the exact delegate identity attach used; the callback borrows every touched handle for the whole subscription window, and detach completes before any borrowed handle is disposed.
 - Law: the borrow taken before wiring rides every exit — a throwing attach releases the ref it took before re-raising, because the detacher that releases it never reaches the caller, so the success path alone defers release to detach.
 - Law: the subscription set is the scope — reactivation constructs a fresh set, never appends to a retained one, and the set dies with the live state that owns it.
+- Law: a shared generic projection over a base-bounded args family parameterizes a per-subtype evidence extractor — a projection reading only base members erases the identity and decision evidence richer subtypes carry, a payload gap roster completeness never surfaces because every phase stays present.
 - Exemption: the add-ref open, the throwing-attach release, the attach/detach `+=`/`-=` wiring, and the posted-callback body are the named platform-forced statement seam.
 - Reject: inline lambdas that cannot detach, finalizer-owned unsubscribe, split attach/detach owners, or host-bus deregistration assumed rather than probed.
 
@@ -182,7 +183,7 @@ public static class ViewBoundary {
 [HANDOFF_DRAIN]:
 - Law: a high-frequency callback submits intent and returns — a committed cell is the latest-value register for a per-tick consumer, a `Channel<T>` is the log for a consumer that must see every intermediate; the consumer's need selects the carrier, and producer back-pressure is independent of consumer pacing.
 - Law: promises completed from a foreign thread queue continuations — `TaskCompletionSource<T>` constructed with `TaskCreationOptions.RunContinuationsAsynchronously` — and a cell-change handler that blocks or re-enters routes through a channel.
-- Accept: a bounded channel's full-behavior — drop or wait — is the seam's declared policy, stated where the writer is discarded.
+- Accept: a bounded channel's full-behavior — drop or wait — is the seam's declared policy, stated where the writer is discarded; under a drop mode `TryWrite` reports admission, never delivery, so loss evidence rides the `Channel.CreateBounded` dropped-item callback into the seam's fault record, never an inferred write result.
 - Reject: blocking the foreign callback, mutating interior state from it, or a foreign thread running arbitrary downstream logic.
 
 ```csharp conceptual

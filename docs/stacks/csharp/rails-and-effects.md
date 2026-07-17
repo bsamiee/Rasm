@@ -64,6 +64,7 @@ public static Fin<Receipt> Capture(Func<Fin<Receipt>> native) {
 - Use: `Match`, `IfFail`, `Run`, `RunAsync`, or unsafe extraction only at host, UI, native, command, or wire edges.
 - Law: the collapse member's return shape is carrier-owned — `Try` and `Eff` `Run()` land `Fin<T>` while `IO<T>` `Run()`/`RunAsync()` return the bare value and throw the typed `Error` — so `ThrowIfFail` or a `Fin`-shaped `Bind` on an `IO` terminal is a phantom spelling; an `IO` lane lands on `Fin` by carrying `IO<Fin<T>>` or lifting through `Eff`.
 - Law: reusable domain transforms keep the carrier; `.Value` and the `internal` `SuccValue`/`SuccessValue` accessors are never the exit.
+- Law: a collapse into a void or bool host override persists the typed failure into its owning evidence surface — fact stream, receipt cell, failure atom — before the scalar returns; a collapse that only maps the failure to `false` or `null` leaves the rail ornamental at the one edge it exists to explain.
 - Reject: mid-pipeline collapse inside a pure projection; `Option.Match` inside an expression rail.
 
 ## [03]-[TRAVERSAL_FLOW]
@@ -308,6 +309,7 @@ public static Fin<Receipt> Memoized(Runtime runtime, Input input) =>
 - Use: `Atom<T>`, `AtomHashMap`, `AtomSeq`, and `AtomQue` at UI, session, memoization, or concurrent boundary owners.
 - Law: `AtomHashMap<K,V>` beats `Atom<HashMap<K,V>>` when key-level concurrent mutation or typed change diffs drive observers — key-level swaps and a typed patch versus whole-value replacement.
 - Law: batch through `Swap(s => s.Add(...))` to land multiple appends in one CAS; `AtomSeq.Add` runs an independent CAS per element.
+- Law: an identity or version minted for a record spanning partitioned custody — a live map beside a retired map keyed by the composite of key and version — derives as the maximum over every partition plus one; a live-only derivation re-mints a version already parked in the retired partition after eviction, and a release path matching live before retired then decrements the wrong record and leaks the parked lease.
 - Boundary: two-or-more-`Ref` atomic transitions are STM, not a single-cell boundary.
 - Reject: global mutable state disguised as functional flow.
 
@@ -316,6 +318,7 @@ public static Fin<Receipt> Memoized(Runtime runtime, Input input) =>
 - Law: one `FactRecord` carries a kind discriminant, a slot identifier, and a payload union; adds, updates, removals, and errors are kind cases over `Atom<Seq<FactRecord>>`, never parallel record types.
 - Projection: filter-by-kind, group-by-slot-last-wins, and full chronology are pure folds over that one fact stream, never separate cells or parallel fields synced by hand.
 - Law: keep a typed receipt when fields carry solver, sampling, route, status, metric, spectral, mesh, extraction, or proof evidence; `Atom<ReceiptRecord>` holds the latest, history escalates to `Atom<Seq<ReceiptRecord>>`.
+- Law: failure-diagnostic side channels a boundary returns beside its primary result — out-parameter point sets, refusal codes — fold onto the typed receipt on the empty and failure branches, never the success branch alone; success-only binding discards the explanation exactly where it decides.
 
 ```csharp conceptual
 public readonly record struct Receipt(CodeValue Code, int Count) {

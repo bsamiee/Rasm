@@ -1,6 +1,6 @@
 # [CSHARP_SHAPES]
 
-Every concept takes exactly one owner, and five discriminants select it before any attribute is written: admission (raw material crossing a trust boundary), identity regime (key, structural, case, or reference), variant arity (one shape or N alternatives), payload timing (case data fixed at declaration or constructed per occurrence), and openness (closed vocabulary or foreign extension). The selection fixes where change detonates, what equality means, and which capabilities derive — every misplaced shape traces to one mis-answered discriminant. The same discriminants close the shape budget: an owner absorbs a sibling shape the moment they share an identity regime, an admission path, a payload timing, or a consumer, and a shape survives only on a genuinely distinct discriminant — the generated family, with its source-generated case families, delegate rows, and validation partials, absorbs what record and class spam scatters, so a flat record beside a generated owner that shares its discriminants is the deleted form, never a tolerated neighbor.
+Every concept takes exactly one owner, and five discriminants select it before any attribute is written: admission (raw material crossing a trust boundary), identity regime (key, structural, case, or reference), variant arity (one shape or N alternatives), payload timing (case data fixed at declaration or constructed per occurrence), and openness (closed vocabulary or foreign extension). That selection fixes where change detonates, what equality means, and which capabilities derive — every misplaced shape traces to one mis-answered discriminant. These same discriminants close the shape budget: an owner absorbs a sibling shape the moment they share an identity regime, an admission path, a payload timing, or a consumer, and a shape survives only on a genuinely distinct discriminant — the generated family, with its source-generated case families, delegate rows, and validation partials, absorbs what record and class spam scatters, so a flat record beside a generated owner that shares its discriminants is the deleted form, never a tolerated neighbor.
 
 ## [01]-[OWNER_CHOOSER]
 
@@ -35,7 +35,7 @@ When a concept matches several signatures, the most specific row wins.
 - `CollapseFamily(family)`: keep generated closure only when the owner absorbs admission, identity, dispatch, policy, boundary projection, or stored modality; delete sibling regrowth, nullable payload bags, enum-dictionary pairs, protocol shadows, owner wrappers, and overload-only modality.
 - `MergeSamePayload(cases)`: collapse only passive, non-generic, non-fault cases with identical semantics; preserve marker, behavior, fault, and named-semantic cases.
 - `ReplaceFlags(capability)`: model combinable capability as vocabulary items in a frozen set; keep behavior in columns, membership as set algebra, and policy as a fold.
-- `UseLanguageEnum(seam)`: permit only foreign wire enum, ABI bit layout, or measured-kernel ordinal; re-close at seam conversion.
+- `UseLanguageEnum(seam)`: permit only foreign wire enum, ABI bit layout, measured-kernel ordinal, or an alias-bearing host roster whose distinct names share one ordinal — a 1:1 owned wrapper cannot preserve the alias identity the host defines as truth, so host mapping members answer that correspondence; re-close at seam conversion.
 
 [BEHAVIOR_FUNCTIONS]:
 - `PlaceBehavior(selector)`: use generated `Switch` for call-site variation, behavior columns or case members for family-owned policy, `Items`-derived frozen indexes for single-axis lookup, and generated-owner tables only for cross-products, startup-admitted external policy, or outside-family keys.
@@ -359,7 +359,7 @@ public static class GraphOps {
 
 ## [06]-[ADMISSION_SHAPES]
 
-The owner's admission surface is itself a closed family decision: the fault is a `[Union]`, the bridge an extension over the generated factory, the composite an admission-ordered nest of leaf owners, and the wire grammar an owner-local row set. Each card fixes the shape; the rail algebra that consumes it is the rail page's, the open-owner dispatch inversion the surface page's, and the converter the boundary page's.
+Every owner's admission surface is itself a closed family decision: the fault is a `[Union]`, the bridge an extension over the generated factory, the composite an admission-ordered nest of leaf owners, and the wire grammar an owner-local row set. Each card fixes the shape; the rail algebra that consumes it is the rail page's, the open-owner dispatch inversion the surface page's, and the converter the boundary page's.
 
 [FAULT_FAMILIES]:
 - Law: the fault is one `[Union]` deriving from `Expected`, so the same closed family is the validation-error shape, the rail-failure shape, and the exhaustive recovery vocabulary — a bare `Error`, an exception, or `Validation<Seq<Error>,T>` for a multi-cause domain is the rejected non-shape.
