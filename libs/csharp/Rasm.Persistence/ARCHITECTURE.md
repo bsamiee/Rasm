@@ -41,7 +41,76 @@ Rasm.Persistence/            # refs the Rasm.Element seam + Rasm kernel ONLY; no
 
 Implementation collapses to one owner per axis and one entrypoint family per rail: a new feature is a row or case on a budgeted owner, and a public type outside an owner region is the named defect. Rail identity rides the return type — `Validation<Fault,T>` accumulates, `Fin<T>` aborts, `IO<T>` carries effects; receipts stamp NodaTime `Instant`/`Duration`, and wall clock, elapsed marks, correlation, and tenant ride the injected `ProjectionContext` frame — a `ClockPolicy`/`CorrelationId`/`TenantContext` parameter on any Persistence signature is the named strata inversion. Marten owns the durable append and the rebuildable views; the version-control engine projects from its events; provider variance is row data on the axes; public code selects profiles, lanes, operations, codecs, and policies, never provider packages.
 
-## [02]-[SEAMS]
+## [02]-[STRATA]
+
+Four strata order the five sub-domains; `Version` and `Store` co-seat as a coupled pair — retention classes flow down into blob GC while storage tiers flow back into retention facts — and the one ruled counter-edge is `Element/Graph`'s `GraphStoreOp.ReadAsOf` taking the Version `TimeCut` as its typed as-of payload; every other consumption edge points down.
+
+- S0 `Element` — the system-of-record spine consuming no sibling: `ModelId`, `GraphStoreOp`, the `SnapshotCodec` content-address codec, the `IdentityStore` one-transaction identity owner, and the `GrantSet` ACL algebra.
+- S1 `Ingest` — file-codec ingress over the spine alone: `TabularSource`, `GeoFeatureRow`, `ScheduleSpec`, and the durable `TaskRelation` DAG.
+- S2 `Version` + `Store` — the coupled durable tier: `OpLogEntry`, `Hlc`, `TimeCut`, and `RetentionClass` beside `ObjectStore`, `StorageTier`, `LeaseToken`, and `OutboxCursor`; their mutual retention-tier exchange is same-stratum fact.
+- S3 `Query` — read lanes nothing composes: `FederationPlan`, `TopologyView`, `VectorCodebook`, and the `ArtifactIndexRow` reuse index pinning reads at the Version `TimeCut`.
+
+```mermaid
+---
+config:
+  theme: base
+  look: classic
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+  themeVariables:
+    darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
+    background: "#282A36"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    clusterBkg: "#21222C"
+    clusterBorder: "#D6BCFA"
+    edgeLabelBackground: "#21222C"
+    labelBackgroundColor: "#21222C"
+    titleColor: "#D6BCFA"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
+---
+flowchart TB
+    accTitle: Rasm.Persistence interior strata
+    accDescr: Four stacked strata from the query read lanes through the coupled version-and-store tier and the ingest codecs onto the element system-of-record spine, every consumption edge downward and solid naming one sourced type, and one forbidden upward edge styled red.
+    subgraph L3["S3 QUERY"]
+        Query[Query]
+    end
+    subgraph L2["S2 VERSION + STORE"]
+        Version[Version]
+        Store[Store]
+    end
+    subgraph L1["S1 INGEST"]
+        Ingest[Ingest]
+    end
+    subgraph L0["S0 ELEMENT"]
+        Element[Element]
+    end
+    Query e1@-->|"[IMPORT]: TimeCut"| Version
+    Query e2@-->|"[IMPORT]: RetentionClass"| Version
+    Query e3@-->|"[IMPORT]: H3Cell"| Element
+    Version e4@-->|"[IMPORT]: GrantSet"| Element
+    Store e5@-->|"[IMPORT]: ContentAddress"| Element
+    Ingest e6@-->|"[IMPORT]: ProjectionContext"| Element
+    Element f1@-->|"forbidden: spine upward"| L3
+    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+    classDef recessed fill:#21222C,stroke:#6272A4,color:#F8F8F2
+    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
+    classDef edgeError stroke:#FF5555,stroke-width:3px,color:#F8F8F2
+    class Query,Version,Store,Ingest primary
+    class Element recessed
+    class e1,e2,e3,e4,e5,e6 edgeControl
+    class f1 edgeError
+```
+
+## [03]-[SEAMS]
 
 Seams split into two fences by counterpart group. First fence binds the AEC-domain peers and the kernel — the shape, content-key, and projection contracts through which durable state aligns with `Rasm.Element`, `Rasm.Bim`, and `Rasm.Compute`. Second fence binds the platform host and the cross-runtime peers — the port, wire, and receipt contracts that reach `Rasm.AppHost`, `Rasm.AppUi`, and the Python and TypeScript runtimes. Each collapsed edge stands for every contract between that sub-domain and that partner at the load-bearing kind; the owning pages enumerate the rest.
 
@@ -88,12 +157,12 @@ flowchart LR
     Compute{{Rasm.Compute}}
     RasmElement e1@-->|"[SHAPE]: ElementGraph"| Element
     Ingest e2@-->|"[WIRE]: ElementGraph"| RasmElement
-    Rasm e3@-->|"[CONTENT_KEY]: XxHash128"| Element
+    Rasm e3@-->|"[CONTENT_KEY]: ContentHash"| Element
     Rasm e4@-->|"[CONTENT_KEY]: GeometryHash"| Version
     Bim e5@-->|"[PROJECTION]: BimOpenSchema"| Query
     Bim e6@-->|"[CONTENT_KEY]: RepresentationContentHash"| Store
     Ingest e7@<-->|"[WIRE]: TaskRelation"| Bim
-    Compute e8@-->|"[CONTENT_KEY]: Assessment"| Version
+    Compute e8@-->|"[CONTENT_KEY]: AssessmentPayload"| Version
     Compute e9@<-->|"[CONTENT_KEY]: VectorCodebook"| Query
     Compute e10@-->|"[PROJECTION]: ArtifactIndexRow"| Query
     Compute e11@<-->|"[CONTENT_KEY]: GeometryHash"| Store
@@ -160,12 +229,13 @@ flowchart LR
     Data e5@-->|"[CONTENT_KEY]: IcechunkKey"| Version
     Query e6@<-->|"[WIRE]: SubstraitPlan"| Data
     Query e16@-->|"[WIRE]: FlightTicket"| Data
+    Data e17@<-->|"[CONTENT_KEY]: ContentKey"| Query
     Element e7@<-->|"[PORT]: ProjectionContext"| AppHost
-    Version e8@<-->|"[PORT]: HlcFrame"| AppHost
+    Version e8@<-->|"[PORT]: Hlc"| AppHost
     AppHost e9@-->|"[PROJECTION]: ReplayWindow"| Version
     AppHost e10@-->|"[TRANSPORT]: PeerRoster"| Version
-    Query e11@<-->|"[PORT]: CachePort"| AppHost
-    Store e12@<-->|"[PORT]: CoordinationPort"| AppHost
+    Query e11@<-->|"[PORT]: HybridCache"| AppHost
+    Store e12@<-->|"[PORT]: CoordinationOp"| AppHost
     AppHost e13@-->|"[RECEIPT]: ProvisionVerdict"| Store
     AppUi e14@-->|"[PROJECTION]: ReplayWindow"| Version
     AppUi e15@-->|"[CONTENT_KEY]: SnapshotAccelerator"| Store
@@ -179,13 +249,13 @@ flowchart LR
     class Element,Version,Query,Store primary
     class AppHost,Runtime,Data external
     class AppUi,Core,Artifacts annotation
-    class e1,e2,e3,e4,e5,e6,e15,e16 edgeData
+    class e1,e2,e3,e4,e5,e6,e15,e16,e17 edgeData
     class e7,e8,e11,e12 edgeControl
     class e9,e10,e14 edgeExternal
     class e13 edgeSuccess
 ```
 
-## [03]-[INTERNAL]
+## [04]-[INTERNAL]
 
 ```mermaid
 ---
@@ -236,7 +306,7 @@ flowchart LR
 
 One `IDocumentSession` commits the `GraphDelta` event and the identity row together, the inline projection materializes the authoritative `ElementGraph` read-your-writes, and the changefeed is the one fan-out the version engine, the analytical daemon, and the egress pump each fold. Geometry blob is write-first and reference-after, and retention's full-history GC governs snapshots and blobs as one reachability set. Marten stream is the outbox, so a domain commit and its egress obligation settle in one transaction — the exact wiring lives on the owning implementation pages.
 
-## [04]-[BOUNDARIES]
+## [05]-[BOUNDARIES]
 
 - Persistence is not a domain service layer, repository framework, ORM wrapper, provider wrapper, or host-boundary package; it is RhinoCommon-free.
 - It depends up on the `Rasm.Element` seam plus the `Rasm` kernel and never references a sibling AEC-domain peer.
@@ -248,7 +318,7 @@ One `IDocumentSession` commits the `GraphDelta` event and the identity row toget
 - AppHost owns scheduling, drain, hop retry, correlation, and the cache port; Persistence contributes rows, never reversing the dependency.
 - Database retry is excluded from the AppHost hop law; the relational rows own their own retry.
 
-## [05]-[PROHIBITIONS]
+## [06]-[PROHIBITIONS]
 
 Deleted patterns the owner regions foreclose:
 

@@ -50,7 +50,91 @@ Rasm.Bim/
 
 Sub-domain dependency graph is acyclic: every sub-domain projects onto or reads the one seam `ElementGraph`, consuming the `Model/Query` `ElementPredicate` algebra and the `Semantics/Classification` axis as settled vocabulary, with residual and verdict state carried forward as input, never a return edge. Per-page wiring each projector composes lives on the owning implementation pages.
 
-## [02]-[SEAMS]
+## [02]-[STRATA]
+
+Five strata order the seven sub-domains; `Review` and `Planning` co-seat because coordination reads the estimate and the schedule while both read the model diff, so every cross-stratum consumption edge points down.
+
+- S0 `Model` — settled vocabulary consuming no sibling: the `BimFault` band-2600 union, the `ElementPredicate`/`ElementSet` query algebra, the generated `IfcClass` roster, and the `IfcRepresentation` content key.
+- S1 `Semantics` — element-bound enrichment over the vocabulary: `MaterialProjection`, `QuantityDerivation`, the bSDD `ClassificationSystem` axis, and the `GeoModel` geospatial algebra.
+- S2 `Projection` — the seam arm composing model and semantics: `SemanticProjector : IElementProjection`, `IfcLegality : IGraphConstraint`, and the `IIfcTypeReconciler` port.
+- S3 `Exchange` — the interchange codec over the projection arm: the `InterchangeFormat` axis, the `IfcWire` cross-runtime artifact, and the `TessellationRequest`/`TessellationOutcome` bridge.
+- S4 `Energy` + `Review` + `Planning` — delivery tier over everything below: `EnergyProjector` and `EnergyArtifact`; `IdsSpecification`, `ModelDiff`, and `IssueBoard`; `ScheduleNetwork` and `CostSchedule` — the Review-Planning mutual read is same-stratum fact.
+
+```mermaid
+---
+config:
+  theme: base
+  look: classic
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+  themeVariables:
+    darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
+    background: "#282A36"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    clusterBkg: "#21222C"
+    clusterBorder: "#D6BCFA"
+    edgeLabelBackground: "#21222C"
+    labelBackgroundColor: "#21222C"
+    titleColor: "#D6BCFA"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
+---
+flowchart TB
+    accTitle: Rasm.Bim interior strata
+    accDescr: Five stacked strata from the energy, review, and planning delivery tier through the interchange codec and the projection arm onto the semantic enrichment and the model vocabulary, every consumption edge downward and solid naming one sourced type, and one forbidden upward edge styled red.
+    subgraph L4["S4 DELIVERY"]
+        EnergyProjector[EnergyProjector]
+        Ids[IdsSpecification]
+        Cost[CostSchedule]
+        Board[IssueBoard]
+    end
+    subgraph L3["S3 EXCHANGE"]
+        Format[InterchangeFormat]
+        Wire[IfcWire]
+    end
+    subgraph L2["S2 PROJECTION"]
+        Projector[SemanticProjector]
+        Legality[IfcLegality]
+    end
+    subgraph L1["S1 SEMANTICS"]
+        Material[MaterialProjection]
+        Quantity[QuantityDerivation]
+        Axis[ClassificationSystem]
+    end
+    subgraph L0["S0 MODEL"]
+        Fault[BimFault]
+        Predicate[ElementPredicate]
+        Class[IfcClass]
+    end
+    EnergyProjector e1@-->|"[IMPORT]: InterchangeFormat"| Format
+    Ids e2@-->|"[IMPORT]: ElementPredicate"| Predicate
+    Cost e3@-->|"[IMPORT]: QuantityDerivation"| Quantity
+    Board e4@-->|"[IMPORT]: BimFault"| Fault
+    Wire e5@-->|"[IMPORT]: SemanticProjector"| Projector
+    Wire e6@-->|"[IMPORT]: IfcLegality"| Legality
+    Projector e7@-->|"[IMPORT]: MaterialProjection"| Material
+    Projector e8@-->|"[IMPORT]: IfcClass"| Class
+    Axis e9@-->|"[IMPORT]: IfcClass"| Class
+    Fault f1@-->|"forbidden: vocabulary upward"| L4
+    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+    classDef recessed fill:#21222C,stroke:#6272A4,color:#F8F8F2
+    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
+    classDef edgeError stroke:#FF5555,stroke-width:3px,color:#F8F8F2
+    class EnergyProjector,Ids,Cost,Board,Format,Wire,Projector,Legality primary
+    class Material,Quantity,Axis,Fault,Predicate,Class recessed
+    class e1,e2,e3,e4,e5,e6,e7,e8,e9 edgeControl
+    class f1 edgeError
+```
+
+## [03]-[SEAMS]
 
 ```mermaid
 ---
@@ -100,22 +184,19 @@ flowchart LR
     Projection e1@<-->|"[PROJECTION]: GraphDelta"| Element
     Model e2@-->|"[PROJECTION]: Object"| Element
     Semantics e3@<-->|"[PROJECTION]: PropertyValue"| Element
-    Materials e4@-->|"[WIRE]: IIfcTypeReconciler"| Model
+    Materials e4@-->|"[WIRE]: IIfcTypeReconciler"| Projection
     Materials e5@-->|"[SHAPE]: DetailSchema"| Semantics
     Exchange e6@-->|"[SHAPE]: AcadReader"| Fabrication
-    Rasm e7@-->|"[CONTENT_KEY]: QuantityDerivation"| Semantics
+    Rasm e7@-->|"[SHAPE]: GeometryMeasures"| Semantics
     Model e8@-->|"[CONTENT_KEY]: IfcRepresentation"| Compute
-    Semantics e9@<-->|"[PROJECTION]: SemanticMetadata"| Compute
     Exchange e10@<-->|"[TESSELLATION]: TessellationOutcome"| Compute
     Review e11@-->|"[TRANSPORT]: IdsAudit"| Compute
-    Energy e12@<-->|"[SHAPE]: OpenStudioModel"| Compute
     Projection e13@-->|"[PROJECTION]: EnergyGraphReads"| Compute
-    Planning e14@<-->|"[SHAPE]: CostTakeoff"| Compute
+    Planning e14@-->|"[CONTENT_KEY]: CostSchedule"| Compute
     Model e15@-->|"[PROJECTION]: FlatTableProjection"| Persistence
     Exchange e16@<-->|"[CONTENT_KEY]: ArtifactKey"| Persistence
     Review e17@<-->|"[CONTENT_KEY]: CommitKey"| Persistence
     Energy e18@-->|"[CONTENT_KEY]: EnergyArtifact"| Persistence
-    Semantics e19@<-->|"[TRANSPORT]: OgrArrowStream"| Persistence
     Planning e20@<-->|"[WIRE]: TaskRelation"| Persistence
     classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
     classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
@@ -128,9 +209,9 @@ flowchart LR
     class Element,Compute external
     class Persistence data
     class Materials,Fabrication,Rasm annotation
-    class e4,e7,e8,e10,e16,e17,e18,e20 edgeData
-    class e1,e2,e3,e9,e11,e13,e15,e19 edgeExternal
-    class e5,e6,e12,e14 edgeControl
+    class e4,e8,e10,e14,e16,e17,e18,e20 edgeData
+    class e1,e2,e3,e11,e13,e15 edgeExternal
+    class e5,e6,e7 edgeControl
 ```
 
 ```mermaid
@@ -178,20 +259,20 @@ flowchart LR
     Core([typescript:core])
     Ui([typescript:ui])
     Exchange e1@<-->|"[WIRE]: IfcWire"| Geometry
-    Model e2@-->|"[SHAPE]: GlbReference"| Geometry
+    Model e2@-->|"[CONTENT_KEY]: RepresentationContentHash"| Geometry
     Geometry e3@-->|"[BOUNDARY]: IdsVerdict"| Review
     Energy e4@<-->|"[WIRE]: Hbjson"| Geometry
-    Semantics e5@-->|"[SHAPE]: BasemapOverlay"| AppUi
+    Semantics e5@-->|"[SHAPE]: GeoTiles"| AppUi
     Planning e6@-->|"[RECEIPT]: CostSchedule"| AppUi
-    Review e7@-->|"[PORT]: BcfIssueBoard"| AppUi
-    Host e8@-->|"[BOUNDARY]: RhinoImport"| Exchange
-    Semantics e9@-->|"[WIRE]: GeoFeatureWkb"| Data
+    Review e7@-->|"[PORT]: IssueBoard"| AppUi
+    Host e8@-->|"[BOUNDARY]: GlobalId"| Exchange
+    Semantics e9@-->|"[WIRE]: GeoWire"| Data
     Review e10@-->|"[WIRE]: BcfTopicWire"| Core
     Exchange e11@-->|"[WIRE]: IfcWire"| Core
-    Semantics e12@-->|"[WIRE]: GeoFeatureWkb"| Core
+    Semantics e12@-->|"[WIRE]: GeoWire"| Core
     Review e13@-->|"[WIRE]: BcfViewpointWire"| Ui
     Model e14@-->|"[WIRE]: GlobalIdSet"| Ui
-    Exchange e15@-->|"[WIRE]: DiffWire"| Ui
+    Exchange e15@-->|"[WIRE]: ModelDiff"| Ui
     classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
     classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
     classDef annotation fill:#21222C,stroke:#6272A4,color:#F8F8F2
@@ -201,8 +282,8 @@ flowchart LR
     class Model,Semantics,Exchange,Review,Energy,Planning primary
     class Geometry external
     class AppUi,Host,Data,Core,Ui annotation
-    class e1,e4,e9,e10,e11,e12,e13,e14,e15 edgeData
-    class e2,e3,e5,e7,e8 edgeControl
+    class e1,e2,e4,e9,e10,e11,e12,e13,e14,e15 edgeData
+    class e3,e5,e7,e8 edgeControl
     class e6 edgeSuccess
 ```
 

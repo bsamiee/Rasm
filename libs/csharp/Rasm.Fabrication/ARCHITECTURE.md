@@ -84,7 +84,103 @@ Rasm.Fabrication/
 
 Sub-domain dependencies form an acyclic graph. `Process` is the one ratified exception, read as two ledger nodes — an upstream atoms vocabulary every plane reads and a terminal dispatch nothing composes — without splitting the physical page. Cycles break by construction rather than back-edges: a discriminant shared across planes mints on the atoms vocabulary, and residual or verdict state carries forward as policy-case input, never a return edge. Per-flagship wired pipelines — the guards, conditioning, and stage rails each `Run` case composes — lives on the owning implementation pages.
 
-## [02]-[SEAMS]
+## [02]-[STRATA]
+
+Six strata order the fifteen sub-domains; `Process` reads as its two ratified ledger nodes — the atoms vocabulary at the floor and the `Derivation` terminal aggregator beside the CAM plane — and `Verify`'s parse of the `CutProgram` AST `Posting` emits is same-stratum fact; every cross-stratum consumption edge points down.
+
+- S0 `Process` atoms — the one vocabulary floor: `FabricationPolicy`, `FabricationResult`, `EgressKind`, `ContentKey`, `Move`, `Loop`, `MaterialSpec`, and the `FabricationFault` band-2700 union; every plane reads it, it reads no sibling.
+- S1 `Geometry2D` + `Ingress` + `Kinematics` — substrate lanes over the atoms alone: `PolygonAlgebra`, `ArcAlgebra`, and `CurveAlgebra`; the `Ingress.Admit` fold and `AdmittedGeometry`; `MachineTool`, `MachineKinematics`, and the `Fleet` registry.
+- S2 `Tooling` + `Nesting` + `Additive` — capability owners over the 2D algebra: `ToolAssembly`, `CuttingData`, and `ToolWear`; `Nest`, `StockNest`, and `NoFitPolygon`; `Slice`, `SupportPolicy`, and `ScanPolicy`.
+- S3 `Fixturing` + `Forming` + `Joining` + `Spec` — planning owners: `Workholding`, `ExclusionZone`, and `SetupSchedule`; `FlatPattern` and `TubeProgram`; `Weld`, `JointPrep`, and `Procedure`; `Tolerance`, `Capability`, and `Manufacturability`.
+- S4 `Toolpath` + `Process/Derivation` — the CAM plane composing tools, kinematics, and keep-outs (`Cam`, `MotionRun`, `Guard`, `BevelPass`) beside the `Derivation`/`FabricationProjector` terminal aggregator over the downstream plans.
+- S5 `Posting` + `Verify` + `Documentation` — emission and truth: the `CutProgram` AST and `Dialect` emit, the `Removal`/`Probe`/`Simulate` verifiers, and the `Hlr`/`Traveler`/`QualityReport` shop documents.
+
+```mermaid
+---
+config:
+  theme: base
+  look: classic
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+  themeVariables:
+    darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
+    background: "#282A36"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    clusterBkg: "#21222C"
+    clusterBorder: "#D6BCFA"
+    edgeLabelBackground: "#21222C"
+    labelBackgroundColor: "#21222C"
+    titleColor: "#D6BCFA"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
+---
+flowchart TB
+    accTitle: Rasm.Fabrication interior strata
+    accDescr: Six stacked strata from the posting, verify, and documentation truth tier through the CAM plane and derivation aggregator, the planning owners, the capability owners, and the substrate lanes onto the process atoms floor, every consumption edge downward and solid naming one sourced type, and one forbidden upward edge styled red.
+    subgraph L5["S5 EMISSION + TRUTH"]
+        Posting[Posting]
+        Verify[Verify]
+        Documentation[Documentation]
+    end
+    subgraph L4["S4 CAM + DERIVATION"]
+        Toolpath[Toolpath]
+        Derivation[Derivation]
+    end
+    subgraph L3["S3 PLANNING"]
+        Fixturing[Fixturing]
+        Joining[Joining]
+        Spec[Spec]
+    end
+    subgraph L2["S2 CAPABILITY"]
+        Tooling[Tooling]
+        Nesting[Nesting]
+        Additive[Additive]
+    end
+    subgraph L1["S1 SUBSTRATE"]
+        Geometry2D[Geometry2D]
+        Ingress[Ingress]
+        Kinematics[Kinematics]
+    end
+    subgraph L0["S0 PROCESS ATOMS"]
+        Atoms[Process atoms]
+    end
+    Posting e1@-->|"[IMPORT]: BevelPass"| Toolpath
+    Verify e2@-->|"[IMPORT]: Fixture"| Fixturing
+    Documentation e3@-->|"[IMPORT]: CapabilityReport"| Spec
+    Toolpath e4@-->|"[IMPORT]: ToolAssembly"| Tooling
+    Toolpath e5@-->|"[IMPORT]: MachineTool"| Kinematics
+    Toolpath e6@-->|"[IMPORT]: ExclusionZone"| Fixturing
+    Derivation e7@-->|"[IMPORT]: SetupSchedule"| Fixturing
+    Derivation e8@-->|"[IMPORT]: Fleet"| Kinematics
+    Fixturing e9@-->|"[IMPORT]: CuttingData"| Tooling
+    Spec e10@-->|"[IMPORT]: SupportPolicy"| Additive
+    Joining e11@-->|"[IMPORT]: Move"| Atoms
+    Tooling e12@-->|"[IMPORT]: PolygonAlgebra"| Geometry2D
+    Nesting e13@-->|"[IMPORT]: PolygonAlgebra"| Geometry2D
+    Additive e14@-->|"[IMPORT]: PolygonAlgebra"| Geometry2D
+    Geometry2D e15@-->|"[IMPORT]: Loop"| Atoms
+    Ingress e16@-->|"[IMPORT]: AdmittedComponent"| Atoms
+    Kinematics e17@-->|"[IMPORT]: MachineAxis"| Atoms
+    Atoms f1@-->|"forbidden: atoms upward"| L5
+    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+    classDef recessed fill:#21222C,stroke:#6272A4,color:#F8F8F2
+    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
+    classDef edgeError stroke:#FF5555,stroke-width:3px,color:#F8F8F2
+    class Posting,Verify,Documentation,Toolpath,Derivation,Fixturing,Joining,Spec,Tooling,Nesting,Additive primary
+    class Geometry2D,Ingress,Kinematics,Atoms recessed
+    class e1,e2,e3,e4,e5,e6,e7,e8,e9,e10,e11,e12,e13,e14,e15,e16,e17 edgeControl
+    class f1 edgeError
+```
+
+## [03]-[SEAMS]
 
 ```mermaid
 ---
@@ -115,35 +211,34 @@ config:
 ---
 flowchart LR
     accTitle: Fabrication AEC-domain peer seams
-    accDescr: Fabrication sub-domain owners exchanging the element projector, material composition, and groove prep with the AEC peers Element and Materials, edge rails colored by kind and nodes classed by seam direction.
+    accDescr: Fabrication sub-domain owners exchanging the element projector, material composition, and groove prep with the AEC peers Element and Materials, and shipping the Spec tolerance shape to the python artifacts drawing plane, edge rails colored by kind and nodes classed by seam direction.
     subgraph fabrication[RASM.FABRICATION]
         Process[Process rail]
         Ingress[Ingress admission]
-        Fixturing[Fixturing planning]
-        Forming[Forming unfold]
         Joining[Joining engineering]
+        Spec[Spec tolerances]
     end
     Element{{Rasm.Element}}
     Materials([Rasm.Materials])
+    Artifacts{{python:artifacts}}
     Process e1@-->|"[PROJECTION]: FabricationProjector"| Element
-    Element e2@-->|"[WIRE]: ElementGraph.Bake"| Ingress
+    Element e2@-->|"[WIRE]: ElementGraph"| Ingress
     Materials e3@-->|"[SHAPE]: LayerSet"| Ingress
-    Materials e4@-->|"[WIRE]: MaterialProperties"| Process
+    Materials e4@-->|"[WIRE]: MaterialPropertySet"| Process
     Materials e5@-->|"[SHAPE]: GroovePrep"| Joining
-    Materials e6@-->|"[SHAPE]: GroovePrep"| Fixturing
-    Materials e7@-->|"[SHAPE]: GroovePrep"| Forming
+    Spec e8@-->|"[SHAPE]: Tolerance"| Artifacts
     classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
     classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
     classDef annotation fill:#21222C,stroke:#6272A4,color:#F8F8F2
     classDef edgeData stroke:#FFB86C,color:#F8F8F2
     classDef edgeExternal stroke:#8BE9FD,color:#F8F8F2
     classDef edgeControl stroke:#FF79C6,color:#F8F8F2
-    class Process,Ingress,Fixturing,Forming,Joining primary
-    class Element external
+    class Process,Ingress,Joining,Spec primary
+    class Element,Artifacts external
     class Materials annotation
     class e1 edgeExternal
-    class e2,e4 edgeData
-    class e3,e5,e6,e7 edgeControl
+    class e2,e4,e8 edgeData
+    class e3,e5 edgeControl
 ```
 
 ```mermaid
@@ -183,7 +278,6 @@ flowchart LR
         Toolpath[Toolpath CAM]
         Additive[Additive slicing]
         Forming[Forming unfold]
-        Joining[Joining engineering]
         Kinematics[Kinematics motion]
         Nesting[Nesting layout]
         Spec[Spec capability]
@@ -195,12 +289,11 @@ flowchart LR
     AppUi([Rasm.AppUi])
     Rasm e1@-->|"[SHAPE]: Predicate"| Process
     Rasm e2@-->|"[WIRE]: MeshSpace"| Ingress
-    Rasm e3@-->|"[WIRE]: OffsetsCurves"| Geometry2D
+    Rasm e3@-->|"[WIRE]: ParametricOp"| Geometry2D
     Rasm e4@-->|"[WIRE]: CurveSkeleton"| Toolpath
     Rasm e5@-->|"[WIRE]: SliceStack"| Additive
     Rasm e6@-->|"[WIRE]: Development"| Forming
-    Rasm e7@-->|"[WIRE]: VectorIntent"| Joining
-    Rasm e8@-->|"[WIRE]: MotionInterpolation"| Kinematics
+    Rasm e7@-->|"[WIRE]: VectorIntent"| Kinematics
     Rasm e9@-->|"[PROJECTION]: ChartAtlas"| Nesting
     Rasm e10@-->|"[WIRE]: Stat"| Spec
     Rasm e11@-->|"[WIRE]: FitReceipt"| Verify
@@ -214,20 +307,20 @@ flowchart LR
     classDef edgeSuccess stroke:#50FA7B,color:#F8F8F2
     classDef edgeExternal stroke:#8BE9FD,color:#F8F8F2
     classDef edgeControl stroke:#FF79C6,color:#F8F8F2
-    class Process,Ingress,Geometry2D,Toolpath,Additive,Forming,Joining,Kinematics,Nesting,Spec,Verify,Documentation,Posting primary
+    class Process,Ingress,Geometry2D,Toolpath,Additive,Forming,Kinematics,Nesting,Spec,Verify,Documentation,Posting primary
     class Rasm external
     class AppUi annotation
-    class e2,e3,e4,e5,e6,e7,e8,e10,e11,e12,e13 edgeData
+    class e2,e3,e4,e5,e6,e7,e10,e11,e12,e13 edgeData
     class e1 edgeControl
     class e9 edgeExternal
     class e14 edgeSuccess
 ```
 
-## [03]-[FAULT_REGISTRY]
+## [04]-[FAULT_REGISTRY]
 
 `FabricationFault` is one `[Union]` on the `FaultBand.Fabrication` band `Rasm.Element` owns. Each sub-domain folder owns its fault arms and lowers them onto the band; a folder producing no fault leaves its lane receipt-only, and projection routes the kernel geometry fault rather than minting its own. `Process/faults` owns the arm-to-code allocation and the band's free frontier; the arms preserving wire-code decode from before the folder partition retype in place, never reallocate.
 
-## [04]-[CROSS_PACKAGE]
+## [05]-[CROSS_PACKAGE]
 
 Seam edges carry which package exchanges which shape; the load-bearing cross-package invariants are:
 - Every machine-consumable egress mints its content key through the kernel `ContentHash.Of` seed-zero entry, with no second mint.

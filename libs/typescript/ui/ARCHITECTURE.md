@@ -27,7 +27,78 @@ ui/
         └── probe.ts           # Render evidence: benchmarks paired with wire-decoded receipts, never gating
 ```
 
-## [02]-[SEAMS]
+## [02]-[STRATA]
+
+- S0 `system` — the capability floor: `atom` the one store bridge (`AtomRef`, `Atom.subscribable`), `act` the gesture and motion owner, `intl` the `Format` plane, `token` the `Theme` authority whose `cn` composer `primitive`'s recipes compose.
+- S1 `view` — dense surfaces over the floor: `form` binds draft cursors through `AtomRef`, `table` folds `TableState` on the one store and formats bands through `Format`, `overlay` and `chart` ride `act` gesture and motion rows under the same recipes.
+- S2 `viewer` — the spatial Nx project atop both: `scene` parks its frame loop on `act`, binds color through the `token` authority, and rides its `Machine` lifecycle on the atom bridge; `mark` composes `geo`'s `Camera` inside the wave; `probe` renders its claim board through `view/table`'s `Grid` rows and `view/chart` series while `panel` folds receipts on the store.
+
+```mermaid
+---
+config:
+  theme: base
+  look: classic
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+  themeVariables:
+    darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
+    background: "#282A36"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    clusterBkg: "#21222C"
+    clusterBorder: "#D6BCFA"
+    edgeLabelBackground: "#21222C"
+    labelBackgroundColor: "#21222C"
+    titleColor: "#D6BCFA"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
+---
+flowchart TB
+    accTitle: Ui interior import strata
+    accDescr: Three interior waves — the viewer spatial project over the view surfaces onto the system floor — every import downward, labeled edges naming one sourced type each, and one forbidden upward edge styled red.
+    subgraph S2["S2 VIEWER"]
+        Scene["scene · geo · mark"]
+        Board["panel · probe"]
+    end
+    subgraph S1["S1 VIEW"]
+        View["form · table · overlay · chart"]
+    end
+    subgraph S0["S0 SYSTEM"]
+        Token["token · primitive"]
+        Act[act]
+        Atom[atom]
+        Intl[intl]
+    end
+    View e1@-->|"[IMPORT]: AtomRef"| Atom
+    View e2@-->|"[IMPORT]: Format"| Intl
+    View e3@-->|"[IMPORT]: Theme"| Token
+    View e4@-->|"[IMPORT]: Motion"| Act
+    Scene e5@--> Token
+    Scene e6@--> Act
+    Scene e7@--> Atom
+    Board e8@--> Atom
+    Board e9@--> Intl
+    Board e10@--> Token
+    Board e11@-->|"[IMPORT]: Grid"| View
+    S0 f1@-->|"forbidden: upward import"| S2
+    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+    classDef recessed fill:#21222C,stroke:#6272A4,color:#F8F8F2
+    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
+    classDef edgeError stroke:#FF5555,stroke-width:3px,color:#F8F8F2
+    class Scene,Board,View primary
+    class Token,Act,Atom,Intl recessed
+    class e1,e2,e3,e4,e5,e6,e7,e8,e9,e10,e11 edgeControl
+    class f1 edgeError
+```
+
+## [03]-[SEAMS]
 
 ```mermaid
 ---
@@ -71,33 +142,35 @@ flowchart LR
     AppUi([Rasm.AppUi])
     Bim([Rasm.Bim])
     Core e1@-->|"[SHAPE]: Feed.Document"| View
-    System e2@<-->|"[PORT]: Subscribable planes"| Runtime
+    Runtime e2@-->|"[PORT]: Atom.subscribable"| System
     Runtime e3@-->|"[PORT]: GlbViewport"| Viewer
-    Runtime e4@-->|"[BOUNDARY]: transcoder assets"| Viewer
+    Runtime e4@-->|"[BOUNDARY]: EXT_meshopt_compression"| Viewer
     Materials e5@-->|"[WIRE]: PbrGroups"| Viewer
-    AppHost e6@-->|"[WIRE]: livewire triple"| Viewer
+    AppHost e6@-->|"[WIRE]: BindingStatus"| Viewer
     AppUi e7@-->|"[WIRE]: ControlIntent"| Viewer
     AppUi e8@-->|"[RECEIPT]: RenderReceipt"| Viewer
     Bim e9@-->|"[WIRE]: GlobalIdSet"| Viewer
+    Bim e10@-->|"[WIRE]: BcfViewpointWire"| Viewer
+    Bim e11@-->|"[WIRE]: DiffWire"| Viewer
     classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
     classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
-    classDef annotation fill:#21222C,stroke:#6272A4,color:#F8F8F2
+    classDef recessed fill:#21222C,stroke:#6272A4,color:#F8F8F2
     classDef edgeData stroke:#FFB86C,color:#F8F8F2
     classDef edgeSuccess stroke:#50FA7B,color:#F8F8F2
     classDef edgeControl stroke:#FF79C6,color:#F8F8F2
     class System,View,Viewer primary
     class Runtime external
-    class Core,Materials,AppHost,AppUi,Bim annotation
+    class Core,Materials,AppHost,AppUi,Bim recessed
     class e1,e2,e3,e4 edgeControl
-    class e5,e6,e7,e9 edgeData
+    class e5,e6,e7,e9,e10,e11 edgeData
     class e8 edgeSuccess
 ```
 
-## [03]-[ORGANIZATION]
+## [04]-[ORGANIZATION]
 
 `system` is the capability floor the views instantiate; `view` composes those owners into dense surfaces — form, grid, overlay, chart — each a single owner where variation is rows (columns, commands, field kinds, chart regimes), never sibling components; `viewer` is the spatial tier as a separate Nx project consuming decoded wire and owning render alone. Selection stays one atom: the grid `RowSelectionState` and the `scrollToIndex` echo project it, never a second plane. Per-owner wiring lives on the owning implementation pages.
 
-## [04]-[BOUNDARIES]
+## [05]-[BOUNDARIES]
 
 - IFC semantics and geometry stay unowned; GLB, BCF, and selection arrive decoded through the core interchange plane, rendered, never re-authored.
 - A browser composition root — `GlbViewport` from Depot arrivals, host planes bound into atoms — is app composition, out of scope here.

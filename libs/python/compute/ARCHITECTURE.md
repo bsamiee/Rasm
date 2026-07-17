@@ -71,13 +71,14 @@ config:
 ---
 flowchart LR
     accTitle: Compute package seam registry
-    accDescr: Compute sub-domain owners exchanging graduation evidence, quantities, content keys, and frame shapes with Rasm.Compute and the Python geometry, artifacts, runtime, and data peers, edge rails colored by kind and nodes classed by seam direction.
+    accDescr: Compute sub-domain owners exchanging graduation evidence, quantities, content keys, frame shapes, and the runtime Kernel port with Rasm.Compute and the Python geometry, artifacts, runtime, and data peers, edge rails colored by kind and nodes classed by seam direction.
     subgraph compute[COMPUTE]
         Graduation[Graduation rail]
         Solvers[Solve receipt]
         Numerics[Numeric substrate]
         Experiments[Study spine]
         Analysis[Analysis producers]
+        Optimization[Optimization programs]
     end
     Compute{{Rasm.Compute}}
     Runtime{{python:runtime}}
@@ -89,24 +90,31 @@ flowchart LR
     Solvers e3@-->|"[PROJECTION]: SolverReceipt"| Compute
     Numerics e4@<-->|"[WIRE]: QuantityFamily"| Compute
     Geometry e5@-->|"[GRADUATION]: GeometryHandoff"| Graduation
-    Artifacts e6@-->|"[GRADUATION]: ArtifactReceipt"| Graduation
+    Artifacts e6@-->|"[GRADUATION]: HandoffAxis"| Graduation
     Artifacts e7@-->|"[SHAPE]: SignalOp"| Analysis
-    Runtime e8@-->|"[CONTENT_KEY]: ContentIdentity"| Numerics
+    Runtime e8@-->|"[CONTENT_KEY]: ParityReceipt"| Numerics
     Experiments e9@-->|"[BOUNDARY]: ResourceRef"| Runtime
     Data e10@-->|"[SHAPE]: FrameAdmission"| Experiments
+    Runtime e11@-->|"[PORT]: Kernel"| Solvers
+    Runtime e12@-->|"[PORT]: measured"| Graduation
+    Runtime e13@-->|"[PORT]: Kernel"| Experiments
+    Runtime e14@-->|"[PORT]: Kernel"| Analysis
+    Runtime e15@-->|"[PORT]: Kernel"| Optimization
     classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
     classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
-    classDef annotation fill:#21222C,stroke:#6272A4,color:#F8F8F2
+    classDef recessed fill:#21222C,stroke:#6272A4,color:#F8F8F2
     classDef edgeData stroke:#FFB86C,color:#F8F8F2
     classDef edgeExternal stroke:#8BE9FD,color:#F8F8F2
     classDef edgeControl stroke:#FF79C6,color:#F8F8F2
-    class Graduation,Solvers,Numerics,Experiments,Analysis primary
+    class Graduation,Solvers,Numerics,Experiments,Analysis,Optimization primary
     class Compute,Runtime external
-    class Geometry,Artifacts,Data annotation
+    class Geometry,Artifacts,Data recessed
     class e1,e2,e4,e5,e6,e8 edgeData
     class e3 edgeExternal
-    class e7,e9,e10 edgeControl
+    class e7,e9,e10,e11,e12,e13,e14,e15 edgeControl
 ```
+
+`ContentIdentity` keys ride beneath the `ParityReceipt` parity seam, the graduation reverse leg carries `EvidenceBundle`, C#-owned as `GraduationEvidence`, and `UncertainQuantity` is the interior owner beneath the C#-spelled `QuantityFamily` wire; each collapsed edge stands for every contract between the two owners at that kind, with the per-contract wiring on the owning implementation pages.
 
 ## [03]-[INTERNAL]
 
@@ -158,6 +166,75 @@ flowchart LR
     class e1,e6,e7,e8 edgeSuccess
     class e2,e3,e4 edgeControl
     class e5,e9 edgeData
+```
+
+Convergence above answers what folds where; the strata below answer which sub-domain may import which.
+
+- S0 `graduation` — mints the outward rail exactly once (`HandoffAxis`, `GraduationReceipt`, `EvidenceScope`) and imports no sibling; `codegen` composes `handoff` inside the stratum, and every producer returns through the hub.
+- S1 `numerics` + `solvers` — one band: `solvers` folds `SolverReceipt`/`SolveStatus` onto the rail, `numerics` admits `ArrayPayload` and the `JitBackend`/`LoweredSpec` compile routes; the interleave is module-acyclic — `quadrature` composes `jit`, `interval` composes the receipt `graduate` fold — so no stratum cycle exists at module grain.
+- S2 `analysis` + `experiments` + `optimization` — the producer tier no sibling imports: analysis composes `ArrayPayload`, experiments the `JitBackend` capture and the study spine, optimization the `SolveStatus` verdicts; all three graduate through `EvidenceScope`.
+
+```mermaid
+---
+config:
+  theme: base
+  look: classic
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+  themeVariables:
+    darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
+    background: "#282A36"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    clusterBkg: "#21222C"
+    clusterBorder: "#D6BCFA"
+    edgeLabelBackground: "#21222C"
+    labelBackgroundColor: "#21222C"
+    titleColor: "#D6BCFA"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
+---
+flowchart TB
+    accTitle: Compute interior import strata
+    accDescr: Three import strata — the analysis, experiments, and optimization producers over the numerics-solvers band over the graduation foundation — each labeled downward edge naming its one sourced type, the band interleave held to prose, and one forbidden upward edge styled red.
+    subgraph C2["S2 PRODUCERS"]
+        Analysis[analysis]
+        Experiments[experiments]
+        Optimization[optimization]
+    end
+    subgraph C1["S1 NUMERICS + SOLVERS"]
+        Numerics[numerics]
+        Solvers[solvers]
+    end
+    subgraph C0["S0 GRADUATION"]
+        Codegen[codegen]
+        Handoff[handoff]
+    end
+    Analysis s1@-->|"[IMPORT]: ArrayPayload"| Numerics
+    Analysis s2@-->|"[IMPORT]: EvidenceScope"| Handoff
+    Experiments s3@-->|"[IMPORT]: JitBackend"| Numerics
+    Experiments s4@-->|"[IMPORT]: EvidenceScope"| Handoff
+    Optimization s5@-->|"[IMPORT]: SolveStatus"| Solvers
+    Optimization s6@-->|"[IMPORT]: EvidenceScope"| Handoff
+    Numerics s7@-->|"[IMPORT]: GraduationReceipt"| Handoff
+    Solvers s8@-->|"[IMPORT]: GraduationReceipt"| Handoff
+    Codegen s9@-->|"[IMPORT]: EvidenceScope"| Handoff
+    Handoff f1@-->|"forbidden: upward import"| C2
+    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+    classDef recessed fill:#21222C,stroke:#6272A4,color:#F8F8F2
+    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
+    classDef edgeError stroke:#FF5555,stroke-width:3px,color:#F8F8F2
+    class Analysis,Experiments,Optimization,Numerics,Solvers primary
+    class Codegen,Handoff recessed
+    class s1,s2,s3,s4,s5,s6,s7,s8,s9 edgeControl
+    class f1 edgeError
 ```
 
 ## [04]-[ORGANIZATION]

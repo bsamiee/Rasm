@@ -21,7 +21,72 @@ security/
         └── tenant.ts          # Ambient TenantContext reference + the app.current_tenant RLS shape the data wave enforces
 ```
 
-## [02]-[SEAMS]
+## [02]-[STRATA]
+
+- S0 `crypt/sign` + `access/tenant` — two floor mints importing only core: `sign` originates every digest, signature, token, and envelope (`Crypto`, `Jwt`, `AccessClaims`, `Shredder`, `SealedEnvelope`); `tenant` mints the `TenantScope` reference and the RLS shape.
+- S1 `crypt/verify` + `crypt/secret` + `authn/session` + `authn/credential` — each composes `sign` alone: `verify` folds `Crypto` over held octets, `secret` scopes the Doppler lease behind `Crypto`, `session` mints `Jwt` tokens as the identity spine, `credential` rides its private digest idiom over `Crypto`.
+- S2 `authn/oauth` + `authn/webauthn` + `access/claim` — ceremonies and decisions over the spine: `oauth` and `webauthn` compose `Token` from `session` beside `sign`; `claim` folds `AccessClaims` with `TenantScope`; `authn` and `access` stay mutually independent peers.
+
+```mermaid
+---
+config:
+  theme: base
+  look: classic
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+  themeVariables:
+    darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
+    background: "#282A36"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    clusterBkg: "#21222C"
+    clusterBorder: "#D6BCFA"
+    edgeLabelBackground: "#21222C"
+    labelBackgroundColor: "#21222C"
+    titleColor: "#D6BCFA"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
+---
+flowchart TB
+    accTitle: Security interior import strata
+    accDescr: Three interior waves — ceremonies and the entitlement fold over the verify, secret, and session spine onto the sign and tenant floor — every import downward, labeled edges naming one sourced type each, and one forbidden upward edge styled red.
+    subgraph S2["S2 CEREMONY + DECISION"]
+        Ceremony["oauth · webauthn"]
+        Claim[claim]
+    end
+    subgraph S1["S1 SPINE"]
+        Verify["verify · secret"]
+        Session["session · credential"]
+    end
+    subgraph S0["S0 FLOOR"]
+        Sign[sign]
+        TenantRef[tenant]
+    end
+    Verify e1@-->|"[IMPORT]: Crypto"| Sign
+    Session e2@-->|"[IMPORT]: Jwt"| Sign
+    Ceremony e3@-->|"[IMPORT]: Token"| Session
+    Ceremony e4@-->|"[IMPORT]: SingleUse"| Sign
+    Claim e5@-->|"[IMPORT]: AccessClaims"| Sign
+    Claim e6@-->|"[IMPORT]: TenantScope"| TenantRef
+    S0 f1@-->|"forbidden: upward import"| S2
+    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+    classDef recessed fill:#21222C,stroke:#6272A4,color:#F8F8F2
+    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
+    classDef edgeError stroke:#FF5555,stroke-width:3px,color:#F8F8F2
+    class Ceremony,Claim,Verify,Session primary
+    class Sign,TenantRef recessed
+    class e1,e2,e3,e4,e5,e6 edgeControl
+    class f1 edgeError
+```
+
+## [03]-[SEAMS]
 
 ```mermaid
 ---
@@ -67,29 +132,29 @@ flowchart LR
     Access e3@-->|"[BOUNDARY]: TenantScope"| Data
     Data e4@-->|"[PORT]: SessionStore"| Authn
     Authn e5@-->|"[PORT]: BearerGuard"| Runtime
-    Authn e6@<-->|"[BOUNDARY]: OAuth redirect"| Runtime
-    Authn e7@<-->|"[SHAPE]: CookieSpec"| Runtime
-    Crypt e8@-->|"[SHAPE]: Shredder envelope"| Data
-    Crypt e9@-->|"[BOUNDARY]: Intake verify"| Runtime
-    Crypt e10@-->|"[BOUNDARY]: leased env"| Iac
+    Authn e6@<-->|"[BOUNDARY]: OAuth"| Runtime
+    Authn e7@-->|"[SHAPE]: CookieSpec"| Runtime
+    Crypt e8@-->|"[SHAPE]: SealedEnvelope"| Data
+    Crypt e9@-->|"[BOUNDARY]: Intake"| Runtime
+    Crypt e10@-->|"[BOUNDARY]: LeaseSpec"| Iac
     Access e11@-->|"[PORT]: FlagGate"| Runtime
     classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
     classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
     classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
-    classDef annotation fill:#21222C,stroke:#6272A4,color:#F8F8F2
+    classDef recessed fill:#21222C,stroke:#6272A4,color:#F8F8F2
     classDef edgeControl stroke:#FF79C6,color:#F8F8F2
     class Crypt,Authn,Access primary
     class Runtime external
     class Data data
-    class Core,Iac annotation
+    class Core,Iac recessed
     class e1,e2,e3,e4,e5,e6,e7,e8,e9,e10,e11 edgeControl
 ```
 
-## [03]-[ORGANIZATION]
+## [04]-[ORGANIZATION]
 
 `crypt/sign` is the sole mint — every digest, signature, token, and envelope originates there; `crypt/verify` mirrors it inbound over held octets so no route hand-rolls a signature check; `crypt/secret` scopes the Doppler client to the leased surfaces the folder admits. `authn/session` is the identity spine the ceremonies feed: `credential` funnels every second factor through one mint-and-resolve idiom, `oauth` models issuers as rows, `webauthn` splits the passkey ceremony by runtime subpath. `access` turns verified identity into decisions: `claim` evaluates entitlements once per request, `tenant` states the tenancy contract the data wave enforces as row-level security.
 
-## [04]-[BOUNDARIES]
+## [05]-[BOUNDARIES]
 
 - Persistence lives outside by construction: every store is a port Tag the data wave satisfies and the app root binds.
 - Content-identity digesting stays core's; this folder owns secret derivation and authenticated crypto only.

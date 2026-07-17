@@ -61,7 +61,86 @@ Rasm.AppUi/
 
 `Shell` owns the host-mount axis and application spine: the mount precedes the shell, the shell precedes the screens it routes. `Theme` is the pure vocabulary tier every literal traces to. `Render` owns the GPU-viewport and temporal tier, `Document` composes the AppHost recompute graph and owns every paginated output, and `Diagnostics` carries the 6xxx fault registry, the headless proof matrix, and the quality governor. `Collab/sync` holds the one live-merge authority every co-edited surface composes and the single typed `EditIntent` union that is durable truth on the Persistence ledger — no Loro byte crosses durable truth.
 
-## [02]-[SEAMS]
+## [02]-[STRATA]
+
+Four member-resolved strata order the interior; `Diagnostics/Evidence` is the reciprocal hub — every owner derives its fault codes through `AppUiFaultBand` while `EvidenceReceipt` nests every producer's receipt record — so the hub seats S0 and the nesting reads as co-ownership, never an upward import; every consumption edge points down.
+
+- S0 substrate — the `AppUiFaultBand` 6xxx registry and `AppUiTelemetry` spine (`Diagnostics/Evidence`) beside the pure `Theme` vocabulary (`TokenRow`, `MotionToken`, `AssetKeys`); every literal and every fault code traces here.
+- S1 spines — one owner per fabric: the `CommandIntent` verb table with its `CommandDeck`, the `VirtualWindowSpec` windowing fabric, the `LayoutSolver` constraint panel, the `EditReceipt` inspection rail, and the `RenderReceipt`/`RenderGraph` render tier.
+- S2 streams — `BehaviorRail` binding, the `EditIntent`/`IntentLedger` live-merge authority (`Collab/Sync`), and the `RevertibleOp` inverse algebra, each folding the S1 spines.
+- S3 surfaces — `ControlFactory` materializing every control over the spines and streams, and the `IssueBoard` projection over the intent ledger; the notebook, export, and screen planes compose these same rungs.
+
+```mermaid
+---
+config:
+  theme: base
+  look: classic
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+  themeVariables:
+    darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
+    background: "#282A36"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    clusterBkg: "#21222C"
+    clusterBorder: "#D6BCFA"
+    edgeLabelBackground: "#21222C"
+    labelBackgroundColor: "#21222C"
+    titleColor: "#D6BCFA"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
+---
+flowchart TB
+    accTitle: Rasm.AppUi interior strata
+    accDescr: Four member-resolved strata from the control and issue surfaces through the binding, intent, and revert streams and the one-owner spines onto the fault-band and theme substrate, every consumption edge downward and solid naming one sourced type, and one forbidden upward edge styled red.
+    subgraph L3["S3 SURFACES"]
+        Factory[ControlFactory]
+        Board[IssueBoard]
+    end
+    subgraph L2["S2 STREAMS"]
+        Rail[BehaviorRail]
+        Intent[EditIntent]
+        Revert[RevertibleOp]
+    end
+    subgraph L1["S1 SPINES"]
+        Command[CommandIntent]
+        Virtual[VirtualWindowSpec]
+        Solver[LayoutSolver]
+        Inspect[EditReceipt]
+    end
+    subgraph L0["S0 SUBSTRATE"]
+        Fault[AppUiFaultBand]
+        Token[TokenRow]
+    end
+    Factory e1@-->|"[IMPORT]: VirtualWindowSpec"| Virtual
+    Factory e2@-->|"[IMPORT]: LayoutSolver"| Solver
+    Factory e3@-->|"[IMPORT]: BehaviorRail"| Rail
+    Factory e4@-->|"[IMPORT]: TokenRow"| Token
+    Board e5@-->|"[IMPORT]: EditIntent"| Intent
+    Rail e6@-->|"[IMPORT]: CommandIntent"| Command
+    Revert e7@-->|"[IMPORT]: CommandIntent"| Command
+    Revert e8@-->|"[IMPORT]: EditReceipt"| Inspect
+    Intent e9@-->|"[IMPORT]: CommandIntent"| Command
+    Command e10@-->|"[IMPORT]: AppUiFaultBand"| Fault
+    Fault f1@-->|"forbidden: substrate upward"| L3
+    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+    classDef recessed fill:#21222C,stroke:#6272A4,color:#F8F8F2
+    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
+    classDef edgeError stroke:#FF5555,stroke-width:3px,color:#F8F8F2
+    class Factory,Board,Rail,Intent,Revert primary
+    class Command,Virtual,Solver,Inspect,Fault,Token recessed
+    class e1,e2,e3,e4,e5,e6,e7,e8,e9,e10 edgeControl
+    class f1 edgeError
+```
+
+## [03]-[SEAMS]
 
 Two fences split the seam map by counterpart role: the first binds the same-branch AEC peers, the kernel, and the durable store; the second binds the platform host and the TypeScript peers. Each collapsed edge stands for every contract between that owner and that partner at the load-bearing kind; the owning pages enumerate the rest.
 
@@ -112,9 +191,9 @@ flowchart LR
     Fabrication e4@-->|"[RECEIPT]: HiddenLineResult"| Render
     Materials e5@-->|"[BOUNDARY]: LayeredBsdf + SurfaceShade"| Render
     Rasm e6@-->|"[CONTENT_KEY]: ContentHash"| Render
-    Bim e7@-->|"[SHAPE]: BasemapOverlay"| Charts
+    Bim e7@-->|"[SHAPE]: GeoTiles"| Charts
     Bim e8@-->|"[RECEIPT]: CostSchedule"| Charts
-    Bim e9@-->|"[PORT]: BcfIssueBoard"| Collab
+    Bim e9@-->|"[PORT]: IssueBoard"| Collab
     Collab e10@-->|"[PROJECTION]: ReplayWindow"| Persistence
     Collab e11@-->|"[CONTENT_KEY]: SnapshotAccelerator"| Persistence
     Bim e12@-->|"[RECEIPT]: ConstructionState"| Render
@@ -167,13 +246,12 @@ config:
 ---
 flowchart LR
     accTitle: AppUi platform-host and cross-runtime wire seams
-    accDescr: AppUi shell, render, editing, document, collaboration, and diagnostics owners exchanging command, layout, evidence, and live-delta wires, render receipts, determinism ports, and the fault-band adjacency with the app host and the TypeScript core and viewer peers, edge rails colored by kind and nodes classed by seam direction.
+    accDescr: AppUi shell, render, editing, document, and diagnostics owners exchanging command, residency, and evidence wires, render receipts, determinism ports, and the fault-band adjacency with the app host and the TypeScript core and viewer peers, edge rails colored by kind and nodes classed by seam direction.
     subgraph appui[RASM.APPUI]
         Shell[Shell spine]
         Render[Render tier]
         Editing[Edit surfaces]
         Document[Document plane]
-        Collab[Collab plane]
         Diagnostics[Diagnostics]
     end
     AppHost{{Rasm.AppHost}}
@@ -182,9 +260,8 @@ flowchart LR
     Shell e1@-->|"[WIRE]: CommandPayloadWire"| Core
     Render e2@-->|"[WIRE]: GeometryResidencyWire"| Core
     Diagnostics e3@-->|"[WIRE]: EvidenceFeed"| Core
-    Shell e4@-->|"[WIRE]: ControlIntent"| Ui
+    Shell e4@-->|"[WIRE]: ControlIntentWire"| Ui
     Render e5@-->|"[RECEIPT]: RenderReceipt"| Ui
-    Collab e6@-->|"[WIRE]: LiveDelta"| AppHost
     AppHost e7@-->|"[PORT]: DeterminismContext"| Editing
     AppHost e8@-->|"[PORT]: DeterminismContext"| Document
     Diagnostics e9@<-->|"[FAULT]: FaultBand"| AppHost
@@ -195,10 +272,10 @@ flowchart LR
     classDef edgeSuccess stroke:#50FA7B,color:#F8F8F2
     classDef edgeError stroke:#FF5555,stroke-width:3px,color:#F8F8F2
     classDef edgeControl stroke:#FF79C6,color:#F8F8F2
-    class Shell,Render,Editing,Document,Collab,Diagnostics primary
+    class Shell,Render,Editing,Document,Diagnostics primary
     class AppHost external
     class Core,Ui annotation
-    class e1,e2,e3,e4,e6 edgeData
+    class e1,e2,e3,e4 edgeData
     class e5 edgeSuccess
     class e7,e8 edgeControl
     class e9 edgeError
@@ -208,7 +285,7 @@ flowchart LR
 
 `Diagnostics ⇄ Rasm.AppHost` `[FAULT]` edge is the 6xxx `AppUiFaultBand` neighborhood: AppUi lowers every fault union onto its band and the AppHost lifecycle registry pins the reciprocal range, so fault codes never collide across the platform seam.
 
-## [03]-[BOUNDARIES]
+## [04]-[BOUNDARIES]
 
 - `ChartAtlas` texture UV enters through the Fabrication nesting receipt.
 - Bim `ElementSet` queries enter through Bim-owned receipt rows.
@@ -217,7 +294,7 @@ flowchart LR
 - Kernel `Analyze` receipt projection enters inspector and dashboard surfaces through the receipt spine.
 - `SurfaceHost.RhinoPanel` mounts only when a Rhino lease supplies `EmbedCapsule` and `RenderGraph.Lease`.
 
-## [04]-[PROHIBITIONS]
+## [05]-[PROHIBITIONS]
 
 Deleted patterns the owner regions foreclose:
 - NEVER runtime XAML for production views — the `Surfaces` mount gate rejects runtime loads, so views enter only through the compiled-XAML class.

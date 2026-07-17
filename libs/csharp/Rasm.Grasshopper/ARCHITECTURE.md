@@ -41,7 +41,85 @@ Rasm.Grasshopper/       # refs ../Rasm ONLY; GH2 + Eto host boundary; kernel mat
     └── Session.cs      # Live-scope acquisition, apply/run gates, repaint receipts, and the session cache
 ```
 
-## [02]-[SEAMS]
+## [02]-[STRATA]
+
+Four strata order the six sub-domains; `Eto` and `Shell` are one co-recursive UI-thread floor — the `EtoDispatch` marshal and the `GhSession` scope gate each compose the other — and `Components` is the island: pure host-plus-kernel authoring with no interior edge either direction; every cross-stratum consumption edge points down.
+
+- S0 `Eto` + `Shell` — the co-recursive floor: `EtoDispatch`, `UiClock`, `ControlForge`, and `WindowHost` beside `GhSession`, `SessionOp`, `UiEvents`, and `DocumentToken`; the pair's mutual reach is same-stratum fact.
+- S1 `Document` + `Platform` — parallel composers over the floor, cross-blind to each other: `DocumentScope`, `GraphScope`, `HistoryLedger`, and `SolutionControl` beside `MacGate`, `MacAnchor`, `MotionDrive`, and `PlatformSeam`.
+- S2 `Canvas` — the live host-surface owner nothing composes: `CanvasOperator`, `PaintScene`, `CanvasLayout`, and `CanvasPacer` over session scope, dispatch marshal, undo seal, and the display-link drive.
+- Island `Components` — `GardenData`, `Ports`, `ComponentSpec`, and `GhFault` speak GH2 `IDataAccess` and the kernel alone; no UI-thread sibling imports it and it imports none.
+
+```mermaid
+---
+config:
+  theme: base
+  look: classic
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+  themeVariables:
+    darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
+    background: "#282A36"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    clusterBkg: "#21222C"
+    clusterBorder: "#D6BCFA"
+    edgeLabelBackground: "#21222C"
+    labelBackgroundColor: "#21222C"
+    titleColor: "#D6BCFA"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
+---
+flowchart TB
+    accTitle: Rasm.Grasshopper interior strata
+    accDescr: Three stacked strata from the canvas owner through the document and platform composers onto the co-recursive Eto-Shell UI-thread floor, every consumption edge downward and solid naming one sourced type, and one forbidden upward edge styled red.
+    subgraph L2["S2 CANVAS"]
+        Operator[CanvasOperator]
+        Paint[PaintScene]
+        Layout[CanvasLayout]
+        Pacer[CanvasPacer]
+    end
+    subgraph L1["S1 DOCUMENT + PLATFORM"]
+        Scope[DocumentScope]
+        Ledger[HistoryLedger]
+        Solution[SolutionControl]
+        Drive[MotionDrive]
+    end
+    subgraph L0["S0 ETO + SHELL FLOOR"]
+        Session[GhSession]
+        Dispatch[EtoDispatch]
+        Clock[UiClock]
+        Events[UiEvents]
+    end
+    Operator e1@-->|"[IMPORT]: GhSession"| Session
+    Operator e2@-->|"[IMPORT]: EtoDispatch"| Dispatch
+    Layout e3@-->|"[IMPORT]: HistoryLedger"| Ledger
+    Paint e4@-->|"[IMPORT]: GhSession"| Session
+    Pacer e5@-->|"[IMPORT]: MotionDrive"| Drive
+    Pacer e6@-->|"[IMPORT]: UiClock"| Clock
+    Scope e7@-->|"[IMPORT]: GhSession"| Session
+    Scope e8@-->|"[IMPORT]: EtoDispatch"| Dispatch
+    Solution e9@-->|"[IMPORT]: UiEvents"| Events
+    Drive e10@-->|"[IMPORT]: EtoDispatch"| Dispatch
+    Dispatch f1@-->|"forbidden: floor upward"| L2
+    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+    classDef recessed fill:#21222C,stroke:#6272A4,color:#F8F8F2
+    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
+    classDef edgeError stroke:#FF5555,stroke-width:3px,color:#F8F8F2
+    class Operator,Paint,Layout,Pacer,Scope,Ledger,Solution,Drive primary
+    class Dispatch,Clock,Session,Events recessed
+    class e1,e2,e3,e4,e5,e6,e7,e8,e9,e10 edgeControl
+    class f1 edgeError
+```
+
+## [03]-[SEAMS]
 
 Every host-facing sub-domain admits the kernel's `MonotonicTimeline` timing authority and `PerceptualColor` colour authority as boundary contracts, minting its own receipts and drives home-side rather than re-deriving kernel math. Kernel geometry stays a pure upstream source — every command receipt seals home-side from an injected timeline, so no contract flows back down.
 
@@ -97,7 +175,7 @@ flowchart LR
     class e1,e2,e3,e4,e5,e6,e7 edgeControl
 ```
 
-## [03]-[INTERNAL]
+## [04]-[INTERNAL]
 
 UI-thread interior composes around two floors — the `Eto/Runtime` dispatch surface and the `Shell/Session` scope gate — that every canvas, motion, event, and native owner marshals through; per-owner wiring lives on the owning implementation pages. Component-authoring and document-transaction spines carry no UI-thread dependency.
 
@@ -158,11 +236,11 @@ flowchart LR
     class i1,i2,i3,i5,i6,i7,i11,i12 edgeControl
 ```
 
-## [04]-[NAMESPACES]
+## [05]-[NAMESPACES]
 
 Namespace mirrors folder path — `.editorconfig` `dotnet_style_namespace_match_folder = true:error`: every fence under `Rasm.Grasshopper/<Folder>/` declares `namespace Rasm.Grasshopper.<Folder>;`, giving each sub-domain folder its own root.
 
-Boundary compiles as ONE assembly — the single `Rasm.Grasshopper.csproj` — so members cross the sub-domain namespaces with no build edge. `Eto.Forms`, `Eto.Drawing`, `Rasm.Domain`, and the `Grasshopper2.*` roots arrive as project-level global usings, so fences name host members bare.
+Boundary compiles as ONE assembly — the single `Rasm.Grasshopper.csproj` — so members cross the sub-domain namespaces with no build edge. `Eto.Forms`, `Eto.Drawing`, and the `Grasshopper2.*` roots arrive as project-level global usings, so fences name host members bare; kernel namespaces ride explicit `using` rows per fence.
 
 Host-name resolution is one law:
 - Inside `Rasm.Grasshopper.*` a partial qualification re-resolves against the boundary's own namespaces, so fences name host members bare.

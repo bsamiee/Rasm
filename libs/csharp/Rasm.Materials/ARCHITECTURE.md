@@ -1,6 +1,6 @@
 # [MATERIALS_ARCHITECTURE]
 
-Domain map of `Rasm.Materials` — host-neutral AEC-DOMAIN materials projector onto the shared `Rasm.Element` seam. `Component`, `Appearance`, `Properties`, and `Projection` sub-domains each collapse to one owner per axis, and the one `ComponentProjector : IElementProjection` lowers every owner into the shared `ElementGraph`. Its single `Project` fold discriminates a pure-substance `MaterialSpec` arm from a Type-minting `ComponentSpec` arm, minting the deterministic-rooted Type `Object` from the `Component`'s canonical content and authoring the content-keyed `Material`/`Appearance` subgraph the seam `Assemble` fold merges with every sibling projector. AEC peers depend up on `{Rasm, Rasm.Element}` and align by seam contract, never by sibling reference.
+Domain map of `Rasm.Materials` — host-neutral AEC-DOMAIN materials projector onto the shared `Rasm.Element` seam. `Component`, `Appearance`, `Properties`, and `Projection` sub-domains each collapse to one owner per axis, and the one `ComponentProjector : IElementProjection` lowers every owner into the shared `ElementGraph`. Its single `Project` fold discriminates the pure-substance `ComponentProjectionSpec.Substance` arm from the Type-minting `ComponentProjectionSpec.Type` arm, minting the deterministic-rooted Type `Object` from the `Component`'s canonical content and authoring the content-keyed `Material`/`Appearance` subgraph the seam `Assemble` fold merges with every sibling projector. AEC peers depend up on `{Rasm, Rasm.Element}` and align by seam contract, never by sibling reference.
 
 ## [01]-[DOMAIN_MAP]
 
@@ -38,7 +38,74 @@ Rasm.Materials/            # AEC-DOMAIN materials projector; refs {Rasm, Rasm.El
 
 VividOrange grounds the structural section, capacity, and rebar data in-folder, never a hand-keyed literal, and the per-page consumption law lives on the owning implementation pages. Return type names the rail: a `SurfaceShade`/`Unicolour` carrier where the result is total, `Fin<T>` where a banded fault routes; the projector returns the seam `Fin<GraphDelta>` the `Assemble` fold merges with every sibling delta. C# is the sole producer of the material wire — `Appearance/Interchange` mints the OpenPBR-vector `MaterialWire` and the MaterialX `.mtlx` document once, and the TypeScript and Python peers decode both, so a peer re-mint of the OpenPBR algebra or the MaterialX schema is the named cross-language drift.
 
-## [02]-[SEAMS]
+## [02]-[STRATA]
+
+Three strata order the four sub-domains; `Component` and `Appearance` are true peers sharing only the seam `MaterialId`, so every consumption edge points down.
+
+- S0 `Component` + `Appearance` — peers consuming no sibling: `ComponentFamily`, `ComponentClass`, `QuantityRow`, and the `SectionCapacity` rail beside `MaterialGraph`, `MaterialLibrary`, `BsdfLobe`, and the `MaterialWire` mint; alignment between the pair travels the seam `MaterialId`, never an import.
+- S1 `Properties` — `MaterialPropertyCatalogue`, `SustainabilityCatalogue`, and `Published<T>` source rows; every dimensional mint passes through the S0 `QuantityRow`.
+- S2 `Projection` — the one `ComponentProjector : IElementProjection` folding `Component`, `Properties`, and `Appearance` owners into `Fin<GraphDelta>`; nothing composes it.
+
+```mermaid
+---
+config:
+  theme: base
+  look: classic
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+  themeVariables:
+    darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
+    background: "#282A36"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    clusterBkg: "#21222C"
+    clusterBorder: "#D6BCFA"
+    edgeLabelBackground: "#21222C"
+    labelBackgroundColor: "#21222C"
+    titleColor: "#D6BCFA"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
+---
+flowchart TB
+    accTitle: Rasm.Materials interior strata
+    accDescr: Three stacked strata from the one component projector through the property catalogues onto the peer component and appearance owners, every consumption edge downward and solid naming one sourced type, and one forbidden upward edge styled red.
+    subgraph L2["S2 PROJECTION"]
+        Projector[ComponentProjector]
+    end
+    subgraph L1["S1 PROPERTIES"]
+        Catalogue[MaterialPropertyCatalogue]
+        Sustainability[SustainabilityCatalogue]
+    end
+    subgraph L0["S0 COMPONENT + APPEARANCE"]
+        Component[Component]
+        QuantityRow[QuantityRow]
+        Library[MaterialLibrary]
+    end
+    Projector e1@-->|"[IMPORT]: MaterialPropertyCatalogue"| Catalogue
+    Projector e2@-->|"[IMPORT]: SustainabilityCatalogue"| Sustainability
+    Projector e3@-->|"[IMPORT]: Component"| Component
+    Projector e4@-->|"[IMPORT]: MaterialLibrary"| Library
+    Catalogue e5@-->|"[IMPORT]: QuantityRow"| QuantityRow
+    Sustainability e6@-->|"[IMPORT]: QuantityRow"| QuantityRow
+    Component f1@-->|"forbidden: owner upward"| L2
+    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+    classDef recessed fill:#21222C,stroke:#6272A4,color:#F8F8F2
+    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
+    classDef edgeError stroke:#FF5555,stroke-width:3px,color:#F8F8F2
+    class Projector,Catalogue,Sustainability primary
+    class Component,QuantityRow,Library recessed
+    class e1,e2,e3,e4,e5,e6 edgeControl
+    class f1 edgeError
+```
+
+## [03]-[SEAMS]
 
 ```mermaid
 ---
@@ -148,7 +215,7 @@ flowchart LR
     DataPeer e4@-->|"[WIRE]: Environmental"| Properties
     Appearance e5@-->|"[BOUNDARY]: LayeredBsdf"| AppUi
     Appearance e6@-->|"[WIRE]: MaterialWire"| Core
-    Appearance e7@-->|"[WIRE]: PbrGroups"| Ui
+    Appearance e7@-->|"[WIRE]: OpenPbrGroupsWire"| Ui
     Host e8@-->|"[WIRE]: CaptureSource"| Appearance
     classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
     classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
@@ -162,7 +229,7 @@ flowchart LR
     class e1,e2,e4,e6,e7,e8 edgeData
 ```
 
-## [03]-[DOMAIN_LAW]
+## [04]-[DOMAIN_LAW]
 
 Canonical-collapse law the sub-domains share — one owner per axis, one entrypoint family per rail, growth by data. Per-page boundary cards carry the concrete seams.
 

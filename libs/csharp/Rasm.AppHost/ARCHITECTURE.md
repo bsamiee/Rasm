@@ -46,7 +46,90 @@ Rasm.AppHost/
 
 Implementation collapses to one owner per axis and one entrypoint family per rail: a new feature is a row or case on a budgeted owner, and a public type outside an owner region is the named defect. Rail choice is named in the return type — `Validation<E,T>` accumulates, `Fin<T>` aborts, `IO<T>` carries effects; receipts stamp NodaTime `Instant`/`Duration`, and `TimeProvider` owns elapsed measurement.
 
-## [02]-[SEAMS]
+## [02]-[STRATA]
+
+Five strata order the interior, member-resolved where a folder's owners split across ranks; every consumption edge points down the ladder.
+
+- S0 `Runtime` substrate — mints tenancy and time exactly once (`TenantContext`, `ClockPolicy`, the `FencingToken` lease stamp) and consumes no sibling; every upper stratum stamps these primitives.
+- S1 `Observability` — folds `HealthContributorRow` pressure into the `DegradationReading`/`DegradationLevel` grade over the substrate clock alone.
+- S2 catalog tier — `Agent/Capability` mints `CapabilityDescriptor`, `GrantBroker`, and `Principal`; `Runtime/Determinism`'s `EventLog` co-seats here because the hash-chained log stamps `CommandReceipt` rows; `Runtime/LaneGuard` seats here folding S1 readings into `ShedVerdict`.
+- S3 `Wire` — `OutboundHop` delivery and `MembershipView` cluster coordination over the catalog and the substrate lease stamp.
+- S4 broker front — `SandboxIsolation` and `FleetRoll` broker plugins over the wire and the catalog; `Agent/Runtime`'s `CommandDispatch` seats beside them, taking the `GrantHandle` as same-stratum fact and threading every command onto the S2 log.
+
+```mermaid
+---
+config:
+  theme: base
+  look: classic
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+  themeVariables:
+    darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
+    background: "#282A36"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    clusterBkg: "#21222C"
+    clusterBorder: "#D6BCFA"
+    edgeLabelBackground: "#21222C"
+    labelBackgroundColor: "#21222C"
+    titleColor: "#D6BCFA"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
+---
+flowchart TB
+    accTitle: AppHost interior strata
+    accDescr: Five stacked strata from the broker front through wire delivery and the capability catalog onto the observability grade and the runtime substrate, every consumption edge downward and solid naming one sourced type, and one forbidden upward edge styled red.
+    subgraph L4["S4 BROKER FRONT"]
+        Isolation[SandboxIsolation]
+        Roll[FleetRoll]
+        Dispatch[CommandDispatch]
+    end
+    subgraph L3["S3 WIRE"]
+        Outbound[OutboundHop]
+        Membership[MembershipView]
+    end
+    subgraph L2["S2 CATALOG"]
+        Capability[CapabilityDescriptor]
+        Broker[GrantBroker]
+        Log[EventLog]
+        LaneGuard[LaneGuard]
+    end
+    subgraph L1["S1 OBSERVABILITY"]
+        Health[HealthContributorRow]
+        Reading[DegradationReading]
+    end
+    subgraph L0["S0 SUBSTRATE"]
+        Tenant[TenantContext]
+        Clock[ClockPolicy]
+    end
+    Dispatch e1@-->|"[IMPORT]: EventLog"| Log
+    Isolation e2@-->|"[IMPORT]: GrantBroker"| Broker
+    Isolation e3@-->|"[IMPORT]: OutboundHop"| Outbound
+    Roll e4@-->|"[IMPORT]: MembershipView"| Membership
+    Outbound e5@-->|"[IMPORT]: CapabilityDescriptor"| Capability
+    Membership e6@-->|"[IMPORT]: FencingToken"| Clock
+    LaneGuard e7@-->|"[IMPORT]: DegradationReading"| Reading
+    Capability e8@-->|"[IMPORT]: TenantContext"| Tenant
+    Health e9@-->|"[IMPORT]: ClockPolicy"| Clock
+    Tenant f1@-->|"forbidden: substrate upward"| L4
+    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+    classDef recessed fill:#21222C,stroke:#6272A4,color:#F8F8F2
+    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
+    classDef edgeError stroke:#FF5555,stroke-width:3px,color:#F8F8F2
+    class Isolation,Roll,Dispatch,Outbound,Membership,Capability,Broker,Log,LaneGuard primary
+    class Health,Reading,Tenant,Clock recessed
+    class e1,e2,e3,e4,e5,e6,e7,e8,e9 edgeControl
+    class f1 edgeError
+```
+
+## [03]-[SEAMS]
 
 Cross-boundary seams split by counterpart group — cross-runtime wires to the TypeScript and Python peers, and same-branch ports to the C# platform packages. Each edge collapses one sub-domain-to-partner contract family onto its load-bearing kind, and the owning implementation pages carry the full family each edge stands for.
 
@@ -94,11 +177,11 @@ flowchart LR
     Runtime e2@-->|"[WIRE]: ReceiptEnvelopeWire"| Core
     Observability e3@-->|"[WIRE]: DegradationLevel"| Core
     Wire e4@-->|"[WIRE]: BindingStatusWire"| Core
-    Wire e5@-->|"[WIRE]: BindingStatus"| Ui
+    Wire e5@-->|"[WIRE]: BindingStatusWire"| Ui
     Observability e6@-->|"[TRANSPORT]: OtelExport"| TsRuntime
     Agent e7@<-->|"[WIRE]: DiscoveryResult"| PyRuntime
     Observability e8@<-->|"[TRANSPORT]: TraceContext"| PyRuntime
-    Runtime e9@<-->|"[WIRE]: HlcStamp"| PyRuntime
+    Runtime e9@<-->|"[WIRE]: HlcStampWire"| PyRuntime
     classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
     classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
     classDef annotation fill:#21222C,stroke:#6272A4,color:#F8F8F2
@@ -157,10 +240,8 @@ flowchart LR
     Runtime e2@-->|"[CONTENT_KEY]: ContentHash"| Kernel
     Runtime e3@-->|"[PORT]: ProjectionContext"| Element
     Runtime e4@-->|"[PORT]: DeterminismContext"| AppUi
-    AppUi e5@-->|"[WIRE]: LiveDelta"| Wire
     Runtime e6@<-->|"[PORT]: TenantContext"| Persistence
-    Agent e7@<-->|"[PORT]: IdentityStore"| Persistence
-    Wire e8@<-->|"[PORT]: OutboxEgress"| Persistence
+    Wire e8@<-->|"[PORT]: OutboxCursor"| Persistence
     Observability e9@-->|"[PORT]: HealthContributorRow"| Persistence
     Runtime e10@-->|"[PORT]: ShedVerdict"| Compute
     Agent e11@-->|"[PORT]: GoverningChatClient"| Compute
@@ -177,12 +258,12 @@ flowchart LR
     class Kernel,AppUi,Compute external
     class Persistence data
     class Element annotation
-    class e1,e2,e5 edgeData
+    class e1,e2 edgeData
     class e12 edgeSuccess
-    class e3,e4,e6,e7,e8,e9,e10,e11,e13 edgeControl
+    class e3,e4,e6,e8,e9,e10,e11,e13 edgeControl
 ```
 
-## [03]-[INTERNAL]
+## [04]-[INTERNAL]
 
 ```mermaid
 ---
@@ -231,7 +312,7 @@ flowchart LR
 
 Boot resolves the one `ResolvedProfile`, folds and freezes the module graph behind validated frozen policy, and transitions the `Lifecycle` cell to Running; the telemetry, health, support, and outbound rails surround it and surface through the port records, and `DrainConductor.Drain` folds ranked participants into one `DrainReceipt`. Exact per-stage wiring lives on the owning implementation pages.
 
-## [04]-[BOUNDARIES]
+## [05]-[BOUNDARIES]
 
 - AppHost is not a domain-service, job, DI, telemetry, UI, persistence, compute, or host-boundary package.
 - AppHost owns runtime state and policy; app roots own process attachment and host events.
@@ -245,7 +326,7 @@ Boot resolves the one `ResolvedProfile`, folds and freezes the module graph behi
 - AppHost owns support trigger and correlation; contributors own artifact classification and payload projection through `SupportContributorPort` rows.
 - Lib level emits `ILogger` and minted `ActivitySource`/`Meter` pairs only; exporter projection belongs to composition roots.
 
-## [05]-[PROHIBITIONS]
+## [06]-[PROHIBITIONS]
 
 Deleted patterns the owner regions foreclose:
 - NEVER a public type outside a sub-domain owner region; the port records own the cross-package seam.

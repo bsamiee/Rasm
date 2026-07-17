@@ -79,7 +79,89 @@ Rasm/
     └── Relations.cs         # Rhino intersection lattice and classification
 ```
 
-## [02]-[SEAMS]
+## [02]-[STRATA]
+
+Four strata order the nine sub-domains; a co-recursive pair co-seats one stratum, so every cross-stratum consumption edge points down the ladder.
+
+- S0 `Domain` + `Numerics` — co-recursive floor: `Op`, `Context`, `ContentHash`, and `CurveForm` beside `MatrixKernel`, `GeometryFault`, `PerceptualColor`, and `AtomProjection`; every sibling threads the rail and the exact-predicate floor, and the pair's mutual reach (`Op` into integration, `AtomProjection` into evaluation) is same-stratum fact.
+- S1 `Spatial` + `Meshing` — co-recursive lattice composing the floor alone: `SpatialIndex`, `VectorCloud`, `GeometryHash`, and `ScalarField` beside `MeshSpace`, `MeshEdit`, `SliceStack`, and `CurveSkeleton`; intersection reads the index and reconciliation reads the mesh, both interior to the stratum.
+- S2 `Processing` + `Solving` — algorithm rails over the lattice: `HealOp`, `RemeshOp`, `ChartAtlas`, `VectorIntent`, and `SampleKind` beside the `Lm` solver and `FitReceipt`; consumes S0-S1 only.
+- S3 `Parametric` + `Drawing` + `Analysis` — terminal producers nothing composes: `NurbsForm`, `MonotonicTimeline`, and `PanelField`; `DrawingProjection` and `EncodedGeometry`; `AnalysisQuery` and `Measure`.
+
+```mermaid
+---
+config:
+  theme: base
+  look: classic
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+  themeVariables:
+    darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
+    background: "#282A36"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    clusterBkg: "#21222C"
+    clusterBorder: "#D6BCFA"
+    edgeLabelBackground: "#21222C"
+    labelBackgroundColor: "#21222C"
+    titleColor: "#D6BCFA"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
+---
+flowchart TB
+    accTitle: Rasm kernel interior strata
+    accDescr: Four stacked strata from the terminal parametric, drawing, and analysis producers through the processing and solving rails onto the spatial-meshing lattice and the domain-numerics floor, every consumption edge downward and solid naming one sourced type, and one forbidden upward edge styled red.
+    subgraph L3["S3 TERMINAL PRODUCERS"]
+        Analysis[Analysis]
+        Parametric[Parametric]
+        Drawing[Drawing]
+    end
+    subgraph L2["S2 ALGORITHM RAILS"]
+        Solving[Solving]
+        Processing[Processing]
+    end
+    subgraph L1["S1 LATTICE"]
+        Meshing[Meshing]
+        Spatial[Spatial]
+    end
+    subgraph L0["S0 FLOOR"]
+        Numerics[Numerics]
+        Domain[Domain]
+    end
+    Parametric e1@-->|"[IMPORT]: RemeshOp"| Processing
+    Drawing e2@-->|"[IMPORT]: VectorIntent"| Processing
+    Parametric e3@-->|"[IMPORT]: MeshSpace"| Meshing
+    Drawing e4@-->|"[IMPORT]: MeshSpace"| Meshing
+    Drawing e5@-->|"[IMPORT]: ScalarField"| Spatial
+    Parametric e6@-->|"[IMPORT]: SupportProjection"| Spatial
+    Analysis e7@-->|"[IMPORT]: NeighborIndex"| Spatial
+    Analysis e8@-->|"[IMPORT]: ClosestHit"| Domain
+    Parametric e9@-->|"[IMPORT]: CurveForm"| Domain
+    Processing e10@-->|"[IMPORT]: MeshSpace"| Meshing
+    Processing e11@-->|"[IMPORT]: ScalarField"| Spatial
+    Solving e12@-->|"[IMPORT]: MatrixKernel"| Numerics
+    Solving e13@-->|"[IMPORT]: VectorCloud"| Spatial
+    Meshing e14@-->|"[IMPORT]: SparseMatrix"| Numerics
+    Spatial e15@-->|"[IMPORT]: Context"| Domain
+    Domain f1@-->|"forbidden: floor upward"| L3
+    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+    classDef recessed fill:#21222C,stroke:#6272A4,color:#F8F8F2
+    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
+    classDef edgeError stroke:#FF5555,stroke-width:3px,color:#F8F8F2
+    class Parametric,Drawing,Analysis,Processing,Solving,Spatial,Meshing primary
+    class Domain,Numerics recessed
+    class e1,e2,e3,e4,e5,e6,e7,e8,e9,e10,e11,e12,e13,e14,e15 edgeControl
+    class f1 edgeError
+```
+
+## [03]-[SEAMS]
 
 ```mermaid
 ---
@@ -127,8 +209,8 @@ flowchart LR
     AppHost([Rasm.AppHost])
     AppUi([Rasm.AppUi])
     Domain e1@<-->|"[CONTENT_KEY]: XxHash128"| Element
-    Domain e2@-->|"[CONTENT_KEY]: ContentAddress"| Persistence
-    Domain e3@-->|"[CONTENT_KEY]: ModelIdentity"| Compute
+    Domain e2@-->|"[CONTENT_KEY]: ContentHash"| Persistence
+    Domain e3@-->|"[CONTENT_KEY]: ContentHash"| Compute
     Domain e4@-->|"[CONTENT_KEY]: ContentHash"| AppHost
     Domain e5@-->|"[CONTENT_KEY]: ContentHash"| AppUi
     Spatial e6@-->|"[CONTENT_KEY]: GeometryHash"| Persistence
@@ -138,7 +220,7 @@ flowchart LR
     Meshing e10@-->|"[SHAPE]: MeshAdjointSnapshot"| Compute
     Meshing e11@-->|"[WIRE]: SliceStack"| Compute
     Spatial e12@-->|"[WIRE]: SpatialIndex"| Compute
-    Processing e13@-->|"[SHAPE]: IsotropicRemesh"| Compute
+    Processing e13@-->|"[SHAPE]: RemeshOp"| Compute
     Drawing e14@-->|"[WIRE]: EncodedTensor"| Compute
     Drawing e15@-->|"[WIRE]: EncodedGeometry"| AppHost
     classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
@@ -183,8 +265,8 @@ config:
   themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart LR
-    accTitle: Kernel fabrication and host-UI boundary seams
-    accDescr: Kernel sub-domain owners projecting fabrication shapes and host-UI boundary contracts to fabrication, Rhino, and Grasshopper, edge rails colored by kind and nodes classed by seam direction.
+    accTitle: Kernel fabrication seams
+    accDescr: Kernel sub-domain owners projecting index, predicate, slice, skeleton, parametric-op, atlas, and drawing shapes to the fabrication peer, edge rails colored by kind and nodes classed by seam direction.
     subgraph rasm[RASM KERNEL]
         Spatial[Spatial fields]
         Numerics[Numerics floor]
@@ -192,43 +274,87 @@ flowchart LR
         Parametric[Parametric tier]
         Processing[Processing rail]
         Drawing[Drawing producers]
-        Analysis[Analysis entry]
     end
     Fabrication{{Rasm.Fabrication}}
-    Rhino([Rasm.Rhino])
-    Grasshopper([Rasm.Grasshopper])
     Spatial e1@-->|"[SHAPE]: SpatialIndex"| Fabrication
-    Numerics e2@-->|"[WIRE]: OrientVerdict"| Fabrication
+    Numerics e2@-->|"[SHAPE]: Predicate"| Fabrication
     Meshing e3@-->|"[WIRE]: SliceStack"| Fabrication
-    Meshing e4@<-->|"[SHAPE]: Clearance"| Fabrication
-    Parametric e5@-->|"[PROJECTION]: ChartAtlas"| Fabrication
+    Meshing e4@-->|"[WIRE]: CurveSkeleton"| Fabrication
+    Parametric e5@-->|"[WIRE]: ParametricOp"| Fabrication
     Processing e6@-->|"[PROJECTION]: ChartAtlas"| Fabrication
     Drawing e7@-->|"[PROJECTION]: DrawingProjection"| Fabrication
+    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+    classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
+    classDef edgeData stroke:#FFB86C,color:#F8F8F2
+    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
+    classDef edgeExternal stroke:#8BE9FD,color:#F8F8F2
+    class Spatial,Numerics,Meshing,Parametric,Processing,Drawing primary
+    class Fabrication external
+    class e3,e4,e5 edgeData
+    class e1,e2 edgeControl
+    class e6,e7 edgeExternal
+```
+
+```mermaid
+---
+config:
+  theme: base
+  look: classic
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+  themeVariables:
+    darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
+    background: "#282A36"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    clusterBkg: "#21222C"
+    clusterBorder: "#D6BCFA"
+    edgeLabelBackground: "#21222C"
+    labelBackgroundColor: "#21222C"
+    titleColor: "#D6BCFA"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
+---
+flowchart LR
+    accTitle: Kernel host-UI boundary seams
+    accDescr: Kernel sub-domain owners handing frozen-name boundary contracts to the Rhino and Grasshopper host packages, every rail one-way down from the kernel, nodes classed by seam direction.
+    subgraph rasm[RASM KERNEL]
+        Domain[Domain floor]
+        Numerics[Numerics floor]
+        Parametric[Parametric tier]
+        Processing[Processing rail]
+        Analysis[Analysis entry]
+    end
+    Rhino([Rasm.Rhino])
+    Grasshopper([Rasm.Grasshopper])
     Numerics e8@-->|"[BOUNDARY]: PerceptualColor"| Rhino
     Numerics e9@-->|"[BOUNDARY]: PerceptualColor"| Grasshopper
     Parametric e10@-->|"[BOUNDARY]: MonotonicTimeline"| Rhino
     Parametric e11@-->|"[BOUNDARY]: MonotonicTimeline"| Grasshopper
     Processing e12@-->|"[BOUNDARY]: VectorIntent"| Rhino
     Analysis e13@-->|"[BOUNDARY]: AnalysisQuery"| Rhino
+    Domain e14@-->|"[BOUNDARY]: ModelUnit"| Rhino
+    Numerics e15@-->|"[BOUNDARY]: VectorFrame"| Rhino
     classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
     classDef annotation fill:#21222C,stroke:#6272A4,color:#F8F8F2
-    classDef edgeData stroke:#FFB86C,color:#F8F8F2
     classDef edgeControl stroke:#FF79C6,color:#F8F8F2
-    classDef edgeExternal stroke:#8BE9FD,color:#F8F8F2
-    class Spatial,Numerics,Meshing,Parametric,Processing,Drawing,Analysis primary
-    class Fabrication external
+    class Domain,Numerics,Parametric,Processing,Analysis primary
     class Rhino,Grasshopper annotation
-    class e2,e3 edgeData
-    class e1,e4,e8,e9,e10,e11,e12,e13 edgeControl
-    class e5,e6,e7 edgeExternal
+    class e8,e9,e10,e11,e12,e13,e14,e15 edgeControl
 ```
 
 Content-key edges federate one hasher: `Domain/Identity` mints the seed-zero `XxHash128` entry every partner composes, and `Spatial/Reconciliation` reproduces that seed byte-for-byte with the Python and TypeScript peers so one content space addresses across runtimes. A second hasher or a non-zero seed is the named cross-folder drift.
 
 Each partner edge carries its load-bearing shape on the graph; the owning sub-domain page enumerates the rest. Two invariants the graph cannot show: `Meshing` shares one 2D/3D clearance family with the fabrication toolpath planner rather than crossing a second boundary for it, and `Drawing` encodes geometry once — one payload delivered as `EncodedGeometry` to the sandbox host and wrapped as `EncodedTensor` for compute residency.
 
-## [03]-[NAMESPACES]
+## [04]-[NAMESPACES]
 
 Namespace mirrors folder path — `.editorconfig` `dotnet_style_namespace_match_folder = true:error`: every fence under `Rasm/<Folder>/` declares `namespace Rasm.<Folder>;`, one root namespace per sub-domain folder.
 
