@@ -240,8 +240,7 @@ knowledge_base:
             - "README.md"
             - "docs/laws/*.md"
             - "docs/standards/*.md"
-            - "docs/stacks/*.md"
-            - "docs/stacks/*/README.md"
+            - "docs/stacks/**/*.md"
             - files: "libs/.planning/campaign-method.md"
               applyTo: "libs/**"
     learnings:
@@ -262,9 +261,6 @@ knowledge_base:
         - repository: bsamiee/Parametric_Forge
           instructions: >-
             Machine owner for shell, PATH, provisioning, and launcher rails the Rasm toolchain rides; harness skill masters mirror between the repos — flag divergence in mirrored surfaces.
-        - repository: bsamiee/Maghz
-          instructions: >-
-            Sibling consumer of the shared stack doctrine and mirrored skills; doctrine changes here ripple to its copied stack law.
 issue_enrichment:
     auto_enrich:
         enabled: true
