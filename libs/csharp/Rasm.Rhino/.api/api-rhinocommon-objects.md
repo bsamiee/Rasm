@@ -72,6 +72,12 @@ This catalog owns the live document-object surface: `RhinoObject` identity, stat
 - `Rhino.DocObjects.SubDObject` carries no typed geometry accessor — SubD reads go through the base `Geometry` member.
 - `Rhino.DocObjects.InstanceObject` — `InstanceXform : Transform` / `InsertionPoint : Point3d` / `InstanceDefinition : InstanceDefinition` / `UsesDefinition(int definitionIndex, out int nestingLevel) : bool` / `SubObjectFromComponentIndex(ComponentIndex ci) : RhinoObject`; the `Explode` overloads live in the blocks catalog's operation rail.
 
+[LIGHT_OBJECT]:
+- `Rhino.DocObjects.LightObject : RhinoObject` — the light table's component object; `ComponentType : ModelComponentType` answers `ModelComponentType.RenderLight`.
+- `Rhino.DocObjects.LightObject.LightGeometry : Light` — live-cast accessor over the base `Geometry`; `DuplicateLightGeometry() : Light` is the detached copy.
+- `Rhino.DocObjects.LightObject.Index : int` (get/set, override) — forwards `Light.LightIndex`, so the object's table index and its geometry's index are one slot.
+- light mutation lands through `LightTable.Modify`, never `CommitChanges` on a detached `Light`; the table rows live in the document catalog's light-table scope.
+
 [SUBOBJECT_SELECTION]:
 - `Rhino.DocObjects.RhinoObject.Select(bool on) : int` / `Select(bool on, bool syncHighlight) : int` / `Select(bool on, bool syncHighlight, bool persistentSelect, bool ignoreGripsState, bool ignoreLayerLocking, bool ignoreLayerVisibility) : int` — whole-object selection returning the resulting select count.
 - `Rhino.DocObjects.RhinoObject.IsSelected(bool checkSubObjects) : int` / `IsSelectable() : bool` / `IsSelectable(bool ignoreSelectionState, bool ignoreGripsState, bool ignoreLayerLocking, bool ignoreLayerVisibility) : bool` — selection-state and eligibility reads.

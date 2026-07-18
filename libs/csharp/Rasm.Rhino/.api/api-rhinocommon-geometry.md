@@ -50,6 +50,8 @@ This catalog owns the host-bound `Rhino.Geometry` boundary the document, display
 |  [04]   | `HiddenLineDrawingObjectCurve`  | source curve     | silhouette type and per-side segment split of one source curve  |
 |  [05]   | `HiddenLineDrawingSegment`      | result segment   | one 2D segment: visibility class and per-side surface fills      |
 |  [06]   | `HiddenLineDrawingPoint`        | result point     | one 2D point: location, visibility, and source classification   |
+|  [07]   | `Silhouette`                    | compute roster   | standalone silhouette-curve extraction: type, component, 3D curve |
+|  [08]   | `SilhouetteType`                | flags enum       | silhouette origin classification shared with the hidden-line curves |
 
 [PUBLIC_TYPE_SCOPE]: intersection roster and event carriers
 - namespace: `Rhino.Geometry.Intersect`
@@ -98,6 +100,7 @@ This catalog owns the host-bound `Rhino.Geometry` boundary the document, display
 - `HiddenLineDrawingSegment.Visibility`: `Unset`, `Visible`, `Hidden`, `Duplicate`, `Projecting`, `Clipped`.
 - `HiddenLineDrawingSegment.SideFill`: `SideUnset`, `SideSurface`, `SideVoid`, `OtherSurface`.
 - `HiddenLineDrawingPoint.Visibility`: `Unset`, `Visible`, `Hidden`, `Duplicate`.
+- `SilhouetteType` (`[Flags]`): `None=0`, `Projecting=1`, `TangentProjects=2`, `Tangent=4`, `Crease=8`, `Boundary=0x10`, `NonSilhouetteCrease=0x100`, `NonSilhouetteTangent=0x200`, `NonSilhouetteSeam=0x400`, `SectionCut=0x1000`, `MiscellaneousFeature=0x2000`, `DraftCurve=0x8000`.
 - `Intersection` outcome enums: `PlaneCircleIntersection` (`None`/`Tangent`/`Secant`/`Parallel`/`Coincident`), `PlaneSphereIntersection` (`None`/`Point`/`Circle`), `LineCircleIntersection` and `LineSphereIntersection` (`None`/`Single`/`Multiple`), `LineCylinderIntersection` (`None`/`Single`/`Multiple`/`Overlap`), `SphereSphereIntersection` (`None`/`Point`/`Circle`/`Overlap`), `ArcArcIntersection` and `CircleCircleIntersection` (`None`/`Single`/`Multiple`/`Overlap`), `MeshIncidence` (`Face`/`Edge`/`Vertex`).
 - `LightStyle`: `None=0`, `CameraDirectional=4`, `CameraPoint=5`, `CameraSpot=6`, `WorldDirectional=7`, `WorldPoint=8`, `WorldSpot=9`, `Ambient=10`, `WorldLinear=11`, `WorldRectangular=12`.
 - `Light.Attenuation`: `Constant`, `Linear`, `InverseSquared`.
@@ -183,6 +186,13 @@ This catalog owns the host-bound `Rhino.Geometry` boundary the document, display
 - `Rhino.Geometry.HiddenLineDrawing.Points : IEnumerable<HiddenLineDrawingPoint>` — computed 2D points.
 - `Rhino.Geometry.HiddenLineDrawing.Viewport : ViewportInfo` — projection viewport.
 - `Rhino.Geometry.HiddenLineDrawing.WorldToHiddenLine : Transform` — world-to-drawing projection frame.
+
+[SILHOUETTE_COMPUTE]:
+- `Rhino.Geometry.Silhouette.Compute(GeometryBase geometry, SilhouetteType silhouetteType, Point3d perspectiveCameraLocation, double tolerance, double angleToleranceRadians) : Silhouette[]` — perspective-camera silhouettes; an overload adds `IEnumerable<Plane> clippingPlanes, CancellationToken cancelToken`.
+- `Rhino.Geometry.Silhouette.Compute(GeometryBase geometry, SilhouetteType silhouetteType, Vector3d parallelCameraDirection, double tolerance, double angleToleranceRadians) : Silhouette[]` — parallel-camera silhouettes; an overload adds `IEnumerable<Plane> clippingPlanes, CancellationToken cancelToken`.
+- `Rhino.Geometry.Silhouette.Compute(GeometryBase geometry, SilhouetteType silhouetteType, ViewportInfo viewport, double tolerance, double angleToleranceRadians) : Silhouette[]` — viewport-frame silhouettes; an overload adds `IEnumerable<Plane> clippingPlanes, CancellationToken cancelToken`.
+- `Rhino.Geometry.Silhouette.ComputeDraftCurve(GeometryBase geometry, double draftAngle, Vector3d pullDirection, double tolerance, double angleToleranceRadians) : Silhouette[]` — constant-draft-angle curve extraction; an overload adds `CancellationToken cancelToken`.
+- `Rhino.Geometry.Silhouette.SilhouetteType : SilhouetteType` / `GeometryComponentIndex : ComponentIndex` / `Curve : Curve` — per-result classification, source component, and the 3D silhouette curve (`Curve` is null-capable on a projecting region).
 - `Rhino.Geometry.HiddenLineDrawing.BoundingBox(bool includeHidden) : BoundingBox` — drawing bounds, optionally including hidden curves.
 - `Rhino.Geometry.HiddenLineDrawing.RejoinCompatibleVisible() : void` — merges compatible visible segments after compute.
 - `Rhino.Geometry.HiddenLineDrawingSegment.CurveGeometry : Curve` / `SegmentVisibility : Visibility` / `CurveSideFills : SideFill[]` / `ParentCurve : HiddenLineDrawingObjectCurve` / `IsSceneSilhouette : bool` — per-segment geometry, visibility, and per-side surface fills.

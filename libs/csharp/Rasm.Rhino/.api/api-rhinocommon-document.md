@@ -237,6 +237,18 @@
 - `ClippingPlaneObject.AddClipViewport(RhinoViewport viewport, bool commit) : bool` / `RemoveClipViewport(RhinoViewport viewport, bool commit) : bool` / `ClippingPlaneGeometry`
 - `ClippingPlaneSurface.ViewportIds() : Guid[]` / `SetClipParticipation(IEnumerable<Guid> objectIds, IEnumerable<int> layerIndices, bool isExclusionList)`
 
+[ENTRYPOINT_SCOPE]: light table
+- rail: host
+
+- `LightTable.Add(Light light) : int` / `Add(Light light, ObjectAttributes attributes) : int` — index of the added light, `-1` on failure
+- `LightTable.Modify(Guid id, Light light) : bool` / `Modify(int index, Light light) : bool` — the id form resolves through `Find` with deleted lights included
+- `LightTable.Delete(int index, bool quiet) : bool` / `Delete(LightObject item) : bool` / `Undelete(int index) : bool`
+- `LightTable.Find(Guid id, bool ignoreDeleted) : int` / `FindName(string name) : LightObject` / `FindNameHash(NameHash nameHash) : LightObject` / `FindIndex(int index) : LightObject` — deleted lights have no name; the index form is discouraged host-side in favor of ids
+- `LightTable.Count : int` — excludes `Sun` and `Skylight`; indexer `this[int index] : LightObject` null on a purged slot
+- `LightTable.Sun : Sun` / `Skylight : Skylight` — RDK-gated accessors throwing `RdkNotLoadedException` when the RDK is absent
+- `LightTable.DefaultLight : LightObject` — the fallback light Rhino renders with when no document light illuminates the scene
+- `LightTable.ComponentType : ModelComponentType` — `ModelComponentType.RenderLight`; the table enumerates as `IEnumerable<LightObject>`
+
 [ENTRYPOINT_SCOPE]: earth anchor and document state
 - rail: host
 
