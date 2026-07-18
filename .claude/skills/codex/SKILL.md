@@ -5,7 +5,7 @@ description: Dispatch work to Codex (gpt-5.6 Terra/Sol/Luna) via the `codex` MCP
 
 # [CODEX]
 
-`codex exec` runs a gpt-5.6 model as a non-interactive agent in its own context window and returns one final message. `~/.codex/config.toml` may carry an interactive model and a permissive sandbox — those two axes are always stated per lane — while its `model_reasoning_effort` row IS the estate dispatch default, inherited by every lane that states no tier; the model and effort law is [05]. Choosing WHERE work runs across Claude's own surfaces (subagent, fork, team, workflow) is the agent-dispatch skill; this skill owns the codex leg once dispatch picks it.
+`codex exec` runs a gpt-5.6 model as a non-interactive agent in its own context window and returns one final message. `~/.codex/config.toml` may carry an interactive model and a permissive sandbox — every lane therefore states both axes explicitly — while its `model_reasoning_effort` row IS the estate dispatch default; the model and effort law is [05]. Choosing WHERE work runs across Claude's own surfaces (subagent, fork, team, workflow) is the agent-dispatch skill; this skill owns the codex leg once dispatch picks it.
 
 ## [01]-[ROUTING]
 
@@ -24,23 +24,19 @@ Keep in Claude: work inseparable from conversation context too large to restate,
 
 ## [03]-[INVOCATION]
 
-Two surfaces carry every leg. Any caller holding the fleet — the main loop, subagents, workflow agents — dispatches through the `codex` MCP tool (fleet server `codex`, tools `codex` and `codex-reply`): the prompt rides a tool argument (no shell quoting, no prompt files), `model`, `sandbox`, `cwd`, and `approval-policy` are first-class parameters, effort inherits the config default (pass the `config` object — `{"model_reasoning_effort": "..."}` — only where a lane deviates), and concurrent calls on the one server process complete independently. Each tool call returns a JSON envelope `{threadId, content}` — `content` holds the final-message text (parse the envelope; a consumer that treats the raw result as the product double-encodes every downstream read), and `threadId` feeds `codex-reply`. Three more parameters the schema carries: `developer-instructions` injects a developer-role message — the channel for lane law (mandates, output contracts, read-only clauses) so `prompt` carries only the task; `base-instructions` REPLACES codex's default system instructions entirely (deliberate use only — it drops the default agent behavior); `compact-prompt` overrides the conversation-compaction prompt on long threads. A blocking tool call is legal waiting wherever an agent cannot sleep, and a multi-minute high-effort call completes inside one call — TWO ceilings own the call, both captured ONCE at session start: the total-duration `MCP_TOOL_TIMEOUT` row in `~/.claude/settings.json`, and the per-server IDLE abort (default 1800s — codex streams no progress mid-call, so idle equals wall-clock and the idle ceiling is the one that fires on a long silent lane), raised by the `timeout` field on the server's `mcpServers` row in `~/.claude.json` or `CLAUDE_CODE_MCP_TOOL_IDLE_TIMEOUT` globally. A session running when either changes keeps its old ceilings; `env | rg MCP_TOOL` is the live truth. Estate law anchors the whole ladder at the fleet manifest codex row (`toolTimeoutSec`): the supervisor idle lease, the client ceilings, and every workflow wrapper stall derive from it, ordered client-aborts-first — an independent timeout constant anywhere in that chain is drift. A ceiling-killed MCP call ABORTS the codex turn server-side (`turn_aborted` in the session rollout) — edits a workspace-write lane already landed stay on disk, but the final message and any report it had not yet written are gone; the caller re-checks the report path once and treats absence as terminal lane failure, never a blind identical retry (a re-dispatch races the landed edits, and a timed-out lane was over-scoped, not unlucky). A background CLI lane owns its own lifetime and is the surface that survives its dispatching client. From the MAIN loop the blocking MCP call is the wrong default: it freezes the session with zero visibility for the call's full duration — a main-loop leg runs as the background CLI keeper below, and the blocking MCP call is reserved for workflow wrappers and subagents that have nothing else to do. Below, the CLI form serves the terminal, background legs that must outlive a turn, legs past that ceiling, and image-bearing legs — `-i` is CLI-only, the MCP tool takes no image parameter:
+Two surfaces carry every leg. Any caller holding the fleet — the main loop, subagents, workflow agents — dispatches through the `codex` MCP tool (fleet server `codex`, tools `codex` and `codex-reply`): the prompt rides a tool argument (no shell quoting, no prompt files), `model`, `sandbox`, `cwd`, and `approval-policy` are first-class parameters, effort inherits the config default (pass the `config` object — `{"model_reasoning_effort": "..."}` — only where a lane deviates), and concurrent calls on the one server process complete independently. Each tool call returns a JSON envelope `{threadId, content}` — `content` holds the final-message text (parse the envelope; a consumer that treats the raw result as the product double-encodes every downstream read), and `threadId` feeds `codex-reply`. Three more parameters the schema carries: `developer-instructions` injects a developer-role message — the channel for lane law (mandates, output contracts, read-only clauses) so `prompt` carries only the task; `base-instructions` REPLACES codex's default system instructions entirely (deliberate use only — it drops the default agent behavior); `compact-prompt` overrides the conversation-compaction prompt on long threads. A blocking tool call is legal waiting wherever an agent cannot sleep, and a multi-minute high-effort call completes inside one call — TWO ceilings own the call, both captured ONCE at session start: the total-duration `MCP_TOOL_TIMEOUT` row in `~/.claude/settings.json`, and the per-server IDLE abort — the `timeout` field on the server's `mcpServers` row in `~/.claude.json`, or `CLAUDE_CODE_MCP_TOOL_IDLE_TIMEOUT` globally; codex streams no progress mid-call, so idle equals wall-clock and the idle ceiling is the one that fires on a long silent lane. Estate settings pin both rows at 7200000 (2h), so a wrapper-mediated MCP leg completes any tier's work inside one call. A session running when either changes keeps its old ceilings; `env | rg MCP_TOOL` is the live truth. Estate law anchors the whole ladder at the fleet manifest codex row (`toolTimeoutSec`): the supervisor idle lease, the client ceilings, and every workflow wrapper stall derive from it, ordered client-aborts-first — an independent timeout constant anywhere in that chain is drift. A ceiling-killed MCP call ABORTS the codex turn server-side (`turn_aborted` in the session rollout) — edits a workspace-write lane already landed stay on disk, but the final message and any report it had not yet written are gone; the caller re-checks the report path once and treats absence as terminal lane failure, never a blind identical retry (a re-dispatch races the landed edits, and a timed-out lane was over-scoped, not unlucky). A background CLI lane owns its own lifetime and is the surface that survives its dispatching client. From the MAIN loop the blocking MCP call is the wrong default: it freezes the session with zero visibility for the call's full duration — a main-loop leg runs as the background CLI keeper below, the blocking MCP call is reserved for workflow wrappers and subagents that have nothing else to do, and a background fixer fleet defaults to the channel-split CLI keeper: lane law on `-c developer_instructions`, task as the prompt. Below, the CLI form serves the terminal, background legs that must outlive a turn, legs past that ceiling, and image-bearing legs — `-i` is CLI-only, the MCP tool takes no image parameter:
 
 An MCP tool call issued from INSIDE a codex turn is unbounded — no per-call timeout exists on that inner hop, so one heavy call (`mcp__nuget__get_package_context` against a large package) wedges the whole lane until the outer ceiling kills it. Pin nested lookups to light calls (`get_latest_package_version`, never `get_package_context`) and have the lane prompt race any nested `mcp__*` call against a short deadline; a per-lane wall-clock watchdog cancels the codex call well before the ceiling.
 
 ```bash template
-codex exec -s <sandbox> -m <model> [-c 'model_reasoning_effort="<tier>"'] --skip-git-repo-check [-C <dir>] [-o <report>] "<prompt>" </dev/null 2>/dev/null
+codex exec -s <sandbox> -m <model> [-c 'model_reasoning_effort="<tier>"'] [-c developer_instructions="<lane-law>"] --skip-git-repo-check [-C <dir>] [-o <report>] "<prompt>" </dev/null 2>/dev/null
 ```
 
-- `</dev/null` is mandatory from a harness: `codex exec` reads piped stdin to EOF even with a prompt argument, appending it as a `<stdin>` block.
-- Open-but-silent stdin blocks that read forever; the symptom is zero output, zero CPU, indefinite hang.
+- `</dev/null` is mandatory from a harness: `codex exec` reads piped stdin to EOF even with a prompt argument, appending it as a `<stdin>` block — an open-but-silent stdin blocks forever with zero output and zero CPU.
 - Codex prints `Reading additional input from stdin...` on stderr before the read even under `</dev/null` — pre-EOF notice, not a hang.
-- `2>/dev/null` drops thinking tokens; keep stderr only when diagnosing a failing run.
-- `--skip-git-repo-check` always.
-- Always pass `-s` and `-m` explicitly: user config may carry a flagship interactive model and a permissive sandbox, so neither axis rides a default.
-- Effort inherits — `model_reasoning_effort` in `~/.codex/config.toml` IS the estate dispatch tier, stated on a lane only to deviate.
-- A `--ignore-user-config` lane restates model AND effort, because the skip drops that default.
-- Codex prints the final message to `stdout`; the banner and reasoning stream go to stderr.
+- `-c developer_instructions="<lane law>"` lands a developer-role message distinct from the user prompt — the role split holds on BOTH surfaces, and `-c` is the only CLI path: no flag exists.
+- `model_instructions_file` REPLACES codex's built-in base instructions — the CLI twin of `base-instructions`, never a lane-law channel.
+- Codex prints the final message to `stdout`, banner and reasoning to stderr; `2>/dev/null` drops the thinking stream — keep stderr only when diagnosing a failing run.
 - Capture a synchronous run straight from stdout — `out=$(codex exec -s read-only … "<prompt>" </dev/null 2>/dev/null)` — clean, no banner.
 - Synchronous capture is the default: a heavy read (doctrine plus catalogues) lands inside the 10-minute Bash ceiling; `-o` only when backgrounding.
 - Background a long leg with a bare `&`: `codex exec … -o <report> "<prompt>" </dev/null >/dev/null 2><report>-stderr.log &`
@@ -56,8 +52,7 @@ codex exec -s <sandbox> -m <model> [-c 'model_reasoning_effort="<tier>"'] --skip
 - A leg whose output a Claude agent reads takes a prose JSON contract instead, validated at that agent's own boundary.
 - That schema is STRICT: every key in `properties` must also appear in `required`, under `additionalProperties: false`.
 - A conditional field is required-but-empty; anything less 400s `invalid_json_schema` and the run silently degrades to unvalidated output.
-- Write task and schema files with a real file-write (never a shell heredoc) at ABSOLUTE paths.
-- Cwd drift plus heredoc quoting land files where codex cannot find them, and the launch dies instantly on the missing schema.
+- Write task and schema files with a real file-write (never a shell heredoc) at ABSOLUTE paths — cwd drift plus heredoc quoting land files where codex cannot find them, and the launch dies instantly on the missing schema.
 - A detached typed leg owns its artifacts in one ephemeral folder: `task.md` the quoting-proof prompt, `schema.json` the `--output-schema` path.
 - `report.json` (`-o`) holds the product, `stderr.log` the crash reason, and fleet-grade lanes add `events.jsonl` (`--json` stdout).
 - Purge stale report and stderr before launch: a leftover report reads as instant completion carrying last run's data.
@@ -108,8 +103,7 @@ MCP selection is GRADED — pick the tier by what the task actually calls, never
 - A repo-root `.codex/config.toml` shapes every codex run rooted in a TRUSTED project.
 - Trust comes from the `[projects]` table in the user config; a `-c 'projects.….trust_level'` grant does not activate it.
 - Precedence is `-c` flag over project file over user config; a `-c 'mcp_servers.<name>.enabled=…'` override beats a stray repo row either direction.
-- Codex configuration is home-only: `~/.codex` owns config, estate repos are all trusted, and lane shaping rides flags.
-- A project-local `.codex/` directory is a defect — port any load-bearing row to `~/.codex`, then delete the directory.
+- Codex configuration is home-only: `~/.codex` owns config, estate repos are all trusted, and lane shaping rides flags — the meta-management reference owns `.codex/` litter remediation.
 - Overrides compose freely, holding under `--profile`: `-c 'mcp_servers.<name>.enabled=false'` rides beside `-m` and an effort override in one call.
 - `--strict-config` validates every config row and `-c` override against the installed binary, failing fast on `unknown configuration field`.
 - That validation holds even under `--ignore-user-config`; put `--strict-config` on fleet canaries, keep it off steady-state lanes.
@@ -155,11 +149,13 @@ To run at the config default, pass no tier; each row is the flag to deviate to i
 - Sol and Terra accept low through ultra; Luna accepts low through max and rejects ultra.
 - Factory default is medium; the operator config pins the estate default estate-wide.
 - Subagent spawning is prompt-triggered at EVERY tier — an explicit "spawn N parallel subagents" lands `collab_tool_call` items even at medium.
-- Ultra only biases codex to decompose unasked, redundant where the caller — a workflow, a fan-out orchestrator — already owns the decomposition.
+- An injected developer-role gate rules every session: children spawn ONLY when the user prompt or AGENTS.md/skill instructions ask with imperative spawn/parallel/sub-agent wording.
+- A delegation mandate therefore rides the USER channel — permissive "you may spawn" phrasing and `developer_instructions` alone fail the gate.
+- Ultra only biases codex toward decomposition the gate must still admit — redundant where the caller, a workflow or fan-out orchestrator, already owns it.
 - Reach for ultra only when a single lane must run its own internal fleet.
 - Deviate surgically, one axis at a time: max deepens the single hardest leg, low/medium serve throughput.
 - Subagent concurrency is `features.multi_agent_v2.max_concurrent_threads_per_session`, spawn depth is `agents.max_depth`.
-- Both rows read from `~/.codex/config.toml`, never assumed.
+- Both rows read from `~/.codex/config.toml`, never assumed; the estate pins 12 concurrency slots (root included) and depth 1 — grandchildren blocked.
 - Overrun means CIRCLING — re-verifying unchanged work, re-reading covered territory, loops adding no new evidence — never duration.
 - A well-scoped high-tier leg legitimately runs an hour of real work.
 - Circling resolves in fixed order: a missing completion bar goes FIRST — effort raises persistence with depth, and an open mandate fills its room.
@@ -171,7 +167,7 @@ To run at the config default, pass no tier; each row is the flag to deviate to i
 - That column is the ceiling for the tier's intended task class, never an expected wall, and it sizes the CLI `timeout`.
 - An MCP call ignores that column entirely — a heavy high-effort call runs past the 600s row and completes, bounded only by `MCP_TOOL_TIMEOUT`.
 - Codex emits its result only at completion — there is no partial output to salvage from a killed run.
-- Run synchronously with the Bash timeout set to the tier; from the higher tiers up prefer background execution against the signals ladder.
+- Run synchronously with the Bash timeout set to the tier; from the higher tiers up, run backgrounded against the signals ladder.
 
 ## [06]-[PROMPT_CONTRACT]
 
@@ -179,7 +175,7 @@ Codex shares no conversation state — every prompt is self-contained. Include: 
 
 GPT-5.x prompting is its own discipline — a Claude-shaped prompt underperforms:
 
-- ROLE SPLIT: durable lane law — mandate, tool rules, output contract — rides `developer-instructions`; the `prompt` carries only the task instance.
+- ROLE SPLIT: durable lane law — mandate, tool rules, output contract — rides the developer channel (`developer-instructions` on MCP, `-c developer_instructions=` on CLI); the `prompt` carries only the task instance.
 - Battery-validated: the split posted the strongest depth and territory discipline at zero adherence cost.
 - DE-CONFLICT: GPT-5.x burns reasoning reconciling contradictory or overlapping directives instead of picking one — one directive per concern.
 - Never restate behavior codex already ships by default: persistence, `apply_patch` fluency, exploration.
@@ -251,11 +247,10 @@ codex exec -s <sandbox> --skip-git-repo-check --json -o <report> \
 Every run mints a resumable thread on both surfaces — capture the id whenever follow-up is plausible, and run iterative deep work as ONE thread continued with sharpened prompts, never fresh runs re-paying the exploration cost.
 
 - MCP: every `codex` tool result envelope carries `threadId` beside `content`; continue with `codex-reply`.
-- Each continuation inherits the thread's model, effort, and sandbox; a caller that discards the threadId has severed the chain.
-- Capture the threadId in the same turn that made the call.
+- Capture the threadId in the same turn that made the call — a caller that discards it has severed the chain.
 - CLI: every run prints `session id: <uuid>` in its banner; under `--json`, `thread.started.thread_id` carries the same id.
 - Resume with `codex exec resume <session-id> "<follow-up>" </dev/null 2>/dev/null`, config flags between `exec` and `resume`.
-- A resumed session inherits the original model, effort, and sandbox.
+- A continuation on either surface inherits the original model, effort, and sandbox.
 - `resume --last` resolves to the newest recorded session — valid only when nothing else ran in between; under any concurrency resume by explicit id.
 - `--ephemeral` runs record nothing and cannot be resumed.
 - On-disk store: one rollout file per session at `~/.codex/sessions/<YYYY>/<MM>/<DD>/rollout-<local-ISO-ts>-<uuidv7>.jsonl`.
@@ -284,6 +279,8 @@ A fleet-grade review lane runs `codex exec review` instead — the same scope fl
 ## [11]-[FAN_OUT]
 
 Independent scopes run as concurrent `codex exec` processes, one per scope, each launched fleet-grade ([08]) with its own report, events, and stderr files. Reconcile the reports after all complete. Sandbox isolation is per-process; concurrent workspace-write runs against overlapping paths collide — partition write scopes or serialize them.
+
+Inside ONE lane, `collaboration.*` is the subagent tool family (`spawn_agent`, `followup_task`, `send_message`, `wait_agent`, `interrupt_agent`, `list_agents`), uncallable from inside `functions.exec`; the spawn gate and depth law are [05]'s. Children share the workspace live and inherit sandbox and model, but inherit NO conversation turns unless `fork_turns` opts them in — a spawn task is self-contained like any codex prompt. Worthwhile shapes are read-only star fan-outs — miners, censuses, verifiers returning distilled results — and the `spawn_agents_on_csv` row sweep below; the anti-patterns are parallel writers on the shared tree (edits are live-visible and collide) and delegated fix-judgment (findings are signals, the lane owns the judgment).
 
 A row-shaped sweep — one similar task per work item — rides ONE lane's `spawn_agents_on_csv` tool instead of N processes: the lane builds a CSV, spawns one worker subagent per row under the active agent-concurrency cap, and exports a combined results CSV (`output_schema` types each worker's row; `codex exec` streams one-line batch progress on stderr). Under `-s read-only` the workers return results in-band but the `output_csv_path` export never lands — a lane that needs the CSV artifact runs `workspace-write`. Reusable worker personas are custom agent files the prompt spawns by name; the TOML schema and `[agents]` globals are the meta-management reference's.
 

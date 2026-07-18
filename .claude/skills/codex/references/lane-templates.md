@@ -1,6 +1,6 @@
 # Lane Templates
 
-Every codex work lane rides one canonical prompt architecture, battery-validated: lane law rides `developer-instructions` (or the `developer_instructions` config key on CLI lanes), the user `prompt` carries only the task instance, and the output contract sits LAST in the developer message. Both templates answer to the prompt-contract law in SKILL.md [06]; this reference carries the reusable text.
+Every codex work lane rides one canonical prompt architecture, battery-validated: lane law rides `developer-instructions` (the `-c developer_instructions=` override on CLI lanes — no flag exists), the user `prompt` carries only the task instance, and the output contract sits LAST in the developer message. Both templates answer to the prompt-contract law in SKILL.md [06]; this reference carries the reusable text.
 
 ## [01]-[RECON]
 
