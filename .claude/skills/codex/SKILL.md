@@ -5,7 +5,7 @@ description: Dispatch self-contained work to Codex (gpt-5.6 Sol/Terra) through t
 
 # [CODEX]
 
-`codex exec` runs a gpt-5.6 model as a non-interactive peer agent in its own context window and returns one final message. Every lane states model and sandbox explicitly; `~/.codex/config.toml` carries the operator's interactive stance, its `model_reasoning_effort` row the dispatch default.
+`codex exec` runs a gpt-5.6 model as a non-interactive peer agent in its own context window and returns one final message. Every lane states model and sandbox explicitly; `~/.codex/config.toml` carries the operator's interactive stance, its `model_reasoning_effort` row the dispatch default. Any configuration or usage question resolves through the `openaiDeveloperDocs` MCP server — never web search, never recall.
 
 ## [01]-[ROUTING]
 
@@ -19,14 +19,12 @@ description: Dispatch self-contained work to Codex (gpt-5.6 Sol/Terra) through t
 - Critique lanes writing on-disk fixlogs, reports, or dossiers another agent consumes downstream.
 - Implementation from spec: migrations, renames, conversions, boilerplate expansion, full features with enumerated moves.
 - Independent second perspective on a plan, implementation, or diff — a different model lineage catches different failure modes.
-- Research legs needing live sources (`-c web_search="live"`), plus long-running work that must not occupy this session.
 
 Main-loop legs run as background CLI keepers — a blocking MCP call freezes the session with zero visibility; subagents with nothing else to do take the blocking MCP call. Image legs ride the CLI `-i`; the MCP tool takes no image parameter.
 
 ## [03]-[INVOCATION]
 
 MCP surface — fleet server `codex`, tools `codex` and `codex-reply`; the prompt rides a tool argument, no shell quoting:
-
 - Parameters: `prompt` (required), `model`, `sandbox`, `cwd`, `approval-policy`, `config` (object — effort deviates via `{"model_reasoning_effort": "..."}`), `developer-instructions` (the lane-law channel), `base-instructions`, `compact-prompt`. `sandbox` has no schema default — pass it on every call; a headless dispatch passes `approval-policy: "never"`.
 - `base-instructions` (MCP) / `model_instructions_file` (CLI) REPLACE the shipped system prompt — deliberate use only, never a lane-law channel.
 - Result envelope `{threadId, content}`: parse `content` for the final message — a consumer treating the raw result as the product double-encodes every downstream read; `threadId` feeds `codex-reply` (`conversationId` is its deprecated alias).
