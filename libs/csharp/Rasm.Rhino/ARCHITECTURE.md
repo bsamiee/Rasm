@@ -1,29 +1,32 @@
 # [RASM_RHINO_ARCHITECTURE]
 
-`Rasm.Rhino` maps the Rhino 9 host boundary over the RhinoCommon document, persistence, object, command, block, annotation, modeling, viewport, display, render, and exchange surfaces, owning the native Eto UI sub-domain and the `Rhino.UI` shell above it and composing the `Rasm` kernel for every host-neutral computation. Each sub-domain folder maps to exactly one namespace; the folder references only the kernel and lowers every host mutation onto the one document-session demand and the shared `UndoBracket`. Seam map names only the contracts crossing the boundary — each a frozen-name value type consumed down from the kernel — while all host-internal wiring graduates to the `[04]` mutation spine.
+`Rasm.Rhino` maps the Rhino 9 host boundary over the RhinoCommon document, persistence, object, command, block, annotation, modeling, viewport, display, render, and exchange surfaces, owning the native Eto UI sub-domain and the `Rhino.UI` shell above it and composing the `Rasm` kernel for every host-neutral computation. Each sub-domain folder maps to exactly one namespace, and project references terminate at the kernel. Host owners compose same-assembly owners at their own or lower stratum. Seam map names only boundary-crossing contracts — each a frozen-name value type consumed down from the kernel — while host-internal wiring stays on the mutation spine.
 
 ## [01]-[DOMAIN_MAP]
 
 ```text codemap
 Rasm.Rhino/             # Rhino host boundary over the Rasm kernel
 ├── Document/           # Host-document substrate under every host surface
-│   ├── Session.cs      # Capability-scoped document-session demand and unit-regime adjustment
+│   ├── Session.cs      # Capability-scoped document-session demand, unit-regime adjustment, worksession custody
 │   ├── Geometry.cs     # Native GeometryBase custody crossing and kernel transform
-│   ├── Tables.cs       # Table mutation, the shared UndoBracket, and redraw compensation
+│   ├── Tables.cs       # Table mutation and redraw compensation
+│   ├── Layers.cs       # Layer-tree topology, face and override programs, and the layer commit rail
 │   └── Events.cs       # Event observation and the transactional DocumentStream
 ├── Persistence/        # Typed serialization, settings custody, attached data, user text, saved-state presets
-│   ├── Dictionary.cs   # ArchiveValue union and the ArchiveMap detach/mint round trip
+│   ├── Dictionary.cs   # ArchiveValue slot-registry carrier and the ArchiveMap detach/mint round trip
 │   ├── Settings.cs     # Settings custody scopes, typed value rail, guards, and the change ledger
+│   ├── AppSettings.cs  # Application preference families, theme and color slots, and the alias/shortcut/path registries
 │   ├── UserData.cs     # ArchiveIo spine, TypedUserData template, roster census, custody transfer
 │   ├── UserText.cs     # TextStore rail over document and per-object user strings
 │   ├── Presets.cs      # CPlane, named-position, and layer-state preset rail under one mask vocabulary
-│   └── Snapshots.cs    # Scripted snapshot ops, SnapShotsClient participant, worksession facts
+│   └── Snapshots.cs    # Scripted snapshot ops and the SnapShotsClient participant
 ├── Objects/            # Live document-object domain over the table rail
 │   ├── State.cs        # Live-object window: snapshot, frames, component touch, section custody
 │   ├── Attributes.cs   # Typed attribute program feeding the table rail's Amend path
 │   ├── Materials.cs    # Object materials, mappings, and mesh caches behind one commit
+│   ├── Lights.cs       # Closed world light-kind family: seed, gated edits, and the table commit rail
 │   ├── History.cs      # History record/replay triad, linkage topology, and governance
-│   └── Authoring.cs    # Custom-object and grip programs behind forwarding adapters
+│   └── Authoring.cs    # Custom-object, grip, and render-mesh programs behind forwarding adapters
 ├── Commands/           # Native command lifecycle, input acquisition, and picked-reference projection
 │   ├── Command.cs      # Staged command algebra over one immutable model and its host adapter
 │   ├── Acquisition.cs  # Parameterized input-acquisition matrix and its receipt
@@ -41,7 +44,8 @@ Rasm.Rhino/             # Rhino host boundary over the Rasm kernel
 │   ├── Curves.cs       # Curve offset, refine, extend, split, and construction host ops
 │   ├── Meshing.cs      # Parameter-carried meshing, remesh, booleans, and mesh edits
 │   ├── SubD.cs         # SubD creation, crease authoring, and brep conversion
-│   └── Deform.cs       # Space morphs and the unroll/squish/unwrap flatteners
+│   ├── Deform.cs       # Space morphs and the unroll/squish/unwrap flatteners
+│   └── Projection.cs   # Make2D hidden-line, silhouette, and draft capture over the value frame
 ├── Annotation/         # Drafting annotation domain over the resource tables
 │   ├── Style.cs        # StyleField schema, patch fold, override mint, and the DimStyle rail
 │   ├── Text.cs         # Text and leader construction, run edits, field formulas, outlining
@@ -58,7 +62,7 @@ Rasm.Rhino/             # Rhino host boundary over the Rasm kernel
 │   ├── Conduit.cs      # Conduit-pipeline algebra and display-mode participation
 │   ├── Draw.cs         # Two-backend mark union dispatched over the canvas
 │   ├── Interaction.cs  # Pointer, gumball, and widget hooks folded onto fact streams
-│   ├── Render.cs       # Render-job session and realtime engine participant
+│   ├── Render.cs       # Render-job session, realtime engine participant, and scene change-queue reader
 │   └── Modes.cs        # Display-mode appearance profile, mode policy, viewport assignment, and analysis attachment
 ├── Render/             # RDK content model and document render configuration
 │   ├── Content.cs      # Content address, kind axis, change bracket, snapshot, hash, leased ingress
@@ -77,24 +81,24 @@ Rasm.Rhino/             # Rhino host boundary over the Rasm kernel
 ├── Eto/                # Native Eto UI framework sub-domain
 │   ├── Platform.cs     # Ambient platform binding, native mount, and theme grid
 │   ├── Runtime.cs      # Ambient runtime rails: dispatch, pulse, and projection
-│   ├── Elements.cs     # Control tree, realize fold, layout algebra, and fault band
+│   ├── Elements.cs     # Control tree, realize fold, layout algebra, themed editors, and fault band
 │   ├── Binding.cs      # State-cell binding attachments and their receipt ledger
-│   ├── Canvas.cs       # Retained mark scene folded into the host graphics stream
+│   ├── Canvas.cs       # Drawable mount, paint-program seam, glyph shaping, and pixel leases
 │   └── Chrome.cs       # Verb table projected into menus, windows, and dialogs
 └── HostUi/             # Rhino.UI shell composed over the Eto sub-domain
-    ├── Shell.cs        # Host-thread session marshal, status, prompt, and progress
-    ├── Panels.cs       # Panel fact stream, placement, and RUI state fold
+    ├── Shell.cs        # Host-thread session marshal, status, prompt, progress, runtime hosting, and notices
+    ├── Panels.cs       # Panel fact stream, placement, RUI state fold, and Rhino control rows
     ├── Pages.cs        # Page realization, the signal spine, and kind-safe mounting
     └── Dialogs.cs      # Capability-gated inquiry rail and preview projection
 ```
 
 ## [02]-[STRATA]
 
-Five strata order the thirteen sub-domain folders; a folder composes its own owners and lower strata only, `Rasm` kernel namespaces underlie the whole boundary as the host-neutral floor, and the one ruled counter-edge is the Document session's configured-open source taking Persistence's `ArchiveMap` as its typed open-options payload, minted before any session exists. Every other consumption edge points down, so a new folder seats one stratum above its highest composed owner.
+Five strata order the thirteen sub-domain folders; a folder composes its own owners and lower strata only, `Rasm` kernel namespaces underlie the whole boundary as the host-neutral floor, and two ruled counter-edges stand: the Document session's configured-open source takes Persistence's `ArchiveMap` as its typed open-options payload, minted before any session exists, and Modeling's projection frame takes Viewport's `CameraSnapshot`/`CameraPose` value shapes as its typed frame payload — value-only, sampled by the caller, no lease or borrow crossing. Every other consumption edge points down, so a new folder seats one stratum above its highest composed owner.
 
-- S0 `Document` — spine under everything: the `DocumentSession` demand, the shared `UndoBracket`, `Tables.Commit`, and the transactional `DocumentStream`; every sibling composes it.
-- S1 single-seam domains — `Persistence`, `Commands`, `Blocks`, `Modeling`, `Annotation`, `Eto` compose the spine alone: `ArchiveMap` and `Settings`; `CommandVerdict` and `PickCapture`; `BlockGraph` and `CycleGroups`; `ModelGate` and `Built<TSlot>`; `StyleField` and `Styles`; the `Element` realize fold and the `UiThread` floor — Modeling reaches only the geometry-custody capsule and Eto only the event-detach capsule.
-- S2 composite domains — `Objects` (`Objects`, `Attributes`, `Chronicle`) adds Commands' `PickCapture` custody and Blocks' `CycleGroups` evidence; `HostUi` (`HostThread`, `PanelHost`, `HostPage`) adds the whole Eto sub-domain.
+- S0 `Document` — spine under everything: the `DocumentSession` demand, `Tables.Commit`, `Layers.Commit`, and the transactional `DocumentStream`; every sibling composes it.
+- S1 single-seam domains — `Persistence`, `Commands`, `Blocks`, `Modeling`, `Annotation`, `Eto` compose the spine alone: `ArchiveMap`, `Settings`, and `AppSettings`; `CommandVerdict` and `PickCapture`; `BlockGraph` and `GraphFold`; `ModelGate` and `Built<TSlot>`; `StyleField` and `Styles`; the `Element` realize fold and the `UiThread` floor — Modeling reaches only the geometry-custody capsule plus the ruled `CameraSnapshot`/`CameraPose` frame values, and Eto only the event-detach capsule.
+- S2 composite domains — `Objects` (`Objects`, `Attributes`, `Chronicle`) adds Commands' `PickCapture` custody and Blocks' `GraphFold`/`GraphProjection` evidence; `HostUi` (`HostThread`, `PanelHost`, `HostPage`) adds the whole Eto sub-domain.
 - S3 `Viewport` — `ViewportLease`, `CameraPose`, `Cameras`, and `MotionPump`; every borrow crosses `HostThread.OnSession` under a `SessionNeed`.
 - S4 terminal composers — `Display` (`ViewportModes`, `Marks`) and `Exchange` (`Exchanges`, `PageFrame`) compose Viewport's camera and capture rails, Display also drawing through the Eto canvas; `Render` (`Contents`, `ContentStream`) borrows only the `Size2i` pixel struct from that surface; no folder composes these three.
 
@@ -127,7 +131,7 @@ config:
 ---
 flowchart TB
     accTitle: Rasm.Rhino interior strata
-    accDescr: Five stacked strata from the terminal display, exchange, and render composers through the viewport rail and the composite object and host-UI domains onto the single-seam domains and the document spine, every consumption edge downward and solid naming one sourced type, one dashed ruled counter-edge carrying the ArchiveMap open-options payload upward from the document spine to Persistence, and one forbidden upward edge styled red.
+    accDescr: Five stacked strata from the terminal display, exchange, and render composers through the viewport rail and the composite object and host-UI domains onto the single-seam domains and the document spine, every consumption edge downward and solid naming one sourced type, two dashed ruled counter-edges carrying the ArchiveMap open-options payload upward from the document spine to Persistence and the CameraSnapshot and CameraPose frame values upward from the Modeling gate to the viewport rail, and one forbidden upward edge styled red.
     subgraph L4["S4 TERMINAL COMPOSERS"]
         Modes[ViewportModes]
         Exchanges[Exchanges]
@@ -143,9 +147,10 @@ flowchart TB
     end
     subgraph L1["S1 SINGLE-SEAM"]
         Picks[PickCapture]
-        Blocks[CycleGroups]
+        Blocks[GraphFold]
         Eto[UiThread]
         Archive[ArchiveMap]
+        Model[ModelGate]
     end
     subgraph L0["S0 DOCUMENT"]
         Session[DocumentSession]
@@ -156,18 +161,19 @@ flowchart TB
     Lease e4@-->|"[IMPORT]: HostThread"| HostThread
     Capture e5@-->|"[IMPORT]: SessionNeed"| L0
     Objects e6@-->|"[IMPORT]: PickCapture"| Picks
-    Objects e7@-->|"[IMPORT]: CycleGroups"| Blocks
+    Objects e7@-->|"[IMPORT]: GraphFold"| Blocks
     HostThread e8@-->|"[IMPORT]: UiThread"| Eto
     Picks e9@-->|"[IMPORT]: DocumentSession"| Session
     Session e10@-.->|"[COUNTER]: ArchiveMap"| Archive
+    Model e11@-.->|"[COUNTER]: CameraSnapshot + CameraPose"| Lease
     Session f1@-->|"forbidden: spine upward"| L4
     classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
     classDef recessed fill:#21222C,stroke:#6272A4,color:#F8F8F2
     classDef edgeControl stroke:#FF79C6,color:#F8F8F2
     classDef edgeError stroke:#FF5555,stroke-width:3px,color:#F8F8F2
     class Modes,Exchanges,Contents,Lease,Capture,Objects,HostThread primary
-    class Picks,Blocks,Eto,Archive,Session recessed
-    class e1,e2,e3,e4,e5,e6,e7,e8,e9,e10 edgeControl
+    class Picks,Blocks,Eto,Archive,Model,Session recessed
+    class e1,e2,e3,e4,e5,e6,e7,e8,e9,e10,e11 edgeControl
     class f1 edgeError
 ```
 
@@ -228,7 +234,7 @@ Every kernel contract is a frozen-name value type the host binds and never re-mi
 
 ## [04]-[INTERNAL]
 
-Every host mutation walks one path — no sub-domain opens the document directly. Document-session demand gates capability, the shared `UndoBracket` frames the change, the sub-domain executor runs inside it, and the sealing commit lands the fact receipt with redraw compensation; a denied demand and every mid-stage fault converge on the one rail that still releases the bracket. Exact per-stage wiring lives on the owning implementation pages.
+Every host mutation walks one path — no sub-domain opens the document directly. Document-session demand gates capability, the shared `DocumentCommit` envelope frames the change over `UndoBracket`, the sub-domain executor runs inside it, and the sealing commit lands the fact receipt with redraw compensation; a denied demand and every mid-stage fault converge on the one rail that still releases the bracket. Exact per-stage wiring lives on the owning implementation pages.
 
 ```mermaid
 ---

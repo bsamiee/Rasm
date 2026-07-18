@@ -24,6 +24,11 @@
         <Using Include="Rhino.Geometry" />
         <Using Include="Rhino.Input" />
         <Using Include="Rhino.Input.Custom" />
+        <Using Include="Rhino.PlugIns" />
         <Using Include="Rhino.UI" />
+        <Using Include="Rhino.UI.Gumball" />
+        <Using Include="Rhino.Render.ChangeQueue" Alias="Cq" />
+        <Using Include="Rhino.DocObjects.Font" Alias="Font" />
+        <Using Include="Eto.Drawing.Matrix" Alias="Matrix" />
     </ItemGroup>
 </Project>
