@@ -32,7 +32,7 @@ One canonical block per concern; each lane selects its rows in this order.
 |  [07]   | spawn-mandate parent | inherits        | overlay on any shape: the imperative spawn step rides the USER prompt                     |
 |  [08]   | resume / follow-up   | inherited       | `codex-reply` or `exec resume` with a sharpened prompt only — never re-pay exploration    |
 
-A recon lane differs from research only by the web flag and citation contract — the `cached` default answers from an index with no live fetch, so a research lane always states `live`. A fixer differs from implement by its findings anchor and refute rail; the spawn overlay composes onto any base shape. Workflow wrapper one-shots are the workflow-creator skill's contract.
+A recon lane differs from research only by the web flag and citation contract — the `cached` default answers from an index with no live fetch, so a research lane always states `live`. A fixer differs from implement by its findings anchor and refute rail; the spawn overlay composes onto any base shape.
 
 ## [03]-[TEMPLATES]
 

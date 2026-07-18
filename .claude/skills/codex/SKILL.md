@@ -21,7 +21,7 @@ description: Dispatch self-contained work to Codex (gpt-5.6 Terra/Sol/Luna) thro
 - Independent second perspective on a plan, implementation, or diff — a different model lineage catches different failure modes.
 - Research legs needing live sources (`-c web_search="live"`), plus long-running work that must not occupy this session.
 
-Main-loop legs run as background CLI keepers — a blocking MCP call freezes the session with zero visibility; workflow wrappers and subagents with nothing else to do take the blocking MCP call. Image legs ride the CLI `-i`; the MCP tool takes no image parameter.
+Main-loop legs run as background CLI keepers — a blocking MCP call freezes the session with zero visibility; subagents with nothing else to do take the blocking MCP call. Image legs ride the CLI `-i`; the MCP tool takes no image parameter.
 
 ## [03]-[INVOCATION]
 
@@ -140,7 +140,7 @@ Inside ONE lane, `collaboration.*` is the subagent tool family — `spawn_agent`
 - AUDIT: grep the parent rollout for `function_call` items named `spawn_agent` — `collab_tool_call` is a stale marker that false-negatives; the sessions store's `thread_spawn_edges` table is the version-stable SQL audit path.
 - Worthwhile shapes are read-only star fan-outs — miners, censuses, verifiers returning distilled results; anti-patterns are parallel writers on the shared tree plus delegated fix-judgment — findings are signals, the lane owns the judgment.
 - A row-shaped sweep rides ONE lane's `spawn_agents_on_csv`: one worker per CSV row under the concurrency cap, `output_schema` typing each row; the `output_csv_path` export lands only under `workspace-write`. Reusable personas are `~/.codex/agents/*.toml` files spawned by name.
-- Workflow dispatch rides a thin wrapper whose whole job is one blocking MCP call and a receipt — contract and economics are the workflow-creator skill's codex-lanes reference. A `workspace-write` lane writes its own report as its final act; the caller verifies (`jq -e`) — re-emitting a codex product through a Claude agent's own Write is lossy at scale. Codex tokens never count toward `budget.spent()`.
+- A `workspace-write` lane writes its own report as its final act; the caller verifies (`jq -e`) — re-emitting a codex product through another agent's Write is lossy at scale.
 
 ## [09]-[SESSIONS]
 
