@@ -693,6 +693,7 @@ def _decompile_report(  # noqa: PLR0913, PLR0917  # all slots are structural cal
             resolved_fqn = direct_fqn or (rank_type(surface.types, head) if head else "")
             is_member = shape is SymbolShape.MEMBER or bool(head and resolved_fqn and not direct_fqn)
             final_shape = SymbolShape.MEMBER if is_member else SymbolShape.TYPE
+            member_name = p.symbol.rpartition(".")[2]
             suffix = {SourceKind.PYDIST: ".py", SourceKind.TSDECL: ".d.ts"}.get(surface.source.kind, ".cs")
             # The full decompiled body rides an artifact only when the inline window truncates; untruncated output rides the preview.
             artifact = _artifact(settings, surface.source, f"decompile{suffix}", full) if truncated else None
@@ -702,7 +703,7 @@ def _decompile_report(  # noqa: PLR0913, PLR0917  # all slots are structural cal
                 signature=signature,
                 doc=doc,
                 preview=window,
-                member=p.symbol.rpartition(".")[2] if is_member else "",
+                member=member_name if is_member else "",
                 truncated=truncated,
                 lines=selected,
                 selected=selected,
@@ -716,7 +717,9 @@ def _decompile_report(  # noqa: PLR0913, PLR0917  # all slots are structural cal
                 status=RailStatus.OK,
                 notes=(f"{selected} selected lines", *_source_notes(surface.source), *window_note),
             )
-            identity = (resolved_fqn or p.symbol)[:_NAME_CAP]
+            # The requested identity is the canonical owner qualified by the member segment for a member, the resolved type otherwise,
+            # so results[0].text round-trips the exact queried FQN every verification consumer keys on.
+            identity = (f"{resolved_fqn}.{member_name}" if is_member and resolved_fqn else resolved_fqn or p.symbol)[:_NAME_CAP]
             result = Match(id=f"{final_shape.value}:{identity}", kind=ArtifactKind.SCOPE, text=identity, score=100)
             artifacts = (artifact,) if artifact is not None else ()
             return msgspec.structs.replace(fold(Claim.API, "query", (note,), detail=detail), artifacts=artifacts, results=(result,))
