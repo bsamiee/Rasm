@@ -148,7 +148,7 @@ To run at the config default, pass no tier; each row is the flag to deviate to i
 
 - Sol and Terra accept low through ultra; Luna accepts low through max and rejects ultra.
 - Factory default is medium; the operator config pins the estate default estate-wide.
-- Subagent spawning is prompt-triggered at EVERY tier — an explicit "spawn N parallel subagents" lands `collab_tool_call` items even at medium.
+- Subagent spawning is prompt-triggered at EVERY tier — an explicit "spawn N parallel subagents" lands real spawns even at medium.
 - An injected developer-role gate rules every session: children spawn ONLY when the user prompt or AGENTS.md/skill instructions ask with imperative spawn/parallel/sub-agent wording.
 - A delegation mandate therefore rides the USER channel — permissive "you may spawn" phrasing and `developer_instructions` alone fail the gate.
 - Ultra only biases codex toward decomposition the gate must still admit — redundant where the caller, a workflow or fan-out orchestrator, already owns it.
@@ -225,7 +225,7 @@ codex exec -s <sandbox> --skip-git-repo-check --json -o <report> \
 - Event sequence: `thread.started{thread_id}` the resume id, `turn.started`, `item.started`/`item.completed`, then `turn.completed` or `turn.failed`.
 - Item types: `agent_message`, `reasoning`, `command_execution`, `mcp_tool_call`, `web_search`, `file_change`, `error`.
 - `agent_message` carries the final message text; `command_execution` carries `{command,aggregated_output,exit_code,status}`.
-- `collab_tool_call` marks a subagent spawn under effort ultra.
+- A parent rollout records a spawn as `function_call` items named `spawn_agent`/`wait_agent` plus a `sub_agent_activity` payload; each child mints its OWN rollout file — a spawn audit greps the parent for `"name":"spawn_agent"`, never `collab_tool_call` (rollout-verified).
 - `turn.completed` carries `usage`; its fields are `input_tokens`, `cached_input_tokens`, `output_tokens`, `reasoning_output_tokens`.
 - An `item.type=="error"` item is NOT a run failure — the skills-listing-budget warning rides one on every run under a large skill library.
 - Classify by turn events only.
