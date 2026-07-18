@@ -3,7 +3,7 @@ export const meta = {
     whenToUse:
         'The standing hostile rebuild pass for any libs/ planning corpus: pass targets (file / sub-folder / package root, any number, any language mix); it maps every .planning sub-folder, ideates per package, hostile-rebuilds every page batch concurrently at the owning-language doctrine bar, and closes with a finder fan plus one terminal fixer.',
     description:
-        'Language-agnostic hostile-rebuild engine over the libs/{csharp,python,typescript} planning corpora. args = a target path, an array of paths, or {targets} — languages mix freely, {root} retargets an isolated checkout, empty = no-op; every page derives doctrine, both .api tiers, casing, and its member-verification rail from its owning package. Plan expands targets to pages in dependency + seam-cohesion order under the owning-package charter. Map fans one deep-map lane and one two-tier .api inventory lane per .planning sub-folder unit — an oversize sub-folder splits into ceiling-bounded segments, so map and batch seams stay congruent — each writing a per-unit dossier the batches reuse. Ideate runs two lanes per package with disjoint charters: a corrections census (the non-binding fix addendum) and a bigger-ideas worklist (new capability beyond correction). Build packs whole sub-folder units into batches under the packing ceiling, all concurrent under one slot scheduler; per batch a doctrine-bar lens, then implement, critique (workspace-write, fixlog to disk), and redteam folding the critique rows forward — every writer under the own-pass-first input ladder (own blind hostile pass primary, map dossiers grounding, census addendum, ideas ambition) with libs-wide ripple authority under the four bounds and seam-ledger coordination; handoffs carry navigation facts only. Each package chain closes with one ideas-realization writer implementing the bigger-ideas worklist against its landed corpus, gated entries carded via indexRows. The spine is per-package pipelined: each package advances Map -> Ideate -> Build the moment its own inputs land, never waiting on the slowest sibling package, and Close is the one whole-run barrier. Close: a read-only finder fan plus one governance finder per language, then ONE terminal fixer draining findings, the deferred backlog, and unclaimed census rows in a fixpoint loop, then two concurrent terminals — an ideas-disposition writer giving every bigger-ideas dossier entry exactly one outcome (realized on disk, carded into the owning IDEAS.md, or rejected with reason) and a doctrine lander adjudicating pooled harvest nominations. Stage law lives in the prompt blocks.',
+        'Language-agnostic hostile-rebuild engine over the libs/{csharp,python,typescript} planning corpora. args = a target path, an array of paths, or {targets} — languages mix freely, {root} retargets an isolated checkout, empty = no-op; every page derives doctrine, both .api tiers, casing, and its member-verification rail from its owning package. Plan expands targets to pages in dependency + seam-cohesion order under the owning-package charter. Map fans one deep-map lane and one two-tier .api inventory lane per .planning sub-folder unit — an oversize sub-folder splits into ceiling-bounded segments, so map and batch seams stay congruent — each writing a per-unit dossier the batches reuse. Ideate runs two lanes per package with disjoint charters: a corrections census (the non-binding fix addendum) and a bigger-ideas worklist (new capability beyond correction). Build packs whole sub-folder units into batches under the packing ceiling, all concurrent under one slot scheduler; per batch a doctrine-bar lens, then implement, critique (write lane, fixlog to disk), and redteam folding the critique rows forward — every writer under the own-pass-first input ladder (own blind hostile pass primary, map dossiers grounding, census addendum, ideas ambition) with libs-wide ripple authority under the four bounds and seam-ledger coordination; handoffs carry navigation facts only. Each package chain closes with one ideas-realization writer implementing the bigger-ideas worklist against its landed corpus, gated entries carded via indexRows. The spine is per-package pipelined: each package advances Map -> Ideate -> Build the moment its own inputs land, never waiting on the slowest sibling package, and Close is the one whole-run barrier. Close: a read-only finder fan plus one governance finder per language, then ONE terminal fixer draining findings, the deferred backlog, and unclaimed census rows in a fixpoint loop, then two concurrent terminals — an ideas-disposition writer giving every bigger-ideas dossier entry exactly one outcome (realized on disk, carded into the owning IDEAS.md, or rejected with reason) and a doctrine lander adjudicating pooled harvest nominations. Stage law lives in the prompt blocks.',
     phases: [
         {
             title: 'Plan',
@@ -540,8 +540,7 @@ const LANG = {
             'rails/effects/schedules/immutable collections, QuikGraph, Mapperly and siblings) AND the folder catalogs ' +
             '`<package>/.api/*.md` — the universal Thinktecture/LanguageExt rails layered onto the domain packages, never the folder set alone.',
         verify:
-            '`UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api` — the cache prefix is load-bearing in a codex sandbox, ' +
-            'where the default uv cache sits outside the workspace (assay blocked or a read-only sandbox: the `.api` catalogs, ' +
+            '`UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api` (assay blocked: the `.api` catalogs, ' +
             'the nuget MCP for feed truth, and Context7/exa/tavily for the official surface own the fallback)',
         vocab: '(`[Union]`/`[SmartEnum<TKey>]`/`[ValueObject]`/`Fold`/the rails)',
         slur: 'naive, surface-level code dressed in the right vocabulary',
@@ -586,9 +585,8 @@ const LANG = {
             'pydantic-settings, beartype, structlog, stamina, numpy, psutil, opentelemetry-*) AND the folder catalogs ' +
             '`<package>/.api/*.md` — the shared rails layered ON TOP OF the folder domain packages, never the folder set alone.',
         verify:
-            '`UV_CACHE_DIR=.cache/uv uv run --frozen python -m tools.assay api resolve <pkg>` — the cache prefix is ' +
-            'load-bearing in a codex sandbox, where the default uv cache sits outside the workspace (a gated/uninstalled ' +
-            'package, a read-only sandbox, or a blocked assay falls back to its catalog/official surface)',
+            '`UV_CACHE_DIR=.cache/uv uv run --frozen python -m tools.assay api resolve <pkg>` (a gated/uninstalled ' +
+            'package or a blocked assay falls back to its catalog/official surface)',
         vocab: '(`@tagged_union`/`frozendict`/`Result`/`Option`/the rails)',
         slur: 'naive, surface-level, old-style Python dressed in the right vocabulary',
         illusion: 'a `.api` member cited but never verified',
@@ -636,7 +634,7 @@ const LANG = {
             'ON TOP OF the area packages, never the folder set alone.',
         verify:
             'the published types in node_modules (`UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api` over node_modules ' +
-            'declarations where a member is novel; the cache prefix keeps uv runnable in a codex sandbox)',
+            'declarations where a member is novel)',
         vocab: '(`Schema.Class`/`TaggedClass` families, tagged unions, `Effect`/`Layer`, value-derived vocabulary tables)',
         slur: 'naive JavaScript-in-TypeScript dressed in the right vocabulary',
         illusion: '`any`/unsafe `as`/non-null `!` smuggled under a confident surface; a member cited but unverifiable against node_modules',
@@ -752,9 +750,7 @@ const codexPrompt = (label, task, schema, o) => {
         '(1) Call ToolSearch with query "select:mcp__codex__codex".',
         '(2) Call the loaded mcp__codex__codex tool ONCE with model="' +
             model +
-            '", sandbox=' +
-            (o.writes ? '"workspace-write"' : '"read-only"') +
-            ', cwd=' +
+            '", cwd=' +
             JSON.stringify(root) +
             (o.codexEffort ? ', config={"model_reasoning_effort":"' + o.codexEffort + '"}' : '') +
             ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
@@ -2076,7 +2072,7 @@ const runBatch = async (b) => {
         agent(implementPrompt(L, batch, dossiers, ideate, SCOPES, roster, unmapped), wopts('impl:' + tag, 'Build', 'fable', FIXLOG_SCHEMA)),
     );
     if (!fix) return { pkg: b.pkg, pages: b.pages, fix: null, crit: null, rt: null }; // failure isolation: a dead implement skips its reviews
-    // Critique: a workspace-write codex lane running the full conformance audit in place;
+    // Critique: a write codex lane running the full conformance audit in place;
     // fixlog to disk, receipt on the wire; the redteam reads the fixlog from disk and folds its rows forward.
     // The critique preamble drops the IDEAS rung (idea: '') — an in-place conformance audit consumes the census,
     // never the ambition worklist; ambition realization is the implement's rung 4 and the redteam's mandate (G).

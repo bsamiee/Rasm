@@ -2,11 +2,11 @@ export const meta = {
     name: 'implement-py',
     whenToUse: 'Realize open IDEAS and TASKLOG cards into design-page code fences across the Python target folders.',
     description:
-        "Realize every open IDEAS/TASKLOG card across the Python target set (libs/python/artifacts, compute, data, geometry, runtime) into deep design-page code FENCES at the docs/stacks/python bar (with docs/stacks/csharp as the ambition floor), repair every ripple in-pass, and truthfully close the cards. Each target folder runs its OWN discover -> implement -> critique -> redteam chain, ALL chains concurrent under one pooled cap: a folder starts the moment its own discovery lands, a folder with no open cards no-ops after its own discovery, and a failed chain isolates without rejecting the pool. Discovery hands downstream stages navigation FACTS (paths, verified members, seam targets) and never verdicts; it runs read-only on gpt-5.6-terra dispatched through a sonnet codex wrapper, lands its full navigation-facts product as one JSON report on disk under the workflow scratch dir, and returns only a thin receipt plus the jq-cut structural skeleton (order, pages, ripples, gates) inline; downstream stages read the report IN FULL from disk, and when the skeleton proves page-disjoint card groups, the implement stage fans over them. Every stage WRITES and repairs the page-level ripples its own work exposes in the same pass — in-scope seams aligned against current disk, 1-hop out-of-scope same-language counterpart fences realized directly — with BLOCKED probes and folder-local package admission inline. The redteam is each folder chain's terminal stage and sole card-status owner: it final-remediates weak realizations in place and closes only cards whose realization it verified strong on disk. Two handoffs route to the run's terminal single-writer, the central pyproject.toml pin row + band marker and the target ARCHITECTURE.md [02]-[SEAMS] row: folder agents report exact rows, one terminal opus writer applies them serially. Every writing stage also nominates generalizable lessons into a required-usually-empty harvest — each stage's rows ride its own return, the critique lane's swept from its fixlog on disk by the doctrine lander (nomination transport never rides a living fold); the terminal stage is a DRAIN LOOP over the pooled deferred backlog plus every critique fixlog (the redteam fold-forward is lossy even when it lands) that also applies the central pins and ARCHITECTURE seam rows and re-feeds the still-open remainder under a round cap + no-shrinkage progress gate, then one fable doctrine lander adjudicates the pooled harvest plus every critique fixlog harvest array from disk against the docs/laws admission bar (land-nothing legal) before the run closes. Card-driven (it implements ideas/tasks), NOT the in-isolation api-stacking of the rebuild engine. Python-only. args = a target path string, an array of paths, or empty for the defaults. The language-wide libs/python/.planning is out of scope.",
+        "Realize every open IDEAS/TASKLOG card across the Python target set (libs/python/artifacts, compute, data, geometry, runtime) into deep design-page code FENCES at the docs/stacks/python bar (with docs/stacks/csharp as the ambition floor), repair every ripple in-pass, and truthfully close the cards. Each target folder runs its OWN discover -> implement -> critique -> redteam chain, ALL chains concurrent under one pooled cap: a folder starts the moment its own discovery lands, a folder with no open cards no-ops after its own discovery, and a failed chain isolates without rejecting the pool. Discovery hands downstream stages navigation FACTS (paths, verified members, seam targets) and never verdicts; it runs as a recon lane on gpt-5.6-terra dispatched through a sonnet codex wrapper, lands its full navigation-facts product as one JSON report on disk under the workflow scratch dir, and returns only a thin receipt plus the jq-cut structural skeleton (order, pages, ripples, gates) inline; downstream stages read the report IN FULL from disk, and when the skeleton proves page-disjoint card groups, the implement stage fans over them. Every stage WRITES and repairs the page-level ripples its own work exposes in the same pass — in-scope seams aligned against current disk, 1-hop out-of-scope same-language counterpart fences realized directly — with BLOCKED probes and folder-local package admission inline. The redteam is each folder chain's terminal stage and sole card-status owner: it final-remediates weak realizations in place and closes only cards whose realization it verified strong on disk. Two handoffs route to the run's terminal single-writer, the central pyproject.toml pin row + band marker and the target ARCHITECTURE.md [02]-[SEAMS] row: folder agents report exact rows, one terminal opus writer applies them serially. Every writing stage also nominates generalizable lessons into a required-usually-empty harvest — each stage's rows ride its own return, the critique lane's swept from its fixlog on disk by the doctrine lander (nomination transport never rides a living fold); the terminal stage is a DRAIN LOOP over the pooled deferred backlog plus every critique fixlog (the redteam fold-forward is lossy even when it lands) that also applies the central pins and ARCHITECTURE seam rows and re-feeds the still-open remainder under a round cap + no-shrinkage progress gate, then one fable doctrine lander adjudicates the pooled harvest plus every critique fixlog harvest array from disk against the docs/laws admission bar (land-nothing legal) before the run closes. Card-driven (it implements ideas/tasks), NOT the in-isolation api-stacking of the rebuild engine. Python-only. args = a target path string, an array of paths, or empty for the defaults. The language-wide libs/python/.planning is out of scope.",
     phases: [
         {
             title: 'Realize',
-            detail: 'all folder chains concurrent under one pooled cap: discover(gpt-5.6-terra via codex wrapper, read-only; product to disk, thin receipt + structural skeleton inline) -> implement(fable; reads the discovery report from disk, fans over skeleton-proven page-disjoint card groups) -> critique(ONE gpt-5.6-sol codex lane, workspace-write; fixlog to disk, receipt on the wire) -> redteam(fable, terminal close; reads the critique fixlog from disk as refutation targets and folds its surviving ripples/pins/seams/deferred rows into its own return); a folder with no open cards no-ops after its own discovery; every writing stage re-reads current disk, repairs page-level ripples in-pass, and reports central pin rows + ARCHITECTURE.md [02]-[SEAMS] rows for the terminal single-writer instead of editing those surfaces',
+            detail: 'all folder chains concurrent under one pooled cap: discover(gpt-5.6-terra via codex wrapper, recon; product to disk, thin receipt + structural skeleton inline) -> implement(fable; reads the discovery report from disk, fans over skeleton-proven page-disjoint card groups) -> critique(ONE gpt-5.6-sol codex lane, write; fixlog to disk, receipt on the wire) -> redteam(fable, terminal close; reads the critique fixlog from disk as refutation targets and folds its surviving ripples/pins/seams/deferred rows into its own return); a folder with no open cards no-ops after its own discovery; every writing stage re-reads current disk, repairs page-level ripples in-pass, and reports central pin rows + ARCHITECTURE.md [02]-[SEAMS] rows for the terminal single-writer instead of editing those surfaces',
         },
         {
             title: 'Pins',
@@ -374,8 +374,7 @@ const LAW = [
         '(README/language/shapes/surfaces-and-dispatch/rails-and-effects/algorithms/iteration/concurrency/boundaries/runtime/system-apis) — author ' +
         'Python as dense, polymorphic, and rich as that bar admits; docs/stacks/csharp/ is the density/ambition FLOOR (match its richness, never ' +
         'import C#-shaped idioms). READ the operative docs/stacks/python pages and conform exactly. Cite ONLY members confirmed in the .api catalogs; ' +
-        'verify any novel member via `UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api` — the cache prefix is load-bearing in a codex ' +
-        'sandbox, where the default uv cache sits outside the workspace' +
+        'verify any novel member via `UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api`' +
         FB +
         '.',
     'This is IMPLEMENT, not the in-isolation api-stacking rebuild: realize the folder SPECIFIC open IDEAS/TASKLOG cards into deep design-page ' +
@@ -700,15 +699,13 @@ const codexPrompt = (label, task, schema, o) => {
         '(1) Call ToolSearch with query "select:mcp__codex__codex".',
         '(2) Call the loaded mcp__codex__codex tool ONCE with model="' +
             model +
-            '", sandbox=' +
-            (o.writes ? '"workspace-write"' : '"read-only"') +
-            ', cwd=' +
+            '", cwd=' +
             JSON.stringify(root) +
             (o.codexEffort ? ', config={"model_reasoning_effort":"' + o.codexEffort + '"}' : '') +
             ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
             'VERBATIM. If the call errors, skip step (3) and return the error text through step (4).',
         'LANE LAW:\n\n' + laneLaw(schema, o),
-        // writes lanes author their own report (final act) — the sandbox admits it; the wrapper only verifies.
+        // writes lanes author their own report (final act); the wrapper only verifies.
         'TASK:\n\n' +
             task +
             (o.writes
@@ -741,7 +738,7 @@ const nativeLane = (task, o) =>
         schema: o.wire,
         stallMs: o.stallMs || STALL,
     });
-// The discovery lane: a gpt-5.6-terra codex wrapper (a read-only mapping lane — recon law, never fix), with
+// The discovery lane: a gpt-5.6-terra codex wrapper (a mapping lane — recon law, never fix), with
 // the native twin as the quota fallback. The row carries `scope` from the ORCHESTRATOR (never the lane's
 // self-report) so a failed lane's territory is exact even when the lane died before writing anything.
 const discoveryReceipt = (base) =>
@@ -786,7 +783,7 @@ const recon = (task, o) => {
 };
 const folderName = (p) => p.split('/').filter(Boolean).pop() || p;
 
-// Sol critique lane: one blocking Codex MCP call at the operator-default tier in a workspace-write sandbox — a FIX lane
+// Sol critique lane: one blocking Codex MCP call at the operator-default tier — a FIX lane
 // (persistence + post-edit verification law), FIXLOG product to disk, thin receipt on the wire; a quota fallback
 // restores the native fable twin writing the same product to the same path.
 const critiqueReceipt = (base) =>
@@ -1101,7 +1098,7 @@ const redteamPrompt = (folder, seq, report, critReport, critOk, ownpass) =>
             '`' +
             (critOk
                 ? ''
-                : ' (its wrapper receipt died, but the workspace-write lane writes the fixlog to disk itself — CHECK THE ' +
+                : ' (its wrapper receipt died, but the write lane writes the fixlog to disk itself — CHECK THE ' +
                   'PATH FIRST; absent or unparseable, your cold attack is the only review this folder gets: judge from CURRENT disk alone)') +
             ' — read it IN FULL from disk; its edits and verdicts are refutation targets you judge against CURRENT disk, never a settled ' +
             'record. FOLD-FORWARD DUTY: its surviving `ripples`, `pins`, `seams`, and `deferred` rows fold into YOUR return ' +
@@ -1319,7 +1316,7 @@ const runFolder = async (target) => {
         // pre-mortem still improve the pages as they stand on disk; the seq worklist stays their target and navigation arrives empty.
         if (!impls.length) log(tag + ': implement lane(s) died after retry — critique + red-team run against current disk');
         // Sol critique: fixlog to disk, receipt on the wire. The report path is DETERMINISTIC (orchestrator-computed), so a dead
-        // receipt never severs the fold — the workspace-write lane writes its fixlog to disk itself, and the
+        // receipt never severs the fold — the write lane writes its fixlog to disk itself, and the
         // red-team + terminal single-writer verify the path on disk instead of trusting the receipt `ok`.
         await stagger();
         const critReport = SCRATCH + '/' + fileTag('critique:' + tag) + '-report.json';

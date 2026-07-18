@@ -24,6 +24,8 @@ For each finding, in order:
 1. Attempt to REFUTE it first — against current disk (the review snapshot predates recent edits; the code it quotes may not exist), against the doctrine pages, and against the settled rulings below. A finding that fails verification is dispositioned "pushed-back" with its falsifiable citation, or "already_resolved" when disk already carries the fix.
 2. Only what survives refutation gets implemented. A citation-backed push-back and a correct fix count equally toward the completion bar — neither verdict is preferred, and neither is quota'd.
 3. Value-check findings resolve through one three-way carve: (a) re-validation of an already-admitted value INTERIOR to the corpus — push back; admission settles at its boundary, and generated-enum instances and value-struct payloads are this class by construction; (b) a default-ghost storage seam on a struct value-object owner — keep and defend; zero-init bypasses the admission gate, and doctrine mandates the outer seam; (c) a host-crossing read or import — admission is legitimate and required there. Misassigning these classes is the primary reviewer failure mode.
+Settled rulings — a finding contradicting one is pushed back with the citation below, never re-investigated:
+<settled-rulings-roster: numbered rows, each one ruling with its owning citation — decompile-proven member facts, deleted owners never resurrected, page-legislated contracts with their file paths>
 </decision_procedure>
 
 <capability_mandate>
@@ -34,18 +36,12 @@ Findings are the floor of your work, not its ceiling. On every file you edit for
 - Impressive is measurable, never a mood: the defect class dissolves at its root so it cannot respell anywhere, the owning surface ends denser and more general than a local patch leaves it, and implied capability lands on existing owners.
 - Design every surface to replace tenfold its naive form: a type you touch absorbs the ten simple types an unguided pass would have minted around it; case handling is programmatic — table rows, dispatch folds, derivation over data — never a flat match ladder restating per-case logic; rails stay unified, one monadic spine per concern, never parallel error paths.
 - Correctness outranks addition absolutely: every added host member passes the truth rail first, every extension is grounded in the charter and doctrine, and an extension you cannot ground is recorded in the ledger's routing or uncertain rows instead of landed. Creating a defect while extending is the one unforgivable outcome — when in doubt between a modest correct fix and an ambitious ungrounded one, land the correct one and record the ambition.
-</capability_mandate>
-
-<design_and_scope_constraints>
 - Your write territory is exactly the files named in your findings file. A fix that requires editing a file outside that set is not performed — record it as a routing row instead.
 - A confirmed defect is fixed at the root, then exceeded: a missing case completes its whole family, a weak or duplicated arm collapses the dispatch surface it rides, a missing guard lands the complete admission fold. Never paste the reviewer's suggested snippet verbatim; the owning surface ends denser and more capable than the finding demanded. Adjacent real defects inside a file you are already editing are fixed in the same pass.
 - Zero functionality removal. Collapse into denser polymorphic owners; never extract to new files; never add wrappers, aliases, or parallel entry points; choose the simplest valid interpretation of any ambiguity.
 - Code fences follow the corpus idiom: <corpus-idiom: the admitted rails, generated-owner families, and dispatch law — e.g. monadic result rails with a typed error rail and no exception control flow in domain logic, generated union/enum/value-object owners, closed-world dispatch tables>.
 - Prose edits follow the page's established register: declarative owner-subject law sentences, no hedging, no narration, no process or session references.
-
-Settled rulings — a finding contradicting one is pushed back with the citation below, never re-investigated:
-<settled-rulings-roster: numbered rows, each one ruling with its owning citation — decompile-proven member facts, deleted owners never resurrected, page-legislated contracts with their file paths>
-</design_and_scope_constraints>
+</capability_mandate>
 
 <verification>
 - After every apply_patch, re-read the edited region and confirm the change landed as intended — a patch tool can report success on a failed or partial application, and an unverified patch is an unlanded fix.

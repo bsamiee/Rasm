@@ -7,7 +7,7 @@ Fixer-lane dispatch form: one detached codex CLI process per lane, lane law on t
 One `run_in_background` Bash keeper per lane — batched keepers lose per-lane completion notifications:
 
 ```bash template
-codex exec -s workspace-write -m <model> [-c 'model_reasoning_effort="<tier>"'] --skip-git-repo-check \
+codex exec -m <model> [-c 'model_reasoning_effort="<tier>"'] --skip-git-repo-check \
   -c developer_instructions="$(cat <round-dir>/lane-law.md)" \
   -o <round-dir>/lane-<letter>-report.json \
   "$(cat <round-dir>/task-<letter>.md)" </dev/null 2><round-dir>/lane-<letter>-stderr.log >/dev/null
@@ -30,8 +30,8 @@ Disposition every finding in <round-dir>/lane-<letter>.json. Your write territor
 - <sliced-file-2>
 
 Before your first edit, spawn exactly two parallel sub-agents with the collaboration.spawn_agent tool, then collect both with collaboration.wait_agent. Each spawn task must be fully self-contained — spawned agents inherit none of your conversation, so state absolute paths and return shapes explicitly:
-- miner-A (read-only): census <api-catalog-paths> for host members and package capability that the territory files above under-use; return a candidate roster of rows {member, target_page, why}.
-- miner-B (read-only): sweep the territory files above for composition seams — repeated shapes two pages could share through one owner, under-parameterized owners, flat case families; return candidate rows {page, seam, opportunity}.
+- miner-A: census <api-catalog-paths> for host members and package capability that the territory files above under-use; return a candidate roster of rows {member, target_page, why}.
+- miner-B: sweep the territory files above for composition seams — repeated shapes two pages could share through one owner, under-parameterized owners, flat case families; return candidate rows {page, seam, opportunity}.
 Miners never edit files and never propose code to paste; their rosters are data you judge under your capability mandate.
 </task>
 ```

@@ -323,8 +323,7 @@ const TS_CITATION = [
     'ULTRA-STACKING: enumerate BOTH .api tiers IN FULL with a real listing — libs/typescript/.api/ (the substrate catalogs) and every ' +
         'libs/typescript/<folder>/.api/ — and mine them to OPERATOR DEPTH; an admitted capability the concept admits but no owner exploits is a ' +
         'DEFECT to close. Cite ONLY members that exist — verify novel members against the installed packages via `UV_CACHE_DIR=.cache/uv uv run ' +
-        'python -m tools.assay api` over node_modules (the cache prefix is load-bearing in a codex sandbox, where the default uv cache sits outside ' +
-        'the workspace), and when assay is blocked (a read-only sandbox) via the installed `.d.ts` read directly, the .api ' +
+        'python -m tools.assay api` over node_modules, and when assay is blocked via the installed `.d.ts` read directly, the .api ' +
         'catalogs, and Context7/exa/tavily against the official package docs, never memory; a member you cannot verify is a PHANTOM to delete. Use ' +
         'the DEEPEST primitive each package reaches (LIBRARY_DEPTH); flat code below that operator depth is surface sprawl.',
     'ECOSYSTEM-DEPTH MANDATE: `effect` and `@effect/experimental` carry far more than any doctrine currently uses — the installed .d.ts module ' +

@@ -3,7 +3,7 @@ export const meta = {
     whenToUse:
         'The standing RESEARCH-row resolution pass for any libs/ planning corpus: pass folder targets (sub-folder / package root, any number, any language mix); it censuses every research row as an epistemic-debt entry, clusters the debts by verification route, verifies each at its route, then bakes confirmed spellings and DELETES resolved rows, sharpens the unresolvable, and closes with a critique/red-team chain, a deferred drain, and one doctrine landing.',
     description:
-        'RESEARCH-row resolution engine over libs/{csharp,python,typescript} planning corpora. args = a folder target, an array of folder paths, or a targets object; empty = no-op. A research row is a writer epistemic debt — an exact question plus its verification route, recorded instead of a guessed member spelling. Census (terra codex, read-only) reads every page under the targets and extracts each research row (the C# [NN]-[RESEARCH] section entries, the inline RESEARCH re-verify rows, and the version-blocked capability rows) as an anchored {page, anchor, question, route, routeFamily, routeKey, symbols} entry with coverage; one lane per folder, large folders split by page count. Cluster (plain orchestrator code, no agent) groups the entries by verification route family — same host DLL, package, .api catalog, or doc source. Verify runs one lane per cluster, the route deciding the lane: assay-decompile clusters run NATIVE (a read-only codex sandbox cannot run uv/tools.assay, so they are native by construction); .api catalog and doc-file clusters ride terra codex lanes reading the catalogs; external-doc clusters run a native Context7 lane; each writes {question, page, anchor, verdict, evidence, spelling} verdicts to disk. Apply (one fable writer per folder, pipelined) reads the folder verdicts plus the pages, bakes each confirmed spelling into its fence, corrects each refuted assumption at its root, DELETES each resolved research row entirely (no tombstones, no resolved notes), and SHARPENS each unresolvable row in place with a better question and route; docgen loads before durable prose edits, the prose gate returns zero FAILs, and the fixlog carries harvest. A sol critique (codex, fix, fable twin) then a fable red-team fold-forward per the chain law attack a baked spelling not actually verified, a deleted row whose fact never landed in the fence, and a surviving row that verification already answered. Close: a drain loop over the pooled deferred backlog and orphaned critique fixlogs, then one doctrine lander over the pooled harvest.',
+        'RESEARCH-row resolution engine over libs/{csharp,python,typescript} planning corpora. args = a folder target, an array of folder paths, or a targets object; empty = no-op. A research row is a writer epistemic debt — an exact question plus its verification route, recorded instead of a guessed member spelling. Census (terra codex, read lane) reads every page under the targets and extracts each research row (the C# [NN]-[RESEARCH] section entries, the inline RESEARCH re-verify rows, and the version-blocked capability rows) as an anchored {page, anchor, question, route, routeFamily, routeKey, symbols} entry with coverage; one lane per folder, large folders split by page count. Cluster (plain orchestrator code, no agent) groups the entries by verification route family — same host DLL, package, .api catalog, or doc source. Verify runs one lane per cluster, the route deciding the lane: assay-decompile clusters run NATIVE (they need tools.assay over host DLLs); .api catalog and doc-file clusters ride terra codex lanes reading the catalogs; external-doc clusters run a native Context7 lane; each writes {question, page, anchor, verdict, evidence, spelling} verdicts to disk. Apply (one fable writer per folder, pipelined) reads the folder verdicts plus the pages, bakes each confirmed spelling into its fence, corrects each refuted assumption at its root, DELETES each resolved research row entirely (no tombstones, no resolved notes), and SHARPENS each unresolvable row in place with a better question and route; docgen loads before durable prose edits, the prose gate returns zero FAILs, and the fixlog carries harvest. A sol critique (codex, fix, fable twin) then a fable red-team fold-forward per the chain law attack a baked spelling not actually verified, a deleted row whose fact never landed in the fence, and a surviving row that verification already answered. Close: a drain loop over the pooled deferred backlog and orphaned critique fixlogs, then one doctrine lander over the pooled harvest.',
     phases: [
         {
             title: 'Discover',
@@ -360,9 +360,8 @@ const LANG = {
             'collections, QuikGraph, Mapperly and siblings) AND the folder catalogs `<package>/.api/*.md`, always layering the universal ' +
             'Thinktecture/LanguageExt rails onto the domain packages, never the folder set alone.',
         verify:
-            '`UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api` — the cache prefix is load-bearing in a codex sandbox, where the default ' +
-            'uv cache sits outside the workspace (assay blocked or unavailable: the `.api` catalogs, the nuget MCP for feed truth, and ' +
-            'Context7/exa/tavily for the official surface own the fallback)',
+            '`UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api` (assay blocked or unavailable: the `.api` catalogs, the nuget MCP for ' +
+            'feed truth, and Context7/exa/tavily for the official surface own the fallback)',
         vocab: '(`[Union]`/`[SmartEnum<TKey>]`/`[ValueObject]`/`Fold`/the rails)',
         slur: 'naive, surface-level code dressed in the right vocabulary',
         illusion: 'a `.api`/host member cited but never verified',
@@ -387,9 +386,8 @@ const LANG = {
             'structlog, stamina, numpy, psutil, opentelemetry-*) AND the folder catalogs `<package>/.api/*.md`, always layering the shared/universal ' +
             'rails ON TOP OF the folder-specific domain packages, never the folder set alone.',
         verify:
-            '`UV_CACHE_DIR=.cache/uv uv run --frozen python -m tools.assay api resolve <pkg>` — the cache prefix is load-bearing in a codex ' +
-            'sandbox, where the default uv cache sits outside the workspace (a gated/uninstalled package, or a blocked/unavailable assay, falls ' +
-            'back to its catalog/official surface)',
+            '`UV_CACHE_DIR=.cache/uv uv run --frozen python -m tools.assay api resolve <pkg>` (a gated/uninstalled package, or a ' +
+            'blocked/unavailable assay, falls back to its catalog/official surface)',
         vocab: '(`@tagged_union`/`frozendict`/`Result`/`Option`/the rails)',
         slur: 'naive, surface-level, old-style Python dressed in the right vocabulary',
         illusion: 'a `.api` member cited but never verified',
@@ -414,7 +412,7 @@ const LANG = {
             'never the folder set alone.',
         verify:
             'the published types in node_modules (`UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api` over node_modules declarations where ' +
-            'a member is novel; the cache prefix keeps uv runnable in a codex sandbox)',
+            'a member is novel)',
         vocab: '(`Schema.Class`/`TaggedClass` families, tagged unions, `Effect`/`Layer`, value-derived vocabulary tables)',
         slur: 'naive JavaScript-in-TypeScript dressed in the right vocabulary',
         illusion: '`any`/unsafe `as`/non-null `!` smuggled under a confident surface; a member cited but unverifiable against node_modules',
@@ -504,9 +502,7 @@ const codexPrompt = (label, task, schema, o) => {
         '(1) Call ToolSearch with query "select:mcp__codex__codex".',
         '(2) Call the loaded mcp__codex__codex tool ONCE with model="' +
             model +
-            '", sandbox=' +
-            (o.writes ? '"workspace-write"' : '"read-only"') +
-            ', cwd=' +
+            '", cwd=' +
             JSON.stringify(root) +
             ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
             'VERBATIM. The call blocks and returns when the turn completes; if it errors, skip step (3) and return the error ' +
@@ -597,7 +593,7 @@ const asLane = (label, scope, p) =>
         failure: (r && r.failure) || (r ? '' : 'lane died'),
     }));
 
-// Census dispatch: the sonnet wrapper makes one read-only Codex call, writes the product to disk, AND relays the
+// Census dispatch: the sonnet wrapper makes one Codex call, writes the product to disk, AND relays the
 // entries themselves on the wire — the orchestrator clusters on them, so a receipt count alone would not do. Bounded
 // per lane by CENSUS_PAGES so the relayed entry set stays small.
 const censusCodexPrompt = (label, task, o) => {
@@ -613,7 +609,7 @@ const censusCodexPrompt = (label, task, o) => {
         '(1) Call ToolSearch with query "select:mcp__codex__codex".',
         '(2) Call the loaded mcp__codex__codex tool ONCE with model="' +
             model +
-            '", sandbox="read-only", cwd=' +
+            '", cwd=' +
             JSON.stringify(root) +
             ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
             'VERBATIM. The call blocks and returns when the turn completes; if it errors, skip step (3) and return the empty ' +
@@ -1214,8 +1210,8 @@ const CLUSTERS = Object.values(
     }, {}),
 );
 log('Verify: ' + CLUSTERS.length + ' cluster(s) by route family');
-// The route decides the lane: assay/build/extdoc run NATIVE because a read-only codex sandbox CANNOT run `uv`/
-// tools.assay (nor a native Context7 lane) — assay clusters are native by construction; catalog/docfile ride codex terra.
+// The route decides the lane: assay/build/extdoc run NATIVE (tools.assay over host DLLs, a native Context7 lane for
+// extdoc); catalog/docfile ride codex terra reading the repo.
 const verified = (
     await Promise.all(
         CLUSTERS.map((c) => {

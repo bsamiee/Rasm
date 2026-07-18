@@ -1,13 +1,13 @@
 export const meta = {
     name: 'estate',
     description:
-        'Per-language estate tracks - two gpt-5.6-terra recon lanes per track (codex wrappers, split charges: the estate-scope dossier and the libs-complexity dossier, both written to scratch) then initial/critique/redteam fable passes - closing with a monorepo final track. The T-passes stay native fable because their acceptance gates run network-bound toolchains (dotnet restore, uv sync, pnpm install) a codex sandbox cannot reach. Every pass nominates generalizable findings and reports deliberately-left residuals; a terminal doctrine lander pools both across all tracks and adjudicates the nominations into docs/laws, the constitution, the test/tool READMEs, and the reviewer rules, while the pooled residuals ride the run return untouched - estate residuals are deliberate deferrals, not a drain backlog.',
+        'Per-language estate tracks - two gpt-5.6-terra recon lanes per track (codex wrappers, split charges: the estate-scope dossier and the libs-complexity dossier, both written to scratch) then initial/critique/redteam fable passes - closing with a monorepo final track. The T-passes are fable write lanes; their acceptance gates run network-bound toolchains (dotnet restore, uv sync, pnpm install). Every pass nominates generalizable findings and reports deliberately-left residuals; a terminal doctrine lander pools both across all tracks and adjudicates the nominations into docs/laws, the constitution, the test/tool READMEs, and the reviewer rules, while the pooled residuals ride the run return untouched - estate residuals are deliberate deferrals, not a drain backlog.',
     whenToUse:
         'Full estate improvement over tests/tools/root configs per language, then polyglot alignment; passes run on fable, then a terminal doctrine lander lands generalizable findings.',
     phases: [
         {
             title: 'Recon',
-            detail: 'per track: two read-only gpt-5.6-terra lanes via codex wrappers (sonnet shells) with split charges - estate-scope facts and the libs-complexity map - each writing its dossier to scratch',
+            detail: 'per track: two recon gpt-5.6-terra lanes via codex wrappers (sonnet shells) with split charges - estate-scope facts and the libs-complexity map - each writing its dossier to scratch',
             model: 'sonnet',
         },
         { title: 'Estate' },
@@ -189,12 +189,12 @@ const DOCTRINE_SCHEMA = {
 
 const MODEL_LAW =
     'MODEL LAW: you execute every file write and every judgment yourself. Delegate read-only reconnaissance roughly 50/50 between codex ' +
-    '(Bash: codex exec -s read-only --skip-git-repo-check -m gpt-5.6-terra ' +
+    '(Bash: codex exec --skip-git-repo-check -m gpt-5.6-terra ' +
     '"<self-contained scoped question>" </dev/null 2>/dev/null — synchronous, ' +
     'one bounded question per leg) and opus subagents (Agent tool, model opus, explicit READ-ONLY mandate). ' +
     'Recon returns facts, locations, inventories, and verified member lists — never instructions, prescriptions, or edits. Tooling routes each leg: ' +
-    'codex legs own repo-local facts (fd/rg/loc/tree, file reads); opus legs own exa/tavily, the nuget MCP, Context7, and uv run python -m tools.assay ' +
-    '— a read-only codex sandbox cannot run uv, so assay evidence never rides a codex leg. When the Agent tool is unavailable, codex absorbs the ' +
+    'codex legs own repo-local facts (fd/rg/loc/tree, file reads); opus legs own exa/tavily, the nuget MCP, Context7, and uv run python -m tools.assay' +
+    '. When the Agent tool is unavailable, codex absorbs the ' +
     'repo-local legs and you gather the uv/MCP evidence in your own shell.';
 
 const GUARDRAILS =
@@ -324,11 +324,11 @@ const reconPrompt = (t, name, lane) =>
     t.scope;
 
 // Codex dispatch: the sonnet wrapper makes one blocking Codex MCP call; the recon lane itself writes its
-// dossier (workspace-write, that one file) and returns the receipt as its final message — the wrapper relays
+// dossier (that one file) and returns the receipt as its final message — the wrapper relays
 // that receipt, no product write, no relay hop. Lane law rides developer-instructions; the prompt carries only the task.
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-');
-// Codex lanes in this workflow are recon-only — the write passes stay native fable behind network-bound gates a codex sandbox
-// cannot reach — so the lane law is the read-only investigation contract; no write/fix branch exists to fork.
+// Codex lanes in this workflow are recon-only — the write passes run on fable — so the lane law is the investigation
+// contract; no write/fix branch exists to fork.
 const laneLaw = (schema, o) =>
     '<context_gathering>\nTerritory: the exact files and directories the task names. Do not open files outside it, ' +
     'including skill or instruction files (.claude/, CLAUDE.md, AGENTS.md).\nBudget: at most ' +
@@ -356,7 +356,7 @@ const codexRecon = (task, o) => {
         '(1) Call ToolSearch with query "select:mcp__codex__codex".',
         '(2) Call the loaded mcp__codex__codex tool ONCE with model="' +
             model +
-            '", sandbox="workspace-write" (the task writes its one dossier file), cwd=' +
+            '", cwd=' +
             JSON.stringify(root) +
             (o.codexEffort ? ', config={"model_reasoning_effort":"' + o.codexEffort + '"}' : '') +
             ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +

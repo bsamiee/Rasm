@@ -2,16 +2,16 @@ export const meta = {
     name: 'rebuild-api',
     whenToUse: 'Rebuild every .api catalog under a target root to full integration-shaped capability.',
     description:
-        'Rebuild every .api catalog under a target root to FULL first-class, integration-shaped capability — document each package full advanced surface AND how packages STACK into single dense rails, verified against real members. Substrate-first PER LANGUAGE: each language runs as an independent concurrent lane in which the shared tier (libs/<lang>/.api/) is rebuilt before that language folder tiers — the barrier is language-local, so a python folder catalog never waits on csharp substrate; a failed substrate batch flags that language folder batches in the log and return instead of silently stacking onto stub hubs. Folder batches keep one folder per batch, pack small sibling-folder tails of the same language up to the batch size, and co-batch sibling families as the WORK PARTITION, never a write fence: every batch fixes any catalog its work exposes — either tier, in or out of its batch — in the same pass under the current-state law, so the run ends closed in one pass. Every catalog rebuild batch (substrate and folder tier alike) runs on gpt-5.6-terra dispatched through a sonnet codex wrapper in a workspace-write sandbox — batches are path-disjoint by construction; the discover stage stays sonnet. Language-agnostic: members verified via assay api over host DLLs / NuGet / Python distributions / node_modules, falling back to the nuget MCP / Context7 / source tier when reflection is blocked. args = optional scope (string, array of scopes, or {target|targets} — e.g. "libs/python" or "libs/csharp/Rasm.Bim"); empty = all of libs.',
+        'Rebuild every .api catalog under a target root to FULL first-class, integration-shaped capability — document each package full advanced surface AND how packages STACK into single dense rails, verified against real members. Substrate-first PER LANGUAGE: each language runs as an independent concurrent lane in which the shared tier (libs/<lang>/.api/) is rebuilt before that language folder tiers — the barrier is language-local, so a python folder catalog never waits on csharp substrate; a failed substrate batch flags that language folder batches in the log and return instead of silently stacking onto stub hubs. Folder batches keep one folder per batch, pack small sibling-folder tails of the same language up to the batch size, and co-batch sibling families as the WORK PARTITION, never a write fence: every batch fixes any catalog its work exposes — either tier, in or out of its batch — in the same pass under the current-state law, so the run ends closed in one pass. Every catalog rebuild batch (substrate and folder tier alike) runs on gpt-5.6-terra dispatched through a sonnet codex wrapper — batches are path-disjoint by construction; the discover stage stays sonnet. Language-agnostic: members verified via assay api over host DLLs / NuGet / Python distributions / node_modules, falling back to the nuget MCP / Context7 / source tier when reflection is blocked. args = optional scope (string, array of scopes, or {target|targets} — e.g. "libs/python" or "libs/csharp/Rasm.Bim"); empty = all of libs.',
     phases: [
         { title: 'API-Discover', detail: 'list every .api catalog under the target from disk; _tmp/archives excluded' },
         {
             title: 'API-Substrate',
-            detail: 'per-language lanes on gpt-5.6-terra (codex wrappers, workspace-write): each language shared tier (libs/<lang>/.api/) rebuilt first inside its own lane — the hub rails that language folder tier stacks onto; a failed hub batch flags the lane',
+            detail: 'per-language lanes on gpt-5.6-terra (codex wrappers): each language shared tier (libs/<lang>/.api/) rebuilt first inside its own lane — the hub rails that language folder tier stacks onto; a failed hub batch flags the lane',
         },
         {
             title: 'API-Rebuild',
-            detail: 'folder-tier batches per language lane on gpt-5.6-terra (codex wrappers, workspace-write): one folder per batch, small sibling-folder tails packed up to the batch size; all lanes concurrent under the run-wide slot cap; every cross-catalog defect fixed in-pass',
+            detail: 'folder-tier batches per language lane on gpt-5.6-terra (codex wrappers): one folder per batch, small sibling-folder tails packed up to the batch size; all lanes concurrent under the run-wide slot cap; every cross-catalog defect fixed in-pass',
         },
     ],
 };
@@ -96,8 +96,7 @@ const LAW = [
         'license / build-floor / marker or target), then member sections grouped by concern, backticked symbols + signatures + a consumer/boundary ' +
         'note. NO provenance/process narration, NO freshness tails. Cite REAL members only — verify via `UV_CACHE_DIR=.cache/uv uv run --frozen ' +
         'python -m tools.assay api resolve <pkg>` (assay api owns external-artifact reflection over host DLLs, NuGet, installed Python distributions, ' +
-        'and node_modules declarations per CLAUDE.md OWNER_ROUTING; the cache prefix is load-bearing in a codex sandbox, where the default uv cache ' +
-        'sits outside the workspace); when reflection is blocked or assay is unavailable, verify through the fallback tier instead ' +
+        'and node_modules declarations per CLAUDE.md OWNER_ROUTING); when reflection is blocked or assay is unavailable, verify through the fallback tier instead ' +
         '— the nuget MCP for NuGet feed truth, Context7 for official API docs, exa/tavily for the package source/official surface — never from ' +
         'memory. Before driving assay, READ tools/assay/README.md for the api-arm contract (its resolve/decompile/reflection invocation, ' +
         'supported artifact kinds, and JSON output shape) so you drive it correctly rather than guessing flags.',
@@ -170,7 +169,7 @@ const chunk = (arr, n) => {
 // Codex dispatch: the sonnet wrapper makes one blocking Codex MCP call, writes the envelope's content
 // to the lane report, and returns mechanical orchestration data. Lane law rides developer-instructions
 // (role split); the prompt carries only the task; the output contract sits LAST. Every batch EDITS .api
-// files in place, so every lane is a workspace-write fix lane — the read-only lane shape never runs here.
+// files in place, so every lane is a write lane.
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-');
 const laneLaw = (schema) =>
     '<completion_bar>\nDone is every catalog in your named batch rebuilt to its full integration-shaped depth with its ' +
@@ -199,14 +198,14 @@ const codexPrompt = (label, task, schema, o) => {
         '(1) Call ToolSearch with query "select:mcp__codex__codex".',
         '(2) Call the loaded mcp__codex__codex tool ONCE with model="' +
             model +
-            '", sandbox="workspace-write", cwd=' +
+            '", cwd=' +
             JSON.stringify(root) +
             (o.codexEffort ? ', config={"model_reasoning_effort":"' + o.codexEffort + '"}' : '') +
             ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
             'VERBATIM. ' +
             'If the call errors, return the error text through step (4) as ok=false.',
         'LANE LAW:\n\n' + laneLaw(schema),
-        // batch lanes are workspace-write and author their own report (final act); the wrapper only verifies.
+        // batch lanes author their own report (final act); the wrapper only verifies.
         'TASK:\n\n' +
             task +
             '\n\nREPORT FILE (final act): before returning your final message, write that COMPLETE final-message JSON verbatim to ' +

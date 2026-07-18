@@ -5,17 +5,40 @@ description: Dispatch self-contained work to Codex (gpt-5.6 Sol/Terra) through t
 
 # [CODEX]
 
-`codex exec` runs a gpt-5.6 model as a non-interactive peer agent in its own context window and returns one final message. Every lane states model and sandbox explicitly; `~/.codex/config.toml` carries the operator's interactive stance, its `model_reasoning_effort` row the dispatch default. Any configuration or usage question resolves through the `openaiDeveloperDocs` MCP server — never web search, never recall.
+`codex exec` runs a gpt-5.6 model as a non-interactive peer agent in its own context window and returns one final message. Every invocation states its model explicitly; `~/.codex/config.toml` carries the full configuration including its `model_reasoning_effort` row for dispatch default.
+
+Use `openaiDeveloperDocs` MCP server for all configuration or usage questions; never web search or recall.
 
 ## [01]-[ROUTING]
 
-- [01]-[PROMPTING](references/prompting.md): block vocabulary, lane-shape templates, calibration law, exclusions — the authoring surface for every codex prompt
-- [02]-[META_MANAGEMENT](references/meta-management.md): skills, custom agents, MCP membership and health, config ownership
+- [01]-[META_MANAGEMENT](references/meta-management.md): Codex skills, custom agents, MCP membership and health, and config ownership.
+
+## [02]-[PROMPTING]
+
+Codex is maximally literal, it follows a clean contract exactly and exhaustively, ambiguity or implicit intent leads to burned reasoning reconciling scpe. Leaner prompts outperform — every directive earns its slot, one directive per concern, and a directive codex already ships is a conflict risk, NOT reinforcement.
+
+Every dispatch carries four things — Goal Context Constraints Done-when — Split across two channels:
+- Durable lane law rides `developer-instructions` (MCP) / `-c developer_instructions=` (CLI) as XML blocks with the output contract LAST.
+- User `prompt` carries only the task instance and any imperative spawn step.
+
+[BLOCK_VOCABULARY] — One canonical block per concern; each lane selects its rows in this order:
+
+| [INDEX] | [BLOCK]                          | [JOB]                                          | [RECON] | [WRITE] | [JUDGMENT] |
+| :-----: | :------------------------------- | :--------------------------------------------- | :-----: | :-----: | :--------: |
+|  [01]   | `<role>`                         | identity, exact territory, hard exclusions     |   opt   |   yes   |    yes     |
+|  [02]   | `<completion_bar>`               | done-definition per move, defer-on-blocker     |    —    |   yes   |    yes     |
+|  [03]   | `<context_gathering>`            | read ladder, total-call budget, escape hatch   |   yes   |   yes   |    yes     |
+|  [04]   | `<capability_mandate>`           | opt-in surface-raising for campaigns           |    —    |   opt   |    opt     |
+|  [05]   | `<verification>`                 | post-edit re-read, truth rail, format gate     |   yes   |   yes   |    yes     |
+|  [06]   | `<output_contract>`              | JSON-only shape, null-for-missing, always LAST |   yes   |   yes   |    yes     |
+|  [07]   | `<decision_procedure>`           | refute-first adjudication                      |    —    |    —    |    yes     |
+
+- `<role>` on a judgment lane adds the findings-are-untrusted clause, `<completion_bar>` sits early where it beats codex early-stop, and `<verification>` extends with a cite-check on recon and a rubric walk on judgment; `<capability_mandate>` is earned by a focused campaign and states every expansion move as a measurable condition — figurative targets make a literal model over-engineer toward phantoms.
 
 ## [02]-[DISPATCH]
 
 - Investigation legs whose transcripts flood this context — repo sweeps, audits, log distillation, data analysis: codex returns the conclusion.
-- Fleet fix and critique waves: concurrent workspace-write lanes draining findings under lane law, each with disjoint write territory.
+- Fleet fix and critique waves: concurrent write lanes draining findings under lane law, each with disjoint write territory.
 - Critique lanes writing on-disk fixlogs, reports, or dossiers another agent consumes downstream.
 - Implementation from spec: migrations, renames, conversions, boilerplate expansion, full features with enumerated moves.
 - Independent second perspective on a plan, implementation, or diff — a different model lineage catches different failure modes.
@@ -25,7 +48,7 @@ Main-loop legs run as background CLI keepers — a blocking MCP call freezes the
 ## [03]-[INVOCATION]
 
 MCP surface — fleet server `codex`, tools `codex` and `codex-reply`; the prompt rides a tool argument, no shell quoting:
-- Parameters: `prompt` (required), `model`, `sandbox`, `cwd`, `approval-policy`, `config` (object — effort deviates via `{"model_reasoning_effort": "..."}`), `developer-instructions` (the lane-law channel), `base-instructions`, `compact-prompt`. `sandbox` has no schema default — pass it on every call; a headless dispatch passes `approval-policy: "never"`.
+- Parameters: `prompt` (required), `model`, `cwd`, `approval-policy`, `config` (object — effort deviates via `{"model_reasoning_effort": "..."}`), `developer-instructions` (the lane-law channel), `base-instructions`, `compact-prompt`. A headless dispatch passes `approval-policy: "never"`.
 - `base-instructions` (MCP) / `model_instructions_file` (CLI) REPLACE the shipped system prompt — deliberate use only, never a lane-law channel.
 - Result envelope `{threadId, content}`: parse `content` for the final message — a consumer treating the raw result as the product double-encodes every downstream read; `threadId` feeds `codex-reply` (`conversationId` is its deprecated alias).
 - Concurrent calls on the one server process complete independently; a blocking call returns when the turn completes.
@@ -35,11 +58,11 @@ MCP surface — fleet server `codex`, tools `codex` and `codex-reply`; the promp
 CLI surface — the default form inherits the config effort (high); the second form pins a deviation:
 
 ```bash template
-codex exec -s <sandbox> -m <model> [-c developer_instructions="<lane-law>"] --skip-git-repo-check [-C <dir>] [-o <report>] "<prompt>" </dev/null 2>/dev/null
+codex exec -m <model> [-c developer_instructions="<lane-law>"] --skip-git-repo-check [-C <dir>] [-o <report>] "<prompt>" </dev/null 2>/dev/null
 ```
 
 ```bash template
-codex exec -s <sandbox> -m <model> -c 'model_reasoning_effort="<tier>"' [-c developer_instructions="<lane-law>"] --skip-git-repo-check [-C <dir>] [-o <report>] "<prompt>" </dev/null 2>/dev/null
+codex exec -m <model> -c 'model_reasoning_effort="<tier>"' [-c developer_instructions="<lane-law>"] --skip-git-repo-check [-C <dir>] [-o <report>] "<prompt>" </dev/null 2>/dev/null
 ```
 
 - `</dev/null` is mandatory from a harness: `codex exec` reads piped stdin to EOF even with a prompt argument — an open-but-silent stdin blocks forever; the stderr `Reading additional input from stdin...` notice is pre-EOF, not a hang.
@@ -49,21 +72,17 @@ codex exec -s <sandbox> -m <model> -c 'model_reasoning_effort="<tier>"' [-c deve
 - Task and schema files land through a real file-write at ABSOLUTE paths, never a shell heredoc — cwd drift plus heredoc quoting land files where codex cannot find them.
 - A short synchronous leg needs zero files: inline prompt, stdout capture.
 
-| [INDEX] | [NEED]                                        | [FLAGS]                                                                               |
-| :-----: | :-------------------------------------------- | :------------------------------------------------------------------------------------ |
-|  [01]   | Read, analyze, research                       | `-s read-only` — blocks `uv run`; uv needs row [02] plus `UV_CACHE_DIR=.cache/uv`     |
-|  [02]   | Edit files in the workspace                   | `-s workspace-write` — `.git/` stays write-blocked; default uv cache is off-workspace |
-|  [03]   | Extra writable roots alongside the workspace  | `--add-dir <dir>`                                                                     |
-|  [04]   | Network or system access beyond the workspace | `-s danger-full-access` — only with explicit user authorization                       |
-|  [05]   | Run rooted in another directory               | `-C <dir>`                                                                            |
-|  [06]   | Durable report artifact                       | `-o <file>` — an empty file means the process was killed before completion            |
-|  [07]   | Typed JSON final message                      | `--output-schema <schema.json>` — validated final-message shape                       |
-|  [08]   | Live web search                               | `-c web_search="live"` — default `cached` answers from an index, no live fetch        |
-|  [09]   | Attach images (screenshots, diagrams)         | `-i <file>` (repeatable)                                                              |
-|  [10]   | Feature toggles per lane                      | `--enable <feature>` / `--disable <feature>` (repeatable)                             |
-|  [11]   | Fan-out legs with no session persistence      | `--ephemeral` — not resumable                                                         |
-|  [12]   | Streamed JSONL events for live monitoring     | `--json` (thread/turn/item events to stdout; composes with `-o`)                      |
-|  [13]   | Per-lane completion push                      | `-c 'notify=["<sink>","<lane>"]'` — fires at turn end with a JSON payload             |
+| [INDEX] | [NEED]                                    | [FLAGS]                                                                        |
+| :-----: | :---------------------------------------- | :------------------------------------------------------------------------------ |
+|  [01]   | Run rooted in another directory           | `-C <dir>`                                                                      |
+|  [02]   | Durable report artifact                   | `-o <file>` — an empty file means the process was killed before completion      |
+|  [03]   | Typed JSON final message                  | `--output-schema <schema.json>` — validated final-message shape                 |
+|  [04]   | Live web search                           | `-c web_search="live"` — default `cached` answers from an index, no live fetch  |
+|  [05]   | Attach images (screenshots, diagrams)     | `-i <file>` (repeatable)                                                        |
+|  [06]   | Feature toggles per lane                  | `--enable <feature>` / `--disable <feature>` (repeatable)                       |
+|  [07]   | Fan-out legs with no session persistence  | `--ephemeral` — not resumable                                                   |
+|  [08]   | Streamed JSONL events for live monitoring | `--json` (thread/turn/item events to stdout; composes with `-o`)                |
+|  [09]   | Per-lane completion push                  | `-c 'notify=["<sink>","<lane>"]'` — fires at turn end with a JSON payload       |
 
 ## [04]-[MODEL_AND_EFFORT]
 
@@ -76,7 +95,7 @@ Sol is the primary model, carrying roughly 80% of dispatch: every non-trivial wr
 |  [01]   | `gpt-5.6-sol`   | primary — writes, design, reviews, fleets; `medium` menial writes, `low` extraction            |
 |  [02]   | `gpt-5.6-terra` | navigation, exploration, research at `medium` or lower                                         |
 
-Sol carries the family's highest measured reward-hacking rate — high tiers tighten sandbox and approval, never relax them. Each effort row is the flag to deviate to it:
+Each effort row is the flag to deviate to it:
 
 | [INDEX] | [TIER] | [SELECT]                             | [USE]                                                             |
 | :-----: | :----- | :----------------------------------- | :---------------------------------------------------------------- |
@@ -96,7 +115,7 @@ Sol carries the family's highest measured reward-hacking rate — high tiers tig
 A lane runs the operator config whole — MCP fleet, skills, notify. Selection narrows only where a real hazard bites:
 
 - FAIL-CLOSED: a `required = true` server missing its startup handshake kills the run at session creation — `thread/start failed`, exit 1, no model turn, ZERO JSONL events. Rescue with `-c 'mcp_servers.<name>.enabled=false'`. Disable keys ride UNQUOTED — a TOML-quoted key mints a phantom transportless server that kills config load; `-c 'mcp_servers={}'` is a merge no-op.
-- HEADLESS CALLABILITY: `codex exec` runs at `approval: never`; callability combines tool annotations with `default_tools_approval_mode`. Annotated read-only tools call cleanly; an unannotated tool calls only under mode `approve` — under `auto`/`writes` the call cancels mid-flight, and codex may FABRICATE a plausible result instead of surfacing the cancellation. Permanent `approve` rows serve pure information-retrieval servers; a per-lane grant rides `-c 'mcp_servers.<name>.default_tools_approval_mode="approve"'`, `tools.<tool>.approval_mode` narrows to one tool, `disabled_tools` is the per-tool deny list. NEVER grant `approve` to a write-capable server — MCP servers run OUTSIDE the sandbox. Prove a server before betting a lane on it: one probe call returning the raw result or exact error settles callability.
+- HEADLESS CALLABILITY: `codex exec` runs at `approval: never`; callability combines tool annotations with `default_tools_approval_mode`. Annotated read-only tools call cleanly; an unannotated tool calls only under mode `approve` — under `auto`/`writes` the call cancels mid-flight, and codex may FABRICATE a plausible result instead of surfacing the cancellation. Permanent `approve` rows serve pure information-retrieval servers; a per-lane grant rides `-c 'mcp_servers.<name>.default_tools_approval_mode="approve"'`, `tools.<tool>.approval_mode` narrows to one tool, `disabled_tools` is the per-tool deny list. Prove a server before betting a lane on it: one probe call returning the raw result or exact error settles callability.
 - Fan-out lanes disable `heptabase-mcp` — codex never serializes rotating refresh-token transactions across concurrent processes.
 - No flag suppresses the AGENTS.md instruction chain; `project_doc_max_bytes` bounds it root-to-leaf, and an oversized global `~/.codex/AGENTS.md` silently evicts every repo file below it. Per-lane scope bounds ride `developer-instructions` — truncation-immune, above the user-role chain.
 - Precedence: `-c` flag over project file over user config, composing freely under `--profile`; project trust activates only through the user-config `[projects]` table.
@@ -111,7 +130,7 @@ Codex shares no conversation state — every prompt is self-contained: Goal, Con
 - AUTONOMY ONCE: state the autonomy policy a single time, naming safe actions — repeated "ask first" or "do not mutate" phrasing causes spurious approval pauses.
 - STOP RULES: every lane states its completion bar — enumerated deliverables, each proven by observable evidence from the real surface, never "checks ran". That bar bounds scope, not depth; beyond-bar findings land as typed residue rows. A bare "fix everything you find" mandate at high effort is the failure regime.
 - LAYER PIN: a long leg names its layer — research, design, implementation, review — and never migrates out; out-of-layer discoveries land as typed rows in the product.
-- SCOPE: `<design_and_scope_constraints>` is the default block — implement EXACTLY and ONLY the named moves, simplest valid interpretation of any ambiguity, resolution by instruction never by clarifying questions.
+- SCOPE: implement EXACTLY and ONLY the named moves — simplest valid interpretation of any ambiguity, resolution by instruction never by clarifying questions.
 - CONTRACT: `--output-schema` enforces the final-message shape at the CLI — STRICT: every key in `properties` also in `required`, `additionalProperties: false`; anything less degrades silently to unvalidated output. A leg whose output a Claude agent reads takes a prose JSON contract instead — the word "JSON", the exact shape, "no prose outside the JSON, no code fences", null-for-missing.
 
 ## [07]-[BACKGROUND]
@@ -119,7 +138,7 @@ Codex shares no conversation state — every prompt is self-contained: Goal, Con
 A main-loop leg runs codex SYNCHRONOUSLY inside a `run_in_background` Bash task — that keeper is the lane's owner, its exit re-invokes the agent. A foreground Bash call reaps its detached children minutes after returning, killing lanes reportless mid-run. Codex emits its result only at completion; the lane runs until it finishes.
 
 ```bash template
-codex exec -s <sandbox> -m <model> --skip-git-repo-check --json -o <report> \
+codex exec -m <model> --skip-git-repo-check --json -o <report> \
   -c 'notify=["<sink>","<lane>"]' "<prompt>" </dev/null ><events.jsonl> 2><stderr.log> &
 ```
 
@@ -133,22 +152,22 @@ codex exec -s <sandbox> -m <model> --skip-git-repo-check --json -o <report> \
 
 ## [08]-[FAN_OUT]
 
-Independent scopes run as concurrent `codex exec` processes, one per scope, each fleet-grade with its own artifacts; reconcile reports after all complete. Sandbox isolation is per-process — concurrent workspace-write runs against overlapping paths collide; partition write scopes or serialize.
+Independent scopes run as concurrent `codex exec` processes, one per scope, each fleet-grade with its own artifacts; reconcile reports after all complete. Concurrent write runs against overlapping paths collide — partition write scopes or serialize.
 
-Inside ONE lane, `collaboration.*` is the subagent tool family — `spawn_agent`, `followup_task`, `send_message`, `wait_agent`, `interrupt_agent`, `list_agents` (rollout-verified names; official docs list a different, stale set — never "correct" toward it). Children share the workspace live, inherit sandbox and model, and inherit NO conversation turns unless `fork_turns` opts in — a spawn task is self-contained like any codex prompt.
+Inside ONE lane, `collaboration.*` is the subagent tool family — `spawn_agent`, `followup_task`, `send_message`, `wait_agent`, `interrupt_agent`, `list_agents` (rollout-verified names; official docs list a different, stale set — never "correct" toward it). Children share the workspace live, inherit the model, and inherit NO conversation turns unless `fork_turns` opts in — a spawn task is self-contained like any codex prompt.
 
 - GATE: an injected developer-role gate admits children ONLY on imperative spawn wording in the user prompt or AGENTS.md/skill chain — exact tool names, count, wait, per-child return shape. Permissive "you may spawn" and `developer_instructions` mandates fail silently with zero spawns.
 - AUDIT: grep the parent rollout for `function_call` items named `spawn_agent` — `collab_tool_call` is a stale marker that false-negatives; the sessions store's `thread_spawn_edges` table is the version-stable SQL audit path.
-- Worthwhile shapes are read-only star fan-outs — miners, censuses, verifiers returning distilled results; anti-patterns are parallel writers on the shared tree plus delegated fix-judgment — findings are signals, the lane owns the judgment.
-- A row-shaped sweep rides ONE lane's `spawn_agents_on_csv`: one worker per CSV row under the concurrency cap, `output_schema` typing each row; the `output_csv_path` export lands only under `workspace-write`. Reusable personas are `~/.codex/agents/*.toml` files spawned by name.
-- A `workspace-write` lane writes its own report as its final act; the caller verifies (`jq -e`) — re-emitting a codex product through another agent's Write is lossy at scale.
+- Worthwhile shapes are star fan-outs — miners, censuses, verifiers returning distilled results; anti-patterns are parallel writers on the shared tree plus delegated fix-judgment — findings are signals, the lane owns the judgment.
+- A row-shaped sweep rides ONE lane's `spawn_agents_on_csv`: one worker per CSV row under the concurrency cap, `output_schema` typing each row and `output_csv_path` exporting the combined results. Reusable personas are `~/.codex/agents/*.toml` files spawned by name.
+- A write lane writes its own report as its final act; the caller verifies (`jq -e`) — re-emitting a codex product through another agent's Write is lossy at scale.
 
 ## [09]-[SESSIONS]
 
 Every run mints a resumable thread on both surfaces — capture the id at dispatch whenever follow-up is plausible (the lane receipt persists it), and run iterative deep work as ONE thread continued with sharpened prompts, never fresh runs re-paying the exploration cost.
 
 - MCP: the envelope carries `threadId`; continue with `codex-reply`. CLI: the banner prints `session id: <uuid>` (= `thread.started.thread_id` under `--json`); resume with `codex exec resume <id> "<follow-up>" </dev/null 2>/dev/null`, config flags between `exec` and `resume`; `resume --all` surfaces sessions recorded under another cwd.
-- A continuation inherits model, effort, and sandbox. `resume --last` is valid only when nothing else ran in between; under concurrency resume by explicit id. `--ephemeral` runs record nothing.
+- A continuation inherits model and effort. `resume --last` is valid only when nothing else ran in between; under concurrency resume by explicit id. `--ephemeral` runs record nothing.
 - Store: one rollout per session at `~/.codex/sessions/<YYYY>/<MM>/<DD>/rollout-<ts>-<uuidv7>.jsonl` — the filename timestamp is LOCAL time, the payload's is UTC; `session_index.jsonl` LAGS live runs, so correlate by datestamped filename. Sqlite store filenames embed the migration version (`state_5` today) — resolve the live name, never pin the number.
 - `codex archive <id>` / `unarchive <id>` is the reversible lifecycle; `codex delete` removes one session, its `--force` unreliable across spawned children — bulk cleanup is a date-scoped sqlite prune plus matching rollout deletions plus `VACUUM`. `[features] memories`/`chronicle` rows gate those features independently of corpus deletion.
 

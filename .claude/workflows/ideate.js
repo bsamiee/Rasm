@@ -2,16 +2,16 @@ export const meta = {
     name: 'ideate',
     whenToUse: 'Rebuild a folder IDEAS and TASK pool to world-class when the deferred idea or task pool is stale or thin.',
     description:
-        'Rebuild a folder IDEAS + TASKS card pool to world-class: survey the realized corpus and research the real domain, author the genuinely-deferred idea/task pool, then fix-in-place constructive critique + hostile adversarial redteam. Language-agnostic (cards are markdown governed by the card schema). Authors NO design pages (that is the rebuild-* workflows) and aligns nothing pre-existing for its own sake (that is align-cards) — this is the greenfield/expansion pool generator. Every agent call takes a slot in one agent-level scheduler so the true in-flight agent count stays at cap while all folder chains run concurrently; within a folder the survey -> ideate -> critique -> redteam chain holds because each stage consumes the prior stage\'s landed cards, and a folder above the survey page cap runs two page-slice survey agents whose maps merge before the ideate stage. Survey lanes (including the page-slice splits) run read-only on gpt-5.6-terra dispatched through sonnet codex wrappers; ideate and redteam stay fable writers, and critique runs as ONE gpt-5.6-sol codex lane per folder (workspace-write; cardlog to disk, receipt on the wire; the redteam reads it from disk as refutation targets and folds its verified files into the folder record). Every stage writes BOTH ends of every Ripple itself — a cross-folder counterpart is authored or repaired directly in the sibling folder\'s card files in the same pass under the current-state law; nothing routes to a later phase. Every writing stage also nominates generalizable lessons into a required-usually-empty harvest, folded forward through the redteam and the orphan drain; one terminal doctrine lander then adjudicates the pooled harvest against the docs/laws admission bar (land-nothing legal) before the run closes. The terminal stays the single fold-forward orphan drain, not a round-based DRAIN LOOP: Ripples land both ends in-pass by design and the cardlog carries no {files, claim} backlog, so nothing pools across stages. args = optional scope (e.g. "libs/python/geometry"); empty = all of libs.',
+        'Rebuild a folder IDEAS + TASKS card pool to world-class: survey the realized corpus and research the real domain, author the genuinely-deferred idea/task pool, then fix-in-place constructive critique + hostile adversarial redteam. Language-agnostic (cards are markdown governed by the card schema). Authors NO design pages (that is the rebuild-* workflows) and aligns nothing pre-existing for its own sake (that is align-cards) — this is the greenfield/expansion pool generator. Every agent call takes a slot in one agent-level scheduler so the true in-flight agent count stays at cap while all folder chains run concurrently; within a folder the survey -> ideate -> critique -> redteam chain holds because each stage consumes the prior stage\'s landed cards, and a folder above the survey page cap runs two page-slice survey agents whose maps merge before the ideate stage. Survey lanes (including the page-slice splits) run as recon lanes on gpt-5.6-terra dispatched through sonnet codex wrappers; ideate and redteam stay fable writers, and critique runs as ONE gpt-5.6-sol codex lane per folder (write lane; cardlog to disk, receipt on the wire; the redteam reads it from disk as refutation targets and folds its verified files into the folder record). Every stage writes BOTH ends of every Ripple itself — a cross-folder counterpart is authored or repaired directly in the sibling folder\'s card files in the same pass under the current-state law; nothing routes to a later phase. Every writing stage also nominates generalizable lessons into a required-usually-empty harvest, folded forward through the redteam and the orphan drain; one terminal doctrine lander then adjudicates the pooled harvest against the docs/laws admission bar (land-nothing legal) before the run closes. The terminal stays the single fold-forward orphan drain, not a round-based DRAIN LOOP: Ripples land both ends in-pass by design and the cardlog carries no {files, claim} backlog, so nothing pools across stages. args = optional scope (e.g. "libs/python/geometry"); empty = all of libs.',
     phases: [
         {
             title: 'Survey',
-            detail: 'discover card-owning folders with page counts (sonnet), then per folder: a read-only gpt-5.6-terra lane (codex wrapper) maps realized capability + current pool + researched domain-completeness gaps + cross-folder seams; a folder above the survey page cap splits the survey across two page-slice gpt-5.6-terra lanes merged before ideate',
+            detail: 'discover card-owning folders with page counts (sonnet), then per folder: a recon gpt-5.6-terra lane (codex wrapper) maps realized capability + current pool + researched domain-completeness gaps + cross-folder seams; a folder above the survey page cap splits the survey across two page-slice gpt-5.6-terra lanes merged before ideate',
         },
         { title: 'Ideate', detail: 'author/rebuild the IDEAS + TASKS pool grounded in the survey, genuinely-deferred only, both Ripple ends landed' },
         {
             title: 'Critique',
-            detail: 'fix-in-place on gpt-5.6-sol (codex lane, workspace-write): pull the pool up — density, domain-completeness, anchors, ripples; cardlog to disk',
+            detail: 'fix-in-place on gpt-5.6-sol (codex lane): pull the pool up — density, domain-completeness, anchors, ripples; cardlog to disk',
         },
         { title: 'Redteam', detail: 'fix-in-place hostile reviewer: attack redundancy, mis-carding, dangling ripples, under-ideation' },
     ],
@@ -313,7 +313,7 @@ const retryLane = async (fn) => {
 const nameOf = (f) => f.split('/').pop() || f;
 
 // Codex dispatch: the sonnet wrapper makes one blocking Codex MCP call, writes the envelope's content to the lane report, and returns mechanical
-// orchestration data. Lane law rides developer-instructions (role split — recon law for read-only survey lanes, fix law for the in-place critique
+// orchestration data. Lane law rides developer-instructions (role split — recon law for the survey lanes, fix law for the in-place critique
 // lane); the prompt carries only the task; the output contract sits LAST. surveyPrompt/critiquePrompt feed codex-primary lanes and carry a neutral
 // register (a hostile stance makes codex over-probe); the native fable ideatePrompt/redteamPrompt keep the estate register — same substance.
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-');
@@ -353,16 +353,14 @@ const codexPrompt = (label, task, schema, o) => {
         '(1) Call ToolSearch with query "select:mcp__codex__codex".',
         '(2) Call the loaded mcp__codex__codex tool ONCE with model="' +
             model +
-            '", sandbox=' +
-            (o.writes ? '"workspace-write"' : '"read-only"') +
-            ', cwd=' +
+            '", cwd=' +
             JSON.stringify(root) +
             (o.codexEffort ? ', config={"model_reasoning_effort":"' + o.codexEffort + '"}' : '') +
             ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
             'VERBATIM. This is one blocking call — it returns when the turn completes. On any tool error, skip step (3) and ' +
             'return the error through step (4).',
         'LANE LAW:\n\n' + laneLaw(schema, o),
-        // writes lanes (sol critique) author their own report (final act) — the sandbox admits it; the wrapper only verifies.
+        // writes lanes (sol critique) author their own report (final act); the wrapper only verifies.
         'TASK:\n\n' +
             task +
             (o.writes
@@ -626,7 +624,7 @@ const ideateFolder = async (u) => {
     const authored =
         (await slot(() => agent(ideatePrompt(folder, roster, unmapped), ideateOpts('')))) ||
         (await retryLane(() => slot(() => agent(ideatePrompt(folder, roster, unmapped), ideateOpts(':a1')))));
-    // Sol critique: a workspace-write codex lane fixing the pool in place; cardlog to disk, receipt on the wire; the redteam
+    // Sol critique: a codex lane fixing the pool in place; cardlog to disk, receipt on the wire; the redteam
     // folds its verified operational rows and the doctrine lander reads its nominations directly from the deterministic path.
     const crit = await slot(() =>
         recon(critiquePrompt(folder), {

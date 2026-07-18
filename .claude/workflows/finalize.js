@@ -315,8 +315,7 @@ const LANG = {
         shared: 'libs/csharp/.api',
         manifest: 'the package `.csproj` and the central `Directory.Packages.props` block for this package',
         verify:
-            '`UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api` — the cache prefix is load-bearing in a codex sandbox, where the default ' +
-            'uv cache sits outside the workspace (assay blocked or unavailable: the `.api` catalogs + the nuget MCP for feed truth + ' +
+            '`UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api` (assay blocked or unavailable: the `.api` catalogs + the nuget MCP for feed truth + ' +
             'Context7/exa/tavily own the fallback)',
         stackLaw:
             'the docs/stacks/csharp ROOT pages ONLY — enumerate the root with a real ls and read EVERY root `.md` in full; the ' +
@@ -328,8 +327,8 @@ const LANG = {
         shared: 'libs/python/.api',
         manifest: 'the root `pyproject.toml` rows this package consumes',
         verify:
-            '`UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api resolve <pkg>` — the cache prefix is load-bearing in a codex sandbox, where ' +
-            'the default uv cache sits outside the workspace (blocked or gated: the `.api` catalogs + PyPI feed truth + Context7/exa/tavily own the fallback)',
+            '`UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api resolve <pkg>` (blocked or gated: the `.api` catalogs + PyPI feed truth + ' +
+            'Context7/exa/tavily own the fallback)',
         stackLaw:
             'the docs/stacks/python ROOT pages ONLY — enumerate the root with a real ls and read EVERY root `.md` in full in the ' +
             'README [01]-[ATLAS] order; the domain/ and numerics/ sub-folders enter only where a page concern touches them',
@@ -341,7 +340,7 @@ const LANG = {
         manifest: 'the `pnpm-workspace.yaml` / package manifest rows this area consumes',
         verify:
             'the published types in node_modules (`UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api` over node_modules declarations where ' +
-            'a member is novel; the cache prefix keeps uv runnable in a codex sandbox)',
+            'a member is novel)',
         stackLaw: 'the docs/stacks/typescript ROOT pages ONLY — enumerate the root with a real ls and read EVERY root `.md` in full',
     },
 };
@@ -532,9 +531,7 @@ const codexPrompt = (label, task, schema, o) => {
         '(1) Call ToolSearch with query "select:mcp__codex__codex".',
         '(2) Call the loaded mcp__codex__codex tool ONCE with model="' +
             model +
-            '", sandbox=' +
-            (o.writes ? '"workspace-write"' : '"read-only"') +
-            ', cwd=' +
+            '", cwd=' +
             JSON.stringify(ROOT_DIR) +
             (o.codexEffort ? ', config={"model_reasoning_effort":"' + o.codexEffort + '"}' : '') +
             ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below VERBATIM. ' +

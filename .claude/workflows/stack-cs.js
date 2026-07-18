@@ -378,7 +378,7 @@ const CS_SUBSTRATE = [
         'per-API uses. Use the DEEPEST operator/combinator/generated surface each library reaches (LIBRARY_DEPTH); an admitted capability the concept ' +
         'admits but NO owner exploits is a DEFECT this pass closes; reject surface-level subsets, BCL-first reflexes, and thin rename wrappers. Cite ' +
         'ONLY host/NuGet members confirmed via `UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api` (verified-local beats any catalog line on ' +
-        'conflict; the cache prefix is load-bearing in a codex sandbox, where the default uv cache sits outside the workspace; assay blocked or ' +
+        'conflict; assay blocked or ' +
         'unavailable: the `.api` catalogs, the nuget MCP for feed truth, and Context7/exa/tavily for the official surface own the fallback) — a member ' +
         'you cannot verify through ANY of these rails is a phantom to delete.',
 ].join('\n');
