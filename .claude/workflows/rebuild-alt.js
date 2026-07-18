@@ -3,7 +3,7 @@ export const meta = {
     whenToUse:
         'The fable-free hostile rebuild pass for any libs/ planning corpus: pass targets (file / sub-folder / package root, any number, any language mix); it maps every .planning sub-folder, ideates per package, hostile-rebuilds every page batch concurrently at the owning-language doctrine bar, and closes with a finder fan plus one terminal fixer. Roster: terra recon/map lanes, sol codex implement + critique + terminal drain (fixlogs to disk), twin half-scope opus redteams, opus ideate/realize/disposition/doctrine.',
     description:
-        'Language-agnostic hostile-rebuild engine over the libs/{csharp,python,typescript} planning corpora. args = a target path, an array of paths, or {targets} — languages mix freely, {root} retargets an isolated checkout, empty = no-op; every page derives doctrine, both .api tiers, casing, and its member-verification rail from its owning package. Plan expands targets to pages in dependency + seam-cohesion order under the owning-package charter. Map fans one deep-map lane and one two-tier .api inventory lane per .planning sub-folder unit — an oversize sub-folder splits into ceiling-bounded segments, so map and batch seams stay congruent — each writing a per-unit dossier the batches reuse. Ideate runs two lanes per package with disjoint charters: a corrections census (the non-binding fix addendum) and a bigger-ideas worklist (new capability beyond correction). Build packs whole sub-folder units into batches under the packing ceiling, all concurrent under one slot scheduler; per batch a doctrine-bar lens, then implement, critique (workspace-write, fixlog to disk), and redteam folding the critique rows forward — every writer under the own-pass-first input ladder (own blind hostile pass primary, map dossiers grounding, census addendum, ideas ambition) with libs-wide ripple authority under the four bounds and seam-ledger coordination; handoffs carry navigation facts only. Each package chain closes with one ideas-realization writer implementing the bigger-ideas worklist against its landed corpus, gated entries carded via indexRows. The spine is per-package pipelined: each package advances Map -> Ideate -> Build the moment its own inputs land, never waiting on the slowest sibling package, and Close is the one whole-run barrier. Close: a read-only finder fan plus one governance finder per language, then ONE terminal fixer draining findings, the deferred backlog, and unclaimed census rows in a fixpoint loop, then two concurrent terminals — an ideas-disposition writer giving every bigger-ideas dossier entry exactly one outcome (realized on disk, carded into the owning IDEAS.md, or rejected with reason) and a doctrine lander adjudicating pooled harvest nominations. Fable-free roster: every map/recon lane rides gpt-5.6-terra codex wrappers, implement + critique + the terminal drain fixer ride gpt-5.6-sol codex lanes (fixlog products on disk, thin receipts on the wire, downstream stages read the fixlogs from disk), the redteam runs as TWIN half-scope opus writers per batch (half the pages each) folding both on-disk fixlogs forward, and ideate/realize/disposition/doctrine run native opus. Stage law lives in the prompt blocks; CODEX=false restores native lanes throughout (sol/terra quota-fall to opus, never fable).',
+        'Language-agnostic hostile-rebuild engine over the libs/{csharp,python,typescript} planning corpora. args = a target path, an array of paths, or {targets} — languages mix freely, {root} retargets an isolated checkout, empty = no-op; every page derives doctrine, both .api tiers, casing, and its member-verification rail from its owning package. Plan expands targets to pages in dependency + seam-cohesion order under the owning-package charter. Map fans one deep-map lane and one two-tier .api inventory lane per .planning sub-folder unit — an oversize sub-folder splits into ceiling-bounded segments, so map and batch seams stay congruent — each writing a per-unit dossier the batches reuse. Ideate runs two lanes per package with disjoint charters: a corrections census (the non-binding fix addendum) and a bigger-ideas worklist (new capability beyond correction). Build packs whole sub-folder units into batches under the packing ceiling, all concurrent under one slot scheduler; per batch a doctrine-bar lens, then implement, critique (workspace-write, fixlog to disk), and redteam folding the critique rows forward — every writer under the own-pass-first input ladder (own blind hostile pass primary, map dossiers grounding, census addendum, ideas ambition) with libs-wide ripple authority under the four bounds and seam-ledger coordination; handoffs carry navigation facts only. Each package chain closes with one ideas-realization writer implementing the bigger-ideas worklist against its landed corpus, gated entries carded via indexRows. The spine is per-package pipelined: each package advances Map -> Ideate -> Build the moment its own inputs land, never waiting on the slowest sibling package, and Close is the one whole-run barrier. Close: a read-only finder fan plus one governance finder per language, then ONE terminal fixer draining findings, the deferred backlog, and unclaimed census rows in a fixpoint loop, then two concurrent terminals — an ideas-disposition writer giving every bigger-ideas dossier entry exactly one outcome (realized on disk, carded into the owning IDEAS.md, or rejected with reason) and a doctrine lander adjudicating pooled harvest nominations. Fable-free roster: every map/recon lane rides gpt-5.6-terra codex wrappers, implement + critique + the terminal drain fixer ride gpt-5.6-sol codex lanes (fixlog products on disk, thin receipts on the wire, downstream stages read the fixlogs from disk), the redteam runs as TWIN half-scope opus writers per batch (half the pages each) folding both on-disk fixlogs forward, and ideate/realize/disposition/doctrine run native opus. Stage law lives in the prompt blocks; sol/terra quota-fall to opus, never fable.',
     phases: [
         {
             title: 'Plan',
@@ -34,11 +34,9 @@ const CAP = 14;
 const STAGGER_MS = 1500;
 const STALL = 300000;
 const DRAIN_ROUNDS = 4; // terminal drain fixpoint cap; the progress gate (no shrinkage -> stop) is the real bound
-const CODEX_STALL = 7500000; // wrapper stall sits ABOVE the client MCP ceiling (fleet codex.toolTimeoutSec = 7200s): the client aborts a wedged call first; this guards only a dead wrapper
 const BATCH_MAX = 8; // unit-segment + batch-packing ceiling; per-segment maps + census legwork carry the navigation, so a writer holds a full dense batch
 const BATCH_LOC = 3400; // size ceiling beside the count ceiling: a batch's pages must also fit one review context window with room to edit — page tonnage, not page count, is what overflows a lane
 const FINDER_PAGES = 8; // landed pages per close-phase finder
-const CODEX = true; // recon lanes ride the codex wrapper — the call-site rows carry each lane's model tier; false restores native lanes
 
 // --- [INPUTS] --------------------------------------------------------------------------
 
@@ -770,16 +768,7 @@ const codexPrompt = (label, task, schema, o) => {
             JSON.stringify(root) +
             (o.codexEffort ? ', config={"model_reasoning_effort":"' + o.codexEffort + '"}' : '') +
             ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
-            'VERBATIM. If the call errors with a TIMEOUT or idle abort, the server aborts the codex turn — edits already ' +
-            'landed on disk stay landed, but the final message and report are gone' +
-            (o.writes
-                ? ': check the report ONCE with `jq -e . <report path>`; if present, proceed to step (4) from its content; if ' +
-                  'absent, skip step (3) and return ok=false through step (4) with the error text plus "report absent" — ' +
-                  'NEVER re-dispatch (a duplicate concurrent writer races the landed edits); the orchestrator owns recovery. ' +
-                  'Only a NON-timeout error retries the identical call ONCE.'
-                : '. A TIMEOUT means the lane was over-scoped — return ok=false through step (4), never an identical retry; ' +
-                  'a NON-timeout error retries the identical call ONCE.') +
-            ' If the retry errors, skip step (3) and return the error through step (4).',
+            'VERBATIM. If the call errors, skip step (3) and return ok=false through step (4) with the error text verbatim.',
         'LANE LAW:\n\n' + laneLaw(schema, o),
         'TASK:\n\n' +
             task +
@@ -807,7 +796,7 @@ const codexPrompt = (label, task, schema, o) => {
             '"], headline="<entries> ' +
             o.hl.arr +
             (o.hl.group ? ' | <' + o.hl.group + ' tallies>' : '') +
-            ' | top: <most frequent first file or none>", and failure empty. On a second tool error return ok=false, entries=0, ' +
+            ' | top: <most frequent first file or none>", and failure empty. On a tool error return ok=false, entries=0, ' +
             'report and headline empty, and failure equal to the error text VERBATIM.',
     ].join('\n\n');
 };
@@ -832,7 +821,6 @@ const nativeLane = (task, o) => {
 };
 
 const recon = (taskOf, o) => {
-    // o.native forces the native branch; no standing lane uses it in this variant — every recon rides the codex wrapper.
     const task = typeof taskOf === 'function' ? taskOf : () => taskOf;
     const wrapper = {
         label: (o.model && o.model.indexOf('-sol') >= 0 ? 'sol:' : 'terra:') + o.label,
@@ -840,23 +828,18 @@ const recon = (taskOf, o) => {
         model: 'sonnet',
         effort: 'low',
         schema: RECEIPT,
-        stallMs: o.stallMs || CODEX_STALL,
     };
-    return (
-        CODEX && !o.native
-            ? agent(codexPrompt(o.label, task('codex'), o.schema, o), wrapper).then((r) =>
-                  r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task('claude'), o) : r,
-              )
-            : nativeLane(task('claude'), o)
-    ).then((r) => ({
-        lane: o.label,
-        scope: o.scope || [],
-        ok: !!(r && r.ok && r.report),
-        report: (r && r.report) || '',
-        entries: (r && r.entries) || 0,
-        headline: (r && r.headline) || '',
-        failure: (r && r.failure) || (r ? '' : 'lane died'),
-    }));
+    return agent(codexPrompt(o.label, task('codex'), o.schema, o), wrapper)
+        .then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task('claude'), o) : r))
+        .then((r) => ({
+            lane: o.label,
+            scope: o.scope || [],
+            ok: !!(r && r.ok && r.report),
+            report: (r && r.report) || '',
+            entries: (r && r.entries) || 0,
+            headline: (r && r.headline) || '',
+            failure: (r && r.failure) || (r ? '' : 'lane died'),
+        }));
 };
 const chunk = (arr, n) => {
     const o = [];

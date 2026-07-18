@@ -3,7 +3,7 @@ export const meta = {
     whenToUse:
         'Campaign closure gate: after a rebuild campaign lands, verify the whole target corpus against its root DECISION/brief and fix every miss in place. args = {doc, root} or an array of such pairs; campaigns verify in parallel lanes. The resolver finalizes each campaign in-run — findings resolve as edits, never as a report; a doctrine lander closes the run only when a pass pools a durable nomination.',
     description:
-        'Cold-verify pass over one or more landed campaigns. Per campaign: one sonnet plan partitions the target folder into balanced verification slices; gpt-5.6-terra (codex) verifiers fan out through sonnet dispatch wrappers (CODEX flag; false restores native opus), each reading the root doc IN FULL plus its slice pages IN FULL, hunting missing/wrong/faked/naive work with typed anchored findings (one verifier owns the governance lane: index docs, manifest rows, csproj/README registries, .api anchors, acceptance traces, rider receipts; a per-language-branch verifier owns the cross-libs ripple lane: every sibling seam ledger, consumer anchor, counterpart obligation, and frozen wire name the campaign touches outside the target root). Every verifier runs a mandatory second-pass self-verify: each finding adversarially re-derived from disk before return, vague or unconfirmed findings deleted, and a clean verdict asserted only after the second hostile pass returns empty. ONE terminal fable resolver then finalizes the campaign with LIBS-WIDE ripple authority — verifier findings are SIGNALS, not law: it re-verifies each on disk, implements the strongest fix where a suggestion was weak or short-sighted, hunts and fixes what the verifiers missed on its own authority, resolves every ripple its edits expose anywhere under libs/ (sibling counterparts repaired in place both ends, except where the doc rules a counterpart recorded-only), and pushes touched pages past the ruling per the floor law. The resolver is retry-guarded and appends each harvest nomination to a deterministic .jsonl as it is minted; when any campaign pools a non-empty nomination OR its resolver dies, ONE terminal fable doctrine lander adjudicates against docs/laws (refutation-first, land-nothing legal), sweeping the disk harvest files so a dead finalize loses none. Otherwise no phase follows the resolver.',
+        'Cold-verify pass over one or more landed campaigns. Per campaign: one sonnet plan partitions the target folder into balanced verification slices; gpt-5.6-terra (codex) verifiers fan out through sonnet dispatch wrappers, each reading the root doc IN FULL plus its slice pages IN FULL, hunting missing/wrong/faked/naive work with typed anchored findings (one verifier owns the governance lane: index docs, manifest rows, csproj/README registries, .api anchors, acceptance traces, rider receipts; a per-language-branch verifier owns the cross-libs ripple lane: every sibling seam ledger, consumer anchor, counterpart obligation, and frozen wire name the campaign touches outside the target root). Every verifier runs a mandatory second-pass self-verify: each finding adversarially re-derived from disk before return, vague or unconfirmed findings deleted, and a clean verdict asserted only after the second hostile pass returns empty. ONE terminal fable resolver then finalizes the campaign with LIBS-WIDE ripple authority — verifier findings are SIGNALS, not law: it re-verifies each on disk, implements the strongest fix where a suggestion was weak or short-sighted, hunts and fixes what the verifiers missed on its own authority, resolves every ripple its edits expose anywhere under libs/ (sibling counterparts repaired in place both ends, except where the doc rules a counterpart recorded-only), and pushes touched pages past the ruling per the floor law. The resolver is retry-guarded and appends each harvest nomination to a deterministic .jsonl as it is minted; when any campaign pools a non-empty nomination OR its resolver dies, ONE terminal fable doctrine lander adjudicates against docs/laws (refutation-first, land-nothing legal), sweeping the disk harvest files so a dead finalize loses none. Otherwise no phase follows the resolver.',
     phases: [
         { title: 'Plan', detail: 'per campaign: enumerate pages, partition into balanced slices', model: 'sonnet' },
         {
@@ -28,8 +28,6 @@ export const meta = {
 
 const SLICES = 4;
 const STALL = 300000;
-const CODEX_STALL = 7500000; // wrapper stall sits ABOVE the client MCP ceiling (fleet codex.toolTimeoutSec = 7200s): the client aborts a wedged call first; this guards only a dead wrapper
-const CODEX = true; // verifier fan lanes run on gpt-5.6-terra via the codex wrapper; false restores native opus lanes
 const ROOT = '/Users/bardiasamiee/Documents/99.Github/Rasm'; // repo checkout root — native lanes resolve relative paths against it, never the launching session cwd
 const RETRY_ATTEMPTS = 2; // re-dispatches per dead terminal resolver; the count bounds spend, the backoff buys recovery time
 const RETRY_BACKOFF = 1800000; // usage-limit deaths clear on reset or an operator credit top-up; each attempt waits the window out first
@@ -345,9 +343,7 @@ const codexPrompt = (label, task, schema, o) => {
             JSON.stringify(ROOT) +
             (o.codexEffort ? ', config={"model_reasoning_effort":"' + o.codexEffort + '"}' : '') +
             ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
-            'VERBATIM. If the call errors with a TIMEOUT or idle abort, the codex session CONTINUES server-side but its product ' +
-            'is lost to this wrapper — retry the identical call ONCE, as with any other error. If the retry errors, skip step (3) ' +
-            'and return the error through step (4).',
+            'VERBATIM. If the call errors, skip step (3) and return the error through step (4).',
         'LANE LAW:\n\n' + laneLaw(schema, o),
         'TASK:\n\n' + task,
         '(3) The tool result is a JSON envelope {threadId, content} whose content field holds the final-message text. ' +
@@ -368,10 +364,9 @@ const codexPrompt = (label, task, schema, o) => {
             'report and headline empty, and failure equal to the error text VERBATIM.',
     ].join('\n\n');
 };
-// Every codex-dispatched lane routes here: terra by default, native opus when CODEX=false. QUOTA FALLBACK: a codex receipt whose failure matches
-// usage/quota/limit re-dispatches the SAME task natively at the role's Claude twin (terra->opus) — the caller owns the re-dispatch, the sonnet
-// wrapper never executes work itself. The roster row carries `scope` from the ORCHESTRATOR (never the lane's self-report) so a failed lane's
-// unmapped territory is exact even when the lane died before writing anything.
+// QUOTA FALLBACK: a codex receipt whose failure matches usage/quota/limit re-dispatches the SAME task natively at the role's Claude twin
+// (terra->opus) — the caller owns the re-dispatch, the sonnet wrapper never executes work itself. The roster row carries `scope` from the
+// ORCHESTRATOR (never the lane's self-report) so a failed lane's unmapped territory is exact even when the lane died before writing anything.
 const twinOf = (m) => (/-sol/.test(m || '') ? 'fable' : /-luna/.test(m || '') ? 'sonnet' : 'opus');
 const nativeLane = (task, o) =>
     agent(
@@ -393,25 +388,23 @@ const nativeLane = (task, o) =>
         },
     );
 const recon = (task, o) =>
-    (CODEX
-        ? agent(codexPrompt(o.label, task, o.schema, o), {
-              label: (o.model && o.model.indexOf('-sol') >= 0 ? 'sol:' : 'terra:') + o.label,
-              phase: o.phase,
-              model: 'sonnet',
-              effort: 'low',
-              schema: RECEIPT,
-              stallMs: o.stallMs || CODEX_STALL,
-          }).then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task, o) : r))
-        : nativeLane(task, o)
-    ).then((r) => ({
-        lane: o.label,
-        scope: o.scope || [],
-        ok: !!(r && r.ok && r.report),
-        report: (r && r.report) || '',
-        entries: (r && r.entries) || 0,
-        headline: (r && r.headline) || '',
-        failure: (r && r.failure) || (r ? '' : 'lane died'),
-    }));
+    agent(codexPrompt(o.label, task, o.schema, o), {
+        label: (o.model && o.model.indexOf('-sol') >= 0 ? 'sol:' : 'terra:') + o.label,
+        phase: o.phase,
+        model: 'sonnet',
+        effort: 'low',
+        schema: RECEIPT,
+    })
+        .then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task, o) : r))
+        .then((r) => ({
+            lane: o.label,
+            scope: o.scope || [],
+            ok: !!(r && r.ok && r.report),
+            report: (r && r.report) || '',
+            entries: (r && r.entries) || 0,
+            headline: (r && r.headline) || '',
+            failure: (r && r.failure) || (r ? '' : 'lane died'),
+        }));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

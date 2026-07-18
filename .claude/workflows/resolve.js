@@ -35,9 +35,7 @@ const CAP = 14; // runtime concurrency clamp is min(16, cores-2) = 14 on this ma
 const STAGGER_MS = 1500;
 const STALL = 300000;
 const DRAIN_ROUNDS = 4; // terminal drain fixpoint cap; the progress gate (no shrinkage -> stop) is the real bound
-const CODEX_STALL = 7500000; // wrapper stall sits ABOVE the client MCP ceiling (fleet codex.toolTimeoutSec = 7200s): the client aborts a wedged call first; this guards only a dead wrapper
 const CENSUS_PAGES = 10; // pages per census lane; a folder past it splits so each lane returns a bounded entry set on the wire
-const CODEX = true; // census + catalog/doc verify lanes run on gpt-5.6-terra via the codex wrapper; false restores native lanes
 const ROOT = '/Users/bardiasamiee/Documents/99.Github/Rasm'; // absolute working root; every disk path a prompt names resolves here
 const RETRY_ATTEMPTS = 2; // re-dispatches per dead critical lane; the count bounds spend, the backoff buys recovery time
 const RETRY_BACKOFF = 1800000; // usage-limit deaths clear on reset or an operator credit top-up; each attempt waits the window out first
@@ -511,13 +509,8 @@ const codexPrompt = (label, task, schema, o) => {
             ', cwd=' +
             JSON.stringify(root) +
             ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
-            'VERBATIM. If the call errors with a TIMEOUT or idle abort, the codex session CONTINUES server-side' +
-            (o.writes
-                ? ' and writes its own report — do NOT re-dispatch (a retry mints a duplicate concurrent writer on the same ' +
-                  'files): poll `jq -e . <report path>` with Bash every 120s for up to 40 minutes; the report appearing IS ' +
-                  'completion — proceed to step (4) from its content. Only a NON-timeout error retries the identical call ONCE.'
-                : ' but its product is lost to this wrapper — retry the identical call ONCE, as with any other error.') +
-            ' If the retry errors, skip step (3) and return the error through step (4).',
+            'VERBATIM. The call blocks and returns when the turn completes; if it errors, skip step (3) and return the error ' +
+            'through step (4).',
         'LANE LAW:\n\n' + laneLaw(schema, o),
         'TASK:\n\n' +
             task +
@@ -545,14 +538,14 @@ const codexPrompt = (label, task, schema, o) => {
             '"], headline="<entries> ' +
             o.hl.arr +
             (o.hl.group ? ' | <' + o.hl.group + ' tallies>' : '') +
-            ' | top: <most frequent first file or none>", and failure empty. On a second tool error return ok=false, entries=0, ' +
+            ' | top: <most frequent first file or none>", and failure empty. On a tool error return ok=false, entries=0, ' +
             'report and headline empty, and failure equal to the error text VERBATIM.',
     ].join('\n\n');
 };
-// Every codex-dispatched receipt lane routes here: terra by default, sol where o.model says so; CODEX=false restores
-// a fully native run. QUOTA FALLBACK: a codex receipt whose failure matches usage/quota/limit re-dispatches the SAME
-// task natively at the role Claude twin (terra->opus, sol->fable, luna->sonnet). The roster row carries `scope` from
-// the ORCHESTRATOR so a failed lane unmapped territory is exact even when the lane died before writing anything.
+// Every codex-dispatched receipt lane routes here: terra by default, sol where o.model says so. QUOTA FALLBACK: a codex
+// receipt whose failure matches usage/quota/limit re-dispatches the SAME task natively at the role Claude twin
+// (terra->opus, sol->fable, luna->sonnet). The roster row carries `scope` from the ORCHESTRATOR so a failed lane
+// unmapped territory is exact even when the lane died before writing anything.
 const twinOf = (m) => (/-sol/.test(m || '') ? 'fable' : /-luna/.test(m || '') ? 'sonnet' : 'opus');
 const nativeLane = (task, o) =>
     agent(
@@ -574,25 +567,24 @@ const nativeLane = (task, o) =>
         },
     );
 const recon = (task, o) =>
-    (CODEX
-        ? agent(codexPrompt(o.label, task, o.schema, o), {
-              label: (o.model && o.model.indexOf('-sol') >= 0 ? 'sol:' : 'terra:') + o.label,
-              phase: o.phase,
-              model: 'sonnet',
-              effort: 'low',
-              schema: RECEIPT,
-              stallMs: o.stallMs || CODEX_STALL,
-          }).then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task, o) : r))
-        : nativeLane(task, o)
-    ).then((r) => ({
-        lane: o.label,
-        scope: o.scope || [],
-        ok: !!(r && r.ok && r.report),
-        report: (r && r.report) || '',
-        entries: (r && r.entries) || 0,
-        headline: (r && r.headline) || '',
-        failure: (r && r.failure) || (r ? '' : 'lane died'),
-    }));
+    agent(codexPrompt(o.label, task, o.schema, o), {
+        label: (o.model && o.model.indexOf('-sol') >= 0 ? 'sol:' : 'terra:') + o.label,
+        phase: o.phase,
+        model: 'sonnet',
+        effort: 'low',
+        schema: RECEIPT,
+        stallMs: o.stallMs || STALL,
+    })
+        .then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task, o) : r))
+        .then((r) => ({
+            lane: o.label,
+            scope: o.scope || [],
+            ok: !!(r && r.ok && r.report),
+            report: (r && r.report) || '',
+            entries: (r && r.entries) || 0,
+            headline: (r && r.headline) || '',
+            failure: (r && r.failure) || (r ? '' : 'lane died'),
+        }));
 // Native receipt lane (assay/extdoc verify): normalized into the recon roster shape so a NATIVE cluster and a codex cluster read identically downstream.
 const asLane = (label, scope, p) =>
     p.then((r) => ({
@@ -624,9 +616,8 @@ const censusCodexPrompt = (label, task, o) => {
             '", sandbox="read-only", cwd=' +
             JSON.stringify(root) +
             ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
-            'VERBATIM. If the call errors with a TIMEOUT or idle abort, the codex session CONTINUES server-side but its product ' +
-            'is lost to this wrapper — retry the identical call ONCE, as with any other error. If the retry errors, skip step (3) ' +
-            'and return the empty product through step (4).',
+            'VERBATIM. The call blocks and returns when the turn completes; if it errors, skip step (3) and return the empty ' +
+            'product through step (4).',
         'LANE LAW:\n\n' + laneLaw(CENSUS_WIRE, o),
         'TASK:\n\n' + task,
         '(3) The tool result is a JSON envelope {threadId, content} whose content field holds the final-message text. ' +
@@ -637,42 +628,33 @@ const censusCodexPrompt = (label, task, o) => {
             ' >/dev/null — a Write that drops the tail mints invalid JSON; on failure rewrite once from the tool result, and a second ' +
             'failure returns the empty product through step (4).',
         '(4) Parse the tool result content JSON and return it VERBATIM as YOUR final message — the object with keys ' +
-            'entries, coverage, summary matching the output schema. On a second tool error return entries [], an empty coverage ' +
+            'entries, coverage, summary matching the output schema. On a tool error return entries [], an empty coverage ' +
             '(all four arrays []), and summary equal to the error text VERBATIM.',
     ].join('\n\n');
 };
 const census = (task, o) =>
-    (CODEX
-        ? agent(censusCodexPrompt('terra:' + o.label, task, o), {
-              label: 'terra:' + o.label,
-              phase: 'Census',
-              model: 'sonnet',
-              effort: 'low',
-              schema: CENSUS_WIRE,
-              stallMs: CODEX_STALL,
-          }).then((r) =>
-              r && (!r.entries || !r.entries.length) && /usage|quota|limit/i.test((r && r.summary) || '')
-                  ? agent(
-                        task +
-                            '\n\nPRODUCT TO DISK: also write your COMPLETE product to ' +
-                            SCRATCH +
-                            '/' +
-                            fileTag(o.label) +
-                            '-report.json (Write tool, absolute path under the repo root), then return the SAME object as your final message.',
-                        { label: o.label, phase: 'Census', model: 'opus', effort: 'high', schema: CENSUS_WIRE, stallMs: STALL },
-                    )
-                  : r,
-          )
-        : agent(
-              task +
-                  '\n\nPRODUCT TO DISK: also write your COMPLETE product to ' +
-                  SCRATCH +
-                  '/' +
-                  fileTag(o.label) +
-                  '-report.json (Write tool, absolute path under the repo root), then return the SAME object as your final message.',
-              { label: o.label, phase: 'Census', model: 'opus', effort: 'high', schema: CENSUS_WIRE, stallMs: STALL },
-          )
-    ).then((r) => ({ lane: o.label, entries: (r && r.entries) || [], summary: (r && r.summary) || '' }));
+    agent(censusCodexPrompt('terra:' + o.label, task, o), {
+        label: 'terra:' + o.label,
+        phase: 'Census',
+        model: 'sonnet',
+        effort: 'low',
+        schema: CENSUS_WIRE,
+        stallMs: STALL,
+    })
+        .then((r) =>
+            r && (!r.entries || !r.entries.length) && /usage|quota|limit/i.test((r && r.summary) || '')
+                ? agent(
+                      task +
+                          '\n\nPRODUCT TO DISK: also write your COMPLETE product to ' +
+                          SCRATCH +
+                          '/' +
+                          fileTag(o.label) +
+                          '-report.json (Write tool, absolute path under the repo root), then return the SAME object as your final message.',
+                      { label: o.label, phase: 'Census', model: 'opus', effort: 'high', schema: CENSUS_WIRE, stallMs: STALL },
+                  )
+                : r,
+        )
+        .then((r) => ({ lane: o.label, entries: (r && r.entries) || [], summary: (r && r.summary) || '' }));
 
 const chunk = (arr, n) => {
     const o = [];
@@ -1320,7 +1302,7 @@ const built = (
                         fix: true,
                         model: 'gpt-5.6-sol',
                         nativeModel: 'fable',
-                        stallMs: CODEX_STALL,
+                        stallMs: STALL,
                         scope: [...new Set(folderEntries.map((e) => e.page))],
                         hl: { arr: 'files' },
                     }),

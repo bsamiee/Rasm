@@ -3,7 +3,7 @@ export const meta = {
     whenToUse:
         'The finalization engine — the complement to rebuild: where rebuild improves and extends, finalize corrects and closes. Run it over a package (or folder subset) whose build passes have landed: deep per-file mapping of misalignments, broken or partial logic threads, split-brain, unnecessary differentiation, entry-point sprawl, and unleveraged libs-wide seams; one consolidated work dossier; one implementor with full project authority that fully drains; a read-only critique fan piped into one terminal red-team; a doctrine lander closing the loop.',
     description:
-        'Language-agnostic finalization pass over one libs/{csharp,python,typescript} package planning corpus. args = a package root, an array of planning sub-folders, or {targets} — {root} retargets an isolated checkout, empty = no-op; the language derives from the root and selects the doctrine root pages, both .api tiers, the manifest, and the member-verification rail. Scope resolves targets to the owning package root and its per-sub-folder page units in dependency order (an oversize sub-folder splits into ceiling-bounded segments). Map fans two read-only lenses per unit — an interior FLOW lens (per-file logic threads end to end, partial or naive features, split-brain, differentiation, entry-point sprawl, dead ends) and an exterior SEAM lens (libs-wide boundary and wire alignment, unleveraged upstream capability, hand-rolled reimplementation, manifest and .api drift) — each writing a typed findings report; one MERGE lane then consolidates every report into a single deduped, thread-joined, owner-ordered work dossier, the one artifact the implementor consumes. Implement is ONE writer over the whole target with full project write authority: own blind pass first, then the dossier as grounding to verify and exceed; every finding and every ripple drains in the same pass, index docs and manifests are its own to apply, and the deferred backlog carries only rows a named blocker genuinely forbids. Review fans one read-only critique per unit over the implemented corpus — own verdict first, navigation facts second — piped by deterministic report path into ONE terminal red-team that drains every critique row, the implementor backlog, and its own hunt to a fixpoint under a checkpoint ledger. Close adjudicates pooled harvest nominations — wire rows, every critique report harvest array, and the red-team harvest file, all swept from disk — into docs/laws and the reviewer surfaces. Stage law lives in the prompt blocks; CODEX=false restores native lanes throughout.',
+        'Language-agnostic finalization pass over one libs/{csharp,python,typescript} package planning corpus. args = a package root, an array of planning sub-folders, or {targets} — {root} retargets an isolated checkout, empty = no-op; the language derives from the root and selects the doctrine root pages, both .api tiers, the manifest, and the member-verification rail. Scope resolves targets to the owning package root and its per-sub-folder page units in dependency order (an oversize sub-folder splits into ceiling-bounded segments). Map fans two read-only lenses per unit — an interior FLOW lens (per-file logic threads end to end, partial or naive features, split-brain, differentiation, entry-point sprawl, dead ends) and an exterior SEAM lens (libs-wide boundary and wire alignment, unleveraged upstream capability, hand-rolled reimplementation, manifest and .api drift) — each writing a typed findings report; one MERGE lane then consolidates every report into a single deduped, thread-joined, owner-ordered work dossier, the one artifact the implementor consumes. Implement is ONE writer over the whole target with full project write authority: own blind pass first, then the dossier as grounding to verify and exceed; every finding and every ripple drains in the same pass, index docs and manifests are its own to apply, and the deferred backlog carries only rows a named blocker genuinely forbids. Review fans one read-only critique per unit over the implemented corpus — own verdict first, navigation facts second — piped by deterministic report path into ONE terminal red-team that drains every critique row, the implementor backlog, and its own hunt to a fixpoint under a checkpoint ledger. Close adjudicates pooled harvest nominations — wire rows, every critique report harvest array, and the red-team harvest file, all swept from disk — into docs/laws and the reviewer surfaces. Stage law lives in the prompt blocks.',
     phases: [
         {
             title: 'Scope',
@@ -33,11 +33,9 @@ export const meta = {
 const CAP = 14;
 const STAGGER_MS = 1500;
 const STALL = 480000;
-const CODEX_STALL = 7500000; // wrapper stall sits ABOVE the client MCP ceiling (fleet codex.toolTimeoutSec = 7200s): the client aborts a wedged call first; this guards only a dead wrapper
 const UNIT_MAX = 8; // unit segmentation ceiling — map and critique lanes stay page-congruent on any folder size
 const RETRY_ATTEMPTS = 2; // re-dispatches per dead critical lane; the count bounds spend, the backoff buys recovery time
 const RETRY_BACKOFF = 1800000; // usage-limit deaths clear on reset or an operator credit top-up; each attempt waits the window out first
-const CODEX = true; // recon lanes ride the codex wrapper (sol-medium maps + merge, sol-high critiques); false restores native lanes
 
 // --- [INPUTS] --------------------------------------------------------------------------
 
@@ -540,13 +538,7 @@ const codexPrompt = (label, task, schema, o) => {
             JSON.stringify(ROOT_DIR) +
             (o.codexEffort ? ', config={"model_reasoning_effort":"' + o.codexEffort + '"}' : '') +
             ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below VERBATIM. ' +
-            'If the call errors with a TIMEOUT or idle abort, the codex session CONTINUES server-side' +
-            (o.writes
-                ? ' and writes its own report — do NOT re-dispatch (a retry mints a duplicate concurrent writer on the same files): ' +
-                  'poll `jq -e . <report path>` with Bash every 120s for up to 40 minutes; the report appearing IS completion — proceed ' +
-                  'to step (4) from its content. Only a NON-timeout error retries the identical call ONCE.'
-                : ' but its product is lost to this wrapper — retry the identical call ONCE, as with any other error.') +
-            ' If the retry errors, skip step (3) and return the error through step (4).',
+            'The call is blocking — it returns when the turn completes. If it errors, skip step (3) and return the error through step (4).',
         'LANE LAW:\n\n' + laneLaw(schema, o),
         'TASK:\n\n' +
             task +
@@ -574,7 +566,7 @@ const codexPrompt = (label, task, schema, o) => {
             '"], headline="<entries> ' +
             o.hl.arr +
             (o.hl.group ? ' | <' + o.hl.group + ' tallies>' : '') +
-            ' | top: <most frequent first file or none>", and failure empty. On a second tool error return ok=false, entries=0, ' +
+            ' | top: <most frequent first file or none>", and failure empty. On a tool error return ok=false, entries=0, ' +
             'report and headline empty, and failure equal to the error text VERBATIM.',
     ].join('\n\n');
 };
@@ -597,26 +589,23 @@ const nativeLane = (task, o) =>
     );
 const recon = (taskOf, o) => {
     const task = typeof taskOf === 'function' ? taskOf : () => taskOf;
-    return (
-        CODEX
-            ? agent(codexPrompt(o.label, task('codex'), o.schema, o), {
-                  label: 'sol:' + o.label,
-                  phase: o.phase,
-                  model: 'sonnet',
-                  effort: 'low',
-                  schema: RECEIPT,
-                  stallMs: o.stallMs || CODEX_STALL,
-              }).then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task('claude'), o) : r))
-            : nativeLane(task('claude'), o)
-    ).then((r) => ({
-        lane: o.label,
-        scope: o.scope || [],
-        ok: !!(r && r.ok && r.report),
-        report: (r && r.report) || '',
-        entries: (r && r.entries) || 0,
-        headline: (r && r.headline) || '',
-        failure: (r && r.failure) || (r ? '' : 'lane died'),
-    }));
+    return agent(codexPrompt(o.label, task('codex'), o.schema, o), {
+        label: 'sol:' + o.label,
+        phase: o.phase,
+        model: 'sonnet',
+        effort: 'low',
+        schema: RECEIPT,
+    })
+        .then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task('claude'), o) : r))
+        .then((r) => ({
+            lane: o.label,
+            scope: o.scope || [],
+            ok: !!(r && r.ok && r.report),
+            report: (r && r.report) || '',
+            entries: (r && r.entries) || 0,
+            headline: (r && r.headline) || '',
+            failure: (r && r.failure) || (r ? '' : 'lane died'),
+        }));
 };
 const chunk = (arr, n) => {
     const o = [];

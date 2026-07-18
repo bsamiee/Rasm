@@ -23,7 +23,7 @@ const laneWithFallback = (task, o) => lane(task, o).then((r) =>
 );
 ```
 
-Two option-plumbing laws on a parameterized dispatch helper: the wrapper's `stallMs` is sized at or above the effort tier's timeout ceiling (the codex skill's [05] tier table owns those ceilings; stall enforcement has been observed to spare an agent inside a live blocking call — a 12-minute call under a 5-minute window completed — but sizing the window above the ceiling costs nothing and removes the ambiguity), and the helper option carrying a deviated codex reasoning tier is named `codexEffort`, never `effort` — the workflow linter scans every `effort:` key in the file against the agent tier vocabulary, so a codex tier in a helper-option literal fails validation even though it never reaches `agent()`.
+One option-plumbing law on a parameterized dispatch helper: the helper option carrying a deviated codex reasoning tier is named `codexEffort`, never `effort` — the workflow linter scans every `effort:` key in the file against the agent tier vocabulary, so a codex tier in a helper-option literal fails validation even though it never reaches `agent()`.
 
 ```js conceptual
 // The wrapper's own schema is the thin RECEIPT — the product body never crosses the wire;
@@ -50,9 +50,7 @@ A read-only sandbox blocks `uv run` outright — uv cannot initialize its cache 
 
 ## [04]-[LIMITS]
 
-A lane expected to outrun the MCP tool timeout (the codex skill names the ceiling's owner; a multi-minute high-effort call fits inside one blocking call) is the one case that still runs the detached CLI form — from the MAIN loop as a `run_in_background` Bash keeper per the codex skill's signals ladder, never inside a workflow wrapper. First resort splits the leg into a `codex-reply` chain of turns that each fit the timeout; the detached escape hatch is the last.
-
-An image-bearing leg (screenshot or diagram judgment) rides the CLI's `-i` — the MCP tool takes no image parameter — as ONE synchronous `codex exec -i <file> … </dev/null` inside the wrapper's single Bash call under the tier timeout: the blocking Bash call is the same legal wait, stdout capture is the product, and the rest of the call-write-receipt contract holds unchanged.
+An image-bearing leg (screenshot or diagram judgment) rides the CLI's `-i` — the MCP tool takes no image parameter — as ONE synchronous `codex exec -i <file> … </dev/null` inside the wrapper's single Bash call: the blocking Bash call is the same legal wait, stdout capture is the product, and the rest of the call-write-receipt contract holds unchanged.
 
 ## [05]-[WRITER_REVIEW_LANE]
 

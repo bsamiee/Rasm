@@ -131,8 +131,8 @@ const batchPrompt = (label, files) =>
 
 // Orchestrator-owned scope rides the receipt so a lane that dies before writing still names its territory.
 // QUOTA FALLBACK: usage exhaustion fails the call loudly; the CALLER re-dispatches the same task natively at
-// the role's Claude twin (terra->opus) — the sonnet wrapper never becomes the implicit executor. The wrapper
-// stall sits above the codex effort tier's blocking-call ceiling: a silent live MCP call is legal waiting.
+// the role's Claude twin (terra->opus) — the sonnet wrapper never becomes the implicit executor. A silent
+// live MCP call is legal waiting.
 const shape = (label, scope) => (r) => ({
     lane: label,
     scope,
@@ -143,7 +143,7 @@ const shape = (label, scope) => (r) => ({
     failure: (r && r.failure) || (r ? '' : 'lane died'),
 });
 const lane = (prompt, label, scope, nativeTask) =>
-    agent(prompt, { label: 'terra:' + label, phase: 'Audit', model: 'sonnet', effort: 'low', schema: RECEIPT, stallMs: 1500000 })
+    agent(prompt, { label: 'terra:' + label, phase: 'Audit', model: 'sonnet', effort: 'low', schema: RECEIPT })
         .then((r) =>
             r && !r.ok && /usage|quota|limit/i.test(r.failure || '')
                 ? agent(

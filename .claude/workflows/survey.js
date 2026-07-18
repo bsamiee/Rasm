@@ -3,7 +3,7 @@ export const meta = {
     whenToUse:
         'Deep-research the modern external packages a target planning folder is missing — packages that REPLACE hand-rolled design-page capability or ADD genuine domain capability — then execute end to end in one run: central admission with gates, full-depth .api catalogs, registry closure, and immediate holistic integration into the design pages. args = a planning folder path, an array of paths, or {targets}; target lanes run CONCURRENTLY — only the Admit stage (the central-manifest writer) serializes across targets.',
     description:
-        'Package survey-and-integrate over one target planning folder per lane. Scout (read-only, on gpt-5.6-terra dispatched through a sonnet codex wrapper; the CODEX flag false restores native opus) maps the folder — admitted packages, hand-rolled capability an ecosystem package owns, domain gaps against the bleeding-edge state of the art — and emits bounded research facets. Research fan (gpt-5.6-terra codex wrappers with live web search enabled, parallel) hunts the best-in-class modern package per facet, self-validating the admission gate (best-of, platform, newest stable, license, modern packaging, no-dup) with verified versions and members, writing its full candidate dossier to a per-lane report file and returning a thin receipt. ONE admission writer (fable) reads every research report IN FULL from disk, consolidates adversarially, hand-edits the central manifest + owning project registry + folder README bidirectionally (adds, and ripple-removes superseded packages), runs the restore/lock gate with the toolchain fallback, self-heals, and reverts what cannot resolve. Catalog writers (fable, parallel) author the .api catalogs at FULL depth — decompile/feed-verified members, [STACKING], homed to the owning tier (folder or language root). Mapper fan (gpt-5.6-terra codex wrappers, read-only) then reads ALL planning-folder pages plus the landed catalogs (new first) and the language-root tier, writing information maps to report files — locations, verified members, integration shapes as fact, never prescriptions — and returning thin receipts. ONE fable executor reads the map reports from disk and implements the whole integration: new pages/sub-folders where the capability demands an owner, existing pages improved and extended in place, holistic composition never tacked-on rows, index-doc closure, every ripple in the same pass. All target lanes run CONCURRENTLY under one agent-level slot cap; the Admit stage alone serializes across targets, and shared-tier catalogs of one language route through one serialized writer so concurrent lanes never collide on the language-root .api files. The scout hand-roll census feeds every Research facet and the Integrate executor; Scout, Admit, and Integrate each carry one bounded re-attempt. The admit and integrate writers carry a required-but-usually-empty harvest attestation; when any lane pools a non-empty nomination, ONE terminal fable doctrine lander adjudicates them against docs/laws (refutation-first, land-nothing legal) and nothing follows it. Otherwise nothing follows the executor; cold-verify runs separately when wanted.',
+        'Package survey-and-integrate over one target planning folder per lane. Scout (read-only, on gpt-5.6-terra dispatched through a sonnet codex wrapper) maps the folder — admitted packages, hand-rolled capability an ecosystem package owns, domain gaps against the bleeding-edge state of the art — and emits bounded research facets. Research fan (gpt-5.6-terra codex wrappers with live web search enabled, parallel) hunts the best-in-class modern package per facet, self-validating the admission gate (best-of, platform, newest stable, license, modern packaging, no-dup) with verified versions and members, writing its full candidate dossier to a per-lane report file and returning a thin receipt. ONE admission writer (fable) reads every research report IN FULL from disk, consolidates adversarially, hand-edits the central manifest + owning project registry + folder README bidirectionally (adds, and ripple-removes superseded packages), runs the restore/lock gate with the toolchain fallback, self-heals, and reverts what cannot resolve. Catalog writers (fable, parallel) author the .api catalogs at FULL depth — decompile/feed-verified members, [STACKING], homed to the owning tier (folder or language root). Mapper fan (gpt-5.6-terra codex wrappers, read-only) then reads ALL planning-folder pages plus the landed catalogs (new first) and the language-root tier, writing information maps to report files — locations, verified members, integration shapes as fact, never prescriptions — and returning thin receipts. ONE fable executor reads the map reports from disk and implements the whole integration: new pages/sub-folders where the capability demands an owner, existing pages improved and extended in place, holistic composition never tacked-on rows, index-doc closure, every ripple in the same pass. All target lanes run CONCURRENTLY under one agent-level slot cap; the Admit stage alone serializes across targets, and shared-tier catalogs of one language route through one serialized writer so concurrent lanes never collide on the language-root .api files. The scout hand-roll census feeds every Research facet and the Integrate executor; Scout, Admit, and Integrate each carry one bounded re-attempt. The admit and integrate writers carry a required-but-usually-empty harvest attestation; when any lane pools a non-empty nomination, ONE terminal fable doctrine lander adjudicates them against docs/laws (refutation-first, land-nothing legal) and nothing follows it. Otherwise nothing follows the executor; cold-verify runs separately when wanted.',
     phases: [
         {
             title: 'Scout',
@@ -46,10 +46,8 @@ const CAP = 14;
 const STAGGER_MS = 1500;
 const STALL = 300000;
 const EXEC_STALL = 480000;
-const CODEX_STALL = 7500000; // wrapper stall sits ABOVE the client MCP ceiling (fleet codex.toolTimeoutSec = 7200s): the client aborts a wedged call first; this guards only a dead wrapper
 const MAP_SLICE = 5; // planning pages per mapper
 const CATALOG_BATCH = 2; // admitted packages per catalog writer
-const CODEX = true; // scout/research/map lanes run on gpt-5.6-terra via the codex wrapper; false restores native opus lanes
 
 // --- [INPUTS] --------------------------------------------------------------------------
 
@@ -532,9 +530,7 @@ const codexSteps = (label, task, schema, o, step4) => {
             JSON.stringify(root) +
             (o.codexEffort ? ', config={"model_reasoning_effort":"' + o.codexEffort + '"}' : '') +
             ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
-            'VERBATIM. If the call errors with a TIMEOUT or idle abort, the codex session CONTINUES server-side but its product ' +
-            'is lost to this wrapper — retry the identical call ONCE, as with any other error. If the retry errors, skip step (3) ' +
-            'and return the error through step (4).',
+            'VERBATIM. If the call errors, skip step (3) and return the error through step (4).',
         'LANE LAW:\n\n' + laneLaw(schema, o),
         'TASK:\n\n' + task,
         // read-only lanes: the wrapper writes the product; a jq gate catches a dropped tail before the receipt asserts ok.
@@ -596,22 +592,20 @@ const nativeLane = (task, o) =>
         { label: o.label, phase: o.phase, model: o.nativeModel || twinOf(o.model), effort: 'high', schema: RECEIPT, stallMs: o.stallMs || STALL },
     );
 
-// Every heavy read/investigate lane routes here: gpt-5.6-terra wrapper when CODEX, native opus otherwise. QUOTA FALLBACK: a codex receipt whose
+// Every heavy read/investigate lane routes through the gpt-5.6-terra codex wrapper. QUOTA FALLBACK: a codex receipt whose
 // failure matches usage/quota/limit re-dispatches the SAME task natively at the role's Claude twin; the caller owns the re-dispatch, the sonnet
 // wrapper never executes work itself. The roster row carries `scope` from the ORCHESTRATOR (never the lane's self-report) so a failed lane's
 // uncovered territory is exact even when the lane died before writing anything.
 const recon = (task, o) =>
-    (CODEX
-        ? agent(codexPrompt(o.label, task, o.schema, o), {
-              label: 'terra:' + o.label,
-              phase: o.phase,
-              model: 'sonnet',
-              effort: 'low',
-              schema: RECEIPT,
-              stallMs: o.stallMs || CODEX_STALL,
-          }).then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task, o) : r))
-        : nativeLane(task, o)
-    ).then((r) => ({
+    agent(codexPrompt(o.label, task, o.schema, o), {
+        label: 'terra:' + o.label,
+        phase: o.phase,
+        model: 'sonnet',
+        effort: 'low',
+        schema: RECEIPT,
+    })
+        .then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task, o) : r))
+        .then((r) => ({
         lane: o.label,
         scope: o.scope || [],
         ok: !!(r && r.ok && r.report),
@@ -621,19 +615,16 @@ const recon = (task, o) =>
         failure: (r && r.failure) || (r ? '' : 'lane died'),
     }));
 // Scout is the run's one inline codex lane: the wrapper relays the SCOUT_SCHEMA product verbatim (ok/failure carried in-shape). Quota failure
-// re-dispatches the same task at native opus; a non-quota codex failure is final (the wrapper already retried its call once).
+// re-dispatches the same task at native opus; a non-quota codex failure is final.
 const scoutLane = (task, o) => {
     const native = () => agent(task, { label: o.label, phase: o.phase, model: 'opus', effort: 'high', schema: o.schema, stallMs: STALL });
-    return CODEX
-        ? agent(codexInline(o.label, task, o.schema, o), {
-              label: 'terra:' + o.label,
-              phase: o.phase,
-              model: 'sonnet',
-              effort: 'low',
-              schema: o.schema,
-              stallMs: o.stallMs || CODEX_STALL,
-          }).then((r) => (r && r.ok === false && /usage|quota|limit/i.test(r.failure || '') ? native() : r))
-        : native();
+    return agent(codexInline(o.label, task, o.schema, o), {
+        label: 'terra:' + o.label,
+        phase: o.phase,
+        model: 'sonnet',
+        effort: 'low',
+        schema: o.schema,
+    }).then((r) => (r && r.ok === false && /usage|quota|limit/i.test(r.failure || '') ? native() : r));
 };
 
 // --- [SHARED_BLOCKS] -------------------------------------------------------------------

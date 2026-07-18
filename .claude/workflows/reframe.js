@@ -30,8 +30,6 @@ const STALL = 300000;
 const DRAIN_ROUNDS = 4; // terminal drain fixpoint cap; the progress gate (no shrinkage -> stop) is the real bound
 const RETRY_ATTEMPTS = 2; // re-dispatches per dead critical lane; the count bounds spend, the backoff buys recovery time
 const RETRY_BACKOFF = 1800000; // usage-limit deaths clear on reset or an operator credit top-up; each attempt waits the window out first
-const CODEX_STALL = 7500000; // wrapper stall sits ABOVE the client MCP ceiling (fleet codex.toolTimeoutSec = 7200s): the client aborts a wedged call first; this guards only a dead wrapper
-const CODEX = true; // frame-recon + critique lanes run on gpt-5.6 via the codex wrapper; false restores native lanes (terra->opus, sol->fable)
 
 // --- [INPUTS] --------------------------------------------------------------------------
 
@@ -648,13 +646,8 @@ const codexPrompt = (label, task, schema, o) => {
             JSON.stringify(root) +
             (o.codexEffort ? ', config={"model_reasoning_effort":"' + o.codexEffort + '"}' : '') +
             ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
-            'VERBATIM. If the call errors with a TIMEOUT or idle abort, the codex session CONTINUES server-side' +
-            (o.writes
-                ? ' and writes its own report — do NOT re-dispatch (a retry mints a duplicate concurrent writer on the same ' +
-                  'files): poll `jq -e . <report path>` with Bash every 120s for up to 40 minutes; the report appearing IS ' +
-                  'completion — proceed to step (4) from its content. Only a NON-timeout error retries the identical call ONCE.'
-                : ' but its product is lost to this wrapper — retry the identical call ONCE, as with any other error.') +
-            ' If the retry errors, skip step (3) and return the error through step (4).',
+            'VERBATIM. The call is blocking — it returns when the codex turn completes. If the tool call errors, skip step ' +
+            '(3) and return the error through step (4).',
         'LANE LAW:\n\n' + laneLaw(schema, o),
         'TASK:\n\n' +
             task +
@@ -682,11 +675,11 @@ const codexPrompt = (label, task, schema, o) => {
             '"], headline="<entries> ' +
             o.hl.arr +
             (o.hl.group ? ' | <' + o.hl.group + ' tallies>' : '') +
-            ' | top: <most frequent first file or none>", and failure empty. On a second tool error return ok=false, entries=0, ' +
+            ' | top: <most frequent first file or none>", and failure empty. On a tool error return ok=false, entries=0, ' +
             'report and headline empty, and failure equal to the error text VERBATIM.',
     ].join('\n\n');
 };
-// Every codex-dispatched lane routes here: terra by default, sol where o.model says so; CODEX=false restores a native run. QUOTA FALLBACK: a codex
+// Every codex-dispatched lane routes here: terra by default, sol where o.model says so. QUOTA FALLBACK: a codex
 // receipt whose failure matches usage/quota/limit re-dispatches the SAME task natively at the role's Claude twin (terra->opus, sol->fable,
 // luna->sonnet); the caller owns re-dispatch, the sonnet wrapper never executes work itself. The roster row carries `scope` from the ORCHESTRATOR so
 // a failed lane's unmapped territory is exact even when the lane died before writing anything.
@@ -711,25 +704,24 @@ const nativeLane = (task, o) =>
         },
     );
 const recon = (task, o) =>
-    (CODEX
-        ? agent(codexPrompt(o.label, task, o.schema, o), {
-              label: (o.model && o.model.indexOf('-sol') >= 0 ? 'sol:' : 'terra:') + o.label,
-              phase: o.phase,
-              model: 'sonnet',
-              effort: 'low',
-              schema: RECEIPT,
-              stallMs: o.stallMs || CODEX_STALL,
-          }).then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task, o) : r))
-        : nativeLane(task, o)
-    ).then((r) => ({
-        lane: o.label,
-        scope: o.scope || [],
-        ok: !!(r && r.ok && r.report),
-        report: (r && r.report) || '',
-        entries: (r && r.entries) || 0,
-        headline: (r && r.headline) || '',
-        failure: (r && r.failure) || (r ? '' : 'lane died'),
-    }));
+    agent(codexPrompt(o.label, task, o.schema, o), {
+        label: (o.model && o.model.indexOf('-sol') >= 0 ? 'sol:' : 'terra:') + o.label,
+        phase: o.phase,
+        model: 'sonnet',
+        effort: 'low',
+        schema: RECEIPT,
+        stallMs: o.stallMs || STALL,
+    })
+        .then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task, o) : r))
+        .then((r) => ({
+            lane: o.label,
+            scope: o.scope || [],
+            ok: !!(r && r.ok && r.report),
+            report: (r && r.report) || '',
+            entries: (r && r.entries) || 0,
+            headline: (r && r.headline) || '',
+            failure: (r && r.failure) || (r ? '' : 'lane died'),
+        }));
 const chunk = (arr, n) => {
     const o = [];
     for (let i = 0; i < arr.length; i += n) o.push(arr.slice(i, i + n));
@@ -892,7 +884,7 @@ const redteamPrompt = (L, u, framed, unmapped, nav, crit, critReport) =>
         'PRIOR CLAIMS (UNVERIFIED): the sol critique fixlog ' +
             (crit && crit.ok
                 ? 'is ON DISK at ' + crit.report
-                : 'wrapper died, but the lane writes its fixlog before any ceiling can kill the call — check ' +
+                : 'wrapper died, but the lane writes its fixlog as its final act — check ' +
                   critReport +
                   ' FIRST; absent or unparseable, your cold attack is the only review this unit gets: judge from CURRENT disk alone. Present') +
             ' — read it IN FULL from disk; its edits and verdicts are refutation targets you judge against CURRENT disk, never ' +
@@ -1059,7 +1051,7 @@ const processUnit = async (u) => {
     const nav = navOf(fix ? [fix] : []);
     // (c) sol critique: a workspace-write codex lane running the predicate-positive conformance audit in place; fixlog to disk,
     // receipt on the wire. The report path is DETERMINISTIC, so a dead receipt never severs the fold — the lane writes its fixlog
-    // before the wrapper ceiling can kill the call, and the red-team + terminal drain verify the path on disk instead of trusting ok.
+    // as its final act, and the red-team + terminal drain verify the path on disk instead of trusting ok.
     const critReport = SCRATCH + '/' + fileTag('crit:' + tag) + '-report.json';
     const crit = await slot(() =>
         recon(critiquePrompt(L, u, framed, unmapped, nav), {
@@ -1070,7 +1062,6 @@ const processUnit = async (u) => {
             fix: true,
             model: 'gpt-5.6-sol',
             nativeModel: 'fable',
-            stallMs: CODEX_STALL,
             scope: [u.folder],
             hl: { arr: 'files' },
         }),

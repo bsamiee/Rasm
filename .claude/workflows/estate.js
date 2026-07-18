@@ -7,7 +7,7 @@ export const meta = {
     phases: [
         {
             title: 'Recon',
-            detail: 'per track: two read-only gpt-5.6-terra lanes via codex wrappers (sonnet shells) with split charges - estate-scope facts and the libs-complexity map - each writing its dossier to scratch; CODEX=false restores native opus lanes',
+            detail: 'per track: two read-only gpt-5.6-terra lanes via codex wrappers (sonnet shells) with split charges - estate-scope facts and the libs-complexity map - each writing its dossier to scratch',
             model: 'sonnet',
         },
         { title: 'Estate' },
@@ -24,8 +24,6 @@ export const meta = {
 
 const CORE_PAGES = 4;
 const STALL = 300000;
-const CODEX_STALL = 7500000; // wrapper stall sits ABOVE the client MCP ceiling (fleet codex.toolTimeoutSec = 7200s): the client aborts a wedged call first; this guards only a dead wrapper
-const CODEX = true; // recon lanes run on gpt-5.6-terra via the codex wrapper; false restores native opus lanes
 
 const TRACKS = {
     csharp: {
@@ -191,8 +189,7 @@ const DOCTRINE_SCHEMA = {
 
 const MODEL_LAW =
     'MODEL LAW: you execute every file write and every judgment yourself. Delegate read-only reconnaissance roughly 50/50 between codex ' +
-    '(Bash: codex exec -s read-only --skip-git-repo-check --ignore-user-config -m gpt-5.6-terra -c model_reasoning_effort=high ' +
-    '-c project_doc_max_bytes=65536 ' +
+    '(Bash: codex exec -s read-only --skip-git-repo-check -m gpt-5.6-terra ' +
     '"<self-contained scoped question>" </dev/null 2>/dev/null — synchronous, ' +
     'one bounded question per leg) and opus subagents (Agent tool, model opus, explicit READ-ONLY mandate). ' +
     'Recon returns facts, locations, inventories, and verified member lists — never instructions, prescriptions, or edits. Tooling routes each leg: ' +
@@ -354,7 +351,7 @@ const codexRecon = (task, o) => {
     return [
         'DISPATCH ROLE: ' +
             model +
-            ' performs the complete TASK below through one blocking Codex MCP call. Follow exactly four steps; ' +
+            ' performs the complete TASK below through one blocking Codex MCP call. Follow exactly three steps; ' +
             'never perform, edit, judge, soften, summarize, or relay the task yourself.',
         '(1) Call ToolSearch with query "select:mcp__codex__codex".',
         '(2) Call the loaded mcp__codex__codex tool ONCE with model="' +
@@ -363,10 +360,8 @@ const codexRecon = (task, o) => {
             JSON.stringify(root) +
             (o.codexEffort ? ', config={"model_reasoning_effort":"' + o.codexEffort + '"}' : '') +
             ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
-            'VERBATIM. If the call errors, do NOT immediately retry: an abandoned workspace-write call usually completes server-side and the ' +
-            'lane writes its dossier as its final act — run step (3) FIRST, and a present, non-empty dossier proceeds to step (4) as success. ' +
-            'Only a missing or empty dossier earns ONE identical retry (a second writer over the same path is the last resort); a failed retry ' +
-            'with no dossier returns the error through step (4).',
+            'VERBATIM. If the call errors, return ok=false, entries=0, report and headline empty, and failure equal to the error text ' +
+            'VERBATIM (the caller re-dispatches natively on a quota failure).',
         'LANE LAW:\n\n' + laneLaw(o.schema, o),
         'TASK:\n\n' + task,
         '(3) The tool result is a JSON envelope {threadId, content} whose content field holds the final-message text — the ' +
@@ -377,7 +372,6 @@ const codexRecon = (task, o) => {
             'and headline empty, and failure="dossier missing or empty at ' +
             o.product +
             '"; otherwise return the parsed receipt VERBATIM as your structured output.',
-        '(4) On a second tool error return ok=false, entries=0, report and headline empty, and failure equal to the error ' + 'text VERBATIM.',
     ].join('\n\n');
 };
 // QUOTA FALLBACK: a codex receipt whose failure matches usage/quota/limit re-dispatches the SAME task natively at the
@@ -406,18 +400,14 @@ const reconLane = (t, name, lane, ph) => {
         stallMs: STALL,
     };
     const dead = () => ({ ok: false, report: dossierPath(name, lane), entries: 0, headline: '', failure: 'lane died' });
-    return (
-        CODEX
-            ? agent(codexRecon(task, o), {
-                  label: 'terra:' + o.label,
-                  phase: ph,
-                  model: 'sonnet',
-                  effort: 'low',
-                  schema: DOSSIER_RECEIPT,
-                  stallMs: CODEX_STALL,
-              }).then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task, o) : r))
-            : nativeLane(task, o)
-    )
+    return agent(codexRecon(task, o), {
+        label: 'terra:' + o.label,
+        phase: ph,
+        model: 'sonnet',
+        effort: 'low',
+        schema: DOSSIER_RECEIPT,
+    })
+        .then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task, o) : r))
         .then((r) => r || dead())
         .catch(dead);
 };

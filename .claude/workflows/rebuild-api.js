@@ -2,7 +2,7 @@ export const meta = {
     name: 'rebuild-api',
     whenToUse: 'Rebuild every .api catalog under a target root to full integration-shaped capability.',
     description:
-        'Rebuild every .api catalog under a target root to FULL first-class, integration-shaped capability — document each package full advanced surface AND how packages STACK into single dense rails, verified against real members. Substrate-first PER LANGUAGE: each language runs as an independent concurrent lane in which the shared tier (libs/<lang>/.api/) is rebuilt before that language folder tiers — the barrier is language-local, so a python folder catalog never waits on csharp substrate; a failed substrate batch flags that language folder batches in the log and return instead of silently stacking onto stub hubs. Folder batches keep one folder per batch, pack small sibling-folder tails of the same language up to the batch size, and co-batch sibling families as the WORK PARTITION, never a write fence: every batch fixes any catalog its work exposes — either tier, in or out of its batch — in the same pass under the current-state law, so the run ends closed in one pass. Every catalog rebuild batch (substrate and folder tier alike) runs on gpt-5.6-terra dispatched through a sonnet codex wrapper in a workspace-write sandbox — batches are path-disjoint by construction (CODEX flag; false restores native opus batch agents); the discover stage stays sonnet. Language-agnostic: members verified via assay api over host DLLs / NuGet / Python distributions / node_modules, falling back to the nuget MCP / Context7 / source tier when reflection is blocked. args = optional scope (string, array of scopes, or {target|targets} — e.g. "libs/python" or "libs/csharp/Rasm.Bim"); empty = all of libs.',
+        'Rebuild every .api catalog under a target root to FULL first-class, integration-shaped capability — document each package full advanced surface AND how packages STACK into single dense rails, verified against real members. Substrate-first PER LANGUAGE: each language runs as an independent concurrent lane in which the shared tier (libs/<lang>/.api/) is rebuilt before that language folder tiers — the barrier is language-local, so a python folder catalog never waits on csharp substrate; a failed substrate batch flags that language folder batches in the log and return instead of silently stacking onto stub hubs. Folder batches keep one folder per batch, pack small sibling-folder tails of the same language up to the batch size, and co-batch sibling families as the WORK PARTITION, never a write fence: every batch fixes any catalog its work exposes — either tier, in or out of its batch — in the same pass under the current-state law, so the run ends closed in one pass. Every catalog rebuild batch (substrate and folder tier alike) runs on gpt-5.6-terra dispatched through a sonnet codex wrapper in a workspace-write sandbox — batches are path-disjoint by construction; the discover stage stays sonnet. Language-agnostic: members verified via assay api over host DLLs / NuGet / Python distributions / node_modules, falling back to the nuget MCP / Context7 / source tier when reflection is blocked. args = optional scope (string, array of scopes, or {target|targets} — e.g. "libs/python" or "libs/csharp/Rasm.Bim"); empty = all of libs.',
     phases: [
         { title: 'API-Discover', detail: 'list every .api catalog under the target from disk; _tmp/archives excluded' },
         {
@@ -22,8 +22,6 @@ const CAP = 14; // runtime concurrency clamp is min(16, cores-2) = 14 on this ma
 const BATCH = 4; // .api files per agent — deep enough per file, many agents for parallelism
 const STAGGER_MS = 1500;
 const STALL = 300000;
-const CODEX_STALL = 7500000; // wrapper stall sits ABOVE the client MCP ceiling (fleet codex.toolTimeoutSec = 7200s): the client aborts a wedged call first; this guards only a dead wrapper
-const CODEX = true; // catalog rebuild batch lanes run on gpt-5.6-terra via the codex wrapper (workspace-write); false restores native opus lanes
 const ROOT = '/Users/bardiasamiee/Documents/99.Github/Rasm'; // absolute working root: native products mint absolute here, codex lanes take it as cwd
 
 // --- [INPUTS] --------------------------------------------------------------------------
@@ -206,10 +204,7 @@ const codexPrompt = (label, task, schema, o) => {
             (o.codexEffort ? ', config={"model_reasoning_effort":"' + o.codexEffort + '"}' : '') +
             ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
             'VERBATIM. ' +
-            'If the call errors, do NOT immediately retry: an abandoned call usually completes server-side and the lane writes ' +
-            "its report as its final act — run step (3)'s verification first, and a valid report proceeds to step (4) as success. " +
-            'Only a missing or invalid report earns ONE identical retry (a second writer over the same catalogs is the last ' +
-            'resort); a failed retry with no valid report returns the error through step (4).',
+            'If the call errors, return the error text through step (4) as ok=false.',
         'LANE LAW:\n\n' + laneLaw(schema),
         // batch lanes are workspace-write and author their own report (final act); the wrapper only verifies.
         'TASK:\n\n' +
@@ -226,10 +221,10 @@ const codexPrompt = (label, task, schema, o) => {
             '-report.json, entries=the length of result["' +
             o.hl.arr +
             '"], headline="<entries> catalogs | verdict:<verdict> | +<beyondBatch.length> beyond", and failure empty. On a ' +
-            'second tool error return ok=false, entries=0, report and headline empty, and failure equal to the error text VERBATIM.',
+            'tool error return ok=false, entries=0, report and headline empty, and failure equal to the error text VERBATIM.',
     ].join('\n\n');
 };
-// Every catalog rebuild batch routes here: terra by default, native opus when CODEX=false. QUOTA FALLBACK: a codex receipt whose failure matches
+// Every catalog rebuild batch routes here on terra via the codex wrapper. QUOTA FALLBACK: a codex receipt whose failure matches
 // usage/quota/limit re-dispatches the SAME task natively at the role's Claude twin (terra->opus) — the caller owns the re-dispatch, the sonnet
 // wrapper never executes work itself. The roster row carries `scope` from the ORCHESTRATOR (the batch's assigned files) so
 // a failed lane's territory is exact even when it died.
@@ -260,25 +255,23 @@ const nativeLane = (task, o) => {
     );
 };
 const recon = (task, o) =>
-    (CODEX
-        ? agent(codexPrompt(o.label, task, o.schema, o), {
-              label: (o.model && o.model.indexOf('-sol') >= 0 ? 'sol:' : 'terra:') + o.label,
-              phase: o.phase,
-              model: 'sonnet',
-              effort: 'low',
-              schema: RECEIPT,
-              stallMs: o.stallMs || CODEX_STALL,
-          }).then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task, o) : r))
-        : nativeLane(task, o)
-    ).then((r) => ({
-        lane: o.label,
-        scope: o.scope || [],
-        ok: !!(r && r.ok && r.report),
-        report: (r && r.report) || '',
-        entries: (r && r.entries) || 0,
-        headline: (r && r.headline) || '',
-        failure: (r && r.failure) || (r ? '' : 'lane died'),
-    }));
+    agent(codexPrompt(o.label, task, o.schema, o), {
+        label: (o.model && o.model.indexOf('-sol') >= 0 ? 'sol:' : 'terra:') + o.label,
+        phase: o.phase,
+        model: 'sonnet',
+        effort: 'low',
+        schema: RECEIPT,
+    })
+        .then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task, o) : r))
+        .then((r) => ({
+            lane: o.label,
+            scope: o.scope || [],
+            ok: !!(r && r.ok && r.report),
+            report: (r && r.report) || '',
+            entries: (r && r.entries) || 0,
+            headline: (r && r.headline) || '',
+            failure: (r && r.failure) || (r ? '' : 'lane died'),
+        }));
 const rel = (f) => {
     const i = String(f).indexOf('libs/');
     return i > 0 ? String(f).slice(i) : String(f);
