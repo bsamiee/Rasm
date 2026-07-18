@@ -36,24 +36,45 @@
     "rules": [
         {
             "id": "entry-point-sprawl",
-            "rule": "One polymorphic entry per rail, discriminating on input shape. Parallel entry points, modality-named siblings, get/getMany/getById families, and direction-named twins of one correspondence are defects; demand absorption into the one owner, never a new sibling.",
+            "rule": "One polymorphic entry per rail, discriminating on input shape. Parallel entry points, modality-named siblings, get/getMany/getById families, and direction-named twins of one correspondence are defects; demand absorption into the one owner, never a new sibling. Judge every touched module's public roster as a designed artifact: arity twins, mode flags, and exports grown per capability are the same defect at folder altitude; a helper with exactly one caller, no plausible second consumer, and no meaning in isolation inlines into that caller, and a consumer forced to sequence a module's internals marks the weak boundary the entrypoint absorbs.",
             "severity": "high",
             "enabled": true,
             "scope": ["libs/**", "tools/**", ".claude/**"]
         },
         {
             "id": "downstream-knob-spam",
-            "rule": "Judge every surface from its consumers: a parameter a policy value or input shape reconstructs is knob spam; configuration ceremony pushed onto callers, or orchestration a consumer must hand-write, is a defect. Demand internalized lifecycle, routing, and policy with zero capability sacrifice.",
+            "rule": "Judge every surface from its consumers: a parameter a policy value or input shape reconstructs is knob spam; configuration ceremony pushed onto callers, or orchestration a consumer must hand-write, is a defect. Demand internalized lifecycle, routing, and policy with zero capability sacrifice. Parameterization hunts in both directions: a literal that encodes a decision or recurs across sites becomes a policy value or vocabulary row, a stringly key, path, or per-site spelling of one correspondence derives from the owning symbol, and inversely a knob set whose combinations the body re-derives collapses into policy rows, table dispatch, or a denser polymorphic owner with defaults derived once.",
             "severity": "medium",
             "enabled": true,
             "scope": ["libs/**", "tools/**", ".claude/**"]
         },
         {
             "id": "code-body-collapse",
-            "rule": "A long imperative body is a defect wherever a denser expression-shaped form exists: demand fold, combinator, table-driven, or generator forms over hand-rolled loops and branching, and demand surfaces and object types collapse into fewer, denser, richer owners.",
+            "rule": "A long imperative body is a defect wherever a denser expression-shaped form exists: demand fold, combinator, table-driven, or generator forms over hand-rolled loops and branching, and demand surfaces and object types collapse into fewer, denser, richer owners. Shape collapse is an active search on every diff: a case family accreted flat collapses into one polymorphic owner the moment siblings share an identity regime, admission path, payload timing, or consumer — a flat record beside a generated owner, a parallel dataclass or per-mode model beside a tagged union, an interface or hand-written union beside a Schema owner or vocabulary table — and two parallel types differing by one axis of variation are one type carrying a discriminant.",
             "severity": "medium",
             "enabled": true,
             "scope": ["libs/**", "tools/**", ".claude/**"]
+        },
+        {
+            "id": "api-stacking-census",
+            "rule": "Run the stacking census on every touched page: enumerate the fence's composed member set against the folder-tier .api/ catalogue, the language substrate tier libs/<lang>/.api/, and the central manifest (Directory.Packages.props, pyproject.toml, pnpm-workspace.yaml). A hand-rolled body re-deriving what a catalogued member owns at operator depth is a defect naming that member; a rail-verified host or package member that strengthens a touched owner and sits unconsumed is a defect whose extension lands as a row, case, or member on that owner, never a parallel surface; a page composing only shallow members of a package whose catalogue reaches deeper is under-stacked until each shallow call proves itself the deepest applicable form the package ships. Declared capability is consumed capability: a capability noun with no anchoring fence member, a receipt nothing mints, or a policy row nothing consumes is decorative density demanding the consuming member or the deletion.",
+            "severity": "high",
+            "enabled": true,
+            "scope": ["libs/**", "tools/**"]
+        },
+        {
+            "id": "strata-leverage",
+            "rule": "The owning ARCHITECTURE.md strata row names the owners a folder composes; hunt the leverage gap on every touched folder. A fence re-deriving capability a designated lower-stratum owner carries demands composition of that owner; an owner minted at a higher stratum for a concern a lower-stratum owner already carries is duplication the lower owner absorbs; two sibling consumers composing one stratum owner through divergent spellings converge on one composed form. Every finding names the strata row, the owner, and the uncomposed or duplicated member.",
+            "severity": "high",
+            "enabled": true,
+            "scope": ["libs/**"]
+        },
+        {
+            "id": "tenfold-anticipation",
+            "rule": "Presume tenfold demand on every touched owner: a concept modelled at a fraction of the axes its domain carries is under-designed now, and the finding names the missing attributes, sub-kinds, states, relationships, invariants, or operations. Capability the owning charter implies but the surface cannot express demands the axis as rows, cases, or members inside the existing owner; zero current consumers never lowers the bar, and a vague could-be-richer note with no named missing axis is not a finding.",
+            "severity": "medium",
+            "enabled": true,
+            "scope": ["libs/**"]
         },
         {
             "id": "monadic-rails",
