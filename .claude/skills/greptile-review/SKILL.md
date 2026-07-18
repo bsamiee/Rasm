@@ -57,7 +57,7 @@ ID trap: the CLI `runId` UUID is never the MCP `codeReviewId` — `mcp__greptile
 - `get_code_review`: full rendered summary body plus `summaryCitations`, keyed by the numeric `codeReviewId` only.
 - `search_greptile_comments`: searches past Greptile review comments.
 
-Acting on findings holds the review discipline: every finding verifies against current disk and settled corpus law before any edit — a refuted finding is pushed back with its falsifiable citation and kept as output, a confirmed finding fixes at the root and exceeds it, leaving the owner denser than the finding demanded. Refutations and end-state lessons distill at close into the repo's reviewer instruction surfaces — into the durable law corpus only where no surface already owns the rule — one owner per fact.
+Acting on findings holds the review discipline: every finding verifies against current disk and settled corpus law before any edit — a refuted finding is pushed back with its falsifiable citation and kept as output, a confirmed finding fixes at the root and exceeds it, leaving the owner denser than the finding demanded. Refutations and end-state lessons distill at close into the repo's reviewer instruction surfaces — into the durable law corpus only where no surface already owns the rule — one owner per fact, at the owning channel's grain: a `rules.md` lesson is one sentence in its owning section, a `config.json` rule is one id-bearing, severity-scoped row a child can disable, and an outgrown row splits into sibling ids, never a mega-rule.
 
 ## [04]-[PR_OPERATIONS]
 
