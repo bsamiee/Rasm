@@ -7,7 +7,7 @@ description: >-
     collected, triaged, and fixed at the doctrine bar, threads resolved, convergence proven — user out
     of the loop. Use after landing work on a branch or `main`, or on "ship and drive the PR", "address
     the PR review feedback", "round-trip reviewer comments", "babysit the PR to merge". Local pre-PR
-    review belongs to code-review and greptile-review.
+    review belongs to code-review.
 ---
 
 # [PR_LOOP]
