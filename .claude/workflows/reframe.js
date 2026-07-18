@@ -3,7 +3,7 @@ export const meta = {
     whenToUse:
         'The standing hostile PROSE + STRUCTURE rebuild for any libs/ planning corpus: pass target folders (a package folder, a branch, several, any language mix); it censuses each folder .planning pages + README/ARCHITECTURE, then per folder runs frame-recon -> reframe-writer -> critique -> red-team CONCURRENTLY, destroying imported frames and rebuilding every page template-true at the docgen bar while conserving ALL semantic content, then one terminal drain loop and a doctrine lander close the run.',
     description:
-        'The hostile prose/structure rebuild of planning corpora — the ANTI-ANCHORING engine, sibling to the rebuild engine on the prose dimension and sharing its substrate verbatim. Fence CODE bodies (signatures, types, cases, fields, bodies, design decisions) are UNTOUCHED surfaces; fence comments, section-divider grammar, page structure, README/ARCHITECTURE shape, seam representations, and every durable prose line are the territory. The prime mandate: an IMPORTED FRAME is the prime contaminant — a page wearing another corpus styling (a libs/ spec wearing docs/stacks card framing, a doc predating the docgen templates) poisons every future rebuild that reads it as context and inherits its shape; reframe destroys the frame, rebuilds the page template-true to its own file kind, and conserves ALL semantic content and law (capability conservation is absolute — it deletes noise and frames, never meaning). args = a target folder, an array of folders, or a targets object; empty = no-op; targets may MIX languages, each deriving its file-kind templates and casing from its own branch. Plan (1 sonnet) censuses the target folders into per-folder units with page counts. Per unit, a pipelined chain: (a) FRAME RECON — one gpt-5.6-terra codex recon lane maps frame defects as FINDINGS never prescriptions — imported/cross-corpus frame poison, drift from the docgen README/ARCHITECTURE/spec templates, text seam-maps that should be mermaid, dead/no-op prose, comment-discipline violations inside fences, section-grammar violations (CLAUDE.md section 09), and the docgen defect classes (STALE_MIRROR, TWIN_TRUTH, META_FRAME, ENUMERATION_ANCHOR, REPORT_FRAME, hedges) — anchored, with coverage; (b) REFRAME WRITER — fable, ordered to load the docgen, skill-writer, and mermaid-diagramming skills BEFORE any edit, reading docs/standards/ (all four pages), the docgen templates, and docs/laws/ at source, then rebuilding README.md + ARCHITECTURE.md template-true (they predate the templates — full re-frame per docgen rewriting.md, never inheriting the source frame), converting text seam maps to one clean mermaid diagram, re-framing poisoned pages, culling dead prose, and repairing comment discipline inside fences WITHOUT touching fence code, running the docgen prose gate to zero FAILs; (c) SOL CRITIQUE — a gpt-5.6-sol codex write lane (native-twin fable), predicate-positive conformance audit against the docgen register/templates/section grammar, fixing in place, fixlog to disk; (d) FABLE RED-TEAM — predicate-negative with fold-forward duty, hunting RESIDUAL ANCHORING (any page still carrying the old frame, poisoned styling, a stale mirror, twin truth) under the counterfactual: would a cold agent rebuilding from this page inherit poison? Close: pooled deferred rows drain through the terminal fable DRAIN LOOP; pooled harvest nominations route through the doctrine lander; orphaned critique fixlogs drain with the backlog. Nothing follows the drain.',
+        'The hostile prose/structure rebuild of planning corpora — the ANTI-ANCHORING engine, sibling to the rebuild engine on the prose dimension and sharing its substrate verbatim. Fence CODE bodies (signatures, types, cases, fields, bodies, design decisions) are UNTOUCHED surfaces; fence comments, section-divider grammar, page structure, README/ARCHITECTURE shape, seam representations, and every durable prose line are the territory. The prime mandate: an IMPORTED FRAME is the prime contaminant — a page wearing another corpus styling (a libs/ spec wearing docs/stacks card framing, a doc predating the docgen templates) poisons every future rebuild that reads it as context and inherits its shape; reframe destroys the frame, rebuilds the page template-true to its own file kind, and conserves ALL semantic content and law (capability conservation is absolute — it deletes noise and frames, never meaning). args = a target folder, an array of folders, or a targets object; empty = no-op; targets may MIX languages, each deriving its file-kind templates and casing from its own branch. Plan (1 sonnet) censuses the target folders into per-folder units with page counts. Per unit, a pipelined chain: (a) FRAME RECON — one gpt-5.6-terra codex recon lane maps frame defects as FINDINGS never prescriptions — imported/cross-corpus frame poison, drift from the docgen README/ARCHITECTURE/spec templates, text seam-maps that should be mermaid, dead/no-op prose, comment-discipline violations inside fences, section-grammar violations (CLAUDE.md section 09), and the docgen defect classes (STALE_MIRROR, TWIN_TRUTH, META_FRAME, ENUMERATION_ANCHOR, REPORT_FRAME, hedges) — anchored, with coverage; (b) REFRAME WRITER — fable, ordered to load the docgen, skill-writer, and mermaid-diagramming skills BEFORE any edit, reading docs/standards/ (all four pages), the docgen templates, and docs/laws/ at source, then rebuilding README.md + ARCHITECTURE.md template-true (they predate the templates — full re-frame per docgen rewriting.md, never inheriting the source frame), converting text seam maps to one clean mermaid diagram, re-framing poisoned pages, culling dead prose, and repairing comment discipline inside fences WITHOUT touching fence code, running the docgen prose gate to zero FAILs; (c) CRITIQUE — a codex write lane (native-twin fable), predicate-positive conformance audit against the docgen register/templates/section grammar, fixing in place, fixlog to disk; (d) FABLE RED-TEAM — predicate-negative with fold-forward duty, hunting RESIDUAL ANCHORING (any page still carrying the old frame, poisoned styling, a stale mirror, twin truth) under the counterfactual: would a cold agent rebuilding from this page inherit poison? Close: pooled deferred rows drain through the terminal fable DRAIN LOOP; pooled harvest nominations route through the doctrine lander; orphaned critique fixlogs drain with the backlog. Nothing follows the drain.',
     phases: [
         {
             title: 'Plan',
@@ -12,7 +12,7 @@ export const meta = {
         },
         {
             title: 'Reframe',
-            detail: 'all folder units concurrent under the agent-level slot cap: per unit a gpt-5.6-terra frame-recon lane (recon) then reframe-writer (fable), critique (gpt-5.6-sol codex lane, fixlog to disk), red-team (fable, folding the critique rows forward) chained behind their own unit; navigation-fact handoffs, libs-wide bounded ripple authority',
+            detail: 'all folder units concurrent under the agent-level slot cap: per unit a gpt-5.6-terra frame-recon lane (recon) then reframe-writer (fable), critique (codex lane, fixlog to disk), red-team (fable, folding the critique rows forward) chained behind their own unit; navigation-fact handoffs, libs-wide bounded ripple authority',
         },
         {
             title: 'Close',
@@ -376,7 +376,7 @@ const CONTEXT = (L) =>
     'prose + comments to carry the intent, invariant, seam, and rationale the code fences alone cannot hold. This run rebuilds ' +
     'PROSE and STRUCTURE only.';
 
-// reg selects the register by the EXECUTING model: 'codex' neutral+de-conflicted for a codex lane (frame, sol
+// reg selects the register by the EXECUTING model: 'codex' neutral+de-conflicted for a codex lane (frame,
 // critique), 'claude' the hostile estate register a native lane (writer, red-team) reads as sharpening. Substance is
 // identical — two naivety axes, floor-hunted-past, no-churn, verify-against-template — only the phrasing forks.
 const STANCE = (reg) =>
@@ -631,16 +631,16 @@ const codexPrompt = (label, task, schema, o) => {
     const base = SCRATCH + '/' + fileTag(label);
     const root = ROOT_DIR;
     const report = root + '/' + base + '-report.json';
-    const model = o.model || 'gpt-5.6-terra';
+    const model = o.model; // config owns the default (sol); an explicit value flags the deviation and is passed, otherwise the call runs unflagged
     return [
         'DISPATCH ROLE: ' +
-            model +
+            (model || 'codex') +
             ' performs the complete TASK below through one blocking Codex MCP call. Follow exactly four steps; ' +
             'never perform, edit, judge, soften, summarize, or relay the task yourself.',
         '(1) Call ToolSearch with query "select:mcp__codex__codex".',
-        '(2) Call the loaded mcp__codex__codex tool ONCE with model="' +
-            model +
-            '", cwd=' +
+        '(2) Call the loaded mcp__codex__codex tool ONCE with ' +
+            (model ? 'model="' + model + '", ' : '') +
+            'cwd=' +
             JSON.stringify(root) +
             (o.codexEffort ? ', config={"model_reasoning_effort":"' + o.codexEffort + '"}' : '') +
             ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
@@ -677,7 +677,7 @@ const codexPrompt = (label, task, schema, o) => {
             'report and headline empty, and failure equal to the error text VERBATIM.',
     ].join('\n\n');
 };
-// Every codex-dispatched lane routes here: terra by default, sol where o.model says so. QUOTA FALLBACK: a codex
+// Every codex-dispatched lane routes here: sol by default (config-owned), terra where o.model flags the deviation. QUOTA FALLBACK: a codex
 // receipt whose failure matches usage/quota/limit re-dispatches the SAME task natively at the role's Claude twin (terra->opus, sol->fable,
 // luna->sonnet); the caller owns re-dispatch, the sonnet wrapper never executes work itself. The roster row carries `scope` from the ORCHESTRATOR so
 // a failed lane's unmapped territory is exact even when the lane died before writing anything.
@@ -703,7 +703,7 @@ const nativeLane = (task, o) =>
     );
 const recon = (task, o) =>
     agent(codexPrompt(o.label, task, o.schema, o), {
-        label: (o.model && o.model.indexOf('-sol') >= 0 ? 'sol:' : 'terra:') + o.label,
+        label: (o.model && o.model.indexOf('-terra') >= 0 ? 'terra:' : 'sol:') + o.label,
         phase: o.phase,
         model: 'sonnet',
         effort: 'low',
@@ -879,7 +879,7 @@ const redteamPrompt = (L, u, framed, unmapped, nav, crit, critReport) =>
         READ_FIRST(L, u),
         reconBlock(framed, unmapped),
         'NAVIGATION (locations only, no assessments): ' + JSON.stringify(nav),
-        'PRIOR CLAIMS (UNVERIFIED): the sol critique fixlog ' +
+        'PRIOR CLAIMS (UNVERIFIED): the critique fixlog ' +
             (crit && crit.ok
                 ? 'is ON DISK at ' + crit.report
                 : 'wrapper died, but the lane writes its fixlog as its final act — check ' +
@@ -1032,6 +1032,7 @@ const processUnit = async (u) => {
             label: 'frame:' + tag,
             phase: 'Reframe',
             schema: FRAME_SCHEMA,
+            model: 'gpt-5.6-terra',
             scope: [u.folder],
             hl: { arr: 'findings', group: 'class' },
         }),
@@ -1047,7 +1048,7 @@ const processUnit = async (u) => {
     // CHAIN CONTINUATION: a dead writer never blocks the reviews — the critique's conformance audit and the red-team's pre-mortem
     // still improve the pages as they stand on disk; navigation simply arrives empty.
     const nav = navOf(fix ? [fix] : []);
-    // (c) sol critique: a codex write lane running the predicate-positive conformance audit in place; fixlog to disk,
+    // (c) critique: a codex write lane running the predicate-positive conformance audit in place; fixlog to disk,
     // receipt on the wire. The report path is DETERMINISTIC, so a dead receipt never severs the fold — the lane writes its fixlog
     // as its final act, and the red-team + terminal drain verify the path on disk instead of trusting ok.
     const critReport = SCRATCH + '/' + fileTag('crit:' + tag) + '-report.json';
@@ -1058,7 +1059,6 @@ const processUnit = async (u) => {
             schema: REVIEW_LOG,
             writes: true,
             fix: true,
-            model: 'gpt-5.6-sol',
             nativeModel: 'fable',
             scope: [u.folder],
             hl: { arr: 'files' },

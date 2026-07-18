@@ -6,7 +6,7 @@ export const meta = {
     phases: [
         {
             title: 'Realize',
-            detail: 'all folder chains concurrent under one pooled cap: discover(gpt-5.6-terra via codex wrapper, recon lane; navigation-facts product to disk, thin receipt + structural skeleton on the wire) -> implement(fable; reads the discovery report from disk, fans over discovery-proven page-disjoint card groups) -> critique(ONE gpt-5.6-sol codex lane, write lane; fixlog to disk, receipt on the wire) -> redteam(fable, terminal close; reads the critique fixlog from disk as refutation targets and folds its surviving ripples/pins/seams/deferred rows into its own return); a folder with no open cards no-ops after its own discovery; every writing stage re-reads current disk, repairs page-level ripples in-pass, and reports central pin rows + ARCHITECTURE.md [02]-[SEAMS] rows for the terminal single-writer instead of editing those surfaces',
+            detail: 'all folder chains concurrent under one pooled cap: discover(gpt-5.6-terra via codex wrapper, recon lane; navigation-facts product to disk, thin receipt + structural skeleton on the wire) -> implement(fable; reads the discovery report from disk, fans over discovery-proven page-disjoint card groups) -> critique(ONE codex lane, write lane; fixlog to disk, receipt on the wire) -> redteam(fable, terminal close; reads the critique fixlog from disk as refutation targets and folds its surviving ripples/pins/seams/deferred rows into its own return); a folder with no open cards no-ops after its own discovery; every writing stage re-reads current disk, repairs page-level ripples in-pass, and reports central pin rows + ARCHITECTURE.md [02]-[SEAMS] rows for the terminal single-writer instead of editing those surfaces',
         },
         {
             title: 'Pins',
@@ -231,7 +231,7 @@ const RECEIPT = {
     },
 };
 
-// Thin wire receipt for the sol critique lane: its FIXLOG product stays on disk at `report`.
+// Thin wire receipt for the critique lane: its FIXLOG product stays on disk at `report`.
 const LANE_RECEIPT = {
     type: 'object',
     additionalProperties: false,
@@ -710,16 +710,16 @@ const codexPrompt = (label, task, schema, o) => {
     const base = SCRATCH + '/' + fileTag(label);
     const root = ROOT_DIR;
     const report = root + '/' + base + '-report.json';
-    const model = o.model || 'gpt-5.6-terra';
+    const model = o.model || null;
     return [
         'DISPATCH ROLE: ' +
-            model +
+            (model || 'codex') +
             ' performs the complete TASK below through one blocking Codex MCP call. Follow exactly four steps; ' +
             'never perform, edit, judge, soften, summarize, or relay the task yourself.',
         '(1) Call ToolSearch with query "select:mcp__codex__codex".',
-        '(2) Call the loaded mcp__codex__codex tool ONCE with model="' +
-            model +
-            '", cwd=' +
+        '(2) Call the loaded mcp__codex__codex tool ONCE with ' +
+            (model ? 'model="' + model + '", ' : '') +
+            'cwd=' +
             JSON.stringify(root) +
             (o.codexEffort ? ', config={"model_reasoning_effort":"' + o.codexEffort + '"}' : '') +
             ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
@@ -748,7 +748,7 @@ const codexPrompt = (label, task, schema, o) => {
         o.receipt(base),
     ].join('\n\n');
 };
-const twinOf = (m) => (/-sol/.test(m || '') ? 'fable' : /-luna/.test(m || '') ? 'sonnet' : 'opus');
+const twinOf = (m) => (/-terra/.test(m || '') ? 'opus' : /-luna/.test(m || '') ? 'sonnet' : 'fable');
 const nativeLane = (task, o) =>
     agent(task + o.nativeTail(SCRATCH + '/' + fileTag(o.label) + '-report.json'), {
         label: o.label,
@@ -778,7 +778,7 @@ const discoveryTail = (report) =>
     'mechanical headline, failure empty, and folder/order/tasks/ideas/ripples/gates/malformed_ripples transcribed from the ' +
     'product (task rows reduced to slug/status/atomic/pages, idea rows to slug/status/pages — theses, map, and coverage stay on disk).';
 const recon = (task, o) => {
-    const opts = { ...o, writes: !!o.writes, receipt: discoveryReceipt, nativeTail: discoveryTail, wire: RECEIPT };
+    const opts = { ...o, model: 'gpt-5.6-terra', writes: !!o.writes, receipt: discoveryReceipt, nativeTail: discoveryTail, wire: RECEIPT };
     return agent(codexPrompt(o.label, task, DISCOVERY, opts), {
         label: 'terra:' + o.label,
         phase: o.phase,
@@ -805,7 +805,7 @@ const recon = (task, o) => {
 };
 const folderName = (p) => p.split('/').filter(Boolean).pop() || p;
 
-// Sol critique lane: one blocking Codex MCP call at the operator-default tier — a FIX lane
+// Critique lane: one blocking Codex MCP call at the operator-default tier — a FIX lane
 // (persistence + post-edit verification law), FIXLOG product to disk, thin receipt on the wire; a quota fallback restores
 // the native fable twin writing the same product to the same path.
 const critiqueReceipt = (base) =>
@@ -820,7 +820,7 @@ const critiqueTail = (report) =>
     JSON.stringify(FIXLOG_SCHEMA) +
     ' — then return ONLY the receipt: ok, report path, entries = realized count, one-line mechanical headline, failure empty.';
 const solLane = (task, o) => {
-    const opts = { ...o, model: 'gpt-5.6-sol', writes: true, fix: true, receipt: critiqueReceipt, nativeTail: critiqueTail, wire: LANE_RECEIPT };
+    const opts = { ...o, writes: true, fix: true, receipt: critiqueReceipt, nativeTail: critiqueTail, wire: LANE_RECEIPT };
     return agent(codexPrompt(o.label, task, FIXLOG_SCHEMA, opts), {
         label: 'sol:' + o.label,
         phase: o.phase,
@@ -1015,7 +1015,7 @@ const implementPrompt = (folder, seq, report, note, ownpass) =>
             (note ? '\n' + note : ''),
     ].join('\n');
 
-// critiquePrompt feeds the sol codex lane (+ native fable twin): neutral stance — hostile register degrades
+// critiquePrompt feeds the codex critique lane (+ native fable twin): neutral stance — hostile register degrades
 // codex, safe for the twin; the hostile pass is redteam (native).
 const critiquePrompt = (folder, seq, report, ownpass) =>
     [
@@ -1121,7 +1121,7 @@ const redteamPrompt = (folder, seq, report, critReport, critOk, ownpass) =>
             'DESIGN. The cards realized this turn (read each FULL body):\n' +
             seq +
             '\n' +
-            'PRIOR CLAIMS (UNVERIFIED): the sol critique fixlog is ON DISK at `' +
+            'PRIOR CLAIMS (UNVERIFIED): the critique fixlog is ON DISK at `' +
             critReport +
             '`' +
             (critOk
@@ -1239,7 +1239,7 @@ const pinPrompt = (pins, seams, orphans, backlog, round) =>
                       '.'
                     : '',
                 orphans.length
-                    ? '(3) CRITIQUE FIXLOGS — every sol critique fixlog on disk (the redteam fold-forward is lossy transport even when it lands); the ' +
+                    ? '(3) CRITIQUE FIXLOGS — every critique fixlog on disk (the redteam fold-forward is lossy transport even when it lands); the ' +
                       'paths are deterministic, so one absent on disk is skipped with a one-line note in `summary`, never an error — read each present ' +
                       'file IN FULL and apply its pin and seam rows under the same law as the reported rows above (a row a live redteam already landed ' +
                       "disk-resolves and drops). Its `harvest` rows are the doctrine lander's to sweep, never yours to fold: " +
@@ -1367,9 +1367,9 @@ const runFolder = async (target) => {
         // pre-mortem (both fix-in-place) still improve the pages as they stand on disk, and the redteam is the folder's SOLE
         // card-status owner; navigation simply arrives empty and the reviews realize the unrealized cards themselves.
         if (!impls.length) log(tag + ': implement produced nothing after retries — critique + redteam run against current disk');
-        // Sol critique: fixlog to disk, receipt on the wire; the redteam folds its rows forward, but that fold is lossy transport,
+        // Critique: fixlog to disk, receipt on the wire; the redteam folds its rows forward, but that fold is lossy transport,
         // so every critique fixlog is also swept by the terminal single-writer, re-verified against disk (a landed row drops). The
-        // critique report path is DETERMINISTIC — the sol lane writes the fixlog before its wrapper ceiling can kill the call, so a
+        // critique report path is DETERMINISTIC — the critique lane writes the fixlog before its wrapper ceiling can kill the call, so a
         // dead receipt never severs the fold: downstream consumers check the path on disk, never trust `ok`.
         const critReport = SCRATCH + '/' + fileTag('critique:' + tag) + '-report.json';
         await stagger();
@@ -1457,7 +1457,7 @@ log(
 
 // --- [PINS]
 
-// EVERY sol critique fixlog on disk (not only orphaned ones): the redteam fold-forward is lossy even when it lands, so the
+// EVERY critique fixlog on disk (not only orphaned ones): the redteam fold-forward is lossy even when it lands, so the
 // terminal single-writer re-verifies each against current disk and drops what a live fold already landed.
 const ORPHANS = done.map((r) => r.critReport || '').filter(Boolean);
 // The deferred cards a folder chain could not realize become the drain backlog in {files, claim} form.

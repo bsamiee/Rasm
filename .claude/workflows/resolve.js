@@ -3,7 +3,7 @@ export const meta = {
     whenToUse:
         'The standing RESEARCH-row resolution pass for any libs/ planning corpus: pass folder targets (sub-folder / package root, any number, any language mix); it censuses every research row as an epistemic-debt entry, clusters the debts by verification route, verifies each at its route, then bakes confirmed spellings and DELETES resolved rows, sharpens the unresolvable, and closes with a critique/red-team chain, a deferred drain, and one doctrine landing.',
     description:
-        'RESEARCH-row resolution engine over libs/{csharp,python,typescript} planning corpora. args = a folder target, an array of folder paths, or a targets object; empty = no-op. A research row is a writer epistemic debt — an exact question plus its verification route, recorded instead of a guessed member spelling. Census (terra codex, read lane) reads every page under the targets and extracts each research row (the C# [NN]-[RESEARCH] section entries, the inline RESEARCH re-verify rows, and the version-blocked capability rows) as an anchored {page, anchor, question, route, routeFamily, routeKey, symbols} entry with coverage; one lane per folder, large folders split by page count. Cluster (plain orchestrator code, no agent) groups the entries by verification route family — same host DLL, package, .api catalog, or doc source. Verify runs one lane per cluster, the route deciding the lane: assay-decompile clusters run NATIVE (they need tools.assay over host DLLs); .api catalog and doc-file clusters ride terra codex lanes reading the catalogs; external-doc clusters run a native Context7 lane; each writes {question, page, anchor, verdict, evidence, spelling} verdicts to disk. Apply (one fable writer per folder, pipelined) reads the folder verdicts plus the pages, bakes each confirmed spelling into its fence, corrects each refuted assumption at its root, DELETES each resolved research row entirely (no tombstones, no resolved notes), and SHARPENS each unresolvable row in place with a better question and route; docgen loads before durable prose edits, the prose gate returns zero FAILs, and the fixlog carries harvest. A sol critique (codex, fix, fable twin) then a fable red-team fold-forward per the chain law attack a baked spelling not actually verified, a deleted row whose fact never landed in the fence, and a surviving row that verification already answered. Close: a drain loop over the pooled deferred backlog and orphaned critique fixlogs, then one doctrine lander over the pooled harvest.',
+        'RESEARCH-row resolution engine over libs/{csharp,python,typescript} planning corpora. args = a folder target, an array of folder paths, or a targets object; empty = no-op. A research row is a writer epistemic debt — an exact question plus its verification route, recorded instead of a guessed member spelling. Census (terra codex, read lane) reads every page under the targets and extracts each research row (the C# [NN]-[RESEARCH] section entries, the inline RESEARCH re-verify rows, and the version-blocked capability rows) as an anchored {page, anchor, question, route, routeFamily, routeKey, symbols} entry with coverage; one lane per folder, large folders split by page count. Cluster (plain orchestrator code, no agent) groups the entries by verification route family — same host DLL, package, .api catalog, or doc source. Verify runs one lane per cluster, the route deciding the lane: assay-decompile clusters run NATIVE (they need tools.assay over host DLLs); .api catalog and doc-file clusters ride terra codex lanes reading the catalogs; external-doc clusters run a native Context7 lane; each writes {question, page, anchor, verdict, evidence, spelling} verdicts to disk. Apply (one fable writer per folder, pipelined) reads the folder verdicts plus the pages, bakes each confirmed spelling into its fence, corrects each refuted assumption at its root, DELETES each resolved research row entirely (no tombstones, no resolved notes), and SHARPENS each unresolvable row in place with a better question and route; docgen loads before durable prose edits, the prose gate returns zero FAILs, and the fixlog carries harvest. A codex critique (fix, fable twin) then a fable red-team fold-forward per the chain law attack a baked spelling not actually verified, a deleted row whose fact never landed in the fence, and a surviving row that verification already answered. Close: a drain loop over the pooled deferred backlog and orphaned critique fixlogs, then one doctrine lander over the pooled harvest.',
     phases: [
         {
             title: 'Discover',
@@ -20,7 +20,7 @@ export const meta = {
         },
         {
             title: 'Apply',
-            detail: 'per folder pipelined: fable bakes confirmed spellings, corrects refuted assumptions, DELETES resolved rows, sharpens the unresolvable; then a sol critique and a fable red-team fold-forward per the chain law',
+            detail: 'per folder pipelined: fable bakes confirmed spellings, corrects refuted assumptions, DELETES resolved rows, sharpens the unresolvable; then a codex critique and a fable red-team fold-forward per the chain law',
         },
         {
             title: 'Close',
@@ -493,16 +493,16 @@ const codexPrompt = (label, task, schema, o) => {
     const base = SCRATCH + '/' + fileTag(label);
     const root = ROOT;
     const report = root + '/' + base + '-report.json';
-    const model = o.model || 'gpt-5.6-terra';
+    const model = o.model; // unset => unflagged: the codex config default model runs, model= omitted from the MCP call
     return [
         'DISPATCH ROLE: ' +
-            model +
+            (model || 'codex') +
             ' performs the complete TASK below through one blocking Codex MCP call. Follow exactly four steps; ' +
             'never perform, edit, judge, soften, summarize, or relay the task yourself.',
         '(1) Call ToolSearch with query "select:mcp__codex__codex".',
-        '(2) Call the loaded mcp__codex__codex tool ONCE with model="' +
-            model +
-            '", cwd=' +
+        '(2) Call the loaded mcp__codex__codex tool ONCE with ' +
+            (model ? 'model="' + model + '", ' : '') +
+            'cwd=' +
             JSON.stringify(root) +
             ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
             'VERBATIM. The call blocks and returns when the turn completes; if it errors, skip step (3) and return the error ' +
@@ -538,9 +538,9 @@ const codexPrompt = (label, task, schema, o) => {
             'report and headline empty, and failure equal to the error text VERBATIM.',
     ].join('\n\n');
 };
-// Every codex-dispatched receipt lane routes here: terra by default, sol where o.model says so. QUOTA FALLBACK: a codex
-// receipt whose failure matches usage/quota/limit re-dispatches the SAME task natively at the role Claude twin
-// (terra->opus, sol->fable, luna->sonnet). The roster row carries `scope` from the ORCHESTRATOR so a failed lane
+// Every codex-dispatched receipt lane routes here: terra where o.model names it, the config default unflagged otherwise.
+// QUOTA FALLBACK: a codex receipt whose failure matches usage/quota/limit re-dispatches the SAME task natively at the
+// role Claude twin (terra->opus, unflagged default->fable, luna->sonnet). The roster row carries `scope` from the ORCHESTRATOR so a failed lane
 // unmapped territory is exact even when the lane died before writing anything.
 const twinOf = (m) => (/-sol/.test(m || '') ? 'fable' : /-luna/.test(m || '') ? 'sonnet' : 'opus');
 const nativeLane = (task, o) =>
@@ -564,7 +564,7 @@ const nativeLane = (task, o) =>
     );
 const recon = (task, o) =>
     agent(codexPrompt(o.label, task, o.schema, o), {
-        label: (o.model && o.model.indexOf('-sol') >= 0 ? 'sol:' : 'terra:') + o.label,
+        label: (o.model ? 'terra:' : 'sol:') + o.label,
         phase: o.phase,
         model: 'sonnet',
         effort: 'low',
@@ -688,7 +688,7 @@ const ROOT_LAW =
 const CONTEXT = (L) => ROOT_LAW + '\n\nRasm monorepo — ' + L.corpus + '. ' + L.strata + ' ' + L.stackFloor;
 
 // reg selects the register by the EXECUTING model: 'codex' neutral+de-conflicted for a codex lane (census, catalog/
-// doc verify, sol critique), 'claude' the hostile estate register a native lane (assay verify, apply, red-team) reads
+// doc verify, critique), 'claude' the hostile estate register a native lane (assay verify, apply, red-team) reads
 // as sharpening. Substance is identical — research-row = epistemic debt, confident-row suspect, no-churn — only the
 // phrasing forks; codex drops the corpus-slur priming.
 const STANCE = (L, reg) =>
@@ -936,7 +936,7 @@ const verifyPrompt = (L, cluster, reg) =>
             'confirmed without the route output in `evidence`; an unrun route is `unresolvable`, never an optimistic confirm.',
     ].join('\n\n');
 
-// reg selects STANCE by the EXECUTING model: apply + red-team run native fable ('claude'), the sol critique runs codex ('codex').
+// reg selects STANCE by the EXECUTING model: apply + red-team run native fable ('claude'), the critique runs codex ('codex').
 const applyPreamble = (L, folder, scopes, reg) => [
     CONTEXT(L),
     STANCE(L, reg),
@@ -1026,8 +1026,8 @@ const redteamPrompt = (L, folder, entries, verdictReports, scopes, nav, critOk, 
             'NAVIGATION (locations only, no assessments): ' + JSON.stringify(nav),
             'VERDICT REPORTS (read IN FULL from disk): ' + JSON.stringify(verdictReports) + '. Folder research entries: ' + JSON.stringify(entries),
             (critOk
-                ? 'PRIOR CLAIMS (UNVERIFIED): the sol critique fixlog is ON DISK at ' + critReport
-                : 'PRIOR CLAIMS (UNVERIFIED): the sol critique wrapper died, but the lane writes its fixlog before any ceiling ' +
+                ? 'PRIOR CLAIMS (UNVERIFIED): the critique fixlog is ON DISK at ' + critReport
+                : 'PRIOR CLAIMS (UNVERIFIED): the critique wrapper died, but the lane writes its fixlog before any ceiling ' +
                   'can kill the call — check ' +
                   critReport +
                   ' FIRST; absent or unparseable, your cold attack is the only review this folder gets, judged from CURRENT disk ' +
@@ -1125,7 +1125,7 @@ const fixerPrompt = (langs, rows, backlog, folders, orphans, round) =>
                       '.'
                     : '',
                 orphans.length
-                    ? '(2b) CRITIQUE FIXLOGS (every sol critique fixlog on disk, keyed on its deterministic path — a folder whose ' +
+                    ? '(2b) CRITIQUE FIXLOGS (every critique fixlog on disk, keyed on its deterministic path — a folder whose ' +
                       'red-team folded its own fixlog already landed those seamsTouched/deferred/indexRows rows, so re-verification ' +
                       'disk-dedupes them, while a fixlog whose red-team died folds for the first time here — read each present file ' +
                       'IN FULL from disk and drain the seam/deferred/index rows still open under the same law; the fixlog `harvest` ' +
@@ -1235,6 +1235,7 @@ const verified = (
                       label,
                       phase: 'Verify',
                       schema: VERDICT_SCHEMA,
+                      model: 'gpt-5.6-terra',
                       scope,
                       hl: { arr: 'verdicts', group: 'verdict' },
                   });
@@ -1296,7 +1297,6 @@ const built = (
                         schema: REVIEW_SCHEMA,
                         writes: true,
                         fix: true,
-                        model: 'gpt-5.6-sol',
                         nativeModel: 'fable',
                         stallMs: STALL,
                         scope: [...new Set(folderEntries.map((e) => e.page))],
@@ -1304,7 +1304,7 @@ const built = (
                     }),
                 );
                 const critR = crit && crit.ok ? crit : null;
-                // Deterministic critique-report path from the folder alone — set even when the sol wrapper dies, so the redteam
+                // Deterministic critique-report path from the folder alone — set even when the critique wrapper dies, so the redteam
                 // and the terminal drain reach a written fixlog off the path, never a receipt a dead wrapper never returned.
                 const critReport = SCRATCH + '/' + fileTag('crit:' + tag) + '-report.json';
                 const rtArgs = redteamPrompt(L, folder, folderEntries, verdictReports, SCOPES, nav, !!critR, critReport);

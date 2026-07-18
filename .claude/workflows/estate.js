@@ -189,7 +189,7 @@ const DOCTRINE_SCHEMA = {
 
 const MODEL_LAW =
     'MODEL LAW: you execute every file write and every judgment yourself. Delegate read-only reconnaissance roughly 50/50 between codex ' +
-    '(Bash: codex exec --skip-git-repo-check -m gpt-5.6-terra ' +
+    '(Bash: codex exec -m gpt-5.6-terra ' +
     '"<self-contained scoped question>" </dev/null 2>/dev/null — synchronous, ' +
     'one bounded question per leg) and opus subagents (Agent tool, model opus, explicit READ-ONLY mandate). ' +
     'Recon returns facts, locations, inventories, and verified member lists — never instructions, prescriptions, or edits. Tooling routes each leg: ' +

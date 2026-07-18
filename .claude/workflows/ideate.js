@@ -2,7 +2,7 @@ export const meta = {
     name: 'ideate',
     whenToUse: 'Rebuild a folder IDEAS and TASK pool to world-class when the deferred idea or task pool is stale or thin.',
     description:
-        'Rebuild a folder IDEAS + TASKS card pool to world-class: survey the realized corpus and research the real domain, author the genuinely-deferred idea/task pool, then fix-in-place constructive critique + hostile adversarial redteam. Language-agnostic (cards are markdown governed by the card schema). Authors NO design pages (that is the rebuild-* workflows) and aligns nothing pre-existing for its own sake (that is align-cards) — this is the greenfield/expansion pool generator. Every agent call takes a slot in one agent-level scheduler so the true in-flight agent count stays at cap while all folder chains run concurrently; within a folder the survey -> ideate -> critique -> redteam chain holds because each stage consumes the prior stage\'s landed cards, and a folder above the survey page cap runs two page-slice survey agents whose maps merge before the ideate stage. Survey lanes (including the page-slice splits) run as recon lanes on gpt-5.6-terra dispatched through sonnet codex wrappers; ideate and redteam stay fable writers, and critique runs as ONE gpt-5.6-sol codex lane per folder (write lane; cardlog to disk, receipt on the wire; the redteam reads it from disk as refutation targets and folds its verified files into the folder record). Every stage writes BOTH ends of every Ripple itself — a cross-folder counterpart is authored or repaired directly in the sibling folder\'s card files in the same pass under the current-state law; nothing routes to a later phase. Every writing stage also nominates generalizable lessons into a required-usually-empty harvest, folded forward through the redteam and the orphan drain; one terminal doctrine lander then adjudicates the pooled harvest against the docs/laws admission bar (land-nothing legal) before the run closes. The terminal stays the single fold-forward orphan drain, not a round-based DRAIN LOOP: Ripples land both ends in-pass by design and the cardlog carries no {files, claim} backlog, so nothing pools across stages. args = optional scope (e.g. "libs/python/geometry"); empty = all of libs.',
+        'Rebuild a folder IDEAS + TASKS card pool to world-class: survey the realized corpus and research the real domain, author the genuinely-deferred idea/task pool, then fix-in-place constructive critique + hostile adversarial redteam. Language-agnostic (cards are markdown governed by the card schema). Authors NO design pages (that is the rebuild-* workflows) and aligns nothing pre-existing for its own sake (that is align-cards) — this is the greenfield/expansion pool generator. Every agent call takes a slot in one agent-level scheduler so the true in-flight agent count stays at cap while all folder chains run concurrently; within a folder the survey -> ideate -> critique -> redteam chain holds because each stage consumes the prior stage\'s landed cards, and a folder above the survey page cap runs two page-slice survey agents whose maps merge before the ideate stage. Survey lanes (including the page-slice splits) run as recon lanes on gpt-5.6-terra dispatched through sonnet codex wrappers; ideate and redteam stay fable writers, and critique runs as ONE codex lane per folder (write lane; cardlog to disk, receipt on the wire; the redteam reads it from disk as refutation targets and folds its verified files into the folder record). Every stage writes BOTH ends of every Ripple itself — a cross-folder counterpart is authored or repaired directly in the sibling folder\'s card files in the same pass under the current-state law; nothing routes to a later phase. Every writing stage also nominates generalizable lessons into a required-usually-empty harvest, folded forward through the redteam and the orphan drain; one terminal doctrine lander then adjudicates the pooled harvest against the docs/laws admission bar (land-nothing legal) before the run closes. The terminal stays the single fold-forward orphan drain, not a round-based DRAIN LOOP: Ripples land both ends in-pass by design and the cardlog carries no {files, claim} backlog, so nothing pools across stages. args = optional scope (e.g. "libs/python/geometry"); empty = all of libs.',
     phases: [
         {
             title: 'Survey',
@@ -11,7 +11,7 @@ export const meta = {
         { title: 'Ideate', detail: 'author/rebuild the IDEAS + TASKS pool grounded in the survey, genuinely-deferred only, both Ripple ends landed' },
         {
             title: 'Critique',
-            detail: 'fix-in-place on gpt-5.6-sol (codex lane): pull the pool up — density, domain-completeness, anchors, ripples; cardlog to disk',
+            detail: 'fix-in-place codex lane: pull the pool up — density, domain-completeness, anchors, ripples; cardlog to disk',
         },
         { title: 'Redteam', detail: 'fix-in-place hostile reviewer: attack redundancy, mis-carding, dangling ripples, under-ideation' },
     ],
@@ -343,24 +343,24 @@ const codexPrompt = (label, task, schema, o) => {
     const base = SCRATCH + '/' + fileTag(label);
     const root = ROOT;
     const report = root + '/' + base + '-report.json';
-    const model = o.model || 'gpt-5.6-terra';
+    const model = o.model; // config.toml owns the default; set only to deviate (terra)
     const hl = o.hl || { arr: 'entries', group: 'kind' };
     return [
         'DISPATCH ROLE: ' +
-            model +
+            (model || 'codex') +
             ' performs the complete TASK below through one blocking Codex MCP call. Follow exactly four steps; ' +
             'never perform, edit, judge, soften, summarize, or relay the task yourself.',
         '(1) Call ToolSearch with query "select:mcp__codex__codex".',
-        '(2) Call the loaded mcp__codex__codex tool ONCE with model="' +
-            model +
-            '", cwd=' +
+        '(2) Call the loaded mcp__codex__codex tool ONCE with ' +
+            (model ? 'model="' + model + '", ' : '') +
+            'cwd=' +
             JSON.stringify(root) +
             (o.codexEffort ? ', config={"model_reasoning_effort":"' + o.codexEffort + '"}' : '') +
             ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
             'VERBATIM. This is one blocking call — it returns when the turn completes. On any tool error, skip step (3) and ' +
             'return the error through step (4).',
         'LANE LAW:\n\n' + laneLaw(schema, o),
-        // writes lanes (sol critique) author their own report (final act); the wrapper only verifies.
+        // writes lanes (the critique) author their own report (final act); the wrapper only verifies.
         'TASK:\n\n' +
             task +
             (o.writes
@@ -393,7 +393,7 @@ const codexPrompt = (label, task, schema, o) => {
             'ok=false, entries=0, report and headline empty, and failure equal to the error text VERBATIM.',
     ].join('\n\n');
 };
-// Every codex-dispatched lane routes here: terra by default, sol where o.model says so. QUOTA FALLBACK: a
+// Every codex-dispatched lane routes here: the config default unless o.model names a terra deviation. QUOTA FALLBACK: a
 // codex receipt whose failure matches usage/quota/limit re-dispatches the SAME task natively at the role's Claude twin (terra->opus, sol->fable,
 // luna->sonnet) — the caller owns the re-dispatch, the sonnet wrapper never executes work itself. The roster row carries `scope` from the
 // ORCHESTRATOR (never the lane's self-report) so a failed lane's unmapped territory is exact even when the lane died before writing anything.
@@ -412,7 +412,7 @@ const nativeLane = (task, o) =>
     );
 const recon = (task, o) =>
     agent(codexPrompt(o.label, task, o.schema, o), {
-        label: (o.model && o.model.indexOf('-sol') >= 0 ? 'sol:' : 'terra:') + o.label,
+        label: (o.model && o.model.indexOf('-terra') >= 0 ? 'terra:' : 'sol:') + o.label,
         phase: o.phase,
         model: 'sonnet',
         effort: 'low',
@@ -520,8 +520,8 @@ const redteamPrompt = (folder, critOk, critReport) =>
         LAW,
         '',
         (critOk
-            ? 'PRIOR CLAIMS (UNVERIFIED): the sol critique cardlog is ON DISK at ' + critReport
-            : 'PRIOR CLAIMS (UNVERIFIED): the sol critique wrapper died, but the lane writes its cardlog before any ceiling can ' +
+            ? 'PRIOR CLAIMS (UNVERIFIED): the critique cardlog is ON DISK at ' + critReport
+            : 'PRIOR CLAIMS (UNVERIFIED): the critique wrapper died, but the lane writes its cardlog before any ceiling can ' +
               'kill the call — check ' +
               critReport +
               ' FIRST; absent or unparseable, your cold attack is the only review this pool gets, judged from CURRENT disk alone. ' +
@@ -561,7 +561,7 @@ const doctrinePrompt = (rows, orphans) =>
     'load `mermaid-diagramming` before touching any diagram. ' +
     "NOMINATIONS (unverified, biased toward their authors' own work — refute by default): " +
     JSON.stringify(rows) +
-    '\nAlso read the `harvest` array of every sol critique cardlog at these deterministic paths (an absent or invalid file ' +
+    '\nAlso read the `harvest` array of every critique cardlog at these deterministic paths (an absent or invalid file ' +
     'skips; no other agent transports these rows — a live fold never carries them): ' +
     JSON.stringify(orphans) +
     ' — dedupe them against NOMINATIONS and adjudicate them identically.' +
@@ -580,13 +580,14 @@ const ideateFolder = async (u) => {
                           label: 'survey:' + nameOf(folder) + '#' + part,
                           phase: 'Survey',
                           schema: SURVEY_SCHEMA,
+                          model: 'gpt-5.6-terra',
                           scope: [folder + ' (slice ' + part + '/2)'],
                       }),
                   ),
               )
             : [
                   slot(() =>
-                      recon(surveyPrompt(folder, ''), { label: 'survey:' + nameOf(folder), phase: 'Survey', schema: SURVEY_SCHEMA, scope: [folder] }),
+                      recon(surveyPrompt(folder, ''), { label: 'survey:' + nameOf(folder), phase: 'Survey', schema: SURVEY_SCHEMA, model: 'gpt-5.6-terra', scope: [folder] }),
                   ),
               ];
     const roster = (await Promise.all(surveyors)).filter(Boolean);
@@ -611,7 +612,7 @@ const ideateFolder = async (u) => {
                 : ''),
     );
     // CHAIN CONTINUATION: the ideate writer is critical (primary authoring) — it earns retryLane, but its death isolates the
-    // lane, NEVER the chain: the sol critique (a writer) and the redteam still audit and extend the pool as it stands on disk,
+    // lane, NEVER the chain: the critique (a writer) and the redteam still audit and extend the pool as it stands on disk,
     // and the ideate log simply arrives absent.
     const ideateOpts = (suffix) => ({
         label: 'ideate:' + nameOf(folder) + suffix,
@@ -624,7 +625,7 @@ const ideateFolder = async (u) => {
     const authored =
         (await slot(() => agent(ideatePrompt(folder, roster, unmapped), ideateOpts('')))) ||
         (await retryLane(() => slot(() => agent(ideatePrompt(folder, roster, unmapped), ideateOpts(':a1')))));
-    // Sol critique: a codex lane fixing the pool in place; cardlog to disk, receipt on the wire; the redteam
+    // Critique: a codex lane fixing the pool in place; cardlog to disk, receipt on the wire; the redteam
     // folds its verified operational rows and the doctrine lander reads its nominations directly from the deterministic path.
     const crit = await slot(() =>
         recon(critiquePrompt(folder), {
@@ -633,13 +634,12 @@ const ideateFolder = async (u) => {
             schema: CARDLOG_SCHEMA,
             writes: true,
             fix: true,
-            model: 'gpt-5.6-sol',
             nativeModel: 'fable',
             scope: [folder],
             hl: { arr: 'files', group: '' },
         }),
     );
-    // Deterministic critique-report path from the folder alone — set even when the sol wrapper dies, so the redteam, the
+    // Deterministic critique-report path from the folder alone — set even when the critique wrapper dies, so the redteam, the
     // terminal drain, and the doctrine lander reach a written cardlog off the path, never a receipt a dead wrapper never returned.
     const critReport = SCRATCH + '/' + fileTag('crit:' + nameOf(folder)) + '-report.json';
     // The redteam is the terminal review and sole card-status owner — critical, so it too earns retryLane.
@@ -684,7 +684,7 @@ log('Ideate discover under ' + SWEEP + ': ' + FOLDERS.length + ' folders');
 const done = (await Promise.all(FOLDERS.map((u) => ideateFolder(u)))).filter(Boolean);
 const complete = done.filter((r) => r.ok);
 const failed = done.filter((r) => !r.ok).map((r) => r.folder);
-// TERMINAL DRAIN: sweep EVERY sol critique cardlog, keyed on its DETERMINISTIC path, never the receipt — a dead wrapper
+// TERMINAL DRAIN: sweep EVERY critique cardlog, keyed on its DETERMINISTIC path, never the receipt — a dead wrapper
 // does not erase a written cardlog, a live redteam's fold is judgment-lossy anyway, and rows already folded re-verify and
 // disk-dedupe in the sweep. No round-based DRAIN LOOP: Ripples land BOTH ends in-pass by the RIPPLE law and CARDLOG
 // carries no {files, claim} backlog, so nothing pools across stages — the single fold-forward drain is the whole terminal.
@@ -696,7 +696,7 @@ const fireDrain = (suffix) =>
     slot(() =>
         agent(
             ROOT_LAW +
-                '\n\nTERMINAL DRAIN (operational consolidation): every sol critique cardlog on disk, keyed on its deterministic ' +
+                '\n\nTERMINAL DRAIN (operational consolidation): every critique cardlog on disk, keyed on its deterministic ' +
                 'path — read each IN FULL (an absent or invalid file skips): ' +
                 JSON.stringify(ORPHANS) +
                 '. Re-verify its `files` and `beyondFolder` against the live card files and return the consolidated union — ' +
@@ -733,7 +733,7 @@ log(
 // DOCTRINE LANDER: the run's durable-learning terminal — pooled harvest nominations from every landed cardlog
 // adjudicated against the live docs/laws surfaces; refutation-first, land-nothing legal. Fires only when non-empty.
 const HARVEST_ROWS = complete.concat(folded).flatMap((r) => stages.flatMap((k) => (r.logs[k] && r.logs[k].harvest) || []));
-// The doctrine lander is the ONLY transport for the sol critique cardlogs' nominations — it reads each from its deterministic
+// The doctrine lander is the ONLY transport for the critique cardlogs' nominations — it reads each from its deterministic
 // path directly, so it fires whenever a critique cardlog exists (ORPHANS), even with no wire nominations and a dead drain.
 const doctrine =
     HARVEST_ROWS.length || ORPHANS.length

@@ -1,9 +1,9 @@
 export const meta = {
     name: 'rebuild-alt',
     whenToUse:
-        'The fable-free hostile rebuild pass for any libs/ planning corpus: pass targets (file / sub-folder / package root, any number, any language mix); it maps every .planning sub-folder, ideates per package, hostile-rebuilds every page batch concurrently at the owning-language doctrine bar, and closes with a finder fan plus one terminal fixer. Roster: terra recon/map lanes, sol codex implement + critique + terminal drain (fixlogs to disk), twin half-scope opus redteams, opus ideate/realize/disposition/doctrine.',
+        'The fable-free hostile rebuild pass for any libs/ planning corpus: pass targets (file / sub-folder / package root, any number, any language mix); it maps every .planning sub-folder, ideates per package, hostile-rebuilds every page batch concurrently at the owning-language doctrine bar, and closes with a finder fan plus one terminal fixer. Roster: terra recon/map lanes, codex implement + critique + terminal drain (fixlogs to disk), twin half-scope opus redteams, opus ideate/realize/disposition/doctrine.',
     description:
-        'Language-agnostic hostile-rebuild engine over the libs/{csharp,python,typescript} planning corpora. args = a target path, an array of paths, or {targets} — languages mix freely, {root} retargets an isolated checkout, empty = no-op; every page derives doctrine, both .api tiers, casing, and its member-verification rail from its owning package. Plan expands targets to pages in dependency + seam-cohesion order under the owning-package charter. Map fans one deep-map lane and one two-tier .api inventory lane per .planning sub-folder unit — an oversize sub-folder splits into ceiling-bounded segments, so map and batch seams stay congruent — each writing a per-unit dossier the batches reuse. Ideate runs two lanes per package with disjoint charters: a corrections census (the non-binding fix addendum) and a bigger-ideas worklist (new capability beyond correction). Build packs whole sub-folder units into batches under the packing ceiling, all concurrent under one slot scheduler; per batch a doctrine-bar lens, then implement, critique (write lane, fixlog to disk), and redteam folding the critique rows forward — every writer under the own-pass-first input ladder (own blind hostile pass primary, map dossiers grounding, census addendum, ideas ambition) with libs-wide ripple authority under the four bounds and seam-ledger coordination; handoffs carry navigation facts only. Each package chain closes with one ideas-realization writer implementing the bigger-ideas worklist against its landed corpus, gated entries carded via indexRows. The spine is per-package pipelined: each package advances Map -> Ideate -> Build the moment its own inputs land, never waiting on the slowest sibling package, and Close is the one whole-run barrier. Close: a read-only finder fan plus one governance finder per language, then ONE terminal fixer draining findings, the deferred backlog, and unclaimed census rows in a fixpoint loop, then two concurrent terminals — an ideas-disposition writer giving every bigger-ideas dossier entry exactly one outcome (realized on disk, carded into the owning IDEAS.md, or rejected with reason) and a doctrine lander adjudicating pooled harvest nominations. Fable-free roster: every map/recon lane rides gpt-5.6-terra codex wrappers, implement + critique + the terminal drain fixer ride gpt-5.6-sol codex lanes (fixlog products on disk, thin receipts on the wire, downstream stages read the fixlogs from disk), the redteam runs as TWIN half-scope opus writers per batch (half the pages each) folding both on-disk fixlogs forward, and ideate/realize/disposition/doctrine run native opus. Stage law lives in the prompt blocks; sol/terra quota-fall to opus, never fable.',
+        'Language-agnostic hostile-rebuild engine over the libs/{csharp,python,typescript} planning corpora. args = a target path, an array of paths, or {targets} — languages mix freely, {root} retargets an isolated checkout, empty = no-op; every page derives doctrine, both .api tiers, casing, and its member-verification rail from its owning package. Plan expands targets to pages in dependency + seam-cohesion order under the owning-package charter. Map fans one deep-map lane and one two-tier .api inventory lane per .planning sub-folder unit — an oversize sub-folder splits into ceiling-bounded segments, so map and batch seams stay congruent — each writing a per-unit dossier the batches reuse. Ideate runs two lanes per package with disjoint charters: a corrections census (the non-binding fix addendum) and a bigger-ideas worklist (new capability beyond correction). Build packs whole sub-folder units into batches under the packing ceiling, all concurrent under one slot scheduler; per batch a doctrine-bar lens, then implement, critique (write lane, fixlog to disk), and redteam folding the critique rows forward — every writer under the own-pass-first input ladder (own blind hostile pass primary, map dossiers grounding, census addendum, ideas ambition) with libs-wide ripple authority under the four bounds and seam-ledger coordination; handoffs carry navigation facts only. Each package chain closes with one ideas-realization writer implementing the bigger-ideas worklist against its landed corpus, gated entries carded via indexRows. The spine is per-package pipelined: each package advances Map -> Ideate -> Build the moment its own inputs land, never waiting on the slowest sibling package, and Close is the one whole-run barrier. Close: a read-only finder fan plus one governance finder per language, then ONE terminal fixer draining findings, the deferred backlog, and unclaimed census rows in a fixpoint loop, then two concurrent terminals — an ideas-disposition writer giving every bigger-ideas dossier entry exactly one outcome (realized on disk, carded into the owning IDEAS.md, or rejected with reason) and a doctrine lander adjudicating pooled harvest nominations. Fable-free roster: every map/recon lane rides gpt-5.6-terra codex wrappers, implement + critique + the terminal drain fixer ride codex lanes (fixlog products on disk, thin receipts on the wire, downstream stages read the fixlogs from disk), the redteam runs as TWIN half-scope opus writers per batch (half the pages each) folding both on-disk fixlogs forward, and ideate/realize/disposition/doctrine run native opus. Stage law lives in the prompt blocks; codex lanes quota-fall to opus, never fable.',
     phases: [
         {
             title: 'Plan',
@@ -19,11 +19,11 @@ export const meta = {
         },
         {
             title: 'Build',
-            detail: 'sub-folder-packed batches, all concurrent, each package starting on its own ideate rather than the run-wide fan: per batch a doctrine-bar lens, then a sol codex implement (fixlog to disk), a sol codex critique (fixlog to disk), and twin half-scope opus redteams — each owning half the batch pages by tonnage — folding both fixlogs forward; every writer on the own-pass-first ladder with bounded libs-wide ripple authority and seam-ledger coordination; after the package\'s last batch, one opus ideas-realization writer implements the worklist against the landed corpus',
+            detail: 'sub-folder-packed batches, all concurrent, each package starting on its own ideate rather than the run-wide fan: per batch a doctrine-bar lens, then a codex implement (fixlog to disk), a codex critique (fixlog to disk), and twin half-scope opus redteams — each owning half the batch pages by tonnage — folding both fixlogs forward; every writer on the own-pass-first ladder with bounded libs-wide ripple authority and seam-ledger coordination; after the package\'s last batch, one opus ideas-realization writer implements the worklist against the landed corpus',
         },
         {
             title: 'Close',
-            detail: 'a read-only finder fan plus one governance finder per language over the landed corpus and seam ledger, with two consolidation lanes riding the fan concurrently — a backlog verifier pre-verifying every deferred/census/orphan row into one deduped stale-free work list, and an ideas collator statusing every bigger-ideas entry against disk into one ledger; ONE sol codex terminal fixer drains the verified work list and findings in a fixpoint loop (each round reads the prior round\'s `remaining` rows from its on-disk fixlog), then realizes the ledger remainder; then two concurrent opus terminals — an ideas-disposition writer giving every bigger-ideas entry one outcome (realized, carded into the owning IDEAS.md, or rejected with reason) and a doctrine lander adjudicating pooled harvest nominations plus the fixer fixlogs\' harvest rows read from disk',
+            detail: 'a read-only finder fan plus one governance finder per language over the landed corpus and seam ledger, with two consolidation lanes riding the fan concurrently — a backlog verifier pre-verifying every deferred/census/orphan row into one deduped stale-free work list, and an ideas collator statusing every bigger-ideas entry against disk into one ledger; ONE codex terminal fixer drains the verified work list and findings in a fixpoint loop (each round reads the prior round\'s `remaining` rows from its on-disk fixlog), then realizes the ledger remainder; then two concurrent opus terminals — an ideas-disposition writer giving every bigger-ideas entry one outcome (realized, carded into the owning IDEAS.md, or rejected with reason) and a doctrine lander adjudicating pooled harvest nominations plus the fixer fixlogs\' harvest rows read from disk',
         },
     ],
 };
@@ -751,17 +751,16 @@ const codexPrompt = (label, task, schema, o) => {
     const base = SCRATCH + '/' + fileTag(label);
     const root = ROOT_DIR;
     const report = root + '/' + base + '-report.json';
-    const model = o.model || 'gpt-5.6-terra';
+    const model = o.model; // unset => codex config default (unflagged); terra is the only flagged deviation
     return [
         'DISPATCH ROLE: ' +
-            model +
+            (model || 'codex') +
             ' performs the complete TASK below through one blocking Codex MCP call. Follow exactly four steps; ' +
             'never perform, edit, judge, soften, summarize, or relay the task yourself.',
         '(1) Call ToolSearch with query "select:mcp__codex__codex".',
-        '(2) Call the loaded mcp__codex__codex tool ONCE with model="' +
-            model +
-            '", cwd=' +
+        '(2) Call the loaded mcp__codex__codex tool ONCE with cwd=' +
             JSON.stringify(root) +
+            (model ? ', model="' + model + '"' : '') +
             (o.codexEffort ? ', config={"model_reasoning_effort":"' + o.codexEffort + '"}' : '') +
             ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
             'VERBATIM. If the call errors, skip step (3) and return ok=false through step (4) with the error text verbatim.',
@@ -800,7 +799,7 @@ const codexPrompt = (label, task, schema, o) => {
 // QUOTA FALLBACK: a codex receipt whose failure matches usage/quota/limit re-dispatches the SAME task natively at the role's Claude twin (twinOf owns
 // the mapping) — the caller owns the re-dispatch, the wrapper never executes work itself. The roster row carries `scope` from the
 // ORCHESTRATOR (never the lane's self-report) so a failed lane's unmapped territory is exact even when the lane died before writing anything.
-const twinOf = (m) => (/-luna/.test(m || '') ? 'sonnet' : 'opus'); // sol and terra both quota-fall to opus — this variant runs fable-free
+const twinOf = (m) => (/-luna/.test(m || '') ? 'sonnet' : 'opus'); // codex lanes both quota-fall to opus — this variant runs fable-free
 const nativeLane = (task, o) => {
     const report = SCRATCH + '/' + fileTag(o.label) + '-report.json';
     return agent(
@@ -819,7 +818,7 @@ const nativeLane = (task, o) => {
 const recon = (taskOf, o) => {
     const task = typeof taskOf === 'function' ? taskOf : () => taskOf;
     const wrapper = {
-        label: (o.model && o.model.indexOf('-sol') >= 0 ? 'sol:' : 'terra:') + o.label,
+        label: (o.model && o.model.indexOf('-terra') >= 0 ? 'terra:' : 'sol:') + o.label,
         phase: o.phase,
         model: 'sonnet',
         effort: 'low',
@@ -1456,7 +1455,7 @@ const barLensPrompt = (L, batch, reg) =>
             'the implement agent rules every design.',
     ].join('\n\n');
 
-// Implement read law — the authoring twin of CRIT_READ: the law pack carries the binding checklist verbatim so a sol
+// Implement read law — the authoring twin of CRIT_READ: the law pack carries the binding checklist verbatim so a codex
 // lane never buys the full-atlas ladder before its first edit (the ladder overflows a codex window and every compaction
 // re-buys the reads); dossiers stay MANDATORY grounding — the implement is the author, not an auditor.
 const IMPL_READ = (L, pkg, dossiers, pack) =>
@@ -2106,6 +2105,7 @@ for (const k of LANGS_IN) {
         recon(() => lawPackPrompt(LANG[k], lawPackPath(k)), ropts('lawpack:' + k, 'Map', PACK_SCHEMA, [], { arr: 'sections' }, {
             writes: true,
             codexEffort: 'low',
+            model: 'gpt-5.6-terra',
         })),
     ).catch(() => null);
 }
@@ -2133,13 +2133,13 @@ const mapUnit = async (u) => {
         slot(() =>
             recon(
                 (reg) => ctxLensPrompt(L, unitPages, ctxDossier, reg),
-                ropts('map:ctx:' + tag, 'Map', CTX_SCHEMA, scope, { arr: 'worklist', group: 'kind' }, { writes: true }),
+                ropts('map:ctx:' + tag, 'Map', CTX_SCHEMA, scope, { arr: 'worklist', group: 'kind' }, { writes: true, model: 'gpt-5.6-terra' }),
             ),
         ),
         slot(() =>
             recon(
                 (reg) => apiLensPrompt(L, unitPages, apiDossier, reg),
-                ropts('map:api:' + tag, 'Map', API_SCHEMA, scope, { arr: 'worklist' }, { writes: true }),
+                ropts('map:api:' + tag, 'Map', API_SCHEMA, scope, { arr: 'worklist' }, { writes: true, model: 'gpt-5.6-terra' }),
             ),
         ),
     ]);
@@ -2193,7 +2193,6 @@ const runBatch = async (b) => {
         recon(
             (reg) => barLensPrompt(L, batch, reg),
             ropts('recon:bar:' + tag, 'Build', BAR_SCHEMA, pageScope, { arr: 'findings', group: 'severity' }, {
-                model: 'gpt-5.6-sol',
                 codexEffort: 'medium',
             }),
         ),
@@ -2220,15 +2219,15 @@ const runBatch = async (b) => {
         .filter(Boolean)
         .join('`, `');
     const ideate = pkgIdeate[b.pkg] || { fix: '', idea: '' };
-    // Law pack resolves BEFORE the implement — both sol lanes (implement, critique) read it in place of the atlas ladder.
+    // Law pack resolves BEFORE the implement — both codex lanes (implement, critique) read it in place of the atlas ladder.
     const packR = LAWPACK[L.key] ? await LAWPACK[L.key] : null;
     const pack = packR && packR.ok ? lawPackPath(L.key) : '';
-    // Implement rides a sol codex lane (default effort): fixlog product on disk, receipt on the wire;
+    // Implement rides a codex lane (default effort): fixlog product on disk, receipt on the wire;
     // the critique and the redteam halves read the fixlog from disk.
     const fix = await slot(() =>
         recon(
             (reg) => implementPrompt(L, batch, dossiers, ideate, SCOPES, roster, unmapped, pack, reg),
-            ropts('impl:' + tag, 'Build', FIXLOG_SCHEMA, pageScope, { arr: 'files' }, { writes: true, fix: true, model: 'gpt-5.6-sol' }),
+            ropts('impl:' + tag, 'Build', FIXLOG_SCHEMA, pageScope, { arr: 'files' }, { writes: true, fix: true }),
         ),
     );
     if (!fix || !fix.ok) return { pkg: b.pkg, pages: b.pages, fix, crit: null, rt: null }; // failure isolation: a dead implement skips its reviews
@@ -2240,7 +2239,7 @@ const runBatch = async (b) => {
     const crit = await slot(() =>
         recon(
             (reg) => critiquePrompt(L, batch, dossiers, { fix: ideate.fix, idea: '' }, SCOPES, roster, unmapped, implReport, reg, pack),
-            ropts('crit:' + tag, 'Build', REVIEW_SCHEMA, pageScope, { arr: 'files' }, { writes: true, fix: true, model: 'gpt-5.6-sol' }),
+            ropts('crit:' + tag, 'Build', REVIEW_SCHEMA, pageScope, { arr: 'files' }, { writes: true, fix: true }),
         ),
     );
     const critR = crit && crit.ok ? crit : null;
@@ -2323,7 +2322,7 @@ const CENSUS_PATHS = PKGS.map((pkg) => pkgIdeate[pkg] && pkgIdeate[pkg].fix).fil
 const LANDED = built.filter((d) => d.fix && d.fix.ok).flatMap((d) => d.pages.map((p) => p.page));
 // FAILED covers both a dead implement (a batch entry whose receipt is not ok) and a dead package chain (pages in no entry).
 const FAILED = PAGES.map((p) => p.page).filter((pg) => !LANDED.includes(pg));
-// Implement and critique fixlogs live on disk (sol codex receipts are thin); the redteam halves fold both forward,
+// Implement and critique fixlogs live on disk (codex receipts are thin); the redteam halves fold both forward,
 // so aggregation reads rt only. A batch whose redteams ALL died leaves both fixlogs ORPHANED for the fixer.
 const ROWS = built.flatMap((d) => (d.rt && d.rt.indexRows) || []);
 const SEAM_ROWS = built.flatMap((d) => (d.rt && d.rt.seamsTouched) || []);
@@ -2374,14 +2373,12 @@ const [found, work, ledger] = await Promise.all([
                     ? recon(
                           (reg) => govFinderPrompt(LANG[t.lang], t.pkgs, t.pages, ROWS, reg),
                           ropts('finder:gov:' + t.lang, 'Close', FINDINGS_SCHEMA, t.pkgs, { arr: 'findings', group: 'class' }, {
-                              model: 'gpt-5.6-sol',
                               codexEffort: 'medium',
                           }),
                       )
                     : recon(
                           (reg) => finderPrompt(LANG[t.lang], t.pages, t.i, t.seams, reg),
                           ropts('finder:' + t.lang + ':s' + t.i, 'Close', FINDINGS_SCHEMA, t.pages, { arr: 'findings', group: 'class' }, {
-                              model: 'gpt-5.6-sol',
                               codexEffort: 'medium',
                           }),
                       ),
@@ -2393,7 +2390,6 @@ const [found, work, ledger] = await Promise.all([
               recon(
                   (reg) => backlogVerifierPrompt(BACKLOG, ORPHANS, CENSUS_PATHS, reg),
                   ropts('verify:backlog', 'Close', WORK_SCHEMA, [], { arr: 'live', group: 'source' }, {
-                      model: 'gpt-5.6-sol',
                       codexEffort: 'medium',
                   }),
               ),
@@ -2404,7 +2400,6 @@ const [found, work, ledger] = await Promise.all([
               recon(
                   (reg) => ideasCollatorPrompt(IDEA_SETS, reg),
                   ropts('collate:ideas', 'Close', LEDGER_SCHEMA, [], { arr: 'entries', group: 'status' }, {
-                      model: 'gpt-5.6-sol',
                       codexEffort: 'medium',
                   }),
               ),
@@ -2436,7 +2431,7 @@ log(
         BACKLOG.length +
         ' backlog row(s) pending',
 );
-// Terminal DRAIN LOOP: one serial sol codex closer per round (default effort) — its fixlog product lands on disk, its
+// Terminal DRAIN LOOP: one serial codex closer per round (default effort) — its fixlog product lands on disk, its
 // receipt carries the `remaining` count, and each later round reads the prior round's `remaining` rows from that fixlog
 // file (the orchestrator never holds the rows inline). One writer per round: freshness is its duty — no concurrent
 // writers, no collisions; a round without shrinkage stops the loop with the blocked set final in the last report.
@@ -2467,7 +2462,6 @@ for (let round = 0; round < DRAIN_ROUNDS; round++) {
             ropts(round ? 'fixer:r' + round : 'fixer', 'Close', FIXER_SCHEMA, [], { arr: 'remaining' }, {
                 writes: true,
                 fix: true,
-                model: 'gpt-5.6-sol',
                 calls: 400,
             }),
         ),

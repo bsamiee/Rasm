@@ -1,11 +1,11 @@
 ---
 name: codex
-description: Dispatch self-contained work to Codex (gpt-5.6 Sol/Terra) through the `codex` MCP tool or the `codex` CLI — an isolated peer agent returning one report; writes, design, hard reviews, fleet fix waves, research, and volume extraction all ride it. Trigger on repo sweeps, audits, investigation, log or dataset distillation, live web research, implementation from spec, migrations, a second perspective on any plan or diff, any mention of codex, gpt-5.6, Sol, Terra, or OpenAI models, and any request to offload work or conserve usage. Claude-surface delegation belongs to agent-dispatch; Gemini calls belong to agy.
+description: Dispatch self-contained work to Codex (gpt-5.6 Sol/Terra) through the `codex` MCP tool or the `codex` CLI — an isolated agent returning one report; writes, design, hard reviews, fleet fix waves, research, and volume extraction all ride it. Trigger on repo sweeps, audits, investigation, log or dataset distillation, live web research, implementation from spec, migrations, a second perspective on any plan or diff, any mention of codex, gpt-5.6, Sol, Terra, or OpenAI models, and any request to offload work or conserve usage. Claude-surface delegation belongs to agent-dispatch; Gemini calls belong to agy.
 ---
 
 # [CODEX]
 
-`codex exec` runs a gpt-5.6 model as a non-interactive peer agent in its own context window and returns one final message. Every invocation states its model explicitly; `~/.codex/config.toml` carries the full configuration including its `model_reasoning_effort` row for dispatch default.
+`codex exec` runs a gpt-5.6 model as a non-interactive agent in its own context window and returns one final message. Model and effort come from `~/.codex/config.toml`; a lane sets either only to deviate.
 
 Use `openaiDeveloperDocs` MCP server for all configuration or usage questions; never web search or recall.
 
@@ -33,7 +33,64 @@ Every dispatch carries four things — Goal Context Constraints Done-when — Sp
 |  [06]   | `<output_contract>`              | JSON-only shape, null-for-missing, always LAST |   yes   |   yes   |    yes     |
 |  [07]   | `<decision_procedure>`           | refute-first adjudication                      |    —    |    —    |    yes     |
 
-- `<role>` on a judgment lane adds the findings-are-untrusted clause, `<completion_bar>` sits early where it beats codex early-stop, and `<verification>` extends with a cite-check on recon and a rubric walk on judgment; `<capability_mandate>` is earned by a focused campaign and states every expansion move as a measurable condition — figurative targets make a literal model over-engineer toward phantoms.
+- `<role>` on a judgment lane adds the findings-are-untrusted clause, `<completion_bar>` sits early where it beats codex early-stop, and `<capability_mandate>` is earned by a focused campaign and states every expansion move as a measurable condition; `<verification>` extends with a cite-check on recon and a rubric walk on judgment.
+
+[PROMPT_STRUCTURE]:
+
+Recon developer-instructions:
+
+```text template
+<context_gathering>
+Territory: <the exact files/dirs the lane may open>. Do not open files outside it, including skill or instruction files (.claude/, CLAUDE.md, AGENTS.md, ~/.codex/skills).
+Budget: at most <N> tool calls total. Parallelize reads and take large windows (400+ lines per command), capping each command's output so nothing truncates; never concatenate the whole territory into one command.
+Stop as soon as the product is complete. If something is still uncertain at the budget, proceed and record it in coverage.unverified instead of re-reading.
+</context_gathering>
+
+<verification>
+Before the final message, confirm every cited spelling appears verbatim in the cited file; move anything unconfirmed into coverage.unverified.
+</verification>
+
+<output_contract>
+Your final message is a single JSON object with exactly this shape:
+<SHAPE with coverage{requested,read,skipped,unverified}>
+- JSON only: no prose before or after it, no code fences, no markdown.
+- Every key shown is required.
+- Use null for a value you could not determine and [] for an empty list; never guess.
+</output_contract>
+```
+
+Write developer-instructions:
+
+```text template
+<completion_bar>
+Done is every named move landed to full depth with its product entry written — proof-complete, with observable evidence from the real surface, never effort-spent. Complete every named move before yielding; do not stop at analysis or a partial edit. If the chosen approach resists, pick the next-best one and proceed; a move the territory genuinely admits no edit for returns as a deferred entry naming its blocker. Implement EXACTLY and ONLY the named moves, choosing the simplest valid interpretation of any ambiguity; edit only files inside <write-territory>, touch no other path, never git; no new files, wrappers, or parallel surfaces. Your layer is <layer>: a finding outside the named scope lands as a typed entry in the product, never an edit — and re-verifying unchanged work adds no evidence; move to the next deliverable.
+</completion_bar>
+
+<read_discipline>
+A stable input — law corpus, dossier, catalog, charter — is read ONCE: extract what you need into plan notes and re-open only the exact line span behind an edit. Read in large windows (400+ lines per command). Work ITEM BY ITEM — derive one item's findings, land its edits, record its product entry, advance; edits land as derived and never pool toward the end, because only plan notes, on-disk products, and landed edits survive compaction. Budget: at most <N> tool calls total; at the budget, land what is derived and record the remainder as deferred entries.
+</read_discipline>
+
+<verification>
+After editing, re-read each changed file and confirm it is coherent and nothing it carried was lost. Fix what fails before yielding; a check you did not run is never claimed as run. Verification matches the territory's medium: a markdown/prose territory verifies by reading — no compiler, build, or test gate runs against it. <verification-commands: truth rail per added host member; format gate once, batched, after the final edit>
+</verification>
+
+<output_contract>
+Your final message is a single JSON object with exactly this shape:
+{"edits":[{"file":"<path>","move":"<move-kind>","description":"<string>"}], <task-specific keys>, "summary":"<string>"}
+- JSON only: no prose before or after it, no code fences, no markdown.
+- Every key shown is required.
+- Use null for a value you could not determine and [] for an empty list; never guess.
+</output_contract>
+```
+
+A judgment lane extends the write template: `<role>` adds "a finding is an untrusted report about where to look, never ground truth"; `<context_gathering>` orders doctrine pages, then the findings file, then each cited file whole before its first edit; `<decision_procedure>` inserts before verification — refute each finding against disk, doctrine, and the numbered settled-rulings roster (each ruling with its falsifiable citation) first, implement only survivors, and a citation-backed push-back counts equal to a fix; `<verification>` adds a rubric walk over every finding id; `<output_contract>` becomes the per-id verdict ledger.
+
+Spawn overlay — on the USER prompt, never the developer channel, because the injected spawn gate hears only the user channel and permissive wording yields zero spawns:
+
+```text template
+Spawn exactly <N> parallel sub-agents with collaboration.spawn_agent, one per <split>; collect them with collaboration.wait_agent before synthesizing. Each sub-agent receives a self-contained task naming its exact territory and returns <per-child shape>.
+</text>
+```
 
 ## [02]-[DISPATCH]
 
@@ -55,14 +112,14 @@ MCP surface — fleet server `codex`, tools `codex` and `codex-reply`; the promp
 - A heavy MCP tool call issued from INSIDE a codex turn can wedge the lane — pin nested lookups to light calls (`get_latest_package_version`, never `get_package_context`).
 - MCP tool calls serialize within a lane; CLI lanes with native tools parallelize reads.
 
-CLI surface — the default form inherits the config effort (high); the second form pins a deviation:
+CLI surface — the default form runs the config whole; the second pins a deviation:
 
 ```bash template
-codex exec -m <model> [-c developer_instructions="<lane-law>"] --skip-git-repo-check [-C <dir>] [-o <report>] "<prompt>" </dev/null 2>/dev/null
+codex exec [-c developer_instructions="<lane-law>"] [-C <dir>] [-o <report>] "<prompt>" </dev/null 2>/dev/null
 ```
 
 ```bash template
-codex exec -m <model> -c 'model_reasoning_effort="<tier>"' [-c developer_instructions="<lane-law>"] --skip-git-repo-check [-C <dir>] [-o <report>] "<prompt>" </dev/null 2>/dev/null
+codex exec [-m <model>] [-c 'model_reasoning_effort="<tier>"'] [-c developer_instructions="<lane-law>"] [-C <dir>] [-o <report>] "<prompt>" </dev/null 2>/dev/null
 ```
 
 - `</dev/null` is mandatory from a harness: `codex exec` reads piped stdin to EOF even with a prompt argument — an open-but-silent stdin blocks forever; the stderr `Reading additional input from stdin...` notice is pre-EOF, not a hang.
@@ -86,23 +143,15 @@ codex exec -m <model> -c 'model_reasoning_effort="<tier>"' [-c developer_instruc
 
 ## [04]-[MODEL_AND_EFFORT]
 
-Every lane pins the model; effort inherits the config default (high), stated only to deviate. Bare `gpt-5.6` is an API-only slug that 400s under ChatGPT auth — always the suffixed name.
+Model and effort deviate by flag alone — `-m` on the CLI, `model` and `config` on the MCP tool; an unstated axis runs the config. Bare `gpt-5.6` is an API-only slug that 400s under ChatGPT auth — always the suffixed name.
 
-Sol is the primary model, carrying roughly 80% of dispatch: every non-trivial write, deep design, hard reviews, whole fix/critique fleets, and second perspectives. Sol at `medium` covers menial file writes — api catalogs and their kin — over terra at any tier, and sol at `low` covers volume extraction and classification. Terra runs at `medium` or lower for navigation, exploration, and research. `gpt-5.6-luna` is NEVER dispatched.
+Sol carries roughly 80% of dispatch — every non-trivial write, deep design, hard reviews, whole fix/critique fleets, second perspectives — and needs no flag. Sol at `medium` covers menial file writes — api catalogs and their kin — over terra at any tier, and sol at `low` covers volume extraction and classification. `-m gpt-5.6-terra` at `medium` or lower is the deviation for navigation, exploration, and research. `gpt-5.6-luna` is NEVER dispatched.
 
-| [INDEX] | [MODEL]         | [ROLE]                                                                                        |
-| :-----: | :-------------- | :--------------------------------------------------------------------------------------------- |
-|  [01]   | `gpt-5.6-sol`   | primary — writes, design, reviews, fleets; `medium` menial writes, `low` extraction            |
-|  [02]   | `gpt-5.6-terra` | navigation, exploration, research at `medium` or lower                                         |
-
-Each effort row is the flag to deviate to it:
-
-| [INDEX] | [TIER] | [SELECT]                             | [USE]                                                             |
-| :-----: | :----- | :----------------------------------- | :---------------------------------------------------------------- |
-|  [01]   | low    | `-c model_reasoning_effort="low"`    | trivial glue: probes, extraction, classification, relabels        |
-|  [02]   | medium | `-c model_reasoning_effort="medium"` | menial writes and fan-out legs where throughput beats depth       |
-|  [03]   | high   | `-c model_reasoning_effort="high"`   | the config default — research, review, and write legs             |
-|  [04]   | xhigh  | `-c model_reasoning_effort="xhigh"`  | deeper single-agent reasoning for the hardest investigation, design, and review legs |
+| [INDEX] | [TIER] | [SELECT]                             | [USE]                                                                                |
+| :-----: | :----- | :----------------------------------- | :----------------------------------------------------------------------------------- |
+|  [01]   | low    | `-c model_reasoning_effort="low"`    | trivial glue: probes, extraction, classification, relabels                           |
+|  [02]   | medium | `-c model_reasoning_effort="medium"` | menial writes and fan-out legs where throughput beats depth                          |
+|  [03]   | xhigh  | `-c model_reasoning_effort="xhigh"`  | deeper single-agent reasoning for the hardest investigation, design, and review legs |
 
 - Deviate surgically, one axis at a time: xhigh deepens the single hardest leg, low/medium serve throughput; latency tracks task shape, not tier.
 - Overrun means CIRCLING — re-verifying unchanged work, loops adding no evidence — never duration; a well-scoped high-tier leg legitimately runs an hour.
@@ -138,7 +187,7 @@ Codex shares no conversation state — every prompt is self-contained: Goal, Con
 A main-loop leg runs codex SYNCHRONOUSLY inside a `run_in_background` Bash task — that keeper is the lane's owner, its exit re-invokes the agent. A foreground Bash call reaps its detached children minutes after returning, killing lanes reportless mid-run. Codex emits its result only at completion; the lane runs until it finishes.
 
 ```bash template
-codex exec -m <model> --skip-git-repo-check --json -o <report> \
+codex exec --json -o <report> \
   -c 'notify=["<sink>","<lane>"]' "<prompt>" </dev/null ><events.jsonl> 2><stderr.log> &
 ```
 

@@ -98,11 +98,7 @@ Every render passes two gates before use. `magick identify` proves a real raster
 
 Generated mockups and diagrams are inputs to the realizing skill, never deliverables: agy drafts the spec, renders, and read-back-critiques, then html-studio realizes the page and mermaid-diagramming realizes the fence. A closed loop is the strongest pattern — visual contract, render, read-back critique against the contract, targeted correction — never a single "make it pretty" round.
 
-## [08]-[CODEX_ALIGNMENT]
-
-A codex session reaches agy only under `-s danger-full-access`: the Seatbelt sandbox at `read-only` and `workspace-write` kills the `agy` process silently — exit 1, empty streams, no diagnostic. When the operator has not authorized full access for that codex run, the Gemini leg belongs to the Claude side of the dispatch, never to a bent codex workaround.
-
-## [09]-[REFUSAL]
+## [08]-[REFUSAL]
 
 - [SECRETS]: OAuth codes, tokens, credential files, and unredacted sensitive logs never enter a prompt.
 - [AUTHORITY]: Facts owned by local source, official docs, MCPs, or repo commands come from those owners, never from Antigravity recall.

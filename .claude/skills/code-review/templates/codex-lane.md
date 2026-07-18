@@ -7,7 +7,7 @@ Fixer-lane dispatch form: one detached codex CLI process per lane, lane law on t
 One `run_in_background` Bash keeper per lane — batched keepers lose per-lane completion notifications:
 
 ```bash template
-codex exec -m <model> [-c 'model_reasoning_effort="<tier>"'] --skip-git-repo-check \
+codex exec [-m <model>] [-c 'model_reasoning_effort="<tier>"'] \
   -c developer_instructions="$(cat <round-dir>/lane-law.md)" \
   -o <round-dir>/lane-<letter>-report.json \
   "$(cat <round-dir>/task-<letter>.md)" </dev/null 2><round-dir>/lane-<letter>-stderr.log >/dev/null
@@ -17,7 +17,7 @@ codex exec -m <model> [-c 'model_reasoning_effort="<tier>"'] --skip-git-repo-che
 - `</dev/null` is mandatory: codex reads piped stdin to EOF even with a prompt argument, and an open silent stdin hangs the lane forever with zero output.
 - Purge stale report and stderr files before launch — a leftover report reads as instant completion carrying the prior run's data.
 - Effort inherits the config default; state the tier only to deviate. Run under the full user config — miner spawns need the estate's multi-agent depth row.
-- `<model>` defaults to `gpt-5.6-sol` for fix waves — fable-parity proven over live rounds once the discernment blocks landed; downshift only for purely mechanical slices.
+- Fix waves run the config default unflagged — fable-parity proven over live rounds once the discernment blocks landed; deviate only for purely mechanical slices.
 
 ## [02]-[TASK_MESSAGE]
 
@@ -41,4 +41,4 @@ Miners never edit files and never propose code to paste; their rosters are data 
 - Spawn health reads each lane's stderr banner within a minute of launch — `Reading additional input from stdin...` prints pre-EOF even under `</dev/null` and is notice, not a hang; an empty stderr log marks a dead lane, the log tail carries the reason, and a blind relaunch races a live process.
 - Liveness is `pgrep -f "lane-<letter>-report"`; an absent report under a live process is normal — never relaunch a live run.
 - A spawn audit runs `rg '"name":"spawn_agent"' ~/.codex/sessions/<YYYY>/<MM>/<DD>/rollout-*.jsonl` against the PARENT rollout — the lane's stderr banner `session id: <uuid>` picks the file; children mint their own rollout files, and `collab_tool_call` is a stale marker yielding false negatives.
-- A live process past its deadline with near-zero CPU (`ps -p <pid> -o time=`) is wedged: `pkill -f "lane-<letter>-report"`, relaunch once; a second wedge is the failure. Never wrap a lane in `timeout` — codex emits only at completion, so a deadline kill discards the whole run.
+- A long-quiet live process with near-zero CPU (`ps -p <pid> -o time=`) is wedged: `pkill -f "lane-<letter>-report"`, relaunch once; a second wedge is the failure.

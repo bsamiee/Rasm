@@ -522,16 +522,16 @@ const laneLaw = (schema, o) =>
 
 const codexPrompt = (label, task, schema, o) => {
     const report = ROOT_DIR + '/' + reportOf(label);
-    const model = o.model || 'gpt-5.6-sol';
+    const model = o.model; // config owns the default model; only a deviation (terra) is named on the call
     return [
         'DISPATCH ROLE: ' +
-            model +
+            (model || 'codex') +
             ' performs the complete TASK below through one blocking Codex MCP call. Follow exactly four steps; ' +
             'never perform, edit, judge, soften, summarize, or relay the task yourself.',
         '(1) Call ToolSearch with query "select:mcp__codex__codex".',
-        '(2) Call the loaded mcp__codex__codex tool ONCE with model="' +
-            model +
-            '", cwd=' +
+        '(2) Call the loaded mcp__codex__codex tool ONCE with ' +
+            (model ? 'model="' + model + '", ' : '') +
+            'cwd=' +
             JSON.stringify(ROOT_DIR) +
             (o.codexEffort ? ', config={"model_reasoning_effort":"' + o.codexEffort + '"}' : '') +
             ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below VERBATIM. ' +
@@ -569,9 +569,9 @@ const codexPrompt = (label, task, schema, o) => {
 };
 
 // QUOTA FALLBACK: a codex receipt whose failure matches usage/quota/limit re-dispatches the SAME task natively at the role's
-// Claude twin (sol->fable, luna->sonnet, terra->opus); the caller owns the re-dispatch, the sonnet wrapper never executes work.
+// Claude twin (unflagged->fable, luna->sonnet, terra->opus); the caller owns the re-dispatch, the sonnet wrapper never executes work.
 // The roster row carries `scope` from the ORCHESTRATOR so a lane that died before writing still names its territory exactly.
-const twinOf = (m) => (/-sol/.test(m || '') ? 'fable' : /-luna/.test(m || '') ? 'sonnet' : 'opus');
+const twinOf = (m) => (/-terra/.test(m || '') ? 'opus' : /-luna/.test(m || '') ? 'sonnet' : 'fable');
 const nativeLane = (task, o) =>
     agent(
         task +
@@ -906,7 +906,7 @@ if (!UNITS.length) {
 }
 
 phase('Map');
-// Two sol-medium lenses per unit — interior flow, exterior seam — findings reports on disk, thin receipts on the wire.
+// Two codex medium-effort lenses per unit — interior flow, exterior seam — findings reports on disk, thin receipts on the wire.
 const mapRoster = (
     await Promise.all(
         UNITS.flatMap((u) => [
@@ -1002,7 +1002,7 @@ log(
 );
 
 phase('Review');
-// One sol-high read-only critique per unit; products at deterministic paths so the red-team survives any dead receipt.
+// One codex high-effort read-only critique per unit; products at deterministic paths so the red-team survives any dead receipt.
 const critRoster = (
     await Promise.all(
         UNITS.map((u) =>

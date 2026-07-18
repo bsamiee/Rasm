@@ -741,16 +741,16 @@ const codexPrompt = (label, task, schema, o) => {
     const base = SCRATCH + '/' + fileTag(label);
     const root = ROOT_DIR;
     const report = root + '/' + base + '-report.json';
-    const model = o.model || 'gpt-5.6-terra';
+    const model = o.model || null; // ~/.codex/config.toml owns the default (gpt-5.6-sol); a pin names terra only to deviate
     return [
         'DISPATCH ROLE: ' +
-            model +
+            (model || 'the config-default codex model (gpt-5.6-sol)') +
             ' performs the complete TASK below through one blocking Codex MCP call. Follow exactly four steps; ' +
             'never perform, edit, judge, soften, summarize, or relay the task yourself.',
         '(1) Call ToolSearch with query "select:mcp__codex__codex".',
-        '(2) Call the loaded mcp__codex__codex tool ONCE with model="' +
-            model +
-            '", cwd=' +
+        '(2) Call the loaded mcp__codex__codex tool ONCE with ' +
+            (model ? 'model="' + model + '", ' : '') +
+            'cwd=' +
             JSON.stringify(root) +
             (o.codexEffort ? ', config={"model_reasoning_effort":"' + o.codexEffort + '"}' : '') +
             ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
@@ -791,7 +791,7 @@ const codexPrompt = (label, task, schema, o) => {
 // QUOTA FALLBACK: a codex receipt whose failure matches usage/quota/limit re-dispatches the SAME task natively at the role's Claude twin (twinOf owns
 // the mapping) — the caller owns the re-dispatch, the wrapper never executes work itself. The roster row carries `scope` from the
 // ORCHESTRATOR (never the lane's self-report) so a failed lane's unmapped territory is exact even when the lane died before writing anything.
-const twinOf = (m) => (/-sol/.test(m || '') ? 'fable' : /-luna/.test(m || '') ? 'sonnet' : 'opus');
+const twinOf = (m) => (/-terra/.test(m || '') ? 'opus' : /-luna/.test(m || '') ? 'sonnet' : 'fable');
 const nativeLane = (task, o) => {
     const report = SCRATCH + '/' + fileTag(o.label) + '-report.json';
     return agent(
@@ -811,7 +811,7 @@ const recon = (taskOf, o) => {
     // o.native forces the native branch (the deep-map lane rides it: a native lane, never a codex wrapper).
     const task = typeof taskOf === 'function' ? taskOf : () => taskOf;
     const wrapper = {
-        label: (o.model && o.model.indexOf('-sol') >= 0 ? 'sol:' : 'terra:') + o.label,
+        label: (o.model && o.model.indexOf('-terra') >= 0 ? 'terra:' : 'sol:') + o.label,
         phase: o.phase,
         model: 'sonnet',
         effort: 'low',
@@ -1947,6 +1947,7 @@ for (const k of LANGS_IN) {
         recon(() => lawPackPrompt(LANG[k], lawPackPath(k)), ropts('lawpack:' + k, 'Map', PACK_SCHEMA, [], { arr: 'sections' }, {
             writes: true,
             codexEffort: 'low',
+            model: 'gpt-5.6-terra',
         })),
     ).catch(() => null);
 }
@@ -1987,7 +1988,7 @@ const mapUnit = async (u) => {
         slot(() =>
             recon(
                 (reg) => apiLensPrompt(L, unitPages, apiDossier, reg),
-                ropts('map:api:' + tag, 'Map', API_SCHEMA, scope, { arr: 'worklist' }, { writes: true }),
+                ropts('map:api:' + tag, 'Map', API_SCHEMA, scope, { arr: 'worklist' }, { writes: true, model: 'gpt-5.6-terra' }),
             ),
         ),
     ]);
@@ -2041,7 +2042,6 @@ const runBatch = async (b) => {
         recon(
             (reg) => barLensPrompt(L, batch, reg),
             ropts('recon:bar:' + tag, 'Build', BAR_SCHEMA, pageScope, { arr: 'findings', group: 'severity' }, {
-                model: 'gpt-5.6-sol',
                 codexEffort: 'medium',
             }),
         ),
@@ -2092,7 +2092,7 @@ const runBatch = async (b) => {
                 REVIEW_SCHEMA,
                 pageScope,
                 { arr: 'files' },
-                { writes: true, fix: true, model: 'gpt-5.6-sol', nativeModel: 'fable' },
+                { writes: true, fix: true, nativeModel: 'fable' },
             ),
         ),
     );
@@ -2198,14 +2198,12 @@ const [found, work, ledger] = await Promise.all([
                     ? recon(
                           (reg) => govFinderPrompt(LANG[t.lang], t.pkgs, t.pages, ROWS, reg),
                           ropts('finder:gov:' + t.lang, 'Close', FINDINGS_SCHEMA, t.pkgs, { arr: 'findings', group: 'class' }, {
-                              model: 'gpt-5.6-sol',
                               codexEffort: 'medium',
                           }),
                       )
                     : recon(
                           (reg) => finderPrompt(LANG[t.lang], t.pages, t.i, t.seams, reg),
                           ropts('finder:' + t.lang + ':s' + t.i, 'Close', FINDINGS_SCHEMA, t.pages, { arr: 'findings', group: 'class' }, {
-                              model: 'gpt-5.6-sol',
                               codexEffort: 'medium',
                           }),
                       ),
@@ -2217,7 +2215,6 @@ const [found, work, ledger] = await Promise.all([
               recon(
                   (reg) => backlogVerifierPrompt(BACKLOG, ORPHANS, CENSUS_PATHS, reg),
                   ropts('verify:backlog', 'Close', WORK_SCHEMA, [], { arr: 'live', group: 'source' }, {
-                      model: 'gpt-5.6-sol',
                       codexEffort: 'medium',
                   }),
               ),
@@ -2228,7 +2225,6 @@ const [found, work, ledger] = await Promise.all([
               recon(
                   (reg) => ideasCollatorPrompt(IDEA_SETS, reg),
                   ropts('collate:ideas', 'Close', LEDGER_SCHEMA, [], { arr: 'entries', group: 'status' }, {
-                      model: 'gpt-5.6-sol',
                       codexEffort: 'medium',
                   }),
               ),
