@@ -61,8 +61,8 @@ public abstract partial record DetailEdit {
 
     internal Fin<Unit> Apply(Dimension dimension, Op key) => Switch(
         (Dimension: dimension, Op: key),
-        attach: static (context, edit) => context.Op.Catch(() => context.Dimension.DetailMeasured = edit.Detail.Value),
-        detach: static (context, _) => context.Op.Catch(() => context.Dimension.DetailMeasured = Guid.Empty));
+        attach: static (context, edit) => context.Op.Catch(() => { context.Dimension.DetailMeasured = edit.Detail.Value; }),
+        detach: static (context, _) => context.Op.Catch(() => { context.Dimension.DetailMeasured = Guid.Empty; }));
 }
 
 [SmartEnum<int>]
