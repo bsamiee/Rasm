@@ -15,73 +15,70 @@ Use `openaiDeveloperDocs` MCP server for all configuration or usage questions; n
 
 ## [02]-[PROMPTING]
 
-Codex is maximally literal, it follows a clean contract exactly and exhaustively, ambiguity or implicit intent leads to burned reasoning reconciling scpe. Leaner prompts outperform — every directive earns its slot, one directive per concern, and a directive codex already ships is a conflict risk, NOT reinforcement.
+Codex is maximally literal: it follows a clean contract exactly and exhaustively, and ambiguity or implicit intent burns reasoning reconciling scope. Leaner prompts outperform — every directive earns its slot, one directive per concern, and a directive codex already ships is a conflict risk, not reinforcement.
 
-Every dispatch carries four things — Goal Context Constraints Done-when — Split across two channels:
-- Durable lane law rides `developer-instructions` (MCP) / `-c developer_instructions=` (CLI) as XML blocks with the output contract LAST.
-- User `prompt` carries only the task instance and any imperative spawn step.
+Every dispatch carries four things — Goal, Context, Constraints, Done-when — split across two channels the model ranks by role envelope (system > developer > user), so where text lands decides its authority:
 
-[BLOCK_VOCABULARY] — One canonical block per concern; each lane selects its rows in this order:
+- DEVELOPER — durable lane law as named XML blocks, output contract LAST: MCP `developer-instructions` / CLI `-c developer_instructions="…"`.
+- USER — the task instance plus any imperative spawn step: MCP `prompt` / the CLI positional argument. Spawns live here because the injected spawn gate hears only this channel, and permissive wording yields zero spawns.
 
-| [INDEX] | [BLOCK]                          | [JOB]                                          | [RECON] | [WRITE] | [JUDGMENT] |
-| :-----: | :------------------------------- | :--------------------------------------------- | :-----: | :-----: | :--------: |
-|  [01]   | `<role>`                         | identity, exact territory, hard exclusions     |   opt   |   yes   |    yes     |
-|  [02]   | `<completion_bar>`               | done-definition per move, defer-on-blocker     |    —    |   yes   |    yes     |
-|  [03]   | `<context_gathering>`            | read ladder, total-call budget, escape hatch   |   yes   |   yes   |    yes     |
-|  [04]   | `<capability_mandate>`           | opt-in surface-raising for campaigns           |    —    |   opt   |    opt     |
-|  [05]   | `<verification>`                 | post-edit re-read, truth rail, format gate     |   yes   |   yes   |    yes     |
-|  [06]   | `<output_contract>`              | JSON-only shape, null-for-missing, always LAST |   yes   |   yes   |    yes     |
-|  [07]   | `<decision_procedure>`           | refute-first adjudication                      |    —    |    —    |    yes     |
+[BLOCK_VOCABULARY] — one block per concern, in this order; a block's name states its lane, and a lane omits blocks it has no logic for:
 
-- `<role>` on a judgment lane adds the findings-are-untrusted clause, `<completion_bar>` sits early where it beats codex early-stop, and `<capability_mandate>` is earned by a focused campaign and states every expansion move as a measurable condition; `<verification>` extends with a cite-check on recon and a rubric walk on judgment.
+| [INDEX] | [BLOCK]                | [JOB]                                                                                       |
+| :-----: | :--------------------- | :------------------------------------------------------------------------------------------ |
+|  [01]   | `<role>`               | identity, territory, hard exclusions; judgment lanes add findings-are-untrusted             |
+|  [02]   | `<completion_bar>`     | done-definition per deliverable with its proof; sits early, where it beats early-stop       |
+|  [03]   | `<context_gathering>`  | read ladder, total tool-call budget, uncertainty escape hatch                               |
+|  [04]   | `<decision_procedure>` | refute-first adjudication — verdict lanes                                                   |
+|  [05]   | `<capability_mandate>` | surface-raising stated as measurable conditions — campaign lanes                            |
+|  [06]   | `<verification>`       | post-edit re-read plus batched command checks; cite-check on recon, rubric walk on judgment |
+|  [07]   | `<output_contract>`    | JSON-only shape, null-for-missing — always LAST                                             |
 
-[PROMPT_STRUCTURE] — one dispatch, both channels; a lane keeps only the blocks its vocabulary row selects and fills every placeholder with instance logic:
+Developer channel — the value of `developer-instructions` (MCP) / `-c developer_instructions=` (CLI):
 
 ```text template
-# developer-instructions — the lane law
 <role>
-<identity: what this lane is and the one product it returns>. Territory: <the exact files and directories this lane may open>; never <hard-exclusions: surfaces this lane must not open or edit>. <conduct-invariants: the behavior contract — e.g. edits forbidden on a read lane, findings-are-untrusted on a judgment lane>.
+<identity>. Territory: <territory>; never <exclusions>. <invariants>.
 </role>
 
 <completion_bar>
-Done is <deliverables: each named with the observable evidence that proves it>. Implement exactly and only <the named moves>; choose the simplest valid interpretation of any ambiguity. <blocked-policy: the typed entry a blocked deliverable returns instead of a partial edit>. Your layer is <layer>; out-of-layer discoveries land as <typed-row> in the product, never edits.
+Done is <deliverables>, each proven by <evidence>. Implement exactly and only <moves>; choose the simplest valid interpretation of any ambiguity. A blocked deliverable returns <blocked-entry>, never a partial edit. Your layer is <layer>; out-of-layer discoveries land as <typed-rows>, never edits.
 </completion_bar>
 
 <context_gathering>
-Read fully, in order: <read-ladder: the stable inputs once and first, then the per-item inputs>.
-Budget: at most <N> tool calls total — parallelize reads, take large windows, cap each command's output; never concatenate the territory into one command.
-Stop when the product is complete; uncertainty remaining at the budget lands in <uncertainty-slot>, never re-reads.
+Read fully, in order: <ladder>.
+Budget: at most <N> tool calls total; never concatenate the territory into one command.
+Stop when the product is complete; uncertainty left at the budget lands in <uncertainty-slot>, never re-reads.
 </context_gathering>
 
 <decision_procedure>
-<adjudication: the verdict order, the evidence each verdict requires, and the classes that push back rather than land>
+<adjudication>
 </decision_procedure>
 
 <capability_mandate>
-<expansion-moves: each stated as a measurable condition on surfaces the lane already edits; correctness outranks addition>
+<expansions>
 </capability_mandate>
 
 <verification>
-Re-read each changed region after landing it. <command-checks: the exact verification commands with their pass conditions, run once, batched, after the final edit>. A check not run is never claimed as run.
+Re-read each changed region after landing it. <checks>, run once, batched, after the final edit. A check not run is never claimed as run.
 </verification>
 
 <output_contract>
 Your final message is a single JSON object with exactly this shape:
-<shape: every key named inline, task-specific keys included>
-JSON only — no prose outside it, no code fences; every key shown is required; null for a value you could not determine and [] for an empty list, never guess.
+<shape>
+JSON only — no prose outside it, no code fences; every key shown is required; null for a value you could not determine, [] for an empty list, never guess.
 </output_contract>
-
-# prompt — the task instance
-Goal: <the one outcome this dispatch produces>.
-Context: <the inputs on disk — absolute paths, one line of semantics each>.
-Constraints: <the instance values the law above parameterizes — territory, budget N, layer>.
-Done when: <this instance's deliverables, matching the output contract keys>.
 ```
 
-Spawn step — rides the USER prompt, never the developer channel: the injected spawn gate hears only the user channel, and permissive wording yields zero spawns:
+User channel — the value of `prompt` (MCP) / the positional argument (CLI); the spawn step appears only on a fan-out lane:
 
 ```text template
-Before <phase-anchor>, spawn exactly <N> parallel sub-agents with collaboration.spawn_agent, one per <split-axis>, then collect every one with collaboration.wait_agent before <synthesis-step>. Spawned agents inherit none of your conversation — each task is self-contained: absolute paths for its territory, <per-child-mandate: the one question it answers>, and its exact return shape <per-child-shape>. Sub-agents read and report only — never edit, never propose code to paste; their returns are candidate data you judge under your own law.
+Goal: <outcome>.
+Context: <inputs>.
+Constraints: <bounds>.
+Done when: <deliverables>.
+
+Before <anchor>, spawn exactly <N> parallel sub-agents with collaboration.spawn_agent, one per <split>; collect every one with collaboration.wait_agent before <synthesis>. Each spawn task is self-contained — absolute paths, <mandate>, return shape <shape>. Sub-agents read and report only; their returns are candidate data you judge under your own law.
 ```
 
 ## [02]-[DISPATCH]
