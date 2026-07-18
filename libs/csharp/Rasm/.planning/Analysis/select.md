@@ -18,7 +18,7 @@ Every projection that duplicates host geometry travels as a `TopologyProjection`
 - Auto: `CurveProject` resolves the source kind once (`geometry.KindOf(context)`), derives the emitted feature from the aspect × topology, extracts ALL candidate projections, applies `Select`, projects the chosen subset, and releases every non-transferred projection through `TopologyProjection.Project` — extraction, selection, projection, and disposal are one fold, and a leaked duplicate is structurally impossible on both success and failure branches; the extraction lattice discriminates per source: curve-formable inputs lower through `Normalization.CurveForm` (polyline inputs explode to per-segment `LineCurve` projections under boundary spellings; `SegmentsCase` routes `GetSubCurves` for smooth G1 pieces versus `DuplicateSegments` for polycurve segments, degrading to the whole duplicated curve when the source is monolithic), brep edges/loops and mesh topology edges select through `Matches` over their descriptors, `BrepFace` boundaries walk loop trims, iso extraction is TRIM-AWARE on faces (`TrimAwareIsoCurve` at west/east/south/north domain ends or the normalized interior parameter) and domain-parameterized on plain surfaces (`IsoCurve`), SubD edges duplicate after a lazy surface-mesh cache update, and silhouettes admit the view direction through `VectorIntent.Direction` (default `Vector3d.ZAxis`), lower `Surface`/`SubD` sources to owned breps inside a `Lease` window, and route `DraftAngle` presence to `ComputeDraftCurve` versus the full `SilhouetteType` union under model absolute + angle tolerances with cooperative cancellation.
 - Packages: RhinoCommon (`BrepEdge.Valence`/`TrimIndices`/`DuplicateCurve`/`EdgeIndex`, `BrepLoop.LoopType`/`To3dCurve`, `Brep.Edges`/`Loops`/`Trims`/`Faces`, `Mesh.TopologyEdges.GetConnectedFaces`/`EdgeLine`, `Surface.IsoCurve`/`Domain`, `BrepFace.TrimAwareIsoCurve`/`Domain`, `Silhouette.Compute`/`ComputeDraftCurve` + `SilhouetteType`, `SubD.DuplicateEdgeCurves`/`UpdateSurfaceMeshCache`, `Curve.TryGetPolyline`/`GetSubCurves`/`DuplicateSegments`, `IsoStatus`, `EdgeAdjacency`, `ComponentIndex`), `Rasm.Domain` (`Capability` rows, `Normalization` form recoveries, `TopologyProjection` + `Project` fold, `CurveForm`/`CurveFormOf`, `Kind`/`Topology`, `Lease`), `Rasm.Processing` (`VectorIntent.Direction`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 - Growth: a new edge feature is one `CurveFeature` row plus one `Features` derivation arm — selection, projection, and disposal are untouched; a new extraction source is one lattice arm emitting `TopologyProjection`s; a new typed output is one projection row on the `Operation` fan; a new silhouette flavor is a `SilhouetteType` flag or policy value on the existing case, never a sibling case.
-- Boundary: the edge taxonomy is DATA — `EdgeDescriptor.Features` is the one place adjacency becomes provenance, and a per-source feature `if` ladder beside it is the deleted form; fourteen spellings are six cases (the eight edge spellings differ only by feature row — a `BoundaryCurves`/`NakedCurves`/`InteriorCurves` operation family is the named proliferation this design kills); every duplicate rides `TopologyProjection` with its true `ComponentIndex` (`BrepEdge`/`BrepLoop`/`MeshTopologyEdge`/`BrepFace`/`PolycurveSegment`/`SubdEdge`) so the host drain and the repair pages address the same component space; the silhouette arm is host capture BESIDE the settled `Drawing/view` robust owner — a local hidden-line kernel here is the altitude violation; owned lowering (`Surface`/`SubD` → brep) disposes through the `Lease` window on every branch; `Select` rejects an out-of-range index onto the rail — a clamp-on-one-family/reject-on-the-other asymmetry is the collapsed dead form; ONE reject law serves the curve and face families alike.
+- Boundary: the edge taxonomy is DATA — `EdgeDescriptor.Features` is the one place adjacency becomes provenance, and a per-source feature `if` ladder beside it is the deleted form; fourteen spellings are six cases (the eight edge spellings differ only by feature row — a `BoundaryCurves`/`NakedCurves`/`InteriorCurves` operation family is the named proliferation this design kills); every duplicate rides `TopologyProjection` with its true `ComponentIndex` (`BrepEdge`/`BrepLoop`/`MeshTopologyEdge`/`BrepFace`/`PolycurveSegment`/`SubdEdge`) so the host drain and the repair pages address the same component space; the silhouette arm is host capture BESIDE the settled `Drawing/view` robust owner — a local hidden-line kernel here is the altitude violation; owned lowering (`Surface`/`SubD` → brep) disposes through the `Lease` window on every branch; `Select` rejects an out-of-range index onto the rail — a clamp-on-one-family/reject-on-the-other asymmetry is the collapsed dead form; ONE reject law serves the curve and face families alike, spelled once as the `IndexSelection.At` fold on the projection sequence, so a family-local re-spelling of the empty/first/out-of-range arms is the deleted form.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -136,13 +136,9 @@ public abstract partial record Curves {
             Capability.CurveForm.Admits(type: state.Type) || Capability.Native(state.Type, state.Topology, (Topology.Brep, typeof(Brep)), (Topology.Mesh, typeof(Mesh)), (Topology.SubD, typeof(SubD))));
 
     internal Fin<Seq<TopologyProjection>> Select(Seq<TopologyProjection> curves) =>
-        (this, curves.Count) switch {
-            (_, 0) => Fin.Succ(Seq<TopologyProjection>()),
-            (AtCase { Value: int index }, int count) when index < 0 || index >= count => Fin.Fail<Seq<TopologyProjection>>(Key.InvalidInput()),
-            (FormCase { Index: int index }, int count) when index < 0 || index >= count => Fin.Fail<Seq<TopologyProjection>>(Key.InvalidInput()),
-            (AtCase { Value: int index }, _) => Fin.Succ(Seq(curves[index])),
-            (FormCase { Index: int index }, _) => Fin.Succ(Seq(curves[index])),
-            (AtCase, _) => Fin.Succ(Seq(curves[0])),
+        this switch {
+            AtCase at => curves.At(index: Optional(at.Value), key: Key),
+            FormCase { Index: int index } => curves.At(index: Some(index), key: Key),
             _ => Fin.Succ(curves),
         };
     internal CurveFeature Feature(Topology topology) => Switch(
@@ -167,6 +163,21 @@ public abstract partial record Curves {
         kind.Case is CurveFeature feature && FeatureIsAny(feature, features);
     private static bool FeatureIsAny(CurveFeature feature, params ReadOnlySpan<CurveFeature> features) =>
         features.Contains(feature);
+}
+
+// The ONE index-reject law both selection families dispatch: empty passes empty, an absent
+// index takes the first item, an out-of-range index rejects onto the rail, an in-range index
+// yields the single item.
+internal static class IndexSelection {
+    extension(Seq<TopologyProjection> items) {
+        internal Fin<Seq<TopologyProjection>> At(Option<int> index, Op key) =>
+            (items.Count, index.Case) switch {
+                (0, _) => Fin.Succ(Seq<TopologyProjection>()),
+                (int count, int at) when at < 0 || at >= count => Fin.Fail<Seq<TopologyProjection>>(key.InvalidInput()),
+                (_, int at) => Fin.Succ(Seq(items[at])),
+                _ => Fin.Succ(Seq(items[0])),
+            };
+    }
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
@@ -285,7 +296,7 @@ public static partial class Analyze {
 - Auto: `DecomposeFaces` resolves ownership through the `Lease` case — a BORROWED brep (the input IS a brep the host owns) yields borrowed face carriers addressing the live `BrepFace` list, an OWNED brep (coerced from `Box`/`Sphere`/`Extrusion`/`SubD`/…) yields carriers DETACHED through `TopologyProjection.DetachFrom` (each face duplicated as an independent single-face brep) BEFORE the owning lease disposes at scope exit — a caller-side `copy` flag beside the carrier is the dead form, ownership derives from the lease case; ranking admits the axis through `VectorIntent.Direction`, scores each face centroid against the admitted axis, and selects through the ONE `Stat.Extrema` fold at model tolerance (coplanar-tie faces all return — the band is the tolerance, not an arbitrary first-hit); `FrameAtFaceCentroid` recovers the surface frame at the centroid pull-back (`ClosestPointOnFace` → `Evaluation.FrameAt`, orientation-corrected by that owner's law); the centroid itself is `Analysis/measure`'s `CentroidOf` — the mass-backed centroid, never a vertex average; the `Interval` row reads `Analysis/inspect`'s `DomainsOf` (two uv domains per face).
 - Packages: RhinoCommon (`Brep.Faces`, `BrepFace.ClosestPointOnFace`/`FaceIndex`, `ComponentIndex`), `Rasm.Domain` (`Capability.DecomposeFaces`, `Normalization.BrepForm`, `TopologyProjection` + `DetachFrom` + `Project` fold, `Evaluation.FrameAt`, `Stat.Extrema`/`ExtremumDirection`, `Lease`), `Rasm.Processing` (`VectorIntent.Direction`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 - Growth: a new face projection (an area row, a perimeter row) is one output arm on the fan calling the owning family's fold — zero new operations; a new selection strategy (largest-area face, most-vertical face) is one case whose score projection feeds the SAME `Stat.Extrema` fold.
-- Boundary: eight outputs on ONE builder — a `FacePlanes`/`FaceCentroids`/`FaceNormals` operation family is the named proliferation this fan deletes; the borrowed/owned decomposition asymmetry is the load-bearing resource law (borrowed carriers transfer live faces to the host drain; owned decompositions detach so no emitted face dangles after the coerced brep disposes) — a decomposition that hands out faces of a disposed brep is the named use-after-free defect this protocol kills; ranking and selection reject an out-of-range index onto the rail under the one selection law shared with `Curves.Select`; the centroid frame row composes `Analysis/measure` + `Domain/evaluation` law — a local mass or frame computation here is the deleted re-derivation.
+- Boundary: eight outputs on ONE builder — a `FacePlanes`/`FaceCentroids`/`FaceNormals` operation family is the named proliferation this fan deletes; the borrowed/owned decomposition asymmetry is the load-bearing resource law (borrowed carriers transfer live faces to the host drain; owned decompositions detach so no emitted face dangles after the coerced brep disposes) — a decomposition that hands out faces of a disposed brep is the named use-after-free defect this protocol kills; ranking and selection reject an out-of-range index onto the rail through the same `IndexSelection.At` fold `Curves.Select` dispatches; the centroid frame row composes `Analysis/measure` + `Domain/evaluation` law — a local mass or frame computation here is the deleted re-derivation.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -362,12 +373,7 @@ public static partial class Analyze {
         state: (Key: key, Faces: faces, Runtime: runtime),
         allCase: static (s, _) => Fin.Succ(s.Faces),
         rankedCase: static (s, ranked) => RankFaces(state: s, axis: ranked.Axis, direction: ranked.Direction),
-        atCase: static (s, at) => (s.Faces.Count, at.Value) switch {
-            (0, _) => Fin.Succ(Seq<TopologyProjection>()),
-            (int count, int index) when index < 0 || index >= count => Fin.Fail<Seq<TopologyProjection>>(s.Key.InvalidInput()),
-            (_, int index) => Fin.Succ(Seq(s.Faces[index])),
-            _ => Fin.Succ(Seq(s.Faces[0])),
-        });
+        atCase: static (s, at) => s.Faces.At(index: Optional(at.Value), key: s.Key));
     internal static Fin<Plane> FrameAtFaceCentroid(BrepFace face, Context context, Op op) =>
         CentroidOf(geometry: face, context: context, op: op).Bind(centroid =>
             face.ClosestPointOnFace(testPoint: centroid, u: out double u, v: out double v, maximumDistance: 0.0)
@@ -557,7 +563,8 @@ public static partial class Analyze {
         from offsets in points.TraverseM(point => VectorIntent.Components(anchor: fit.Origin, value: point - fit.Origin, frame: fit)
             .Project<(double X, double Y)>(context: context, key: op)
             .Map(components => Math.Abs(value: (components.X * -Math.Sin(a: angle)) + (components.Y * Math.Cos(d: angle))))).As()
-        select offsets.Fold(initialState: 0.0, f: Math.Max);
+        from spread in Stat.Extrema(items: offsets, projection: static offset => offset, tolerance: 0.0, direction: ExtremumDirection.Maximum).Head.ToFin(op.InvalidResult())
+        select spread;
 }
 ```
 

@@ -1,27 +1,31 @@
 # [RASM_CLOUD]
 
-The point-cloud owner: ONE `VectorCloud` `[Union]` over the three cloud modalities — closed planar ring, open polyline chain, mass-weighted cluster — with tolerance-deduplicating admission, mass renormalization, and a lazy native index on the cluster case; ONE `VectorCloudMetric` `[SmartEnum<int>]` owning all thirty cloud measurements as table rows behind a single `Project<TOut>`; ONE `CloudKernel` operation surface (name frozen — `intent.md` dispatches `ComputeHullDetailed`, `sample.md`/`register.md`/`stats.md` bind its folds by name) carrying the canonical covariance/PCA fold, the ring/polyline metric folds, planar winding, the omni-shape projection, and the hull rail. A cloud capability is a metric row, a hull kind row, or a shape column — never a sibling type, never a per-measurement method family.
+`VectorCloud` owns the point-cloud union over closed planar rings, open polyline chains, and mass-weighted clusters, with tolerance-deduplicating admission, mass renormalization, and a copy-safe shared native-index extent on each cluster case. `VectorCloudMetric` owns every cloud measurement as a table row behind `Project<TOut>`. `CloudKernel` carries the canonical covariance/PCA fold, ring/polyline metrics, planar winding, omni-shape projection, and hull rail. Cloud capabilities remain metric rows, hull-kind rows, or shape columns.
 
-Covariance is computed exactly once in the corpus: `CloudKernel.CovarianceOf` composes `Domain/stats.md` `SampleMoment` (weighted mean + upper-triangular second moments) into a `matrix.md` `SymmetricMatrix`, and every PCA consumer — principal axes, principal frames, best-fit spread, the settled `Solving/fit` robust-fit prior (it composes `CloudKernel.CovarianceOf` for its quality-ordered draw and reads the upstream `OrientedNormals` field), the `register.md` GICP precision field (via `NeighborKernel.PcaOf`) — reads THIS fold. Per-point neighborhoods, normal estimation, principal curvature, and rotation-minimizing frames are `neighbors.md`'s substrate; the metric rows for those measurements delegate there and this page re-implements none of them. The concave hull kinds the retired source declared but returned `Unsupported` are REALIZED here over the admitted `MIConvexHull` Delaunay complex — declared capability now computes.
+Covariance is computed exactly once in the corpus: `CloudKernel.CovarianceOf` composes `Domain/stats.md` `SampleMoment` (weighted mean + upper-triangular second moments) into a `matrix.md` `SymmetricMatrix`, and every PCA consumer — principal axes, principal frames, best-fit spread, the settled `Solving/fit` robust-fit prior (it composes `CloudKernel.CovarianceOf` for its quality-ordered draw and reads the upstream `OrientedNormals` field), the `register.md` GICP precision field (via `NeighborKernel.PcaOf`) — reads THIS fold. Per-point neighborhoods, normal estimation, principal curvature, and rotation-minimizing frames are `neighbors.md`'s substrate; the metric rows for those measurements delegate there and this page re-implements none of them. Concave hull kinds execute over the admitted `MIConvexHull` Delaunay complex.
 
 ## [01]-[INDEX]
 
-- [02]-[VECTOR_CLOUD]: the Ring/Polyline/Cluster union; tolerance-dedup mass-conserving admission; the lazy cluster index; the closest-vertex and radius probes.
+- [02]-[VECTOR_CLOUD]: the Ring/Polyline/Cluster union; tolerance-dedup mass-conserving admission; the lazy cluster index; the closest-vertex probe.
 - [03]-[CLOUD_METRICS]: the thirty-row metric vocabulary; the covariance/PCA fold; ring mass-property, polyline, and winding folds; the `VectorCloudShape` omni-projection.
 - [04]-[HULL]: the five-kind hull rail — native convex 3D/2D, chi-shape concave outline, alpha-complex — with typed receipts.
 
 ## [02]-[VECTOR_CLOUD]
 
-- Owner: `VectorCloud` `[Union]` — `RingCase` (closed planar loop: vertices + validated `Polyline` native + `Context`), `PolylineCase` (open chain: vertices + `Context`), `ClusterCase` (point set + optional normalized mass `Arr<double>` + `CloudAdmissionReceipt`). Weighted clusters are the SAME case with `Mass: Some` — never a fourth case. `CloudAdmissionPolicy` (deduplicate flag + optional merge tolerance) is the admission policy value; `CloudAdmissionReceipt` the mass-conservation evidence.
+- Owner: `VectorCloud` `[Union]` + `IDisposable` — `RingCase` (closed planar loop: vertices + validated `Polyline` native + `Context`), `PolylineCase` (open chain: vertices + `Context`), `ClusterCase` (point set + optional normalized mass `Arr<double>` + retained shared owner over one `Lease<PointCloud>` + `CloudAdmissionReceipt`). Weighted clusters are the SAME case with `Mass: Some` — never a fourth case. `CloudAdmissionPolicy` (deduplicate flag + optional merge tolerance + mass-conservation tolerance) is the admission policy value; `CloudAdmissionReceipt` witnesses the effective conservation tolerance.
 - Entry: three admitting factories — `Ring(points, context, key)` (drops a coincident closing vertex, requires ≥3 distinct vertices, rebuilds the closed `Polyline`, proves closure within tolerance AND zero self-intersections via `Intersection.CurveSelf` under a `Lease<PolylineCurve>.Owned`), `Polyline(points, context, key)` (≥2 finite vertices), `Cluster(points, context, admission?, mass?, key)` — one factory, mass an `Option<Seq<double>>` so weighted construction is an argument, not a sibling name. `Admit(key)` re-proves a rehydrated cloud through the same three paths with dedup off (already-unique vertices stay stable).
-- Auto: cluster admission is the ONE dedup-and-renormalize fold — walk input points, merge coordinate-equivalent points under the policy tolerance, accumulate merged mass, renormalize to unit total, and emit `OriginalToUnique` (the input-index → unique-index map every external per-point array re-indexes through — sampling weights, per-point normals, correspondence indices survive deduplication because of this column). Mass conservation gates the fold: `|Σin − Σout| ≤ ε·max(1,|Σin|)` or the admission faults. `ClusterCase.Indexed` is the lazy native `PointCloud` memo — a `ConditionalWeakTable<ClusterCase, PointCloud>` keyed by case reference identity so the index dies with the case and two structurally-equal clusters never share a native handle. `ClosestVertex` probes `PointCloud.ClosestPoint` and lifts the hit into a `ClosestHit` with its `ComponentIndexType.PointCloudPoint` component; `WithinRadius` probes `RTree.PointCloudClosestPoints` over the same index under `key.Catch`.
-- Receipt: `CloudAdmissionReceipt` — input/output counts, duplicate/merged counts, tolerance, `OriginalToUnique`, mass totals — `IValidityEvidence` with `IsValid` spelled as ONE `ValidityClaim.All` fold (`Domain/rails.md` mechanism): count/nonnegativity claims plus the cross-field terms `OutputCount + MergedCoordinateCount == InputCount`, merge-implies-dedup, re-index range, and mass conservation.
-- Packages: RhinoCommon (`PointCloud.AddRange`/`ClosestPoint`/`PointAt`, `Polyline.IsClosedWithinTolerance`/`SegmentCount`/`ToPolylineCurve`, `RTree.PointCloudClosestPoints`, `Intersection.CurveSelf`, `Sphere`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
+- Auto: cluster admission is the ONE dedup-and-renormalize fold — walk input points, merge coordinate-equivalent points under the policy tolerance, accumulate merged mass, prove input-to-merged conservation, renormalize to unit total, mint the native `PointCloud` inside `Op.Catch`, wrap it in `Lease<PointCloud>.Owned`, and emit `OriginalToUnique` (the input-index → unique-index map every external per-point array re-indexes through — sampling weights, per-point normals, correspondence indices survive deduplication because of this column). `ClusterCase` record copies retain the same index owner, each case releases its handle idempotently, and the last release disposes the lease; probe windows retain independently while active. `UseIndex` is the sole native-index projection, keeps the `PointCloud` inside the retained callback, and returns only the callback result. `ClosestVertex` composes `PointCloud.ClosestPoint` and `PointAt` through that window inside `Op.Catch`, then lifts the hit into a `ClosestHit` with its `ComponentIndexType.PointCloudPoint` component; every radius or kNN neighborhood over a cluster rides the `neighbors.md` substrate (`NeighborIndex` cloud tier over this admitted index) — a cluster-local radius probe here is the deleted form.
+- Receipt: `CloudAdmissionReceipt` — input/output counts, duplicate/merged counts, merge and conservation tolerances, `OriginalToUnique`, and pre-merge/post-merge/normalized mass totals — `IValidityEvidence` with `IsValid` spelled as ONE `ValidityClaim.All` fold (`Domain/rails.md` mechanism): count/nonnegativity claims plus the cross-field terms `OutputCount + MergedCoordinateCount == InputCount`, merge-implies-dedup, re-index range, input-to-merged conservation, and normalized-output unit mass.
+- Packages: RhinoCommon (`PointCloud.AddRange`/`ClosestPoint`/`PointAt`, `Polyline.IsClosedWithinTolerance`/`SegmentCount`/`ToPolylineCurve`, `Intersection.CurveSelf`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
 - Growth: a new cloud modality is one union case + one factory + its arms in the metric adapters; a new admission rule is one policy column; mass semantics never fork into a parallel `WeightedCloud` type.
-- Boundary: admission runs ONCE at the factory — every kernel fold below consumes admitted vertices and never re-validates; the native `PointCloud`/`RTree` probes are the named platform seam (mutating native containers under `key.Catch` inside the memo and probe bodies only); `OriginalToUnique` is the published re-index contract and a consumer re-deriving the merge map by coordinate comparison is the deleted form; the self-intersection preflight leases its `PolylineCurve` (`Lease<T>.Owned.Use`) so no native curve escapes the check.
+- Boundary: admission runs ONCE at the factory — every kernel fold below consumes admitted vertices and never re-validates; `VectorCloud.Dispose` releases one cluster handle and no-ops for value-only cases, so copies share one safe extent while rehydrated clouds own independent extents; the native `PointCloud` probes are the named platform seam (mutating native containers under `key.Catch` inside the admission and probe bodies only); `OriginalToUnique` is the published re-index contract and a consumer re-deriving the merge map by coordinate comparison is the deleted form; the self-intersection preflight leases its `PolylineCurve` (`Lease<T>.Owned.Use`) so no native curve escapes the check.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+using System;
+using System.Runtime.CompilerServices;
+using System.Threading;
+using Rasm.Csp;
 using Rasm.Domain;
 using Rasm.Numerics;
 
@@ -29,41 +33,70 @@ namespace Rasm.Spatial;
 
 // --- [TYPES] ------------------------------------------------------------------------------
 [Union]
-public abstract partial record VectorCloud {
+public abstract partial record VectorCloud : IDisposable {
     private VectorCloud() { }
     public sealed record RingCase : VectorCloud { internal RingCase(Seq<Point3d> Vertices, Polyline Native, Context Tolerance) { this.Vertices = Vertices; this.Native = Native; this.Tolerance = Tolerance; } public Seq<Point3d> Vertices { get; } public Polyline Native { get; } public Context Tolerance { get; } }
     public sealed record PolylineCase : VectorCloud { internal PolylineCase(Seq<Point3d> Vertices, Context Tolerance) { this.Vertices = Vertices; this.Tolerance = Tolerance; } public Seq<Point3d> Vertices { get; } public Context Tolerance { get; } }
     public sealed record ClusterCase : VectorCloud {
-        internal ClusterCase(Seq<Point3d> Vertices, Context Tolerance, Option<Arr<double>> Mass, CloudAdmissionReceipt Admission) { this.Vertices = Vertices; this.Tolerance = Tolerance; this.Mass = Mass; this.Admission = Admission; }
+        internal ClusterCase(Seq<Point3d> Vertices, Context Tolerance, Option<Arr<double>> Mass, Lease<PointCloud> Indexed, CloudAdmissionReceipt Admission) { this.Vertices = Vertices; this.Tolerance = Tolerance; this.Mass = Mass; Index = new IndexHandle(lease: Indexed); this.Admission = Admission; }
+        private ClusterCase(ClusterCase original) : base(original) { Vertices = original.Vertices; Tolerance = original.Tolerance; Mass = original.Mass; Index = original.Index.Copy(); Admission = original.Admission; }
         public Seq<Point3d> Vertices { get; }
         public Context Tolerance { get; }
         public Option<Arr<double>> Mass { get; }
+        private IndexHandle Index { get; }
         public CloudAdmissionReceipt Admission { get; }
 
-        // Reference-keyed lazy native index: dies with the case, never shared across structural equals.
-        private static readonly ConditionalWeakTable<ClusterCase, PointCloud> IndexCache = [];
-        internal PointCloud Indexed => IndexCache.GetValue(key: this, createValueCallback: static c => {
-            PointCloud native = [];
-            native.AddRange(points: c.Vertices.AsIterable());
-            return native;
-        });
+        internal Fin<T> UseIndex<T>(Op key, Func<PointCloud, Fin<T>> project) =>
+            Index.Use(key: key, project: project);
 
         internal Fin<ClosestHit> ClosestVertex(Point3d sample, Op key) =>
-            Indexed.ClosestPoint(testPoint: sample) switch {
-                int idx when idx >= 0 && idx < Vertices.Count => key.AcceptValue(value: ClosestHit.At(
-                    target: sample, point: Indexed.PointAt(index: idx),
-                    component: Some(new ComponentIndex(type: ComponentIndexType.PointCloudPoint, index: idx)))),
-                _ => Fin.Fail<ClosestHit>(error: key.InvalidResult()),
-            };
-        internal Fin<Seq<int>> WithinRadius(Point3d sample, double radius, Op key) =>
-            new Sphere(center: sample, radius: radius) switch {
-                { IsValid: false } => Fin.Fail<Seq<int>>(error: key.InvalidInput()),
-                Sphere ball => key.Catch(() => {
-                    IEnumerable<int[]> found = RTree.PointCloudClosestPoints(pointcloud: Indexed, needlePts: [sample], limitDistance: ball.Radius);
-                    using IDisposable? lease = found as IDisposable;
-                    return key.Accept(values: found.FirstOrDefault(defaultValue: []).Where(i => i >= 0 && i < Vertices.Count));
-                }),
-            };
+            UseIndex(key: key, project: indexed => key.Catch(() => indexed.ClosestPoint(testPoint: sample) switch {
+                    int idx when idx >= 0 && idx < Vertices.Count => key.AcceptValue(value: ClosestHit.At(
+                        target: sample, point: indexed.PointAt(index: idx),
+                        component: Some(new ComponentIndex(type: ComponentIndexType.PointCloudPoint, index: idx)))),
+                    _ => Fin.Fail<ClosestHit>(error: key.InvalidResult()),
+                }));
+
+        internal Unit Release() => Index.Release();
+
+        private sealed class IndexHandle : IEquatable<IndexHandle> {
+            private readonly SharedIndex owner;
+            private int disposed;
+            internal IndexHandle(Lease<PointCloud> lease) { owner = new SharedIndex(lease: lease); }
+            private IndexHandle(SharedIndex owner, bool live) { this.owner = owner; disposed = live ? 0 : 1; }
+            internal IndexHandle Copy() {
+                if (Volatile.Read(location: ref disposed) != 0 || !owner.TryRetain()) return new IndexHandle(owner: owner, live: false);
+                return new IndexHandle(owner: owner, live: true);
+            }
+            internal Fin<T> Use<T>(Op key, Func<PointCloud, Fin<T>> project) =>
+                Volatile.Read(location: ref disposed) == 0
+                    ? owner.Use(key: key, project: project)
+                    : Fin.Fail<T>(key.InvalidContext());
+            internal Unit Release() => Interlocked.Exchange(location1: ref disposed, value: 1) == 0 ? owner.Release() : unit;
+            public bool Equals(IndexHandle? other) => other is not null && ReferenceEquals(objA: owner, objB: other.owner);
+            public override bool Equals(object? obj) => obj is IndexHandle other && Equals(other: other);
+            public override int GetHashCode() => RuntimeHelpers.GetHashCode(o: owner);
+        }
+
+        private sealed class SharedIndex(Lease<PointCloud> lease) {
+            private int references = 1;
+            internal bool TryRetain() {
+                while (true) {
+                    int current = Volatile.Read(location: ref references);
+                    if (current <= 0 || current == int.MaxValue) return false;
+                    if (Interlocked.CompareExchange(location1: ref references, value: current + 1, comparand: current) == current) return true;
+                }
+            }
+            internal Fin<T> Use<T>(Op key, Func<PointCloud, Fin<T>> project) {
+                if (!TryRetain()) return Fin.Fail<T>(key.InvalidContext());
+                try { return project(arg: lease.Resource); }
+                finally { _ = Release(); }
+            }
+            internal Unit Release() {
+                if (Interlocked.Decrement(location: ref references) == 0) _ = lease.Dispose();
+                return unit;
+            }
+        }
     }
 
     public static Fin<VectorCloud> Ring(Seq<Point3d> points, Context context, Op? key = null) =>
@@ -86,18 +119,28 @@ public abstract partial record VectorCloud {
 
     public static Fin<VectorCloud> Cluster(Seq<Point3d> points, Context context, Option<CloudAdmissionPolicy> admission = default, Option<Seq<double>> mass = default, Op? key = null) =>
         from admitted in AdmitPoints(points: points, context: context, key: key, minimum: 1)
-        let policy = admission.IfNone(CloudAdmissionPolicy.Default)
+        from policy in admission.IfNone(CloudAdmissionPolicy.Default).Admit(key: admitted.Key)
         from fold in CloudKernel.AdmitCluster(points: admitted.Points, mass: mass.Map(static m => new Arr<double>([.. m.AsIterable()])), policy: policy, key: admitted.Key)
-        select (VectorCloud)new ClusterCase(Vertices: fold.Points, Tolerance: admitted.Context, Mass: fold.Mass, Admission: fold.Receipt);
+        from indexed in admitted.Key.Catch(() => {
+            PointCloud native = [];
+            native.AddRange(points: fold.Points.AsIterable());
+            return Fin.Succ(native);
+        })
+        select (VectorCloud)new ClusterCase(Vertices: fold.Points, Tolerance: admitted.Context, Mass: fold.Mass, Indexed: new Lease<PointCloud>.Owned(Value: indexed), Admission: fold.Receipt);
 
-    internal Fin<VectorCloud> Admit(Op key) => this switch {
-        RingCase ring => Ring(points: ring.Vertices, context: ring.Tolerance, key: key),
-        PolylineCase poly => Polyline(points: poly.Vertices, context: poly.Tolerance, key: key),
-        ClusterCase c => Cluster(points: c.Vertices, context: c.Tolerance,
+    internal Fin<VectorCloud> Admit(Op key) => Switch(
+        state: key,
+        ringCase: static (op, ring) => Ring(points: ring.Vertices, context: ring.Tolerance, key: op),
+        polylineCase: static (op, poly) => Polyline(points: poly.Vertices, context: poly.Tolerance, key: op),
+        clusterCase: static (op, cluster) => Cluster(points: cluster.Vertices, context: cluster.Tolerance,
             admission: Some(CloudAdmissionPolicy.Default with { Deduplicate = false }),
-            mass: c.Mass.Map(static m => toSeq(m.AsIterable())), key: key),
-        _ => Fin.Fail<VectorCloud>(key.InvalidInput()),
-    };
+            mass: cluster.Mass.Map(static values => toSeq(values.AsIterable())), key: op));
+
+    [BoundaryAdapter]
+    public void Dispose() => Switch(
+        ringCase: static _ => { },
+        polylineCase: static _ => { },
+        clusterCase: static cluster => { _ = cluster.Release(); });
 
     private static Fin<(Seq<Point3d> Points, Context Context, Op Key)> AdmitPoints(Seq<Point3d> points, Context context, Op? key, int minimum) {
         Op op = key.OrDefault();
@@ -110,8 +153,17 @@ public abstract partial record VectorCloud {
 
 // --- [MODELS] -----------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct CloudAdmissionPolicy(bool Deduplicate, Option<PositiveMagnitude> Tolerance) {
-    internal static CloudAdmissionPolicy Default => new(Deduplicate: true, Tolerance: None);
+public readonly record struct CloudAdmissionPolicy(
+    bool Deduplicate, Option<PositiveMagnitude> Tolerance, PositiveMagnitude ConservationTolerance) {
+    internal static CloudAdmissionPolicy Default => new(
+        Deduplicate: true, Tolerance: None, ConservationTolerance: PositiveMagnitude.Create(value: 1.0e-8));
+    internal Fin<CloudAdmissionPolicy> Admit(Op key) {
+        CloudAdmissionPolicy self = this;
+        return guard(ValidityClaim.All(
+                ValidityClaim.Of(self.Tolerance.Map(static tolerance => ValidityClaim.Positive(tolerance.Value).Holds).IfNone(true)),
+                ValidityClaim.Positive(self.ConservationTolerance.Value)), key.InvalidInput())
+            .ToFin().Map(_ => self);
+    }
     internal bool Equivalent(Point3d left, Point3d right) => Tolerance switch {
         { IsSome: true, Case: PositiveMagnitude t } => left.EpsilonEquals(other: right, epsilon: t.Value),
         _ => left == right,
@@ -121,22 +173,28 @@ public readonly record struct CloudAdmissionPolicy(bool Deduplicate, Option<Posi
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct CloudAdmissionReceipt(
     int InputCount, int OutputCount, int InputDuplicateCoordinateCount, int MergedCoordinateCount,
-    double Tolerance, bool Deduplicated, Arr<int> OriginalToUnique,
-    Option<double> MassInputTotal, Option<double> MassOutputTotal) : IValidityEvidence {
-    internal const double ConservationEps = 1.0e-8;
-    internal static bool MassConserved(double input, double output) =>
-        Math.Abs(input - output) <= ConservationEps * Math.Max(1.0, Math.Abs(input));
+    double Tolerance, double ConservationTolerance, bool Deduplicated, Arr<int> OriginalToUnique,
+    Option<double> MassInputTotal, Option<double> MassMergedTotal, Option<double> MassOutputTotal) : IValidityEvidence {
+    internal static bool MassConserved(double input, double output, double tolerance) =>
+        Math.Abs(input - output) <= tolerance * Math.Max(1.0, Math.Abs(input));
+    internal static bool MassNormalized(double output, double tolerance) =>
+        Math.Abs(1.0 - output) <= tolerance;
+    internal static bool MassAdmitted(double total) => double.IsFinite(total) && total >= 0.0;
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.CountAtLeast(count: InputCount, floor: 1),
         ValidityClaim.Nonnegative(Tolerance),
+        ValidityClaim.Positive(ConservationTolerance),
         ValidityClaim.Of(InputDuplicateCoordinateCount >= 0 && MergedCoordinateCount >= 0),
         ValidityClaim.CountExactly(count: OutputCount + MergedCoordinateCount, expected: InputCount),
         ValidityClaim.Of(MergedCoordinateCount == 0 || Deduplicated),
         ValidityClaim.CountExactly(count: OriginalToUnique.Count, expected: InputCount),
         ValidityClaim.Of(OriginalToUnique.ForAll(i => i >= 0 && i < OutputCount)),
-        ValidityClaim.Of((MassInputTotal.Case, MassOutputTotal.Case) switch {
-            (double input, double output) => MassConserved(input: input, output: output),
-            _ => MassInputTotal.IsNone && MassOutputTotal.IsNone,
+        ValidityClaim.Of((MassInputTotal.Case, MassMergedTotal.Case, MassOutputTotal.Case) switch {
+            (double input, double merged, double output) =>
+                MassAdmitted(total: input) && MassAdmitted(total: merged) && MassAdmitted(total: output)
+                && MassConserved(input: input, output: merged, tolerance: ConservationTolerance)
+                && MassNormalized(output: output, tolerance: ConservationTolerance),
+            _ => MassInputTotal.IsNone && MassMergedTotal.IsNone && MassOutputTotal.IsNone,
         }));
 }
 ```
@@ -219,7 +277,7 @@ public readonly record struct CloudMetricPolicy(NeighborhoodPolicy Neighborhood)
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
-// The omni-projection: one shape answer per cloud case; absent columns are None, never a per-case
+// VectorCloudShape projects one answer per cloud case; absent columns remain None, never a per-case
 // sibling record. Analysis/inspect.md embeds it inside MeshFaceShape — the field set is a contract.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct VectorCloudShape(
@@ -299,9 +357,9 @@ internal static class CloudKernel {
 
 ## [04]-[HULL]
 
-- Owner: `CloudHullKind` `[SmartEnum<int>]` — `Convex3D` / `ConvexFootprint2D` / `ConcaveOutline` / `AlphaShape` / `FootprintWrapper` (the 2D fallback row a rejected 3D hull degrades to); `CloudHullPolicy` (`Tolerance` + `AngleTolerance` + the concave columns `Lambda` edge-length ceiling for the chi-shape and `Alpha` circumradius bound for the alpha complex, both `Option<PositiveMagnitude>` deriving from the cluster's mean spacing when absent); `CloudHullReceipt` + `CloudHullResult` the typed outcome pair.
+- Owner: `CloudHullKind` `[SmartEnum<int>]` — `Convex3D` / `ConvexFootprint2D` / `ConcaveOutline` / `AlphaShape` / `FootprintWrapper` (the 2D fallback row a rejected 3D hull degrades to); `CloudHullPolicy` (`Tolerance` + `AngleTolerance` + the concave columns `Lambda` edge-length ceiling for the chi-shape and `Alpha` circumradius bound for the alpha complex, both `Option<PositiveMagnitude>` deriving from the cluster's mean spacing when absent); `CloudHullReceipt` + `CloudHullResult` the typed outcome pair. `CloudHullPolicy.AdmitOrDefault` re-admits every supplied or context-derived scalar and both optional magnitudes before the hull fold.
 - Entry: `internal static Fin<CloudHullResult> ComputeHullDetailed(VectorCloud source, CloudHullKind kind, CloudHullPolicy policy, Op key)` — cluster-only; every kind returns a `CloudHullResult` whose `Status` (`Completed`/`Rejected`) plus rejection evidence (coplanarity, containment failures, planarity deviation) states the outcome; there is NO `Unsupported` status — every declared kind computes.
-- Auto: `Convex3D` routes native — coplanar preflight (`Point3d.ArePointsCoplanar`), then `Mesh.CreateConvexHull3D(points, out hullFacets, tolerance, angleTolerance)` under a `using`, duplicated out of the window. `ConvexFootprint2D`/`FootprintWrapper` fit the PCA plane (`Plane.FitPlaneToPoints`), project, run `PolylineCurve.CreateConvexHull2d`, verify containment of every input point within tolerance, and mesh the loop via `Mesh.CreateFromClosedPolyline`. `ConcaveOutline` and `AlphaShape` are TWO POLICY ROWS OVER ONE DELAUNAY FOLD: project the cluster onto the PCA plane, wrap each planar coordinate pair as a `DefaultVertex` (`double[] Position` — the `IVertex` contract `Triangulation.CreateDelaunay<TVertex>` demands; raw `double[]` rows do NOT bind), triangulate through `Triangulation.CreateDelaunay<DefaultVertex>(vertices, PlaneDistanceTolerance)` (cells carry `Vertices` + `Adjacency`; the policy `Tolerance` feeds `PlaneDistanceTolerance`), then filter — the alpha complex keeps every triangle whose circumradius `≤ Alpha` (Edelsbrunner, radius convention: the policy column IS the circumradius ceiling, dimensionally a length exactly like `Lambda`, which is why both derive from mean spacing), the chi-shape iteratively erodes the longest boundary edge while the edge exceeds `Lambda` and removal preserves regularity (no vertex abandoned, boundary stays a single simple cycle — Duckham et al.); both extract the boundary loop as the edges with exactly one surviving incident cell, orient it CCW against the fitted plane, lift back to world, and mesh via `Mesh.CreateFromClosedPolyline`. The Delaunay entry THROWS `ConvexHullGenerationException` on degenerate (collinear/coincident) input — the call runs under `key.Catch` and the captured failure folds to `Rejected` receipt evidence, never an escaping exception.
+- Auto: `Convex3D` routes native — coplanar preflight (`Point3d.ArePointsCoplanar`), then `Mesh.CreateConvexHull3D(points, out hullFacets, tolerance, angleTolerance)` under a `using`, duplicated out of the window. `ConvexFootprint2D`/`FootprintWrapper` fit the PCA plane (`Plane.FitPlaneToPoints`), project, run `PolylineCurve.CreateConvexHull2d`, verify containment of every input point within tolerance, and mesh the loop via `Mesh.CreateFromClosedPolyline`. `ConcaveOutline` and `AlphaShape` are TWO POLICY ROWS OVER ONE DELAUNAY FOLD: project the cluster onto the PCA plane, wrap each planar coordinate pair as a `DefaultVertex` (`double[] Position` — the `IVertex` contract `Triangulation.CreateDelaunay<TVertex>` demands; raw `double[]` rows do NOT bind), triangulate through `Triangulation.CreateDelaunay<DefaultVertex>(vertices, PlaneDistanceTolerance)` (cells carry `Vertices` + `Adjacency`; the policy `Tolerance` feeds `PlaneDistanceTolerance`), then filter — the alpha complex keeps every triangle whose circumradius `≤ Alpha` (Edelsbrunner, radius convention: the policy column IS the circumradius ceiling, dimensionally a length exactly like `Lambda`, which is why both derive from mean spacing), the chi-shape iteratively erodes the longest boundary edge while the edge exceeds `Lambda` and removal preserves regularity (no vertex abandoned, boundary stays a single simple cycle — Duckham et al.); both extract the boundary loop as the edges with exactly one surviving incident cell, orient it CCW against the fitted plane, lift back to world, and mesh via `Mesh.CreateFromClosedPolyline`. `Triangulation.CreateDelaunay` throws `ConvexHullGenerationException` on degenerate input; `key.Catch` converts it to `Rejected` receipt evidence.
 - Receipt: `CloudHullReceipt` — kind, status, tolerances, input/output/facet counts, planarity deviation, coplanar/containment rejection evidence, native-vs-authored route, fallback flag, and for the concave kinds the surviving-triangle count plus the effective `Alpha`/`Lambda` actually applied (`IValidityEvidence`, `IsValid` one `ValidityClaim.All` fold). `CloudHullResult.Project<TOut>` resolves `CloudHullReceipt` / `Mesh` / `VectorCloud` (re-admitted boundary cluster) through typed `ProjectionRow.Of` rows.
 - Packages: RhinoCommon (`Mesh.CreateConvexHull3D`, `PolylineCurve.CreateConvexHull2d`, `Mesh.CreateFromClosedPolyline`, `Point3d.ArePointsCoplanar`, `Plane.ClosestParameter`/`PointAt`), MIConvexHull (`Triangulation.CreateDelaunay<DefaultVertex>` with `PlaneDistanceTolerance` — planar rows enter as `DefaultVertex{ Position }` per the `IVertex` contract; `ConvexHullGenerationException` is the degenerate-input seam, funneled through `key.Catch`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 - Growth: a new hull species is one kind row + one arm in the hull fold (or one filter predicate over the shared Delaunay fold); a new concave criterion is one policy column.
@@ -329,12 +387,20 @@ public sealed partial class CloudHullStatus {
 public readonly record struct CloudHullPolicy(
     PositiveMagnitude Tolerance, VectorAngle AngleTolerance,
     Option<PositiveMagnitude> Alpha, Option<PositiveMagnitude> Lambda) {
-    internal static Fin<CloudHullPolicy> AdmitOrDefault(Option<CloudHullPolicy> policy, Context context, Op key) =>
-        policy.Match(
-            Some: p => Fin.Succ(p),
-            None: () => from tolerance in key.AcceptValidated<PositiveMagnitude>(candidate: context.Absolute.Value)
-                        from angle in key.AcceptValidated<VectorAngle>(candidate: context.Angle.Value)
-                        select new CloudHullPolicy(Tolerance: tolerance, AngleTolerance: angle, Alpha: None, Lambda: None));
+    internal static Fin<CloudHullPolicy> AdmitOrDefault(Option<CloudHullPolicy> policy, Context context, Op key) {
+        (double tolerance, double angle, Option<PositiveMagnitude> alpha, Option<PositiveMagnitude> lambda) = policy.Match(
+            Some: static candidate => (candidate.Tolerance.Value, candidate.AngleTolerance.Value, candidate.Alpha, candidate.Lambda),
+            None: () => (context.Absolute.Value, context.Angle.Value, Option<PositiveMagnitude>.None, Option<PositiveMagnitude>.None));
+        return from admittedTolerance in key.AcceptValidated<PositiveMagnitude>(candidate: tolerance)
+               from admittedAngle in key.AcceptValidated<VectorAngle>(candidate: angle)
+               from admittedAlpha in AdmitMagnitude(value: alpha, key: key)
+               from admittedLambda in AdmitMagnitude(value: lambda, key: key)
+               select new CloudHullPolicy(Tolerance: admittedTolerance, AngleTolerance: admittedAngle, Alpha: admittedAlpha, Lambda: admittedLambda);
+    }
+    private static Fin<Option<PositiveMagnitude>> AdmitMagnitude(Option<PositiveMagnitude> value, Op key) =>
+        value.Match(
+            Some: magnitude => key.AcceptValidated<PositiveMagnitude>(candidate: magnitude.Value).Map(static admitted => Some(admitted)),
+            None: static () => Fin.Succ(Option<PositiveMagnitude>.None));
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
@@ -380,7 +446,7 @@ public readonly record struct CloudHullResult(Option<Mesh> Mesh, CloudHullReceip
 
 ## [05]-[DENSITY_BAR]
 
-One owner per axis; capability is a case, row, or member on the owning carrier, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes, and the per-axis kind rides the indexed notes below.
+One owner per axis; capability is a case, row, or member on the owning carrier, never a sibling surface. Each `[RAIL]` cell names the owner's return rail, and the per-axis kind rides the indexed notes below.
 
 | [INDEX] | [AXIS_CONCERN]        | [OWNER]                 | [RAIL]                                       | [CASES] |
 | :-----: | :-------------------- | :---------------------- | :------------------------------------------- | :-----: |

@@ -55,7 +55,7 @@ public sealed record SlicePolicy(bool RequireWatertight, int MaxLayers, int Fram
 // rows (start elevation + downward |n·d|) the support-interface law filters against its OWN
 // OverhangCosine. Vertical = the nesting projection plane.
 public sealed record SliceFrame(Plane Datum, Axis Vertical, double Lo, double Hi, double[] MaxSlope, double[] OverhangStarts, double[] OverhangCosines) {
-    public static SliceFrame Of(MeshSpace mesh, Plane datum, SlicePolicy policy) {
+    public static Fin<SliceFrame> Of(MeshSpace mesh, Plane datum, SlicePolicy policy, Op? key = null) {
         using MeshEdit soup = MeshEdit.Of(mesh);
         Vector3d d = datum.Normal;
         d.Unitize();
@@ -79,7 +79,7 @@ public sealed record SliceFrame(Plane Datum, Axis Vertical, double Lo, double Hi
             if (cos < 0.0) { overhang.Add((fl, -cos)); }  // every downward face lands with its |n·d|; the plan's cosine filters at read
         }
         (double Start, double Cos)[] rows = [.. overhang.OrderBy(static row => row.Start)];
-        return new SliceFrame(datum, DominantOf(d), lo, hi, slope, [.. rows.Select(static row => row.Start)], [.. rows.Select(static row => row.Cos)]);
+        return Axis.DominantOf(d, key).Map(vertical => new SliceFrame(datum, vertical, lo, hi, slope, [.. rows.Select(static row => row.Start)], [.. rows.Select(static row => row.Cos)]));
     }
 
     // Steepest |n·d| over the elevation window [z, z+ahead] — the adaptive cusp bound's denominator.
@@ -100,11 +100,6 @@ public sealed record SliceFrame(Plane Datum, Axis Vertical, double Lo, double Hi
             if (OverhangCosines[i] >= cosineFloor) { return true; }
         }
         return false;
-    }
-
-    static Axis DominantOf(Vector3d d) {
-        (double x, double y, double z) = (Math.Abs(d.X), Math.Abs(d.Y), Math.Abs(d.Z));
-        return x >= y && x >= z ? Axis.X : y >= z ? Axis.Y : Axis.Z;
     }
 }
 
@@ -207,7 +202,7 @@ public sealed record SliceStack(
 public static class Slicing {
     public static Fin<SliceStack> Apply(SliceOp op, Op? key = null) =>
         Admit(op)
-            .Map(_ => SliceFrame.Of(op.Mesh, op.Datum, op.Policy))
+            .Bind(_ => SliceFrame.Of(op.Mesh, op.Datum, op.Policy, key))
             .Bind(frame => op.Plan.Elevations(frame, op.Policy).Bind(elevations => Fold(op, frame, elevations, key)));
 
     static Fin<Unit> Admit(SliceOp op) =>

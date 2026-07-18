@@ -984,7 +984,9 @@ public abstract partial record Tessellation : IValidityEvidence {
         if (witness.Case is not ((Point3d wa, Point3d wb, Point3d wc))) {
             return Fin.Fail<Tessellation>(new GeometryFault.DegenerateInput(Rasm.Domain.Kind.Point, index, "collinear facet boundary").ToError());
         }
-        Axis plane = DominantOf(Vector3d.CrossProduct(wb - wa, wc - wa));
+        if (Axis.DominantOf(Vector3d.CrossProduct(wb - wa, wc - wa)).Case is not Axis plane) {
+            return Fin.Fail<Tessellation>(new GeometryFault.DegenerateInput(Rasm.Domain.Kind.Point, index, "degenerate facet normal").ToError());
+        }
         for (int pass = 0; pass < Policy.MaxFlipPasses; pass++) {
             (bool crossing, bool moved) = (false, false);
             for (int s = 0; s < Store.SimplexCount && !moved; s++) {
@@ -1041,11 +1043,6 @@ public abstract partial record Tessellation : IValidityEvidence {
             if (vs[i] == vertex) { return Store.Neighbour(simplex, i); }
         }
         return -1;
-    }
-
-    static Axis DominantOf(Vector3d d) {
-        (double x, double y, double z) = (Math.Abs(d.X), Math.Abs(d.Y), Math.Abs(d.Z));
-        return x >= y && x >= z ? Axis.X : y >= z ? Axis.Y : Axis.Z;
     }
 
     static Axis Ordinal(int key) => key == 0 ? Axis.X : key == 1 ? Axis.Y : Axis.Z;

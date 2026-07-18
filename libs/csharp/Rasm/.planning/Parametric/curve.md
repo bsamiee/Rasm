@@ -1,8 +1,8 @@
 # [RASM_PARAMETRIC_CURVE]
 
-The host-neutral curve op rail of `Rasm.Parametric` — ONE static `Parametric` surface folding the `ParametricOp` `[Union]` (`Evaluate` · `Measure` · `Divide` · `Stations` · `Split` · `Reconstruct` · `Offset` · `Intersect2D`) over the vendored `NurbsForm.Curve` carrier through `Fin<ParametricResult> Parametric.Apply(ParametricOp, Op? key = null)`. The engine members — De Boor evaluation, the Bezier-decomposed Gauss-Legendre arc-length table, `ParameterAtLength`, `PerpendicularFrames` RMF, `SubCurve`/`SplitAt`/`Refine`, the Piegl-Tiller fits — live on `nurbs.md`'s carriers; this page owns the OP ALGEBRA over them: the `Stations` case is the `(station, frame)` SoA producer the Generation SpineRef `[T0,T1]` window consumes (`PathRow`/`Placement` seam), `Offset` is the promoted first-class case running the fit SEED + deviation-refinement loop + self-intersection trim through the `[V4]` crossing lattice, `Reconstruct` is the curve REBUILD (sample-and-refit with a deviation witness — raw-point ingress is `Nurbs.Of`'s, never re-minted here), and `Intersect2D` is the planar crossing rail whose candidates are exact `Intersection.Apply` segment verdicts and whose coordinates are Newton-refined parametric roots. The `Fill` projection delegates closed-loop region emission to `Arrangement.Apply(PlanarOverlay)` — the trim-fill law kept, never re-filled here.
+`Rasm.Parametric` owns ONE static curve-op rail folding the eight-case `ParametricOp` `[Union]` over `NurbsForm.Curve` through `Parametric.Apply`. Engine evaluation, arc-length, frame, split, refinement, and fit members stay on `nurbs.md`; this page owns their op algebra. `Stations` produces the `(station, frame)` SoA wire, `Offset` runs seed-fit plus deviation refinement and exact trim, `Reconstruct` refits with a deviation witness, and `Intersect2D` separates exact candidate verdicts from refined roots. `Fill` delegates closed-loop regions to `Arrangement.Apply(PlanarOverlay)`.
 
-Every reachable failure routes `GeometryFault.ParametricFault(stage, carrier, witness)` 2448 — `Evaluation` for domain and projection refusals, `Station` for division and inversion refusals, `Offset` for an unconverged deviation loop — and no exception crosses the public surface. The rail is `double`-domain geometry: a result feeding a degeneracy-sensitive verdict (a near-tangent crossing classification, a grazing section) escalates to the `Numerics/predicates` exact ladder — evaluation is the geometry, never the adjudication. Reciprocal boundaries are runtime splits, never capability splits: `projections.md` owns the SAME parameter-addressed evaluation for the Rhino runtime, `locate.md` the SAME division/closest-point/arc-length location algebra at Rhino-analysis altitude (never a second location algebra — the two meet at the wire), and `relations.md` owns the HOST-DEFERRED intersection TRIPLE (surface-surface, surface-plane, curve-surface) — this rail's `Intersect2D` stops at planar curve crossings and curve sections by disposition. Every emitted `NurbsForm.Curve` carries `ToEncodeForm()` — the reconciliation `EncodeForm.Parametric` identity projection — so offset, refit, and split results content-key through the ONE chain; this owner computes no hash and mints no second identity.
+Every failure routes `GeometryFault.ParametricFault(stage, carrier, witness)` 2448, and no exception crosses the public surface. Double-domain geometry escalates degeneracy-sensitive verdicts to `Numerics/predicates`. Reciprocal pages split by runtime: `projections.md` owns Rhino evaluation, `locate.md` owns Rhino location, and `relations.md` owns host-deferred surface intersections. Emitted curves project through `ToEncodeForm()` and mint no second identity.
 
 ## [01]-[INDEX]
 
@@ -10,7 +10,7 @@ Every reachable failure routes `GeometryFault.ParametricFault(stage, carrier, wi
 
 ## [02]-[PARAMETRIC]
 
-- Owner: `DivideRule` `[Union]` the division vocabulary (`ByCount` · `ByLength` · `ByEqualLength` · `ByChord` — count, capped-uneven, capped-equalized, and constant-chord subdivision as CASES, never a `bool equalSegmentLengths` knob); `MeasureProbe` `[Union]` the measure address (`Whole` stateless · `AtParameter` · `NearPoint`); `IntersectTarget` `[Union]` the planar crossing target (`Curve2d` carrying the other curve + the `Axis` projection plane · `SectionPlane` carrying the cutting `Plane`); `StationPlan` the station policy row (`T0`/`T1` the normalized SpineRef window, `Rule` the spacing `DivideRule`, `TableFloor` the station count at which the per-station Brent inversion yields to ONE monotone spline inversion table) registering `IValidityEvidence`; `RefinePolicy` the shared deviation-refinement row (`DeviationTolerance` · `MaxRounds` · `SeedSamples`) `surface.md`'s `NormalOffset` composes for the SAME loop shape; `RefineReceipt` the refinement evidence (`Target` · `Achieved` · `Rounds` · `Samples`); `ParametricOp` the request `[Union]`; `ParametricResult` the result `[Union]`; `Parametric` the static entry + `Fill` projection.
+- Owner: `DivideRule` `[Union]` the division vocabulary (`ByCount` · `ByLength` · `ByEqualLength` · `ByChord` — count, capped-uneven, capped-equalized, and constant-chord subdivision as CASES, never a `bool equalSegmentLengths` knob); `MeasureProbe` `[Union]` the measure address (`Whole` stateless · `AtParameter` · `NearPoint`); `IntersectTarget` `[Union]` the planar crossing target (`Curve2d` carrying the other curve + the `Axis` projection plane · `SectionPlane` carrying the cutting `Plane`); `StationPlan` the station policy row (`T0`/`T1` the normalized SpineRef window, `Rule` the spacing `DivideRule`, `TableFloor` the station count at which the per-station Brent inversion yields to ONE monotone spline inversion table) registering `IValidityEvidence`; `RefinePolicy` the shared deviation-refinement row (`DeviationTolerance` · `DeviationBudgetMultiplier` · `MaxRounds` · `SeedSamples`) with `Refine.Fold` — the ONE generic bounded refinement driver whose terminal guard derives from the policy's deviation budget — `surface.md`'s `NormalOffset` composes over its own seed/probe/densify arms, so the loop shape has one owner beside its policy row; `RefineReceipt` the refinement evidence (`Target` · `Achieved` · `Rounds` · `Samples`); `ParametricOp` the request `[Union]`; `ParametricResult` the result `[Union]`; `Parametric` the static entry + `Fill` projection.
 - Cases: `DivideRule` 4; `MeasureProbe` 3; `IntersectTarget` 2; `ParametricOp` cases `Evaluate` · `Measure` · `Divide` · `Stations` · `Split` · `Reconstruct` · `Offset` · `Intersect2D` (8); `ParametricResult` cases `Sample` · `Measured` · `Division` · `StationField` · `Pieces` · `Refit` · `Offsets` · `Crossings` (8 — one typed carrier per request family, the `StationField` columns SoA so the Generation seam binds parallel arrays, never a row-object walk).
 - Entry: `public static Fin<ParametricResult> Apply(ParametricOp op, Op? key = null)` — the ONE entry discriminating on the op case through the generated total `Switch`; no `EvaluatePoint`/`DivideByCount`/`OffsetCurve` sibling family. `public static Fin<ArrangementResult> Fill(Arr<NurbsForm.Curve> loops, Axis plane, ArrangementPolicy? policy = null, Op? key = null)` — the region projection: every loop proves `IsClosed`, samples at control-density chord resolution, and routes `Arrangement.Apply(new ArrangementOp.PlanarOverlay(rings, [], BooleanOp.Union, plane, policy))` — the exact nonzero-winding region resolve with holes carried by ring orientation; emission stays the arrangement's law.
 - Auto: `Evaluate` reads `RationalDerivatives(t, order)` + `TangentAt`/`CurvatureAt` + a batch-of-one `PerpendicularFrames([t])` into `Sample`; `Measure` folds the probe — `Whole` the cached-table `Length()` + closure, `AtParameter` the `LengthAt(t)` prefix, `NearPoint` the G7-parameterized `ClosestParameter` Newton projection — into one fully-populated `Measured` (every field meaningful under every probe); `Divide` and `Stations` share ONE `Stationize` kernel: the rule derives arc targets off the cumulative arc-length table (`ByCount` the `i·L/n` lattice, `ByLength` the capped march with an honest uneven tail, `ByEqualLength` the `ceil(L/max)` equalized lattice, `ByChord` the forward `ParameterAtChordLength` march — the engine's own chord inversion, never a local Brent re-mint), and arc→parameter inversion is per-station `ParameterAtLength` below `TableFloor` or ONE `Interpolate.CubicSplineMonotone` table above it — `(LengthAt(tⱼ), tⱼ)` samples fit once, monotone-preserving so stations never reorder, O(1) per station after O(m) setup; `Stations` restricts to the `[T0,T1]` window through `SubCurve` FIRST (the window owns its own normalized domain and arc table), sweeps ONE `PerpendicularFrames(parameters)` batch RMF over the station parameters (the Wang-2008 double reflection with the #373 closure row — never a per-station frame call), remaps parameters affinely to the parent domain, and emits the `StationField` SoA columns (window-relative arcs · parent parameters · points · frames) with the frame-orthonormality defect witness; `Split` folds `SplitAt` over the sorted parameter set into `Pieces`; `Reconstruct` samples the EXISTING curve at `Samples` arc-uniform stations, refits through `Nurbs.Of(NurbsWire.CurveThrough(samples, fit))`, and probes inter-station deviation into the `Refit` witness — the Rhino-Rebuild analog, distinct from `Nurbs.Of` raw ingress; `Offset` runs the G8 loop — station the curve at `SeedSamples`, displace each point `distance` along the in-plane normal `frame.ZAxis × T(t)`, fit the SEED through `Nurbs.Of(CurveThrough)`, probe inter-station deviation against the exact offset locus, densify breaching intervals and refit up to `MaxRounds` (a bounded fold, never an unbounded loop), then TRIM: sample the offset at chord resolution, sweep neighbor-excluded segment pairs through `Intersection.Apply(IntersectOp.SegmentSegment(a, b, plane, policy))` — the `[V4]` exact verdict per candidate — split at crossing parameters, and cull pieces whose `ClosestParameter` foot against the base curve lands under `|distance|` (the invalid-loop cull); `Intersect2D` dispatches the target — `SectionPlane` brackets the signed span-sampled `(C(t)−P₀)·n̂` and runs `Brent.TryFindRoot` per sign change (the no-throw `bool` mapping straight to the rail), `Curve2d` chord-samples both Bezier span sets, sweeps AABB candidates through exact `SegmentSegment` verdicts, and Newton-refines each hit's `(s, t)` seed through `Try`-trapped `Broyden.FindRoot` on the plane-projected `Cₐ(s) − C_b(t)` system — exact signs decide EXISTENCE, Newton refines COORDINATES, and a near-tangent classification escalates the materialized point to the predicate ladder at the consumer.
@@ -24,6 +24,7 @@ Every reachable failure routes `GeometryFault.ParametricFault(stage, carrier, wi
 using System;
 using System.Linq;
 using LanguageExt;
+using LanguageExt.Common;
 using MathNet.Numerics;
 using MathNet.Numerics.RootFinding;
 using Rasm.Domain;
@@ -68,7 +69,7 @@ public abstract partial record IntersectTarget {
 }
 
 // --- [CONSTANTS] --------------------------------------------------------------------------------
-// The station policy row: [T0,T1] is the SpineRef window in the NORMALIZED parent domain;
+// StationPlan carries the SpineRef [T0,T1] window in the NORMALIZED parent domain;
 // TableFloor is the station count where per-station Brent inversion yields to ONE monotone table.
 public sealed record StationPlan(double T0, double T1, DivideRule Rule, int TableFloor = 16) : IValidityEvidence {
     public const int TableCeiling = 256;
@@ -79,18 +80,43 @@ public sealed record StationPlan(double T0, double T1, DivideRule Rule, int Tabl
         ValidityClaim.CountAtLeast(count: TableFloor, floor: 2));
 }
 
-// The shared deviation-refinement row — surface.md NormalOffset composes the SAME loop shape.
-public sealed record RefinePolicy(double DeviationTolerance, int MaxRounds, int SeedSamples) : IValidityEvidence {
-    public static readonly RefinePolicy Canonical = new(DeviationTolerance: 1e-6, MaxRounds: 6, SeedSamples: 24);
+// RefinePolicy is shared; Refine.Fold is its one driver, and surface.md composes both.
+public sealed record RefinePolicy(double DeviationTolerance, double DeviationBudgetMultiplier, int MaxRounds, int SeedSamples) : IValidityEvidence {
+    public static readonly RefinePolicy Canonical = new(DeviationTolerance: 1e-6, DeviationBudgetMultiplier: 8.0, MaxRounds: 6, SeedSamples: 24);
 
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.Positive(value: DeviationTolerance),
+        ValidityClaim.Positive(value: DeviationBudgetMultiplier),
         ValidityClaim.Positive(value: MaxRounds),
         ValidityClaim.CountAtLeast(count: SeedSamples, floor: 4));
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------------
 public sealed record RefineReceipt(double Target, double Achieved, int Rounds, int Samples);
+
+// One refinement-round carrier for BOTH offset lanes: fit, station set, breaching subset, max
+// deviation, round ordinal — curve stations are parameters (double), surface stations (u,v) nodes.
+public readonly record struct RefineRound<TFit, TStation>(TFit Fit, Arr<TStation> Stations, Arr<TStation> Breaching, double Deviation, int Round);
+
+// THE deviation-refinement driver both offset lanes ride: seed fit at round 0, refit densified
+// breaches until clean or MaxRounds, then the policy-carried deviation-budget guard — past it the
+// lane's own fault routes, under it the receipt carries the achieved deviation and the consumer gates. Lanes supply
+// only their seed/probe/densify arms; a per-lane copy of this fold is the deleted twin.
+public static class Refine {
+    public static Fin<(TFit Fit, RefineReceipt Receipt)> Fold<TFit, TStation>(
+        RefinePolicy policy,
+        Arr<TStation> seed,
+        Func<Arr<TStation>, int, Fin<RefineRound<TFit, TStation>>> fit,
+        Func<Arr<TStation>, Arr<TStation>, Arr<TStation>> densify,
+        Func<double, Error> unconverged) =>
+        Range(0, policy.MaxRounds).Fold(
+            fit(seed, 0),
+            (state, _) => state.Bind(s => s.Breaching.Count == 0 ? Fin.Succ(s) : fit(densify(s.Stations, s.Breaching), s.Round + 1)))
+        .Bind(final => !double.IsFinite(final.Deviation) || final.Deviation < 0.0
+            || (final.Breaching.Count > 0 && final.Deviation > policy.DeviationTolerance * policy.DeviationBudgetMultiplier)
+            ? Fin.Fail<(TFit Fit, RefineReceipt Receipt)>(unconverged(final.Deviation))
+            : Fin.Succ((final.Fit, new RefineReceipt(policy.DeviationTolerance, final.Deviation, final.Round, final.Stations.Count))));
+}
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -115,7 +141,7 @@ public abstract partial record ParametricResult {
     public sealed record Measured(double Length, double Parameter, Point3d Point, Vector3d Curvature, bool Closed) : ParametricResult;
     public sealed record Division(Arr<double> Parameters, Arr<Point3d> Points) : ParametricResult;
 
-    // The (station, frame) SoA wire: window-relative arcs, PARENT-domain parameters, RMF frames.
+    // StationField is the SoA wire: window-relative arcs, PARENT-domain parameters, RMF frames.
     // FrameDefect = max |X̂·Ŷ| over the batch — the wire's own orthonormality witness.
     public sealed record StationField(Arr<double> Arcs, Arr<double> Parameters, Arr<Point3d> Points, Arr<Plane> Frames, double FrameDefect) : ParametricResult;
 
@@ -222,33 +248,28 @@ public static class Parametric {
     static Fin<double> DeviationAgainst(NurbsForm.Curve reference, NurbsForm.Curve candidate, int probes);  // max |candidate(uⱼ) − reference(closest)| over arc-uniform probes
 
     // --- [OFFSET_LOOP]
-    // G8: fit SEED → bounded deviation-refinement fold → exact self-intersection trim. Deviation
+    // G8: fit SEED → the shared Refine.Fold driver → exact self-intersection trim. Deviation
     // probes compare the fit against the exact offset locus C(t) + d·(ẑ×T̂) at inter-station
-    // parameters; a breaching interval densifies and refits — Range(0, MaxRounds).Fold, never while.
+    // parameters; a breaching interval densifies and refits inside the one bounded driver.
     static Fin<ParametricResult> OffsetOf(ParametricOp.Offset op, Op? key) =>
         Stationize(op.Curve, new DivideRule.ByCount(op.Refine.SeedSamples), StationPlan.TableCeiling)
-            .Bind(rows => Range(0, op.Refine.MaxRounds).Fold(
-                SeedFit(op, rows.Parameters, round: 0, key),
-                (state, round) => state.Bind(s => s.Breaching.Count == 0
-                    ? Fin.Succ(s)
-                    : SeedFit(op, Densified(s.Stations, s.Breaching), round + 1, key))))
-            // Hard fault only past 8× the budget; under it the receipt carries the achieved deviation and the consumer gates.
-            .Bind(final => final.Breaching.Count > 0 && final.Deviation > op.Refine.DeviationTolerance * 8.0
-                ? Fault<ParametricResult>(ParametricStage.Offset, nameof(NurbsForm.Curve), $"offset unconverged at deviation {final.Deviation}")
-                : TrimLoops(op, final.Fit, new RefineReceipt(op.Refine.DeviationTolerance, final.Deviation, final.Round, final.Stations.Count), key));
+            .Bind(rows => Refine.Fold(
+                op.Refine, rows.Parameters,
+                fit: (stations, round) => SeedFit(op, stations, round, key),
+                densify: Densified,
+                unconverged: deviation => new GeometryFault.ParametricFault(ParametricStage.Offset, nameof(NurbsForm.Curve), $"offset unconverged at deviation {deviation}").ToError()))
+            .Bind(final => TrimLoops(op, final.Fit, final.Receipt, key));
 
     // One fit round: exact offset-locus samples → CurveThrough seed → inter-station deviation probes.
-    static Fin<OffsetRound> SeedFit(ParametricOp.Offset op, Arr<double> stations, int round, Op? key) =>
+    static Fin<RefineRound<NurbsForm.Curve, double>> SeedFit(ParametricOp.Offset op, Arr<double> stations, int round, Op? key) =>
         stations.TraverseM(t => OffsetLocus(op.Curve, op.Frame, op.Distance, t)).As()
             .Bind(samples => Nurbs.Of(new NurbsWire.CurveThrough(new Arr<Point3d>([.. samples]), FitPolicy.Canonical), key))
             .Bind(form => form is NurbsForm.Curve fit
                 ? Fin.Succ(Probed(op, fit, stations, round))
-                : Fault<OffsetRound>(ParametricStage.Offset, nameof(NurbsForm.Curve), "offset fit produced a non-curve carrier"));
-
-    internal readonly record struct OffsetRound(NurbsForm.Curve Fit, Arr<double> Stations, Arr<double> Breaching, double Deviation, int Round);
+                : Fault<RefineRound<NurbsForm.Curve, double>>(ParametricStage.Offset, nameof(NurbsForm.Curve), "offset fit produced a non-curve carrier"));
 
     static Fin<Point3d> OffsetLocus(NurbsForm.Curve curve, Plane frame, double distance, double t);        // C(t) + d · unit(ẑ×T̂(t)); a tangent parallel to ẑ routes the Offset fault
-    static OffsetRound Probed(ParametricOp.Offset op, NurbsForm.Curve fit, Arr<double> stations, int round);  // inter-station probes over DeviationTolerance → breaching set + max deviation
+    static RefineRound<NurbsForm.Curve, double> Probed(ParametricOp.Offset op, NurbsForm.Curve fit, Arr<double> stations, int round);  // inter-station probes over DeviationTolerance → breaching set + max deviation
     static Arr<double> Densified(Arr<double> stations, Arr<double> breaching);
 
     // Trim: chord-sample the fit, sweep neighbor-excluded AABB candidate pairs through
@@ -260,7 +281,7 @@ public static class Parametric {
 
     // --- [PLANAR_CROSSINGS]
     // SectionPlane: per-span sign brackets of g(t) = (C(t)−P₀)·n̂, Brent.TryFindRoot per bracket —
-    // the no-throw bool maps to the rail; a grazing minimum with no sign change is a miss, and the
+    // no-throw bool maps to the rail; a grazing minimum with no sign change is a miss, and its
     // consumer escalates a near-tangent verdict to the predicate ladder.
     static Fin<ParametricResult> SectionOf(NurbsForm.Curve curve, Plane cut, Op? key);
 
@@ -275,6 +296,8 @@ public static class Parametric {
 
 ```mermaid
 flowchart LR
+    accTitle: Parametric curve dispatch
+    accDescr: Curve operations compose the vendored engine, exact crossing lattice, arrangement owner, and identity projection.
     Op["ParametricOp — 8 cases"] -->|"Parametric.Apply — ONE Switch"| Engine["nurbs.md NurbsForm.Curve members"]
     Engine -->|"SubCurve [T0,T1] → Stationize → batch PerpendicularFrames"| Wire["StationField SoA — Generation PathRow/Placement"]
     Engine -->|"CurveThrough fit seed"| Offset["Offset: deviation fold → exact trim"]
@@ -288,30 +311,30 @@ flowchart LR
 
 ## [03]-[DENSITY_BAR]
 
-One owner per axis; capability is a case, row, or fold arm, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes, and the per-axis collapse strategy rides the indexed notes below.
+One owner per axis; capability is a case, row, or fold arm, never a sibling surface. Each `[RAIL]` names one return rail, and indexed notes state the collapse.
 
-| [INDEX] | [AXIS_CONCERN]    | [OWNER]                       | [RAIL]                            | [CASES] |
-| :-----: | :---------------- | :---------------------------- | :-------------------------------- | :-----: |
-|  [01]   | Curve op algebra  | `ParametricOp` + `Parametric` | `Apply → Fin<ParametricResult>`   |    8    |
-|  [02]   | Result carrier    | `ParametricResult`            | carrier (drained at the consumer) |    8    |
-|  [03]   | Division rules    | `DivideRule`                  | payload                           |    4    |
-|  [04]   | Measure address   | `MeasureProbe`                | payload                           |    3    |
-|  [05]   | Crossing targets  | `IntersectTarget`             | payload                           |    2    |
-|  [06]   | Policy rows       | `StationPlan`/`RefinePolicy`  | values (`IValidityEvidence`)      |    —    |
-|  [07]   | Region delegation | `Parametric.Fill`             | `Fill → Fin<ArrangementResult>`   |    —    |
+| [INDEX] | [AXIS_CONCERN]    | [OWNER]                                      | [RAIL]                            | [CASES] |
+| :-----: | :---------------- | :------------------------------------------- | :-------------------------------- | :-----: |
+|  [01]   | Curve op algebra  | `ParametricOp` + `Parametric`                | `Apply → Fin<ParametricResult>`   |    8    |
+|  [02]   | Result carrier    | `ParametricResult`                           | carrier (drained at the consumer) |    8    |
+|  [03]   | Division rules    | `DivideRule`                                 | payload                           |    4    |
+|  [04]   | Measure address   | `MeasureProbe`                               | payload                           |    3    |
+|  [05]   | Crossing targets  | `IntersectTarget`                            | payload                           |    2    |
+|  [06]   | Policy rows       | `StationPlan`/`RefinePolicy` + `Refine.Fold` | values + the one driver           |    —    |
+|  [07]   | Region delegation | `Parametric.Fill`                            | `Fill → Fin<ArrangementResult>`   |    —    |
 
 - [01]-[CURVE_OP_ALGEBRA]: `[Union]` eight request cases folded by ONE `Apply`.
 - [02]-[RESULT_CARRIER]: `[Union]` typed results; `StationField` the SoA wire, `Offsets`/`Refit` evidence-bearing.
 - [03]-[DIVISION_RULES]: `[Union]` count/capped/equalized/chord — rule DATA the one `Stationize` kernel reads.
 - [04]-[MEASURE_ADDRESS]: `[Union]` whole/parameter/point.
 - [05]-[CROSSING_TARGETS]: `[Union]` planar curve/section; the SSI triple stays host-deferred.
-- [06]-[POLICY_ROWS]: window + inversion-table floor · shared deviation-refinement row.
+- [06]-[POLICY_ROWS]: window + inversion-table floor · shared deviation-refinement row with its one `Refine.Fold` driver (both offset lanes ride it).
 - [07]-[REGION_DELEGATION]: ring sampling → `PlanarOverlay` — delegation, never a local fill.
 
-The `Apply` fold, `Stationize`, `StationsOf`, the `Offset` refinement fold, and the `Fill` delegation carry real composed bodies; `ArcTargets`, `InvertByTable`, `OffsetLocus`, the deviation probes, `TrimLoops`, `SectionOf`, and `CrossingsOf` are signature-pinned kernels whose contracts the `[04]` cards fix. Every body composes the vendored engine members and the exact lattice — no textbook arithmetic is local.
+`Apply`, `Stationize`, `StationsOf`, offset refinement, and `Fill` carry composed bodies. Signature-pinned kernels compose vendored engine members and the exact lattice; no textbook arithmetic is local.
 
 ## [04]-[RESEARCH]
 
-- [STATION_WIRE] — the `Stations` case is the Generation KERNEL-GATE producer: `SubCurve` FIRST so the `[T0,T1]` window owns its own arc table and normalized domain, the rule lattice derives arc targets off that table, inversion is per-station `ParameterAtLength` below `TableFloor` and ONE `Interpolate.CubicSplineMonotone` table above it (monotone-preserving — a shape-agnostic cubic can overshoot between samples and reorder stations; the monotone scheme structurally cannot), and ONE `PerpendicularFrames` batch sweeps the Wang-2008 double-reflection RMF over every station — N single-frame calls re-seed the reflection chain N times and lose frame coherence, which is exactly the defect the batch member exists to prevent. Parameters remap affinely to the parent domain because `SubCurve` re-normalization is an affine knot map; arcs stay window-relative because the seam's `PathRow` measures along the window. The `FrameDefect` witness and the SoA reductions are the benchmark-gated `TensorPrimitives` lane — the claim enters the hot path only with its measured receipt.
-- [OFFSET_LOOP] — G8 closes as SEED + WITNESS + TRIM: the vendored fit is the seed (`CurveThrough` interpolation through exact offset-locus samples), the deviation probe against `C(t) + d·unit(ẑ×T̂)` at inter-station parameters is the witness (the fit is EXACT at its samples, so only inter-sample probes carry information), densification is bounded by `MaxRounds` (a fold, never an unbounded loop — an unconverged terminal round emits the achieved deviation on the receipt and the consumer gates), and the trim is exact: candidate existence by `SegmentSegment` predicate signs, split parameters from the crossing chords, and the invalid-loop cull by the base-foot distance test `|foot| < |d|` — the classic offset-loop criterion. A float-heuristic trim or an unwitnessed fit is the packaged-era sample-translate-refit regression this case retires.
-- [PLANAR_CROSSINGS] — `Intersect2D` splits existence from coordinates: existence is EXACT (span-bracket sign changes for a section; `SegmentSegment` straddle signs per candidate for curve-curve, with candidates from Bezier-span AABBs inflated to the control-hull bound — the convex-hull property confines each span inside its inflated box, so a transversal crossing cannot escape the sweep), coordinates are refined `double` (`Brent.TryFindRoot` per section bracket; `Try`-trapped `Broyden.FindRoot` on the plane-projected two-curve system per candidate), and a near-tangent classification — the verdict-sensitive case — escalates the materialized point to the `Numerics/predicates` ladder at the consumer seam. The law-matrix asserts (1) every reported crossing lies on both curves within `IntersectPolicy` tolerance, (2) a transversal crossing present at span-chord resolution is never dropped, (3) section roots bracket exactly the sign changes of the span-sampled signed distance, and (4) `Stations` round-trips `ParameterAtLength(LengthAt(t)) = t` within the table tolerance across both inversion routes.
+- [STATION_WIRE] — `SubCurve` gives each `[T0,T1]` window its own arc table and normalized domain. `ParameterAtLength` handles small batches; one monotone cubic table handles large batches; one `PerpendicularFrames` call preserves RMF coherence. Parameters remap to the parent domain, arcs remain window-relative, and `FrameDefect` witnesses orthogonality.
+- [OFFSET_LOOP] — `CurveThrough` seeds the offset fit, inter-sample probes witness deviation, and `Refine.Fold` bounds densification. Exact `SegmentSegment` signs establish trim candidates; crossing chords provide split parameters; the base-foot test removes invalid loops. Unconverged terminals preserve achieved deviation for consumer gating.
+- [PLANAR_CROSSINGS] — `Intersect2D` separates exact existence from refined coordinates. Section brackets use `Brent.TryFindRoot`; curve pairs use exact straddle signs before `Broyden.FindRoot`; near-tangent verdicts escalate to predicates. Reported hits lie on both curves, transversal candidates survive, section roots preserve brackets, and station inversion round-trips.

@@ -440,9 +440,18 @@ internal static class MeshKernel {
     internal static Fin<Unit> AspectRatioGuard(Mesh mesh, double ceiling, Op key);   // Caution fault above the policy row
 
     // --- [COTANGENT_ASSEMBLY] — extrinsic path over face geometry; one scale-derived degenerate floor.
+    // Quad faces split through the arena's exact diagonal gate (Kernels.QuadDiagonal — edit.md's ONE
+    // quad-split owner); Faces.ConvertQuadsToTriangles is the rejected shortest-diagonal float heuristic.
     internal static Fin<SparseLaplacian> AssembleCotangent(Mesh mesh, Op key) {
         using Mesh active = mesh.DuplicateMesh();
-        if (ContainsQuads(mesh: active) && !active.Faces.ConvertQuadsToTriangles()) return Fin.Fail<SparseLaplacian>(key.InvalidResult());
+        for (int f = 0; f < active.Faces.Count; f++) {
+            MeshFace quad = active.Faces[index: f];
+            if (!quad.IsQuad) continue;
+            (Point3d qa, Point3d qb, Point3d qc, Point3d qd) = (active.Vertices[index: quad.A], active.Vertices[index: quad.B], active.Vertices[index: quad.C], active.Vertices[index: quad.D]);
+            bool ac = Kernels.QuadDiagonal(a: qa, b: qb, c: qc, d: qd);
+            if (!active.Faces.SetFace(index: f, vertex1: quad.A, vertex2: quad.B, vertex3: ac ? quad.C : quad.D)) return Fin.Fail<SparseLaplacian>(key.InvalidResult());
+            if (active.Faces.AddFace(vertex1: ac ? quad.A : quad.B, vertex2: quad.C, vertex3: quad.D) < 0) return Fin.Fail<SparseLaplacian>(key.InvalidResult());
+        }
         LaplacianTriplets triplets = new(vertexCount: active.Vertices.Count);
         double floor = DegenerateAreaFloorOf(scale: MeanEdgeLengthOf(mesh: active));
         for (int f = 0; f < active.Faces.Count; f++) {
@@ -543,7 +552,6 @@ internal static class MeshKernel {
     // ONE scale-relative degenerate floor: max(scale, ZeroTolerance)^2 * SqrtEpsilon — the same form SpdMassShift uses.
     internal static double DegenerateAreaFloorOf(double scale) =>
         Math.Max(scale, RhinoMath.ZeroTolerance) * Math.Max(scale, RhinoMath.ZeroTolerance) * RhinoMath.SqrtEpsilon;
-    internal static bool ContainsQuads(Mesh mesh) => mesh.Faces.QuadCount > 0;
     // FROZEN member — total diagnostic; validated genus only when manifold+oriented and the Euler numerator is even>=0.
     internal static Fin<TopologyReceipt> TopologyDetailed(MeshSpace space) {
         Mesh mesh = space.Native;

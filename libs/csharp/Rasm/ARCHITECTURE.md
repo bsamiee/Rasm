@@ -85,7 +85,7 @@ Four strata order the nine sub-domains; a co-recursive pair co-seats one stratum
 
 - S0 `Domain` + `Numerics` — co-recursive floor: `Op`, `Context`, `ContentHash`, and `CurveForm` beside `MatrixKernel`, `GeometryFault`, `PerceptualColor`, and `AtomProjection`; every sibling threads the rail and the exact-predicate floor, and the pair's mutual reach (`Op` into integration, `AtomProjection` into evaluation) is same-stratum fact.
 - S1 `Spatial` + `Meshing` — co-recursive lattice composing the floor alone: `SpatialIndex`, `VectorCloud`, `GeometryHash`, and `ScalarField` beside `MeshSpace`, `MeshEdit`, `SliceStack`, and `CurveSkeleton`; intersection reads the index and reconciliation reads the mesh, both interior to the stratum.
-- S2 `Processing` + `Solving` — algorithm rails over the lattice: `HealOp`, `RemeshOp`, `ChartAtlas`, `VectorIntent`, and `SampleKind` beside the `Lm` solver and `FitReceipt`; consumes S0-S1 only.
+- S2 `Processing` + `Solving` — co-recursive rails over the lattice: `HealOp`, `RemeshOp`, `ChartAtlas`, `VectorIntent`, and `SampleKind` beside the `Lm` solver and `FitReceipt`; the registration optimizer instantiating the `Lm` functor is the pair's same-stratum reach, and everything else consumes S0-S1 below.
 - S3 `Parametric` + `Drawing` + `Analysis` — terminal producers nothing composes: `NurbsForm`, `MonotonicTimeline`, and `PanelField`; `DrawingProjection` and `EncodedGeometry`; `AnalysisQuery` and `Measure`.
 
 ```mermaid

@@ -240,11 +240,12 @@ internal static partial class OpAcceptance {
 
 ## [04]-[FACTORY_BRIDGE]
 
-- Owner: the receiver-generic `TryCreateValidated<TVO>` bridge — an `extension<TRaw>(TRaw)` block on `OpAcceptance` — plus `OpExtensions` — `OrDefault` (the optional-key resolver of the `rails.md` threading law) and `AcceptValidated<TVO>` (the key-shaped receiver overloads).
+- Owner: the receiver-generic `TryCreateValidated<TVO>` bridge — an `extension<TRaw>(TRaw)` block on `OpAcceptance` — plus `OpExtensions` — `OrDefault` (the optional-key resolver of the `rails.md` threading law) and `AcceptValidated<TVO>` (the key-shaped receiver rows over numeric, string, boolean, and generated-outcome shapes).
 - Owner: `AdmissionProjection<TRaw,TModel>` — a sealed private-constructor projection holding one admitted `Op`, a model-to-raw delegate, and a `Fin`-gated raw-to-model delegate. `Render` and `Admit` are the only execution members, and both run through the held key's `Catch` rail.
 - Law: ONE bridge body owns every numeric value object — the block constraint `TRaw : struct, INumber<TRaw>` with member constraint `TVO : IObjectFactory<TVO, TRaw, ValidationError>` derives every raw-width admission from one generic-math entry. The invocation spelling is fixed by the lowering: an extension-form call supplies the combined type-argument list, receiver parameter first (`absolute.TryCreateValidated<double, AbsoluteTolerance>()`) — C# has no partial type-argument inference, so the member-only spelling `absolute.TryCreateValidated<AbsoluteTolerance>()` does not compile; the width-elided one-type-argument call is exactly what the key-fronted `AcceptValidated<TVO>` receivers exist for. The generated `Validate` runs under `CultureInfo.InvariantCulture`, and a rejection lands as `Fault.OutOfRange` carrying the owner name, the saturating `double` projection of the rejected scalar, and the generated requirement text. `Validate` preserves the rejection evidence through the rail.
+- Law: the bridge is TWO admission tiers plus one outcome lifter, all spelled `AcceptValidated` with the input shape selecting the row — the numeric tier (double/int/uint receivers onto the generic-math body, rejection `Fault.OutOfRange`), the general single-raw tier (`string?`/bool receivers onto the `Validated` body over any `IObjectFactory<TVO, TRaw, ValidationError>` owner, class or struct, rejection `Fault.InvalidValue` carrying the owner label and the generated requirement text), and the type-erased `(ValidationError?, object?)` outcome row that admits a caller-run generated `Validate` outcome for either owner kind. Multi-member `[ComplexValueObject]` admission has no static contract spanning its arities, so the caller spells `Validate` and this row owns the lift. A folder-local factory bridge, outcome lifter, or vocabulary-row admitter beside these rows is the deleted form.
 - Law: `OrDefault` resolves `Op? key = null` to `Op.Of(callerMemberName)` — public polymorphic surfaces stay knob-free while internal kernels demand the key; this is the one spelling of optional-key resolution.
-- Law: `AcceptValidated` re-keys — the raw-width receiver overloads (double, int) forward to the one bridge and stamp the demanding `Op` onto the rejection's `OutOfRange.Key`, so a key-fronted admission failure names its operation like every other key-fronted acceptance member; the keyless bridge form leaves `Key` `None` by design (factory admission has no operation).
+- Law: `AcceptValidated` re-keys — every receiver row stamps the demanding `Op` onto the rejection (`OutOfRange.Key` on the numeric tier, `InvalidValue.Key` on the general tier and the lifter), so a key-fronted admission failure names its operation like every other key-fronted acceptance member; the keyless bridge form leaves `Key` `None` by design (factory admission has no operation).
 - Law: `AdmissionProjection.Of` null-gates both delegates before construction. `Render` rejects null ingress and egress around the model-to-raw arm; `Admit` normalizes a null delegate-returned `Fin<TModel>` inside the same `Catch` window before flattening it, then rejects a null model result.
 - Law: `AdmissionProjection.Generated` derives egress from `IConvertible<TRaw>.ToValue()` and routes ingress through the generic `AcceptValidated` kernel. `AdmissionProjection.SmartEnum` derives the same egress and lifts the generated `bool TryGet(TKey?, out TModel?)` member through `SmartEnumLookup`, so false or nullable success becomes a typed refusal and a throwing lookup remains inside `Admit`'s catch window.
 - Boundary: the projection owns pure render/admit conversion only; refusal posture, held-value state, fallback selection, and presentation behavior compose after its `Fin` result. The tolerance and numeric-atom owners admit through `AcceptValidated`, and every bidirectional boundary composes `AdmissionProjection` instead of re-minting generated validation.
@@ -349,12 +350,36 @@ public static class OpExtensions {
         [BoundaryAdapter]
         public Fin<TVO> AcceptValidated<TVO>(int candidate) where TVO : IObjectFactory<TVO, int, ValidationError> =>
             AcceptValidated<int, TVO>(op: op, candidate: candidate);
+        [BoundaryAdapter]
+        public Fin<TVO> AcceptValidated<TVO>(uint candidate) where TVO : IObjectFactory<TVO, uint, ValidationError> =>
+            AcceptValidated<uint, TVO>(op: op, candidate: candidate);
+        [BoundaryAdapter]
+        public Fin<TVO> AcceptValidated<TVO>(string? candidate) where TVO : IObjectFactory<TVO, string, ValidationError> =>
+            Validated<string, TVO>(op: op, candidate: candidate);
+        [BoundaryAdapter]
+        public Fin<TVO> AcceptValidated<TVO>(bool candidate) where TVO : IObjectFactory<TVO, bool, ValidationError> =>
+            Validated<bool, TVO>(op: op, candidate: candidate);
+        [BoundaryAdapter]
+        public Fin<TVO> AcceptValidated<TVO>(ValidationError? fault, object? admitted) where TVO : notnull =>
+            (fault, admitted) switch {
+                (null, TVO owner) => Fin.Succ(value: owner),
+                (ValidationError refusal, _) => Fin.Fail<TVO>(error: new Fault.InvalidValue(Label: typeof(TVO).Name, Requirement: refusal.Message, Key: Some(op))),
+                _ => Fin.Fail<TVO>(error: op.InvalidResult()),
+            };
     }
     [BoundaryAdapter]
     internal static Fin<TVO> AcceptValidated<TRaw, TVO>(Op op, TRaw candidate)
         where TRaw : struct, INumber<TRaw>
         where TVO : IObjectFactory<TVO, TRaw, ValidationError> =>
         Rekey(op: op, admitted: candidate.TryCreateValidated<TRaw, TVO>());
+    private static Fin<TVO> Validated<TRaw, TVO>(Op op, TRaw? candidate)
+        where TRaw : notnull
+        where TVO : IObjectFactory<TVO, TRaw, ValidationError> =>
+        (TVO.Validate(value: candidate, provider: CultureInfo.InvariantCulture, item: out TVO? value), value) switch {
+            (null, TVO owner) => Fin.Succ(value: owner),
+            (ValidationError refusal, _) => Fin.Fail<TVO>(error: new Fault.InvalidValue(Label: typeof(TVO).Name, Requirement: refusal.Message, Key: Some(op))),
+            _ => Fin.Fail<TVO>(error: op.InvalidResult()),
+        };
     private static Fin<TVO> Rekey<TVO>(Op op, Validation<Error, TVO> admitted) =>
         admitted.ToFin().MapFail(error => error is Fault.OutOfRange range ? range with { Key = Some(op) } : error);
 }
@@ -520,7 +545,7 @@ One readiness algebra, one oracle, one factory bridge, one bidirectional project
 |  [01]   | Readiness rows       | `Requirement`         | record + `Seq<Check>` monoid | `Validation<Error, T>`               |    9    |
 |  [02]   | Check matrix         | `Requirement.Check`   | smart-enum delegate rows     | `Fin<Unit>`                          |   13    |
 |  [03]   | Validity oracle      | `OpAcceptance`        | frozen table + evidence arm  | `Fin<T>` / `Option<bool>`            |  14+18  |
-|  [04]   | Factory bridge       | `OpAcceptance`        | generic generated admission  | `Validation<Error, TVO>` / `Fin`     |    5    |
+|  [04]   | Factory bridge       | `OpAcceptance`        | generic generated admission  | `Validation<Error, TVO>` / `Fin`     |    8    |
 |  [05]   | Admission projection | `AdmissionProjection` | sealed bidirectional owner   | `Render` / `Admit → Fin<T>`          |    3    |
 |  [06]   | Pair readiness       | `RequirementContext`  | context extension combinator | `Validation<Error, (A,B,Kind,Kind)>` |    1    |
 |  [07]   | Admission vocabulary | `Admit`               | guard vocabulary             | `Fin<Unit>` / `Fin<T>`               |   36    |

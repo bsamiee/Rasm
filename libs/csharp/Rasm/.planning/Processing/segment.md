@@ -1,8 +1,8 @@
 # [RASM_SHAPE_SEGMENT]
 
-ONE spectral shape-analysis and restructure owner over the `mesh` substrate: `MeshDescriptor` spectral shape descriptors (HKS-like heat, WKS-style wave, biharmonic, diffusion, commute-time through the `spectral` `SpectralFilter` transfer algebra), spectral distance, sampling-spectrum blue-noise validation (the low-frequency energy gate the `sample` rail stamps into its receipts), dihedral/curvature feature-edge classification, the frozen `MeshSegmentation` six-algorithm union (scalar threshold · scalar bands · seeded region grow · descriptor clusters · watershed basins · normalized-cut spectral clustering), Knöppel globally-optimal direction fields (smoothest / hint-constrained / cone-prescribed) with their stripe-pattern level-set scalars, and the RhinoCommon-native restructure tier — `QuadRemesh`/`Reduce` behind the `RemeshKind`/`QuadTarget` unions and native LSCM unwrap/flatten. The restructure tier is deliberate host capture: it coexists by law with the settled robust `decimate`/`flatten` owners, which own the first-principles counterparts at a different altitude — this page owns the host-native surface, never a re-derivation.
+ONE spectral shape-analysis and restructure owner over the `mesh` substrate: `MeshDescriptor` spectral shape descriptors (HKS-like heat, WKS-style wave, biharmonic, diffusion, commute-time through the `spectral` `SpectralFilter` transfer algebra), spectral distance, sampling-spectrum blue-noise validation (the low-frequency energy gate the `sample` rail stamps into its receipts), dihedral/curvature feature-edge classification, the frozen `MeshSegmentation` six-algorithm union (scalar threshold · scalar bands · seeded region grow · descriptor clusters · watershed basins · normalized-cut spectral clustering), Knöppel globally-optimal direction fields (smoothest / hint-constrained / cone-prescribed) with their stripe-pattern level-set scalars, and the RhinoCommon-native restructure tier — `QuadRemesh`/`Reduce` behind the `RemeshKind`/`QuadTarget` unions and native LSCM unwrap/flatten. Host restructure is deliberate capture: it coexists by law with the settled robust `decimate`/`flatten` owners, which own the first-principles counterparts at a different altitude — this page owns the host-native surface, never a re-derivation.
 
-The page owns the descriptor evidence (`DescriptorReceipt`/`DescriptorResult`/`MeshSamplingSpectrumReceipt`), the feature vocabulary (`MeshFeatureAlgorithm`/`MeshFeatureKind`/`FeatureEdge`/`FeatureReceipt`/`MeshFeaturePolicy` with scale-derived thresholds), the segmentation vocabulary (`MeshSegmentation`, `MeshSegmentationAlgorithm`/`Status`, `MeshSegmentationReceipt`/`Result`), the restructure vocabulary (`QuadTarget`/`QuadGuideInfluence`/`QuadPreserveEdges`/`RemeshKind`/`RemeshReceipt`/`RemeshResult`/`FlattenReceipt`/`FlattenResult`), and the `SegmentKernel` solver body. Eigen systems ride the `matrix` owners (`MatrixKernel.GeneralizedEigenpairsDetailed` for normalized cuts, `SparseHermitian.SmallestEigenpairsDetailed` LOBPCG for the smoothest field); spectral bases and connection factors ride the `mesh` `LaplacianCache` (`SpectralBasisBundleOf`, `ConnectionCholesky`, `CrossField` value-keyed memo); cone prescriptions ride the `dec` trivial-connection owner; sampling rides the sibling `MeshProbe` substrate; the frozen `ScalarField.SpectralDistance`/`Stripe` and `VectorField.CrossField` cases delegate here.
+`SegmentKernel` page owns the descriptor evidence (`DescriptorReceipt`/`DescriptorResult`/`MeshSamplingSpectrumReceipt`), the feature vocabulary (`MeshFeatureAlgorithm`/`MeshFeatureKind`/`FeatureEdge`/`FeatureReceipt`/`MeshFeaturePolicy` with scale-derived thresholds), the segmentation vocabulary (`MeshSegmentation`, `MeshSegmentationAlgorithm`/`Status`, `MeshSegmentationReceipt`/`Result`), the restructure vocabulary (`QuadTarget`/`QuadGuideInfluence`/`QuadPreserveEdges`/`RemeshKind`/`RemeshReceipt`/`RemeshResult`/`FlattenReceipt`/`FlattenResult`), and the solver body. Eigen systems ride the `matrix` owners (`MatrixKernel.GeneralizedEigenpairsDetailed` for normalized cuts, `SparseHermitian.SmallestEigenpairsDetailed` LOBPCG for the smoothest field); spectral bases and connection factors ride the `mesh` `LaplacianCache` (`SpectralBasisBundleOf`, `ConnectionCholesky`, `CrossField` value-keyed memo); cone prescriptions ride the `dec` trivial-connection owner; sampling rides the sibling `MeshProbe` substrate; the frozen `ScalarField.SpectralDistance`/`Stripe` and `VectorField.CrossField` cases delegate here.
 
 ## [01]-[INDEX]
 
@@ -30,6 +30,8 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using Rasm.Csp;
 using LanguageExt;
+using QuikGraph;
+using QuikGraph.Algorithms;
 using Rasm.Domain;
 using Rasm.Meshing;
 using Rasm.Numerics;
@@ -67,7 +69,7 @@ public readonly record struct DescriptorReceipt(
         ValidityClaim.Of(RequestedEigenpairs >= 1 && ReturnedEigenpairs > 0 && ReturnedEigenpairs <= RequestedEigenpairs),
         ValidityClaim.CountAtLeast(count: SkippedDegenerateFaces, floor: 0),
         ValidityClaim.Of(FactorNonZeros.Map(static count => count > 0).IfNone(noneValue: true)),
-        ValidityClaim.Of(Assembly.Map(static receipt => receipt.IsValid).IfNone(noneValue: true)));
+        ValidityClaim.Evidence(Assembly));
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct DescriptorResult(Arr<double> Values, DescriptorReceipt Receipt);
@@ -76,7 +78,7 @@ public readonly record struct DescriptorReceipt(
 public readonly record struct MeshSamplingSpectrumReceipt(
     int VertexCount, int SampleCount, int EigenpairCount, double LowFrequencyEnergy, double TotalEnergy,
     double SuppressionRatio, double ValidationThreshold, bool Validated, MeshSamplingSpectrumAlgorithm? Algorithm = null) : IValidityEvidence {
-    // The rails ValidityClaim.All fold: the verdict is recomputable and both ratios are unit-bounded.
+    // Rails ValidityClaim.All fold keeps the verdict recomputable and both ratios unit-bounded.
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.Of(Algorithm is not null && VertexCount >= 0 && SampleCount >= 0 && EigenpairCount >= 0),
         ValidityClaim.Nonnegative(value: LowFrequencyEnergy),
@@ -406,7 +408,7 @@ public readonly record struct MeshSegmentationReceipt(
                 ValidityClaim.Of(Iterations.Map(iter => iter >= 0 && maxIterations.Map(max => max >= iter).IfNone(noneValue: true)).IfNone(noneValue: true)),
                 ValidityClaim.Of(FactorNonZeros.Map(static count => count >= 0).IfNone(noneValue: true) && AffinityNonZeros.Map(static count => count >= 0).IfNone(noneValue: true) && WatershedSaddleCount.Map(static count => count >= 0).IfNone(noneValue: true)),
                 ValidityClaim.Of(Tolerance.Map(static value => double.IsFinite(value) && value >= 0.0).IfNone(noneValue: true) && Threshold.Map(double.IsFinite).IfNone(noneValue: true) && NormalizedCutValue.Map(static value => double.IsFinite(value) && value >= 0.0).IfNone(noneValue: true)),
-                ValidityClaim.Of(Descriptor.Map(static receipt => receipt.IsValid).IfNone(noneValue: true) && Solve.Map(static receipt => receipt.IsValid).IfNone(noneValue: true) && Eigen.Map(static receipt => receipt.IsValid).IfNone(noneValue: true)));
+                ValidityClaim.Evidence(Descriptor), ValidityClaim.Evidence(Solve), ValidityClaim.Evidence(Eigen));
         }
     }
 }
@@ -499,23 +501,29 @@ internal static partial class SegmentKernel {
         !RhinoMath.IsValidDouble(x: value) ? UnassignedRegion : Math.Abs(value: max - min) <= RhinoMath.SqrtEpsilon ? 0 : Math.Min(val1: count - 1, val2: Math.Max(val1: 0, val2: (int)Math.Floor(d: (value - min) / ((max - min) / count))));
     private static MeshSegmentationResult ComponentsOf(Mesh mesh, SegmentationScalars scalars, Func<double, int> bucket, SegmentationRun run) =>
         ResultOf(mesh: mesh, faceRegions: ConnectedComponents(adjacency: FaceAdjacencyOf(mesh: mesh), buckets: [.. scalars.FaceValues.AsIterable().Select(value => RhinoMath.IsValidDouble(x: value) ? bucket(arg: value) : UnassignedRegion)]), scalars: scalars, run: run);
+    // Bucket-filtered component labeling composes the ONE graph-walk owner — QuikGraph
+    // ConnectedComponents over the same-bucket face-adjacency subgraph (the member remesh.md and
+    // repair.md already ride); a hand-rolled flood fill beside it is the deleted within-folder
+    // split-brain. Minimum face index canonically orders components; masked faces keep UnassignedRegion.
     private static int[] ConnectedComponents(int[][] adjacency, int[] buckets) {
-        int[] regions = [.. Enumerable.Repeat(element: UnassignedRegion, count: adjacency.Length)];
-        int region = 0;
-        for (int start = 0; start < buckets.Length; start++) {
-            if (buckets[start] < 0 || regions[start] >= 0) continue;
-            Queue<int> queue = new(); queue.Enqueue(item: start); regions[start] = region;
-            while (queue.Count > 0) {
-                int face = queue.Dequeue();
-                for (int n = 0; n < adjacency[face].Length; n++) {
-                    int next = adjacency[face][n];
-                    if (next < 0 || next >= buckets.Length || regions[next] >= 0 || buckets[next] != buckets[start]) continue;
-                    regions[next] = region; queue.Enqueue(item: next);
-                }
+        UndirectedGraph<int, SEdge<int>> graph = new(allowParallelEdges: false);
+        for (int face = 0; face < buckets.Length; face++) { if (buckets[face] >= 0) graph.AddVertex(v: face); }
+        for (int face = 0; face < buckets.Length; face++) {
+            if (buckets[face] < 0) continue;
+            for (int n = 0; n < adjacency[face].Length; n++) {
+                int next = adjacency[face][n];
+                if (next > face && next < buckets.Length && buckets[next] == buckets[face]) graph.AddEdge(edge: new SEdge<int>(source: face, target: next));
             }
-            region++;
         }
-        return regions;
+        Dictionary<int, int> component = new();
+        _ = graph.ConnectedComponents(components: component);
+        Dictionary<int, int> canonical = component
+            .GroupBy(static entry => entry.Value)
+            .OrderBy(static group => group.Min(static entry => entry.Key))
+            .Select((group, label) => (Source: group.Key, Label: label))
+            .ToDictionary(static entry => entry.Source, static entry => entry.Label);
+        return [.. Enumerable.Range(start: 0, count: buckets.Length)
+            .Select(face => buckets[face] < 0 ? UnassignedRegion : canonical[component[face]])];
     }
     private static int[][] FaceAdjacencyOf(Mesh mesh) {
         List<int>[] adjacency = [.. Enumerable.Range(start: 0, count: mesh.Faces.Count).Select(static _ => new List<int>())];
@@ -758,7 +766,7 @@ internal static partial class SegmentKernel {
 
 - Owner: `CrossFieldKey` the value-identity cache probe (symmetry + canonically ordered constraints + canonically ordered cones — permuted prescriptions hit one memo, through the `mesh` cache's one type-keyed `Memoized` entry); the `SegmentKernel` GODF arms and the stripe scalar.
 - Entry: `SegmentKernel.CrossFieldAt(space, symmetry, constraints, cones, sample, key)` → `Fin<Vector3d>` (the frozen `VectorField.CrossField` delegate — the n-RoSy representative direction at the sample); `SegmentKernel.StripeAt(space, crossField, frequency, sample, key)` → `Fin<double>` (the frozen `ScalarField.Stripe` delegate — the cross-field-aligned level-set scalar). Both entries re-prove their raw ingress — `symmetry ∈ {1,2,4,6}`, positive finite frequency — so a direct kernel caller meets the same gate the field factories admit through.
-- Auto: the smoothest field solves the SMALLEST eigenpair of the Hermitian vertex connection Laplacian by the `matrix` LOBPCG owner — the residual tolerance travels RELATIVE to the operator scale (the full-Hermitian Frobenius norm, mirrored off-diagonals counted twice, floored at `SqrtEpsilon`) and the iteration ceiling travels off the Krylov dimension (`ceil(√n)` times the budget, clamped to `n`) — a bare absolute floor or a magic iteration const is the rejected form; the gate accepts ONLY `EigenSolveStop.ResidualConverged`. The constrained field encodes hints as `symmetry`-th powers of unit tangent complexes, rescales by the mass B-norm so hint energy is independent of hint count, stacks the mass-weighted RHS as `[Re; Im]`, and solves through the cached real-block connection Cholesky at the shift-reciprocal time. Cone prescriptions route the `dec` trivial-connection owner (`DistributeHolonomy` over cone indices `deficit/2π`) into the connection assembly as edge adjustments — the holonomy math is composed, never re-derived. Sampling decodes the n-RoSy angle (`atan2/symmetry`) through barycentrically blended vertex frames.
+- Auto: the smoothest field solves the SMALLEST eigenpair of the Hermitian vertex connection Laplacian by the `matrix` LOBPCG owner — the residual tolerance travels RELATIVE to the operator scale (the full-Hermitian Frobenius norm, mirrored off-diagonals counted twice, floored at `SqrtEpsilon`) and the iteration ceiling travels off the Krylov dimension (`ceil(√n)` times the budget, clamped to `n`) — a bare absolute floor or a magic iteration const is the rejected form; the gate accepts ONLY `EigenSolveStop.ResidualConverged`. Constrained field encodes hints as `symmetry`-th powers of unit tangent complexes, rescales by the mass B-norm so hint energy is independent of hint count, stacks the mass-weighted RHS as `[Re; Im]`, and solves through the cached real-block connection Cholesky at the shift-reciprocal time. Cone prescriptions route the `dec` trivial-connection owner (`DistributeHolonomy` over cone indices `deficit/2π`) into the connection assembly as edge adjustments — the holonomy math is composed, never re-derived. Sampling decodes the n-RoSy angle (`atan2/symmetry`) through barycentrically blended vertex frames.
 - Boundary: per-vertex normalization floors at `ZeroTolerance` (a zero connection component decodes to the zero vector, not NaN); the connection transport angles (`Rho` rows) are the `mesh` signpost seam — `MeshKernel.ConnectionEntriesOf` over the intrinsic snapshot, the SAME rows the cached real-block `ConnectionCholesky` assembles from, and a page-local transport-angle derivation is the deleted fourth transport path; the Hermitian eigen path and the real-block Cholesky path are TWO discretizations of one operator, both assembled from the SAME connection entries.
 
 ```csharp
@@ -911,9 +919,9 @@ internal static partial class SegmentKernel {
 
 ## [06]-[RESTRUCTURE]
 
-- Owner: `QuadTarget` `[Union]` (EdgeLength / QuadCount with adaptive size + count columns); `QuadGuideInfluence` (Approximate/InterpolateRing/InterpolateLoop) and `QuadPreserveEdges` (Off/Smart/Strict) native-parameter vocabularies; `RemeshKind` `[Union]` (Quad / Simplify over `ReduceMeshParameters`); `RemeshReceipt`/`RemeshResult` and `FlattenReceipt`/`FlattenResult` evidence; the `SegmentKernel` host-capture arms.
-- Entry: `SegmentKernel.ApplyRemeshDetailed(kind, space, key)` → `Fin<RemeshResult>` — generated total `Switch` over the union; `SegmentKernel.ParameterizeFlattenDetailed(space, key)` → `Fin<FlattenResult>` (native LSCM unwrap with the edge-length distortion witness).
-- Auto: the quad arm translates the typed target into `QuadRemeshParameters` (the `UnitInterval` adaptive size scales by the native `[0,100]` unit — one named conversion constant), threads guide curves and face blocks, and captures the full pre/post topology + parameter echo into the receipt; the simplify arm duplicates, reduces, and captures the native `ReduceMeshParameters.Error` text into the receipt on failure detail; flatten runs `MeshUnwrapper` LSCM, verifies texture-coordinate/vertex parity, and derives the edge-length distortion RMS — per-edge UV/model length ratios under the energy-minimizing global scale `Σ(model·uv)/Σ(uv²)` — as the parameterization quality witness.
+- Owner: `QuadTarget` `[Union]` (EdgeLength / QuadCount with adaptive size + count columns); `QuadGuideInfluence` (Approximate/InterpolateRing/InterpolateLoop) and `QuadPreserveEdges` (Off/Smart/Strict) native-parameter vocabularies; `RemeshKind` `[Union]` (Quad / Simplify over `ReduceMeshParameters`); `RemeshReceipt`/`RemeshResult` and `FlattenReceipt`/`FlattenResult` evidence, including the optional unwrap symmetry plane; the `SegmentKernel` host-capture arms.
+- Entry: `SegmentKernel.ApplyRemeshDetailed(kind, space, key)` → `Fin<RemeshResult>` — generated total `Switch` over the union; `SegmentKernel.ParameterizeFlattenDetailed(space, key, symmetryPlane?)` → `Fin<FlattenResult>` (native LSCM unwrap with optional symmetry and the edge-length distortion witness).
+- Auto: the quad arm translates the typed target into `QuadRemeshParameters` (the `UnitInterval` adaptive size scales by the native `[0,100]` unit — one named conversion constant), threads guide curves and face blocks, and captures the full pre/post topology + parameter echo into the receipt; the simplify arm duplicates, reduces, and captures the native `ReduceMeshParameters.Error` text into the receipt on failure detail; flatten admits the optional symmetry plane, sets the `MeshUnwrapper.SymmetryPlane` policy, runs LSCM, verifies texture-coordinate/vertex parity, and derives the edge-length distortion RMS — per-edge UV/model length ratios under the energy-minimizing global scale `Σ(model·uv)/Σ(uv²)` — as the parameterization quality witness.
 - Boundary: this tier is HOST CAPTURE by the standing capture law — the robust first-principles decimation, flattening, and re-tessellation owners are the settled `decimate`/`flatten` pages and the author-kernel `remesh.md` (isotropic/quad rewrite beside this native `QuadRemesh` capture, one anchor each) at a different altitude, and this page never re-derives them; native failures dispose the partial output and route the `Op` rail with the native error text preserved as detail — failure IS the rail, so the mature `RemeshStatus` enum (whose only stampable row was `Completed`) is deleted rather than carried as constant evidence; receipts echo every native parameter so a remesh is reproducible from its receipt alone.
 
 ```csharp
@@ -990,10 +998,11 @@ public readonly record struct RemeshResult(Mesh Mesh, RemeshReceipt Receipt) {
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct FlattenReceipt(int VertexCount, int UvCount, int TextureCoordinateCount, int BoundaryComponents, bool Valid, Option<double> EdgeLengthDistortionRms) : IValidityEvidence {
+public readonly record struct FlattenReceipt(int VertexCount, int UvCount, int TextureCoordinateCount, int BoundaryComponents, Option<Plane> SymmetryPlane, bool Valid, Option<double> EdgeLengthDistortionRms) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.Of(Valid),
         ValidityClaim.Of(VertexCount >= 0 && UvCount >= 0 && TextureCoordinateCount >= 0 && BoundaryComponents >= 0),
+        ValidityClaim.Of(SymmetryPlane.Map(static plane => plane.IsValid).IfNone(noneValue: true)),
         ValidityClaim.Of(EdgeLengthDistortionRms.Map(static value => double.IsFinite(value) && value >= 0.0).IfNone(noneValue: true)));
 }
 
@@ -1062,10 +1071,13 @@ internal static partial class SegmentKernel {
     private static RemeshReceipt TopologyOf(RemeshKind kind, Mesh source, Mesh output) =>
         new(Kind: kind, PreVertexCount: source.Vertices.Count, PreFaceCount: source.Faces.Count, PostVertexCount: output.Vertices.Count, PostFaceCount: output.Faces.Count, ReductionRatio: source.Faces.Count == 0 ? 0.0 : (double)output.Faces.Count / source.Faces.Count, Valid: output.IsValid, TopologyChanged: source.Vertices.Count != output.Vertices.Count || source.Faces.Count != output.Faces.Count);
 
-    // --- [FLATTEN] — native LSCM with the edge-length distortion witness; Catch funnels a native throw onto the rail.
-    internal static Fin<FlattenResult> ParameterizeFlattenDetailed(MeshSpace space, Op key) => key.Catch(() => {
+    // --- [FLATTEN] — native LSCM with optional symmetry and a distortion witness; Catch funnels native throws.
+    internal static Fin<FlattenResult> ParameterizeFlattenDetailed(MeshSpace space, Op key, Option<Plane> symmetryPlane = default) => key.Catch(() => {
+        if (symmetryPlane.Map(static plane => !plane.IsValid).IfNone(noneValue: false))
+            return Fin.Fail<FlattenResult>(error: key.InvalidInput());
         using Mesh mesh = space.Native.DuplicateMesh();
         using MeshUnwrapper unwrapper = new(mesh);
+        symmetryPlane.IfSome(plane => unwrapper.SymmetryPlane = plane);
         if (!unwrapper.Unwrap(method: MeshUnwrapMethod.LSCM) || mesh.TextureCoordinates.Count != mesh.Vertices.Count)
             return Fin.Fail<FlattenResult>(error: key.InvalidResult());
         Arr<Point2d> uvs = new([.. mesh.TextureCoordinates.Select(static t => new Point2d(x: t.X, y: t.Y))]);
@@ -1090,7 +1102,7 @@ internal static partial class SegmentKernel {
             double rms = Math.Sqrt(d: Math.Max(val1: 0.0, val2: rmsSquared));
             distortion = RhinoMath.IsValidDouble(x: scale) && scale > RhinoMath.SqrtEpsilon && RhinoMath.IsValidDouble(x: rms) ? Some(rms) : Option<double>.None;
         }
-        return Fin.Succ(new FlattenResult(Uvs: uvs, Mesh: output, Receipt: new FlattenReceipt(VertexCount: output.Vertices.Count, UvCount: uvs.Count, TextureCoordinateCount: output.TextureCoordinates.Count, BoundaryComponents: boundaryComponents, Valid: output.IsValid, EdgeLengthDistortionRms: distortion)));
+        return Fin.Succ(new FlattenResult(Uvs: uvs, Mesh: output, Receipt: new FlattenReceipt(VertexCount: output.Vertices.Count, UvCount: uvs.Count, TextureCoordinateCount: output.TextureCoordinates.Count, BoundaryComponents: boundaryComponents, SymmetryPlane: symmetryPlane, Valid: output.IsValid, EdgeLengthDistortionRms: distortion)));
         static void AccumulateUvEdge(Mesh mesh, Arr<Point2d> uvs, int faceIndex, IndexPair pair, double modelLength, ref double numerator, ref double denominator, ref double sumRatio, ref double sumRatioSquared, ref int comparable) {
             int[] topology = mesh.TopologyVertices.IndicesFromFace(faceIndex: faceIndex);
             MeshFace face = mesh.Faces[faceIndex];
@@ -1135,7 +1147,7 @@ flowchart LR
 
 ## [07]-[DENSITY_BAR]
 
-One owner per axis; capability is a case, arm, or policy column, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes, and the per-owner kind rides the indexed notes below.
+One owner per axis; capability is a case, arm, or policy column, never a sibling surface. `[RAIL]` cell names the one return rail each owner exposes, and the per-owner kind rides the indexed notes below.
 
 | [INDEX] | [CONCERN]         | [OWNER]                                 | [RAIL]                                             | [CASES] |
 | :-----: | :---------------- | :-------------------------------------- | :------------------------------------------------- | :-----: |
@@ -1157,7 +1169,7 @@ One owner per axis; capability is a case, arm, or policy column, never a sibling
 - [07]-[HOST_RESTRUCTURE]: `+ ApplyRemeshDetailed` + flatten arm — host-capture unions + parameter-echo receipts.
 - [08]-[EVIDENCE]: `ValidityClaim.All` fold + declared gates + `AtomProjection` rows.
 
-The flood, grow, cluster, affinity, and UV-accumulation loops are the named statement-kernel exemption — measured label/graph hot loops behind `Fin` admission; the QuadRemesh/Reduce/LSCM arms are the named platform-forced boundary (native calls returning nullable results, converted at the seam).
+Flood, grow, cluster, affinity, and UV-accumulation loops are the named statement-kernel exemption — measured label/graph hot loops behind `Fin` admission; QuadRemesh/Reduce/LSCM arms are the named platform-forced boundary (native calls returning nullable results, converted at the seam).
 
 ## [08]-[RESEARCH]
 

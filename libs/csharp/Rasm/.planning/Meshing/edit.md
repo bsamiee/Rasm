@@ -6,12 +6,12 @@ The arena namespace is TOTAL — `MeshEdit.Of`, every mutation verb, and every `
 
 ## [01]-[INDEX]
 
-- [01]-[ARENA]: `ArenaPolicy` policy row (capacity seed · the weld-tolerance knob · the parallel floor); `MeshEdit` the single-writer SoA arena — ONE polymorphic `Of` over `MeshSpace` | raw soup, span read surface, dirty-bitset mutation verbs, `ParallelHelper` partition-disjoint folds, and the `ToSpace(Context, Op?) → Fin<MeshSpace>` freeze; `Kernels` the weld/diagonal primitive family (`WeldDuplicates` union-find over a tolerance grid, the exact quad-diagonal gate).
+- [01]-[ARENA]: `ArenaPolicy` policy row (capacity seed · the weld-tolerance knob · the parallel floor); `MeshEdit` the single-writer SoA arena — ONE polymorphic `Of` over `MeshSpace` | raw soup, span read surface, dirty-bitset mutation verbs, `ParallelHelper` partition-disjoint folds, and the `ToSpace(Context, Op?) → Fin<MeshSpace>` freeze; `Kernels` the weld/diagonal primitive family (`WeldDuplicates` union-find over a tolerance grid, the exact quad-diagonal gate composing the Numerics `Axis.DominantOf` plane admission).
 - [02]-[ARENA_LAW]: the corpus-wide store-mutability + arena-concurrency contract every mutable geometry store obeys.
 
 ## [02]-[ARENA]
 
-- Owner: `ArenaPolicy` the arena policy record — `Capacity` (the column seed extent doubling absorbs), `WeldTolerance` (THE weld knob, sited here so dedup-on-arena is an arena op and no consumer reaches into a healing policy for it), `ParallelFloor` (the `minimumActionsPerThread` floor every arena parallel fold derives from); `MeshEdit` the `sealed class` single-writer arena over pooled SoA columns — `double[]` `X`/`Y`/`Z` coordinate columns, one row-major `int[]` face-triple column viewed as a `ReadOnlyMemory2D<int>` F×3 plane (`Span2D` at the read site), and two `ulong[]` packed dirty bitsets (vertex/face) driven by `BitHelper` — all rented from `ArrayPool<T>.Shared`, grown by amortized doubling through `ArrayPoolExtensions.Resize`, returned on `Dispose`; `Kernels` the static primitive family operating on the arena: `WeldDuplicates` (union-find duplicate weld over a tolerance grid, in-place SoA compaction, idempotent) and the exact quad-diagonal split gate the mesh-ingress triangulation rides.
+- Owner: `ArenaPolicy` the arena policy record — `Capacity` (the column seed extent doubling absorbs), `WeldTolerance` (THE weld knob, sited here so dedup-on-arena is an arena op and no consumer reaches into a healing policy for it), `ParallelFloor` (the `minimumActionsPerThread` floor every arena parallel fold derives from); `MeshEdit` the `sealed class` single-writer arena over pooled SoA columns — `double[]` `X`/`Y`/`Z` coordinate columns, one row-major `int[]` face-triple column viewed as a `ReadOnlyMemory2D<int>` F×3 plane (`Span2D` at the read site), and two `ulong[]` packed dirty bitsets (vertex/face) driven by `BitHelper` — all rented from `ArrayPool<T>.Shared`, grown by amortized doubling through `ArrayPoolExtensions.Resize`, returned on `Dispose`; `Kernels` the static primitive family operating on the arena: `WeldDuplicates` (union-find duplicate weld over a tolerance grid, in-place SoA compaction, idempotent) and the exact quad-diagonal split gate the mesh-ingress triangulation rides — its projection plane read off the Numerics `Axis.DominantOf` admission, never a page-local dominant-axis copy.
 - Cases: `MeshEdit.Of` modalities `MeshSpace` · raw soup (`ReadOnlySpan<Point3d>` + `ReadOnlySpan<(int,int,int)>`) — the argument TYPE is the discriminant, one owner, never an `OfMesh`/`OfSoup` name pair; the soup modality is the ONE triangle-soup adapter for the whole kernel (the per-page `Soup(MeshSpace)` copies in intersect/view/arrangement die into this owner — one `DuplicateNative` per admission, quad faces split through the exact diagonal gate, never three private re-derivations); mutation verbs `AddVertex` · `AddFace` · `SetPosition` · `SetFace` · `KillFace` · `Touch` (6, each dirty-marking its slots — `SetFace` is the corner rewrite the decimate edge-collapse re-point and the remesh edge-flip land on, face indices stable under mutation); read projections `Policy` · `VertexCount`/`FaceCount` · `X`/`Y`/`Z` · `Faces` · `Position` · `Face` · `Alive` · `Bounds` · `DirtyVertices`/`DirtyFaces` — frozen span views, never copies.
 - Entry: `public static MeshEdit Of(MeshSpace space, ArenaPolicy? policy = null)` and `public static MeshEdit Of(ReadOnlySpan<Point3d> vertices, ReadOnlySpan<(int A, int B, int C)> faces, ArenaPolicy? policy = null)` — total, no rail: a `MeshSpace` is already-admitted truth and a raw soup is build material whose validity is decided at freeze, so arena admission cannot fail; `public Fin<MeshSpace> ToSpace(Context context, Op? key = null)` — the ONE publish seam: a one-pass `TensorPrimitives.IsFiniteAll<double>` bulk gate per coordinate column (the whole-arena validity check, never a per-vertex scan), live faces rebuilt into a native `Mesh` (`Vertices.Add`/`Faces.AddFace`, `Compact` culling orphaned vertices, `RebuildNormals`), then re-admission through the landed `MeshSpace.Of(mesh, context, key)` — the arena mints no `ArenaFault`; the finiteness pre-gate routes `GeometryFault.DegenerateInput` with the offending column index, everything else is `MeshSpace.Of`'s own rail; `public static MeshEdit Kernels.WeldDuplicates(MeshEdit edit)` — in-place weld at the arena's `WeldTolerance` band, total (the knob lives on `ArenaPolicy`, never a parameter a caller re-supplies).
 - Auto: `Of(MeshSpace)` calls `DuplicateNative()` exactly once, triangulates quads through the exact diagonal gate (the reflex-separation test on the quad's dominant-axis projection — exact `Predicate.Orient2D` signs decide which diagonal is interior; a shortest-diagonal float heuristic is the rejected non-robust form), and bulk-fills the columns; capacity growth is `pool.Resize(ref column, extent << 1)` on every column together, so the offset-page under-allocation class (a store sized `2n` where the algorithm writes past it) is structurally impossible — capacity is one doubling law, never a per-site size guess; `KillFace` tombstones the row (`-1` triple) and `ToSpace` compacts — the sentinel is arena-INTERNAL and never observable past the freeze; dirty tracking is two packed bitsets (`BitHelper.SetFlag`/`HasFlag` on `ulong` words) replacing persistent `Set<int>` accumulation — `DirtyVertices()`/`DirtyFaces()` enumerate set bits for incremental consumers (the receipts `Affected` seed, decimate's re-queue set); `Parallel<TAction>` runs a caller struct action over a caller-named index extent (vertex count, face count, or a sub-range bound) via `ParallelHelper.For(0, extent, in action, policy.ParallelFloor)` — allocation-free struct invocation, degree clamped by the library, the floor a policy row.
@@ -279,25 +279,15 @@ public static class Kernels {
     // --- [QUAD_DIAGONAL]
     // The exact quad-split gate the mesh-ingress triangulation rides: true selects the A-C diagonal,
     // false the B-D. A diagonal is interior exactly when it separates the other two corners on the
-    // quad's dominant-axis projection — the reflex corner forces its own diagonal; the axis choice is
-    // float, the separation signs are exact.
-    public static bool QuadDiagonal(Point3d a, Point3d b, Point3d c, Point3d d) {
-        Axis axis = DominantAxis(a, b, c, d);
-        return Predicate.Orient2D(a, c, b, axis).Times(Predicate.Orient2D(a, c, d, axis)) == Sign.Negative;
-    }
-
-    static Axis DominantAxis(Point3d a, Point3d b, Point3d c, Point3d d) {
-        Span<Point3d> ring = [a, b, c, d];
-        double nx = 0.0, ny = 0.0, nz = 0.0;  // Newell normal over the quad cycle
-        for (int i = 0; i < 4; i++) {
-            (Point3d p, Point3d q) = (ring[i], ring[(i + 1) & 3]);
-            nx += (p.Y - q.Y) * (p.Z + q.Z);
-            ny += (p.Z - q.Z) * (p.X + q.X);
-            nz += (p.X - q.X) * (p.Y + q.Y);
-        }
-        (double ax, double ay, double az) = (Math.Abs(nx), Math.Abs(ny), Math.Abs(nz));
-        return ax >= ay && ax >= az ? Axis.X : ay >= az ? Axis.Y : Axis.Z;
-    }
+    // quad's dominant-axis projection (Axis.DominantOf — the Numerics vocabulary's own `Fin<Axis>`
+    // admission); the axis choice is float, the separation signs are exact. A degenerate quad has
+    // no dominant axis and no interior diagonal, so the gate refusal binds to the canonical B-D
+    // `false` — the exact `Orient2D` collapses that quad to `false` regardless — never a fabricated
+    // projection plane; the `bool` verdict is frozen (cross-tier triangulation consumers bind it),
+    // so the refusal resolves here rather than widening the whole ingress rail to `Fin<bool>`.
+    public static bool QuadDiagonal(Point3d a, Point3d b, Point3d c, Point3d d) =>
+        Axis.DominantOf(a, b, c, d).Case is Axis axis
+        && Predicate.Orient2D(a, c, b, axis).Times(Predicate.Orient2D(a, c, d, axis)) == Sign.Negative;
 }
 ```
 
@@ -311,7 +301,7 @@ The corpus-wide store-mutability and arena-concurrency contract. Every mutable g
 - Publish-by-freeze: build state becomes composable truth only through the freeze seam (`ToSpace` → `MeshSpace.Of` here; the analogous emission projection on every sibling arena). A consumer never holds a live arena across an ownership boundary; it holds the frozen artifact.
 - Hash-eligibility: content addressing (the reconciliation `Encode` chain, `XxHash128`) binds ONLY frozen projections. A mid-build arena is never hashed, cached by content, or interned — a content key over mutable state is a stale key by construction.
 - Derived-state caching: the exemplar is `mesh.md`'s `LaplacianCache` — derived solver state keys on the FROZEN snapshot reference (`ConditionalWeakTable` dying with its snapshot) and memoizes through `Atom<HashMap>` success-only swaps. An arena page never mints a second derived-state cache pattern.
-- Capacity: every arena column grows by amortized doubling through the one pool-resize verb; a store sized once from an input-derived guess (the `2n` class) is the rejected under-allocation.
+- Capacity: every arena column grows by amortized doubling — `MeshEdit` through the pooled `ArrayPoolExtensions.Resize` verb, the sibling heap-array stores (`SimplexStore`/`WavefrontStore`/crossing/node columns) through `Array.Resize` at the same doubling law; the law is the doubling, the verb follows the store's storage class, and a store sized once from an input-derived guess (the `2n` class) is the rejected under-allocation.
 - Fault surface: arena mutation is total; failure surfaces at freeze/re-admission through the publishing seam's existing rail. No arena mints a fault union.
 
 ## [04]-[DENSITY_BAR]
@@ -326,4 +316,4 @@ One arena, one policy row, one kernel family. The `[RAIL]` cell names the one re
 
 - [01]-[ARENA_POLICY]: `record` policy row — capacity seed, weld-tolerance knob, parallel floor.
 - [02]-[BUILD_ARENA]: `sealed class` single-writer pooled SoA — one polymorphic `Of` (space | soup), mutation verbs, dirty bitsets, partition-disjoint `Parallel`, freeze.
-- [03]-[ARENA_KERNELS]: static primitive family — union-find tolerance-grid weld (idempotent, in-place), exact quad-diagonal gate.
+- [03]-[ARENA_KERNELS]: static primitive family — union-find tolerance-grid weld (idempotent, in-place), exact quad-diagonal gate over the `Axis.DominantOf` plane admission.

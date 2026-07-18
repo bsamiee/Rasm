@@ -174,6 +174,9 @@ public abstract partial record Termination {
                 LocalizationKind: TraceEventLocalizationKind.BoundedBisection, DenseOutput: Option<DenseOutputReceipt>.None)))
             : Fin.Succ(Option<TraceEvent>.None);
     // Bounded bisection over the sign-changing bracket; each midpoint evaluates through the dense output when present.
+    // The evaluand is the Fin-railed host sample (Closest/SignedDistance/SampleScalar), so the bracket refines ON the
+    // rail — MathNet's scalar root-finders take a total Func<double,double>, and a NaN-sentinel bridge to
+    // Brent.TryFindRoot is the mid-pipeline collapse that erases the typed fault and the per-iteration receipt evidence.
     private static Fin<TraceEvent> LocateRoot(Point3d previous, Point3d current, Option<DenseOutputSpan<Point3d, Vector3d>> dense, double previousValue, double currentValue, TraceEventKind kind, double tolerance, int budget, Func<Point3d, Fin<double>> sample, Op key) =>
         from bracket in toSeq(Enumerable.Range(start: 0, count: budget)).Fold(
             initialState: Fin.Succ((A: previous, B: current, FA: previousValue, FB: currentValue, TA: 0.0, TB: 1.0, Localized: previous, FLocalized: previousValue, TLocalized: 0.0, Done: false, Iterations: 0)),

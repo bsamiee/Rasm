@@ -246,7 +246,7 @@ public static class Intersection {
         Sign su = Predicate.Orient3D(a, b, c, u), sv = Predicate.Orient3D(a, b, c, v);
         if (su.Times(sv) != Sign.Negative) { return None; }
         Implicit hit = new Lpi(u, v, a, b, c);
-        return InsideProjected(in hit, a, b, c, DominantAxis(a, b, c)) ? Some(hit) : None;
+        return Axis.DominantOf(a, b, c).Case is Axis axis && InsideProjected(in hit, a, b, c, axis) ? Some(hit) : None;
     }
 
     // Boundary-inclusive projected containment, exact over the carrier: both winding orientations.
@@ -287,14 +287,14 @@ public static class Intersection {
         if (q[0] == Sign.Zero && q[1] == Sign.Zero && q[2] == Sign.Zero) { return None; }  // the coplanar AREA pair — the mesh fold's clip owns it
         if (ZeroPair(q) is int zq) {  // one Q edge lies IN P's plane: the contact is its exact clip against P
             (Point3d u, Point3d v) = zq == 0 ? (qa, qb) : zq == 1 ? (qb, qc) : (qc, qa);
-            List<Implicit> clip = ClipToTriangle(u, v, pa, pb, pc, DominantAxis(pa, pb, pc));
+            List<Implicit> clip = Axis.DominantOf(pa, pb, pc).Case is Axis plane ? ClipToTriangle(u, v, pa, pb, pc, plane) : [];
             return clip.Count >= 2 ? Some((clip[0], clip[^1])) : None;
         }
         if (SameSide(q)) { return None; }
         Span<Sign> p = [Predicate.Orient3D(qa, qb, qc, pa), Predicate.Orient3D(qa, qb, qc, pb), Predicate.Orient3D(qa, qb, qc, pc)];
         if (ZeroPair(p) is int zp) {
             (Point3d u, Point3d v) = zp == 0 ? (pa, pb) : zp == 1 ? (pb, pc) : (pc, pa);
-            List<Implicit> clip = ClipToTriangle(u, v, qa, qb, qc, DominantAxis(qa, qb, qc));
+            List<Implicit> clip = Axis.DominantOf(qa, qb, qc).Case is Axis plane ? ClipToTriangle(u, v, qa, qb, qc, plane) : [];
             return clip.Count >= 2 ? Some((clip[0], clip[^1])) : None;
         }
         if (SameSide(p)) { return None; }
@@ -302,12 +302,12 @@ public static class Intersection {
         Collect(hits, pa, pb, pc, p, qa, qb, qc);
         Collect(hits, qa, qb, qc, q, pa, pb, pc);
         if (hits.Count < 2) { return None; }
-        Axis order = DominantOf(Vector3d.CrossProduct(Vector3d.CrossProduct(pb - pa, pc - pa), Vector3d.CrossProduct(qb - qa, qc - qa)));
+        if (Axis.DominantOf(Vector3d.CrossProduct(Vector3d.CrossProduct(pb - pa, pc - pa), Vector3d.CrossProduct(qb - qa, qc - qa))).Case is not Axis order) { return None; }
         hits.Sort((l, r) => Predicate.Compare(in l, in r, order).Key);
         return Some((hits[0], hits[^1]));
 
         static void Collect(List<Implicit> hits, Point3d a, Point3d b, Point3d c, ReadOnlySpan<Sign> signs, Point3d ta, Point3d tb, Point3d tc) {
-            Axis axis = DominantAxis(ta, tb, tc);
+            if (Axis.DominantOf(ta, tb, tc).Case is not Axis axis) { return; }
             Span<(Point3d W, Sign S)> verts = [(a, signs[0]), (b, signs[1]), (c, signs[2])];
             foreach ((Point3d w, Sign s) in verts) {
                 Implicit row = new(w);
@@ -345,7 +345,7 @@ public static class Intersection {
         foreach ((Point3d s, Point3d t) in (ReadOnlySpan<(Point3d, Point3d)>)[(a, b), (b, c), (c, a)]) {
             if (CrossSegments2D(new Line(u, v), new Line(s, t), plane).Case is Crossing hit) { kept.Add(hit.Point); }
         }
-        Axis along = DominantOf(v - u);
+        if (Axis.DominantOf(v - u).Case is not Axis along) { return kept; }
         kept.Sort((l, r) => Predicate.Compare(in l, in r, along).Key);
         return kept;
     }
@@ -420,7 +420,7 @@ public static class Intersection {
         Pierce(store, ends, sideB, sideA, b, (b0, b1, b2), qs, a, (a0, a1, a2), fa);
         if (ends.Count < 2) { return store; }  // a single row is a point touch — no curve
         Vector3d material = Vector3d.CrossProduct(Vector3d.CrossProduct(pb - pa, pc - pa), Vector3d.CrossProduct(qb - qa, qc - qa));
-        Axis axis = DominantOf(material);
+        if (Axis.DominantOf(material).Case is not Axis axis) { return store; }
         Sign forward = Along(material, axis);
         ends.Sort((l, r) => { Implicit pl = store.Row(l).Point, pr = store.Row(r).Point; return Predicate.Compare(in pl, in pr, axis).Times(forward).Key; });
         for (int k = 0; k + 1 < ends.Count; k++) { store.Segment(ends[k], ends[k + 1], fa, fb); }  // interior rows kept — a collinear multi-touch subdivides
@@ -435,7 +435,7 @@ public static class Intersection {
         // — so the merge survives a hit landing exactly on the other operand's edge or corner.
         static void Pierce(CrossingStore store, List<int> ends, int side, int otherSide, MeshEdit soup, (int V0, int V1, int V2) f, ReadOnlySpan<Sign> signs, MeshEdit other, (int W0, int W1, int W2) g, int otherFace) {
             (Point3d ta, Point3d tb, Point3d tc) = (other.Position(g.W0), other.Position(g.W1), other.Position(g.W2));
-            Axis plane = DominantAxis(ta, tb, tc);
+            if (Axis.DominantOf(ta, tb, tc).Case is not Axis plane) { return; }
             Span<int> verts = [f.V0, f.V1, f.V2];
             int W(int ordinal) => ordinal == 0 ? g.W0 : ordinal == 1 ? g.W1 : g.W2;
             for (int i = 0; i < 3; i++) {
@@ -484,7 +484,7 @@ public static class Intersection {
     // decided by the exact Compare on the direction's dominant axis — the chain walk then follows
     // stored direction and closed loops close outer-CCW / holes-CW by construction.
     static (int From, int To) Oriented(CrossingStore store, int e0, int e1, Vector3d material) {
-        Axis axis = DominantOf(material);
+        if (Axis.DominantOf(material).Case is not Axis axis) { return (e0, e1); }
         Implicit p0 = store.Row(e0).Point;
         Implicit p1 = store.Row(e1).Point;
         Sign order = Predicate.Compare(in p0, in p1, axis).Times(Along(material, axis));
@@ -500,7 +500,7 @@ public static class Intersection {
     static CrossingStore CoplanarCrossings(CrossingStore store, MeshEdit a, MeshEdit b, int fa, int fb, int sideA = 0, int sideB = 1) {
         (int a0, int a1, int a2) = a.Face(fa);
         (int b0, int b1, int b2) = b.Face(fb);
-        Axis plane = DominantAxis(a.Position(a0), a.Position(a1), a.Position(a2));
+        if (Axis.DominantOf(a.Position(a0), a.Position(a1), a.Position(a2)).Case is not Axis plane) { return store; }
         Flush(store, plane, sideA, sideB, a, (a0, a1, a2), b, (b0, b1, b2), fa, fb);
         Flush(store, plane, sideB, sideA, b, (b0, b1, b2), a, (a0, a1, a2), fa, fb);
         return store;
@@ -519,7 +519,7 @@ public static class Intersection {
                     }
                 }
                 if (kept.Count < 2) { continue; }
-                Axis along = DominantOf(pv - pu);
+                if (Axis.DominantOf(pv - pu).Case is not Axis along) { continue; }
                 kept.Sort((l, r) => { Implicit pl = store.Row(l).Point, pr = store.Row(r).Point; return Predicate.Compare(in pl, in pr, along).Key; });
                 for (int k = 0; k + 1 < kept.Count; k++) { store.CoplanarRow(kept[k], kept[k + 1], fa, fb, u, v, carrierSide); }
             }
@@ -587,7 +587,7 @@ public static class Intersection {
     static Fin<IntersectResult> FirstHit(IntersectOp.RayMesh op, Op? key) {
         using MeshEdit soup = MeshEdit.Of(op.Mesh);
         (Point3d from, Point3d to) = (op.Ray.Position, op.Ray.PointAt(op.MaxT));
-        Axis axis = DominantOf(op.Ray.Direction);
+        if (Axis.DominantOf(op.Ray.Direction, key).Case is not Axis axis) { return Fin.Fail<IntersectResult>(key.OrDefault().InvalidInput()); }
         Sign forward = Along(op.Ray.Direction, axis);
         return Bvh(soup, key)
             .Bind(index => Spatial.Apply(new SpatialOp.Query(index, new SpatialQuery.Range(new BoundingBox([from, to]), None)), key))
@@ -644,13 +644,6 @@ public static class Intersection {
     }
 
     // --- [PRIMITIVES]
-    static Axis DominantAxis(Point3d a, Point3d b, Point3d c) => DominantOf(Vector3d.CrossProduct(b - a, c - a));
-
-    static Axis DominantOf(Vector3d d) {
-        (double x, double y, double z) = (Math.Abs(d.X), Math.Abs(d.Y), Math.Abs(d.Z));
-        return x >= y && x >= z ? Axis.X : y >= z ? Axis.Y : Axis.Z;
-    }
-
     static Sign Along(Vector3d d, Axis axis) => Sign.Of(axis.Key == 0 ? d.X : axis.Key == 1 ? d.Y : d.Z);
 }
 ```

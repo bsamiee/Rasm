@@ -203,8 +203,8 @@ public abstract partial record ExtractionDomain {
     private static Fin<CurveBatch> CurvesFromCloud(VectorCloud.ClusterCase cloud, ContourPolicy policy, Context context, Op key) =>
         key.Catch(() => policy.Switch(
             state: (Cloud: cloud, Context: context, Key: key),
-            axisCase: static (state, p) => AcceptCurves(curves: state.Cloud.Indexed.CreateContourCurves(contourStart: p.Start, contourEnd: p.End, interval: p.Interval.Value, absoluteTolerance: state.Context.Absolute.Value), nativeRouted: true, tolerance: ExtractionTolerance.FromContext(state.Context.Absolute.Value), key: state.Key),
-            planeCase: static (state, p) => AcceptCurves(curves: state.Cloud.Indexed.CreateSectionCurve(plane: p.Section, absoluteTolerance: state.Context.Absolute.Value), nativeRouted: true, tolerance: ExtractionTolerance.FromContext(state.Context.Absolute.Value), key: state.Key),
+            axisCase: static (state, p) => state.Cloud.UseIndex(key: state.Key, project: pc => AcceptCurves(curves: pc.CreateContourCurves(contourStart: p.Start, contourEnd: p.End, interval: p.Interval.Value, absoluteTolerance: state.Context.Absolute.Value), nativeRouted: true, tolerance: ExtractionTolerance.FromContext(state.Context.Absolute.Value), key: state.Key)),
+            planeCase: static (state, p) => state.Cloud.UseIndex(key: state.Key, project: pc => AcceptCurves(curves: pc.CreateSectionCurve(plane: p.Section, absoluteTolerance: state.Context.Absolute.Value), nativeRouted: true, tolerance: ExtractionTolerance.FromContext(state.Context.Absolute.Value), key: state.Key)),
             surfaceIsoCase: static (state, _) => Fin.Fail<CurveBatch>(error: state.Key.Unsupported(geometryType: typeof(PointCloud), outputType: typeof(ContourPolicy.SurfaceIsoCase))),
             meshScalarCase: static (state, _) => Fin.Fail<CurveBatch>(error: state.Key.Unsupported(geometryType: typeof(PointCloud), outputType: typeof(ContourPolicy.MeshScalarCase)))));
     private static Fin<CurveBatch> AcceptCurves(Curve[] curves, bool nativeRouted, ExtractionTolerance tolerance, Op key) =>

@@ -1,6 +1,6 @@
 # [RASM_OFFSETTING_OFFSET]
 
-The exact wavefront offsetting owner of `Rasm.Meshing` — ONE `OffsetOp` `[Union]` (`Skeleton`/`Weighted`/`Offset`/`Medial`/`Minkowski`/`Clearance`) folded by ONE `Offsetting.Apply(OffsetOp, Op? key = null)` entry over one Aichholzer-Aurenhammer wavefront propagation. The exactness lives where a sign decides structure: reflex classification and split-hit admission read the `Numerics/predicates#ROBUST_PREDICATES` exact `Orient2D` turn signs over INPUT geometry, ring simplicity routes `Meshing/intersect` `Intersection.Apply` (the local `SegmentsCross` copy is DEAD — the E7 collapse), and self-overlapping result loops resolve through `Meshing/arrangement` `PlanarOverlay` under the nonzero winding rule (the `Mesh.CreateFromClosedPolyline` null-skip of the prior fence is DEAD — loops route the arrangement DIRECTLY as ring sets); event times are analytic `double` schedule data validated at fire by liveness, ring adjacency, and the collapse band — the prior fence's decorative exact-zero test on float trajectory positions was ILLUSORY exactness and is deleted, the honest contract stated instead.
+`OffsetOp` owns exact wavefront offsetting in `Rasm.Meshing`: ONE `[Union]` (`Skeleton`/`Weighted`/`Offset`/`Medial`/`Minkowski`/`Clearance`) folded by ONE `Offsetting.Apply(OffsetOp, Op? key = null)` entry over one Aichholzer-Aurenhammer wavefront propagation. Exactness lives where a sign decides structure: reflex classification and split-hit admission read exact `Predicate.Orient2D` turn signs over INPUT geometry, ring simplicity routes `Meshing/intersect` `Intersection.Apply` (the local `SegmentsCross` copy is DEAD — the E7 collapse), and self-overlapping result loops resolve through `Meshing/arrangement` `PlanarOverlay` under the nonzero winding rule (the `Mesh.CreateFromClosedPolyline` null-skip of the prior fence is DEAD — loops route the arrangement DIRECTLY as ring sets); event times are analytic `double` schedule data validated at fire by liveness, ring adjacency, and the collapse band — the prior fence's decorative exact-zero test on float trajectory positions was ILLUSORY exactness and is deleted, the honest contract stated instead; ring orientation and the zero-area gate are one exact hull-vertex turn verdict (`Orientation`), and interior parity reads exact `Predicate.Compare` straddles — the float shoelace and float Y-straddle duplicates are dead.
 
 This page MINTS the kernel's ONE clearance vocabulary — `ClearanceNode(At, Radius, NearestEdge)`, the per-point clearance RADIUS as a first-class result field on every skeleton and medial node plus the `Clearance(probe)` arbitrary-probe op case — the SAME result family `Meshing/skeleton` (W4, 3D MCF) composes, so 2D medial and 3D curve-skeleton speak one clearance language across the `Rasm.Fabrication` toolpath seam (`FAB:22` — `Toolpath/Skeleton.cs` dies for `Offsetting.Apply`; the `RASM-CS-FABRICATION [V5]` weighted/variable-speed rows ride the existing `Weighted` modality). The medial axis is REAL against the `Meshing/delaunay` `VoronoiDual` projection: the ring's constrained Delaunay dual supplies circumcenters WITH circumradii (the clearance payload) whose interior sub-graph carries the parabolic reflex arcs the linear straight skeleton only approximates — the prior fence built the tessellation and DISCARDED it; this one reads the dual as the medial locus and reconciles the skeleton's reflex arcs against it. Corner strategy is a generator: `JoinType` (Miter/Round/Bevel/Square) and `EndType` (Closed/Butt/Square/Round) rows carry their own emission delegates over the ONE offset assembly — the next join is a data row, never a sibling assembler (the CavalierContours kerf/arc lane stays `Rasm.Fabrication` stratum). `MinkowskiConvolution` is COMPLETE as one SUPPORT-VERTEX walk: each ring edge translates by the element vertex extreme under its outward normal, each ring vertex walks the element boundary between supports — CCW at convex turns, CW at reflex turns — so translated A-edges AND every element fan emit from the one walk, connected by construction (a reflex element routes the typed fault — its convex decomposition is the recorded growth row), the cycle resolved through the arrangement. The `WavefrontStore` is an honest single-writer arena under the `Meshing/edit#ARENA_LAW` contract with amortized-doubling capacity — the fixed `2n` under-allocation and the immutable-record prose of the prior fence are dead. Failures route the `offsetting` cluster (`DegenerateOffset` 2416, `SkeletonStalled` 2417, `CollapseStalled` 2418).
 
@@ -255,7 +255,7 @@ public static class Offsetting {
             skeleton:  static (key, s) => AdmitRing(s.Ring, key).Bind(ring => Propagate(ring, s.Policy, Arr<double>.Empty)).Map(static t => (OffsetResult)new OffsetResult.Graph(t.Graph)),
             weighted:  static (key, w) => AdmitRing(w.Ring, key)
                 .Bind(ring => w.Policy.EdgeSpeed.Count == ring.Count - 1
-                    ? Propagate(ring, w.Policy, SignedArea(w.Ring) < 0.0 ? ReversedSpeeds(w.Policy.EdgeSpeed) : w.Policy.EdgeSpeed)
+                    ? Propagate(ring, w.Policy, Orientation(w.Ring) == Sign.Negative ? ReversedSpeeds(w.Policy.EdgeSpeed) : w.Policy.EdgeSpeed)
                     : Fin.Fail<Trace>(new GeometryFault.DegenerateOffset(w.Policy.EdgeSpeed.Count, 0.0).ToError()))
                 .Map(static t => (OffsetResult)new OffsetResult.Graph(t.Graph)),
             offset:    static (key, o) => Snapshot(o, key),
@@ -271,7 +271,7 @@ public static class Offsetting {
         for (int i = 0; i < ring.Count; i++) {
             if (!ring[i].IsValid) { return Fail(i); }
         }
-        if (SignedArea(ring) == 0.0) { return Fail(0); }
+        if (Orientation(ring) == Sign.Zero) { return Fail(0); }
         int n = ring.Count - 1;
         for (int i = 0; i < n; i++) {
             for (int j = i + 2; j < n; j++) {
@@ -684,26 +684,48 @@ public static class Offsetting {
     static Vector3d Normal(Point3d a, Point3d b) => new(b.Y - a.Y, a.X - b.X, 0.0);
     static Vector3d Unit(Vector3d v) { double len = v.Length; return len == 0.0 ? v : (1.0 / len) * v; }
 
-    static double SignedArea(Polyline ring) {
-        double sum = 0.0;
-        for (int i = 0; i < ring.Count - 1; i++) { sum += (ring[i].X * ring[i + 1].Y) - (ring[i + 1].X * ring[i].Y); }
-        return 0.5 * sum;
+    // Whole-ring orientation as an EXACT sign: the lexicographic-extremal vertex lies on the convex
+    // hull, so the first nonzero turn scanning forward from it (a zero-turn run is a hull-collinear
+    // chain whose bend stays on the hull) IS the ring orientation — the same Orient2D owner the
+    // reflex and admission signs read. An all-zero scan is the zero-area collinear ring, so the
+    // degeneracy gate and the orientation decision are one exact verdict; the float shoelace sum
+    // with its exact-zero compare is the deleted illusory-exactness pair.
+    static Sign Orientation(Polyline ring) {
+        int n = ring.Count - 1;
+        int extreme = 0;
+        for (int i = 1; i < n; i++) {
+            if (ring[i].X < ring[extreme].X || (ring[i].X == ring[extreme].X && ring[i].Y < ring[extreme].Y)) { extreme = i; }
+        }
+        for (int offset = 0; offset < n; offset++) {
+            int at = (extreme + offset) % n;
+            Sign turn = Predicate.Orient2D(ring[(at - 1 + n) % n], ring[at], ring[(at + 1) % n]);
+            if (turn != Sign.Zero) { return turn; }
+        }
+        return Sign.Zero;
     }
 
     static Polyline Oriented(Polyline ring) {
-        if (SignedArea(ring) >= 0.0) { return ring; }
+        if (Orientation(ring) != Sign.Negative) { return ring; }
         Polyline reversed = new(ring);
         reversed.Reverse();
         return reversed;
     }
 
+    // Even-odd parity EXACT end to end: the Y-straddle reads Predicate.Compare signs (half-open at
+    // Zero — slice.md's Parity law, one spelling of one decision) and the crossing side reads the
+    // exact Orient2D; the float Y-compare straddle was the less-robust duplicate of the exact
+    // sibling and is deleted.
     static bool Inside(Point3d probe, Polyline ring) {
         bool inside = false;
         for (int e = 0; e < ring.Count - 1; e++) {
             (Point3d a, Point3d b) = (ring[e], ring[e + 1]);
-            if ((a.Y > probe.Y) == (b.Y > probe.Y)) { continue; }
-            Sign side = Predicate.Orient2D(a, b, probe);
-            if (side.Times(Sign.Of(b.Y.CompareTo(probe.Y))) == Sign.Negative) { inside = !inside; }
+            Sign av = Predicate.Compare(new Implicit(a), new Implicit(probe), Axis.Y);
+            Sign bv = Predicate.Compare(new Implicit(b), new Implicit(probe), Axis.Y);
+            bool aBelow = av == Sign.Negative;
+            bool bBelow = bv == Sign.Negative;
+            if (aBelow == bBelow) { continue; }
+            Sign side = Predicate.Orient2D(new Implicit(a), new Implicit(b), new Implicit(probe), Axis.Z);
+            if (aBelow ? side == Sign.Positive : side == Sign.Negative) { inside = !inside; }
         }
         return inside;
     }
@@ -750,7 +772,7 @@ One owner per axis; capability is a case, row, or fold arm, never a sibling surf
 - [06]-[WAVEFRONT_ARENA]: single-writer SoA arena, amortized-doubling `Spawn`, ring links, node/edge provenance, elevation.
 - [07]-[EVENT_ALGEBRA]: `[Union]` (`Edge`/`Split`) drained time-ordered.
 
-The prior fence's `SegmentsCross` copy, `Mesh.CreateFromClosedPolyline` loop path, discarded medial tessellation, single-direction fan-less Minkowski, first-ring-only snapshot, `2n` store sizing, decorative exact-zero event guard, outward-normal "inward" bisectors, unit-speed respawns under the weighted lane, ring-index/node-index pun, unconsulted `OffsetKind` vocabulary, and field-identical `MedialAxis` sibling record are all deleted; every deletion lands as a composition of the sibling owner that already carries the concern or a correction inside this one.
+The prior fence's `SegmentsCross` copy, `Mesh.CreateFromClosedPolyline` loop path, discarded medial tessellation, single-direction fan-less Minkowski, first-ring-only snapshot, `2n` store sizing, decorative exact-zero event guard, outward-normal "inward" bisectors, unit-speed respawns under the weighted lane, ring-index/node-index pun, unconsulted `OffsetKind` vocabulary, field-identical `MedialAxis` sibling record, float shoelace orientation/zero-area gate, and float point-in-polygon straddle are all deleted; every deletion lands as a composition of the sibling owner that already carries the concern or a correction inside this one.
 
 ## [04]-[RESEARCH]
 
