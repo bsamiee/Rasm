@@ -19,7 +19,7 @@ Ship landed work through review to a merged PR with nothing left behind: branch,
 [REFERENCES]:
 - [01]-[GITHUB_TOOLKIT](references/github-toolkit.md): gh/GraphQL snippets — pin, reviewer-state, re-trigger, threads, ship, close-out; PHASE 1.
 - [02]-[REVIEWERS](references/reviewers.md): each reviewer's completion signal, false positives, re-trigger caps, severity grammar; PHASES 1, 5.
-- [03]-[FIXER_CONTRACT](references/fixer-contract.md): carries the pr-fixer prompt, ledger schema, verification, three-rail grading; PHASE 4 only.
+- [03]-[FIXER_CONTRACT](references/fixer-contract.md): carries the fixer prompt, ledger schema, verification, three-rail grading; PHASE 4 only.
 
 [SCRIPTS] (run by `${CLAUDE_SKILL_DIR}/scripts/<name>`; their queries never transcribe into context):
 - [01]-[WATCH](scripts/watch-reviewers.sh): watches each reviewer to completion — one verdict line per arming.
@@ -85,7 +85,7 @@ python3 ${CLAUDE_SKILL_DIR}/scripts/merge-comments.py --dir <workdir> --md > <wo
 
 ### [03.5]-[PHASE_4_TRIAGE_AND_FIX]
 
-Machine pre-filter first, no judgment: a fix candidate is a `surface=="thread"` row with `is_resolved==false`, fresh or `is_outdated==false`, carrying a concrete anchor. `is_outdated` or stale bot rows become bare-resolve candidates (`verdict: "stale"`); `surface=="issue"` rows are context only. Then the verdict per candidate — TRUST-BUT-VERIFY against current disk AND settled corpus law, the reviewer text only a hint where to look: actionable (confirmed; 100% get implemented), pushed-back (refuted by disk or by a ruled design the finding contradicts; falsifiable citation), deferred (below 80% confidence; the open question recorded). Refutations are collected output, never discards — every pushed-back row rides the disposition into the close-out distillation. Round class is a pure predicate: every actionable row `severity_rank <= 1` -> the MAIN AGENT fixes inline under the fixer's own laws (verify on disk, land the fix at the root and exceed it, never weaken), commits, pushes — no dispatch. Any row `severity_rank >= 2` -> exactly ONE `pr-fixer` dispatch per `references/fixer-contract.md`, nits folded in; verify the returned ledger before PHASE 5 — a malformed or short ledger is a hard stop.
+Machine pre-filter first, no judgment: a fix candidate is a `surface=="thread"` row with `is_resolved==false`, fresh or `is_outdated==false`, carrying a concrete anchor. `is_outdated` or stale bot rows become bare-resolve candidates (`verdict: "stale"`); `surface=="issue"` rows are context only. Then the verdict per candidate — TRUST-BUT-VERIFY against current disk AND settled corpus law, the reviewer text only a hint where to look: actionable (confirmed; 100% get implemented), pushed-back (refuted by disk or by a ruled design the finding contradicts; falsifiable citation), deferred (below 80% confidence; the open question recorded). Refutations are collected output, never discards — every pushed-back row rides the disposition into the close-out distillation. Round class is a pure predicate: every actionable row `severity_rank <= 1` -> the MAIN AGENT fixes inline under the fixer's own laws (verify on disk, land the fix at the root and exceed it, never weaken), commits, pushes — no dispatch. Any row `severity_rank >= 2` -> exactly ONE fixer dispatch per `references/fixer-contract.md`, nits folded in; verify the returned ledger before PHASE 5 — a malformed or short ledger is a hard stop.
 
 ### [03.6]-[PHASE_5_RESOLVE_AND_RETRIGGER]
 
@@ -126,4 +126,4 @@ Every run ends — merged or bounded — with a structured report and one PR com
 
 ## [06]-[MAINTENANCE]
 
-Every bundle file and `.claude/agents/pr-fixer.md` propagate byte-identical across the estate repos, the skill additionally to `~/.codex/skills/pr-loop/`; `cmp` proves each copy after any edit. Agent body owns the fixer's standing law, `references/fixer-contract.md` the per-round wiring — a fix-law change edits the agent, a wiring change edits the reference. A completion-predicate change lands in `scripts/watch-reviewers.sh` and its registry prose in the same pass.
+Every bundle file propagates byte-identical across the estate repos, the skill additionally to `~/.codex/skills/pr-loop/`; `cmp` proves each copy after any edit. `references/fixer-contract.md` owns the fix law and the per-round wiring whole. A completion-predicate change lands in `scripts/watch-reviewers.sh` and its registry prose in the same pass.
