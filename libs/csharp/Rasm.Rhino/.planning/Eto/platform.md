@@ -1,157 +1,197 @@
 # [RASM_RHINO_ETO_PLATFORM]
 
-The platform-handler, native-host, and theme seam of `Rasm.Rhino.Eto`. The Rhino process resolves ONE ambient `Platform` for its loaded `Eto.dll`; this owner binds that instance and projects it as rows — backend identity as a classified vocabulary, feature discovery as `Option`-railed probes gating `Supports<T>` before `Create<T>`, worker-thread scoping as a lease over `ThreadStart` — so a missing handler is a typed capability fact, never a construction crash, and `Platform.Initialize` against the host thread is structurally absent from the sub-domain. `NativeMount` bridges a host-native control into the Eto tree through `NativeControlHost` eagerly or lazily, and `NativeAttachment` leases the inverse crossing (`AttachNative`/`DetachNative`) so an Eto control under a foreign native parent always detaches. The theme seam is two owners: `ThemeSeam` registers named style rows through the host `Style` registry, tracks live controls, and rebroadcasts `TriggerStyleChanged` on a host light/dark transition; `ThemeCatalog` is the frozen (role × variant) color grid over the kernel `PerceptualColor` — total at freeze, atomically swapped with a changed-key diff — that `canvas.md` fills and chrome accents resolve, so a literal color at any call site is the named defect.
+`HostPlatform` binds Rhino's ambient Eto backend, and the same owner admits handler discovery, native-control crossings, and theme transitions without reinitializing the host's `Platform`. Native attachments carry deterministic release, deferred native controls mint through `OnCreateNativeControl`, and theme cells derive from one parameterized generator before any control resolves a role.
 
 ## [01]-[INDEX]
 
-- [02]-[BACKEND]: `Backend` + `HostPlatform` — backend identity as classified rows and the `Option`-railed feature-discovery, shared-handler, worker-scope, and platform-context surface.
-- [03]-[NATIVE_HOST]: `NativeMount` + `NativeAttachment` — both directions of the native seam: foreign control into the Eto tree, Eto control under a foreign parent, each lifecycle-owned.
-- [04]-[STYLE_SEAM]: `StyleKey` + `ThemeSeam` — named style-handler rows, the tracked restyle set, the `TriggerStyleChanged` rebroadcast, and the Rhino theme-notifier subscription seam.
-- [05]-[THEME_TOKENS]: `ThemeVariant` + `PaletteRole` + `ThemeCatalog` — the frozen perceptual color grid, its freeze-time totality gate, and the atomic variant swap with diff evidence.
+- [02]-[PLATFORM]: `Backend` and `HostPlatform` own ambient identity, handler discovery, platform context, and worker scope.
+- [03]-[NATIVE]: `NativeMount` and `NativeAttachment` own both native-control crossings and their lifetimes.
+- [04]-[THEME]: `StyleKey`, `ThemeVariant`, `PaletteRole`, `ThemeCatalog`, and `ThemeSeam` own generated theme state and tracked rebroadcast.
 
-## [02]-[BACKEND]
+## [02]-[PLATFORM]
 
-- Owner: `Backend` `[SmartEnum<int>]` — the classified backend vocabulary (`Mac`, `WinForms`, `Wpf`, `Gtk`, `Other`) whose `Of()` reads the ambient `Platform.Instance` predicates once, so backend branching is a generated `Switch` over rows, never an `IsMac`/`IsWpf` predicate ladder — and `HostPlatform`, the discovery owner: `Probe<THandler>` gates `Supports<THandler>()` before `Create<THandler>()` and returns `Option`, `Shared<THandler>` rides `CreateShared`, `Locate<THandler>` wraps `Find`, `WorkerScope` leases `ThreadStart()` for a non-UI thread that must construct Eto objects, and `Under` runs a body inside `Platform.Invoke` context.
-- Law: the ambient platform is the host's — this owner never calls `Platform.Initialize`; a worker thread that needs Eto scopes through `WorkerScope`, and the scope's disposal is the thread's platform teardown.
-- Law: capability absence is data — a `Probe` miss is `None` folded into a `UiFault.Unavailable` only where the caller REQUIRES the handler; probing to branch behavior is legal composition.
-- Packages: Eto (host — `Platform`, `Platform.Instance`, `Supports<T>`, `Create<T>`, `CreateShared<T>`, `Find<T>`, `ThreadStart`, `Invoke`, the identity predicates), LanguageExt.Core, Rasm.Domain (project — `Op`, `Op.Catch`).
-- Growth: a new backend the host ships is one `Backend` row; a new discovery verb is one member on `HostPlatform`.
+- Owner: `HostPlatform` resolves one `HandlerDemand<THandler>` against `Platform.Instance` and exposes the host platform context without admitting `Platform.Initialize`.
+- Cases: `HandlerDemand<THandler>` carries per-instance creation, shared creation, or registered lookup as distinct evidence shapes.
+- Entry: `HostPlatform.Current`, `Resolve`, `Under`, and `Worker` share one captured ambient-platform funnel; handler discovery, context, and worker lifetime stay on `Fin`.
+- Receipt: `BackendFact` detaches backend identity, desktop posture, and supported feature flags from the ambient provider before policy code consumes them.
+- Growth: a handler modality is one `HandlerDemand<THandler>` case; a backend identity is one `Backend` row.
+- Boundary: `UiThread` owns `Application` affinity; this owner scopes `Platform` only.
+- Exemption: `ThreadStart`'s `using` scope is the worker-boundary statement seam that guarantees platform-context release.
 
-```csharp
+```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using System.Collections.Frozen;
 using Eto;
 using Eto.Forms;
 using Rasm.Csp;
 using Rasm.Domain;
-using Rasm.Numerics;
 
 namespace Rasm.Rhino.Eto;
 
 // --- [TYPES] --------------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class Backend {
-    public static readonly Backend Mac = new(key: 0);
-    public static readonly Backend WinForms = new(key: 1);
-    public static readonly Backend Wpf = new(key: 2);
-    public static readonly Backend Gtk = new(key: 3);
-    public static readonly Backend Other = new(key: 4);
+    public static readonly Backend Mac = new(key: 0, matches: static platform => platform.IsMac);
+    public static readonly Backend WinForms = new(key: 1, matches: static platform => platform.IsWinForms);
+    public static readonly Backend Wpf = new(key: 2, matches: static platform => platform.IsWpf);
+    public static readonly Backend Gtk = new(key: 3, matches: static platform => platform.IsGtk);
+    public static readonly Backend Other = new(key: 4, matches: static platform =>
+        !(platform.IsMac || platform.IsWinForms || platform.IsWpf || platform.IsGtk));
 
-    public static Backend Of() =>
-        (Platform.Instance.IsMac, Platform.Instance.IsWinForms, Platform.Instance.IsWpf, Platform.Instance.IsGtk) switch {
-            (true, _, _, _) => Mac,
-            (_, true, _, _) => WinForms,
-            (_, _, true, _) => Wpf,
-            (_, _, _, true) => Gtk,
-            _ => Other,
-        };
+    [UseDelegateFromConstructor]
+    internal partial bool Matches(Platform platform);
+
+    internal static Backend Detect(Platform platform) =>
+        toSeq(Items).Find(row => row.Matches(platform)).IfNone(Other);
 }
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record HandlerDemand<THandler> where THandler : class {
+    private HandlerDemand() { }
+    public sealed record Create : HandlerDemand<THandler>;
+    public sealed record Shared : HandlerDemand<THandler>;
+    public sealed record Registered : HandlerDemand<THandler>;
+}
+
+// --- [MODELS] -------------------------------------------------------------------------------
+public readonly record struct BackendFact(string Identity, Backend Kind, bool Desktop, PlatformFeatures Features);
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 public static class HostPlatform {
-    public static string Identity => Platform.Instance.ID;
+    public static Fin<BackendFact> Current(Op? key = null) =>
+        Within(key.OrDefault(), static platform => Fin.Succ(new BackendFact(
+            Identity: platform.ID,
+            Kind: Backend.Detect(platform),
+            Desktop: platform.IsDesktop,
+            Features: platform.SupportedFeatures)));
 
-    public static Option<THandler> Probe<THandler>() where THandler : class =>
-        Platform.Instance.Supports<THandler>() ? Optional(Platform.Instance.Create<THandler>()) : None;
+    public static Fin<Option<THandler>> Resolve<THandler>(HandlerDemand<THandler> demand, Op? key = null) where THandler : class {
+        Op op = key.OrDefault();
+        return Optional(demand)
+            .ToFin(new UiFault.Rejected(Key: op, Field: nameof(demand), Reason: "handler demand is absent"))
+            .Bind(admitted => Within(op, platform => Fin.Succ(admitted.Switch(
+                state: platform,
+                create: static (host, _) => host.Supports<THandler>() ? Optional(host.Create<THandler>()) : None,
+                shared: static (host, _) => host.Supports<THandler>() ? Optional(host.CreateShared<THandler>()) : None,
+                registered: static (host, _) => Optional(host.Find<THandler>())))));
+    }
 
-    public static Option<THandler> Shared<THandler>() where THandler : class =>
-        Platform.Instance.Supports<THandler>() ? Optional(Platform.Instance.CreateShared<THandler>()) : None;
+    public static Fin<TResult> Under<TResult>(Func<Fin<TResult>> body, Op? key = null) {
+        Op op = key.OrDefault();
+        return Optional(body)
+            .ToFin(new UiFault.Rejected(Key: op, Field: nameof(body), Reason: "platform body is absent"))
+            .Bind(admitted => Within(op, platform => platform.Invoke(admitted)));
+    }
 
-    public static Option<THandler> Locate<THandler>() where THandler : class =>
-        Optional(Platform.Instance.Find<THandler>());
+    public static Fin<TResult> Worker<TResult>(Func<Fin<TResult>> body, Op? key = null) {
+        Op op = key.OrDefault();
+        return Optional(body)
+            .ToFin(new UiFault.Rejected(Key: op, Field: nameof(body), Reason: "worker body is absent"))
+            .Bind(admitted => Within(op, platform => {
+                using IDisposable scope = platform.ThreadStart();
+                return admitted();
+            }));
+    }
 
-    public static Fin<THandler> Require<THandler>(Op? key = null) where THandler : class =>
-        Probe<THandler>().ToFin(Fail: new UiFault.Unavailable(Key: key.OrDefault(), Capability: typeof(THandler).Name));
-
-    public static Fin<Lease<IDisposable>> WorkerScope(Op? key = null) =>
-        key.OrDefault().Catch(() => Fin.Succ(value: (Lease<IDisposable>)new Lease<IDisposable>.Owned(Value: Platform.Instance.ThreadStart())));
-
-    public static Fin<Unit> Under(Action body, Op? key = null) =>
-        key.OrDefault().Catch(() => { Platform.Instance.Invoke(action: body); return Fin.Succ(value: unit); });
+    private static Fin<TResult> Within<TResult>(Op op, Func<Platform, Fin<TResult>> body) =>
+        op.Catch(() => body(Platform.Instance));
 }
 ```
 
-## [03]-[NATIVE_HOST]
+## [03]-[NATIVE]
 
-- Owner: `NativeMount` — one supplier record over the host `NativeControlHost(object)` constructor with two mints: `Of(object)` wraps a live native control, `Deferred(Func<object>)` holds the supplier so the native mint pays only at `Realize`, when the tree is actually built. Both mints converge on one realization body because the supplier only ever runs inside `Realize` — a case split re-describing that timing is the deleted form — and `NativeAttachment` is the inverse crossing: `Attach` moves an Eto control under an external native parent through `AttachNative()` and returns the lease whose disposal is the `DetachNative()` release, so an attached control cannot orphan its native parent relationship.
-- Law: the deferred mint is the default for expensive natives — an AppKit view, a WebKit process — because eager construction pays before any tree demands it; the supplier runs inside `Realize`'s `Op.Catch` bracket, so a throwing mint is a typed fault on the caller's rail.
-- Law: this seam moves controls, never messages — event bridging, key forwarding, and focus negotiation between the native and Eto sides ride the host's own members on the realized objects; a message-pump shim here is the deleted form.
-- Boundary: the macOS display-link, AppKit pacing, and Objective-C ownership are the Viewport unit's motion adapter over the macOS catalog; Rhino panel docking of Eto content is the HostUi unit's panel seam — both compose this mount, neither re-derives it.
-- Growth: a lifecycle evidence axis (mounted-at ordinal, native type name) is one field on the attachment record.
+- Owner: `NativeMount` folds eager and deferred native sources into one `Control`; `NativeAttachment` owns the inverse attach/detach capsule.
+- Cases: `NativeMount.Eager` carries an existing native object; `NativeMount.Deferred` carries the supplier and typed error sink invoked by `OnCreateNativeControl`.
+- Entry: `NativeMount.Realize` and `NativeAttachment.Attach` are the two direction-specific admissions.
+- Receipt: deferred supply and reporter failures stay retained on the callback owner; `NativeAttachment.Release` returns detach failure on the operation rail.
+- Growth: native lifecycle evidence extends `NativeAttachment`; another supply timing is one `NativeMount` case.
+- Boundary: native focus, keyboard, and event routing stay on the mounted controls; this seam owns custody only.
 
-```csharp
-// --- [MODELS] -------------------------------------------------------------------------------
-public sealed record NativeMount(Func<object> Supply) {
-    public static NativeMount Of(object native) => new(Supply: () => native);
-    public static NativeMount Deferred(Func<object> supply) => new(Supply: supply);
+```csharp signature
+// --- [TYPES] --------------------------------------------------------------------------------
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record NativeMount {
+    private NativeMount() { }
+    public sealed record Eager(object Native) : NativeMount;
+    public sealed record Deferred(Func<object> Supply, Action<Error> Report) : NativeMount;
 
     public Fin<Control> Realize(Op? key = null) =>
-        key.OrDefault().Catch(() => Fin.Succ(value: (Control)new NativeControlHost(nativeControl: Supply())));
+        key.OrDefault().Catch(() => Fin.Succ(Switch(
+            state: key.OrDefault(),
+            eager: static (_, source) => (Control)new NativeControlHost(nativeControl: source.Native),
+            deferred: static (op, source) => new DeferredHost(source.Supply, source.Report, op))));
+
+    private sealed class DeferredHost(Func<object> supply, Action<Error> report, Op key) : NativeControlHost {
+        private readonly Atom<Seq<Error>> failures = Atom(Seq<Error>());
+
+        protected override void OnCreateNativeControl(CreateNativeControlArgs e) =>
+            _ = key.Catch(() => {
+                    e.NativeControl = supply();
+                    return Fin.Succ(unit);
+                })
+                .BindFail(Retain);
+
+        private Fin<Unit> Retain(Error fault) => key.Catch(() => {
+            _ = failures.Swap(held => held.Add(fault.Reported(report, key)));
+            return Fin.Succ(unit);
+        });
+    }
 }
 
-public sealed record NativeAttachment(Control Subject, Func<Unit> Detach) {
+// --- [SERVICES] -----------------------------------------------------------------------------
+public sealed class NativeAttachment : UiLease {
+    private readonly Op key;
+
+    private NativeAttachment(Control subject, Op key) {
+        Subject = subject;
+        this.key = key;
+    }
+
+    public Control Subject { get; }
+
     public static Fin<NativeAttachment> Attach(Control subject, Op? key = null) =>
-        key.OrDefault().Catch(() => {
-            subject.AttachNative();
-            return Fin.Succ(value: new NativeAttachment(Subject: subject, Detach: () => Op.Side(subject.DetachNative)));
-        });
+        Optional(subject)
+            .ToFin(new UiFault.Rejected(Key: key.OrDefault(), Field: nameof(subject), Reason: "native subject is absent"))
+            .Bind(admitted => key.OrDefault().Catch(() => {
+                admitted.AttachNative();
+                return Fin.Succ(new NativeAttachment(admitted, key.OrDefault()));
+            }));
+
+    protected override Fin<Unit> Free() => key.Catch(() => Fin.Succ(Op.Side(Subject.DetachNative)));
 }
 ```
 
-## [04]-[STYLE_SEAM]
+## [04]-[THEME]
 
-- Owner: `StyleKey` `[ValueObject<string>]` — the named style identity `ElementSpec` carries and `Widget.Style` receives — and `ThemeSeam`, the restyle owner: `Register<TWidget>` lands a style-handler row in the host `Style` registry through the verified `Style.Add<TWidget>(string, StyleWidgetHandler<TWidget>)`, `Track` enrolls a live control in the weak restyle set, and `Rebroadcast` walks the survivors calling `TriggerStyleChanged()` so every registered handler re-applies under the new theme. Style handlers read the `[05]` catalog's CURRENT resolved palette, so a variant swap plus one rebroadcast restyles the whole tracked tree with zero per-control code.
-- Law: registration precedes realization — a `StyleKey` referenced by an `ElementSpec` before its row lands is a silent no-op by host contract, so the seam's composition root registers rows first and the freeze-ordered boot is the guarantee, not a runtime check.
-- Law: the tracked set is weak — realization enrolls, collection evicts, and `Rebroadcast` snapshots the survivors, prunes dead references through a pure `Swap`, and fires `TriggerStyleChanged` OUTSIDE the swap body (a `Swap` re-runs under contention, so a side-effecting fold would double-restyle); an unbounded strong set of controls is the leak this shape forecloses.
-- Boundary: the Rhino transition edge is `Rhino.UI.ThemeSettings.ThemeChanged` — a public static `EventHandler` field subscribed with `+=` (the notifier behind `EtoExtensions` is a private nested type and never a seam); the HostUi shell owns that subscription and pushes the resolved variant into `OnHostThemeChanged(ThemeVariant)`, so this owner receives a variant and never reads the host.
-- Growth: a new styled widget family is one `Register<TWidget>` row; a second restyle mechanism is the deleted form.
+- Owner: `ThemeProgram` generates the complete role-by-variant grid; `ThemeCatalog` retains the contrast rules and publishes one immutable `ThemeSnapshot`; `ThemeSeam` registers styles and rebroadcasts the accepted snapshot to tracked controls.
+- Cases: `ThemeVariant` carries light, dark, and high-contrast axes; `PaletteRole` carries semantic paint roles without embedding colors; `ThemeShift` closes the transition family — `Generated` selects a variant from the frozen grid, `Hosted` merges live host-detached `PerceptualColor` cells over that variant's row, so the generator palette and the host theme meet in one owner.
+- Entry: `ThemeCatalog.Freeze` admits the initial variant, every contrast endpoint, and every finite ratio floor; `ThemeSeam.Register` and `ThemeSeam.Change` rail registration, callback failure, and rebroadcast over one polymorphic `ThemeShift`.
+- Auto: `ThemeProgram.Generate` derives every cell from the cross-product of generated vocabulary items, so missing-cell fallbacks cannot exist; a `Hosted` merge re-enters the same contrast gate `Freeze` runs, so an ingested cell breaching a floor rejects without touching the grid.
+- Receipt: `ThemeChange` carries the accepted generation, variant, changed-role set, and rebroadcast failures; a content-identical shift emits an empty changed set and holds the generation.
+- Growth: a role or variant is one generated row plus generator support; another transition modality is one `ThemeShift` case; every consumer remains unchanged.
+- Boundary: `ThemeSeam.Change` accepts the HostUi-selected shift — the variant polarity and any live host swatches arrive injected; Eto code never reads Rhino theme globals.
+- Exemption: style registration, weak-control compaction, and `TriggerStyleChanged` rebroadcast are the handler-registry statement seam.
 
-```csharp
+```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public readonly partial struct StyleKey {
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
-        validationError = string.IsNullOrWhiteSpace(value: value) ? new ValidationError(message: "StyleKey requires a non-whitespace name.") : null;
-}
-
-// --- [SERVICES] -----------------------------------------------------------------------------
-public static class ThemeSeam {
-    private static readonly Atom<Seq<WeakReference<Control>>> Tracked = Atom(Seq<WeakReference<Control>>());
-
-    public static Unit Register<TWidget>(StyleKey key, Action<TWidget> apply) where TWidget : Widget =>
-        Op.Side(() => Style.Add<TWidget>(style: key.Value, handler: widget => apply(widget)));
-
-    public static Unit Track(Control control) =>
-        ignore(Tracked.Swap(held => held.Add(new WeakReference<Control>(control))));
-
-    public static Unit Rebroadcast() {
-        Seq<Control> live = Tracked.Value.Choose(static reference => reference.TryGetTarget(out Control? held) ? Some(held) : None).Strict();
-        _ = Tracked.Swap(held => held.Filter(static reference => reference.TryGetTarget(out _)));
-        return ignore(live.Iter(static control => Op.Side(control.TriggerStyleChanged)));
-    }
-
-    public static Unit OnHostThemeChanged(ThemeVariant next) {
-        _ = ThemeCatalog.Shared.Swap(variant: next);
-        return Rebroadcast();
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
+        if (string.IsNullOrWhiteSpace(value)) {
+            validationError = new ValidationError(message: "Style identity requires text.");
+            return;
+        }
+        value = value.Trim();
+        validationError = null;
     }
 }
-```
 
-## [05]-[THEME_TOKENS]
-
-- Owner: `ThemeVariant` `[SmartEnum<int>]` (`Light`, `Dark`) — the variant axis the host light/dark transition selects — `PaletteRole` `[SmartEnum<int>]`, the closed role vocabulary every painted or chromed surface resolves against (canvas, panel, accent, stroke, primary and muted glyphs, focus, selection, hover, success, warning, failure), and `ThemeCatalog`, the frozen (role × variant) grid of kernel `PerceptualColor` cells: `Freeze` rejects any missing cell at construction, `Resolve` reads the current variant's full palette, `Swap` publishes the next variant atomically with a changed-role diff (value-identical cells emit nothing), and `Shared` is the one process instance — a second catalog forks the generation stamp and desynchronizes every derived cache. Ramps, hover derivations, and contrast checks are kernel math over the resolved cells — `Mix`, `Ramp`, `Contrast` on `PerceptualColor` — so no derived color is ever hand-lerped at a consumer.
-- Law: the grid is total at freeze — exactly `roles × variants` cells, with a missing or duplicate cell a typed construction failure; a draw-time fallback chain is structurally absent because `Resolve` indexes a frozen dictionary the freeze proved complete.
-- Law: text-bearing role pairs assert their WCAG floor at freeze — `Legible` folds `GlyphPrimary` against a ground-role seq (`Canvas`, `Panel`) gating `Contrast >= 4.5` per variant, so an unreadable palette is a freeze rejection, never a shipped screen, and a new text-bearing ground is one seq entry.
-- Law: the swap is the one theme mutation — `ThemeSeam.OnHostThemeChanged` swaps then rebroadcasts; a consumer holding a resolved `PerceptualColor` across swaps holds stale paint, so style handlers and scene builders resolve at application time.
-- Growth: a new role is one row plus its two seed cells — the freeze gate breaks construction until both land; a third variant (high-contrast) is one `ThemeVariant` row widening the same grid.
-
-```csharp
-// --- [TYPES] --------------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class ThemeVariant {
     public static readonly ThemeVariant Light = new(key: 0);
     public static readonly ThemeVariant Dark = new(key: 1);
+    public static readonly ThemeVariant Contrast = new(key: 2);
 }
 
 [SmartEnum<int>]
@@ -171,74 +211,201 @@ public sealed partial class PaletteRole {
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------
-public sealed record ResolvedTheme(int Generation, ThemeVariant Variant, HashMap<PaletteRole, PerceptualColor> Cells) {
+public sealed record ContrastRule(PaletteRole Foreground, PaletteRole Background, double Minimum);
+
+public sealed record ThemeProgram(Func<PaletteRole, ThemeVariant, PerceptualColor> Generate) {
+    public Validation<Error, Seq<(PaletteRole Role, ThemeVariant Variant, PerceptualColor Cell)>> Cells(Op key) =>
+        toSeq(PaletteRole.Items).Bind(role =>
+            toSeq(ThemeVariant.Items).Map(variant => (Role: role, Variant: variant)))
+        .Traverse(row => Try.lift(() => Generate(row.Role, row.Variant)).Run()
+            .Map(cell => (row.Role, row.Variant, Cell: cell))
+            .MapFail(error => new UiFault.HostRejected(Key: key, Detail: error.Message))
+            .ToValidation())
+        .As()
+        .Map(static cells => cells.Strict());
+}
+
+public sealed record ThemeSnapshot(
+    long Generation,
+    ThemeVariant Variant,
+    HashMap<PaletteRole, PerceptualColor> Cells) {
     public PerceptualColor this[PaletteRole role] => Cells[role];
+}
+
+public readonly record struct ThemeChange(
+    long Generation,
+    ThemeVariant Variant,
+    Seq<PaletteRole> Changed,
+    Seq<Error> Failures) : IValidityEvidence {
+    public bool IsValid => Failures.IsEmpty;
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record ThemeShift {
+    private ThemeShift() { }
+    public sealed record Generated(ThemeVariant Variant) : ThemeShift;
+    public sealed record Hosted(ThemeVariant Variant, HashMap<PaletteRole, PerceptualColor> Cells) : ThemeShift;
+
+    internal (ThemeVariant Variant, HashMap<PaletteRole, PerceptualColor> Overlay) Merge() => Switch(
+        generated: static shift => (shift.Variant, HashMap<PaletteRole, PerceptualColor>()),
+        hosted: static shift => (shift.Variant, shift.Cells));
 }
 
 // --- [SERVICES] -----------------------------------------------------------------------------
 public sealed class ThemeCatalog {
-    public static readonly ThemeCatalog Shared = Boot();
-    private readonly FrozenDictionary<(int Role, int Variant), PerceptualColor> grid;
-    private readonly Atom<ResolvedTheme> current;
-    private ThemeCatalog(FrozenDictionary<(int, int), PerceptualColor> grid, ResolvedTheme seed) { this.grid = grid; current = Atom(seed); }
+    private readonly Seq<ContrastRule> contrast;
+    private readonly Atom<ThemeState> current;
 
-    public ResolvedTheme Current => current.Value;
+    private sealed record ThemeState(
+        HashMap<ThemeVariant, HashMap<PaletteRole, PerceptualColor>> Grid,
+        ThemeSnapshot Snapshot,
+        Fin<ThemeChange> Outcome);
 
-    public static Fin<ThemeCatalog> Freeze(Seq<(PaletteRole Role, ThemeVariant Variant, PerceptualColor Cell)> cells, ThemeVariant boot, Op? key = null) {
+    private ThemeCatalog(
+        HashMap<ThemeVariant, HashMap<PaletteRole, PerceptualColor>> grid,
+        Seq<ContrastRule> contrast,
+        ThemeSnapshot seed) {
+        this.contrast = contrast;
+        current = Atom(new ThemeState(
+            grid,
+            seed,
+            Fin.Succ(new ThemeChange(seed.Generation, seed.Variant, [], []))));
+    }
+
+    public ThemeSnapshot Current => current.Value.Snapshot;
+
+    public static Validation<Error, ThemeCatalog> Freeze(
+        ThemeProgram program,
+        ThemeVariant initial,
+        Seq<ContrastRule> contrast,
+        Op? key = null) {
+        ArgumentNullException.ThrowIfNull(program);
         Op op = key.OrDefault();
-        if (cells.Map(static cell => (cell.Role.Key, cell.Variant.Key)).GroupBy(static slot => slot).Exists(static group => group.Count() > 1)) {
-            return Fin.Fail<ThemeCatalog>(error: new UiFault.Rejected(Key: op, Field: nameof(cells), Reason: "duplicate role x variant cell"));
-        }
-        FrozenDictionary<(int, int), PerceptualColor> grid = cells.AsEnumerable().ToFrozenDictionary(
-            keySelector: static cell => (cell.Role.Key, cell.Variant.Key),
-            elementSelector: static cell => cell.Cell);
-        return toSeq(PaletteRole.Items).Bind(role => toSeq(ThemeVariant.Items).Map(variant => (Role: role, Variant: variant)))
-            .TraverseM(slot => grid.ContainsKey((slot.Role.Key, slot.Variant.Key))
-                ? Fin.Succ(value: slot)
-                : Fin.Fail<(PaletteRole, ThemeVariant)>(error: new UiFault.Rejected(Key: op, Field: slot.Role.ToString(), Reason: $"missing cell for variant {slot.Variant}"))).As()
-            .Bind(_ => Legible(grid: grid, op: op))
-            .Map(_ => new ThemeCatalog(grid: grid, seed: new ResolvedTheme(Generation: 0, Variant: boot, Cells: Palette(grid: grid, variant: boot))));
+        return (Initial(initial, op), contrast.Traverse(rule => Rule(rule, op)))
+            .Apply(static (variant, rules) => (Variant: variant, Rules: rules.Strict()))
+            .As()
+            .Bind(admitted => program.Cells(op)
+                .Map(cells => toHashMap(toSeq(ThemeVariant.Items).Map(variant =>
+                    (variant, toHashMap(cells.Filter(cell => cell.Variant == variant).Map(cell => (cell.Role, cell.Cell)))))))
+                .Bind(generated => toSeq(ThemeVariant.Items)
+                    .Traverse(variant => Admitted(generated[variant], admitted.Rules, op))
+                    .As()
+                    .Map(_ => new ThemeCatalog(
+                        generated, admitted.Rules,
+                        new ThemeSnapshot(Generation: 0L, Variant: admitted.Variant, Cells: generated[admitted.Variant])))));
     }
 
-    public (int Generation, Seq<PaletteRole> Changed) Swap(ThemeVariant variant) {
-        HashMap<PaletteRole, PerceptualColor> next = Palette(grid: grid, variant: variant);
-        ResolvedTheme prior = current.Value;
-        ResolvedTheme published = current.Swap(held => new ResolvedTheme(Generation: held.Generation + 1, Variant: variant, Cells: next));
-        return (published.Generation, toSeq(PaletteRole.Items).Filter(role => !prior.Cells[role].Equals(next[role])));
+    public Fin<ThemeChange> Swap(ThemeShift shift, Op? key = null) {
+        ArgumentNullException.ThrowIfNull(shift);
+        Op op = key.OrDefault();
+        (ThemeVariant variant, HashMap<PaletteRole, PerceptualColor> overlay) = shift.Merge();
+        return variant is null || !toSeq(ThemeVariant.Items).Contains(variant)
+            ? Fin.Fail<ThemeChange>(new UiFault.Rejected(
+                Key: op, Field: nameof(ThemeShift), Reason: "shift variant must belong to the declared theme vocabulary"))
+            : op.Catch(() => current.Swap(held => {
+                HashMap<PaletteRole, PerceptualColor> merged = toHashMap(toSeq(PaletteRole.Items)
+                    .Map(role => (role, overlay.Find(role).IfNone(() => held.Grid[variant][role]))));
+                return Admitted(merged, contrast, op).ToFin().Match(
+                    Succ: admitted => {
+                        Seq<PaletteRole> changed = toSeq(PaletteRole.Items)
+                            .Filter(role => !held.Snapshot.Cells[role].Equals(admitted[role]))
+                            .Strict();
+                        ThemeSnapshot snapshot = held.Snapshot.Variant == variant && changed.IsEmpty
+                            ? held.Snapshot
+                            : new ThemeSnapshot(held.Snapshot.Generation + 1L, variant, admitted);
+                        ThemeChange change = new(snapshot.Generation, snapshot.Variant, changed, []);
+                        return new ThemeState(held.Grid, snapshot, Fin.Succ(change));
+                    },
+                    Fail: fault => held with { Outcome = Fin.Fail<ThemeChange>(fault) });
+            }).Outcome);
     }
 
-    private static HashMap<PaletteRole, PerceptualColor> Palette(FrozenDictionary<(int, int), PerceptualColor> grid, ThemeVariant variant) =>
-        toHashMap(toSeq(PaletteRole.Items).Map(role => (role, grid[(role.Key, variant.Key)])));
+    private static Validation<Error, HashMap<PaletteRole, PerceptualColor>> Admitted(
+        HashMap<PaletteRole, PerceptualColor> cells, Seq<ContrastRule> contrast, Op op) =>
+        contrast.Traverse(rule => cells[rule.Foreground].Contrast(cells[rule.Background]) >= rule.Minimum
+                ? Validation<Error, ContrastRule>.Success(rule)
+                : Validation<Error, ContrastRule>.Fail(
+                    new UiFault.Rejected(Key: op, Field: rule.Foreground.ToString(), Reason: "contrast floor breached")))
+            .As()
+            .Map(_ => cells);
 
-    private static Fin<Unit> Legible(FrozenDictionary<(int, int), PerceptualColor> grid, Op op) =>
-        toSeq(ThemeVariant.Items)
-            .Bind(static variant => Seq(PaletteRole.Canvas, PaletteRole.Panel).Map(ground => (Variant: variant, Ground: ground)))
-            .TraverseM(pair =>
-                grid[(PaletteRole.GlyphPrimary.Key, pair.Variant.Key)].Contrast(other: grid[(pair.Ground.Key, pair.Variant.Key)]) >= 4.5
-                    ? Fin.Succ(value: pair)
-                    : Fin.Fail<(ThemeVariant, PaletteRole)>(error: new UiFault.Rejected(Key: op, Field: nameof(PaletteRole.GlyphPrimary), Reason: $"contrast floor breached over {pair.Ground} under {pair.Variant}"))).As()
-            .Map(static _ => unit);
+    private static K<Validation<Error>, ThemeVariant> Initial(ThemeVariant initial, Op op) =>
+        initial is not null && toSeq(ThemeVariant.Items).Contains(initial)
+            ? Validation<Error, ThemeVariant>.Success(initial)
+            : Validation<Error, ThemeVariant>.Fail(new UiFault.Rejected(
+                Key: op, Field: nameof(initial), Reason: "initial variant must belong to the declared theme vocabulary"));
 
-    private static ThemeCatalog Boot() =>
-        Freeze(cells: StandardCells(), boot: ThemeVariant.Light).ThrowIfFail();
+    private static K<Validation<Error>, ContrastRule> Rule(ContrastRule rule, Op op) =>
+        rule is null
+            ? Validation<Error, ContrastRule>.Fail(new UiFault.Rejected(
+                Key: op, Field: nameof(ContrastRule), Reason: "contrast rule is absent"))
+            : (Role(rule.Foreground, nameof(ContrastRule.Foreground), op),
+               Role(rule.Background, nameof(ContrastRule.Background), op),
+               Floor(rule.Minimum, op))
+                .Apply((_, _, _) => rule);
 
-    private static Seq<(PaletteRole, ThemeVariant, PerceptualColor)> StandardCells() =>
-        toSeq(new[] {
-            Cell(PaletteRole.Canvas, ThemeVariant.Light, 250, 250, 250), Cell(PaletteRole.Canvas, ThemeVariant.Dark, 30, 30, 32),
-            Cell(PaletteRole.Panel, ThemeVariant.Light, 240, 240, 241), Cell(PaletteRole.Panel, ThemeVariant.Dark, 44, 44, 47),
-            Cell(PaletteRole.Accent, ThemeVariant.Light, 0, 102, 204), Cell(PaletteRole.Accent, ThemeVariant.Dark, 82, 156, 255),
-            Cell(PaletteRole.Stroke, ThemeVariant.Light, 200, 200, 203), Cell(PaletteRole.Stroke, ThemeVariant.Dark, 70, 70, 74),
-            Cell(PaletteRole.GlyphPrimary, ThemeVariant.Light, 24, 24, 26), Cell(PaletteRole.GlyphPrimary, ThemeVariant.Dark, 235, 235, 238),
-            Cell(PaletteRole.GlyphMuted, ThemeVariant.Light, 110, 110, 115), Cell(PaletteRole.GlyphMuted, ThemeVariant.Dark, 155, 155, 160),
-            Cell(PaletteRole.Focus, ThemeVariant.Light, 0, 122, 255), Cell(PaletteRole.Focus, ThemeVariant.Dark, 100, 170, 255),
-            Cell(PaletteRole.Selection, ThemeVariant.Light, 205, 228, 255), Cell(PaletteRole.Selection, ThemeVariant.Dark, 42, 74, 115),
-            Cell(PaletteRole.Hover, ThemeVariant.Light, 232, 240, 250), Cell(PaletteRole.Hover, ThemeVariant.Dark, 56, 60, 66),
-            Cell(PaletteRole.Success, ThemeVariant.Light, 32, 140, 60), Cell(PaletteRole.Success, ThemeVariant.Dark, 88, 190, 118),
-            Cell(PaletteRole.Warning, ThemeVariant.Light, 196, 138, 12), Cell(PaletteRole.Warning, ThemeVariant.Dark, 235, 186, 76),
-            Cell(PaletteRole.Failure, ThemeVariant.Light, 200, 48, 48), Cell(PaletteRole.Failure, ThemeVariant.Dark, 240, 106, 106),
-        });
+    private static K<Validation<Error>, PaletteRole> Role(PaletteRole role, string field, Op op) =>
+        role is not null && toSeq(PaletteRole.Items).Contains(role)
+            ? Validation<Error, PaletteRole>.Success(role)
+            : Validation<Error, PaletteRole>.Fail(new UiFault.Rejected(
+                Key: op, Field: field, Reason: "role must belong to the declared palette vocabulary"));
 
-    private static (PaletteRole, ThemeVariant, PerceptualColor) Cell(PaletteRole role, ThemeVariant variant, byte red, byte green, byte blue) =>
-        (role, variant, PerceptualColor.OfRgb(red: red, green: green, blue: blue).ThrowIfFail());
+    private static K<Validation<Error>, double> Floor(double minimum, Op op) =>
+        double.IsFinite(minimum) && minimum is >= 1d and <= 21d
+            ? Validation<Error, double>.Success(minimum)
+            : Validation<Error, double>.Fail(new UiFault.Rejected(
+                Key: op, Field: nameof(ContrastRule.Minimum), Reason: "contrast floors must be finite ratios from one through twenty-one"));
+}
+
+public sealed class ThemeSeam(ThemeCatalog catalog) {
+    private readonly Atom<Seq<Error>> failures = Atom(Seq<Error>());
+    private readonly Atom<Seq<WeakReference<Control>>> tracked = Atom(Seq<WeakReference<Control>>());
+
+    public Seq<Error> Failures => failures.Value;
+
+    public Fin<Unit> Register<TWidget>(
+        StyleKey key,
+        Action<TWidget, ThemeSnapshot> apply,
+        Action<Error> report,
+        Op? operation = null) where TWidget : Widget {
+        Op op = operation.OrDefault();
+        return string.IsNullOrWhiteSpace(key.Value)
+            ? Fin.Fail<Unit>(new UiFault.Rejected(Key: op, Field: nameof(key), Reason: "style identity requires an admitted key"))
+            : op.Catch(() => Fin.Succ(Op.Side(() => Style.Add<TWidget>(key.Value, widget => {
+                if (widget is Control control) _ = Track(control);
+                _ = op.Catch(() => Fin.Succ(Op.Side(() => apply(widget, catalog.Current)))).Match(
+                    Succ: static applied => applied,
+                    Fail: fault => Retain(fault, report, op));
+            }))));
+    }
+
+    public Unit Track(Control control) => ignore(tracked.Swap(held => {
+        Seq<WeakReference<Control>> live = held.Filter(static reference => reference.TryGetTarget(out _)).Strict();
+        return control is null || live.Exists(reference =>
+            reference.TryGetTarget(out Control? candidate) && ReferenceEquals(candidate, control))
+            ? live
+            : live.Add(new WeakReference<Control>(control));
+    }));
+
+    public Fin<ThemeChange> Change(ThemeShift shift, Op? key = null) {
+        Op op = key.OrDefault();
+        return catalog.Swap(shift, op).Bind(change =>
+            op.Catch(() => {
+                Seq<Control> live = tracked.Value.Choose(static reference =>
+                    reference.TryGetTarget(out Control? control) ? Some(control) : None).Strict();
+                _ = tracked.Swap(held => held.Filter(static reference => reference.TryGetTarget(out _)));
+                return live.Map(static control => (Action)control.TriggerStyleChanged).Drained(op);
+            }).Match(
+                Succ: _ => Fin.Succ(change),
+                Fail: fault => Fin.Succ(Retain(change, fault))));
+    }
+
+    private Unit Retain(Error fault, Action<Error> report, Op op) =>
+        ignore(failures.Swap(held => held.Add(fault.Reported(report, op))));
+
+    private ThemeChange Retain(ThemeChange change, Error fault) {
+        _ = failures.Swap(held => held.Add(fault));
+        return change with { Failures = Seq(fault) };
+    }
 }
 ```

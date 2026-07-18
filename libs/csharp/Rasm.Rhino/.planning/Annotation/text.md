@@ -1,157 +1,300 @@
 # [RASM_RHINO_ANNOTATION_TEXT]
 
-Text-annotation rail (`Rasm.Rhino.Annotation`). One `TextSeed` union carries plain and RTF content into `TextEntity` and `Leader` construction; `RunEdit` owns live rich-text mutation, while `RunStyle` carries the smaller formatting delta `FormatRtfString` actually accepts. Text-to-geometry outlining is one `OutlineSpec` over four egress forms crossed with grouping and small-caps metrics, covering sixteen modes through eight maximal overloads and named arguments because grouped solid/shell members transpose `smallCapsScale` before `height` and the base member spells `CreatePolySurfaces` where its grouped sibling spells `CreatePolysurfacesGrouped`. `FieldExpr` carries the catalogued `TextFields` evaluator roster as typed cases; `FieldProgram` preserves positional optional arguments, quotes tokens, and resolves exclusively through document-explicit `TextFields.TryFormat`. Field source rides `RichText` because the host marks `TextFormula` and `Text` obsolete as aliases of `RichText`/`PlainText`. Per-annotation restyling composes `StylePatch.Overlay`; leader points, leader facts, and text/leader explosion ride the same rail. Block-attribute extraction rides the Blocks seam's field family — `FieldSource` extraction sources and detached `BlockField` values behind `BlockAsk` — outside this owner.
+`TextSeed`, `TextSpec`, and `LeaderSpec` admit content and placement once; `RunEdit` owns both live and detached formatting; `FieldKind` generates the evaluator space from signature data instead of a mirrored case roster.
+
+`OutlineSpec` crosses form, grouping, and transform in one flat dispatch and returns detached geometry with content identity and bounds; `TextOp` collapses text and leader placement into one mutation rail.
 
 ## [01]-[INDEX]
 
-- [02]-[CONTENT_MODEL]: `TextSeed`, `TextSpec`, `LeaderSpec`, live `RunEdit`, and detached `RunStyle`.
-- [03]-[FIELD_FORMULAS]: `CoordAxis`, `FieldExpr`, `TextRun`, and the `FieldProgram` compose/evaluate pair.
-- [04]-[OUTLINING]: `GlyphMetrics`, `Grouping`, `OutlineForm`, `OutlineSpec`, and the typed `OutlineProduct`.
-- [05]-[TEXT_RAIL]: `TextOp`, `TextTransaction`, the `Texts` entry pair, and the `TextState`/`LeaderFacts` snapshots with doc-object projections.
+- [02]-[CONTENT_MODEL]: admitted content, placement, run edits, and detached RTF formatting.
+- [03]-[FIELD_FORMULAS]: evaluator rows, typed signature data, programs, composition, and evaluation.
+- [04]-[OUTLINING]: transform-aware form/group dispatch with detached geometry evidence.
+- [05]-[TEXT_RAIL]: placement, mutation, snapshot, query, and shared commit entry.
 - [06]-[SURFACE_LEDGER]: the page's owner table.
 
 ## [02]-[CONTENT_MODEL]
 
-- Owner: `TextSeed` `[Union]` — `Plain` over validated text, `Rich` over an RTF source — the content discriminant `TextEntity.Create`/`CreateWithRichText` and `Leader.Create`/`CreateWithRichText` dispatch on; `TextSpec` — text-frame construction: seed, wrap width, in-plane rotation; `LeaderSpec` — leader construction: seed plus an ordered point run of at least two points; `RunEdit` `[Union]` — live span replacement, whole-content formatting, facename assignment, and positive-width re-wrap; `RunStyle` — detached RTF formatting deltas only.
-- Law: the seed selects the host overload — a caller states content, never picks between `Create` and `CreateWithRichText`; RTF admission is the host parser's, and `PlainTextToRtf` lifts plain text into the run model where a formatting edit demands it.
-- Law: live and detached mutations share only the host's real intersection — `RunEdit` reaches live `AnnotationBase` members, and `RunStyle` reaches `FormatRtfString`'s formatting-only clear/set arguments. `Replace` and `Wrap` never masquerade as detached RTF operations.
-- Law: `SetBold`/`SetItalic`/`SetUnderline`/`SetFacename` are whole-content operations — the host exposes no run-range formatting member, so the only span-scoped mutation is `Replace` over run indices from `GetPlainTextWithRunMap`; a fence claiming range-scoped bold is a phantom.
-- Law: first-character and uniform-formatting evidence reads live — `FirstCharFont` answers the leading run's face/bold/italic and `IsAllBold`/`IsAllItalic`/`IsAllUnderlined` the whole-content probes on the snapshot; the static `FirstCharProperties` is host-obsolete and never composed.
-- Boundary: `Wrap` re-flows to `FormatWidth`; wrap state reads back through `TextIsWrapped`/`FormatWidth`/`TextModelWidth` on the snapshot, and DPI or viewport scaling never enters the run model.
+- Owner: `TextSeed` owns plain-versus-rich source, `TextSpec` owns text creation, `LeaderPath` and `LeaderSpec` share point-run admission across creation and repointing, and `RunEdit` owns replacement, formatting, and wrapping.
+- Law: public factories admit every reference row before dispatch; raw strings, numeric widths, angles, ranges, and point runs enter before a host constructor or mutation sees them.
+- Law: `RunFormat` is the sole formatting vocabulary for live annotation edits and `FormatRtfString`; no second delta shape reconstructs bold, italic, underline, or face state.
 
 ```csharp signature
+// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+using Rasm.Domain;
+using Rasm.Rhino.Document;
+using Rasm.Rhino.Objects;
+using Rhino;
+using Rhino.Display;
+using Rhino.DocObjects;
+using Rhino.Geometry;
+
+namespace Rasm.Rhino.Annotation;
+
 // --- [TYPES] --------------------------------------------------------------------------------
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record TextSeed {
-    private TextSeed() { }
-    public sealed record Plain(string Value) : TextSeed;
-    public sealed record Rich(string Rtf) : TextSeed;
-
-    public static Fin<TextSeed> Of(string text) =>
-        Op.Of(name: nameof(TextSeed)).AcceptText(value: text).Map(static valid => (TextSeed)new Plain(Value: valid));
-
-    public static Fin<TextSeed> OfRtf(string rtf) =>
-        Op.Of(name: nameof(TextSeed)).AcceptText(value: rtf).Map(static valid => (TextSeed)new Rich(Rtf: valid));
+[SmartEnum<int>]
+public sealed partial class TextFormat {
+    public static readonly TextFormat Plain = new(key: 0, usesRichText: false);
+    public static readonly TextFormat Rich = new(key: 1, usesRichText: true);
+    internal bool UsesRichText { get; }
 }
 
-public sealed record TextSpec(TextSeed Seed, Option<double> WrapWidth, double RotationRadians = 0.0) {
-    public static Fin<TextSpec> Of(TextSeed seed, Option<double> wrapWidth = default, double rotationRadians = 0.0, Op? key = null) {
-        Op op = key.OrDefault();
-        return from content in Optional(seed).ToFin(Fail: op.InvalidInput())
-               from _ in wrapWidth.Match(Some: width => op.Positive(value: width).Map(static _ => unit), None: () => Fin.Succ(value: unit))
-               from __ in op.AcceptInput(value: rotationRadians)
-               select new TextSpec(Seed: content, WrapWidth: wrapWidth, RotationRadians: rotationRadians);
+[ComplexValueObject]
+public sealed partial class TextSeed {
+    public TextFormat Format { get; }
+    public string Value { get; }
+
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError, ref TextFormat format, ref string value) {
+        value ??= string.Empty;
+        if (format is null || string.IsNullOrWhiteSpace(value))
+            validationError = new ValidationError("Text format and content are required.");
+    }
+}
+
+[ValueObject<double>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
+public sealed partial class TextWidth {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) {
+        if (!double.IsFinite(value) || value <= 0.0) validationError = new ValidationError("Text width must be finite and positive.");
+    }
+}
+
+[ValueObject<double>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
+public sealed partial class TextAngle {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) {
+        if (!double.IsFinite(value)) validationError = new ValidationError("Text angle must be finite.");
+    }
+}
+
+[ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
+public sealed partial class TextValue {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
+        if (value is null) validationError = new ValidationError("Text value cannot be null.");
+    }
+}
+
+[ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
+public sealed partial class FieldSource {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
+        value = value?.Trim() ?? string.Empty;
+        if (value.Length == 0) validationError = new ValidationError("Field source is required.");
+    }
+}
+
+[ComplexValueObject]
+public sealed partial class TextSpec {
+    public TextSeed Seed { get; }
+    public Option<TextWidth> WrapWidth { get; }
+    public TextAngle Rotation { get; }
+
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref TextSeed seed, ref Option<TextWidth> wrapWidth, ref TextAngle rotation) {
+        if (seed is null || rotation is null)
+            validationError = new ValidationError("Text creation state is incomplete.");
     }
 
-    internal Fin<TextEntity> Mint(Plane plane, DimensionStyle style, Op key) =>
-        key.Catch(() => Optional(Seed.Switch(
-                state: (Plane: plane, Style: style, Wrapped: WrapWidth.IsSome, Width: WrapWidth.IfNone(noneValue: 0.0), Rotation: RotationRadians),
-                plain: static (ctx, seed) => TextEntity.Create(
-                    text: seed.Value, plane: ctx.Plane, style: ctx.Style,
-                    wrapped: ctx.Wrapped, rectWidth: ctx.Width, rotationRadians: ctx.Rotation),
-                rich: static (ctx, seed) => TextEntity.CreateWithRichText(
-                    richTextString: seed.Rtf, plane: ctx.Plane, style: ctx.Style,
-                    wrapped: ctx.Wrapped, rectWidth: ctx.Width, rotationRadians: ctx.Rotation)))
-            .ToFin(Fail: key.InvalidResult()));
+    internal Fin<TextEntity> Mint(Plane plane, DimensionStyle style, Op key) => key.Catch(() => Optional(
+        Seed.Format.UsesRichText
+            ? TextEntity.CreateWithRichText(
+                richTextString: Seed.Value,
+                plane: plane,
+                style: style,
+                wrapped: WrapWidth.IsSome,
+                rectWidth: WrapWidth.Map(static width => width.Value).IfNone(0.0),
+                rotationRadians: Rotation.Value)
+            : TextEntity.Create(
+                text: Seed.Value,
+                plane: plane,
+                style: style,
+                wrapped: WrapWidth.IsSome,
+                rectWidth: WrapWidth.Map(static width => width.Value).IfNone(0.0),
+                rotationRadians: Rotation.Value))
+        .ToFin(Fail: key.InvalidResult()));
 }
 
-public sealed record LeaderSpec(TextSeed Seed, Seq<Point3d> Points) {
-    public static Fin<LeaderSpec> Of(TextSeed seed, params ReadOnlySpan<Point3d> points) {
-        Op op = Op.Of(name: nameof(LeaderSpec));
-        return from content in Optional(seed).ToFin(Fail: op.InvalidInput())
-               from run in toSeq(points.ToArray()).TraverseM(point => op.AcceptInput(value: point)).As()
+public sealed record LeaderPath {
+    private LeaderPath(Seq<Point3d> points) => Points = points;
+    public Seq<Point3d> Points { get; }
+
+    public static Fin<LeaderPath> Of(params ReadOnlySpan<Point3d> points) {
+        Op op = Op.Of();
+        return from run in LanguageExt.Iterable<Point3d>.FromSpan(points)
+                   .ToSeq()
+                   .Traverse(point => op.AcceptInput(value: point).ToValidation())
+                   .As()
+                   .ToFin()
                from _ in guard(run.Count >= 2, op.InvalidInput()).ToFin()
-               select new LeaderSpec(Seed: content, Points: run);
+               select new LeaderPath(points: run);
+    }
+}
+
+public sealed record LeaderSpec {
+    private LeaderSpec(TextSeed seed, LeaderPath path) { Seed = seed; Path = path; }
+    public TextSeed Seed { get; }
+    public LeaderPath Path { get; }
+
+    public static Fin<LeaderSpec> Of(TextSeed seed, params ReadOnlySpan<Point3d> points) {
+        Op op = Op.Of();
+        return from admitted in op.AcceptInput(value: seed)
+               from path in LeaderPath.Of(points)
+               select new LeaderSpec(seed: admitted, path: path);
     }
 
-    internal Fin<Leader> Mint(Plane plane, DimensionStyle style, Op key) {
-        LeaderSpec self = this;
-        return key.Catch(() => Optional(self.Seed.Switch(
-                state: (Plane: plane, Style: style, Points: self.Points.ToArray()),
-                plain: static (ctx, seed) => Leader.Create(text: seed.Value, plane: ctx.Plane, dimstyle: ctx.Style, points: ctx.Points),
-                rich: static (ctx, seed) => Leader.CreateWithRichText(richText: seed.Rtf, plane: ctx.Plane, dimstyle: ctx.Style, points: ctx.Points)))
-            .ToFin(Fail: key.InvalidResult()));
+    internal Fin<Leader> Mint(Plane plane, DimensionStyle style, Op key) => key.Catch(() => Optional(
+        Seed.Format.UsesRichText
+            ? Leader.CreateWithRichText(
+                richText: Seed.Value, plane: plane, dimstyle: style, points: Path.Points.ToArray())
+            : Leader.Create(
+                text: Seed.Value, plane: plane, dimstyle: style, points: Path.Points.ToArray()))
+        .ToFin(Fail: key.InvalidResult()));
+}
+
+[SmartEnum<int>]
+public sealed partial class TextToggle {
+    public static readonly TextToggle Off = new(key: 0, enabled: false);
+    public static readonly TextToggle On = new(key: 1, enabled: true);
+    internal bool Enabled { get; }
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record FaceDelta {
+    private FaceDelta() { }
+    public sealed record Clear : FaceDelta;
+    public sealed record Set(ResourceName Name) : FaceDelta;
+
+    internal Fin<FaceDelta> Admit(Op key) => Switch(
+        state: key,
+        clear: static (_, _) => Fin.Succ<FaceDelta>(value: new Clear()),
+        set: static (op, change) => op.AcceptInput(value: change.Name)
+            .Map(name => (FaceDelta)new Set(Name: name)));
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record RunFormat {
+    private RunFormat() { }
+    public sealed record Bold(TextToggle Value) : RunFormat;
+    public sealed record Italic(TextToggle Value) : RunFormat;
+    public sealed record Underline(TextToggle Value) : RunFormat;
+    public sealed record Face(FaceDelta Value) : RunFormat;
+
+    internal Fin<RunFormat> Admit(Op key) => Switch(
+        state: key,
+        bold: static (op, edit) => op.AcceptInput(value: edit.Value)
+            .Map(value => (RunFormat)new Bold(Value: value)),
+        italic: static (op, edit) => op.AcceptInput(value: edit.Value)
+            .Map(value => (RunFormat)new Italic(Value: value)),
+        underline: static (op, edit) => op.AcceptInput(value: edit.Value)
+            .Map(value => (RunFormat)new Underline(Value: value)),
+        face: static (op, edit) => op.AcceptInput(value: edit.Value)
+            .Bind(value => value.Admit(key: op))
+            .Map(value => (RunFormat)new Face(Value: value)));
+
+    internal Fin<Unit> Apply(AnnotationBase annotation, Op key) => Switch(
+        state: (Annotation: annotation, Op: key),
+        bold: static (ctx, edit) => ctx.Op.Confirm(success: ctx.Annotation.SetBold(setOn: edit.Value.Enabled)),
+        italic: static (ctx, edit) => ctx.Op.Confirm(success: ctx.Annotation.SetItalic(setOn: edit.Value.Enabled)),
+        underline: static (ctx, edit) => ctx.Op.Confirm(success: ctx.Annotation.SetUnderline(setOn: edit.Value.Enabled)),
+        face: static (ctx, edit) => edit.Value.Switch(
+            state: ctx,
+            clear: static (state, _) => state.Op.Confirm(success: state.Annotation.SetFacename(setOn: false, facename: string.Empty)),
+            set: static (state, change) => state.Op.Confirm(success: state.Annotation.SetFacename(
+                setOn: true, facename: change.Name.Value))));
+}
+
+[ComplexValueObject]
+public sealed partial class RunSpan {
+    public int StartRun { get; }
+    public int StartPosition { get; }
+    public int EndRun { get; }
+    public int EndPosition { get; }
+
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref int startRun, ref int startPosition, ref int endRun, ref int endPosition) {
+        if (startRun < 0 || startPosition < 0 || endRun < startRun || endPosition < 0
+            || (endRun == startRun && endPosition < startPosition))
+            validationError = new ValidationError("Run span is reversed or negative.");
     }
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record RunEdit {
     private RunEdit() { }
-    public sealed record Replace(string Text, int StartRun, int StartPosition, int EndRun, int EndPosition) : RunEdit;
-    public sealed record Bold(bool On) : RunEdit;
-    public sealed record Italic(bool On) : RunEdit;
-    public sealed record Underline(bool On) : RunEdit;
-    public sealed record Facename(bool On, string Face) : RunEdit;
-    public sealed record Wrap(double Width) : RunEdit;
+    public sealed record Replace(TextValue Text, RunSpan Span) : RunEdit;
+    public sealed record Format(Seq<RunFormat> Changes) : RunEdit;
+    public sealed record Wrap(TextWidth Width) : RunEdit;
 
-    internal Fin<Unit> Apply(AnnotationBase annotation, Op key) =>
-        Switch(
-            state: (Annotation: annotation, Op: key),
-            replace: static (ctx, edit) =>
-                from _ in guard(edit.StartRun >= 0 && edit.StartPosition >= 0 && edit.EndRun >= 0 && edit.EndPosition >= 0, ctx.Op.InvalidInput()).ToFin()
-                from replaced in ctx.Op.Confirm(success: ctx.Annotation.RunReplace(
-                    replaceString: edit.Text, startRunIndex: edit.StartRun, startRunPosition: edit.StartPosition,
-                    endRunIndex: edit.EndRun, endRunPosition: edit.EndPosition))
-                select replaced,
-            bold: static (ctx, edit) => ctx.Op.Confirm(success: ctx.Annotation.SetBold(setOn: edit.On)),
-            italic: static (ctx, edit) => ctx.Op.Confirm(success: ctx.Annotation.SetItalic(setOn: edit.On)),
-            underline: static (ctx, edit) => ctx.Op.Confirm(success: ctx.Annotation.SetUnderline(setOn: edit.On)),
-            facename: static (ctx, edit) =>
-                from face in ctx.Op.AcceptText(value: edit.Face)
-                from changed in ctx.Op.Confirm(success: ctx.Annotation.SetFacename(setOn: edit.On, facename: face))
-                select changed,
-            wrap: static (ctx, edit) =>
-                from width in ctx.Op.Positive(value: edit.Width)
-                from wrapped in ctx.Op.Catch(() => {
-                    ctx.Annotation.FormatWidth = width;
-                    ctx.Annotation.WrapText();
-                    return Fin.Succ(value: unit);
-                })
-                select wrapped);
+    internal Fin<RunEdit> Admit(Op key) => Switch(
+        state: key,
+        replace: static (op, edit) =>
+            from text in op.AcceptInput(value: edit.Text)
+            from span in op.AcceptInput(value: edit.Span)
+            select (RunEdit)new Replace(Text: text, Span: span),
+        format: static (op, edit) =>
+            from changes in edit.Changes.TraverseM(change => op.AcceptInput(value: change)
+                .Bind(value => value.Admit(key: op))).As()
+            from _ in guard(!changes.IsEmpty, op.InvalidInput()).ToFin()
+            select (RunEdit)new Format(Changes: changes),
+        wrap: static (op, edit) => op.AcceptInput(value: edit.Width)
+            .Map(width => (RunEdit)new Wrap(Width: width)));
+
+    internal Fin<Unit> Apply(AnnotationBase annotation, Op key) => Switch(
+        state: (Annotation: annotation, Op: key),
+        replace: static (ctx, edit) => ctx.Op.Confirm(success: ctx.Annotation.RunReplace(
+            replaceString: edit.Text.Value,
+            startRunIndex: edit.Span.StartRun,
+            startRunPosition: edit.Span.StartPosition,
+            endRunIndex: edit.Span.EndRun,
+            endRunPosition: edit.Span.EndPosition)),
+        format: static (ctx, edit) =>
+            from _ in edit.Changes.TraverseM(change => change.Apply(annotation: ctx.Annotation, key: ctx.Op)).As()
+            select unit,
+        wrap: static (ctx, edit) => ctx.Op.Catch(() => {
+            ctx.Annotation.FormatWidth = edit.Width.Value;
+            ctx.Annotation.WrapText();
+        }));
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record FaceDelta {
-    private FaceDelta() { }
-    public sealed record Clear : FaceDelta;
-    public sealed record Set(string Name) : FaceDelta;
-}
-
-public sealed record RunStyle(
-    Option<bool> Bold = default,
-    Option<bool> Italic = default,
-    Option<bool> Underline = default,
-    Option<FaceDelta> Face = default);
-
 public static class TextRtf {
-    public static Fin<string> FromPlain(string text) =>
-        Op.Of().AcceptText(value: text).Map(static valid => AnnotationBase.PlainTextToRtf(str: valid));
+    private readonly record struct FormatArguments(
+        bool ClearBold,
+        bool SetBold,
+        bool ClearItalic,
+        bool SetItalic,
+        bool ClearUnderline,
+        bool SetUnderline,
+        bool ClearFace,
+        bool SetFace,
+        string Face) {
+        internal static FormatArguments Empty { get; } = default(FormatArguments) with { Face = string.Empty };
 
-    public static Fin<string> Restyled(string rtf, RunStyle delta) {
+        internal FormatArguments Apply(RunFormat format) => format.Switch(
+            bold: value => this with { ClearBold = !value.Value.Enabled, SetBold = value.Value.Enabled },
+            italic: value => this with { ClearItalic = !value.Value.Enabled, SetItalic = value.Value.Enabled },
+            underline: value => this with { ClearUnderline = !value.Value.Enabled, SetUnderline = value.Value.Enabled },
+            face: value => value.Value.Switch(
+                clear: _ => this with { ClearFace = true, SetFace = false, Face = string.Empty },
+                set: change => this with { ClearFace = false, SetFace = true, Face = change.Name.Value }));
+    }
+
+    public static Fin<string> FromPlain(string text) =>
+        Op.Of().AcceptText(value: text).Map(static value => AnnotationBase.PlainTextToRtf(str: value));
+
+    public static Fin<string> Restyled(string rtf, params ReadOnlySpan<RunFormat> formats) {
         Op op = Op.Of();
         return from source in op.AcceptText(value: rtf)
-               from edit in Optional(delta).ToFin(Fail: op.InvalidInput())
-               from _ in guard(edit.Bold.IsSome || edit.Italic.IsSome || edit.Underline.IsSome || edit.Face.IsSome, op.InvalidInput()).ToFin()
-               from face in edit.Face.Match(
-                   Some: value => value.Switch(
-                       clear: static _ => Fin.Succ(value: Some<FaceDelta>(new FaceDelta.Clear())),
-                       set: change => op.AcceptText(value: change.Name)
-                           .Map(name => Some<FaceDelta>(new FaceDelta.Set(Name: name)))),
-                   None: () => Fin.Succ(Option<FaceDelta>.None))
-               let faceArgs = face.Match(
-                   Some: static value => value.Switch(
-                       clear: static _ => (Clear: true, Set: false, Name: string.Empty),
-                       set: static change => (Clear: false, Set: true, Name: change.Name)),
-                   None: static () => (Clear: false, Set: false, Name: string.Empty))
+               from admitted in LanguageExt.Iterable<RunFormat>.FromSpan(formats)
+                   .ToSeq().TraverseM(format => op.AcceptInput(value: format)
+                       .Bind(value => value.Admit(key: op))).As()
+               from _ in guard(!admitted.IsEmpty, op.InvalidInput()).ToFin()
+               let args = admitted.Fold(FormatArguments.Empty, static (state, format) => state.Apply(format))
                from formatted in op.Catch(() => Fin.Succ(value: AnnotationBase.FormatRtfString(
                    rtfIn: source,
-                   clearBold: edit.Bold == Some(false), setBold: edit.Bold == Some(true),
-                   clearItalic: edit.Italic == Some(false), setItalic: edit.Italic == Some(true),
-                   clearUnderline: edit.Underline == Some(false), setUnderline: edit.Underline == Some(true),
-                   clearFacename: faceArgs.Clear,
-                   setFacename: faceArgs.Set,
-                   facename: faceArgs.Name)))
+                   clearBold: args.ClearBold, setBold: args.SetBold,
+                   clearItalic: args.ClearItalic, setItalic: args.SetItalic,
+                   clearUnderline: args.ClearUnderline, setUnderline: args.SetUnderline,
+                   clearFacename: args.ClearFace, setFacename: args.SetFace, facename: args.Face)))
                select formatted;
     }
 }
@@ -159,12 +302,9 @@ public static class TextRtf {
 
 ## [03]-[FIELD_FORMULAS]
 
-- Owner: `CoordAxis` `[SmartEnum<string>]` — the axis token vocabulary the coordinate evaluators consume; `FieldExpr` `[Union]` — one typed case per `TextFields` evaluator across the document, object, page, and block families, each projecting `(name, args)` through one `Token` fold; `TextRun` `[Union]` — literal or field segments; `FieldProgram` — the ordered segment run with `Compose` and session-bound `Evaluate`.
-- Law: composition is typed, evaluation is host — a program renders to the host token grammar (`%<Name("arg",...)>%`) through `Compose`, preserves empty positional arguments when a later optional is present, escapes quoted content, and resolves only through `TextFields.TryFormat(text, document, out result)` inside the session grant.
-- Law: the case set is the verified host roster — the geometry evaluator is `Volume`, no `VolumeAll` member exists, `BlockName` supersedes the host's soft-deprecated `BlockInstanceName`, and `TryParse(text, document, out tokens)` is the one token splitter; a formula string concatenated by hand at a call site is the deleted form.
-- Law: ids travel typed — object, layer, detail, and block-instance references enter as `Guid` and render as strings only inside `Token`, because the host grammar is stringly and this union is where that boundary stops.
-- Boundary: `BlockAttributeText` and `GetInstanceAttributeFields` ride the Blocks seam's field family — `FieldSource` sources projected into detached `BlockField` values behind `BlockAsk` — never this owner. This union carries only block field evaluators (`BlockName`, `BlockDescription`, `BlockInstanceCount`, `BlockInsertionCoordinate`).
-- Growth: a new host evaluator is one case with its `Token` arm; `Compose`, `Evaluate`, and every consumer read it with zero new surface.
+- Owner: `FieldKind` is the evaluator table; each row names one exact `TextFields` member and declares every admitted argument signature. `FieldExpr` pairs one row with validated typed values.
+- Law: `FieldProgram.Compose` derives evaluator name and argument positions from row data; adding an evaluator is one row, never a union case plus a mirrored switch arm.
+- Law: optional positions remain explicit `FieldValue.Absent` values until trailing omissions trim, preserving host positional grammar.
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
@@ -175,290 +315,503 @@ public sealed partial class CoordAxis {
     public static readonly CoordAxis Z = new(key: "Z");
 }
 
+[SmartEnum]
+public sealed partial class FieldValueKind {
+    public static readonly FieldValueKind Text = new(accepts: static value => value is FieldValue.Text);
+    public static readonly FieldValueKind Resource = new(accepts: static value => value is FieldValue.Resource);
+    public static readonly FieldValueKind Axis = new(accepts: static value => value is FieldValue.Axis);
+    public static readonly FieldValueKind Flag = new(accepts: static value => value is FieldValue.Flag);
+
+    [UseDelegateFromConstructor]
+    internal partial bool Accepts(FieldValue value);
+}
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record FieldExpr {
-    private FieldExpr() { }
-    public sealed record Date(Option<string> Format = default, Option<string> Language = default) : FieldExpr;
-    public sealed record DateModified(Option<string> Format = default, Option<string> Language = default) : FieldExpr;
-    public sealed record Notes : FieldExpr;
-    public sealed record ModelUnits : FieldExpr;
-    public sealed record FileName(Option<string> Options = default) : FieldExpr;
-    public sealed record DocumentText(string Key) : FieldExpr;
-    public sealed record PageNumber : FieldExpr;
-    public sealed record NumPages : FieldExpr;
-    public sealed record PageName(Option<Guid> Page = default) : FieldExpr;
-    public sealed record PaperName : FieldExpr;
-    public sealed record PageWidth : FieldExpr;
-    public sealed record PageHeight : FieldExpr;
-    public sealed record DetailScale(Guid Detail, string ScaleFormat) : FieldExpr;
-    public sealed record LayoutUserText(Option<Guid> Layout, string Key) : FieldExpr;
-    public sealed record ObjectName(Option<Guid> Target = default) : FieldExpr;
-    public sealed record ObjectLayer(Guid Target) : FieldExpr;
-    public sealed record LayerName(Guid Layer) : FieldExpr;
-    public sealed record ObjectPageName(Guid Target) : FieldExpr;
-    public sealed record ObjectPageNumber(Guid Target) : FieldExpr;
-    public sealed record PointCoordinate(Guid Point, CoordAxis Axis) : FieldExpr;
-    public sealed record UserText(Guid Target, string Key, Option<string> Prompt = default, Option<string> Default = default) : FieldExpr;
-    public sealed record Area(Guid Target, Option<string> UnitSystem = default) : FieldExpr;
-    public sealed record Volume(Guid Target, Option<string> UnitSystem = default, bool AllowOpen = false) : FieldExpr;
-    public sealed record CurveLength(Guid Target, Option<string> UnitSystem = default) : FieldExpr;
-    public sealed record BlockName(Guid Instance) : FieldExpr;
-    public sealed record BlockDescription(string NameOrId) : FieldExpr;
-    public sealed record BlockInstanceCount(string NameOrId) : FieldExpr;
-    public sealed record BlockInsertionCoordinate(Guid Instance, CoordAxis Axis) : FieldExpr;
+public abstract partial record FieldValue {
+    private FieldValue() { }
+    public sealed record Text(TextValue Value) : FieldValue;
+    public sealed record Resource(ResourceId Value) : FieldValue;
+    public sealed record Axis(CoordAxis Value) : FieldValue;
+    public sealed record Flag(TextToggle Value) : FieldValue;
+    public sealed record Absent : FieldValue;
 
-    internal (string Name, Seq<string> Args) Token() => Switch(
-        date: static f => (nameof(Date), Positionals(f.Format, f.Language)),
-        dateModified: static f => (nameof(DateModified), Positionals(f.Format, f.Language)),
-        notes: static _ => (nameof(Notes), Seq<string>()),
-        modelUnits: static _ => (nameof(ModelUnits), Seq<string>()),
-        fileName: static f => (nameof(FileName), Positionals(f.Options)),
-        documentText: static f => (nameof(DocumentText), Seq(f.Key)),
-        pageNumber: static _ => (nameof(PageNumber), Seq<string>()),
-        numPages: static _ => (nameof(NumPages), Seq<string>()),
-        pageName: static f => (nameof(PageName), Positionals(f.Page.Map(static id => id.ToString("D")))),
-        paperName: static _ => (nameof(PaperName), Seq<string>()),
-        pageWidth: static _ => (nameof(PageWidth), Seq<string>()),
-        pageHeight: static _ => (nameof(PageHeight), Seq<string>()),
-        detailScale: static f => (nameof(DetailScale), Seq(f.Detail.ToString("D"), f.ScaleFormat)),
-        layoutUserText: static f => (nameof(LayoutUserText), f.Layout.Match(
-            Some: id => Seq(id.ToString("D"), f.Key),
-            None: () => Seq(f.Key))),
-        objectName: static f => (nameof(ObjectName), Positionals(f.Target.Map(static id => id.ToString("D")))),
-        objectLayer: static f => (nameof(ObjectLayer), Seq(f.Target.ToString("D"))),
-        layerName: static f => (nameof(LayerName), Seq(f.Layer.ToString("D"))),
-        objectPageName: static f => (nameof(ObjectPageName), Seq(f.Target.ToString("D"))),
-        objectPageNumber: static f => (nameof(ObjectPageNumber), Seq(f.Target.ToString("D"))),
-        pointCoordinate: static f => (nameof(PointCoordinate), Seq(f.Point.ToString("D"), f.Axis.Key)),
-        userText: static f => (nameof(UserText), Seq(f.Target.ToString("D"), f.Key) + Positionals(f.Prompt, f.Default)),
-        area: static f => (nameof(Area), Seq(f.Target.ToString("D")) + Positionals(f.UnitSystem)),
-        volume: static f => (nameof(Volume), Seq(f.Target.ToString("D")) + Positionals(f.UnitSystem, f.AllowOpen ? Some("true") : Option<string>.None)),
-        curveLength: static f => (nameof(CurveLength), Seq(f.Target.ToString("D")) + Positionals(f.UnitSystem)),
-        blockName: static f => (nameof(BlockName), Seq(f.Instance.ToString("D"))),
-        blockDescription: static f => (nameof(BlockDescription), Seq(f.NameOrId)),
-        blockInstanceCount: static f => (nameof(BlockInstanceCount), Seq(f.NameOrId)),
-        blockInsertionCoordinate: static f => (nameof(BlockInsertionCoordinate), Seq(f.Instance.ToString("D"), f.Axis.Key)));
+    internal Fin<FieldValue> Admit(Op key) => Switch(
+        state: key,
+        text: static (op, value) => op.AcceptInput(value: value.Value)
+            .Map(admitted => (FieldValue)new Text(Value: admitted)),
+        resource: static (op, value) => op.AcceptInput(value: value.Value)
+            .Map(admitted => (FieldValue)new Resource(Value: admitted)),
+        axis: static (op, value) => op.AcceptInput(value: value.Value)
+            .Map(admitted => (FieldValue)new Axis(Value: admitted)),
+        flag: static (op, value) => op.AcceptInput(value: value.Value)
+            .Map(admitted => (FieldValue)new Flag(Value: admitted)),
+        absent: static (_, _) => Fin.Succ<FieldValue>(value: new Absent()));
 
-    private static Seq<string> Positionals(params ReadOnlySpan<Option<string>> args) {
-        Option<string>[] values = args.ToArray();
-        int last = Array.FindLastIndex(values, static value => value.IsSome);
-        return last < 0
-            ? Seq<string>()
-            : toSeq(values[..(last + 1)]).Map(static value => value.IfNone(string.Empty));
+    internal string Render() => Switch(
+        text: static value => value.Value.Value,
+        resource: static value => value.Value.Value.ToString("D"),
+        axis: static value => value.Value.Key,
+        flag: static value => value.Value.Enabled ? "true" : "false",
+        absent: static _ => string.Empty);
+}
+
+public readonly record struct FieldSlot(FieldValueKind Kind, bool Required);
+
+public sealed record FieldSignature(Seq<FieldSlot> Slots) {
+    internal bool Accepts(Seq<FieldValue> values) =>
+        values.Count <= Slots.Count
+        && toSeq(Enumerable.Range(0, Slots.Count)).ForAll(index => index < values.Count
+            ? Slots[index].Kind.Accepts(values[index]) || (!Slots[index].Required && values[index] is FieldValue.Absent)
+            : !Slots[index].Required);
+}
+
+[SmartEnum<string>]
+public sealed partial class FieldKind {
+    public static readonly FieldKind Date = Row(nameof(TextFields.Date), Sig(Opt(FieldValueKind.Text), Opt(FieldValueKind.Text)));
+    public static readonly FieldKind DateModified = Row(nameof(TextFields.DateModified), Sig(Opt(FieldValueKind.Text), Opt(FieldValueKind.Text)));
+    public static readonly FieldKind Notes = Row(nameof(TextFields.Notes), Sig());
+    public static readonly FieldKind ModelUnits = Row(nameof(TextFields.ModelUnits), Sig());
+    public static readonly FieldKind FileName = Row(nameof(TextFields.FileName), Sig(Opt(FieldValueKind.Text)));
+    public static readonly FieldKind DocumentText = Row(nameof(TextFields.DocumentText), Sig(Req(FieldValueKind.Text)));
+    public static readonly FieldKind PageNumber = Row(nameof(TextFields.PageNumber), Sig());
+    public static readonly FieldKind NumPages = Row(nameof(TextFields.NumPages), Sig());
+    public static readonly FieldKind PageName = Row(nameof(TextFields.PageName), Sig(Opt(FieldValueKind.Resource)));
+    public static readonly FieldKind PaperName = Row(nameof(TextFields.PaperName), Sig());
+    public static readonly FieldKind PageWidth = Row(nameof(TextFields.PageWidth), Sig());
+    public static readonly FieldKind PageHeight = Row(nameof(TextFields.PageHeight), Sig());
+    public static readonly FieldKind DetailScale = Row(nameof(TextFields.DetailScale), Sig(Req(FieldValueKind.Resource), Req(FieldValueKind.Text)));
+    public static readonly FieldKind LayoutUserText = Row(nameof(TextFields.LayoutUserText),
+        Sig(Req(FieldValueKind.Text)), Sig(Req(FieldValueKind.Resource), Req(FieldValueKind.Text)));
+    public static readonly FieldKind ObjectName = Row(nameof(TextFields.ObjectName), Sig(Opt(FieldValueKind.Resource)));
+    public static readonly FieldKind ObjectLayer = Row(nameof(TextFields.ObjectLayer), Sig(Req(FieldValueKind.Resource)));
+    public static readonly FieldKind LayerName = Row(nameof(TextFields.LayerName), Sig(Req(FieldValueKind.Resource)));
+    public static readonly FieldKind ObjectPageName = Row(nameof(TextFields.ObjectPageName), Sig(Req(FieldValueKind.Resource)));
+    public static readonly FieldKind ObjectPageNumber = Row(nameof(TextFields.ObjectPageNumber), Sig(Req(FieldValueKind.Resource)));
+    public static readonly FieldKind PointCoordinate = Row(nameof(TextFields.PointCoordinate), Sig(Req(FieldValueKind.Resource), Req(FieldValueKind.Axis)));
+    public static readonly FieldKind UserText = Row(nameof(TextFields.UserText), Sig(
+        Req(FieldValueKind.Resource), Req(FieldValueKind.Text), Opt(FieldValueKind.Text), Opt(FieldValueKind.Text)));
+    public static readonly FieldKind Area = Row(nameof(TextFields.Area), Sig(Req(FieldValueKind.Resource), Opt(FieldValueKind.Text)));
+    public static readonly FieldKind Volume = Row(nameof(TextFields.Volume), Sig(
+        Req(FieldValueKind.Resource), Opt(FieldValueKind.Text), Opt(FieldValueKind.Flag)));
+    public static readonly FieldKind CurveLength = Row(nameof(TextFields.CurveLength), Sig(Req(FieldValueKind.Resource), Opt(FieldValueKind.Text)));
+    public static readonly FieldKind BlockName = Row(nameof(TextFields.BlockName), Sig(Req(FieldValueKind.Resource)));
+    public static readonly FieldKind BlockDescription = Row(nameof(TextFields.BlockDescription), Sig(Req(FieldValueKind.Text)));
+    public static readonly FieldKind BlockInstanceCount = Row(nameof(TextFields.BlockInstanceCount), Sig(Req(FieldValueKind.Text)));
+    public static readonly FieldKind BlockInsertionCoordinate = Row(nameof(TextFields.BlockInsertionCoordinate), Sig(
+        Req(FieldValueKind.Resource), Req(FieldValueKind.Axis)));
+
+    private static FieldKind Row(string name, params FieldSignature[] signatures) =>
+        new(key: name, signatures: toSeq(signatures));
+    private static FieldSignature Sig(params FieldSlot[] slots) => new(Slots: toSeq(slots));
+    private static FieldSlot Req(FieldValueKind kind) => new(Kind: kind, Required: true);
+    private static FieldSlot Opt(FieldValueKind kind) => new(Kind: kind, Required: false);
+
+    internal Seq<FieldSignature> Signatures { get; }
+    internal bool Accepts(Seq<FieldValue> values) => Signatures.Exists(signature => signature.Accepts(values));
+}
+
+public sealed record FieldExpr {
+    private FieldExpr(FieldKind kind, Seq<FieldValue> values) { Kind = kind; Values = values; }
+    public FieldKind Kind { get; }
+    public Seq<FieldValue> Values { get; }
+
+    public static Fin<FieldExpr> Of(FieldKind kind, params ReadOnlySpan<FieldValue> values) {
+        Op op = Op.Of();
+        return from admittedKind in op.AcceptInput(value: kind)
+               from admittedValues in LanguageExt.Iterable<FieldValue>.FromSpan(values)
+                   .ToSeq().TraverseM(value => op.AcceptInput(value: value)
+                       .Bind(admitted => admitted.Admit(key: op))).As()
+               let buffer = admittedValues.ToArray()
+               let last = Array.FindLastIndex(buffer, static value => value is not FieldValue.Absent)
+               let positional = last < 0 ? Seq<FieldValue>() : toSeq(buffer[..(last + 1)])
+               from _ in guard(admittedKind.Accepts(positional), op.InvalidInput()).ToFin()
+               select new FieldExpr(kind: admittedKind, values: positional);
     }
+
+    internal (string Name, Seq<string> Args) Token() => (Kind.Key, Values.Map(static value => value.Render()));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record TextRun {
     private TextRun() { }
-    public sealed record Literal(string Value) : TextRun;
+    public sealed record Literal(TextValue Value) : TextRun;
     public sealed record Field(FieldExpr Expr) : TextRun;
+
+    internal Fin<TextRun> Admit(Op key) => Switch(
+        state: key,
+        literal: static (op, run) => op.AcceptInput(value: run.Value)
+            .Map(value => (TextRun)new Literal(Value: value)),
+        field: static (op, run) => op.AcceptInput(value: run.Expr)
+            .Map(value => (TextRun)new Field(Expr: value)));
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------
-public sealed record FieldProgram(Seq<TextRun> Runs) {
+public sealed record FieldProgram {
+    private FieldProgram(Seq<TextRun> runs) => Runs = runs;
+    public Seq<TextRun> Runs { get; }
+
     public static Fin<FieldProgram> Of(params ReadOnlySpan<TextRun> runs) {
-        Op op = Op.Of(name: nameof(FieldProgram));
-        return toSeq(runs.ToArray())
-            .TraverseM(run => Optional(run).ToFin(Fail: op.InvalidInput())).As()
-            .Bind(admitted => guard(!admitted.IsEmpty, op.InvalidInput()).ToFin().Map(_ => new FieldProgram(Runs: admitted)));
+        Op op = Op.Of();
+        return from admitted in LanguageExt.Iterable<TextRun>.FromSpan(runs)
+                   .ToSeq().TraverseM(run => op.AcceptInput(value: run)
+                       .Bind(value => value.Admit(key: op))).As()
+               from _ in guard(!admitted.IsEmpty, op.InvalidInput()).ToFin()
+               select new FieldProgram(runs: admitted);
     }
 
-    public string Compose() =>
-        Runs.Fold(string.Empty, static (text, run) => text + run.Switch(
-            literal: static segment => segment.Value,
-            field: static segment => segment.Expr.Token() switch {
-                (var name, { IsEmpty: true }) => $"%<{name}()>%",
-                var (name, args) => $"%<{name}({string.Join(",", args.Map(static arg => $"\"{Quote(arg)}\""))})>%",
-            }));
+    public string Compose() => string.Concat(Runs.Map(static run => run.Switch(
+        literal: static segment => segment.Value.Value,
+        field: static segment => segment.Expr.Token() switch {
+            (var name, { IsEmpty: true }) => $"%<{name}()>%",
+            var (name, args) => $"%<{name}({string.Join(",", args.Map(static arg => $"\"{Quote(arg)}\""))})>%",
+        })));
+
+    internal Fin<string> Evaluate(RhinoDoc document, Op key) => key.Catch(() =>
+        TextFields.TryFormat(text: Compose(), doc: document, out string result)
+            ? Fin.Succ(value: result)
+            : Fin.Fail<string>(error: key.InvalidResult()));
 
     private static string Quote(string value) =>
         value.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal);
-
-    internal Fin<string> Evaluate(RhinoDoc document, Op key) =>
-        key.Catch(() => TextFields.TryFormat(text: Compose(), doc: document, out string result)
-            ? Fin.Succ(value: result)
-            : Fin.Fail<string>(error: key.InvalidResult()));
 }
 ```
 
 ## [04]-[OUTLINING]
 
-- Owner: `GlyphMetrics` — the small-caps scale and inter-glyph spacing pair; `Grouping` `[SmartEnum]` — merged versus per-glyph egress; `OutlineForm` `[Union]` — the four egress forms: `Strokes` (glyph outline curves with the open-stroke grant), `Faces` (planar capped breps), `Solids` (extruded-and-capped breps at a height), `Shells` (glyph extrusions at a height); `OutlineSpec` — form, metrics, grouping as one request; `OutlineProduct` `[Union]` — one typed result case per form, every case carrying per-glyph groups where the merged route lands as one group.
-- Law: one request covers sixteen configuration modes — form and grouping select eight maximal host overloads, while metrics supplies `makeSmallCaps`, `smallCapsScale`, and spacing; a caller never names a host member.
-- Law: every host call spells named arguments — the grouped solid and shell overloads transpose `smallCapsScale` before `height` relative to their flat siblings, and the flat member spells `CreatePolySurfaces` where the grouped sibling spells `CreatePolysurfacesGrouped`; positional transcription of either family is the trap this law forecloses.
-- Law: products detach at the call — outline curves, breps, and extrusions are freshly minted host geometry the caller owns; nothing document-bound rides an `OutlineProduct`.
+- Owner: `OutlineSpec` crosses form, grouping, metrics, and text frame; `OutlineProduct` returns one evidence carrier per host geometry family.
+- Law: the `(form, grouping)` tuple is one flat exhaustive dispatch over the eight verified overloads; no nested modality branch survives.
+- Law: `TextFrame.Model` composes `GetTextTransform` and `Transform`; every output geometry carries `DataCRC(0)` and accurate `GetBoundingBox(true)` evidence.
+- Law: `OutlineSpec` admits explicit transforms only when `Transform.IsValid`; host-generated model transforms remain guarded by the terminal `Transform` result.
+- Boundary: `OutlineSpec.Apply` owns its duplicated `TextEntity` through one lease spanning every transform and outline exit.
+- Boundary: `OutlineProduct` receives native geometry only after strict evidence capture; capture failure releases the complete raw batch, and product disposal releases every transferred item.
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
-[SmartEnum]
-public sealed partial class Grouping {
-    public static readonly Grouping Merged = new();
-    public static readonly Grouping PerGlyph = new();
+[SmartEnum<int>]
+public sealed partial class OutlineGrouping {
+    public static readonly OutlineGrouping Merged = new(key: 0);
+    public static readonly OutlineGrouping PerGlyph = new(key: 1);
 }
 
-public readonly record struct GlyphMetrics(Option<double> SmallCaps, double Spacing) {
-    public static GlyphMetrics Default { get; } = new(SmallCaps: None, Spacing: 0.0);
+[SmartEnum<int>]
+public sealed partial class CurveClosure {
+    public static readonly CurveClosure Closed = new(key: 0, allowOpen: false);
+    public static readonly CurveClosure Open = new(key: 1, allowOpen: true);
+    internal bool AllowOpen { get; }
+}
 
+[ValueObject<double>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
+public sealed partial class OutlineHeight {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) {
+        if (!double.IsFinite(value) || value <= 0.0) validationError = new ValidationError("Outline height must be finite and positive.");
+    }
+}
+
+[ValueObject<double>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
+public sealed partial class GlyphSpacing {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) {
+        if (!double.IsFinite(value)) validationError = new ValidationError("Glyph spacing must be finite.");
+    }
+}
+
+[ValueObject<double>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
+public sealed partial class OutlineScale {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) {
+        if (!double.IsFinite(value) || value <= 0.0) validationError = new ValidationError("Outline scale must be finite and positive.");
+    }
+}
+
+[ComplexValueObject]
+public sealed partial class GlyphMetrics {
+    public Option<OutlineScale> SmallCaps { get; }
+    public GlyphSpacing Spacing { get; }
     internal bool MakeSmallCaps => SmallCaps.IsSome;
-    internal double Scale => SmallCaps.IfNone(noneValue: 1.0);
+    internal double SmallCapsScale => SmallCaps.Map(static value => value.Value).IfNone(1.0);
+
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError, ref Option<OutlineScale> smallCaps, ref GlyphSpacing spacing) {
+        if (spacing is null) validationError = new ValidationError("Glyph spacing is required.");
+    }
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record OutlineForm {
     private OutlineForm() { }
-    public sealed record Strokes(bool AllowOpen) : OutlineForm;
+    public sealed record Strokes(CurveClosure Closure) : OutlineForm;
     public sealed record Faces : OutlineForm;
-    public sealed record Solids(double Height) : OutlineForm;
-    public sealed record Shells(double Height) : OutlineForm;
-}
-
-public sealed record OutlineSpec(OutlineForm Form, GlyphMetrics Metrics, Grouping Grouping) {
-    internal Fin<OutlineProduct> Apply(TextEntity text, DimensionStyle style, Op key) =>
-        from _ in Admit(key)
-        from product in Form.Switch(
-            state: (Text: text, Style: style, Metrics: Metrics, Grouping: Grouping, Op: key),
-            strokes: static (ctx, form) => ctx.Op.Catch(() => Fin.Succ<OutlineProduct>(value: new OutlineProduct.Curves(
-                Glyphs: ctx.Grouping == Grouping.PerGlyph
-                    ? toSeq(ctx.Text.CreateCurvesGrouped(
-                        dimstyle: ctx.Style, allowOpen: form.AllowOpen, makeSmallCaps: ctx.Metrics.MakeSmallCaps,
-                        smallCapsScale: ctx.Metrics.Scale, spacing: ctx.Metrics.Spacing)).Map(static glyph => toSeq(glyph))
-                    : Seq(toSeq(ctx.Text.CreateCurves(
-                        dimstyle: ctx.Style, allowOpen: form.AllowOpen, makeSmallCaps: ctx.Metrics.MakeSmallCaps,
-                        smallCapsScale: ctx.Metrics.Scale, spacing: ctx.Metrics.Spacing)))))),
-            faces: static (ctx, _) => ctx.Op.Catch(() => Fin.Succ<OutlineProduct>(value: new OutlineProduct.Faces(
-                Glyphs: ctx.Grouping == Grouping.PerGlyph
-                    ? toSeq(ctx.Text.CreateSurfacesGrouped(
-                        dimstyle: ctx.Style, makeSmallCaps: ctx.Metrics.MakeSmallCaps,
-                        smallCapsScale: ctx.Metrics.Scale, spacing: ctx.Metrics.Spacing)).Map(static glyph => toSeq(glyph))
-                    : Seq(toSeq(ctx.Text.CreateSurfaces(
-                        dimstyle: ctx.Style, makeSmallCaps: ctx.Metrics.MakeSmallCaps,
-                        smallCapsScale: ctx.Metrics.Scale, spacing: ctx.Metrics.Spacing)))))),
-            solids: static (ctx, form) => ctx.Op.Catch(() => Fin.Succ<OutlineProduct>(value: new OutlineProduct.Solids(
-                Glyphs: ctx.Grouping == Grouping.PerGlyph
-                    ? toSeq(ctx.Text.CreatePolysurfacesGrouped(
-                        dimstyle: ctx.Style, makeSmallCaps: ctx.Metrics.MakeSmallCaps,
-                        smallCapsScale: ctx.Metrics.Scale, height: form.Height, spacing: ctx.Metrics.Spacing)).Map(static glyph => toSeq(glyph))
-                    : Seq(toSeq(ctx.Text.CreatePolySurfaces(
-                        dimstyle: ctx.Style, height: form.Height, makeSmallCaps: ctx.Metrics.MakeSmallCaps,
-                        smallCapsScale: ctx.Metrics.Scale, spacing: ctx.Metrics.Spacing)))))),
-            shells: static (ctx, form) => ctx.Op.Catch(() => Fin.Succ<OutlineProduct>(value: new OutlineProduct.Shells(
-                Glyphs: ctx.Grouping == Grouping.PerGlyph
-                    ? toSeq(ctx.Text.CreateExtrusionsGrouped(
-                        dimstyle: ctx.Style, makeSmallCaps: ctx.Metrics.MakeSmallCaps,
-                        smallCapsScale: ctx.Metrics.Scale, height: form.Height, spacing: ctx.Metrics.Spacing)).Map(static glyph => toSeq(glyph))
-                    : Seq(toSeq(ctx.Text.CreateExtrusions(
-                        dimstyle: ctx.Style, height: form.Height, makeSmallCaps: ctx.Metrics.MakeSmallCaps,
-                        smallCapsScale: ctx.Metrics.Scale, spacing: ctx.Metrics.Spacing)))))))
-        select product;
-
-    private Fin<Unit> Admit(Op key) =>
-        from _ in Optional(Form).ToFin(Fail: key.InvalidInput())
-        from __ in Optional(Grouping).ToFin(Fail: key.InvalidInput())
-        from ___ in key.AcceptInput(value: Metrics.Spacing)
-        from ____ in Metrics.SmallCaps.Match(
-            Some: scale => key.Positive(value: scale).Map(static _ => unit),
-            None: () => Fin.Succ(value: unit))
-        from _____ in Form.Switch(
-            strokes: static _ => Fin.Succ(value: unit),
-            faces: static _ => Fin.Succ(value: unit),
-            solids: form => key.Positive(value: form.Height).Map(static _ => unit),
-            shells: form => key.Positive(value: form.Height).Map(static _ => unit))
-        select unit;
+    public sealed record Solids(OutlineHeight Height) : OutlineForm;
+    public sealed record Shells(OutlineHeight Height) : OutlineForm;
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record OutlineProduct : IDetachedDocumentResult {
+public abstract partial record TextFrame {
+    private TextFrame() { }
+    public sealed record Natural : TextFrame;
+    public sealed record Model(OutlineScale Scale) : TextFrame;
+    public sealed record Explicit(Transform Transform) : TextFrame;
+}
+
+public readonly record struct GeometryEvidence<TGeometry>(TGeometry Geometry, uint Crc, BoundingBox Bounds)
+    where TGeometry : GeometryBase {
+    internal static Fin<Unit> Release(Seq<TGeometry> geometry, Op key) =>
+        geometry.Traverse(value => key.Catch(value.Dispose).ToValidation())
+            .As().ToFin().Map(static _ => unit);
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record OutlineProduct : IDetachedDocumentResult, IDisposable {
     private OutlineProduct() { }
-    public sealed record Curves(Seq<Seq<Curve>> Glyphs) : OutlineProduct;
-    public sealed record Faces(Seq<Seq<Brep>> Glyphs) : OutlineProduct;
-    public sealed record Solids(Seq<Seq<Brep>> Glyphs) : OutlineProduct;
-    public sealed record Shells(Seq<Seq<Extrusion>> Glyphs) : OutlineProduct;
+    public sealed record Curves(Seq<Seq<GeometryEvidence<Curve>>> Glyphs) : OutlineProduct;
+    public sealed record Faces(Seq<Seq<GeometryEvidence<Brep>>> Glyphs) : OutlineProduct;
+    public sealed record Solids(Seq<Seq<GeometryEvidence<Brep>>> Glyphs) : OutlineProduct;
+    public sealed record Shells(Seq<Seq<GeometryEvidence<Extrusion>>> Glyphs) : OutlineProduct;
+
+    public void Dispose() => Switch(
+        curves: static product => GeometryEvidence<Curve>.Release(
+            geometry: product.Glyphs.Bind(static group => group).Map(static row => row.Geometry), key: Op.Of()),
+        faces: static product => GeometryEvidence<Brep>.Release(
+            geometry: product.Glyphs.Bind(static group => group).Map(static row => row.Geometry), key: Op.Of()),
+        solids: static product => GeometryEvidence<Brep>.Release(
+            geometry: product.Glyphs.Bind(static group => group).Map(static row => row.Geometry), key: Op.Of()),
+        shells: static product => GeometryEvidence<Extrusion>.Release(
+            geometry: product.Glyphs.Bind(static group => group).Map(static row => row.Geometry), key: Op.Of()))
+        .ThrowIfFail();
+}
+
+[ComplexValueObject]
+public sealed partial class OutlineSpec {
+    public OutlineForm Form { get; }
+    public GlyphMetrics Metrics { get; }
+    public OutlineGrouping Grouping { get; }
+    public TextFrame Frame { get; }
+
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref OutlineForm form, ref GlyphMetrics metrics,
+        ref OutlineGrouping grouping, ref TextFrame frame) {
+        bool admittedForm = form is OutlineForm.Faces
+            or OutlineForm.Strokes { Closure: not null }
+            or OutlineForm.Solids { Height: not null }
+            or OutlineForm.Shells { Height: not null };
+        bool admittedFrame = frame is TextFrame.Natural
+            or TextFrame.Model { Scale: not null }
+            or TextFrame.Explicit { Transform.IsValid: true };
+        if (!admittedForm || metrics is null || grouping is null || !admittedFrame)
+            validationError = new ValidationError("Outline request is incomplete.");
+    }
+
+    internal Fin<OutlineProduct> Apply(TextEntity source, DimensionStyle style, Op key) =>
+        from text in Optional(source.Duplicate() as TextEntity).ToFin(Fail: key.InvalidResult())
+        from product in new Lease<TextEntity>.Owned(Value: text).Use(owned =>
+            from _ in Frame.Switch(
+                natural: static _ => Fin.Succ(value: unit),
+                model: frame => key.Catch(() => {
+                    Transform transform = owned.GetTextTransform(textscale: frame.Scale.Value, dimstyle: style);
+                    return key.Confirm(success: owned.Transform(transform: transform, style: style));
+                }),
+                @explicit: frame => key.Confirm(success: owned.Transform(transform: frame.Transform, style: style)))
+            from shaped in (Form, Grouping) switch {
+            (OutlineForm.Strokes form, var grouping) when grouping == OutlineGrouping.Merged => key.Catch(() => Captured(
+                geometry: Seq(toSeq(owned.CreateCurves(
+                    dimstyle: style, allowOpen: form.Closure.AllowOpen, makeSmallCaps: Metrics.MakeSmallCaps,
+                    smallCapsScale: Metrics.SmallCapsScale, spacing: Metrics.Spacing.Value))),
+                project: static groups => new OutlineProduct.Curves(Glyphs: groups), key: key)),
+            (OutlineForm.Strokes form, _) => key.Catch(() => Captured(
+                geometry: toSeq(owned.CreateCurvesGrouped(
+                    dimstyle: style, allowOpen: form.Closure.AllowOpen, makeSmallCaps: Metrics.MakeSmallCaps,
+                    smallCapsScale: Metrics.SmallCapsScale, spacing: Metrics.Spacing.Value)).Map(static group => toSeq(group)),
+                project: static groups => new OutlineProduct.Curves(Glyphs: groups), key: key)),
+            (OutlineForm.Faces _, var grouping) when grouping == OutlineGrouping.Merged => key.Catch(() => Captured(
+                geometry: Seq(toSeq(owned.CreateSurfaces(
+                    dimstyle: style, makeSmallCaps: Metrics.MakeSmallCaps,
+                    smallCapsScale: Metrics.SmallCapsScale, spacing: Metrics.Spacing.Value))),
+                project: static groups => new OutlineProduct.Faces(Glyphs: groups), key: key)),
+            (OutlineForm.Faces _, _) => key.Catch(() => Captured(
+                geometry: toSeq(owned.CreateSurfacesGrouped(
+                    dimstyle: style, makeSmallCaps: Metrics.MakeSmallCaps,
+                    smallCapsScale: Metrics.SmallCapsScale, spacing: Metrics.Spacing.Value)).Map(static group => toSeq(group)),
+                project: static groups => new OutlineProduct.Faces(Glyphs: groups), key: key)),
+            (OutlineForm.Solids form, var grouping) when grouping == OutlineGrouping.Merged => key.Catch(() => Captured(
+                geometry: Seq(toSeq(owned.CreatePolySurfaces(
+                    dimstyle: style, height: form.Height.Value, makeSmallCaps: Metrics.MakeSmallCaps,
+                    smallCapsScale: Metrics.SmallCapsScale, spacing: Metrics.Spacing.Value))),
+                project: static groups => new OutlineProduct.Solids(Glyphs: groups), key: key)),
+            (OutlineForm.Solids form, _) => key.Catch(() => Captured(
+                geometry: toSeq(owned.CreatePolysurfacesGrouped(
+                    dimstyle: style, makeSmallCaps: Metrics.MakeSmallCaps, smallCapsScale: Metrics.SmallCapsScale,
+                    height: form.Height.Value, spacing: Metrics.Spacing.Value)).Map(static group => toSeq(group)),
+                project: static groups => new OutlineProduct.Solids(Glyphs: groups), key: key)),
+            (OutlineForm.Shells form, var grouping) when grouping == OutlineGrouping.Merged => key.Catch(() => Captured(
+                geometry: Seq(toSeq(owned.CreateExtrusions(
+                    dimstyle: style, height: form.Height.Value, makeSmallCaps: Metrics.MakeSmallCaps,
+                    smallCapsScale: Metrics.SmallCapsScale, spacing: Metrics.Spacing.Value))),
+                project: static groups => new OutlineProduct.Shells(Glyphs: groups), key: key)),
+            (OutlineForm.Shells form, _) => key.Catch(() => Captured(
+                geometry: toSeq(owned.CreateExtrusionsGrouped(
+                    dimstyle: style, makeSmallCaps: Metrics.MakeSmallCaps, smallCapsScale: Metrics.SmallCapsScale,
+                    height: form.Height.Value, spacing: Metrics.Spacing.Value)).Map(static group => toSeq(group)),
+                project: static groups => new OutlineProduct.Shells(Glyphs: groups), key: key)),
+            _ => Fin.Fail<OutlineProduct>(key.InvalidInput()),
+            }
+            select shaped)
+        select product;
+
+    private static Fin<OutlineProduct> Captured<TGeometry>(
+        Seq<Seq<TGeometry>> geometry,
+        Func<Seq<Seq<GeometryEvidence<TGeometry>>>, OutlineProduct> project,
+        Op key) where TGeometry : GeometryBase {
+        Seq<TGeometry> custody = geometry.Bind(static group => group).Strict();
+        return key.Catch(() => Fin.Succ(value: project(geometry.Map(group => group.Map(item =>
+            new GeometryEvidence<TGeometry>(
+                Geometry: item,
+                Crc: item.DataCRC(currentRemainder: 0u),
+                Bounds: item.GetBoundingBox(accurate: true))).Strict()).Strict())))
+            .BindFail(primary => GeometryEvidence<TGeometry>.Release(geometry: custody, key: key).Match(
+                Succ: _ => Fin.Fail<OutlineProduct>(error: primary),
+                Fail: cleanup => Fin.Fail<OutlineProduct>(error: primary + cleanup)));
+    }
 }
 ```
 
 ## [05]-[TEXT_RAIL]
 
-- Owner: `TextOp` `[Union]` — placement of text and leader geometry, run amendment, wrap re-flow, formula assignment, leader repointing, and per-annotation restyle/unstyle over the style page's patch algebra; `TextTransaction` — the commit plan; `Texts` — the `Commit`/`Ask` entry pair; `TextState` — the one-pass annotation read: content triple, wrap state, font and first-run facts, uniform-formatting probes, mask facts, override presence, and the doc-object projections `DisplayText` and `HasMeasurableTextFields`; `LeaderFacts` — the leader-only read: point runs, detached spline, arrow, curve style, and landing state.
-- Law: live annotation mutation is duplicate-then-`Replace` — the target resolves to one `AnnotationObjectBase`, its geometry duplicates, the change applies to the copy, and `ObjectTable.Replace` lands it inside the bracket; mutating the live geometry in place bypasses the undo record and is the deleted form.
-- Law: `Restyle` composes `StylePatch.Overlay` — the override style mints on the duplicate before `Replace`, so per-annotation customization and style-table authoring share one field algebra; `Unstyle` is `ClearPropertyOverrides` on the same kernel.
-- Law: a formula lands as rich-text source — `Reformula` writes `RichText` from `FieldProgram.Compose()` because the host carries field tokens in the rich text and marks `TextFormula` obsolete as its alias; the host resolves display text on its own schedule, and the `Evaluate` ask is the read-side resolution that never mutates.
-- Law: `Repoint` is the leader's own re-fit — `Points3D` re-admits an ordered run of at least two points on the duplicate, and a repoint aimed at a non-leader annotation is a typed refusal, the same kind law `DimAdjust` holds for dimensions.
-- Law: explosion detaches per kind — `TextEntity.Explode` answers glyph outline curves and `Leader.Explode` curve-plus-text geometry; both land as caller-owned products on one `Pieces` ask.
-- Boundary: `Marks.Render`'s `WorldTextCase`/`AnnotationCase` draw this page's geometry through the display pipeline; drawing is the Display rail's, and this rail never names a pipeline member.
+- Owner: `AnnotationSeed` closes text and leader placement; `TextOp` owns placement, run amendment, formula assignment, leader repointing, and per-object style overrides; `TextAsk` owns detached content, frame, bounds, style, override, leader, and geometry evidence; native-bearing answer cases own their leases and disposal.
+- Law: placement and duplicate-then-replace amendments hold native geometry in one owned lease through override, add, edit, and replace failure.
+- Law: formula assignment uses `SetRichText(rtfText, dimstyle)`; snapshot evidence includes first-character underline, style and parent identity, the schema-keyed override census, mirrored annotation-style values, natural bounds, and both leader text alignments.
+- Law: the dimension-scale probe carries the Document-owned `ViewportTarget` address and resolves it to one native viewport through `ResolveViewport` inside the session demand immediately before `GetDimensionScale`, so no live `RhinoViewport` handle rides the detached request.
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record AnnotationSeed {
+    private AnnotationSeed() { }
+    public sealed record Text(TextSpec Spec) : AnnotationSeed;
+    public sealed record Leader(LeaderSpec Spec) : AnnotationSeed;
+
+    internal Fin<AnnotationSeed> Admit(Op key) => Switch(
+        state: key,
+        text: static (op, seed) => op.AcceptInput(value: seed.Spec)
+            .Map(spec => (AnnotationSeed)new Text(Spec: spec)),
+        leader: static (op, seed) => op.AcceptInput(value: seed.Spec)
+            .Map(spec => (AnnotationSeed)new Leader(Spec: spec)));
+
+    internal Fin<AnnotationBase> Mint(Plane plane, DimensionStyle style, Op key) => Switch(
+        text: spec => spec.Spec.Mint(plane: plane, style: style, key: key).Map(static minted => (AnnotationBase)minted),
+        leader: spec => spec.Spec.Mint(plane: plane, style: style, key: key).Map(static minted => (AnnotationBase)minted));
+}
+
+[SmartEnum<int>]
+public sealed partial class ObjectResidency {
+    public static readonly ObjectResidency Model = new(key: 0, isReference: false);
+    public static readonly ObjectResidency Reference = new(key: 1, isReference: true);
+    internal bool IsReference { get; }
+}
+
+[ComplexValueObject]
+public sealed partial class AnnotationPlacement {
+    public Plane Frame { get; }
+    public ResourceRef Style { get; }
+    public Option<StylePatch> Overrides { get; }
+    public Option<ObjectAttributes> Attributes { get; }
+    public Option<HistoryRecord> History { get; }
+    public ObjectResidency Residency { get; }
+
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref Plane frame, ref ResourceRef style,
+        ref Option<StylePatch> overrides, ref Option<ObjectAttributes> attributes,
+        ref Option<HistoryRecord> history, ref ObjectResidency residency) {
+        if (!frame.IsValid || style is null || residency is null)
+            validationError = new ValidationError("Annotation placement is incomplete.");
+    }
+}
+
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record TextOp {
     private TextOp() { }
-    public sealed record PlaceText(TextSpec Spec, Plane Frame, ResourceRef Style, Option<StylePatch> Overrides = default, Option<ObjectAttributes> Attributes = default) : TextOp;
-    public sealed record PlaceLeader(LeaderSpec Spec, Plane Frame, ResourceRef Style, Option<StylePatch> Overrides = default, Option<ObjectAttributes> Attributes = default) : TextOp;
+    public sealed record Place(AnnotationSeed Seed, AnnotationPlacement Placement) : TextOp;
     public sealed record Amend(TableTarget Target, Seq<RunEdit> Edits) : TextOp;
     public sealed record Reformula(TableTarget Target, FieldProgram Program) : TextOp;
-    public sealed record Repoint(TableTarget Target, Seq<Point3d> Points) : TextOp;
+    public sealed record Repoint(TableTarget Target, LeaderPath Path) : TextOp;
     public sealed record Restyle(TableTarget Target, StylePatch Patch) : TextOp;
     public sealed record Unstyle(TableTarget Target) : TextOp;
 
-    internal Fin<DraftReceipt> Apply(RhinoDoc document, Op op) =>
-        Switch(
-            (Document: document, Op: op),
-            placeText: static (context, edit) =>
-                from style in edit.Style.Resolve(document: context.Document, lens: StyleOp.Lens, key: context.Op)
-                from minted in edit.Spec.Mint(plane: edit.Frame, style: style, key: context.Op)
-                from _ in edit.Overrides.Match(
-                    Some: patch => patch.Overlay(annotation: minted, key: context.Op).Map(static _ => unit),
-                    None: () => Fin.Succ(value: unit))
-                from id in Added(document: context.Document, geometry: minted, attributes: edit.Attributes, op: context.Op)
-                select DraftReceipt.Objects(slot: DraftSlot.Placed, ids: Seq(id)),
-            placeLeader: static (context, edit) =>
-                from style in edit.Style.Resolve(document: context.Document, lens: StyleOp.Lens, key: context.Op)
-                from minted in edit.Spec.Mint(plane: edit.Frame, style: style, key: context.Op)
-                from _ in edit.Overrides.Match(
-                    Some: patch => patch.Overlay(annotation: minted, key: context.Op).Map(static _ => unit),
-                    None: () => Fin.Succ(value: unit))
-                from id in Added(document: context.Document, geometry: minted, attributes: edit.Attributes, op: context.Op)
-                select DraftReceipt.Objects(slot: DraftSlot.Placed, ids: Seq(id)),
-            amend: static (context, edit) =>
-                from _ in guard(!edit.Edits.IsEmpty, context.Op.InvalidInput()).ToFin()
-                from receipt in Reworked(document: context.Document, target: edit.Target, op: context.Op, slot: DraftSlot.Amended,
-                    change: (annotation, key) => edit.Edits
-                        .TraverseM(run => Optional(run).ToFin(Fail: key.InvalidInput())
-                            .Bind(active => active.Apply(annotation: annotation, key: key))).As().Map(static _ => unit))
-                select receipt,
-            reformula: static (context, edit) =>
-                Reworked(document: context.Document, target: edit.Target, op: context.Op, slot: DraftSlot.Reformulated,
-                    change: (annotation, key) => key.Catch(() => {
-                        annotation.RichText = edit.Program.Compose();
-                        return Fin.Succ(value: unit);
-                    })),
-            repoint: static (context, edit) =>
-                from _ in guard(edit.Points.Count >= 2, context.Op.InvalidInput()).ToFin()
-                from run in edit.Points.TraverseM(point => context.Op.AcceptInput(value: point)).As()
-                from receipt in Reworked(document: context.Document, target: edit.Target, op: context.Op, slot: DraftSlot.Adjusted,
-                    change: (annotation, key) =>
-                        from leader in Optional(annotation as Leader).ToFin(Fail: key.InvalidInput())
-                        from __ in key.Catch(() => {
-                            leader.Points3D = run.ToArray();
-                            return Fin.Succ(value: unit);
-                        })
-                        select unit)
-                select receipt,
-            restyle: static (context, edit) =>
-                Reworked(document: context.Document, target: edit.Target, op: context.Op, slot: DraftSlot.Restyled,
-                    change: (annotation, key) => edit.Patch.Overlay(annotation: annotation, key: key).Map(static _ => unit)),
-            unstyle: static (context, edit) =>
-                Reworked(document: context.Document, target: edit.Target, op: context.Op, slot: DraftSlot.Restyled,
-                    change: static (annotation, key) => key.Confirm(success: annotation.ClearPropertyOverrides())));
+    internal Fin<TextOp> Admit(Op key) => Switch(
+        key,
+        place: static (op, edit) =>
+            from seed in op.AcceptInput(value: edit.Seed).Bind(value => value.Admit(key: op))
+            from placement in op.AcceptInput(value: edit.Placement)
+            select (TextOp)new Place(Seed: seed, Placement: placement),
+        amend: static (op, edit) =>
+            from target in op.AcceptInput(value: edit.Target)
+            from edits in edit.Edits.TraverseM(item => op.AcceptInput(value: item)
+                .Bind(value => value.Admit(key: op))).As()
+            from _ in guard(!edits.IsEmpty, op.InvalidInput()).ToFin()
+            select (TextOp)new Amend(Target: target, Edits: edits),
+        reformula: static (op, edit) =>
+            from target in op.AcceptInput(value: edit.Target)
+            from program in op.AcceptInput(value: edit.Program)
+            select (TextOp)new Reformula(Target: target, Program: program),
+        repoint: static (op, edit) =>
+            from target in op.AcceptInput(value: edit.Target)
+            from path in op.AcceptInput(value: edit.Path)
+            select (TextOp)new Repoint(Target: target, Path: path),
+        restyle: static (op, edit) =>
+            from target in op.AcceptInput(value: edit.Target)
+            from patch in op.AcceptInput(value: edit.Patch)
+            select (TextOp)new Restyle(Target: target, Patch: patch),
+        unstyle: static (op, edit) => op.AcceptInput(value: edit.Target)
+            .Map(target => (TextOp)new Unstyle(Target: target)));
 
-    private static Fin<Guid> Added(RhinoDoc document, AnnotationBase geometry, Option<ObjectAttributes> attributes, Op op) =>
-        op.Catch(() => document.Objects.Add(
-                geometry: geometry,
-                attributes: attributes.IfNoneUnsafe((ObjectAttributes?)null),
-                history: null,
-                reference: false) is var id && id != Guid.Empty
-            ? Fin.Succ(value: id)
-            : Fin.Fail<Guid>(error: op.InvalidResult()));
+    internal Fin<DraftReceipt> Apply(RhinoDoc document, Op op) => Switch(
+        (Document: document, Op: op),
+        place: static (ctx, edit) => Placed(document: ctx.Document, edit: edit, op: ctx.Op),
+        amend: static (ctx, edit) =>
+            from _ in guard(!edit.Edits.IsEmpty, ctx.Op.InvalidInput()).ToFin()
+            from receipt in Reworked(
+                document: ctx.Document, target: edit.Target, op: ctx.Op, slot: DraftSlot.Amended,
+                change: (annotation, key) =>
+                    edit.Edits.TraverseM(item => item.Apply(annotation: annotation, key: key)).As().Map(static _ => unit))
+            select receipt,
+        reformula: static (ctx, edit) => Reworked(
+            document: ctx.Document, target: edit.Target, op: ctx.Op, slot: DraftSlot.Reformulated,
+            change: (annotation, key) => key.Catch(() =>
+                annotation.SetRichText(rtfText: edit.Program.Compose(), dimstyle: annotation.DimensionStyle))),
+        repoint: static (ctx, edit) => Reworked(
+            document: ctx.Document, target: edit.Target, op: ctx.Op, slot: DraftSlot.Adjusted,
+            change: (annotation, key) =>
+                from leader in Optional(annotation as Leader).ToFin(Fail: key.InvalidInput())
+                from _ in key.Catch(() => leader.Points3D = edit.Path.Points.ToArray())
+                select unit),
+        restyle: static (ctx, edit) => Reworked(
+            document: ctx.Document, target: edit.Target, op: ctx.Op, slot: DraftSlot.Restyled,
+            change: (annotation, key) => edit.Patch.Overlay(annotation: annotation, key: key).Map(static _ => unit)),
+        unstyle: static (ctx, edit) => Reworked(
+            document: ctx.Document, target: edit.Target, op: ctx.Op, slot: DraftSlot.Restyled,
+            change: static (annotation, key) => key.Confirm(success: annotation.ClearPropertyOverrides())));
+
+    private static Fin<DraftReceipt> Placed(RhinoDoc document, Place edit, Op op) =>
+        from style in edit.Placement.Style.Resolve(document: document, lens: StyleOp.Lens, key: op)
+        from geometry in edit.Seed.Mint(plane: edit.Placement.Frame, style: style, key: op)
+        from receipt in new Lease<AnnotationBase>.Owned(Value: geometry).Use(owned =>
+            from _ in edit.Placement.Overrides.Traverse(patch => patch.Overlay(annotation: owned, key: op)).As()
+            from id in Added(document: document, geometry: owned, placement: edit.Placement, op: op)
+            from placed in DraftReceipt.Objects(slot: DraftSlot.Placed, ids: Seq(id))
+            select placed)
+        select receipt;
+
+    private static Fin<ResourceId> Added(
+        RhinoDoc document, AnnotationBase geometry, AnnotationPlacement placement, Op op) => op.Catch(() => {
+        ObjectAttributes? attributes = placement.Attributes.IfNoneUnsafe((ObjectAttributes?)null);
+        HistoryRecord? history = placement.History.IfNoneUnsafe((HistoryRecord?)null);
+        return ResourceId.Admit(geometry switch {
+            TextEntity text => document.Objects.AddText(
+                text: text, attributes: attributes, history: history, reference: placement.Residency.IsReference),
+            Leader leader => document.Objects.AddLeader(
+                leader: leader, attributes: attributes, history: history, reference: placement.Residency.IsReference),
+            _ => Guid.Empty,
+        }, op);
+    });
 
     internal static Fin<DraftReceipt> Reworked(
         RhinoDoc document, TableTarget target, Op op, DraftSlot slot,
@@ -468,99 +821,108 @@ public abstract partial record TextOp {
             from native in Optional(document.Objects.FindId(id)).ToFin(Fail: op.MissingContext())
             from source in Optional((native as AnnotationObjectBase)?.AnnotationGeometry).ToFin(Fail: op.InvalidInput())
             from copy in Optional(source.Duplicate() as AnnotationBase).ToFin(Fail: op.InvalidResult())
-            from _ in change(copy, op)
-            from __ in op.Confirm(success: document.Objects.Replace(objectId: id, geometry: copy, ignoreModes: false))
-            select id).As()
-        select DraftReceipt.Objects(slot: slot, ids: amended);
+            from amended in new Lease<AnnotationBase>.Owned(Value: copy).Use(owned =>
+                from _ in change(owned, op)
+                from __ in op.Confirm(success: document.Objects.Replace(objectId: id, geometry: owned, ignoreModes: false))
+                select ResourceId.Create(id))
+            select amended).As()
+        from receipt in DraftReceipt.Objects(slot: slot, ids: amended)
+        select receipt;
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------
-public sealed record TextTransaction(string Name, Seq<TextOp> Operations, RedrawPolicy Redraw, bool UndoRecorded = true) {
-    public static TextTransaction Batch(string name, params ReadOnlySpan<TextOp> operations) =>
-        new(Name: name, Operations: toSeq(operations.ToArray()), Redraw: RedrawPolicy.Deferred);
-}
+public sealed record TextContentState(
+    string Plain, string PlainWithFields, string Rich, string Display,
+    bool HasRtfFormatting, bool HasMeasurableFields);
+
+public sealed record TextFormatState(
+    string Face, string FirstFace,
+    bool FirstBold, bool FirstItalic, bool FirstUnderlined,
+    bool AllBold, bool AllItalic, bool AllUnderlined,
+    double Height, double RotationRadians,
+    bool Wrapped, double FormatWidth, double ModelWidth);
+
+public sealed record TextMaskState(
+    bool Enabled, PerceptualColor Color,
+    DimensionStyle.MaskType Source, DimensionStyle.MaskFrame Frame,
+    double Offset, bool UsesViewportColor, bool DrawFrame);
+
+public sealed record TextStyleState(
+    ResourceId Style,
+    Option<ResourceId> Parent,
+    Seq<StyleField> Overridden,
+    char DecimalSeparator,
+    bool UseKerning,
+    double LineSpaceScale,
+    double DimensionScale,
+    bool DrawForward,
+    LengthDisplayRow LengthDisplay,
+    LengthDisplayRow AlternateLengthDisplay);
 
 public sealed record TextState(
-    Guid Key,
-    AnnotationType Kind,
-    string PlainText,
-    string PlainTextWithFields,
-    string RichText,
-    bool Wrapped,
-    double FormatWidth,
-    double ModelWidth,
-    double TextHeight,
-    double RotationRadians,
-    string FontFace,
-    string FirstCharFace,
-    bool FirstCharBold,
-    bool FirstCharItalic,
-    bool AllBold,
-    bool AllItalic,
-    bool AllUnderlined,
-    bool HasRtfFormatting,
-    bool MaskEnabled,
-    PerceptualColor MaskColor,
-    DimensionStyle.MaskType MaskColorSource,
-    DimensionStyle.MaskFrame MaskFrame,
-    double MaskOffset,
-    bool MaskUsesViewportColor,
-    bool DrawTextFrame,
-    bool HasPropertyOverrides,
-    string DisplayText,
-    bool HasMeasurableTextFields) : IDetachedDocumentResult {
-    internal static Fin<TextState> Of(AnnotationObjectBase native, Op key) =>
+    ResourceId Key, AnnotationType Kind,
+    Plane Frame, BoundingBox Bounds,
+    TextContentState Content, TextFormatState Format, TextMaskState Mask,
+    TextStyleState Style, bool HasPropertyOverrides) : IDetachedDocumentResult {
+    internal static Fin<TextState> Of(AnnotationObjectBase native, Op key) => key.Catch(() =>
         from annotation in Optional(native.AnnotationGeometry).ToFin(Fail: key.InvalidResult())
-        from mask in key.Catch(() => PerceptualColor.OfRgb(
-            red: annotation.MaskColor.R,
-            green: annotation.MaskColor.G,
-            blue: annotation.MaskColor.B,
-            alpha: annotation.MaskColor.A / 255.0,
-            key: key))
-        from state in key.Catch(() => Fin.Succ(value: new TextState(
-            Key: native.Id,
+        from mask in annotation.MaskColor.Admitted(key)
+        from lengthDisplay in key.AcceptValidated<LengthDisplayRow>(candidate: (int)annotation.DimensionLengthDisplay)
+        from alternateLengthDisplay in key.AcceptValidated<LengthDisplayRow>(candidate: (int)annotation.AlternateDimensionLengthDisplay)
+        select new TextState(
+            Key: ResourceId.Create(native.Id),
             Kind: annotation.AnnotationType,
-            PlainText: annotation.PlainText,
-            PlainTextWithFields: annotation.PlainTextWithFields,
-            RichText: annotation.RichText,
-            Wrapped: annotation.TextIsWrapped,
-            FormatWidth: annotation.FormatWidth,
-            ModelWidth: annotation.TextModelWidth,
-            TextHeight: annotation.TextHeight,
-            RotationRadians: annotation.TextRotationRadians,
-            FontFace: annotation.Font.FaceName,
-            FirstCharFace: annotation.FirstCharFont.FaceName,
-            FirstCharBold: annotation.FirstCharFont.Bold,
-            FirstCharItalic: annotation.FirstCharFont.Italic,
-            AllBold: annotation.IsAllBold(),
-            AllItalic: annotation.IsAllItalic(),
-            AllUnderlined: annotation.IsAllUnderlined(),
-            HasRtfFormatting: annotation.TextHasRtfFormatting,
-            MaskEnabled: annotation.MaskEnabled,
-            MaskColor: mask,
-            MaskColorSource: annotation.MaskColorSource,
-            MaskFrame: annotation.MaskFrame,
-            MaskOffset: annotation.MaskOffset,
-            MaskUsesViewportColor: annotation.MaskUsesViewportColor,
-            DrawTextFrame: annotation.DrawTextFrame,
-            HasPropertyOverrides: annotation.HasPropertyOverrides,
-            DisplayText: native.DisplayText,
-            HasMeasurableTextFields: native.HasMeasurableTextFields)))
-        select state;
+            Frame: annotation.Plane,
+            Bounds: annotation.GetBoundingBox(xform: Transform.Identity),
+            Content: new TextContentState(
+                annotation.PlainText, annotation.PlainTextWithFields, annotation.RichText, native.DisplayText,
+                annotation.TextHasRtfFormatting, native.HasMeasurableTextFields),
+            Format: new TextFormatState(
+                annotation.Font.FaceName,
+                annotation.FirstCharFont.FaceName,
+                annotation.FirstCharFont.Bold,
+                annotation.FirstCharFont.Italic,
+                annotation.FirstCharUnderlined,
+                annotation.IsAllBold(),
+                annotation.IsAllItalic(),
+                annotation.IsAllUnderlined(),
+                annotation.TextHeight,
+                annotation.TextRotationRadians,
+                annotation.TextIsWrapped,
+                annotation.FormatWidth,
+                annotation.TextModelWidth),
+            Mask: new TextMaskState(
+                annotation.MaskEnabled, mask, annotation.MaskColorSource, annotation.MaskFrame,
+                annotation.MaskOffset, annotation.MaskUsesViewportColor, annotation.DrawTextFrame),
+            Style: new TextStyleState(
+                Style: ResourceId.Create(annotation.DimensionStyleId),
+                Parent: Optional(annotation.ParentDimensionStyle)
+                    .Map(static style => ResourceId.Create(style.Id)),
+                Overridden: annotation.HasPropertyOverrides
+                    ? toSeq(StyleField.Items).Filter(field => annotation.IsPropertyOverridden(field: field.Host))
+                    : Seq<StyleField>(),
+                DecimalSeparator: annotation.DecimalSeparator,
+                UseKerning: annotation.UseKerning,
+                LineSpaceScale: annotation.LineSpaceScale,
+                DimensionScale: annotation.DimensionScale,
+                DrawForward: annotation.DrawForward,
+                LengthDisplay: lengthDisplay,
+                AlternateLengthDisplay: alternateLengthDisplay),
+            HasPropertyOverrides: annotation.HasPropertyOverrides));
 }
 
 public sealed record LeaderFacts(
-    Guid Key,
-    Seq<Point2d> Points2D,
-    Seq<Point3d> Points3D,
-    Option<NurbsCurve> Spline,
-    DimensionStyle.ArrowType ArrowType,
-    double ArrowSize,
-    Option<Guid> ArrowBlockId,
+    ResourceId Key, Seq<Point2d> Points2D, Seq<Point3d> Points3D, Option<Lease<NurbsCurve>> Spline,
+    DimensionStyle.ArrowType ArrowType, double ArrowSize, Option<ResourceId> ArrowBlock,
     DimensionStyle.LeaderCurveStyle CurveStyle,
     DimensionStyle.LeaderContentAngleStyle ContentAngleStyle,
-    bool HasLanding,
-    double LandingLength) : IDetachedDocumentResult;
+    TextHorizontalAlignment HorizontalAlignment,
+    TextVerticalAlignment VerticalAlignment,
+    bool HasLanding, double LandingLength) : IDetachedDocumentResult, IDisposable {
+    public void Dispose() {
+        _ = Spline.Iter(static spline => spline.Dispose());
+    }
+}
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -570,123 +932,161 @@ public abstract partial record TextAsk {
     public sealed record LeaderState(TableTarget Target) : TextAsk;
     public sealed record RunMap(TableTarget Target) : TextAsk;
     public sealed record Evaluate(FieldProgram Program) : TextAsk;
-    public sealed record Tokens(string Text) : TextAsk;
+    public sealed record Tokens(FieldSource Text) : TextAsk;
     public sealed record Outline(TableTarget Target, OutlineSpec Spec) : TextAsk;
     public sealed record Pieces(TableTarget Target) : TextAsk;
-    public sealed record Scale(ResourceRef Style, Viewport.ViewportTarget Viewport) : TextAsk;
+    public sealed record Scale(ResourceRef Style, ViewportTarget Target) : TextAsk;
 
-    internal Fin<TextAnswer> Answer(RhinoDoc document, Op op) =>
-        Switch(
-            context: (Document: document, Op: op),
-            state: static (ctx, ask) =>
-                from native in Single(document: ctx.Document, target: ask.Target, key: ctx.Op)
-                from snapshot in TextState.Of(native: native, key: ctx.Op)
-                select (TextAnswer)new TextAnswer.State(Snapshot: snapshot),
-            leaderState: static (ctx, ask) =>
-                from native in Single(document: ctx.Document, target: ask.Target, key: ctx.Op)
+    internal Fin<TextAsk> Admit(Op key) => Switch(
+        key,
+        state: static (op, ask) => op.AcceptInput(value: ask.Target)
+            .Map(target => (TextAsk)new State(Target: target)),
+        leaderState: static (op, ask) => op.AcceptInput(value: ask.Target)
+            .Map(target => (TextAsk)new LeaderState(Target: target)),
+        runMap: static (op, ask) => op.AcceptInput(value: ask.Target)
+            .Map(target => (TextAsk)new RunMap(Target: target)),
+        evaluate: static (op, ask) => op.AcceptInput(value: ask.Program)
+            .Map(program => (TextAsk)new Evaluate(Program: program)),
+        tokens: static (op, ask) => op.AcceptInput(value: ask.Text)
+            .Map(text => (TextAsk)new Tokens(Text: text)),
+        outline: static (op, ask) =>
+            from target in op.AcceptInput(value: ask.Target)
+            from spec in op.AcceptInput(value: ask.Spec)
+            select (TextAsk)new Outline(Target: target, Spec: spec),
+        pieces: static (op, ask) => op.AcceptInput(value: ask.Target)
+            .Map(target => (TextAsk)new Pieces(Target: target)),
+        scale: static (op, ask) =>
+            from style in op.AcceptInput(value: ask.Style)
+            from target in op.AcceptInput(value: ask.Target)
+            select (TextAsk)new Scale(Style: style, Target: target));
+
+    internal Fin<TextAnswer> Answer(RhinoDoc document, Op op) => Switch(
+        (Document: document, Op: op),
+        state: static (ctx, ask) =>
+            from native in Single(document: ctx.Document, target: ask.Target, key: ctx.Op)
+            from snapshot in TextState.Of(native: native, key: ctx.Op)
+            select (TextAnswer)new TextAnswer.State(Snapshot: snapshot),
+        leaderState: static (ctx, ask) =>
+            from native in Single(document: ctx.Document, target: ask.Target, key: ctx.Op)
+            from facts in ctx.Op.Catch(() =>
                 from leader in Optional(native.AnnotationGeometry as Leader).ToFin(Fail: ctx.Op.InvalidInput())
-                from facts in ctx.Op.Catch(() => Fin.Succ(value: new LeaderFacts(
-                    Key: native.Id,
+                select new LeaderFacts(
+                    Key: ResourceId.Create(native.Id),
                     Points2D: toSeq(leader.Points2D),
                     Points3D: toSeq(leader.Points3D),
-                    Spline: Optional(leader.Curve).Map(static spline => (NurbsCurve)spline.Duplicate()),
                     ArrowType: leader.LeaderArrowType,
                     ArrowSize: leader.LeaderArrowSize,
-                    ArrowBlockId: Optional(leader.LeaderArrowBlockId).Filter(static id => id != Guid.Empty),
+                    ArrowBlock: ResourceId.Maybe(leader.LeaderArrowBlockId),
                     CurveStyle: leader.LeaderCurveStyle,
                     ContentAngleStyle: leader.LeaderContentAngleStyle,
+                    HorizontalAlignment: leader.LeaderTextHorizontalAlignment,
+                    VerticalAlignment: leader.LeaderTextVerticalAlignment,
                     HasLanding: leader.LeaderHasLanding,
-                    LandingLength: leader.LeaderLandingLength)))
-                select (TextAnswer)new TextAnswer.LeaderState(Facts: facts),
-            runMap: static (ctx, ask) =>
-                from native in Single(document: ctx.Document, target: ask.Target, key: ctx.Op)
-                from annotation in Optional(native.AnnotationGeometry).ToFin(Fail: ctx.Op.InvalidResult())
-                from mapped in ctx.Op.Catch(() => {
-                    int[] map = [];
-                    string text = annotation.GetPlainTextWithRunMap(map: ref map);
-                    return guard(map.Length % 3 == 0, ctx.Op.InvalidResult()).ToFin()
-                        .Map(_ => (Text: text, Runs: toSeq(map.Chunk(3))
-                            .Map(static row => (Run: row[0], Start: row[1], Length: row[2]))));
-                })
-                select (TextAnswer)new TextAnswer.Mapped(Text: mapped.Text, Runs: mapped.Runs),
-            evaluate: static (ctx, ask) =>
-                from resolved in ask.Program.Evaluate(document: ctx.Document, key: ctx.Op)
-                select (TextAnswer)new TextAnswer.Resolved(Text: resolved),
-            tokens: static (ctx, ask) =>
-                from text in ctx.Op.AcceptText(value: ask.Text)
-                from split in ctx.Op.Catch(() => TextFields.TryParse(text: text, doc: ctx.Document, out List<string> result)
-                    ? Fin.Succ(value: toSeq(result))
-                    : Fin.Fail<Seq<string>>(error: ctx.Op.InvalidResult()))
-                select (TextAnswer)new TextAnswer.Split(Tokens: split),
-            outline: static (ctx, ask) =>
-                from native in Single(document: ctx.Document, target: ask.Target, key: ctx.Op)
-                from text in Optional(native.AnnotationGeometry as TextEntity).ToFin(Fail: ctx.Op.InvalidInput())
-                from style in Optional(text.DimensionStyle).ToFin(Fail: ctx.Op.MissingContext())
-                from product in ask.Spec.Apply(text: text, style: style, key: ctx.Op)
-                select (TextAnswer)new TextAnswer.Outlined(Product: product),
-            pieces: static (ctx, ask) =>
-                from native in Single(document: ctx.Document, target: ask.Target, key: ctx.Op)
-                from products in ctx.Op.Catch(() => native.AnnotationGeometry switch {
-                    TextEntity text => Optional(text.Explode())
-                        .Map(static curves => toSeq(curves).Map(static curve => (GeometryBase)curve))
-                        .ToFin(Fail: ctx.Op.InvalidResult()),
-                    Leader leader => Optional(leader.Explode())
-                        .Map(static exploded => toSeq(exploded))
-                        .ToFin(Fail: ctx.Op.InvalidResult()),
-                    var unmapped => Fin.Fail<Seq<GeometryBase>>(error: ctx.Op.Unsupported(
-                        geometryType: unmapped.GetType(), outputType: typeof(GeometryBase))),
-                })
-                select (TextAnswer)new TextAnswer.Pieces(Products: products),
-            scale: static (ctx, ask) =>
-                from style in ask.Style.Resolve(document: ctx.Document, lens: StyleOp.Lens, key: ctx.Op)
-                from rows in ask.Viewport.Resolve(document: ctx.Document, key: ctx.Op)
-                from row in rows switch { [var only] => Fin.Succ(value: only), _ => Fin.Fail<Viewport.ViewportRef>(error: ctx.Op.InvalidInput()) }
-                from factor in ctx.Op.Catch(() => Fin.Succ(value: AnnotationBase.GetDimensionScale(
-                    doc: ctx.Document, dimstyle: style, vport: row.Viewport)))
-                select (TextAnswer)new TextAnswer.Scaled(Factor: factor));
+                    LandingLength: leader.LeaderLandingLength,
+                    Spline: Optional(leader.Curve).Map(static value =>
+                        (Lease<NurbsCurve>)new Lease<NurbsCurve>.Owned(Value: (NurbsCurve)value.Duplicate()))))
+            select (TextAnswer)new TextAnswer.LeaderState(Facts: facts),
+        runMap: static (ctx, ask) =>
+            from native in Single(document: ctx.Document, target: ask.Target, key: ctx.Op)
+            from annotation in Optional(native.AnnotationGeometry).ToFin(Fail: ctx.Op.InvalidResult())
+            from mapped in ctx.Op.Catch(() => {
+                int[] map = [];
+                string text = annotation.GetPlainTextWithRunMap(map: ref map);
+                return guard(map.Length % 3 == 0, ctx.Op.InvalidResult()).ToFin().Map(_ => (
+                    Text: text,
+                    Runs: toSeq(map.Chunk(3)).Map(static row => new RunLocation(row[0], row[1], row[2]))));
+            })
+            select (TextAnswer)new TextAnswer.Mapped(Text: mapped.Text, Runs: mapped.Runs),
+        evaluate: static (ctx, ask) =>
+            from value in ask.Program.Evaluate(document: ctx.Document, key: ctx.Op)
+            select (TextAnswer)new TextAnswer.Resolved(Text: value),
+        tokens: static (ctx, ask) =>
+            from split in ctx.Op.Catch(() => TextFields.TryParse(text: ask.Text.Value, doc: ctx.Document, out List<string> result)
+                ? Fin.Succ(value: toSeq(result))
+                : Fin.Fail<Seq<string>>(error: ctx.Op.InvalidResult()))
+            select (TextAnswer)new TextAnswer.Split(Tokens: split),
+        outline: static (ctx, ask) =>
+            from native in Single(document: ctx.Document, target: ask.Target, key: ctx.Op)
+            from text in Optional(native.AnnotationGeometry as TextEntity).ToFin(Fail: ctx.Op.InvalidInput())
+            from style in Optional(text.DimensionStyle).ToFin(Fail: ctx.Op.MissingContext())
+            from product in ask.Spec.Apply(source: text, style: style, key: ctx.Op)
+            select (TextAnswer)new TextAnswer.Outlined(Product: product),
+        pieces: static (ctx, ask) =>
+            from native in Single(document: ctx.Document, target: ask.Target, key: ctx.Op)
+            from answer in (native.AnnotationGeometry switch {
+                TextEntity text => ctx.Op.Catch(() => Optional(text.Explode()).ToFin(Fail: ctx.Op.InvalidResult()))
+                    .Bind(curves => TextAnswer.Pieces.Own(
+                        products: toSeq(curves).Map(static curve => (GeometryBase)curve), key: ctx.Op)),
+                Leader leader => ctx.Op.Catch(() => Optional(leader.Explode()).ToFin(Fail: ctx.Op.InvalidResult()))
+                    .Bind(products => TextAnswer.Pieces.Own(products: toSeq(products), key: ctx.Op)),
+                var geometry => Fin.Fail<TextAnswer>(ctx.Op.Unsupported(
+                    geometryType: geometry.GetType(), outputType: typeof(GeometryBase))),
+            })
+            select answer,
+        scale: static (ctx, ask) =>
+            from style in ask.Style.Resolve(document: ctx.Document, lens: StyleOp.Lens, key: ctx.Op)
+            from viewport in ask.Target.ResolveViewport(document: ctx.Document, key: ctx.Op)
+            from factor in ctx.Op.Catch(() => Fin.Succ(value: AnnotationBase.GetDimensionScale(
+                doc: ctx.Document, dimstyle: style, vport: viewport)))
+            select (TextAnswer)new TextAnswer.Scaled(Factor: factor));
 
     internal static Fin<AnnotationObjectBase> Single(RhinoDoc document, TableTarget target, Op key) =>
-        from ids in target.Resolve(document: document, key: key)
-        from id in ids switch { [Guid only] => Fin.Succ(value: only), _ => Fin.Fail<Guid>(error: key.InvalidInput()) }
-        from native in Optional(document.Objects.FindId(id)).ToFin(Fail: key.MissingContext())
-        from annotation in Optional(native as AnnotationObjectBase).ToFin(Fail: key.InvalidInput())
-        select annotation;
+        target.Only<AnnotationObjectBase>(document: document, key: key).Map(static row => row.Native);
 }
+
+public readonly record struct RunLocation(int Run, int Start, int Length);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record TextAnswer : IDetachedDocumentResult {
     private TextAnswer() { }
     public sealed record State(TextState Snapshot) : TextAnswer;
-    public sealed record LeaderState(LeaderFacts Facts) : TextAnswer;
-    public sealed record Mapped(string Text, Seq<(int Run, int Start, int Length)> Runs) : TextAnswer;
+    public sealed record LeaderState(LeaderFacts Facts) : TextAnswer, IDisposable {
+        public void Dispose() => Facts.Dispose();
+    }
+    public sealed record Mapped(string Text, Seq<RunLocation> Runs) : TextAnswer;
     public sealed record Resolved(string Text) : TextAnswer;
     public sealed record Split(Seq<string> Tokens) : TextAnswer;
-    public sealed record Outlined(OutlineProduct Product) : TextAnswer;
-    public sealed record Pieces(Seq<GeometryBase> Products) : TextAnswer;
+    public sealed record Outlined(OutlineProduct Product) : TextAnswer, IDisposable {
+        public void Dispose() => Product.Dispose();
+    }
+    public sealed record Pieces : TextAnswer, IDisposable {
+        private Pieces(Seq<Lease<GeometryBase>> products) => Products = products;
+
+        public Seq<Lease<GeometryBase>> Products { get; }
+
+        internal static Fin<TextAnswer> Own(Seq<GeometryBase> products, Op key) {
+            Seq<GeometryBase> custody = products.Strict();
+            Seq<GeometryBase> releasable = custody.Filter(static product => product is not null).Strict();
+            return guard(releasable.Count == custody.Count, key.InvalidResult()).ToFin()
+                .Map(_ => (TextAnswer)new Pieces(products: releasable.Map(static product =>
+                    (Lease<GeometryBase>)new Lease<GeometryBase>.Owned(Value: product)).Strict()))
+                .BindFail(primary => GeometryEvidence<GeometryBase>.Release(geometry: releasable, key: key).Match(
+                    Succ: _ => Fin.Fail<TextAnswer>(error: primary),
+                    Fail: cleanup => Fin.Fail<TextAnswer>(error: primary + cleanup)));
+        }
+
+        public void Dispose() {
+            Op key = Op.Of();
+            Products.Traverse(product => key.Catch(product.Dispose).ToValidation()).As().ToFin().ThrowIfFail();
+        }
+    }
     public sealed record Scaled(double Factor) : TextAnswer;
 }
 
 public static class Texts {
-    public static Fin<DraftReceipt> Commit(DocumentSession session, TextTransaction plan) {
-        Op op = Op.Of();
-        return from active in Optional(plan).ToFin(Fail: op.InvalidInput())
-               from _ in guard(!active.Operations.IsEmpty, op.InvalidInput()).ToFin()
-               from receipt in DraftSpine.Commit(
-                   session: session, name: active.Name, redraw: active.Redraw, recording: active.UndoRecorded,
-                   run: document => active.Operations
-                       .TraverseM(operation => operation.Apply(document: document, op: op)).As()
-                       .Map(static receipts => receipts.Fold(DraftReceipt.Empty, static (state, value) => state + value)),
-                   op: op)
-               select receipt;
-    }
+    public static Fin<DraftReceipt> Commit(DocumentSession session, DraftPlan<TextOp> plan) =>
+        DraftSpine.Commit(session: session, plan: plan,
+            apply: static (document, operation, key) => key.AcceptInput(value: operation)
+                .Bind(value => value.Admit(key: key))
+                .Bind(value => value.Apply(document: document, op: key)),
+            op: Op.Of());
 
     public static Fin<TextAnswer> Ask(DocumentSession session, TextAsk request) {
         Op op = Op.Of();
-        return from active in Optional(request).ToFin(Fail: op.InvalidInput())
+        return from candidate in op.AcceptInput(value: request)
+               from admitted in candidate.Admit(key: op)
                from answer in session.Demand(
-                   use: document => active.Answer(document: document, op: op),
-                   key: op,
-                   needs: [SessionNeed.Read])
+                   use: document => admitted.Answer(document: document, op: op), key: op, needs: [SessionNeed.Read])
                select answer;
     }
 }
@@ -694,12 +1094,11 @@ public static class Texts {
 
 ## [06]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]        | [OWNER]                | [FORM]                                          | [ENTRY]                           |
-| :-----: | :--------------- | :--------------------- | :---------------------------------------------- | :--------------------------------- |
-|  [01]   | content seed     | `TextSeed`             | plain/RTF host-construction choice              | `TextSpec.Mint`/`LeaderSpec.Mint` |
-|  [02]   | run mutation     | `RunEdit` / `RunStyle` | live edits / detached formatting delta          | `Apply` / `TextRtf.Restyled`      |
-|  [03]   | field formula    | `FieldExpr`            | evaluator cases, one `Token` fold               | `FieldProgram.Compose`            |
-|  [04]   | field resolution | `FieldProgram`         | session-bound `TryFormat`                       | `TextAsk.Evaluate`                |
-|  [05]   | outlining        | `OutlineSpec`          | form × grouping × metrics                       | `TextAsk.Outline`                 |
-|  [06]   | mutation rail    | `TextOp`               | one union, duplicate-then-`Replace`             | `Texts.Commit`                    |
-|  [07]   | read rail        | `TextAsk`              | state, leaders, runs, fields, outlines, scale   | `Texts.Ask`                       |
+| [INDEX] | [CONCERN]        | [OWNER]          | [FORM]                                                    | [ENTRY]          |
+| :-----: | :--------------- | :--------------- | :-------------------------------------------------------- | :--------------- |
+|  [01]   | content ingress  | `TextSeed`       | admitted format plus source                               | `Create`         |
+|  [02]   | live formatting  | `RunEdit`        | replacement, shared formatting rows, or wrap              | `Apply`          |
+|  [03]   | field formulas   | `FieldKind`      | evaluator rows carrying admissible typed signatures       | `FieldExpr.Of`   |
+|  [04]   | outline egress   | `OutlineSpec`    | flat form/group dispatch plus transform and evidence       | `Apply`          |
+|  [05]   | text mutations   | `TextOp`         | unified placement plus duplicate-then-replace edits        | `Texts.Commit`   |
+|  [06]   | text evidence    | `TextAsk`        | owned detached evidence family                              | `Texts.Ask`      |

@@ -1,24 +1,21 @@
 # [RASM_RHINO_ETO_CANVAS]
 
-`Eto.Drawing` immediate-2D owner of `Rasm.Rhino.Eto` — one retained `Mark` scene vocabulary rendered by one fold into the host `Graphics` command stream, with geometry, paint, typography, transform, pixel, and lifecycle concerns as closed rows. Census code hand-rolled hit testing beside its paint code and hard-coded font metrics; both die here structurally: pointer hit-testing derives from the SAME `PathSpec` the paint drew through the host `FillContains`/`StrokeContains` tests, and every measurement flows through `FormattedText.Measure`/`MeasureString` over `TypeRole` rows resolved from the host `SystemFonts` roster. Color enters as the kernel `PerceptualColor` and quantizes to `Eto.Drawing.Color` at exactly one mint site — perceptual blending, ramps, and contrast stay kernel math per the one-color-derivation law. `Surface` owns the `Drawable` lifecycle — mount, paint subscription, invalidation policy, IME composition, off-event graphics leases — and `PixelLease` rides `Bitmap.Lock` through the kernel `Lease<T>` rail so a locked pixel window can never outlive its scope.
+`Surface` mounts the host `Drawable` and replays the mounted `PaintProgram` against its `Graphics` stream. `Pigment` owns `PerceptualColor` quantization, `GlyphBlock` owns text metrics, and `PixelLease` brackets bitmap access; the retained mark, path, stroke, and fill vocabulary is `Rasm.Rhino.Display` law and never re-minted here.
 
 ## [01]-[INDEX]
 
-- [02]-[PIGMENT_EDGE]: `Pigment` — the ONE `PerceptualColor` → `Color` quantization site — plus `FillSpec` (solid, linear, radial, texture) and `StrokeSpec` with `DashRow` — the paint vocabulary minting host brushes and pens only inside the render fold.
-- [03]-[FIGURE]: `Figure` + `PathSpec` + `Pose` — retained path geometry as rows, one `Build` fold to `GraphicsPath`, hit-testing off the built path, and affine composition through the host `Matrix` factories.
-- [04]-[GLYPHS]: `TypeRole` rows over `SystemFonts` + `GlyphBlock` — shaped, wrapped, aligned, trimmed text with `Measure` as the single metric authority.
-- [05]-[SCENE]: `Mark` + `Scene` — the retained draw tree, ONE render fold with save/restore transform, clip, and visibility culling, and ONE hit-test fold over the same geometry.
-- [06]-[SURFACE]: `SurfaceSpec` + `Surface` + `PixelLease` — `Drawable` mount and lifecycle, invalidation rows, off-event `Graphics` leases, IME verbs, and `Bitmap.Lock` pixel windows under `Lease<T>`.
+- [02]-[PIGMENT_EDGE]: `Pigment` owns quantization; paint specs are Display vocabulary.
+- [03]-[GLYPHS]: `TypeRole` rows over `SystemFonts` + `GlyphBlock` — decorated, shaped, wrapped, aligned, trimmed text with one metric authority.
+- [04]-[PAINT_SEAM]: `PaintProgram` — the delegate pair carrying Display's mark vocabulary onto this surface.
+- [05]-[SURFACE]: `ScenePolicy` + `SurfaceSpec` + `Surface` + `PixelLease` — `Drawable` mount and lifecycle, quality policy, invalidation rows, off-event `Graphics` leases, IME verbs, and `Bitmap.Lock` pixel windows under `Lease<T>`.
 
 ## [02]-[PIGMENT_EDGE]
 
-- Owner: `Pigment` — the boundary projector holding the ONE `PerceptualColor.ToRgb()` → `Eto.Drawing.Color` quantization in the assembly (the Display unit's `Quant` backend-mint rows compose it for their Eto seat rather than re-deriving the destructure) — plus `FillSpec`, the closed `[Union]` over the host brush family, and `StrokeSpec`, the one stroke record whose `DashRow` `[SmartEnum<int>]` carries the host dash presets and a custom-pattern case. Host `Color.Blend`/`Distance`/`ToHSB`/`ToHSL`/`ToCMYK` are naive sRGB math and never called: mixing, ramps, and contrast happen on `PerceptualColor` before this edge.
-- Cases: `FillSpec` `Solid(PerceptualColor)` · `Linear(PerceptualColor From, PerceptualColor To, PointF Start, PointF End)` · `Radial(PerceptualColor From, PerceptualColor To, PointF Center, PointF Origin, SizeF Radius)` · `Textured(Image, UnitInterval Opacity)`; `DashRow` `Continuous` · `Dashed` · `Dotted` · `DashDotted` · `Patterned` (custom offsets).
-- Law: brushes and pens are minted inside the render window and disposed with it — `Mint` returns the live host object, the scene fold owns the `using` bracket (the named platform-forced seam), and a brush cached across frames without a token owner is the rejected form.
-- Packages: Rasm (kernel — `PerceptualColor`, `BlendPath`, `UnitInterval`), Eto.Drawing (host — `SolidBrush`, `LinearGradientBrush`, `RadialGradientBrush`, `TextureBrush`, `Pen`, `DashStyle`, `DashStyles`, `PenLineCap`, `PenLineJoin`).
-- Growth: a new host brush kind is one `FillSpec` case; a new dash preset is one `DashRow` row; a gradient with N stops is a kernel `Ramp` projected onto a stop sequence at this edge when the host surface admits it.
+- Owner: `Pigment` is the sole `PerceptualColor` to `Color` projector; every brush, pen, and glyph ink on this surface quantizes through it.
+- Law: this page mints no stroke, fill, dash, or path spec — the paint vocabulary is `Rasm.Rhino.Display` `Marks`, and paint reaches this surface only through the mounted `PaintProgram`.
+- Packages: Rasm (kernel — `PerceptualColor`), Eto.Drawing (host — `Color`).
 
-```csharp
+```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using Eto.Drawing;
 using Eto.Forms;
@@ -32,328 +29,317 @@ namespace Rasm.Rhino.Eto;
 public static class Pigment {
     public static Color ToColor(PerceptualColor colour) =>
         colour.ToRgb() switch {
-            { } rgb => Color.FromArgb(red: rgb.Red, green: rgb.Green, blue: rgb.Blue, alpha: (int)Math.Clamp(value: rgb.Alpha * 255.0, min: 0.0, max: 255.0)),
+            { } rgb => Color.FromArgb(red: rgb.Red, green: rgb.Green, blue: rgb.Blue, alpha: rgb.Alpha),
         };
 }
-
-// --- [TYPES] --------------------------------------------------------------------------------
-[SmartEnum<int>]
-public sealed partial class DashRow {
-    public static readonly DashRow Continuous = new(key: 0, style: static _ => DashStyles.Solid);
-    public static readonly DashRow Dashed = new(key: 1, style: static _ => DashStyles.Dash);
-    public static readonly DashRow Dotted = new(key: 2, style: static _ => DashStyles.Dot);
-    public static readonly DashRow DashDotted = new(key: 3, style: static _ => DashStyles.DashDot);
-    public static readonly DashRow Patterned = new(key: 4, style: static offsets => new DashStyle(0f, [.. offsets]));
-    [UseDelegateFromConstructor]
-    internal partial DashStyle Style(Seq<float> offsets);
-}
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record FillSpec {
-    private FillSpec() { }
-    public sealed record Solid(PerceptualColor Colour) : FillSpec;
-    public sealed record Linear(PerceptualColor From, PerceptualColor To, PointF Start, PointF End) : FillSpec;
-    public sealed record Radial(PerceptualColor From, PerceptualColor To, PointF Center, PointF Origin, SizeF Radius) : FillSpec;
-    public sealed record Textured(Image Source, UnitInterval Opacity) : FillSpec;
-
-    internal Brush Mint() => Switch(
-        solid: static spec => new SolidBrush(color: Pigment.ToColor(colour: spec.Colour)),
-        linear: static spec => new LinearGradientBrush(startColor: Pigment.ToColor(colour: spec.From), endColor: Pigment.ToColor(colour: spec.To), startPoint: spec.Start, endPoint: spec.End),
-        radial: static spec => new RadialGradientBrush(startColor: Pigment.ToColor(colour: spec.From), endColor: Pigment.ToColor(colour: spec.To), center: spec.Center, gradientOrigin: spec.Origin, radius: spec.Radius),
-        textured: static spec => (Brush)new TextureBrush(image: spec.Source, opacity: (float)spec.Opacity.Value));
-}
-
-// --- [MODELS] -------------------------------------------------------------------------------
-public sealed record StrokeSpec(
-    PerceptualColor Colour,
-    PositiveMagnitude Thickness,
-    DashRow Dash,
-    Seq<float> DashOffsets = default,
-    PenLineCap Cap = PenLineCap.Butt,
-    PenLineJoin Join = PenLineJoin.Miter,
-    float MiterLimit = 10f) {
-    internal Pen Mint() {
-        Pen pen = new(color: Pigment.ToColor(colour: Colour), thickness: (float)Thickness.Value) { LineCap = Cap, LineJoin = Join, MiterLimit = MiterLimit };
-        _ = Op.SideWhen(Dash != DashRow.Continuous, () => pen.DashStyle = Dash.Style(offsets: DashOffsets));
-        return pen;
-    }
-}
 ```
 
-## [03]-[FIGURE]
+## [03]-[GLYPHS]
 
-- Owner: `Figure` — the closed `[Union]` of path atoms over the verified `GraphicsPath` construction surface — `PathSpec`, the one retained-geometry record folding figures into a `GraphicsPath` with `FillMode`, closure, and transform, and `Pose`, the affine composition union folding to `IMatrix` through the host `Matrix` factories. Hit-testing is a member of the SAME record the paint draws — `Hits(point, stroke?)` routes `FillContains` for closed geometry and `StrokeContains` under the probe pen otherwise — so the census-era parallel hit-test geometry copy is structurally impossible: one geometry value, two total reads.
-- Cases: `Figure` `LineTo(PointF, PointF)` · `Curve(PointF Start, PointF ControlA, PointF ControlB, PointF End)` (bezier) · `Sweep(RectangleF, float StartAngle, float SweepAngle)` (arc) · `Through(Seq<PointF>, float Tension)` (cardinal spline) · `Round(RectangleF)` (ellipse) · `Box(RectangleF)` · `RoundedBox(RectangleF, float NW, float NE, float SE, float SW)` · `Chain(Seq<PointF>)` (polyline); `Pose` `Shift(float, float)` · `Turn(float)` · `Grow(float, float, PointF About)` · `Explicit(float XX, float YX, float XY, float YY, float X0, float Y0)` · `Stacked(Seq<Pose>)` · `Inverted(Pose)`.
-- Law: `Build` is the one materialization — figures fold in declaration order onto a fresh `GraphicsPath`, closure appends `CloseFigure`, and the built path is a per-call product the caller owns; `RoundedBox` folds through the host `GetRoundRect` factory so corner geometry is never hand-approximated.
-- Law: `Pose` folds right-to-left onto one `IMatrix` — `Stacked` folds the verified `Append` onto an identity `Matrix.Create` product, `Inverted` rides `Matrix.Inverse` — and a hand-rolled 2×3 multiply is the deleted form.
-- Growth: a new path atom the host ships is one `Figure` case; a new transform modality is one `Pose` case; both break the folds at compile time.
+- Owner: `TypeRole` resolves host typography policy over point size and decoration, `GlyphBlock` is the one text-shaping and metric owner every folder composes, and `GlyphShape` owns the coupled `FormattedText` and foreground brush for one draw window.
+- Law: a role resolves through `SystemFonts`, whose fonts are process-cached per (font, size, decoration) — the resolved `Font` is a shared host instance and is never disposed; a raw `new Font(...)` in paint code is the deleted form, and a custom face enters as a new `TypeRole` row whose resolve column constructs it.
+- Law: `Measure` memoizes per retained block and shapes without ink — foreground is `Option`al, so a measure-only block never mints a brush — and repeated bounds and hit probes never re-enter uncached host shaping or key on `Font.Equals`, which omits `FontDecoration`.
+- Law: `Draw` is the block's one paint egress — shape, draw at a location, release the shape — so a consumer never touches `FormattedText` or a `GlyphShape` directly.
+- Growth: a new role is one row; a new text treatment (max-extent ellipsis, right-aligned numeric, point size) is field values on the block, never a sibling text type.
 
-```csharp
-// --- [TYPES] --------------------------------------------------------------------------------
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record Pose {
-    private Pose() { }
-    public sealed record Shift(float OffsetX, float OffsetY) : Pose;
-    public sealed record Turn(float Angle) : Pose;
-    public sealed record Grow(float ScaleX, float ScaleY, PointF About) : Pose;
-    public sealed record Explicit(float XX, float YX, float XY, float YY, float X0, float Y0) : Pose;
-    public sealed record Stacked(Seq<Pose> Poses) : Pose;
-    public sealed record Inverted(Pose Body) : Pose;
-
-    internal IMatrix ToMatrix() => Switch(
-        shift: static pose => Matrix.FromTranslation(distanceX: pose.OffsetX, distanceY: pose.OffsetY),
-        turn: static pose => Matrix.FromRotation(angle: pose.Angle),
-        grow: static pose => Matrix.FromScaleAt(scaleX: pose.ScaleX, scaleY: pose.ScaleY, centerX: pose.About.X, centerY: pose.About.Y),
-        @explicit: static pose => Matrix.Create(xx: pose.XX, yx: pose.YX, xy: pose.XY, yy: pose.YY, x0: pose.X0, y0: pose.Y0),
-        stacked: static pose => pose.Poses.Fold(Matrix.Create(), static (folded, part) => (Op.Side(() => folded.Append(part.ToMatrix())), folded).Item2),
-        inverted: static pose => Matrix.Inverse(matrix: pose.Body.ToMatrix()));
-}
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record Figure {
-    private Figure() { }
-    public sealed record LineTo(PointF From, PointF To) : Figure;
-    public sealed record Curve(PointF Start, PointF ControlA, PointF ControlB, PointF End) : Figure;
-    public sealed record Sweep(RectangleF Bounds, float StartAngle, float SweepAngle) : Figure;
-    public sealed record Through(Seq<PointF> Points, float Tension = 0.5f) : Figure;
-    public sealed record Round(RectangleF Bounds) : Figure;
-    public sealed record Box(RectangleF Bounds) : Figure;
-    public sealed record RoundedBox(RectangleF Bounds, float NW, float NE, float SE, float SW) : Figure;
-    public sealed record Chain(Seq<PointF> Points) : Figure;
-
-    internal Unit AddTo(GraphicsPath path) => Switch(
-        state: path,
-        lineTo: static (p, figure) => Op.Side(() => p.AddLine(startX: figure.From.X, startY: figure.From.Y, endX: figure.To.X, endY: figure.To.Y)),
-        curve: static (p, figure) => Op.Side(() => p.AddBezier(start: figure.Start, control1: figure.ControlA, control2: figure.ControlB, end: figure.End)),
-        sweep: static (p, figure) => Op.Side(() => p.AddArc(x: figure.Bounds.X, y: figure.Bounds.Y, width: figure.Bounds.Width, height: figure.Bounds.Height, startAngle: figure.StartAngle, sweepAngle: figure.SweepAngle)),
-        through: static (p, figure) => Op.Side(() => p.AddCurve(points: figure.Points, tension: figure.Tension)),
-        round: static (p, figure) => Op.Side(() => p.AddEllipse(x: figure.Bounds.X, y: figure.Bounds.Y, width: figure.Bounds.Width, height: figure.Bounds.Height)),
-        box: static (p, figure) => Op.Side(() => p.AddRectangle(x: figure.Bounds.X, y: figure.Bounds.Y, width: figure.Bounds.Width, height: figure.Bounds.Height)),
-        roundedBox: static (p, figure) => Op.Side(() => p.AddPath(path: GraphicsPath.GetRoundRect(rectangle: figure.Bounds, nwRadius: figure.NW, neRadius: figure.NE, seRadius: figure.SE, swRadius: figure.SW))),
-        chain: static (p, figure) => Op.Side(() => p.AddLines(points: figure.Points)));
-}
-
-// --- [MODELS] -------------------------------------------------------------------------------
-public sealed record PathSpec(Seq<Figure> Figures, bool Closed = false, Option<Pose> Pose = default) {
-    public static PathSpec Of(params ReadOnlySpan<Figure> figures) => new(Figures: toSeq(figures.ToArray()));
-
-    internal GraphicsPath Build() {
-        GraphicsPath path = new();
-        _ = Figures.Iter(figure => figure.AddTo(path: path));
-        _ = Op.SideWhen(Closed, path.CloseFigure);
-        _ = Pose.Iter(pose => path.Transform(matrix: pose.ToMatrix()));
-        return path;
-    }
-
-    public bool Hits(PointF point, Option<StrokeSpec> stroke = default) {
-        using GraphicsPath path = Build();
-        return stroke.Filter(_ => !Closed).Match(
-            Some: spec => {
-                using Pen probe = spec.Mint();
-                return path.StrokeContains(pen: probe, point: point);
-            },
-            None: () => path.FillContains(point: point));
-    }
-}
-```
-
-## [04]-[GLYPHS]
-
-- Owner: `TypeRole` `[SmartEnum<int>]` — the typography-role rows over the verified host `SystemFonts` roster (`Default`, `Bold`, `Label`, `Menu`, `MenuBar`, `Message`, `Palette`, `StatusBar`, `TitleBar`, `ToolTip`, `User`), each row a resolve column so a call site holds a role, never loose font parameters — and `GlyphBlock`, the one shaped-text record carrying text, role, foreground, wrap, alignment, trimming, and maximum extent, minting the host `FormattedText` and measuring through `Measure()`. Census code hard-coded font metrics; the metric authority is now the shaped block itself, and `Graphics.MeasureString(Font, string)` survives only as the unshaped fast probe for single-line unwrapped text.
-- Law: a role resolves once per use site into the host `Font` and rides the block — a raw `new Font(...)` in scene code is the deleted form; a custom face enters as a new `TypeRole` row whose resolve column constructs it, so face policy stays a declaration.
-- Law: `Measure` is the single measurement verb — layout reserves by the measured `SizeF`, truncation and wrapping ride the host `FormattedTextWrapMode`/`FormattedTextTrimming` rows, and an advance estimated from character counts is the deleted form.
-- Growth: a new role is one row; a new text treatment (max-extent ellipsis, right-aligned numeric) is field values on the block, never a sibling text type.
-
-```csharp
+```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class TypeRole {
-    public static readonly TypeRole Body = new(key: 0, resolve: static () => SystemFonts.Default());
-    public static readonly TypeRole Strong = new(key: 1, resolve: static () => SystemFonts.Bold());
-    public static readonly TypeRole Caption = new(key: 2, resolve: static () => SystemFonts.Label());
-    public static readonly TypeRole MenuText = new(key: 3, resolve: static () => SystemFonts.Menu());
-    public static readonly TypeRole StatusText = new(key: 4, resolve: static () => SystemFonts.StatusBar());
-    public static readonly TypeRole HintText = new(key: 5, resolve: static () => SystemFonts.ToolTip());
-    public static readonly TypeRole TitleText = new(key: 6, resolve: static () => SystemFonts.TitleBar());
-    public static readonly TypeRole MenuBarText = new(key: 7, resolve: static () => SystemFonts.MenuBar());
-    public static readonly TypeRole MessageText = new(key: 8, resolve: static () => SystemFonts.Message());
-    public static readonly TypeRole PaletteText = new(key: 9, resolve: static () => SystemFonts.Palette());
-    public static readonly TypeRole UserText = new(key: 10, resolve: static () => SystemFonts.User());
+    public static readonly TypeRole Body = new(key: 0, resolve: static (size, decoration) => SystemFonts.Default(size: size, decoration: decoration));
+    public static readonly TypeRole Strong = new(key: 1, resolve: static (size, decoration) => SystemFonts.Bold(size: size, decoration: decoration));
+    public static readonly TypeRole Caption = new(key: 2, resolve: static (size, decoration) => SystemFonts.Label(size: size, decoration: decoration));
+    public static readonly TypeRole MenuText = new(key: 3, resolve: static (size, decoration) => SystemFonts.Menu(size: size, decoration: decoration));
+    public static readonly TypeRole StatusText = new(key: 4, resolve: static (size, decoration) => SystemFonts.StatusBar(size: size, decoration: decoration));
+    public static readonly TypeRole HintText = new(key: 5, resolve: static (size, decoration) => SystemFonts.ToolTip(size: size, decoration: decoration));
+    public static readonly TypeRole TitleText = new(key: 6, resolve: static (size, decoration) => SystemFonts.TitleBar(size: size, decoration: decoration));
+    public static readonly TypeRole MenuBarText = new(key: 7, resolve: static (size, decoration) => SystemFonts.MenuBar(size: size, decoration: decoration));
+    public static readonly TypeRole MessageText = new(key: 8, resolve: static (size, decoration) => SystemFonts.Message(size: size, decoration: decoration));
+    public static readonly TypeRole PaletteText = new(key: 9, resolve: static (size, decoration) => SystemFonts.Palette(size: size, decoration: decoration));
+    public static readonly TypeRole UserText = new(key: 10, resolve: static (size, decoration) => SystemFonts.User(size: size, decoration: decoration));
     [UseDelegateFromConstructor]
-    internal partial Font Resolve();
+    internal partial Font Resolve(float? size = null, FontDecoration decoration = FontDecoration.None);
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------
-public sealed record GlyphBlock(
-    string Text,
-    TypeRole Role,
-    PerceptualColor Foreground,
-    FormattedTextWrapMode Wrap = FormattedTextWrapMode.Word,
-    FormattedTextAlignment Alignment = FormattedTextAlignment.Left,
-    FormattedTextTrimming Trimming = FormattedTextTrimming.WordEllipsis,
-    Option<SizeF> MaxExtent = default) {
-    internal FormattedText Shape() {
+public sealed class GlyphBlock(
+    string text,
+    TypeRole role,
+    Option<PerceptualColor> foreground = default,
+    Option<float> size = default,
+    FontDecoration decoration = FontDecoration.None,
+    FormattedTextWrapMode wrap = FormattedTextWrapMode.Word,
+    FormattedTextAlignment alignment = FormattedTextAlignment.Left,
+    FormattedTextTrimming trimming = FormattedTextTrimming.None,
+    Option<SizeF> maxExtent = default) {
+    private readonly Lazy<SizeF> measured = new(() => {
+        using FormattedText shaped = ShapeText(text, role, size, decoration, wrap, alignment, trimming, maxExtent, None);
+        return shaped.Measure();
+    }, LazyThreadSafetyMode.ExecutionAndPublication);
+
+    public string Text { get; } = text;
+    public TypeRole Role { get; } = role;
+    public Option<PerceptualColor> Foreground { get; } = foreground;
+    public Option<float> Size { get; } = size;
+    public FontDecoration Decoration { get; } = decoration;
+    public FormattedTextWrapMode Wrap { get; } = wrap;
+    public FormattedTextAlignment Alignment { get; } = alignment;
+    public FormattedTextTrimming Trimming { get; } = trimming;
+    public Option<SizeF> MaxExtent { get; } = maxExtent;
+
+    public SizeF Measure() => measured.Value;
+
+    public Unit Draw(Graphics graphics, PointF at) => Op.Side(() => {
+        using GlyphShape shaped = Shape();
+        graphics.DrawText(formattedText: shaped.Text, location: at);
+    });
+
+    internal GlyphShape Shape() {
+        SolidBrush? ink = null;
+        FormattedText? shaped = null;
+        try {
+            ink = Foreground.Map(static colour => new SolidBrush(color: Pigment.ToColor(colour: colour))).IfNoneUnsafe((SolidBrush?)null);
+            shaped = ShapeText(Text, Role, Size, Decoration, Wrap, Alignment, Trimming, MaxExtent, Optional(ink));
+            return new GlyphShape(shaped, Optional(ink));
+        } catch {
+            shaped?.Dispose();
+            ink?.Dispose();
+            throw;
+        }
+    }
+
+    private static FormattedText ShapeText(
+        string text,
+        TypeRole role,
+        Option<float> size,
+        FontDecoration decoration,
+        FormattedTextWrapMode wrap,
+        FormattedTextAlignment alignment,
+        FormattedTextTrimming trimming,
+        Option<SizeF> maxExtent,
+        Option<SolidBrush> ink) {
         FormattedText shaped = new() {
-            Text = Text,
-            Font = Role.Resolve(),
-            Wrap = Wrap,
-            Alignment = Alignment,
-            Trimming = Trimming,
-            ForegroundBrush = new SolidBrush(color: Pigment.ToColor(colour: Foreground)),
+            Text = text,
+            Font = role.Resolve(size: size.ToNullable(), decoration: decoration),
+            Wrap = wrap,
+            Alignment = alignment,
+            Trimming = trimming,
         };
-        _ = MaxExtent.Iter(extent => shaped.MaximumSize = extent);
+        _ = ink.Iter(brush => shaped.ForegroundBrush = brush);
+        _ = maxExtent.Iter(extent => shaped.MaximumSize = extent);
         return shaped;
     }
+}
 
-    public SizeF Measure() {
-        using FormattedText shaped = Shape();
-        return shaped.Measure();
+internal sealed class GlyphShape(FormattedText text, Option<SolidBrush> ink) : IDisposable {
+    private int released;
+
+    public FormattedText Text { get; } = text;
+
+    public void Dispose() {
+        if (Interlocked.Exchange(ref released, 1) == 0) {
+            try { Text.Dispose(); }
+            finally { _ = ink.Iter(static brush => brush.Dispose()); }
+        }
     }
 }
 ```
 
-## [05]-[SCENE]
+## [04]-[PAINT_SEAM]
 
-- Owner: `Mark` — the closed `[Union]` draw tree (`Stroked`, `Filled`, `Bordered` fill-then-stroke, `Written` glyph block, `Blit` image, `Grouped` transform/clip/children) — and `Scene`, the retained value whose ONE `Render(Graphics, Op)` fold issues the entire host command stream and whose ONE `HitTest(PointF)` fold answers pointer containment over the identical geometry. Render state is a strict discipline: `Grouped` pushes `SaveTransformState()` (the host returns the restore handle as `IDisposable`), applies its pose through `MultiplyTransform`, clips through `SetClip` so descendants render bounded, and the `using` window is the named platform-forced seam.
-- Cases: `Stroked(PathSpec, StrokeSpec)` · `Filled(PathSpec, FillSpec)` · `Bordered(PathSpec, FillSpec, StrokeSpec)` · `Written(GlyphBlock, PointF)` · `Blit(Image, RectangleF Source, RectangleF Target)` · `Grouped(Option<Pose>, Option<PathSpec> Clip, Seq<Mark> Children)`.
-- Law: paint objects live exactly one draw — each arm mints its brush/pen inside its own `using` window, and the `Written` arm brackets its shaped `FormattedText` the same way (`FormattedText` derives `Widget` and is disposable); `HitTest` returns the FIRST hit in reverse paint order (topmost wins) as `Option<Mark>`, the grouped probe maps the point through the group pose's inverse and gates on the clip so hit truth shares the paint's transform frame, and marks needing identity ride a `Grouped` wrapper keyed by the consumer.
-- Law: quality knobs (`AntiAlias`, `ImageInterpolation`, `PixelOffsetMode`) are `ScenePolicy` values applied once at render entry, never per-mark toggles.
-- Boundary: this fold is the shared paint spine — `chrome.md`'s print pages and this page's `Surface` both hand it a `Graphics`; Rhino viewport HUD drawing is the Display unit's conduit and never enters here.
+- Owner: `PaintProgram` admits the mounted paint-and-hit delegate pair; the retained mark, path, stroke, and fill vocabulary is `Rasm.Rhino.Display` — `Marks.Render`/`Marks.Hit` own it and `Marks.Program` mints the program this seam mounts.
+- Law: strata forbid an upward reference, so the vocabulary enters as two delegates — this surface owns `Graphics` custody, quality policy, and replay; the program owns geometry, paint order, and hit truth over ONE retained value, and hit ordinals preserve z-order evidence (topmost is the last ordinal).
+- Law: print flow hands its page `Graphics` to the same mounted program, so paint truth stays single-owned across surface and print.
+- Growth: a new drawable is a Display mark case; this seam gains nothing per drawable.
 
-```csharp
+```csharp signature
 // --- [MODELS] -------------------------------------------------------------------------------
-public sealed record ScenePolicy(bool AntiAlias = true, ImageInterpolation Interpolation = ImageInterpolation.High, PixelOffsetMode Offset = PixelOffsetMode.Half) {
-    public static readonly ScenePolicy Crisp = new();
-}
+public sealed record PaintProgram(Func<Graphics, Fin<Unit>> Paint, Func<PointF, Fin<Seq<int>>> Hit) {
+    public static readonly PaintProgram Blank = new(
+        Paint: static _ => Fin.Succ(value: unit),
+        Hit: static _ => Fin.Succ(value: Seq<int>()));
 
-// --- [TYPES] --------------------------------------------------------------------------------
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record Mark {
-    private Mark() { }
-    public sealed record Stroked(PathSpec Path, StrokeSpec Stroke) : Mark;
-    public sealed record Filled(PathSpec Path, FillSpec Fill) : Mark;
-    public sealed record Bordered(PathSpec Path, FillSpec Fill, StrokeSpec Stroke) : Mark;
-    public sealed record Written(GlyphBlock Block, PointF At) : Mark;
-    public sealed record Blit(Image Source, RectangleF From, RectangleF Target) : Mark;
-    public sealed record Grouped(Option<Pose> Pose, Option<PathSpec> Clip, Seq<Mark> Children) : Mark;
-
-    internal Unit Draw(Graphics graphics) => Switch(
-        state: graphics,
-        stroked: static (g, mark) => Op.Side(() => { using GraphicsPath path = mark.Path.Build(); using Pen pen = mark.Stroke.Mint(); g.DrawPath(pen: pen, path: path); }),
-        filled: static (g, mark) => Op.Side(() => { using GraphicsPath path = mark.Path.Build(); using Brush brush = mark.Fill.Mint(); g.FillPath(brush: brush, path: path); }),
-        bordered: static (g, mark) => Op.Side(() => {
-            using GraphicsPath path = mark.Path.Build();
-            using Brush brush = mark.Fill.Mint();
-            using Pen pen = mark.Stroke.Mint();
-            g.FillPath(brush: brush, path: path);
-            g.DrawPath(pen: pen, path: path);
-        }),
-        written: static (g, mark) => Op.Side(() => { using FormattedText shaped = mark.Block.Shape(); g.DrawText(formattedText: shaped, location: mark.At); }),
-        blit: static (g, mark) => Op.Side(() => g.DrawImage(image: mark.Source, source: mark.From, destination: mark.Target)),
-        grouped: static (g, mark) => Op.Side(() => {
-            using IDisposable window = g.SaveTransformState();
-            _ = mark.Pose.Iter(pose => g.MultiplyTransform(matrix: pose.ToMatrix()));
-            _ = mark.Clip.Iter(clip => { using GraphicsPath built = clip.Build(); g.SetClip(path: built); });
-            _ = mark.Children.Iter(child => child.Draw(graphics: g));
-        }));
-
-    internal static Option<Mark> Topmost(Seq<Mark> marks, PointF point) =>
-        marks.Rev().Map(mark => mark.Probe(point: point)).Somes().HeadOrNone();
-
-    internal Option<Mark> Probe(PointF point) => Switch(
-        state: point,
-        stroked: static (at, mark) => mark.Path.Hits(point: at, stroke: Some(mark.Stroke)) ? Some((Mark)mark) : None,
-        filled: static (at, mark) => mark.Path.Hits(point: at) ? Some((Mark)mark) : None,
-        bordered: static (at, mark) => mark.Path.Hits(point: at, stroke: Some(mark.Stroke)) ? Some((Mark)mark) : None,
-        written: static (at, mark) => new RectangleF(mark.At, mark.Block.Measure()).Contains(at) ? Some((Mark)mark) : None,
-        blit: static (at, mark) => mark.Target.Contains(at) ? Some((Mark)mark) : None,
-        grouped: static (at, mark) => {
-            PointF local = mark.Pose.Map(pose => Matrix.Inverse(matrix: pose.ToMatrix()).TransformPoint(point: at)).IfNone(at);
-            return mark.Clip.Map(clip => clip.Hits(point: local)).IfNone(true) ? Topmost(marks: mark.Children, point: local) : None;
-        });
-}
-
-public sealed record Scene(Seq<Mark> Marks, ScenePolicy Policy) {
-    public static Scene Of(params ReadOnlySpan<Mark> marks) => new(Marks: toSeq(marks.ToArray()), Policy: ScenePolicy.Crisp);
-
-    public Fin<Unit> Render(Graphics graphics, Op? key = null) =>
-        key.OrDefault().Catch(() => {
-            graphics.AntiAlias = Policy.AntiAlias;
-            graphics.ImageInterpolation = Policy.Interpolation;
-            graphics.PixelOffsetMode = Policy.Offset;
-            _ = Marks.Iter(mark => mark.Draw(graphics: graphics));
-            return Fin.Succ(value: unit);
-        });
-
-    public Option<Mark> HitTest(PointF point) => Mark.Topmost(marks: Marks, point: point);
+    internal static Fin<PaintProgram> Admit(PaintProgram? program, Op op) => program switch {
+        null => Fin.Fail<PaintProgram>(new UiFault.Rejected(Key: op, Field: nameof(PaintProgram), Reason: "paint program is absent")),
+        { Paint: null } => Fin.Fail<PaintProgram>(new UiFault.Rejected(Key: op, Field: nameof(Paint), Reason: "paint projection is absent")),
+        { Hit: null } => Fin.Fail<PaintProgram>(new UiFault.Rejected(Key: op, Field: nameof(Hit), Reason: "hit projection is absent")),
+        _ => Fin.Succ(program),
+    };
 }
 ```
 
-## [06]-[SURFACE]
+## [05]-[SURFACE]
 
-- Owner: `SurfaceSpec` + `Surface` — the `Drawable` lifecycle owner: `Mount` constructs the host, subscribes `Paint` once (the named platform-forced event seam), and holds the live scene in an `Atom<Scene>` so a scene swap plus an invalidation row is the whole redraw protocol — plus `Redraw`, the invalidation union (`Whole` full-surface, `Region(Rectangle)` bounded, `Immediate(Rectangle)` synchronous `Update`), `Acquire`, the off-event graphics lease riding the kernel `Lease<Graphics>.Owned` so an out-of-band draw disposes deterministically, and `PixelLease`, the `Bitmap.Lock` window under the same rail with the unlocked `GetPixel`/`SetPixel` pair and `ToByteArray(ImageFormat)` egress beside it.
-- Law: the paint handler renders the CURRENT atom value — no captured scene, no dirty flags: swap then invalidate, and the host replays the whole stream on the next paint; pointer wiring reads `Surface.HitTest` over the same value, so paint and hit truth cannot diverge.
-- Law: the realized `Drawable` is its surface handle — `Surface.Of(host)` recovers the mounted owner from the control the way `Bind.Owned` recovers receipts, so an `Element.Painted` consumer swaps scenes and hit-tests through the one control `Realize` returned, and a parallel surface registry is the deleted form.
+- Owner: `ScenePolicy` + `SurfaceSpec` + `Surface` own quality state, `Drawable` construction, paint-fault egress, program swaps, invalidation, hit-testing, graphics acquisition, IME composition, and accumulated release; `PixelLease` owns locked and unlocked bitmap access plus whole-or-region `Clone` egress.
+- Law: paint handlers replay the current admitted atom program; a swap publishes for redraw, commits on redraw success, and conditionally restores the prior program on failure, so paint and hit truth stay aligned.
+- Law: quality knobs (`AntiAlias`, `ImageInterpolation`, `PixelOffsetMode`) are `ScenePolicy` values bracketed once around each replay and restored on exit, never per-mark toggles.
+- Law: `ScenePolicy.Use` brackets transform and clip state with the quality tuple, so every mounted or printed program leaves the caller's `Graphics` stream unchanged.
+- Law: the realized `Drawable` is its surface handle — `Surface.Of(host)` recovers the mounted owner, so an `Element.Painted` consumer swaps programs and hit-tests through the one control `Realize` returned, and a parallel surface registry is the deleted form.
 - Law: IME composition rides the host verbs — `CancelComposition`/`CommitComposition` project `CancelTextComposition`/`CommitTextComposition` — and a text-editing overlay that ignores composition state is the named defect.
-- Law: `Acquire` succeeds only where the host advertises it — `SupportsCreateGraphics` gates the lease with a typed `UiFault.Unavailable`, never a downstream null.
+- Law: `Acquire` succeeds only where the host advertises it — `SupportsCreateGraphics` gates the lease with a typed `UiFault.Unavailable`, never a downstream null; the off-event handle `Flush`es queued commands before the lease disposes it, since an off-event `CreateGraphics` stream is not committed by the paint loop.
 - Growth: a new invalidation modality is one `Redraw` case; frame pacing, display-link cadence, and animation clocks are the Viewport unit's motion owner — this surface exposes swap-and-invalidate and nothing temporal.
 
-```csharp
+```csharp signature
 // --- [MODELS] -------------------------------------------------------------------------------
+[SmartEnum<int>]
+public sealed partial class ScenePolicy {
+    public static readonly ScenePolicy Crisp = new(key: 0, antiAlias: false, interpolation: ImageInterpolation.None, offset: PixelOffsetMode.None);
+    public static readonly ScenePolicy Balanced = new(key: 1, antiAlias: true, interpolation: ImageInterpolation.Default, offset: PixelOffsetMode.None);
+    public static readonly ScenePolicy Fidelity = new(key: 2, antiAlias: true, interpolation: ImageInterpolation.High, offset: PixelOffsetMode.Half);
+    internal bool AntiAlias { get; }
+    internal ImageInterpolation Interpolation { get; }
+    internal PixelOffsetMode Offset { get; }
+
+    internal TResult Use<TResult>(Graphics graphics, Func<TResult> body) {
+        using IDisposable transform = graphics.SaveTransformState();
+        (bool AntiAlias, ImageInterpolation Interpolation, PixelOffsetMode Offset) prior =
+            (graphics.AntiAlias, graphics.ImageInterpolation, graphics.PixelOffsetMode);
+        try {
+            graphics.AntiAlias = AntiAlias;
+            graphics.ImageInterpolation = Interpolation;
+            graphics.PixelOffsetMode = Offset;
+            return body();
+        } finally {
+            graphics.AntiAlias = prior.AntiAlias;
+            graphics.ImageInterpolation = prior.Interpolation;
+            graphics.PixelOffsetMode = prior.Offset;
+        }
+    }
+}
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Redraw {
     private Redraw() { }
     public sealed record Whole : Redraw;
     public sealed record Region(Rectangle Bounds) : Redraw;
     public sealed record Immediate(Rectangle Bounds) : Redraw;
+
+    internal Unit Apply(Drawable host) => Switch(
+        state: host,
+        whole: static (surface, _) => Op.Side(surface.Invalidate),
+        region: static (surface, bounded) => Op.Side(() => surface.Invalidate(rect: bounded.Bounds)),
+        immediate: static (surface, bounded) => Op.Side(() => surface.Update(region: bounded.Bounds)));
 }
 
-public sealed record SurfaceSpec(Scene Initial, bool LargeCanvas = false, bool Focusable = false) {
-    public Fin<Drawable> Mount(Op? key = null) => Surface.Mount(spec: this, key: key).Map(static surface => surface.Host);
+[SmartEnum<int>]
+public sealed partial class CanvasExtent {
+    public static readonly CanvasExtent Viewport = new(key: 0, large: false);
+    public static readonly CanvasExtent Scrolling = new(key: 1, large: true);
+    internal bool Large { get; }
+}
+
+[SmartEnum<int>]
+public sealed partial class FocusPolicy {
+    public static readonly FocusPolicy Passive = new(key: 0, focusable: false);
+    public static readonly FocusPolicy Interactive = new(key: 1, focusable: true);
+    internal bool Focusable { get; }
+}
+
+public sealed record SurfaceSpec(
+    PaintProgram Initial,
+    ScenePolicy Policy,
+    CanvasExtent Extent,
+    FocusPolicy Focus,
+    Action<Error> Report) {
+    public Fin<Surface> Mount(Op? key = null) => Surface.Mount(spec: this, key: key);
+
+    internal Fin<SurfaceSpec> Admit(Op op) => (Initial, Policy, Extent, Focus, Report) switch {
+        (null, _, _, _, _) => Fin.Fail<SurfaceSpec>(new UiFault.Rejected(Key: op, Field: nameof(Initial), Reason: "initial program is absent")),
+        (_, null, _, _, _) => Fin.Fail<SurfaceSpec>(new UiFault.Rejected(Key: op, Field: nameof(Policy), Reason: "scene policy is absent")),
+        (_, _, null, _, _) => Fin.Fail<SurfaceSpec>(new UiFault.Rejected(Key: op, Field: nameof(Extent), Reason: "canvas extent is absent")),
+        (_, _, _, null, _) => Fin.Fail<SurfaceSpec>(new UiFault.Rejected(Key: op, Field: nameof(Focus), Reason: "focus policy is absent")),
+        (_, _, _, _, null) => Fin.Fail<SurfaceSpec>(new UiFault.Rejected(Key: op, Field: nameof(Report), Reason: "fault reporter is absent")),
+        _ => PaintProgram.Admit(Initial, op).Map(_ => this),
+    };
 }
 
 // --- [SERVICES] -----------------------------------------------------------------------------
-public sealed class Surface {
+public sealed class Surface : UiLease {
     private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Drawable, Surface> Mounted = new();
-    private readonly Atom<Scene> scene;
-    private Surface(Drawable host, Atom<Scene> scene) { Host = host; this.scene = scene; }
+    private readonly Atom<PaintProgram> program;
+    private readonly EventHandler<PaintEventArgs> paint;
+    private readonly Op key;
+    private Surface(Drawable host, Atom<PaintProgram> program, EventHandler<PaintEventArgs> paint, Op key) {
+        Host = host;
+        this.program = program;
+        this.paint = paint;
+        this.key = key;
+    }
 
     public Drawable Host { get; }
 
-    public static Fin<Surface> Mount(SurfaceSpec spec, Op? key = null) {
+    public static Fin<Surface> Mount(SurfaceSpec? spec, Op? key = null) {
         Op op = key.OrDefault();
-        return op.Catch(() => {
-            Atom<Scene> held = Atom(spec.Initial);
-            Drawable host = new(largeCanvas: spec.LargeCanvas) { CanFocus = spec.Focusable };
-            host.Paint += (_, args) => ignore(held.Value.Render(graphics: args.Graphics, key: op));
-            Surface surface = new(host: host, scene: held);
-            Mounted.Add(host, surface);
+        Drawable? host = null;
+        EventHandler<PaintEventArgs>? paint = null;
+        return Optional(spec)
+            .ToFin(new UiFault.Rejected(Key: op, Field: nameof(spec), Reason: "surface specification is absent"))
+            .Bind(admitted => admitted.Admit(op))
+            .Bind(admitted => op.Catch(() => {
+            Atom<PaintProgram> held = Atom(admitted.Initial);
+            Drawable owned = host = new Drawable(largeCanvas: admitted.Extent.Large) { CanFocus = admitted.Focus.Focusable };
+            EventHandler<PaintEventArgs> handler = paint = (_, args) => {
+                _ = op.Catch(() => admitted.Policy.Use(args.Graphics, () => held.Value.Paint(args.Graphics))).Match(
+                    Succ: static _ => unit,
+                    Fail: fault => Op.Side(() => admitted.Report(fault)));
+            };
+            owned.Paint += handler;
+            Surface surface = new(host: owned, program: held, paint: handler, key: op);
+            Mounted.Add(owned, surface);
             return Fin.Succ(value: surface);
-        });
+        }).MapFail(fault => Optional(host).Map(owned => fault.Also(
+            (Optional(paint).Map(handler => Seq<Action>(() => owned.Paint -= handler)).IfNone(Seq<Action>())
+             + Seq<Action>(owned.Dispose)).Drained(op))).IfNone(fault)));
     }
 
     public static Option<Surface> Of(Drawable host) =>
         Mounted.TryGetValue(host, out Surface? held) ? Some(held) : None;
 
-    public Unit Swap(Func<Scene, Scene> next, Redraw redraw) {
-        _ = scene.Swap(next);
-        return redraw.Switch(
-            state: Host,
-            whole: static (host, _) => Op.Side(host.Invalidate),
-            region: static (host, bounded) => Op.Side(() => host.Invalidate(rect: bounded.Bounds)),
-            immediate: static (host, bounded) => Op.Side(() => host.Update(region: bounded.Bounds)));
+    public Fin<Unit> Swap(Func<PaintProgram, PaintProgram> next, Redraw redraw, Op? key = null) {
+        Op op = key.OrDefault();
+        return Live(op)
+            .Bind(_ => Optional(next).ToFin(new UiFault.Rejected(Key: op, Field: nameof(next), Reason: "program transition is absent")))
+            .Bind(advance => op.Catch(() => {
+                PaintProgram prior = program.Value;
+                return PaintProgram.Admit(advance(prior), op).Map(candidate => (Prior: prior, Candidate: candidate));
+            }))
+            .Bind(held => {
+                _ = program.Swap(_ => held.Candidate);
+                return op.Catch(() => Fin.Succ(redraw.Apply(Host)))
+                    .MapFail(fault => {
+                        _ = program.Swap(current => ReferenceEquals(current, held.Candidate) ? held.Prior : current);
+                        return fault;
+                    });
+            });
     }
 
-    public Option<Mark> HitTest(PointF point) => scene.Value.HitTest(point: point);
+    public Fin<Seq<int>> HitTest(PointF point, Op? key = null) {
+        Op op = key.OrDefault();
+        return Live(op).Bind(_ => op.Catch(() => program.Value.Hit(point)));
+    }
 
     public Fin<TResult> Acquire<TResult>(Func<Graphics, TResult> draw, Op? key = null) =>
-        Host.SupportsCreateGraphics
-            ? key.OrDefault().Catch(() => Fin.Succ(value: new Lease<Graphics>.Owned(Value: Host.CreateGraphics()).Use(project: draw)))
-            : Fin.Fail<TResult>(error: new UiFault.Unavailable(Key: key.OrDefault(), Capability: nameof(Host.SupportsCreateGraphics)));
+        Live(key.OrDefault()).Bind(_ => Host.SupportsCreateGraphics
+            ? key.OrDefault().Catch(() => Fin.Succ(value: new Lease<Graphics>.Owned(Value: Host.CreateGraphics()).Use(project: graphics => {
+                TResult drawn = draw(graphics);
+                graphics.Flush();
+                return drawn;
+            })))
+            : Fin.Fail<TResult>(error: new UiFault.Unavailable(Key: key.OrDefault(), Capability: nameof(Host.SupportsCreateGraphics))));
 
-    public Unit CancelComposition() => Op.Side(Host.CancelTextComposition);
+    public Fin<Unit> CancelComposition(Op? key = null) => Composition(Host.CancelTextComposition, key);
 
-    public Unit CommitComposition() => Op.Side(Host.CommitTextComposition);
+    public Fin<Unit> CommitComposition(Op? key = null) => Composition(Host.CommitTextComposition, key);
+
+    protected override Fin<Unit> Free() =>
+        Seq<Action>(() => Host.Paint -= paint, () => { _ = Mounted.Remove(Host); }, Host.Dispose).Drained(key);
+
+    private Fin<Unit> Composition(Action verb, Op? key) =>
+        Live(key.OrDefault()).Bind(_ => key.OrDefault().Catch(() => Fin.Succ(Op.Side(verb))));
+
+    private Fin<Unit> Live(Op op) => Released
+        ? Fin.Fail<Unit>(new UiFault.Released(Key: op, Resource: nameof(Surface)))
+        : Fin.Succ(unit);
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
@@ -365,7 +351,25 @@ public static class PixelLease {
         key.OrDefault().Catch(() => Fin.Succ(value: bitmap.GetPixel(position: at))).Bind(colour =>
             PerceptualColor.OfRgb(red: (byte)colour.Rb, green: (byte)colour.Gb, blue: (byte)colour.Bb, alpha: colour.A, key: key));
 
+    public static Fin<Unit> Write(Bitmap bitmap, Point at, PerceptualColor colour, Op? key = null) =>
+        WriteLocked(bitmap, Seq((At: at, Colour: colour)), key);
+
+    public static Fin<Unit> WriteLocked(Bitmap bitmap, Seq<(Point At, PerceptualColor Colour)> pixels, Op? key = null) {
+        Op op = key.OrDefault();
+        return pixels
+            .Traverse(pixel => op.Catch(() => Fin.Succ(bitmap.GetPixel(position: pixel.At))).ToValidation().Map(_ => pixel))
+            .As()
+            .ToFin()
+            .Bind(admitted => Locked(
+                bitmap,
+                data => admitted.Iter(pixel => data.SetPixel(position: pixel.At, color: Pigment.ToColor(pixel.Colour))),
+                op));
+    }
+
     public static Fin<byte[]> Encode(Bitmap bitmap, ImageFormat format, Op? key = null) =>
         key.OrDefault().Catch(() => Fin.Succ(value: bitmap.ToByteArray(imageFormat: format)));
+
+    public static Fin<Bitmap> Clone(Bitmap bitmap, Option<Rectangle> region, Op? key = null) =>
+        key.OrDefault().Catch(() => Fin.Succ(value: bitmap.Clone(rectangle: region.ToNullable())));
 }
 ```

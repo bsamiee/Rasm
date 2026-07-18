@@ -1,22 +1,20 @@
 # [RASM_RHINO_ANNOTATION_HATCH]
 
-Hatch rail (`Rasm.Rhino.Annotation`). `PatternDef` is the complete detached pattern content — an ordered `LineDef` run under identity, fill, and unit regime — and it mints real host patterns: `new HatchPattern()` plus `new HatchLine()` with settable `Angle`/`BasePoint`/`Offset` and `SetDashes` realize custom authoring and amendment. Default authoring derives from `GetDefaultHatchPatterns()` instead of duplicating its roster as code rows, and `.pat` interchange admits arbitrary definitions through verified host factories. `HatchSpec` carries explicit loops, nested curves, or a planar brep face into plural `Hatch` geometry under one `FillPlacement`. Gradient assignment, pattern scaling, boundary extraction, display geometry, solid projection, and explosion ride the shared spine and receipt. Reclamation stays `TableOp.Reclaim(TableKind.HatchPatterns)`; placed hatches resolve as `RhinoObject.Geometry is Hatch` because no `HatchObject` exists.
+`PatternDef` round-trips complete detached pattern definitions, `HatchSpec` constructs placed fills through one boundary family, and `Hatches.Commit` folds pattern and object mutation through the shared drafting spine. Pattern batches compensate failed additions, placed state preserves every mutable hatch parameter, and all native geometry crosses the document boundary through explicit custody.
 
 ## [01]-[INDEX]
 
-- [02]-[PATTERN_MODEL]: `FillKind`, `LineDef`, and `PatternDef` over the generated default census.
-- [03]-[HATCH_GEOMETRY]: `FillPlacement` and the `HatchSpec` construction union.
-- [04]-[HATCH_RAIL]: `HatchOp`, `HatchTransaction`, and the `Hatches` entry pair.
-- [05]-[ASK_FAMILY]: `HatchAsk`/`HatchAnswer` — pattern snapshot, defaults, preview, display geometry, loops, fill, solid, pieces.
-- [06]-[SURFACE_LEDGER]: the page's owner table.
+- [02]-[PATTERN]: generated pattern owners, line generators, tags, and native projection.
+- [03]-[PLACEMENT]: invariant-carrying placement and the closed hatch construction family.
+- [04]-[MUTATION]: atomic pattern lifecycle, placement, gradient, and scale operations.
+- [05]-[PROJECTION]: complete pattern and placed state, previews, loops, display geometry, regions, and pieces.
 
-## [02]-[PATTERN_MODEL]
+## [02]-[PATTERN]
 
-- Owner: `FillKind` `[SmartEnum<int>]` — fill vocabulary keyed on explicit `HatchPatternFillType` values; `LineDef` — one detached dash-line generator row; `PatternDef` — complete detached pattern content: name, description, fill kind, unit regime, distance policy, and ordered generator run.
-- Law: default census and authoring derive from `HatchPattern.GetDefaultHatchPatterns()`; no copied nine-case vocabulary can drift from the host roster.
-- Law: `Mint` is the one detached-to-host projection — a fresh `HatchPattern` takes `Name`, `Description`, `FillType`, `PatternUnitSystem`, and `AlwaysModelDistances` through its setters and its line set through `SetHatchLines` over freshly minted `HatchLine` values; table content changes land the fully composed mint through `Modify`, so live table mutation stays absent.
-- Law: a `Lines`-kind pattern demands at least one generator row and a `Solid`/`Gradient` kind demands none — the def factory enforces the coupling so an empty line-definition set can never render as invisible fill.
-- Law: the dash/gap atom is the sibling `SegmentRow` — its `Signed` projection feeds `SetDashes`, where the host reads a negative length as a gap — so hatch dashes and linetype segments travel one typed pair and a raw signed `double` in request data is the deleted form.
+- Owner: `FillKind`, `PatternDistance`, `LineDef`, and `PatternDef` admit the complete detached pattern definition once.
+- Law: `PatternDef` couples fill kind with line generators and preserves the pattern user-string bag in every read-modify-write cycle.
+- Boundary: `PatternDef.Mint` verifies `SetHatchLines` against the admitted generator count and treats every refused user-string write as failure.
+- Growth: a pattern attribute lands in `PatternDef`, its validation gate, `Mint`, and `Read`; no mutation case carries a partial parallel definition.
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
@@ -29,85 +27,149 @@ public sealed partial class FillKind {
     internal HatchPatternFillType Host => (HatchPatternFillType)Key;
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-public sealed record LineDef(double Angle, Point2d Base, Vector2d Offset, Seq<SegmentRow> Dashes) {
-    public static Fin<LineDef> Of(double angle, Point2d @base, Vector2d offset, params ReadOnlySpan<SegmentRow> dashes) {
-        Op op = Op.Of(name: nameof(LineDef));
-        return from turn in op.AcceptInput(value: angle)
-               from anchor in op.AcceptInput(value: @base)
-               from step in op.AcceptInput(value: offset)
-               from run in toSeq(dashes.ToArray()).TraverseM(dash => SegmentRow.Of(
-                   length: dash.Length, solid: dash.Solid, key: op)).As()
-               select new LineDef(Angle: turn, Base: anchor, Offset: step, Dashes: run);
-    }
-
-    internal Fin<HatchLine> Mint(Op key) {
-        LineDef self = this;
-        return key.Catch(() => {
-            HatchLine line = new() { Angle = self.Angle, BasePoint = self.Base, Offset = self.Offset };
-            line.SetDashes(dashes: self.Dashes.Map(static row => row.Signed).AsIterable());
-            return Fin.Succ(value: line);
-        });
-    }
+[SmartEnum<bool>]
+public sealed partial class PatternDistance {
+    public static readonly PatternDistance PatternUnits = new(key: false);
+    public static readonly PatternDistance ModelUnits = new(key: true);
 }
 
-public sealed record PatternDef(
-    string Name,
-    Option<string> Description,
-    FillKind Fill,
-    UnitSystem Units,
-    bool AlwaysModelDistances,
-    Seq<LineDef> Lines) {
-    public static Fin<PatternDef> Of(
-        string name, FillKind fill, UnitSystem units,
-        Option<string> description = default, bool alwaysModelDistances = false,
-        params ReadOnlySpan<LineDef> lines) {
-        Op op = Op.Of(name: nameof(PatternDef));
-        return from label in op.AcceptText(value: name)
-               from kind in Optional(fill).ToFin(Fail: op.InvalidInput())
-               from run in toSeq(lines.ToArray()).TraverseM(line => Optional(line).ToFin(Fail: op.InvalidInput())).As()
-               from _ in guard(kind == FillKind.Lines ? !run.IsEmpty : run.IsEmpty, op.InvalidInput()).ToFin()
-               select new PatternDef(
-                   Name: label, Description: description, Fill: kind, Units: units,
-                   AlwaysModelDistances: alwaysModelDistances, Lines: run);
+// --- [MODELS] -------------------------------------------------------------------------------
+[ComplexValueObject]
+public sealed partial class LineDef {
+    public double Angle { get; }
+    public Point2d Base { get; }
+    public Vector2d Offset { get; }
+    public Seq<SegmentRow> Dashes { get; }
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError, ref double angle, ref Point2d @base, ref Vector2d offset, ref Seq<SegmentRow> dashes) =>
+        validationError = double.IsFinite(angle) && @base.IsValid && offset.IsValid
+            && dashes.ForAll(static dash => dash is not null)
+            ? null
+            : new ValidationError(message: "Hatch line definition is invalid.");
+
+    public static Fin<LineDef> Of(double angle, Point2d @base, Vector2d offset, Seq<SegmentRow> dashes, Op? key = null) =>
+        Validate(angle, @base, offset, dashes, out LineDef? admitted) is null && admitted is not null
+            ? Fin.Succ(value: admitted)
+            : Fin.Fail<LineDef>(error: key.OrDefault().InvalidInput());
+
+    internal Fin<HatchLine> Mint(Op key) => key.Catch(() => {
+        HatchLine line = new() { Angle = Angle, BasePoint = Base, Offset = Offset };
+        line.SetDashes(dashes: Dashes.Map(static row => row.Signed).AsIterable());
+        return Fin.Succ(value: line);
+    });
+}
+
+[ComplexValueObject]
+public sealed partial class PatternDef {
+    public ResourceName Name { get; }
+    public Option<string> Description { get; }
+    public FillKind Fill { get; }
+    public ModelUnit Units { get; }
+    public PatternDistance Distances { get; }
+    public Seq<LineDef> Lines { get; }
+    public HashMap<string, string> Tags { get; }
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError, ref ResourceName name, ref Option<string> description, ref FillKind fill,
+        ref ModelUnit units, ref PatternDistance distances, ref Seq<LineDef> lines, ref HashMap<string, string> tags) {
+        bool shape = fill == FillKind.Lines ? !lines.IsEmpty : lines.IsEmpty;
+        bool validTags = tags.ForAll(static pair =>
+            !string.IsNullOrWhiteSpace(pair.Key) && !string.IsNullOrWhiteSpace(pair.Value));
+        validationError = name is not null && fill is not null && units is not null && distances is not null
+            && description.ForAll(static text => !string.IsNullOrWhiteSpace(text))
+            && lines.ForAll(static line => line is not null) && shape && validTags
+            ? null
+            : new ValidationError(message: "Hatch pattern definition is invalid.");
     }
 
-    internal Fin<HatchPattern> Mint(Op key) {
-        PatternDef self = this;
-        return from lines in self.Lines.TraverseM(row => row.Mint(key: key)).As()
-               from pattern in key.Catch(() => {
-                   HatchPattern minted = new() {
-                       Name = self.Name,
-                       Description = self.Description.IfNone(noneValue: string.Empty),
-                       FillType = self.Fill.Host,
-                       PatternUnitSystem = self.Units,
-                       AlwaysModelDistances = self.AlwaysModelDistances,
-                   };
-                   _ = minted.SetHatchLines(hatchLines: lines.AsIterable());
-                   return Fin.Succ(value: minted);
-               })
-               select pattern;
-    }
+    public static Fin<PatternDef> Of(
+        ResourceName name, FillKind fill, ModelUnit units, PatternDistance distances, Seq<LineDef> lines,
+        Option<string> description = default, HashMap<string, string> tags = default, Op? key = null) =>
+        Validate(name, description, fill, units, distances, lines, tags, out PatternDef? admitted) is null && admitted is not null
+            ? Fin.Succ(value: admitted)
+            : Fin.Fail<PatternDef>(error: key.OrDefault().InvalidInput());
+
+    internal Fin<HatchPattern> Mint(Op key) =>
+        from lines in Lines.TraverseM(line => line.Mint(key: key)).As()
+        from pattern in key.Catch(() => Fin.Succ(value: new HatchPattern {
+            Name = Name.Value,
+            Description = Description.IfNone(noneValue: string.Empty),
+            FillType = Fill.Host,
+            PatternUnitSystem = Units.System,
+            AlwaysModelDistances = Distances.Key,
+        }))
+        from count in key.Catch(() => Fin.Succ(value: pattern.SetHatchLines(hatchLines: lines.AsIterable())))
+        from _ in key.Confirm(success: count == lines.Count)
+        from __ in TagBag.Apply(Tags, pattern.SetUserString, pattern.DeleteAllUserStrings, key)
+        select pattern;
+
+    internal bool Equivalent(PatternDef other) => other is not null
+        && string.Equals(Name.Value, other.Name.Value, StringComparison.OrdinalIgnoreCase)
+        && Description.Equals(other.Description)
+        && Fill.Equals(other.Fill)
+        && Units.Equals(other.Units)
+        && Distances.Equals(other.Distances)
+        && Lines.AsIterable().SequenceEqual(other.Lines.AsIterable())
+        && Tags.Count == other.Tags.Count
+        && Tags.ForAll(pair => other.Tags.Find(pair.Key).Match(
+            Some: value => string.Equals(value, pair.Value, StringComparison.Ordinal),
+            None: static () => false));
+
+    internal static Fin<HatchPattern> Canonical(HatchPattern pattern, Op key) =>
+        Read(pattern: pattern, key: key).Bind(definition => definition.Mint(key: key));
+
+    internal static Fin<PatternDef> Read(HatchPattern pattern, Op key) => key.Catch(() =>
+        from fill in key.AcceptValidated<FillKind>(candidate: (int)pattern.FillType)
+        from distances in key.AcceptValidated<PatternDistance>(candidate: pattern.AlwaysModelDistances)
+        from lines in toSeq(pattern.HatchLines).TraverseM(line =>
+            from dashes in toSeq(line.GetDashes).TraverseM(dash => SegmentRow.Of(
+                length: double.Abs(dash), solid: dash >= 0.0, key: key)).As()
+            from admitted in LineDef.Of(
+                angle: line.Angle, @base: line.BasePoint, offset: line.Offset, dashes: dashes, key: key)
+            select admitted).As()
+        from units in ModelUnit.Of(value: pattern.PatternUnitSystem, key: key)
+        from definition in Of(
+            name: ResourceName.Create(pattern.Name),
+            fill: fill,
+            units: units,
+            distances: distances,
+            lines: lines,
+            description: Optional(pattern.Description).Filter(static text => !string.IsNullOrWhiteSpace(text)),
+            tags: TagBag.Read(pattern.GetUserStrings()),
+            key: key)
+        select definition);
 }
 ```
 
-## [03]-[HATCH_GEOMETRY]
+## [03]-[PLACEMENT]
 
-- Owner: `FillPlacement` — the placement parameters every construction shares: the pattern address, in-plane rotation, and pattern scale; `HatchSpec` `[Union]` — the three boundary constructions: `Bounded` over an explicit outer loop and holes, `Resolved` over nested closed curves the host partitions into one-or-more hatches, `FromFace` over a planar brep face with its base point.
-- Law: the pattern binds by resolution — `FillPlacement` carries a `ResourceRef`, the mint resolves it against the pattern lens inside the grant, and the host receives an index that provably exists; a bare `int` pattern index in request data is the deleted form.
-- Boundary: `HatchPatternTable` exposes name and index lookup but no id lookup; this lens returns typed absence for `ResourceRef.ById` instead of inventing an enumeration member.
-- Law: `Resolved` answers plurality — nested closed curves legitimately partition into several hatches, so the mint's product is always `Seq<Hatch>` and the single-loop constructions land as one-element sequences, keeping one product shape across the union.
+- Owner: `FillPlacement` carries the resolved pattern address, rotation, and positive scale through one generated aggregate gate.
+- Owner: `HatchSpec` closes explicit loops, host-resolved nested loops, and planar-face construction under one plural product.
+- Boundary: `HatchSpec.Lens` remains the frozen pattern lookup seam and refuses id lookup because `HatchPatternTable` exposes only name and index resolution.
+- Law: curve construction accumulates `Requirement.AreaMass` failures before host dispatch and returns `Seq<Hatch>` because nested loops may partition into multiple fills.
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
-public sealed record FillPlacement(ResourceRef Pattern, double RotationRadians = 0.0, double Scale = 1.0) {
-    public static Fin<FillPlacement> Of(ResourceRef pattern, double rotationRadians = 0.0, double scale = 1.0, Op? key = null) {
-        Op op = key.OrDefault();
-        return from address in Optional(pattern).ToFin(Fail: op.InvalidInput())
-               from _ in op.AcceptInput(value: rotationRadians)
-               from factor in op.Positive(value: scale)
-               select new FillPlacement(Pattern: address, RotationRadians: rotationRadians, Scale: factor);
-    }
+[ComplexValueObject]
+public sealed partial class FillPlacement {
+    public ResourceRef Pattern { get; }
+    public double RotationRadians { get; }
+    public double Scale { get; }
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError, ref ResourceRef pattern, ref double rotationRadians, ref double scale) =>
+        validationError = pattern is not null && double.IsFinite(rotationRadians) && double.IsFinite(scale) && scale > 0.0
+            ? null
+            : new ValidationError(message: "Hatch placement is invalid.");
+
+    public static Fin<FillPlacement> Of(ResourceRef pattern, double rotationRadians = 0.0, double scale = 1.0, Op? key = null) =>
+        Validate(pattern, rotationRadians, scale, out FillPlacement? admitted) is null && admitted is not null
+            ? Fin.Succ(value: admitted)
+            : Fin.Fail<FillPlacement>(error: key.OrDefault().InvalidInput());
 }
 
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -123,40 +185,80 @@ public abstract partial record HatchSpec {
         ByIndex: static (document, index) => document.HatchPatterns.FindIndex(index: index));
 
     internal Fin<Seq<Hatch>> Mint(RhinoDoc document, FillPlacement placement, Op op) =>
+        from _ in Admit(document, op)
         from pattern in placement.Pattern.Resolve(document: document, lens: Lens, key: op)
         from hatches in Switch(
-            (Index: pattern.Index, Placement: placement, Op: op, Document: document),
+            (Index: pattern.Index, Placement: placement, Op: op),
             bounded: static (context, spec) => context.Op.Catch(() => Optional(Hatch.Create(
-                    hatchPlane: spec.Plane, outerLoop: spec.Outer, innerLoops: spec.Holes.AsIterable(),
-                    hatchPatternIndex: context.Index, rotationRadians: context.Placement.RotationRadians, scale: context.Placement.Scale))
+                    hatchPlane: spec.Plane,
+                    outerLoop: spec.Outer,
+                    innerLoops: spec.Holes.AsIterable(),
+                    hatchPatternIndex: context.Index,
+                    rotationRadians: context.Placement.RotationRadians,
+                    scale: context.Placement.Scale))
                 .Map(static hatch => Seq(hatch))
                 .ToFin(Fail: context.Op.InvalidResult())),
             resolved: static (context, spec) => context.Op.Catch(() => Optional(spec.Tolerance.Match(
                     Some: tolerance => Hatch.Create(
-                        curves: spec.Curves.AsIterable(), hatchPatternIndex: context.Index,
-                        rotationRadians: context.Placement.RotationRadians, scale: context.Placement.Scale, tolerance: tolerance),
+                        curves: spec.Curves.AsIterable(),
+                        hatchPatternIndex: context.Index,
+                        rotationRadians: context.Placement.RotationRadians,
+                        scale: context.Placement.Scale,
+                        tolerance: tolerance),
                     None: () => Hatch.Create(
-                        curves: spec.Curves.AsIterable(), hatchPatternIndex: context.Index,
-                        rotationRadians: context.Placement.RotationRadians, scale: context.Placement.Scale)))
-                .Map(static hatches => toSeq(hatches))
-                .Filter(static hatches => !hatches.IsEmpty)
+                        curves: spec.Curves.AsIterable(),
+                        hatchPatternIndex: context.Index,
+                        rotationRadians: context.Placement.RotationRadians,
+                        scale: context.Placement.Scale)))
+                .Map(static values => toSeq(values))
+                .Filter(static values => !values.IsEmpty)
                 .ToFin(Fail: context.Op.InvalidResult())),
             fromFace: static (context, spec) => context.Op.Catch(() => Optional(Hatch.CreateFromBrep(
-                    brep: spec.Source, brepFaceIndex: spec.FaceIndex, hatchPatternIndex: context.Index,
-                    rotationRadians: context.Placement.RotationRadians, scale: context.Placement.Scale, basePoint: spec.BasePoint))
+                    brep: spec.Source,
+                    brepFaceIndex: spec.FaceIndex,
+                    hatchPatternIndex: context.Index,
+                    rotationRadians: context.Placement.RotationRadians,
+                    scale: context.Placement.Scale,
+                    basePoint: spec.BasePoint))
                 .Map(static hatch => Seq(hatch))
                 .ToFin(Fail: context.Op.InvalidResult())))
         select hatches;
+
+    private Fin<Unit> Admit(RhinoDoc document, Op key) => Switch(
+        (Document: document, Op: key),
+        bounded: static (context, spec) =>
+            from _ in context.Op.AcceptInput(value: spec.Plane)
+            from __ in Area(document: context.Document, curves: Seq(spec.Outer).Concat(spec.Holes))
+            select unit,
+        resolved: static (context, spec) =>
+            from _ in guard(!spec.Curves.IsEmpty, context.Op.InvalidInput()).ToFin()
+            from __ in Area(document: context.Document, curves: spec.Curves)
+            from ___ in spec.Tolerance.Traverse(value => context.Op.Positive(value: value)).As()
+            select unit,
+        fromFace: static (context, spec) =>
+            from _ in context.Op.AcceptInput(value: spec.Source)
+            from __ in guard(spec.FaceIndex >= 0 && spec.FaceIndex < spec.Source.Faces.Count, context.Op.InvalidInput()).ToFin()
+            from ___ in context.Op.AcceptInput(value: spec.BasePoint)
+            select unit);
+
+    private static Fin<Unit> Area(RhinoDoc document, Seq<Curve> curves) =>
+        from context in Rasm.Domain.Context.Of(doc: document).ToFin()
+        from admitted in curves.Traverse(curve => Requirement.AreaMass.Apply(
+            context: context, value: curve)).As().ToFin()
+        select unit;
 }
 ```
 
-## [04]-[HATCH_RAIL]
+## [04]-[MUTATION]
 
-- Owner: `HatchOp` `[Union]` — custom and default pattern authoring, content amendment, rename, deletion, `.pat` import/export, hatch placement, gradient assignment, and pattern rescale on placed hatches; `HatchTransaction` — the commit plan; `Hatches` — the `Commit`/`Ask` entry pair.
-- Law: `Author` and `AuthorDefault` refuse an existing pattern name; `Amend` lands a fully composed `PatternDef.Mint` through `Modify` by index, and `MintName` supplies a fresh name for a subsequently authored or imported pattern.
-- Law: placed-hatch mutation is duplicate-then-`Replace` — `Regrade` and `Rescale` resolve the object, cast its geometry to `Hatch`, mutate the duplicate (`SetGradientFill`, `ScalePattern`), and land through `ObjectTable.Replace` inside the bracket.
-- Law: import lands per pattern — `.pat` files carry many patterns, each read definition adds as its own row, and the first name collision stops the monadic fold with a typed failure.
-- Boundary: `Marks.Render`'s `HatchCase` and the pipeline's `DrawHatch` draw this rail's geometry; `CreateDisplayGeometry` here resolves the drawable primitives, the Display rail owns the pixels.
+- Owner: `HatchOp` is the complete pattern-table and placed-hatch mutation program consumed by `Hatches.Commit`.
+- Law: pattern import, multi-hatch placement, and batch replacement fold through the shared `DocumentCommit.Compensated` landed-state algebra, with minted and cloned custody settled through its source-release policy.
+- Boundary: default and imported host patterns cross `PatternDef.Read` and `Mint`, so one canonical detached shape reaches every table addition.
+- Law: delete resolves and deduplicates every target before one batch table call; one retained row refuses the whole request.
+- Boundary: placement rollback deletes landed objects while the release policy settles every minted native on both outcomes; compensation faults accumulate without masking the initiating refusal.
+- Law: pattern amendment always mints a complete `PatternDef` and lands through `Modify` — a fresh admitted aggregate replaces the row, the named discriminant that keeps this rail off the `TableGrip` duplicate-then-revise law; `Retag` first reconstructs that definition, so tag-only edits cannot erase generators or config.
+- Boundary: placed-hatch rework retains original and revised clones through compensation; the release policy settles both clones on every outcome, and a custody refusal after commit restores the originals.
+- Entry: `Hatches.Commit` preserves the frozen wire and accepts `DraftPlan<HatchOp>` with shared redraw and undo policy.
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
@@ -164,131 +266,233 @@ public abstract partial record HatchSpec {
 public abstract partial record HatchOp {
     private HatchOp() { }
     public sealed record Author(PatternDef Def) : HatchOp;
-    public sealed record AuthorDefault(string Name) : HatchOp;
-    public sealed record Amend(ResourceRef Target, PatternDef Def, bool Quiet = true) : HatchOp;
-    public sealed record Rename(ResourceRef Target, string Name) : HatchOp;
-    public sealed record Delete(ResourceRef Target, bool Quiet = true) : HatchOp;
-    public sealed record Import(string Path, bool Quiet = true) : HatchOp;
-    public sealed record Export(string Path, Seq<ResourceRef> Targets) : HatchOp;
+    public sealed record AuthorDefault(ResourceName Name) : HatchOp;
+    public sealed record Amend(ResourceRef Target, PatternDef Def, WriteMode Mode) : HatchOp;
+    public sealed record Retag(ResourceRef Target, HashMap<string, string> Tags, WriteMode Mode) : HatchOp;
+    public sealed record Rename(ResourceRef Target, ResourceName Name) : HatchOp;
+    public sealed record Delete(Seq<ResourceRef> Targets, WriteMode Mode) : HatchOp;
+    public sealed record Import(DraftPath Path, WriteMode Mode) : HatchOp;
+    public sealed record Export(DraftPath Path, Seq<ResourceRef> Targets) : HatchOp;
     public sealed record Place(HatchSpec Spec, FillPlacement Placement, Option<ObjectAttributes> Attributes = default) : HatchOp;
     public sealed record Regrade(TableTarget Target, ColorGradient Fill) : HatchOp;
     public sealed record Rescale(TableTarget Target, Transform Motion) : HatchOp;
 
-    internal Fin<DraftReceipt> Apply(RhinoDoc document, Op op) =>
-        Switch(
-            (Document: document, Op: op),
-            author: static (context, edit) =>
-                from minted in edit.Def.Mint(key: context.Op)
-                from _ in guard(context.Document.HatchPatterns.FindName(name: edit.Def.Name) is null, context.Op.InvalidInput()).ToFin()
-                from index in Added(document: context.Document, pattern: minted, op: context.Op)
-                select DraftReceipt.Component(slot: DraftSlot.Authored, index: index),
-            authorDefault: static (context, edit) =>
-                from name in context.Op.AcceptText(value: edit.Name)
-                from built in context.Op.Catch(() => toSeq(HatchPattern.GetDefaultHatchPatterns())
-                    .Find(pattern => string.Equals(pattern.Name, name, StringComparison.OrdinalIgnoreCase))
-                    .ToFin(Fail: context.Op.MissingContext()))
-                from _ in guard(context.Document.HatchPatterns.FindName(name: built.Name) is null, context.Op.InvalidInput()).ToFin()
-                from index in Added(document: context.Document, pattern: built, op: context.Op)
-                select DraftReceipt.Component(slot: DraftSlot.Authored, index: index),
-            amend: static (context, edit) =>
-                from pattern in edit.Target.Resolve(document: context.Document, lens: HatchSpec.Lens, key: context.Op)
-                from minted in edit.Def.Mint(key: context.Op)
-                from _ in context.Op.Confirm(success: context.Document.HatchPatterns.Modify(
-                    hatchPattern: minted, hatchPatternIndex: pattern.Index, quiet: edit.Quiet))
-                select DraftReceipt.Component(slot: DraftSlot.Amended, index: pattern.Index),
-            rename: static (context, edit) =>
-                from pattern in edit.Target.Resolve(document: context.Document, lens: HatchSpec.Lens, key: context.Op)
-                from name in context.Op.AcceptText(value: edit.Name)
-                from _ in context.Op.Confirm(success: context.Document.HatchPatterns.Rename(
-                    hatchPatternIndex: pattern.Index, hatchPatternName: name))
-                select DraftReceipt.Component(slot: DraftSlot.Renamed, index: pattern.Index),
-            delete: static (context, edit) =>
-                from pattern in edit.Target.Resolve(document: context.Document, lens: HatchSpec.Lens, key: context.Op)
-                from _ in context.Op.Confirm(success: context.Document.HatchPatterns.Delete(
-                    hatchPatternIndex: pattern.Index, quiet: edit.Quiet))
-                select DraftReceipt.Component(slot: DraftSlot.Deleted, index: pattern.Index),
-            import: static (context, edit) =>
-                from path in context.Op.AcceptText(value: edit.Path)
-                from read in context.Op.Catch(() => Optional(HatchPattern.ReadFromFile(filename: path, quiet: edit.Quiet))
-                    .Map(static patterns => toSeq(patterns))
-                    .Filter(static patterns => !patterns.IsEmpty)
-                    .ToFin(Fail: context.Op.InvalidResult()))
-                from landed in read.TraverseM(pattern =>
-                    guard(context.Document.HatchPatterns.FindName(name: pattern.Name) is null, context.Op.InvalidInput()).ToFin()
-                        .Bind(_ => Added(document: context.Document, pattern: pattern, op: context.Op))).As()
-                select landed.Fold(
-                    DraftReceipt.Path(slot: DraftSlot.Imported, path: path),
-                    static (state, index) => state + DraftReceipt.Component(slot: DraftSlot.Imported, index: index)),
-            export: static (context, edit) =>
-                from path in context.Op.AcceptText(value: edit.Path)
-                from patterns in edit.Targets.TraverseM(target =>
-                    target.Resolve(document: context.Document, lens: HatchSpec.Lens, key: context.Op)).As()
-                from _ in guard(!patterns.IsEmpty, context.Op.InvalidInput()).ToFin()
-                from __ in context.Op.Confirm(success: HatchPattern.WriteToFile(
-                    filename: path, hatchPatterns: patterns.AsIterable()))
-                select DraftReceipt.Path(slot: DraftSlot.Exported, path: path),
-            place: static (context, edit) =>
-                from hatches in edit.Spec.Mint(document: context.Document, placement: edit.Placement, op: context.Op)
-                from ids in hatches.TraverseM(hatch => context.Op.Catch(() =>
-                    context.Document.Objects.Add(
-                        geometry: hatch,
-                        attributes: edit.Attributes.IfNoneUnsafe((ObjectAttributes?)null),
-                        history: null,
-                        reference: false) is var id && id != Guid.Empty
-                        ? Fin.Succ(value: id)
-                        : Fin.Fail<Guid>(error: context.Op.InvalidResult()))).As()
-                select DraftReceipt.Objects(slot: DraftSlot.Placed, ids: ids),
-            regrade: static (context, edit) =>
-                Reworked(document: context.Document, target: edit.Target, op: context.Op, slot: DraftSlot.Restyled,
-                    change: (hatch, key) => key.Catch(() => { hatch.SetGradientFill(fill: edit.Fill); return Fin.Succ(value: unit); })),
-            rescale: static (context, edit) =>
-                Reworked(document: context.Document, target: edit.Target, op: context.Op, slot: DraftSlot.Scaled,
-                    change: (hatch, key) =>
-                        from _ in key.AcceptInput(value: edit.Motion)
-                        from __ in key.Catch(() => { hatch.ScalePattern(xform: edit.Motion); return Fin.Succ(value: unit); })
-                        select unit));
+    internal Fin<DraftReceipt> Apply(RhinoDoc document, Op op) => Switch(
+        (Document: document, Op: op),
+        author: static (context, edit) =>
+            from _ in guard(context.Document.HatchPatterns.FindName(name: edit.Def.Name.Value) is null,
+                context.Op.InvalidInput()).ToFin()
+            from pattern in edit.Def.Mint(key: context.Op)
+            from index in Added(document: context.Document, pattern: pattern, op: context.Op)
+            from receipt in DraftReceipt.Component(slot: DraftSlot.Authored, componentKind: DraftComponentKind.Hatch, index: index)
+            select receipt,
+        authorDefault: static (context, edit) =>
+            from source in context.Op.Catch(() => toSeq(HatchPattern.GetDefaultHatchPatterns())
+                .Find(candidate => string.Equals(candidate.Name, edit.Name.Value, StringComparison.OrdinalIgnoreCase))
+                .ToFin(Fail: context.Op.MissingContext()))
+            from pattern in PatternDef.Canonical(pattern: source, key: context.Op)
+            from _ in guard(context.Document.HatchPatterns.FindName(name: pattern.Name) is null,
+                context.Op.InvalidInput()).ToFin()
+            from index in Added(document: context.Document, pattern: pattern, op: context.Op)
+            from receipt in DraftReceipt.Component(slot: DraftSlot.Authored, componentKind: DraftComponentKind.Hatch, index: index)
+            select receipt,
+        amend: static (context, edit) => ReplacePattern(
+            document: context.Document, target: edit.Target, definition: edit.Def, mode: edit.Mode,
+            slot: DraftSlot.Amended, op: context.Op),
+        retag: static (context, edit) =>
+            from pattern in edit.Target.Resolve(document: context.Document, lens: HatchSpec.Lens, key: context.Op)
+            from current in PatternDef.Read(pattern: pattern, key: context.Op)
+            from changed in PatternDef.Of(
+                name: current.Name, fill: current.Fill, units: current.Units, distances: current.Distances,
+                lines: current.Lines, description: current.Description, tags: edit.Tags, key: context.Op)
+            from receipt in ReplacePattern(
+                document: context.Document, target: edit.Target, definition: changed, mode: edit.Mode,
+                slot: DraftSlot.Amended, op: context.Op)
+            select receipt,
+        rename: static (context, edit) =>
+            from pattern in edit.Target.Resolve(document: context.Document, lens: HatchSpec.Lens, key: context.Op)
+            from _ in context.Op.Confirm(success: context.Document.HatchPatterns.Rename(
+                hatchPatternIndex: pattern.Index, hatchPatternName: edit.Name.Value))
+            from receipt in DraftReceipt.Component(
+                slot: DraftSlot.Renamed, componentKind: DraftComponentKind.Hatch, index: ResourceIndex.Create(pattern.Index))
+            select receipt,
+        delete: static (context, edit) =>
+            from _ in guard(!edit.Targets.IsEmpty, context.Op.InvalidInput()).ToFin()
+            from patterns in edit.Targets.TraverseM(target => target.Resolve(
+                document: context.Document, lens: HatchSpec.Lens, key: context.Op)).As()
+            let indices = patterns.Map(static pattern => pattern.Index)
+            from __ in guard(indices.Distinct().Count == indices.Count, context.Op.InvalidInput()).ToFin()
+            from deleted in context.Op.Catch(() => Fin.Succ(value: context.Document.HatchPatterns.Delete(
+                hatchPatternIndices: indices.AsIterable(), quiet: edit.Mode.QuietWrite)))
+            from ___ in guard(deleted == indices.Count, context.Op.InvalidResult()).ToFin()
+            from receipts in indices.TraverseM(index => DraftReceipt.Component(
+                slot: DraftSlot.Deleted, componentKind: DraftComponentKind.Hatch, index: ResourceIndex.Create(index))).As()
+            select receipts.Fold(DraftReceipt.Empty, static (receipt, next) => receipt.Contribute(next)),
+        import: static (context, edit) =>
+            from read in context.Op.Catch(() => Optional(HatchPattern.ReadFromFile(
+                    filename: edit.Path.Value, quiet: edit.Mode.QuietWrite))
+                .Map(static patterns => toSeq(patterns))
+                .Filter(static patterns => !patterns.IsEmpty)
+                .ToFin(Fail: context.Op.InvalidResult()))
+            from patterns in read.TraverseM(pattern => PatternDef.Canonical(pattern: pattern, key: context.Op)).As()
+            from _ in guard(
+                patterns.AsIterable().Select(static pattern => pattern.Name)
+                    .Distinct(StringComparer.OrdinalIgnoreCase).Count() == patterns.Count
+                && !patterns.Exists(pattern => context.Document.HatchPatterns.FindName(name: pattern.Name) is not null),
+                context.Op.InvalidInput()).ToFin()
+            from indices in DocumentCommit.Compensated(
+                source: patterns,
+                land: pattern => Added(document: context.Document, pattern: pattern, op: context.Op),
+                rollback: landed => context.Op.Confirm(success: context.Document.HatchPatterns.Delete(
+                    hatchPatternIndices: landed.Map(static index => index.Value).AsIterable(), quiet: true) == landed.Count))
+            from pathReceipt in DraftReceipt.Path(slot: DraftSlot.Imported, path: edit.Path)
+            from components in indices.TraverseM(index => DraftReceipt.Component(
+                slot: DraftSlot.Imported, componentKind: DraftComponentKind.Hatch, index: index)).As()
+            select components.Fold(pathReceipt, static (state, receipt) => state.Contribute(receipt)),
+        export: static (context, edit) =>
+            from patterns in edit.Targets.TraverseM(target => target.Resolve(
+                document: context.Document, lens: HatchSpec.Lens, key: context.Op)).As()
+            from _ in guard(!patterns.IsEmpty, context.Op.InvalidInput()).ToFin()
+            from __ in context.Op.Confirm(success: HatchPattern.WriteToFile(
+                filename: edit.Path.Value, hatchPatterns: patterns.AsIterable()))
+            from receipt in DraftReceipt.Path(slot: DraftSlot.Exported, path: edit.Path)
+            select receipt,
+        place: static (context, edit) =>
+            from hatches in edit.Spec.Mint(document: context.Document, placement: edit.Placement, op: context.Op)
+            from ids in DocumentCommit.Compensated(
+                source: hatches,
+                land: hatch => context.Op.Catch(() => ResourceId.Admit(context.Document.Objects.Add(
+                    geometry: hatch,
+                    attributes: edit.Attributes.IfNoneUnsafe((ObjectAttributes?)null),
+                    history: null,
+                    reference: false), context.Op)),
+                rollback: landed => context.Op.Confirm(success: context.Document.Objects.Delete(
+                    objectIds: landed.Map(static id => id.Value).AsIterable(), quiet: true) == landed.Count),
+                release: minted => Release(values: minted, op: context.Op))
+            from receipt in DraftReceipt.Objects(slot: DraftSlot.Placed, ids: ids)
+            select receipt,
+        regrade: static (context, edit) => Reworked(
+            document: context.Document, target: edit.Target, op: context.Op, slot: DraftSlot.Restyled,
+            change: (hatch, key) => key.AcceptInput(value: edit.Fill)
+                .Bind(fill => key.Catch(() => hatch.SetGradientFill(fill: fill)))),
+        rescale: static (context, edit) => Reworked(
+            document: context.Document, target: edit.Target, op: context.Op, slot: DraftSlot.Scaled,
+            change: (hatch, key) => key.AcceptInput(value: edit.Motion)
+                .Bind(_ => key.Catch(() => hatch.ScalePattern(xform: edit.Motion)))));
 
-    private static Fin<int> Added(RhinoDoc document, HatchPattern pattern, Op op) =>
-        op.Catch(() => document.HatchPatterns.Add(pattern: pattern) is var index && index >= 0
-            ? Fin.Succ(value: index)
-            : Fin.Fail<int>(error: op.InvalidResult()));
+    private static Fin<DraftReceipt> ReplacePattern(
+        RhinoDoc document, ResourceRef target, PatternDef definition, WriteMode mode, DraftSlot slot, Op op) =>
+        from active in target.Resolve(document: document, lens: HatchSpec.Lens, key: op)
+        from minted in definition.Mint(key: op)
+        from _ in op.Confirm(success: document.HatchPatterns.Modify(
+            hatchPattern: minted, hatchPatternIndex: active.Index, quiet: mode.QuietWrite))
+        from receipt in DraftReceipt.Component(
+            slot: slot, componentKind: DraftComponentKind.Hatch, index: ResourceIndex.Create(active.Index))
+        select receipt;
 
-    internal static Fin<DraftReceipt> Reworked(
-        RhinoDoc document, TableTarget target, Op op, DraftSlot slot,
-        Func<Hatch, Op, Fin<Unit>> change) =>
+    private static Fin<ResourceIndex> Added(RhinoDoc document, HatchPattern pattern, Op op) =>
+        op.Catch(() => ResourceIndex.Admit(document.HatchPatterns.Add(pattern: pattern), op));
+
+    private sealed record HatchRevision(Guid Id, Hatch Original, Hatch Revised) {
+        internal Seq<Hatch> Custody => Seq(Original, Revised);
+    }
+
+    private static Fin<DraftReceipt> Reworked(
+        RhinoDoc document, TableTarget target, Op op, DraftSlot slot, Func<Hatch, Op, Fin<Unit>> change) =>
         from ids in target.Resolve(document: document, key: op)
-        from amended in ids.TraverseM(id =>
+        from revisions in DocumentCommit.Compensated(
+            source: ids,
+            land: id => Prepare(document: document, id: id, change: change, op: op),
+            rollback: landed => Release(values: landed.Bind(static row => row.Custody), op: op))
+        from amended in DocumentCommit.Compensated(
+            source: revisions,
+            land: revision => op.Confirm(success: document.Objects.Replace(
+                    objectId: revision.Id, geometry: revision.Revised, ignoreModes: false))
+                .Map(_ => (revision.Id, revision.Original)),
+            rollback: landed => landed.Traverse(row => op.Confirm(success: document.Objects.Replace(
+                    objectId: row.Id, geometry: row.Original, ignoreModes: false))
+                .ToValidation()).As().ToFin().Map(static _ => unit),
+            release: rows => Release(values: rows.Bind(static row => row.Custody), op: op))
+        from receipt in DraftReceipt.Objects(slot: slot, ids: amended.Map(static row => ResourceId.Create(row.Id)))
+        select receipt;
+
+    private static Fin<HatchRevision> Prepare(
+        RhinoDoc document, Guid id, Func<Hatch, Op, Fin<Unit>> change, Op op) =>
             from native in Optional(document.Objects.FindId(id)).ToFin(Fail: op.MissingContext())
             from source in Optional(native.Geometry as Hatch).ToFin(Fail: op.InvalidInput())
-            from copy in Optional(source.Duplicate() as Hatch).ToFin(Fail: op.InvalidResult())
-            from _ in change(copy, op)
-            from __ in op.Confirm(success: document.Objects.Replace(objectId: id, geometry: copy, ignoreModes: false))
-            select id).As()
-        select DraftReceipt.Objects(slot: slot, ids: amended);
+            from original in op.Catch(() => Optional(source.Duplicate() as Hatch).ToFin(Fail: op.InvalidResult()))
+            from revised in op.Catch(() => Optional(source.Duplicate() as Hatch).ToFin(Fail: op.InvalidResult()))
+                .BindFail(primary => Failed<Hatch, Hatch>(primary: primary, values: Seq(original), op: op))
+            from _ in change(revised, op)
+                .BindFail(primary => Failed<Unit, Hatch>(primary: primary, values: Seq(original, revised), op: op))
+            select new HatchRevision(Id: id, Original: original, Revised: revised);
+
+    internal static Fin<Unit> Release<T>(Seq<T> values, Op op) where T : class, IDisposable =>
+        values.Traverse(value => op.Catch(() => Fin.Succ(value: Op.Side(value.Dispose))).ToValidation())
+            .As().ToFin().Map(static _ => unit);
+
+    internal static Fin<TValue> Failed<TValue, TResource>(Error primary, Seq<TResource> values, Op op)
+        where TResource : class, IDisposable =>
+        Release(values: values, op: op).Match(
+            Succ: _ => Fin.Fail<TValue>(error: primary),
+            Fail: cleanup => Fin.Fail<TValue>(error: primary + cleanup));
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-public sealed record HatchTransaction(string Name, Seq<HatchOp> Operations, RedrawPolicy Redraw, bool UndoRecorded = true) {
-    public static HatchTransaction Batch(string name, params ReadOnlySpan<HatchOp> operations) =>
-        new(Name: name, Operations: toSeq(operations.ToArray()), Redraw: RedrawPolicy.Deferred);
+// --- [OPERATIONS] ---------------------------------------------------------------------------
+public static class Hatches {
+    public static Fin<DraftReceipt> Commit(DocumentSession session, DraftPlan<HatchOp> plan) =>
+        DraftSpine.Commit(session: session, plan: plan,
+            apply: static (document, operation, key) => operation.Apply(document: document, op: key), op: Op.Of());
+
+    public static Fin<HatchAnswer> Ask(DocumentSession session, HatchAsk request) {
+        Op op = Op.Of();
+        return session.Demand(use: document => request.Answer(document: document, op: op), key: op, needs: [SessionNeed.Read]);
+    }
 }
 ```
 
-## [05]-[ASK_FAMILY]
+## [05]-[PROJECTION]
 
-- Owner: `PatternSnapshot` — identity, usage, and one nested `PatternDef` read through `HatchLines`; `HatchDisplay` — boundary curves, pattern lines, and solid-fill brep from one `CreateDisplayGeometry` call; `HatchAsk`/`HatchAnswer` — typed request/result pairs over patterns and placed hatches.
-- Law: the snapshot round-trips the def — `LineDef` rows read through `HatchLines`/`GetDashes`, so a snapshot re-feeds `PatternDef.Of` and pattern content survives detached.
-- Law: boundary extraction states its frame — `Loops` selects hatch-plane 2d versus world 3d and perimeter versus holes as request data (`Get2dCurves`/`Get3dCurves` with the `outer` grant), never two sibling asks.
+- Owner: `PatternSnapshot` and `HatchState` preserve the complete detached definition and every mutable placed-hatch parameter.
+- Policy: `LoopKind` and `LoopFrame` replace independent boolean switches with named perimeter and coordinate-frame values.
+- Boundary: loops, display bounds, solid regions, and exploded pieces cross through `GeometryCrossing`; answer cases expose only `GeometryHandle` custody.
+- Boundary: one harvest fold releases accepted handles on crossing refusal and raw products on every exit.
+- Law: default-pattern projection returns full `PatternDef` rows rather than a name census, so built-in capability remains authorable without a second lookup grammar.
 
 ```csharp signature
+// --- [TYPES] --------------------------------------------------------------------------------
+[SmartEnum<bool>]
+public sealed partial class LoopKind {
+    public static readonly LoopKind Perimeter = new(key: true);
+    public static readonly LoopKind Voids = new(key: false);
+}
+
+[SmartEnum<bool>]
+public sealed partial class LoopFrame {
+    public static readonly LoopFrame World = new(key: true);
+    public static readonly LoopFrame Plane = new(key: false);
+}
+
 // --- [MODELS] -------------------------------------------------------------------------------
 public sealed record PatternSnapshot(
-    Guid Key,
-    int Index,
+    ResourceId Key,
+    ResourceIndex Index,
     bool InUse,
     PatternDef Definition) : IDetachedDocumentResult;
 
-public sealed record HatchDisplay(Seq<Curve> Bounds, Seq<Line> Lines, Option<Brep> Solid) : IDetachedDocumentResult;
+public sealed record HatchState(
+    ResourceId Key,
+    ResourceIndex Pattern,
+    Plane Plane,
+    Point3d BasePoint,
+    double PatternRotation,
+    double PatternScale,
+    Option<ColorGradient> Gradient) : IDetachedDocumentResult;
+
+public sealed record HatchDisplay(
+    Seq<GeometryHandle> Bounds,
+    Seq<Line> Lines,
+    Option<GeometryHandle> Solid) : IDetachedDocumentResult;
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -298,140 +502,119 @@ public abstract partial record HatchAsk {
     public sealed record Defaults : HatchAsk;
     public sealed record MintName : HatchAsk;
     public sealed record Preview(ResourceRef Target, int Width, int Height, double Angle) : HatchAsk;
+    public sealed record State(TableTarget Target) : HatchAsk;
     public sealed record Display(TableTarget Target, double PatternScale = 1.0) : HatchAsk;
-    public sealed record Loops(TableTarget Target, bool Outer = true, bool World = true) : HatchAsk;
-    public sealed record Fill(TableTarget Target) : HatchAsk;
+    public sealed record Loops(TableTarget Target, LoopKind Kind, LoopFrame Frame) : HatchAsk;
     public sealed record Solid(TableTarget Target) : HatchAsk;
     public sealed record Pieces(TableTarget Target) : HatchAsk;
 
-    internal Fin<HatchAnswer> Answer(RhinoDoc document, Op op) =>
-        Switch(
-            context: (Document: document, Op: op),
-            patternState: static (ctx, ask) =>
-                from pattern in ask.Target.Resolve(document: ctx.Document, lens: HatchSpec.Lens, key: ctx.Op)
-                from lines in ctx.Op.Catch(() => Fin.Succ(value: toSeq(pattern.HatchLines).Map(static line =>
-                    new LineDef(Angle: line.Angle, Base: line.BasePoint, Offset: line.Offset,
-                        Dashes: toSeq(line.GetDashes).Map(static dash =>
-                            new SegmentRow(Length: double.Abs(dash), Solid: dash >= 0.0))))))
-                from fill in Optional(FillKind.TryGet((int)pattern.FillType, out FillKind? kind) ? kind : null)
-                    .ToFin(Fail: ctx.Op.InvalidResult())
-                select (HatchAnswer)new HatchAnswer.Pattern(Snapshot: new PatternSnapshot(
-                    Key: pattern.Id,
-                    Index: pattern.Index,
-                    InUse: pattern.InUse,
-                    Definition: new PatternDef(
-                        Name: pattern.Name,
-                        Description: Optional(pattern.Description).Filter(static text => text.Length > 0),
-                        Fill: fill,
-                        Units: pattern.PatternUnitSystem,
-                        AlwaysModelDistances: pattern.AlwaysModelDistances,
-                        Lines: lines))),
-            defaults: static (ctx, _) => ctx.Op.Catch(() => Fin.Succ<HatchAnswer>(value: new HatchAnswer.Rows(
-                Patterns: toSeq(HatchPattern.GetDefaultHatchPatterns())
-                    .Map(static pattern => pattern.Name),
-                CurrentIndex: ctx.Document.HatchPatterns.CurrentHatchPatternIndex))),
-            mintName: static (ctx, _) =>
-                from minted in ctx.Op.AcceptText(value: ctx.Document.HatchPatterns.GetUnusedHatchPatternName())
-                select (HatchAnswer)new HatchAnswer.Minted(Name: minted),
-            preview: static (ctx, ask) =>
-                from pattern in ask.Target.Resolve(document: ctx.Document, lens: HatchSpec.Lens, key: ctx.Op)
-                from _ in guard(ask.Width > 0 && ask.Height > 0, ctx.Op.InvalidInput()).ToFin()
-                from angle in ctx.Op.AcceptInput(value: ask.Angle)
-                from lines in ctx.Op.Catch(() => Optional(pattern.CreatePreviewGeometry(
-                        width: ask.Width, height: ask.Height, angle: angle))
-                    .Map(static preview => toSeq(preview))
-                    .ToFin(Fail: ctx.Op.InvalidResult()))
-                select (HatchAnswer)new HatchAnswer.Previewed(Lines: lines),
-            display: static (ctx, ask) =>
-                from hatch in Single(document: ctx.Document, target: ask.Target, key: ctx.Op)
-                from scale in ctx.Op.Positive(value: ask.PatternScale)
-                from pattern in Optional(ctx.Document.HatchPatterns.FindIndex(index: hatch.Geometry.PatternIndex))
-                    .ToFin(Fail: ctx.Op.MissingContext())
-                from display in ctx.Op.Catch(() => {
-                    hatch.Geometry.CreateDisplayGeometry(
-                        pattern: pattern, patternScale: scale,
-                        bounds: out Curve[] bounds, lines: out Line[] lines, solidBrep: out Brep solid);
-                    return Fin.Succ(value: new HatchDisplay(
-                        Bounds: toSeq(bounds ?? []), Lines: toSeq(lines ?? []), Solid: Optional(solid)));
-                })
-                select (HatchAnswer)new HatchAnswer.Drawable(Display: display),
-            loops: static (ctx, ask) =>
-                from hatch in Single(document: ctx.Document, target: ask.Target, key: ctx.Op)
-                from curves in ctx.Op.Catch(() => Fin.Succ(value: toSeq(ask.World
-                    ? hatch.Geometry.Get3dCurves(outer: ask.Outer)
-                    : hatch.Geometry.Get2dCurves(outer: ask.Outer))))
-                select (HatchAnswer)new HatchAnswer.Boundary(Curves: curves),
-            fill: static (ctx, ask) =>
-                from hatch in Single(document: ctx.Document, target: ask.Target, key: ctx.Op)
-                from gradient in ctx.Op.Catch(() => Fin.Succ(value: Optional(hatch.Geometry.GetGradientFill())))
-                select (HatchAnswer)new HatchAnswer.Graded(Fill: gradient),
-            solid: static (ctx, ask) =>
-                from hatch in Single(document: ctx.Document, target: ask.Target, key: ctx.Op)
-                from brep in ctx.Op.Catch(() => Optional(hatch.Geometry.ToBrep()).ToFin(Fail: ctx.Op.InvalidResult()))
-                select (HatchAnswer)new HatchAnswer.Solidified(Region: brep),
-            pieces: static (ctx, ask) =>
-                from hatch in Single(document: ctx.Document, target: ask.Target, key: ctx.Op)
-                from products in ctx.Op.Catch(() => Optional(hatch.Geometry.Explode())
-                    .Map(static exploded => toSeq(exploded))
-                    .ToFin(Fail: ctx.Op.InvalidResult()))
-                select (HatchAnswer)new HatchAnswer.Pieces(Products: products));
+    internal Fin<HatchAnswer> Answer(RhinoDoc document, Op op) => Switch(
+        (Document: document, Op: op),
+        patternState: static (context, ask) =>
+            from pattern in ask.Target.Resolve(document: context.Document, lens: HatchSpec.Lens, key: context.Op)
+            from definition in PatternDef.Read(pattern: pattern, key: context.Op)
+            select (HatchAnswer)new HatchAnswer.Pattern(new PatternSnapshot(
+                ResourceId.Create(pattern.Id), ResourceIndex.Create(pattern.Index), pattern.InUse, definition)),
+        defaults: static (context, _) =>
+            from definitions in toSeq(HatchPattern.GetDefaultHatchPatterns())
+                .TraverseM(pattern => PatternDef.Read(pattern: pattern, key: context.Op)).As()
+            select (HatchAnswer)new HatchAnswer.Definitions(
+                definitions, ResourceIndex.Create(context.Document.HatchPatterns.CurrentHatchPatternIndex)),
+        mintName: static (context, _) =>
+            from name in context.Op.AcceptText(value: context.Document.HatchPatterns.GetUnusedHatchPatternName())
+            select (HatchAnswer)new HatchAnswer.Minted(ResourceName.Create(name)),
+        preview: static (context, ask) =>
+            from pattern in ask.Target.Resolve(document: context.Document, lens: HatchSpec.Lens, key: context.Op)
+            from _ in guard(ask.Width > 0 && ask.Height > 0, context.Op.InvalidInput()).ToFin()
+            from angle in context.Op.AcceptInput(value: ask.Angle)
+            from lines in context.Op.Catch(() => Optional(pattern.CreatePreviewGeometry(
+                    width: ask.Width, height: ask.Height, angle: angle))
+                .Map(static values => toSeq(values))
+                .ToFin(Fail: context.Op.InvalidResult()))
+            select (HatchAnswer)new HatchAnswer.Previewed(lines),
+        state: static (context, ask) =>
+            from hatch in Single(document: context.Document, target: ask.Target, key: context.Op)
+            from gradient in context.Op.Catch(() => Fin.Succ(value: Optional(hatch.Geometry.GetGradientFill())))
+            select (HatchAnswer)new HatchAnswer.Placed(new HatchState(
+                ResourceId.Create(hatch.Id),
+                ResourceIndex.Create(hatch.Geometry.PatternIndex),
+                hatch.Geometry.Plane,
+                hatch.Geometry.BasePoint,
+                hatch.Geometry.PatternRotation,
+                hatch.Geometry.PatternScale,
+                gradient)),
+        display: static (context, ask) =>
+            from hatch in Single(document: context.Document, target: ask.Target, key: context.Op)
+            from scale in context.Op.Positive(value: ask.PatternScale)
+            from pattern in Optional(context.Document.HatchPatterns.FindIndex(index: hatch.Geometry.PatternIndex))
+                .ToFin(Fail: context.Op.MissingContext())
+            from raw in context.Op.Catch(() => {
+                hatch.Geometry.CreateDisplayGeometry(
+                    pattern: pattern,
+                    patternScale: scale,
+                    bounds: out Curve[] bounds,
+                    lines: out Line[] lines,
+                    solidBrep: out Brep solid);
+                return Fin.Succ(value: (
+                    Bounds: toSeq(bounds ?? []),
+                    Lines: toSeq(lines ?? []),
+                    Solid: Optional(solid)));
+            })
+            let products = raw.Bounds.Map(static value => (GeometryBase)value)
+                + raw.Solid.Match(
+                    Some: static value => Seq<GeometryBase>(value),
+                    None: static () => Seq<GeometryBase>())
+            from handles in Crossed(products: products, key: context.Op)
+            select (HatchAnswer)new HatchAnswer.Drawable(new HatchDisplay(
+                Bounds: handles.Take(raw.Bounds.Count),
+                Lines: raw.Lines,
+                Solid: raw.Solid.Map(_ => handles[raw.Bounds.Count]))),
+        loops: static (context, ask) =>
+            from hatch in Single(document: context.Document, target: ask.Target, key: context.Op)
+            from curves in context.Op.Catch(() => Fin.Succ(value: toSeq(ask.Frame.Key
+                ? hatch.Geometry.Get3dCurves(outer: ask.Kind.Key)
+                : hatch.Geometry.Get2dCurves(outer: ask.Kind.Key))))
+            from handles in Crossed(products: curves, key: context.Op)
+            select (HatchAnswer)new HatchAnswer.Boundary(handles),
+        solid: static (context, ask) =>
+            from hatch in Single(document: context.Document, target: ask.Target, key: context.Op)
+            from brep in context.Op.Catch(() => Optional(hatch.Geometry.ToBrep()).ToFin(
+                Fail: context.Op.InvalidResult()))
+            from handles in Crossed(products: Seq(brep), key: context.Op)
+            select (HatchAnswer)new HatchAnswer.Solidified(handles[0]),
+        pieces: static (context, ask) =>
+            from hatch in Single(document: context.Document, target: ask.Target, key: context.Op)
+            from products in context.Op.Catch(() => Optional(hatch.Geometry.Explode())
+                .Map(static values => toSeq(values))
+                .ToFin(Fail: context.Op.InvalidResult()))
+            from handles in Crossed(products: products, key: context.Op)
+            select (HatchAnswer)new HatchAnswer.Pieces(handles));
+
+    private static Fin<Seq<GeometryHandle>> Crossed<TGeometry>(Seq<TGeometry> products, Op key)
+        where TGeometry : GeometryBase =>
+        DocumentCommit.Compensated(
+            source: products,
+            land: product => GeometryCrossing.Cross(source: product, mode: CrossingMode.Detach, key: key),
+            rollback: landed => HatchOp.Release(values: landed, op: key),
+            release: sources => HatchOp.Release(values: sources, op: key));
 
     private static Fin<(Guid Id, Hatch Geometry)> Single(RhinoDoc document, TableTarget target, Op key) =>
-        from ids in target.Resolve(document: document, key: key)
-        from id in ids switch { [Guid only] => Fin.Succ(value: only), _ => Fin.Fail<Guid>(error: key.InvalidInput()) }
-        from native in Optional(document.Objects.FindId(id)).ToFin(Fail: key.MissingContext())
-        from hatch in Optional(native.Geometry as Hatch).ToFin(Fail: key.InvalidInput())
-        select (id, hatch);
+        from row in target.Only<RhinoObject>(document: document, key: key)
+        from hatch in Optional(row.Native.Geometry as Hatch).ToFin(Fail: key.InvalidInput())
+        select (row.Id, hatch);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record HatchAnswer : IDetachedDocumentResult {
     private HatchAnswer() { }
     public sealed record Pattern(PatternSnapshot Snapshot) : HatchAnswer;
-    public sealed record Rows(Seq<string> Patterns, int CurrentIndex) : HatchAnswer;
-    public sealed record Minted(string Name) : HatchAnswer;
+    public sealed record Definitions(Seq<PatternDef> Patterns, ResourceIndex Current) : HatchAnswer;
+    public sealed record Minted(ResourceName Name) : HatchAnswer;
     public sealed record Previewed(Seq<Line> Lines) : HatchAnswer;
+    public sealed record Placed(HatchState Snapshot) : HatchAnswer;
     public sealed record Drawable(HatchDisplay Display) : HatchAnswer;
-    public sealed record Boundary(Seq<Curve> Curves) : HatchAnswer;
-    public sealed record Graded(Option<ColorGradient> Fill) : HatchAnswer;
-    public sealed record Solidified(Brep Region) : HatchAnswer;
-    public sealed record Pieces(Seq<GeometryBase> Products) : HatchAnswer;
-}
-
-public static class Hatches {
-    public static Fin<DraftReceipt> Commit(DocumentSession session, HatchTransaction plan) {
-        Op op = Op.Of();
-        return from active in Optional(plan).ToFin(Fail: op.InvalidInput())
-               from _ in guard(!active.Operations.IsEmpty, op.InvalidInput()).ToFin()
-               from receipt in DraftSpine.Commit(
-                   session: session, name: active.Name, redraw: active.Redraw, recording: active.UndoRecorded,
-                   run: document => active.Operations
-                       .TraverseM(operation => operation.Apply(document: document, op: op)).As()
-                       .Map(static receipts => receipts.Fold(DraftReceipt.Empty, static (state, value) => state + value)),
-                   op: op)
-               select receipt;
-    }
-
-    public static Fin<HatchAnswer> Ask(DocumentSession session, HatchAsk request) {
-        Op op = Op.Of();
-        return from active in Optional(request).ToFin(Fail: op.InvalidInput())
-               from answer in session.Demand(
-                   use: document => active.Answer(document: document, op: op),
-                   key: op,
-                   needs: [SessionNeed.Read])
-               select answer;
-    }
+    public sealed record Boundary(Seq<GeometryHandle> Curves) : HatchAnswer;
+    public sealed record Solidified(GeometryHandle Region) : HatchAnswer;
+    public sealed record Pieces(Seq<GeometryHandle> Products) : HatchAnswer;
 }
 ```
-
-## [06]-[SURFACE_LEDGER]
-
-| [INDEX] | [CONCERN]           | [OWNER]         | [FORM]                                                  | [ENTRY]                 |
-| :-----: | :------------------ | :-------------- | :------------------------------------------------------ | :---------------------- |
-|  [01]   | pattern content     | `PatternDef`    | identity + fill + unit + `LineDef` run, host `Mint`     | `HatchOp.Author` / `Amend` |
-|  [02]   | built-in roster     | `HatchPattern`  | generated names feeding default authoring               | `HatchOp.AuthorDefault` |
-|  [03]   | hatch construction  | `HatchSpec`     | loops/nested/brep-face union, plural product            | `HatchOp.Place`         |
-|  [04]   | pattern binding     | `FillPlacement` | `ResourceRef` resolution, rotation, scale               | `Mint`                  |
-|  [05]   | hatch mutations     | `HatchOp`       | authoring + table verbs + `.pat` interchange + placed-hatch amends | `Hatches.Commit` |
-|  [06]   | drawable resolution | `HatchDisplay`  | bounds + pattern lines + solid brep in one call         | `HatchAsk.Display`      |
-|  [07]   | hatch reads         | `HatchAsk`      | snapshot, defaults, preview, loops, fill, solid, pieces | `Hatches.Ask`           |

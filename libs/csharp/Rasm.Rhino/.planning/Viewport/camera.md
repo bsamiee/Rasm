@@ -1,161 +1,176 @@
 # [RASM_RHINO_CAMERA]
 
-The camera model owner (`Rasm.Rhino.Viewport`). One vocabulary separates the three altitudes the census-era model fused: kernel pose and intent (`CameraPose` composing the `Rasm.Numerics` `VectorFrame`, projected from `VectorIntent` view rows — never a second frame algebra), a typed host scope lease (`ViewportTarget` resolved through the `DocumentSession` capability rail into a `ViewportLease` whose live `RhinoView`/`RhinoViewport`/`DetailViewObject` handles never escape a borrow), and the native snapshot adapter (`CameraSnapshot` projecting a disposable `ViewportInfo` to values inside one owned lease). Frustum, depth, depth-of-field, construction plane, visibility, and screen transforms are typed host rows read through the lease; main views, page views, and page details are cases of one target union, so a consumer addresses any viewport shape with one request and receives values, evidence records, and `Fin` rails — a live host handle, a retained `ViewportInfo`, or a `System.Drawing` screen carrier past this boundary is the deleted form.
+Camera ownership (`Rasm.Rhino.Viewport`) separates kernel pose and intent, session-scoped native borrows over the Document-owned `ViewportTarget` address, and value-only host projections. `CameraPose` composes `Rasm.Numerics.VectorFrame`; `ViewportLease` retains only `DocumentSession` plus `ViewportTarget`; `CameraSnapshot` disposes `ViewportInfo` before egress. Frustum, depth, depth-of-field, construction plane, detail scale, visibility, and coordinate transforms remain typed rows on one `Fin` rail.
 
 ## [01]-[INDEX]
 
-- [02]-[SCOPE_LEASE]: `ViewportTarget` the polymorphic viewport address, `ViewportRef` the resolved row, `ViewportLease` the session-gated borrow surface, and stale-identity detection over `ChangeCounter`.
-- [03]-[POSE_MODEL]: `CameraPose` over the kernel `VectorFrame`, `LensState`, `ProjectionKind` classification, and the pose read/write pair on one owner.
-- [04]-[HOST_ROWS]: `CameraFrustum`, `DepthProbe`/`VisibilityProbe` polymorphic depth and visibility, `CameraDof` focal-blur row, `CPlaneGrid`, and the `ViewMapping` coordinate-transform rows.
+- [02]-[SCOPE_LEASE]: `ViewportBorrowMode` the broadcast redraw-suppression gate and `ViewportLease` the session-gated borrow over the Document-owned `ViewportTarget` address.
+- [03]-[POSE_MODEL]: `CameraPose` over the kernel `VectorFrame`, `LensAngle`, `ProjectionKind` classification, and the pose read/write pair on one owner.
+- [04]-[HOST_ROWS]: `CameraFrustum`, `DepthProbe`, `VisibilityProbe`, `CameraDof`, `CPlaneGrid`, `DetailLength`, and `ViewMapping`.
 - [05]-[SNAPSHOT]: `CameraSnapshot` — the `ViewportInfo` value adapter with staleness evidence and the restore seam.
 
 ## [02]-[SCOPE_LEASE]
 
-- Owner: `ViewportTarget` `[Union]` — the one viewport address: `ActiveCase`, `NamedCase(string)`, `IdCase(Guid)`, `PageCase(Guid)`, `DetailCase(Guid, Guid)`, `EveryCase(bool)`. `ViewportRef` is the resolved row — view, viewport, and the detail object when the address lands inside a layout — `internal` so host handles stay inside the package, and its `Info` member is the ONE disposable-`ViewportInfo` projection: minted, projected, and released inside the borrow, never retained. `ViewportLease` is the borrow surface: resolution runs once per lease under `SessionNeed.Redraw`, the row set is immutable, and every read or edit crosses through `Use`/`UseAll`, which re-checks the session snapshot before touching a handle.
-- Entry: `ViewportTarget.Active()` / `Named(name, Op?)` / `Id(id, Op?)` / `Page(pageId, Op?)` / `Detail(pageId, detailId, Op?)` / `Every(includePages)` construct; `ViewportLease.Of(DocumentSession, ViewportTarget, Op?)` resolves; `lease.Use<T>(Func<ViewportRef, Fin<T>>)` borrows the single row — a broadcast lease under `Use` is a typed refusal, never a silent head-pick — and `UseAll<T>` folds every row, so single and broadcast execution are one surface discriminated by the target's arity, never sibling entrypoints.
-- Law: resolution names the host lookup members exactly once — `RhinoDoc.Views.ActiveView`, `RhinoDoc.Views.Find`, `RhinoDoc.Views.GetViewList(ViewTypeFilter)`, `RhinoDoc.Views.GetPageViews`, `RhinoPageView.GetDetailViews`, `DetailViewObject.Viewport` — and an address that resolves to nothing is a typed refusal at `Of`, never a null row a consumer branches on; a detail address matches either detail identity (`DetailViewObject.Id` or `DetailViewObject.Viewport.Id`), because commands hand out the object id and viewport APIs the viewport id.
-- Law: a detail row carries its `DetailViewObject` beside the viewport because a detail edit is committed through `CommitViewportChanges`, not observed — the commit seam lives on the operations rail, and the lease only proves which rows are details.
-- Law: lease identity is generation-stamped — each row captures `RhinoViewport.ChangeCounter` and the session `DocKey` at resolution, and `Stale` reads both against the live handle so a consumer holding a lease across host mutations detects drift as evidence instead of acting on a moved camera.
-- Law: every borrow crosses the session capability rail through `HostThread.OnSession` — the HostUi seam whose closure capture carries the typed value while the demand's own result stays the session `DocKey` — so the session's result constraint holds without constraining consumer value types, and no parallel detachment envelope exists beside that seam.
-- Law: an addressed row binds `RhinoView.MainViewport` — the viewport the address names — because `RhinoPageView.ActiveViewport` silently returns an active detail; only `ActiveCase` binds `ActiveViewport`, adopting the host's own active semantics, and a detail row binds `DetailViewObject.Viewport`.
-- Boundary: the lease holds borrowed host handles under the session's own `Lease<RhinoDoc>` lifetime; it is not `IDisposable` because it owns nothing — disposal pressure on a viewport handle is the host's, and a consumer needing durability re-resolves.
+- Owner: `ViewportLease` is the sole session-gated borrow surface, retaining only the `DocumentSession` plus the Document-owned `ViewportTarget` address; `ViewportBorrowMode` `[SmartEnum<int>]` gates broadcast redraw suppression. Every `Use` resolves and consumes the Document `ViewportRef` rows inside one `HostWork<T>.Session` body run through `HostThread.Run`, so no `RhinoView`, `RhinoViewport`, or `DetailViewObject` survives its borrow.
+- Entry: `ViewportTarget.Active` / `Named` / `Id` / `Page` / `Detail` / `Every` mint the durable address on the Document owner; `ViewportLease.Of(DocumentSession, ViewportTarget, Op?)` admits it; `Use<T>` and `UseAll<T>` resolve the current native rows through the Document address resolver during the borrow and reject missing or ambiguous scalar addresses.
+- Law: a detail edit is committed through `CommitViewportChanges` on the operations rail, not observed — the lease only proves which rows are details, reading the `DetailViewObject` the Document `ViewportRef` carries.
+- Law: durable identity is `DocKey` plus `ViewportTarget`; mutation identity is sampled from `RhinoViewport.ChangeCounter` by the operation that projects the value. A lease never stamps a native instance and therefore cannot become a stale handle cache.
+- Law: every borrow crosses the session capability rail through `HostThread.Run` over a `HostWork<T>.Session` — the HostUi seam whose closure capture carries the typed value while the demand's own result stays the session `DocKey` — so the session's result constraint holds without constraining consumer value types, and no parallel detachment envelope exists beside that seam. Broadcast redraw suppression restores the captured state on every exit, retries a rejected restore once, and combines primary and cleanup faults.
+- Boundary: the lease owns no host resource and is not `IDisposable`; each use re-resolves the address, executes, and discards every native reference before the host-thread closure returns.
 
-```csharp
+```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Numerics;
 using Rasm.Rhino.Document;
 using Rasm.Rhino.HostUi;
+using System.Runtime.InteropServices;
 
 namespace Rasm.Rhino.Viewport;
 
 // --- [TYPES] --------------------------------------------------------------------------------
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record ViewportTarget {
-    private ViewportTarget() { }
-    public sealed record ActiveCase : ViewportTarget;
-    public sealed record NamedCase(string Name) : ViewportTarget;
-    public sealed record IdCase(Guid ViewportId) : ViewportTarget;
-    public sealed record PageCase(Guid PageViewId) : ViewportTarget;
-    public sealed record DetailCase(Guid PageViewId, Guid DetailId) : ViewportTarget;
-    public sealed record EveryCase(bool IncludePages) : ViewportTarget;
+[SmartEnum<int>]
+internal sealed partial class ViewportBorrowMode {
+    internal static readonly ViewportBorrowMode Observe = new(key: 0, suppress: static _ => false);
+    internal static readonly ViewportBorrowMode Mutate = new(key: 1, suppress: static count => count >= 3);
 
-    public static ViewportTarget Active() => new ActiveCase();
-    public static ViewportTarget Every(bool includePages = false) => new EveryCase(IncludePages: includePages);
-    public static Fin<ViewportTarget> Named(string name, Op? key = null) =>
-        key.OrDefault().AcceptText(value: name).Map(static valid => (ViewportTarget)new NamedCase(Name: valid));
-    public static Fin<ViewportTarget> Id(Guid viewportId, Op? key = null) =>
-        guard(viewportId != Guid.Empty, key.OrDefault().InvalidInput()).ToFin().Map(_ => (ViewportTarget)new IdCase(ViewportId: viewportId));
-    public static Fin<ViewportTarget> Page(Guid pageViewId, Op? key = null) =>
-        guard(pageViewId != Guid.Empty, key.OrDefault().InvalidInput()).ToFin().Map(_ => (ViewportTarget)new PageCase(PageViewId: pageViewId));
-    public static Fin<ViewportTarget> Detail(Guid pageViewId, Guid detailId, Op? key = null) =>
-        guard(pageViewId != Guid.Empty && detailId != Guid.Empty, key.OrDefault().InvalidInput()).ToFin()
-            .Map(_ => (ViewportTarget)new DetailCase(PageViewId: pageViewId, DetailId: detailId));
-
-    internal Fin<Seq<ViewportRef>> Resolve(RhinoDoc document, Op key) =>
-        Switch(
-            state: (Document: document, Op: key),
-            activeCase: static (ctx, _) =>
-                Optional(ctx.Document.Views.ActiveView).ToFin(Fail: ctx.Op.MissingContext())
-                    .Map(view => Seq(ViewportRef.OfActive(view: view))),
-            namedCase: static (ctx, target) =>
-                Optional(ctx.Document.Views.Find(mainViewportName: target.Name, compareCase: false))
-                    .ToFin(Fail: ctx.Op.InvalidInput())
-                    .Map(view => Seq(ViewportRef.Of(view: view))),
-            idCase: static (ctx, target) =>
-                Optional(ctx.Document.Views.Find(mainViewportId: target.ViewportId)).ToFin(Fail: ctx.Op.InvalidInput())
-                    .Map(view => Seq(ViewportRef.Of(view: view))),
-            pageCase: static (ctx, target) =>
-                PageOf(document: ctx.Document, pageViewId: target.PageViewId, key: ctx.Op)
-                    .Map(page => Seq(ViewportRef.Of(view: page))),
-            detailCase: static (ctx, target) =>
-                from page in PageOf(document: ctx.Document, pageViewId: target.PageViewId, key: ctx.Op)
-                from detail in toSeq(page.GetDetailViews())
-                    .Find(row => row.Id == target.DetailId || row.Viewport.Id == target.DetailId)
-                    .ToFin(Fail: ctx.Op.InvalidInput())
-                select Seq(ViewportRef.OfDetail(view: page, detail: detail)),
-            everyCase: static (ctx, target) => Fin.Succ(
-                toSeq(ctx.Document.Views.GetViewList(filter: target.IncludePages ? ViewTypeFilter.All : ViewTypeFilter.Model))
-                    .Map(static view => ViewportRef.Of(view: view))));
-
-    private static Fin<RhinoPageView> PageOf(RhinoDoc document, Guid pageViewId, Op key) =>
-        toSeq(document.Views.GetPageViews()).Find(page => page.MainViewport.Id == pageViewId).ToFin(Fail: key.InvalidInput());
+    [UseDelegateFromConstructor]
+    internal partial bool Suppress(int count);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-internal readonly record struct ViewportRef(RhinoView View, RhinoViewport Viewport, Option<DetailViewObject> Detail, uint ChangeSerial) {
-    internal static ViewportRef Of(RhinoView view) =>
-        new(View: view, Viewport: view.MainViewport, Detail: Option<DetailViewObject>.None, ChangeSerial: view.MainViewport.ChangeCounter);
-    internal static ViewportRef OfActive(RhinoView view) =>
-        new(View: view, Viewport: view.ActiveViewport, Detail: Option<DetailViewObject>.None, ChangeSerial: view.ActiveViewport.ChangeCounter);
-    internal static ViewportRef OfDetail(RhinoPageView view, DetailViewObject detail) =>
-        new(View: view, Viewport: detail.Viewport, Detail: Some(detail), ChangeSerial: detail.Viewport.ChangeCounter);
-    internal bool Stale => Viewport.ChangeCounter != ChangeSerial;
+[SmartEnum<int>]
+internal sealed partial class ViewportCardinality {
+    internal static readonly ViewportCardinality Scalar = new(
+        key: 0,
+        admit: static (count, op) => guard(count == 1, op.InvalidInput()).ToFin());
+    internal static readonly ViewportCardinality Set = new(
+        key: 1,
+        admit: static (count, op) => guard(count > 0, op.MissingContext()).ToFin());
 
-    internal Fin<TOut> Info<TOut>(Func<ViewportInfo, Fin<TOut>> project, Op key) =>
-        key.Catch(() => new Lease<ViewportInfo>.Owned(Value: new ViewportInfo(Viewport)).Use(project));
+    [UseDelegateFromConstructor]
+    internal partial Fin<Unit> Admit(int count, Op op);
 }
 
 // --- [SERVICES] -----------------------------------------------------------------------------
 public sealed class ViewportLease : IDetachedDocumentResult {
     private readonly DocumentSession session;
-    private readonly Seq<ViewportRef> rows;
+    private readonly ViewportTarget target;
 
-    private ViewportLease(DocumentSession session, Seq<ViewportRef> rows) {
+    private ViewportLease(DocumentSession session, ViewportTarget target) {
         this.session = session;
-        this.rows = rows;
+        this.target = target;
     }
 
-    public int Count => rows.Count;
     public DocKey Key => session.Key;
+
+    internal DocumentSession Session => session;
+    internal ViewportTarget Target => target;
 
     public Fin<Context> Context(Op? key = null) => session.Context(key: key);
 
     public static Fin<ViewportLease> Of(DocumentSession session, ViewportTarget target, Op? key = null) {
         Op op = key.OrDefault();
         return from owner in Optional(session).ToFin(Fail: op.MissingContext())
-               from request in Optional(target).ToFin(Fail: op.InvalidInput())
-               from lease in owner.Demand(
-                   use: document =>
-                       from resolved in request.Resolve(document: document, key: op)
-                       from _ in guard(!resolved.IsEmpty, op.InvalidResult())
-                       select new ViewportLease(session: owner, rows: resolved),
-                   key: op,
-                   needs: [SessionNeed.Redraw])
-               select lease;
+               from request in op.Need(value: target)
+               select new ViewportLease(session: owner, target: request);
     }
+
+    internal static Fin<ViewportLease> Admit(ViewportLease? lease, Op key) =>
+        key.Need(value: lease);
 
     internal Fin<TOut> Use<TOut>(Func<ViewportRef, Fin<TOut>> borrow, Op key) =>
-        guard(rows.Count == 1, key.InvalidInput()).ToFin()
-            .Bind(_ => UseAll(borrow: borrow, key: key))
+        Use(borrow: (_, row) => borrow(row), key: key);
+
+    internal Fin<TOut> Use<TOut>(Func<RhinoDoc, ViewportRef, Fin<TOut>> borrow, Op key) =>
+        BorrowAll(
+            borrow: borrow,
+            terminal: static (_, _) => Fin.Succ(unit),
+            mode: ViewportBorrowMode.Observe,
+            cardinality: ViewportCardinality.Scalar,
+            key: key)
             .Bind(outputs => outputs.Head.ToFin(Fail: key.MissingContext()));
 
-    internal Fin<Seq<TOut>> UseAll<TOut>(Func<ViewportRef, Fin<TOut>> borrow, Op key) {
-        Seq<ViewportRef> held = rows;
-        return HostThread.OnSession(
-            session: session,
-            body: _ => held.TraverseM(borrow).As().Map(static outputs => outputs.Strict()),
-            op: key,
-            needs: [SessionNeed.Redraw]);
-    }
+    internal Fin<Seq<TOut>> UseAll<TOut>(
+        Func<RhinoDoc, ViewportRef, Fin<TOut>> borrow,
+        Func<RhinoDoc, int, Fin<Unit>> terminal,
+        ViewportBorrowMode mode,
+        Op key) => BorrowAll(
+            borrow: borrow,
+            terminal: terminal,
+            mode: mode,
+            cardinality: ViewportCardinality.Set,
+            key: key);
 
-    public Seq<bool> Staleness() => rows.Map(static row => row.Stale);
+    private Fin<Seq<TOut>> BorrowAll<TOut>(
+        Func<RhinoDoc, ViewportRef, Fin<TOut>> borrow,
+        Func<RhinoDoc, int, Fin<Unit>> terminal,
+        ViewportBorrowMode mode,
+        ViewportCardinality cardinality,
+        Op key) =>
+        HostThread.Run(
+            work: new HostWork<Seq<TOut>>.Session(
+                Document: session,
+                Needs: [SessionNeed.Redraw],
+                Body: document =>
+                    from rows in target.Resolve(document: document, key: key)
+                    from _ in cardinality.Admit(count: rows.Count, op: key)
+                    from outputs in mode.Suppress(count: rows.Count)
+                        ? Suppressed(document: document, rows: rows, borrow: borrow, key: key)
+                        : rows.TraverseM(row => Capture(document: document, row: row, borrow: borrow, key: key)).As()
+                    from __ in terminal(document, rows.Count)
+                    select outputs.Strict()),
+            key: key);
+
+    private static Fin<Seq<TOut>> Suppressed<TOut>(
+        RhinoDoc document,
+        Seq<ViewportRef> rows,
+        Func<RhinoDoc, ViewportRef, Fin<TOut>> borrow,
+        Op key) => key.Catch(() => Fin.Succ(value: document.Views.RedrawEnabled)).Bind(prior => {
+            Fin<Seq<TOut>> primary = key.Catch(() => {
+                document.Views.EnableRedraw(enable: false, redrawDocument: false, redrawLayers: false);
+                return rows.TraverseM(row => Capture(document: document, row: row, borrow: borrow, key: key)).As();
+            });
+            Fin<Unit> cleanup = RestoreRedraw(document: document, enabled: prior, key: key);
+            return cleanup.Match(
+                Succ: _ => primary,
+                Fail: restore => primary.Match(
+                    Succ: _ => Fin.Fail<Seq<TOut>>(error: restore),
+                    Fail: failure => Fin.Fail<Seq<TOut>>(error: failure + restore)));
+        });
+
+    private static Fin<TOut> Capture<TOut>(
+        RhinoDoc document,
+        ViewportRef row,
+        Func<RhinoDoc, ViewportRef, Fin<TOut>> borrow,
+        Op key) => key.Catch(() => borrow(document, row));
+
+    private static Fin<Unit> RestoreRedraw(RhinoDoc document, bool enabled, Op key) =>
+        Restore(document: document, enabled: enabled, key: key).BindFail(primary =>
+            Restore(document: document, enabled: enabled, key: key).Match(
+                Succ: _ => Fin.Fail<Unit>(error: primary),
+                Fail: retry => Fin.Fail<Unit>(error: primary + retry)));
+
+    private static Fin<Unit> Restore(RhinoDoc document, bool enabled, Op key) => key.Catch(() => {
+        document.Views.EnableRedraw(enable: enabled, redrawDocument: false, redrawLayers: false);
+        return Fin.Succ(value: unit);
+    });
 }
 ```
 
 ## [03]-[POSE_MODEL]
 
-- Owner: `CameraPose` — the kernel-composed pose: one `VectorFrame` whose `Value` plane carries the camera location at its origin, the view direction on its Z axis, and the camera right on its X axis — up re-derives at the host seat from direction and the live `CameraUp`, never a fourth pose field — plus the target point, the lens angle in radians, and the classified `ProjectionKind`. `LensState` `[ValueObject<double>]` admits the half-lens angle into `(0, π)`. `ProjectionKind` `[SmartEnum<int>]` names the host projection classes — `Parallel`, `Perspective`, `TwoPoint`, `ParallelReflected` — folded from the viewport's three projection predicates in one read; the host exposes no reflected read predicate, so `Classify` reads a reflected viewport as `Parallel` and the `ParallelReflected` row serves synthetic poses and the kernel `ViewProjectionIntent` lowering.
-- Entry: `CameraPose.Read(ViewportLease, Op?)` projects the live camera through the lease; `CameraPose.Of(VectorFrame, Point3d, LensState, ProjectionKind, Op?)` admits a synthetic pose (the lowering target of the kernel `VectorIntent` view rows); `Write(ViewportLease, Op?)` composes the one internal `SeatOn` triplet — `SetCameraLocations`, `SetCameraDirection`, the `CameraAngle` setter — the single host write seat the operations rail's pose-carrying arms compose too, so no sibling pose writer exists.
+- Owner: `CameraPose` composes `VectorFrame`, target, `LensAngle`, and the observable `ProjectionKind` rows `Parallel`, `Perspective`, and `TwoPoint`. RhinoCommon exposes no reflected read predicate, so reflected projection remains an explicit `ProjectionChange.ReflectedCase` command and never masquerades as readable pose state.
+- Entry: `CameraPose.Read(ViewportLease, Op?)` projects the live camera through the lease; `CameraPose.Of(VectorFrame, Point3d, LensAngle, ProjectionKind, Op?)` admits a synthetic pose; `CameraPose.Admit` is the shared outer storage seam consumed by writes and tracks; `Write(ViewportLease, Op?)` enters `Cameras.Apply`, which proves the requested `ProjectionKind` already matches the live viewport and composes the one internal `SeatOn` triplet. Projection transitions remain explicit `CameraOp.ProjectionCase` operations because RhinoCommon exposes no reflected read predicate and its perspective transition consumes a lens-length contract distinct from `CameraAngle`.
 - Law: the frame is read through `RhinoViewport.GetCameraFrame(frame: out Plane)` and admitted through `VectorFrame.Of` — a second local frame construction beside the kernel owner is the killed census defect; an up-vector fallback resolves through `ViewportInfo.CalculateCameraUpDirection(location:, direction:, angle:)`, never a hand-rolled orthogonalization.
-- Law: the pose write orders direction before angle and refuses `updateTargetLocation` on the direction write so the admitted target survives the seat; the write returns the post-write `ChangeCounter` so callers observe the edit landed.
-- Law: architectural view conventions are NOT pose recipes here — `Rasm.Processing` `VectorIntent.View` computes the convention pose from a subject bounds through the kernel `ViewConvention` rows, and this owner only admits and seats the projected `ViewPose`; a bounds-relative multiplier or elevation constant in this package is the killed `Architecture.cs` form.
+- Law: the pose write orders direction before angle and refuses `updateTargetLocation` on the direction write so the admitted target survives the seat; a mismatched projection is a typed refusal rather than a pose that silently omits one declared field, and the write returns the post-write `ChangeCounter`.
+- Law: architectural view conventions are NOT pose recipes here — `Rasm.Drawing` `ViewConvention.Pose` computes the convention pose from a subject bounds through the kernel catalog rows, and this owner only admits and seats the projected `ViewPose`; a bounds-relative multiplier or elevation constant in this package is the killed `Architecture.cs` form.
 - Boundary: reading and writing cross the same lease; a pose is a value, so two reads of a mutated viewport differ by construction and no cached pose masquerades as live state.
 
 ```csharp
 // --- [TYPES] --------------------------------------------------------------------------------
 [ValueObject<double>]
-public readonly partial struct LensState {
+public readonly partial struct LensAngle {
+    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) {
         validationError = double.IsFinite(value) && value > 0.0 && value < Math.PI
             ? validationError
@@ -168,7 +183,6 @@ public sealed partial class ProjectionKind {
     public static readonly ProjectionKind Parallel = new(key: 0);
     public static readonly ProjectionKind Perspective = new(key: 1);
     public static readonly ProjectionKind TwoPoint = new(key: 2);
-    public static readonly ProjectionKind ParallelReflected = new(key: 3);
 
     internal static ProjectionKind Classify(RhinoViewport viewport) =>
         (viewport.IsPerspectiveProjection, viewport.IsTwoPointPerspectiveProjection, viewport.IsParallelProjection) switch {
@@ -176,48 +190,59 @@ public sealed partial class ProjectionKind {
             (true, false, _) => Perspective,
             _ => Parallel,
         };
+
+    internal bool Accepts(RhinoViewport viewport) => this == Classify(viewport: viewport);
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------
-public readonly record struct CameraPose(VectorFrame Frame, Point3d Target, LensState Lens, ProjectionKind Projection) {
-    public static Fin<CameraPose> Of(VectorFrame frame, Point3d target, LensState lens, ProjectionKind projection, Op? key = null) {
-        Op op = key.OrDefault();
-        return from validTarget in op.AcceptValue(value: target)
-               from kind in Optional(projection).ToFin(Fail: op.InvalidInput())
-               select new CameraPose(Frame: frame, Target: validTarget, Lens: lens, Projection: kind);
-    }
+public readonly record struct CameraPose(VectorFrame Frame, Point3d Target, LensAngle Angle, ProjectionKind Projection) {
+    public static Fin<CameraPose> Of(VectorFrame frame, Point3d target, LensAngle angle, ProjectionKind projection, Op? key = null) =>
+        Admit(pose: new CameraPose(Frame: frame, Target: target, Angle: angle, Projection: projection), key: key.OrDefault());
+
+    internal static Fin<CameraPose> Admit(CameraPose pose, Op key) =>
+        from _frame in guard(pose.Frame.Value.IsValid, key.InvalidInput()).ToFin()
+        from target in key.AcceptValue(value: pose.Target)
+        from angle in key.AcceptValidated<LensAngle>(candidate: (double)pose.Angle)
+        from projection in key.Need(value: pose.Projection)
+        select pose with { Target = target, Angle = angle, Projection = projection };
 
     public static Fin<CameraPose> Read(ViewportLease lease, Op? key = null) {
         Op op = key.OrDefault();
-        return from context in lease.Context(key: op)
-               from pose in lease.Use(borrow: row => ReadRow(row: row, context: context, key: op), key: op)
-               select pose;
+        return ViewportLease.Admit(lease: lease, key: op).Bind(owner => owner.Use(
+            borrow: (document, row) => Rasm.Domain.Context.Of(doc: document).ToFin()
+                .Bind(context => ReadRow(row: row, context: context, key: op)),
+            key: op));
     }
 
-    internal static Fin<CameraPose> ReadRow(ViewportRef row, Context context, Op key) =>
+    internal static Fin<CameraPose> ReadRow(ViewportRef row, Context context, Op key) => key.Catch(() =>
         row.Viewport.GetCameraFrame(frame: out Plane plane)
             ? (from admitted in VectorFrame.Of(origin: plane.Origin, normal: -plane.ZAxis, xHint: Some(plane.XAxis), context: context, key: key)
                from target in key.AcceptValue(value: row.Viewport.CameraTarget)
-               from lens in key.AcceptValidated<LensState>(candidate: row.Viewport.CameraAngle)
-               select new CameraPose(Frame: admitted, Target: target, Lens: lens, Projection: ProjectionKind.Classify(viewport: row.Viewport)))
-            : Fin.Fail<CameraPose>(key.InvalidResult());
+               from angle in key.AcceptValidated<LensAngle>(candidate: row.Viewport.CameraAngle)
+               select new CameraPose(Frame: admitted, Target: target, Angle: angle, Projection: ProjectionKind.Classify(viewport: row.Viewport)))
+            : Fin.Fail<CameraPose>(key.InvalidResult()));
 
     public Fin<uint> Write(ViewportLease lease, Op? key = null) {
         Op op = key.OrDefault();
-        CameraPose self = this;
-        return lease.Use(borrow: row => op.Catch(() => {
-            _ = self.SeatOn(viewport: row.Viewport);
-            return Fin.Succ(value: row.Viewport.ChangeCounter);
-        }), key: op);
+        return from owner in ViewportLease.Admit(lease: lease, key: op)
+               from operation in CameraOp.Pose(pose: this, key: op)
+               from receipt in Cameras.Apply(
+                   session: owner.Session,
+                   target: owner.Target,
+                   operation: operation,
+                   key: op)
+               from serial in receipt.Switch(
+                   immediateCase: row => row.Serials.Last.ToFin(Fail: op.InvalidResult()),
+                   motionCase: _ => Fin.Fail<(uint Before, uint After)>(op.InvalidResult()))
+               select serial.After;
     }
 
     internal Unit SeatOn(RhinoViewport viewport) {
         _ = Seat(viewport: viewport, target: Target, location: Frame.Value.Origin, direction: Frame.Value.ZAxis);
-        viewport.CameraAngle = (double)Lens;
+        viewport.CameraAngle = (double)Angle;
         return unit;
     }
 
-    // The ONE host camera-write triplet core; every pose-carrying arm — full poses here, kernel ViewPose lowering on the operations rail — seats through it.
     internal static Unit Seat(RhinoViewport viewport, Point3d target, Point3d location, Vector3d direction) {
         viewport.SetCameraLocations(targetLocation: target, cameraLocation: location);
         viewport.SetCameraDirection(cameraDirection: direction, updateTargetLocation: false);
@@ -228,12 +253,12 @@ public readonly record struct CameraPose(VectorFrame Frame, Point3d Target, Lens
 
 ## [04]-[HOST_ROWS]
 
-- Owner: `CameraFrustum` — the six frustum planes plus aspect and the frustum bounding box, one read through `GetFrustum`/`FrustumAspect`/`GetFrustumBoundingBox`. `DepthProbe` `[Union]` — polymorphic depth: `AtPoint(Point3d)` through the single-distance overload, `OfBounds(BoundingBox)` and `OfSphere(Sphere)` through the near/far pair — one `Read` folding the three host overloads. `VisibilityProbe` `[Union]` — `Point`/`Bounds`/`Geometry` visibility through the `IsVisible` overload family. `CameraDof` — the full focal-blur row (`FocalBlurMode`/`Distance`/`Aperture`/`Jitter`/`SampleCount`) read from and written to a `ViewInfo`. `CPlaneGrid` — the construction-plane row from `GetConstructionPlane`, carrying plane, grid spacing, and snap spacing as values. `ViewMapping` `[SmartEnum<int>]` — the coordinate-transform rows (`WorldToScreen`, `WorldToClip`, `WorldToCamera`, `ScreenToWorld`, `ClipToWorld`, `CameraToWorld`) whose `(Source, Destination)` columns feed one `ViewportInfo.GetXform` read; the screen-ray inverse rides the same owner as `FrustumLineAt` over `GetFrustumLine`.
+- Owner: `CameraFrustum` owns six planes, aspect, and bounds; `DepthProbe` and `VisibilityProbe` own polymorphic spatial evidence; `CameraDof` owns focal-blur state and `CameraDofField` the ordered setter vocabulary; `CPlaneGrid` owns plane, spacing, visibility, depth, frequency, and axis/line colors; `DetailLength` owns paper/model conversion through `TryGetPaperLength` and `TryGetModelLength`; `ViewMapping` owns the coordinate-transform rows projected by `ViewportInfo.GetXform`.
 - Law: every row is a value projection through the lease — `DepthExtent`, `CameraFrustum`, and `CPlaneGrid` carry doubles, `Plane`, and `BoundingBox` values; the killed forms are the census screen carriers (`System.Drawing.Point`/`Rectangle` as camera state) and depth reads scattered per call site.
-- Law: `ViewMapping` is the ONE world/screen/clip/camera correspondence — forward and inverse directions are rows of one owner, and a consumer needing pixels-per-unit reads `GetWorldToScreenScale` through `PixelScale`, never a re-derived projection ratio; the transform reads through a `ViewportInfo.GetXform` snapshot because that member returns `Transform.Unset` on failure where the live `RhinoViewport.GetTransform` returns `Identity` and makes refusal invisible to `IsValid`.
-- Boundary: depth-of-field lives on `ViewInfo` (named-view state), not the live viewport — `CameraDof.Read`/`Write` take the `ViewInfo` the render and named-view rails hold, and the write is host mutation gated by the operations rail.
+- Law: `ViewMapping` is the ONE world/screen/clip/camera correspondence — one admitted `(Source, Destination)` pair generates the complete directional space, and a consumer needing pixels-per-unit reads `GetWorldToScreenScale` through `PixelScale`, never a re-derived projection ratio; the transform reads through a `ViewportInfo.GetXform` snapshot because that member returns `Transform.Unset` on failure where the live `RhinoViewport.GetTransform` returns `Identity` and makes refusal invisible to `IsValid`.
+- Boundary: depth-of-field lives on `ViewInfo` (named-view state), not the live viewport — `CameraDof.Read`/`Write` take the `ViewInfo` the render and named-view rails hold, and the write is host mutation gated by the operations rail. `Write` captures all focal-blur fields before mutation, applies the ordered field rows fail-fast, and restores the complete prior state through one compensation path when any setter fails.
 
-```csharp
+```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record DepthProbe {
@@ -245,19 +270,16 @@ public abstract partial record DepthProbe {
     public Fin<DepthExtent> Read(ViewportLease lease, Op? key = null) {
         Op op = key.OrDefault();
         DepthProbe self = this;
-        return lease.Use(borrow: row => self.Switch(
-            state: (Viewport: row.Viewport, Op: op),
-            atPoint: static (ctx, probe) => ctx.Viewport.GetDepth(point: probe.Value, distance: out double at)
-                ? Fin.Succ(new DepthExtent(Near: at, Far: at))
-                : Fin.Fail<DepthExtent>(ctx.Op.InvalidResult()),
-            ofBounds: static (ctx, probe) => ctx.Viewport.GetDepth(bbox: probe.Value, nearDistance: out double near, farDistance: out double far)
-                ? Fin.Succ(new DepthExtent(Near: near, Far: far))
-                : Fin.Fail<DepthExtent>(ctx.Op.InvalidResult()),
-            ofSphere: static (ctx, probe) => ctx.Viewport.GetDepth(sphere: probe.Value, nearDistance: out double near, farDistance: out double far)
-                ? Fin.Succ(new DepthExtent(Near: near, Far: far))
-                : Fin.Fail<DepthExtent>(ctx.Op.InvalidResult())),
-            key: op);
+        return ViewportLease.Admit(lease: lease, key: op).Bind(owner => owner.Use(borrow: row => self.Switch(
+            (Viewport: row.Viewport, Op: op),
+            atPoint: static (ctx, probe) => Extent(hit: ctx.Viewport.GetDepth(point: probe.Value, distance: out double at), near: at, far: at, key: ctx.Op),
+            ofBounds: static (ctx, probe) => Extent(hit: ctx.Viewport.GetDepth(bbox: probe.Value, nearDistance: out double near, farDistance: out double far), near: near, far: far, key: ctx.Op),
+            ofSphere: static (ctx, probe) => Extent(hit: ctx.Viewport.GetDepth(sphere: probe.Value, nearDistance: out double near, farDistance: out double far), near: near, far: far, key: ctx.Op)),
+            key: op));
     }
+
+    private static Fin<DepthExtent> Extent(bool hit, double near, double far, Op key) =>
+        hit ? DepthExtent.Of(near: near, far: far, key: key) : Fin.Fail<DepthExtent>(key.InvalidResult());
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -265,72 +287,280 @@ public abstract partial record VisibilityProbe {
     private VisibilityProbe() { }
     public sealed record PointCase(Point3d Value) : VisibilityProbe;
     public sealed record BoundsCase(BoundingBox Value) : VisibilityProbe;
-    public sealed record GeometryCase(GeometryBase Value) : VisibilityProbe;
+    public sealed record GeometryBoundsCase(GeometryBase Value) : VisibilityProbe;
 
     public Fin<bool> Read(ViewportLease lease, Op? key = null) {
         Op op = key.OrDefault();
         VisibilityProbe self = this;
-        return lease.Use(borrow: row => self.Switch(
-            state: (Viewport: row.Viewport, Op: op),
-            pointCase: static (ctx, probe) => guard(probe.Value.IsValid, ctx.Op.InvalidInput()).ToFin()
-                .Map(_ => ctx.Viewport.IsVisible(point: probe.Value)),
-            boundsCase: static (ctx, probe) => guard(probe.Value.IsValid, ctx.Op.InvalidInput()).ToFin()
-                .Map(_ => ctx.Viewport.IsVisible(bbox: probe.Value)),
-            geometryCase: static (ctx, probe) => Optional(probe.Value).ToFin(Fail: ctx.Op.InvalidInput())
-                .Map(geometry => ctx.Viewport.IsVisible(bbox: geometry.GetBoundingBox(accurate: false)))),
-            key: op);
+        return ViewportLease.Admit(lease: lease, key: op).Bind(owner => owner.Use(borrow: row => self.Switch(
+            (Viewport: row.Viewport, Op: op),
+            pointCase: static (ctx, probe) => guard(probe.Value.IsValid, ctx.Op.InvalidInput()).ToFin().Map(_ => ctx.Viewport.IsVisible(point: probe.Value)),
+            boundsCase: static (ctx, probe) => guard(probe.Value.IsValid, ctx.Op.InvalidInput()).ToFin().Map(_ => ctx.Viewport.IsVisible(bbox: probe.Value)),
+            geometryBoundsCase: static (ctx, probe) =>
+                from geometry in ctx.Op.Need(value: probe.Value)
+                from _ in guard(geometry.IsValid, ctx.Op.InvalidInput()).ToFin()
+                from bounds in ctx.Op.Catch(() => Fin.Succ(geometry.GetBoundingBox(accurate: false)))
+                from __ in guard(bounds.IsValid, ctx.Op.InvalidInput()).ToFin()
+                select ctx.Viewport.IsVisible(bbox: bounds)),
+            key: op));
     }
 }
 
-[SmartEnum<int>]
-public sealed partial class ViewMapping {
-    public static readonly ViewMapping WorldToScreen = new(key: 0, source: CoordinateSystem.World, destination: CoordinateSystem.Screen);
-    public static readonly ViewMapping WorldToClip = new(key: 1, source: CoordinateSystem.World, destination: CoordinateSystem.Clip);
-    public static readonly ViewMapping WorldToCamera = new(key: 2, source: CoordinateSystem.World, destination: CoordinateSystem.Camera);
-    public static readonly ViewMapping ScreenToWorld = new(key: 3, source: CoordinateSystem.Screen, destination: CoordinateSystem.World);
-    public static readonly ViewMapping ClipToWorld = new(key: 4, source: CoordinateSystem.Clip, destination: CoordinateSystem.World);
-    public static readonly ViewMapping CameraToWorld = new(key: 5, source: CoordinateSystem.Camera, destination: CoordinateSystem.World);
-
+[ComplexValueObject]
+[StructLayout(LayoutKind.Auto)]
+public readonly partial struct ViewMapping {
     public CoordinateSystem Source { get; }
     public CoordinateSystem Destination { get; }
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref CoordinateSystem source,
+        ref CoordinateSystem destination) {
+        validationError = Enum.IsDefined(value: source) && Enum.IsDefined(value: destination)
+            ? validationError
+            : new ValidationError(message: "coordinate system is invalid");
+    }
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------
-public readonly record struct DepthExtent(double Near, double Far);
+[ComplexValueObject]
+[StructLayout(LayoutKind.Auto)]
+public readonly partial struct DepthExtent {
+    public double Near { get; }
+    public double Far { get; }
 
-public readonly record struct CameraFrustum(double Left, double Right, double Bottom, double Top, double Near, double Far, double Aspect, BoundingBox Bounds) {
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double near, ref double far) {
+        validationError = double.IsFinite(near) && double.IsFinite(far) && near <= far
+            ? validationError
+            : new ValidationError(message: "depth extent is invalid");
+    }
+
+    internal static Fin<DepthExtent> Of(double near, double far, Op key) =>
+        key.Catch(() => Fin.Succ(Create(near: near, far: far)));
+}
+
+[ComplexValueObject]
+[StructLayout(LayoutKind.Auto)]
+public readonly partial struct CameraFrustum {
+    public double Left { get; }
+    public double Right { get; }
+    public double Bottom { get; }
+    public double Top { get; }
+    public double Near { get; }
+    public double Far { get; }
+    public double Aspect { get; }
+    public BoundingBox Bounds { get; }
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref double left,
+        ref double right,
+        ref double bottom,
+        ref double top,
+        ref double near,
+        ref double far,
+        ref double aspect,
+        ref BoundingBox bounds) {
+        validationError = left < right && bottom < top && near < far && aspect > 0.0 && bounds.IsValid
+            && new[] { left, right, bottom, top, near, far, aspect }.All(double.IsFinite)
+                ? validationError
+                : new ValidationError(message: "camera frustum is invalid");
+    }
+
     public static Fin<CameraFrustum> Read(ViewportLease lease, Op? key = null) {
         Op op = key.OrDefault();
-        return lease.Use(borrow: row => ReadRow(row: row, key: op), key: op);
+        return ViewportLease.Admit(lease: lease, key: op)
+            .Bind(owner => owner.Use(borrow: row => ReadRow(row: row, key: op), key: op));
     }
 
     internal static Fin<CameraFrustum> ReadRow(ViewportRef row, Op key) =>
         row.Viewport.GetFrustum(left: out double left, right: out double right, bottom: out double bottom, top: out double top, nearDistance: out double near, farDistance: out double far)
-            ? Fin.Succ(new CameraFrustum(Left: left, Right: right, Bottom: bottom, Top: top, Near: near, Far: far, Aspect: row.Viewport.FrustumAspect, Bounds: row.Viewport.GetFrustumBoundingBox()))
+            ? key.Catch(() => Fin.Succ(Create(
+                left: left,
+                right: right,
+                bottom: bottom,
+                top: top,
+                near: near,
+                far: far,
+                aspect: row.Viewport.FrustumAspect,
+                bounds: row.Viewport.GetFrustumBoundingBox())))
             : Fin.Fail<CameraFrustum>(key.InvalidResult());
 }
 
-public readonly record struct CameraDof(ViewInfoFocalBlurModes Mode, double Distance, double Aperture, double Jitter, uint SampleCount) {
-    public static CameraDof Read(ViewInfo view) =>
-        new(Mode: view.FocalBlurMode, Distance: view.FocalBlurDistance, Aperture: view.FocalBlurAperture, Jitter: view.FocalBlurJitter, SampleCount: view.FocalBlurSampleCount);
+[SmartEnum<int>]
+internal sealed partial class CameraDofField {
+    internal static readonly CameraDofField Mode = new(
+        key: 0, set: static (target, value) => target.FocalBlurMode = value.Mode);
+    internal static readonly CameraDofField Distance = new(
+        key: 1, set: static (target, value) => target.FocalBlurDistance = value.Distance);
+    internal static readonly CameraDofField Aperture = new(
+        key: 2, set: static (target, value) => target.FocalBlurAperture = value.Aperture);
+    internal static readonly CameraDofField Jitter = new(
+        key: 3, set: static (target, value) => target.FocalBlurJitter = value.Jitter);
+    internal static readonly CameraDofField SampleCount = new(
+        key: 4, set: static (target, value) => target.FocalBlurSampleCount = value.SampleCount);
 
-    public Unit Write(ViewInfo view) {
-        view.FocalBlurMode = Mode;
-        view.FocalBlurDistance = Distance;
-        view.FocalBlurAperture = Aperture;
-        view.FocalBlurJitter = Jitter;
-        view.FocalBlurSampleCount = SampleCount;
-        return unit;
+    [UseDelegateFromConstructor]
+    internal partial void Set(ViewInfo target, CameraDof value);
+}
+
+[ComplexValueObject]
+public sealed partial class CameraDof {
+    public ViewInfoFocalBlurModes Mode { get; }
+    public double Distance { get; }
+    public double Aperture { get; }
+    public double Jitter { get; }
+    public uint SampleCount { get; }
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref ViewInfoFocalBlurModes mode,
+        ref double distance,
+        ref double aperture,
+        ref double jitter,
+        ref uint sampleCount) {
+        validationError = Enum.IsDefined(value: mode) && sampleCount >= 1u
+            && new[] { distance, aperture, jitter }.All(static value => double.IsFinite(value) && value >= 0.0)
+                ? validationError
+                : new ValidationError(message: "camera depth of field is invalid");
+    }
+
+    public static Fin<CameraDof> Of(
+        ViewInfoFocalBlurModes mode,
+        double distance,
+        double aperture,
+        double jitter,
+        uint sampleCount,
+        Op? key = null) =>
+        key.OrDefault().Catch(() => Fin.Succ(Create(
+            mode: mode,
+            distance: distance,
+            aperture: aperture,
+            jitter: jitter,
+            sampleCount: sampleCount)));
+
+    public static Fin<CameraDof> Read(ViewInfo view, Op? key = null) {
+        Op op = key.OrDefault();
+        return op.Need(value: view).Bind(source => op.Catch(() => Of(
+            mode: source.FocalBlurMode,
+            distance: source.FocalBlurDistance,
+            aperture: source.FocalBlurAperture,
+            jitter: source.FocalBlurJitter,
+            sampleCount: source.FocalBlurSampleCount,
+            key: op)));
+    }
+
+    public Fin<Unit> Write(ViewInfo view, Op? key = null) {
+        Op op = key.OrDefault();
+        CameraDof self = this;
+        return op.Need(value: view).Bind(target => Read(view: target, key: op).Bind(prior =>
+            Apply(target: target, value: self, key: op).BindFail(primary =>
+                Restore(target: target, value: prior, key: op).Match(
+                    Succ: _ => Fin.Fail<Unit>(error: primary),
+                    Fail: cleanup => Fin.Fail<Unit>(error: primary + cleanup)))));
+    }
+
+    private static Fin<Unit> Apply(ViewInfo target, CameraDof value, Op key) =>
+        toSeq(CameraDofField.Items)
+            .TraverseM(field => Set(field: field, target: target, value: value, key: key))
+            .As()
+            .Map(static _ => unit);
+
+    private static Fin<Unit> Restore(ViewInfo target, CameraDof value, Op key) =>
+        toSeq(CameraDofField.Items)
+            .Traverse(field => Set(field: field, target: target, value: value, key: key).ToValidation())
+            .As()
+            .ToFin()
+            .Map(static _ => unit);
+
+    private static Fin<Unit> Set(CameraDofField field, ViewInfo target, CameraDof value, Op key) =>
+        key.Catch(() => {
+            field.Set(target: target, value: value);
+            return Fin.Succ(value: unit);
+        });
+}
+
+public readonly record struct CPlaneGrid(
+    Option<string> Name,
+    Plane Plane,
+    double GridSpacing,
+    double SnapSpacing,
+    int GridLineCount,
+    int ThickLineFrequency,
+    bool ShowGrid,
+    bool ShowAxes,
+    bool ShowZAxis,
+    bool DepthBuffered,
+    System.Drawing.Color ThinLineColor,
+    System.Drawing.Color ThickLineColor,
+    System.Drawing.Color GridXColor,
+    System.Drawing.Color GridYColor,
+    System.Drawing.Color GridZColor) {
+    public static Fin<CPlaneGrid> Read(ViewportLease lease, Op? key = null) {
+        Op op = key.OrDefault();
+        return ViewportLease.Admit(lease: lease, key: op).Bind(owner => owner.Use(borrow: row => op.Catch(() => {
+            DocObjects.ConstructionPlane cplane = row.Viewport.GetConstructionPlane();
+            return Fin.Succ(new CPlaneGrid(
+                Name: Optional(cplane.Name).Filter(static value => value.Length > 0),
+                Plane: cplane.Plane,
+                GridSpacing: cplane.GridSpacing,
+                SnapSpacing: cplane.SnapSpacing,
+                GridLineCount: cplane.GridLineCount,
+                ThickLineFrequency: cplane.ThickLineFrequency,
+                ShowGrid: cplane.ShowGrid,
+                ShowAxes: cplane.ShowAxes,
+                ShowZAxis: cplane.ShowZAxis,
+                DepthBuffered: cplane.DepthBuffered,
+                ThinLineColor: cplane.ThinLineColor,
+                ThickLineColor: cplane.ThickLineColor,
+                GridXColor: cplane.GridXColor,
+                GridYColor: cplane.GridYColor,
+                GridZColor: cplane.GridZColor));
+        }), key: op));
     }
 }
 
-public readonly record struct CPlaneGrid(Plane Plane, double GridSpacing, double SnapSpacing, int GridLineCount) {
-    public static Fin<CPlaneGrid> Read(ViewportLease lease, Op? key = null) {
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record DetailLength {
+    private DetailLength() { }
+    public sealed record PaperCase(DetailMagnitude Value) : DetailLength;
+    public sealed record ModelCase(DetailMagnitude Value) : DetailLength;
+
+    public static Fin<DetailLength> Paper(double value, Op? key = null) =>
+        key.OrDefault().AcceptValidated<DetailMagnitude>(candidate: value)
+            .Map(static admitted => (DetailLength)new PaperCase(Value: admitted));
+
+    public static Fin<DetailLength> Model(double value, Op? key = null) =>
+        key.OrDefault().AcceptValidated<DetailMagnitude>(candidate: value)
+            .Map(static admitted => (DetailLength)new ModelCase(Value: admitted));
+
+    public Fin<DetailLength> Convert(ViewportLease lease, Op? key = null) {
         Op op = key.OrDefault();
-        return lease.Use(borrow: row => op.Catch(() => {
-            DocObjects.ConstructionPlane cplane = row.Viewport.GetConstructionPlane();
-            return Fin.Succ(new CPlaneGrid(Plane: cplane.Plane, GridSpacing: cplane.GridSpacing, SnapSpacing: cplane.SnapSpacing, GridLineCount: cplane.GridLineCount));
-        }), key: op);
+        DetailLength self = this;
+        return ViewportLease.Admit(lease: lease, key: op).Bind(owner => owner.Use(
+            borrow: row => row.Detail.ToFin(Fail: op.InvalidInput()).Bind(detail => self.Switch(
+                (Detail: detail, Op: op),
+                paperCase: static (ctx, length) => ctx.Detail.TryGetModelLength(paperLength: (double)length.Value, modelLength: out double value)
+                    ? Model(value: value, key: ctx.Op)
+                    : Fin.Fail<DetailLength>(ctx.Op.InvalidResult()),
+                modelCase: static (ctx, length) => ctx.Detail.TryGetPaperLength(modelLength: (double)length.Value, paperLength: out double value)
+                    ? Paper(value: value, key: ctx.Op)
+                    : Fin.Fail<DetailLength>(ctx.Op.InvalidResult()))),
+            key: op));
+    }
+}
+
+[ValueObject<double>]
+public readonly partial struct DetailMagnitude {
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) {
+        validationError = double.IsFinite(value) && value >= 0.0
+            ? validationError
+            : new ValidationError(message: "detail length is invalid");
     }
 }
 
@@ -339,28 +569,28 @@ public static class ViewTransforms {
     extension(ViewportLease lease) {
         public Fin<Transform> Mapping(ViewMapping mapping, Op? key = null) {
             Op op = key.OrDefault();
-            return lease.Use(borrow: row => row.Info(project: info =>
+            return ViewportLease.Admit(lease: lease, key: op).Bind(owner => owner.Use(borrow: row => row.Info(project: info =>
                 info.GetXform(sourceSystem: mapping.Source, destinationSystem: mapping.Destination) is { IsValid: true } transform
                     ? Fin.Succ(transform)
-                    : Fin.Fail<Transform>(op.InvalidResult()), key: op), key: op);
+                    : Fin.Fail<Transform>(op.InvalidResult()), key: op), key: op));
         }
 
         public Fin<double> PixelScale(Point3d at, Op? key = null) {
             Op op = key.OrDefault();
-            return lease.Use(borrow: row =>
+            return ViewportLease.Admit(lease: lease, key: op).Bind(owner => owner.Use(borrow: row =>
                 row.Viewport.GetWorldToScreenScale(pointInFrustum: at, pixelsPerUnit: out double ppu) && double.IsFinite(ppu) && ppu > 0.0
                     ? Fin.Succ(ppu)
                     : Fin.Fail<double>(op.InvalidResult()),
-                key: op);
+                key: op));
         }
 
         public Fin<Line> FrustumLineAt(double screenX, double screenY, Op? key = null) {
             Op op = key.OrDefault();
-            return lease.Use(borrow: row =>
+            return ViewportLease.Admit(lease: lease, key: op).Bind(owner => owner.Use(borrow: row =>
                 row.Viewport.GetFrustumLine(screenX: screenX, screenY: screenY, worldLine: out Line line)
                     ? Fin.Succ(line)
                     : Fin.Fail<Line>(op.InvalidResult()),
-                key: op);
+                key: op));
         }
     }
 }
@@ -368,11 +598,11 @@ public static class ViewTransforms {
 
 ## [05]-[SNAPSHOT]
 
-- Owner: `CameraSnapshot` — the `ViewportInfo` value adapter: the pose, frustum, projection kind, lens, frame-plane corners at a chosen depth, and the identity pair (`DocKey`, `ChangeCounter`) that makes staleness a fact. Every disposable `ViewportInfo` rides the row's `Info` projection — minted, projected, and released inside one borrow — so no disposable snapshot survives; the census-era public `ViewportInfo` retention is dead.
-- Entry: `CameraSnapshot.Take(ViewportLease, Op?)` captures pose, frustum, quad, and serial under ONE borrow, so the stamped `ChangeCounter` names exactly the state the values project — a per-value borrow can stamp a serial that postdates the pose it certifies; `Restore(ViewportLease, Op?)` replays the stored pose through the one `CameraPose.Write` seat after proving the document identity — the one snapshot round-trip; `Stale(ViewportLease)` compares BOTH identity axes, because a reopened document can alias a stored counter while the `DocKey` cannot.
+- Owner: `CameraSnapshot` is the `ViewportInfo` value adapter: pose, frustum, both frame-plane quads, and the identity pair (`DocKey`, `ChangeCounter`) that makes staleness a fact. Every disposable `ViewportInfo` is minted, projected, and released inside one borrow.
+- Entry: `CameraSnapshot.Take(ViewportLease, Op?)` captures pose, frustum, quad, and serial under ONE borrow, so the stamped `ChangeCounter` names exactly the state the values project — a per-value borrow can stamp a serial that postdates the pose it certifies; `Restore(ViewportLease, Op?)` replays the stored pose through `CameraPose.Write` after proving the document identity; `Stale(ViewportLease)` compares BOTH identity axes, because a reopened document can alias a stored counter while the `DocKey` cannot.
 - Law: frame-plane corners read through `ViewportInfo.GetFramePlaneCorners(depth:)` in host order `(BottomLeft, BottomRight, TopLeft, TopRight)` and travel as a typed quad, so downstream capture and draw code consumes named corners instead of index arithmetic.
 - Law: snapshot values feed three consumers with one shape — the operations rail's view stack, the capture specification's window mapping, and the motion compiler's keyframe sampling — so a per-consumer snapshot variant is the collapsed form.
-- Boundary: `Restore` is a host mutation and rides the operations rail's UI-thread and redraw policy when composed there; the direct member here exists for the render rail, whose `ViewInfo` handoff is its own seam.
+- Boundary: `Restore` is a host mutation and enters the operations rail through `CameraPose.Write`; the snapshot owner never seats a native viewport directly.
 
 ```csharp
 // --- [MODELS] -------------------------------------------------------------------------------
@@ -382,35 +612,43 @@ public sealed record CameraSnapshot(
     CameraPose Pose,
     CameraFrustum Frustum,
     FramePlaneQuad NearQuad,
+    FramePlaneQuad FarQuad,
     DocKey Document,
     uint ChangeSerial) {
 
     public static Fin<CameraSnapshot> Take(ViewportLease lease, Op? key = null) {
         Op op = key.OrDefault();
-        return from context in lease.Context(key: op)
-               from snapshot in lease.Use(borrow: row =>
-                   from pose in CameraPose.ReadRow(row: row, context: context, key: op)
-                   from frustum in CameraFrustum.ReadRow(row: row, key: op)
-                   from quad in row.Info(project: info => info.GetFramePlaneCorners(depth: frustum.Near) is { Length: 4 } corners
-                       ? Fin.Succ(new FramePlaneQuad(BottomLeft: corners[0], BottomRight: corners[1], TopLeft: corners[2], TopRight: corners[3]))
-                       : Fin.Fail<FramePlaneQuad>(op.InvalidResult()), key: op)
-                   select new CameraSnapshot(Pose: pose, Frustum: frustum, NearQuad: quad, Document: lease.Key, ChangeSerial: row.Viewport.ChangeCounter),
-                   key: op)
-               select snapshot;
+        return ViewportLease.Admit(lease: lease, key: op).Bind(owner => owner.Use(
+            borrow: (document, row) =>
+                from context in Rasm.Domain.Context.Of(doc: document).ToFin()
+                from pose in CameraPose.ReadRow(row: row, context: context, key: op)
+                from frustum in CameraFrustum.ReadRow(row: row, key: op)
+                from quads in row.Info(project: info =>
+                    from near in Quad(info.GetFramePlaneCorners(depth: frustum.Near), op)
+                    from far in Quad(info.GetFramePlaneCorners(depth: frustum.Far), op)
+                    select (Near: near, Far: far), key: op)
+                select new CameraSnapshot(Pose: pose, Frustum: frustum, NearQuad: quads.Near, FarQuad: quads.Far, Document: owner.Key, ChangeSerial: row.Viewport.ChangeCounter),
+            key: op));
     }
 
     public Fin<Unit> Restore(ViewportLease lease, Op? key = null) {
         Op op = key.OrDefault();
-        CameraSnapshot self = this;
-        return from _ in guard(lease.Key == self.Document, op.InvalidInput()).ToFin()
-               from applied in self.Pose.Write(lease: lease, key: op)
-               select unit;
+        return ViewportLease.Admit(lease: lease, key: op)
+            .Bind(owner => guard(owner.Key == Document, op.InvalidInput()).ToFin()
+                .Bind(_ => Pose.Write(lease: owner, key: op)))
+            .Map(static _ => unit);
     }
 
     public Fin<bool> Stale(ViewportLease lease, Op? key = null) {
         Op op = key.OrDefault();
         CameraSnapshot self = this;
-        return lease.Use(borrow: row => Fin.Succ(lease.Key != self.Document || row.Viewport.ChangeCounter != self.ChangeSerial), key: op);
+        return ViewportLease.Admit(lease: lease, key: op).Bind(owner => owner.Use(
+            borrow: row => Fin.Succ(owner.Key != self.Document || row.Viewport.ChangeCounter != self.ChangeSerial),
+            key: op));
     }
+
+    private static Fin<FramePlaneQuad> Quad(Point3d[]? corners, Op key) => corners is { Length: 4 }
+        ? Fin.Succ(new FramePlaneQuad(BottomLeft: corners[0], BottomRight: corners[1], TopLeft: corners[2], TopRight: corners[3]))
+        : Fin.Fail<FramePlaneQuad>(key.InvalidResult());
 }
 ```

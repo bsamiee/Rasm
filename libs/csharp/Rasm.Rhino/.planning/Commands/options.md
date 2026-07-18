@@ -1,268 +1,503 @@
 # [RASM_RHINO_OPTIONS]
 
-The command-line option vocabulary (`Rasm.Rhino.Commands`). One `OptionValue` union carries every option modality the host command line admits — bare verb, toggle, bounded number, bounded integer, text, color, and list — and one `OptionRow` pairs a validated localized label with its value, so an option set is data: identity, localization, native binder, scripted decode, current-value projection, validation, and lifetime are all recoverable from the row, and the census-era CLR-type switch factory with its `dynamic` enum escape hatch is dead. An enum vocabulary is a `Pick` factory projection over its names, never a generic host binding. Native carriers are boundary-owned: `OptionLease` constructs every `Option*` carrier at bind, holds it for exactly the getter window, projects current values on demand, resolves a selection through the getter's own option index, and releases every carrier deterministically on dispose.
+`OptionSet.Bind` admits and binds one command-line vocabulary inside the getter window. `OptionLease` owns every native carrier from first construction through selected-value projection and deterministic release, including partial-bind failure.
 
-## [01]-[INDEX]
+## [01]-[VOCABULARY]
 
-- [02]-[IDENTITY]: `OptionLabel` — validated english identity with its localization column.
-- [03]-[VALUE_FAMILY]: the `OptionValue` union — one case per option modality with native bind, current-value projection, and scripted decode per case.
-- [04]-[SET_AND_LEASE]: `OptionRow`, `OptionSet`, the `OptionLease` lifetime capsule, and `OptionChoice` the selection product.
-- [05]-[SURFACE_LEDGER]: the page's owner table.
+`OptionLabel` owns script-stable English identity and localized display. `OptionValue` closes bare, toggle, numeric, text, color, list, and enum-backed modalities; each case carries the evidence required by its native binder and scripted grammar.
 
-## [02]-[IDENTITY]
-
-- Owner: `OptionLabel` `[ComplexValueObject]` — the english option name validated through the host's own `CommandLineOption.IsValidOptionName` at admission, with the localized display name as an optional column; `Pair()` projects the `LocalizeStringPair` the native binders consume.
-- Law: identity validates once at the factory — an invalid option name is unconstructible, so no binder, decoder, or snapshot re-checks it; a toggle's value names validate through `IsValidOptionValueName` inside the toggle case's own admission.
-- Law: localization is a column, never a sibling label type — the english name is the stable identity scripts and receipts key on, and the local name is display material the `Pair` projection carries to the host.
-
-```csharp
-// --- [TYPES] ------------------------------------------------------------------------------
+```csharp signature
+// --- [TYPES] -----------------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class OptionLabel {
     public string English { get; }
     public Option<string> Local { get; }
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string english, ref Option<string> local) {
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref string english,
+        ref Option<string> local) {
         validationError = CommandLineOption.IsValidOptionName(optionName: english)
             ? validationError
-            : new ValidationError("option name is invalid");
+            : new ValidationError(message: "option name is invalid");
     }
 
-    public global::Rhino.UI.LocalizeStringPair Pair() =>
-        new(english: English, local: Local.IfNone(English));
+    public global::Rhino.UI.LocalizeStringPair Native => new(english: English, local: Local.IfNone(English));
 }
-```
 
-## [03]-[VALUE_FAMILY]
+[ComplexValueObject]
+public sealed partial class OptionToken {
+    public string English { get; }
+    public Option<string> Local { get; }
 
-- Owner: `OptionValue` `[Union]` — one case per command-line option modality: `Verb` the value-less selectable (with its optional displayed value name and hidden flag), `Toggle`, `Number` and `Count` with optional bounds as case payload, `Text` with its empty-admission grant, `Paint`, and `Pick` the list case that also absorbs every enum vocabulary through `Pick.OfEnum<TEnum>`; each case owns its native bind, its current-value projection, and its scripted token decode inside the one generated dispatch.
-- Law: the bind is the case's own arm — a toggle constructs `OptionToggle` and calls `AddOptionToggle`, a bounded number selects the one-, two-, or three-argument `OptionDouble` construction from its bounds payload, a list projects its values onto `LocalizeStringPair` rows through `AddOptionList` — so a new modality is one case and no factory, binder, parser, or capture site reopens.
-- Law: the enum escape hatch is dead — an enum-valued option is `Pick.OfEnum<TEnum>()` projecting `Enum.GetNames<TEnum>()` into the one list case, so the generic host list members are never reached through `dynamic` and the vocabulary stays a value.
-- Law: scripted decode is per-case token grammar — toggle matches its off/on value names ordinally, number and count parse invariant and re-check the case bounds, text honors the empty grant, pick matches a value name or an ordinal — and a token no case grammar admits is a typed decode fault carrying the raw token.
-- Law: bounds are case payload enforced at both ends — the native carrier receives them so the command line refuses out-of-band typing, and the scripted decode re-checks them because a script token bypasses the interactive band.
-- Law: toggle value names default to `Off`/`On` — value names pass the host's own `IsValidOptionValueName` gate, which admits letters and numbers only, so a bracketed or punctuated default is unconstructible.
-- RESEARCH: the host color-token grammar is unverified — the `Paint` scripted decode lands after catalog verification; until then a paint token decode refuses typed.
-- Growth: a new option modality is one case with its three arms; `OptionRow`, `OptionSet`, the lease, and every consumer read it with zero new surface.
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref string english,
+        ref Option<string> local) {
+        validationError = CommandLineOption.IsValidOptionValueName(optionValueName: english)
+            ? validationError
+            : new ValidationError(message: "option value is invalid");
+    }
 
-```csharp
-// --- [TYPES] ------------------------------------------------------------------------------
+    public global::Rhino.UI.LocalizeStringPair Native => new(english: English, local: Local.IfNone(English));
+}
+
+[SmartEnum]
+public sealed partial class OptionVisibility {
+    public static readonly OptionVisibility Shown = new(isHidden: false);
+    public static readonly OptionVisibility Hidden = new(isHidden: true);
+
+    public bool IsHidden { get; }
+}
+
+[SmartEnum]
+public sealed partial class OptionVariance {
+    public static readonly OptionVariance Fixed = new(varies: false);
+    public static readonly OptionVariance Variable = new(varies: true);
+
+    public bool Varies { get; }
+}
+
+[SmartEnum]
+public sealed partial class TextAdmission {
+    public static readonly TextAdmission Required = new(allowEmpty: false);
+    public static readonly TextAdmission Optional = new(allowEmpty: true);
+
+    public bool AllowEmpty { get; }
+}
+
+[ComplexValueObject]
+[StructLayout(LayoutKind.Auto)]
+public readonly partial struct NumericBand<T> where T : struct, INumber<T> {
+    public Option<T> Lower { get; }
+    public Option<T> Upper { get; }
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref Option<T> lower,
+        ref Option<T> upper) {
+        validationError = lower.Exists(static bound => !T.IsFinite(bound))
+            || upper.Exists(static bound => !T.IsFinite(bound))
+            ? new ValidationError(message: "numeric band contains a non-finite bound")
+            : (lower.Case, upper.Case) is (T minimum, T maximum) && minimum > maximum
+                ? new ValidationError(message: "numeric band is inverted")
+                : validationError;
+    }
+
+    public bool Contains(T value) => T.IsFinite(value)
+        && Lower.ForAll(bound => value >= bound)
+        && Upper.ForAll(bound => value <= bound);
+}
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record OptionValue {
     private OptionValue() { }
-    public sealed record Verb(Option<string> ValueName = default, bool Hidden = false) : OptionValue;
-    public sealed record Toggle(bool Current, string Off = "Off", string On = "On") : OptionValue;
-    public sealed record Number(double Current, Option<double> Lower = default, Option<double> Upper = default, Option<string> Prompt = default) : OptionValue;
-    public sealed record Count(int Current, Option<int> Lower = default, Option<int> Upper = default, Option<string> Prompt = default) : OptionValue;
-    public sealed record Text(string Current, bool AllowEmpty = false, Option<string> Prompt = default) : OptionValue;
+    public sealed record Verb(Option<OptionToken> Display, OptionVisibility Visibility) : OptionValue;
+    public sealed record Toggle(bool Current, OptionToken Off, OptionToken On) : OptionValue;
+    public sealed record Number(double Current, NumericBand<double> Band, Option<string> Prompt = default) : OptionValue;
+    public sealed record Count(int Current, NumericBand<int> Band, Option<string> Prompt = default) : OptionValue;
+    public sealed record Text(string Current, TextAdmission Admission, Option<string> Prompt = default) : OptionValue;
     public sealed record Paint(System.Drawing.Color Current, Option<string> Prompt = default) : OptionValue;
-    public sealed record Pick(Seq<string> Values, int Current) : OptionValue {
-        public static Fin<Pick> OfEnum<TEnum>(TEnum current) where TEnum : struct, Enum {
-            Seq<string> names = toSeq(Enum.GetNames<TEnum>());
-            return names.Map(static (name, index) => (Name: name, Index: index))
-                .Find(row => row.Name == current.ToString())
-                .Map(row => new Pick(Values: names, Current: row.Index))
-                .ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput());
-        }
+    public sealed record Pick(Seq<OptionToken> Values, int Current) : OptionValue;
+    public sealed record EnumChoice(EnumBinding Binding) : OptionValue;
+
+    internal Fin<Unit> Admit(Op key) => Switch(
+        verb: row => guard(row.Visibility is not null
+            && (!row.Visibility.IsHidden || row.Display.IsSome), key.InvalidInput()).ToFin(),
+        toggle: row => guard(row.Off is not null
+            && row.On is not null
+            && !string.Equals(row.Off.English, row.On.English, StringComparison.OrdinalIgnoreCase), key.InvalidInput()).ToFin(),
+        number: row => from _ in guard(row.Band.Contains(row.Current), key.InvalidInput()).ToFin()
+                       from __ in AdmitPrompt(row.Prompt, key)
+                       select unit,
+        count: row => from _ in guard(row.Band.Contains(row.Current), key.InvalidInput()).ToFin()
+                      from __ in AdmitPrompt(row.Prompt, key)
+                      select unit,
+        text: row => from _ in guard(row.Current is not null
+                          && row.Admission is not null
+                          && (row.Current.Length > 0 || row.Admission.AllowEmpty), key.InvalidInput()).ToFin()
+                     from __ in AdmitPrompt(row.Prompt, key)
+                     select unit,
+        paint: row => AdmitPrompt(row.Prompt, key),
+        pick: row => guard(!row.Values.IsEmpty
+            && row.Values.ForAll(static value => value is not null)
+            && row.Values.Map(static value => value.English).Distinct(StringComparer.OrdinalIgnoreCase).Count == row.Values.Count
+            && row.Current >= 0
+            && row.Current < row.Values.Count, key.InvalidInput()).ToFin(),
+        enumChoice: row => key.Catch(() => guard(row.Binding is not null
+            && row.Binding.Type is not null
+            && row.Binding.Current is not null
+            && row.Binding.Admits is not null
+            && row.Binding.Bind is not null
+            && row.Binding.Read is not null
+            && row.Binding.Admits(row.Binding.Current), key.InvalidInput()).ToFin()));
+
+    internal Fin<OptionValue> Read(Option<CommandLineOption> native, Func<OptionValue> fallback, Op key) =>
+        native.Match(
+            Some: selected => Switch(
+                (Native: selected, Fallback: fallback, Op: key),
+                verb: static (held, _) => held.Op.Catch(() => Fin.Succ(held.Fallback())),
+                toggle: static (held, row) => Optional(held.Native.CurrentToggleValue)
+                    .ToFin(Fail: held.Op.InvalidResult())
+                    .Map<OptionValue>(value => row with { Current = value }),
+                number: static (held, row) => Fin.Succ<OptionValue>(row with { Current = held.Native.CurrentNumericValue }),
+                count: static (held, row) => held.Native.CurrentNumericValue is var value
+                    && double.IsFinite(value)
+                    && value >= int.MinValue
+                    && value <= int.MaxValue
+                    && value == Math.Truncate(value)
+                        ? Fin.Succ<OptionValue>(row with { Current = checked((int)value) })
+                        : Fin.Fail<OptionValue>(held.Op.InvalidResult()),
+                text: static (held, row) => Optional(held.Native.StringOptionValue)
+                    .ToFin(Fail: held.Op.InvalidResult())
+                    .Map<OptionValue>(value => row with { Current = value }),
+                paint: static (held, _) => held.Op.Catch(() => Fin.Succ(held.Fallback())),
+                pick: static (held, row) => Fin.Succ<OptionValue>(row with { Current = held.Native.CurrentListOptionIndex }),
+                enumChoice: static (held, _) => held.Op.Catch(() => Fin.Succ(held.Fallback()))),
+            None: () => key.Catch(() => Fin.Succ(fallback())))
+        .Bind(candidate => candidate.Admit(key).Map(_ => candidate));
+
+    private static Fin<Unit> AdmitPrompt(Option<string> prompt, Op key) => prompt.Match(
+        Some: value => key.AcceptText(value).Map(static _ => unit),
+        None: static () => Fin.Succ(unit));
+
+    public static Fin<OptionValue> OfEnum<TEnum>(TEnum current, Option<Seq<TEnum>> include = default)
+        where TEnum : struct, Enum, IConvertible {
+        Op op = Op.Of(name: nameof(OfEnum));
+        Seq<TEnum> roster = include.IfNone(toSeq(Enum.GetValues<TEnum>()).Strict());
+        bool restricted = include.IsSome;
+        return from _ in guard(
+                   flag: !roster.IsEmpty
+                       && roster.Distinct().Count == roster.Count
+                       && roster.ForAll(Declared)
+                       && roster.Exists(value => value.Equals(current)),
+                   False: op.InvalidInput()).ToFin()
+               select (OptionValue)new EnumChoice(Binding: new EnumBinding(
+                   Type: typeof(TEnum),
+                   Current: current,
+                   Admits: value => value is TEnum candidate && roster.Exists(item => item.Equals(candidate)),
+                   Bind: (getter, label, value, key) => value is not TEnum selected
+                       ? Fin.Fail<int>(key.InvalidInput())
+                       : restricted
+                           ? roster.Map(static (item, index) => (item, index))
+                               .Find(entry => entry.item.Equals(selected))
+                               .Map(static entry => entry.index)
+                               .ToFin(Fail: key.InvalidInput())
+                               .Bind(index => key.Catch(() => Fin.Succ(getter.AddOptionEnumSelectionList(
+                                   englishOptionName: label.English,
+                                   enumSelection: roster,
+                                   listCurrentIndex: index))))
+                           : key.Catch(() => Fin.Succ(getter.AddOptionEnumList(
+                               englishOptionName: label.English,
+                               defaultValue: selected))),
+                   Read: getter => restricted
+                       ? getter.GetSelectedEnumValueFromSelectionList(selectionList: roster)
+                       : getter.GetSelectedEnumValue<TEnum>()));
     }
 
-    internal Fin<BoundOption> Bind(GetBaseClass getter, OptionLabel label, Op key) =>
-        Switch(
-            state: (Getter: getter, Label: label, Op: key),
-            verb: static (ctx, row) => ctx.Op.Catch(() => Fin.Succ(value: row.ValueName.Case switch {
-                string value => BoundOption.Plain(
-                    index: ctx.Getter.AddOption(ctx.Label.Pair(), new global::Rhino.UI.LocalizeStringPair(english: value, local: value), row.Hidden),
-                    current: () => row),
-                _ => BoundOption.Plain(index: ctx.Getter.AddOption(ctx.Label.Pair()), current: () => row),
-            })),
-            toggle: static (ctx, row) =>
-                from off in guard(CommandLineOption.IsValidOptionValueName(row.Off), ctx.Op.InvalidInput())
-                from on in guard(CommandLineOption.IsValidOptionValueName(row.On), ctx.Op.InvalidInput())
-                from bound in ctx.Op.Catch(() => {
-                    OptionToggle native = new(row.Current, row.Off, row.On);
-                    int index = ctx.Getter.AddOptionToggle(ctx.Label.Pair(), ref native);
-                    return Fin.Succ(value: BoundOption.Carried(index: index, carrier: native,
-                        current: () => row with { Current = native.CurrentValue }));
-                })
-                select bound,
-            number: static (ctx, row) => ctx.Op.Catch(() => {
-                OptionDouble native = (row.Lower.Case, row.Upper.Case) switch {
-                    (double lo, double hi) => new OptionDouble(row.Current, lo, hi),
-                    (double lo, _) => new OptionDouble(row.Current, true, lo),
-                    (_, double hi) => new OptionDouble(row.Current, false, hi),
-                    _ => new OptionDouble(row.Current),
-                };
-                int index = row.Prompt.Case switch {
-                    string prompt => ctx.Getter.AddOptionDouble(ctx.Label.Pair(), ref native, prompt),
-                    _ => ctx.Getter.AddOptionDouble(ctx.Label.Pair(), ref native),
-                };
-                return Fin.Succ(value: BoundOption.Carried(index: index, carrier: native,
-                    current: () => row with { Current = native.CurrentValue }));
-            }),
-            count: static (ctx, row) => ctx.Op.Catch(() => {
-                OptionInteger native = (row.Lower.Case, row.Upper.Case) switch {
-                    (int lo, int hi) => new OptionInteger(row.Current, lo, hi),
-                    (int lo, _) => new OptionInteger(row.Current, true, lo),
-                    (_, int hi) => new OptionInteger(row.Current, false, hi),
-                    _ => new OptionInteger(row.Current),
-                };
-                int index = row.Prompt.Case switch {
-                    string prompt => ctx.Getter.AddOptionInteger(ctx.Label.Pair(), ref native, prompt),
-                    _ => ctx.Getter.AddOptionInteger(ctx.Label.Pair(), ref native),
-                };
-                return Fin.Succ(value: BoundOption.Carried(index: index, carrier: native,
-                    current: () => row with { Current = native.CurrentValue }));
-            }),
-            text: static (ctx, row) => ctx.Op.Catch(() => {
-                OptionString native = new(row.Current, row.AllowEmpty);
-                int index = row.Prompt.Case switch {
-                    string prompt => ctx.Getter.AddOptionString(ctx.Label.Pair(), ref native, prompt),
-                    _ => ctx.Getter.AddOptionString(ctx.Label.Pair(), ref native),
-                };
-                return Fin.Succ(value: BoundOption.Carried(index: index, carrier: native,
-                    current: () => row with { Current = native.CurrentValue }));
-            }),
-            paint: static (ctx, row) => ctx.Op.Catch(() => {
-                OptionColor native = new(row.Current);
-                int index = row.Prompt.Case switch {
-                    string prompt => ctx.Getter.AddOptionColor(ctx.Label.Pair(), ref native, prompt),
-                    _ => ctx.Getter.AddOptionColor(ctx.Label.Pair(), ref native),
-                };
-                return Fin.Succ(value: BoundOption.Carried(index: index, carrier: native,
-                    current: () => row with { Current = native.CurrentValue }));
-            }),
-            pick: static (ctx, row) =>
-                from _ in guard(!row.Values.IsEmpty && row.Current >= 0 && row.Current < row.Values.Count, ctx.Op.InvalidInput())
-                from bound in ctx.Op.Catch(() => Fin.Succ(value: BoundOption.Plain(
-                    index: ctx.Getter.AddOptionList(
-                        ctx.Label.Pair(),
-                        row.Values.Map(static value => new global::Rhino.UI.LocalizeStringPair(english: value, local: value)).AsIterable(),
-                        row.Current),
-                    current: () => row)))
-                select bound);
+    private static bool Declared<TEnum>(TEnum value)
+        where TEnum : struct, Enum, IConvertible =>
+        Enum.GetName(value) is string name
+            && Enum.TryParse(name, ignoreCase: false, out TEnum roundTrip)
+            && roundTrip.Equals(value);
+}
 
-    internal Fin<OptionValue> Decode(string token, Op key) =>
-        Switch(
-            state: (Token: token, Op: key),
-            verb: static (ctx, row) => Fin.Succ<OptionValue>(value: row),
-            toggle: static (ctx, row) => ctx.Token switch {
-                var t when string.Equals(a: t, b: row.On, comparisonType: StringComparison.OrdinalIgnoreCase) =>
-                    Fin.Succ<OptionValue>(value: row with { Current = true }),
-                var t when string.Equals(a: t, b: row.Off, comparisonType: StringComparison.OrdinalIgnoreCase) =>
-                    Fin.Succ<OptionValue>(value: row with { Current = false }),
-                _ => Fin.Fail<OptionValue>(error: ctx.Op.InvalidInput()),
+public sealed record EnumBinding(
+    Type Type,
+    object Current,
+    Func<object, bool> Admits,
+    Func<GetBaseClass, OptionLabel, object, Op, Fin<int>> Bind,
+    Func<GetBaseClass, object> Read);
+```
+
+## [02]-[CASE_ALGEBRA]
+
+`OptionValue.Bind` constructs one bound row and transfers each disposable carrier immediately into the supplied lease. `Decode` mirrors the same family for scripted tokens; color grammar accepts invariant `RRGGBB` and `AARRGGBB` hexadecimal tokens.
+
+```csharp signature
+// --- [OPERATIONS] -------------------------------------------------------------------------
+public abstract partial record OptionValue {
+    internal Fin<BoundOption> Bind(GetBaseClass getter, OptionLabel label, OptionLease lease, Op key) => Switch(
+        state: (Getter: getter, Label: label, Lease: lease, Op: key),
+        verb: static (held, row) => held.Op.Catch(() => Fin.Succ(new BoundOption(
+            Index: row.Display.Case switch {
+                OptionToken display => held.Getter.AddOption(held.Label.Native, display.Native, row.Visibility.IsHidden),
+                _ => held.Getter.AddOption(held.Label.Native),
             },
-            number: static (ctx, row) =>
-                double.TryParse(s: ctx.Token, provider: System.Globalization.CultureInfo.InvariantCulture, result: out double value)
-                && row.Lower.Map(lo => value >= lo).IfNone(noneValue: true)
-                && row.Upper.Map(hi => value <= hi).IfNone(noneValue: true)
-                    ? Fin.Succ<OptionValue>(value: row with { Current = value })
-                    : Fin.Fail<OptionValue>(error: ctx.Op.InvalidInput()),
-            count: static (ctx, row) =>
-                int.TryParse(s: ctx.Token, provider: System.Globalization.CultureInfo.InvariantCulture, result: out int value)
-                && row.Lower.Map(lo => value >= lo).IfNone(noneValue: true)
-                && row.Upper.Map(hi => value <= hi).IfNone(noneValue: true)
-                    ? Fin.Succ<OptionValue>(value: row with { Current = value })
-                    : Fin.Fail<OptionValue>(error: ctx.Op.InvalidInput()),
-            text: static (ctx, row) => ctx.Token.Length > 0 || row.AllowEmpty
-                ? Fin.Succ<OptionValue>(value: row with { Current = ctx.Token })
-                : Fin.Fail<OptionValue>(error: ctx.Op.InvalidInput()),
-            paint: static (ctx, _) => Fin.Fail<OptionValue>(error: ctx.Op.InvalidInput()),
-            pick: static (ctx, row) => row.Values
-                .Map(static (value, index) => (Value: value, Index: index))
-                .Find(entry => string.Equals(a: entry.Value, b: ctx.Token, comparisonType: StringComparison.OrdinalIgnoreCase))
-                .Match(
-                    Some: entry => Fin.Succ<OptionValue>(value: row with { Current = entry.Index }),
-                    None: () => int.TryParse(s: ctx.Token, provider: System.Globalization.CultureInfo.InvariantCulture, result: out int ordinal)
-                         && ordinal >= 0 && ordinal < row.Values.Count
-                        ? Fin.Succ<OptionValue>(value: row with { Current = ordinal })
-                        : Fin.Fail<OptionValue>(error: ctx.Op.InvalidInput())));
+            Current: () => row))),
+        toggle: static (held, row) => held.Op.Catch(() => {
+            OptionToggle native = new(initialValue: row.Current, offValue: row.Off.Native, onValue: row.On.Native);
+            held.Lease.Own(native);
+            int index = held.Getter.AddOptionToggle(optionName: held.Label.Native, toggleValue: ref native);
+            return Fin.Succ(new BoundOption(Index: index, Current: () => row with { Current = native.CurrentValue }));
+        }),
+        number: static (held, row) => held.Op.Catch(() => {
+            OptionDouble native = (row.Band.Lower.Case, row.Band.Upper.Case) switch {
+                (double lower, double upper) => new OptionDouble(row.Current, lower, upper),
+                (double lower, _) => new OptionDouble(row.Current, true, lower),
+                (_, double upper) => new OptionDouble(row.Current, false, upper),
+                _ => new OptionDouble(row.Current),
+            };
+            held.Lease.Own(native);
+            int index = row.Prompt.Case switch {
+                string prompt => held.Getter.AddOptionDouble(held.Label.Native, ref native, prompt),
+                _ => held.Getter.AddOptionDouble(held.Label.Native, ref native),
+            };
+            return Fin.Succ(new BoundOption(Index: index, Current: () => row with { Current = native.CurrentValue }));
+        }),
+        count: static (held, row) => held.Op.Catch(() => {
+            OptionInteger native = (row.Band.Lower.Case, row.Band.Upper.Case) switch {
+                (int lower, int upper) => new OptionInteger(row.Current, lower, upper),
+                (int lower, _) => new OptionInteger(row.Current, true, lower),
+                (_, int upper) => new OptionInteger(row.Current, false, upper),
+                _ => new OptionInteger(row.Current),
+            };
+            held.Lease.Own(native);
+            int index = row.Prompt.Case switch {
+                string prompt => held.Getter.AddOptionInteger(held.Label.Native, ref native, prompt),
+                _ => held.Getter.AddOptionInteger(held.Label.Native, ref native),
+            };
+            return Fin.Succ(new BoundOption(Index: index, Current: () => row with { Current = native.CurrentValue }));
+        }),
+        text: static (held, row) => held.Op.Catch(() => {
+            OptionString native = new(initialString: row.Current, allowEmptyString: row.Admission.AllowEmpty);
+            held.Lease.Own(native);
+            int index = row.Prompt.Case switch {
+                string prompt => held.Getter.AddOptionString(held.Label.Native, ref native, prompt),
+                _ => held.Getter.AddOptionString(held.Label.Native, ref native),
+            };
+            return Fin.Succ(new BoundOption(Index: index, Current: () => row with { Current = native.CurrentValue }));
+        }),
+        paint: static (held, row) => held.Op.Catch(() => {
+            OptionColor native = new(initialValue: row.Current);
+            held.Lease.Own(native);
+            int index = row.Prompt.Case switch {
+                string prompt => held.Getter.AddOptionColor(held.Label.Native, ref native, prompt),
+                _ => held.Getter.AddOptionColor(held.Label.Native, ref native),
+            };
+            return Fin.Succ(new BoundOption(Index: index, Current: () => row with { Current = native.CurrentValue }));
+        }),
+        pick: static (held, row) =>
+            from _ in guard(!row.Values.IsEmpty && row.Current >= 0 && row.Current < row.Values.Count, held.Op.InvalidInput())
+            from bound in held.Op.Catch(() => Fin.Succ(new BoundOption(
+                Index: held.Getter.AddOptionList(
+                    optionName: held.Label.Native,
+                    listValues: row.Values.Map(static value => value.Native).AsIterable(),
+                    listCurrentIndex: row.Current),
+                Current: () => row)))
+            select bound,
+        enumChoice: static (held, row) => row.Binding.Bind(held.Getter, held.Label, row.Binding.Current, held.Op).Map(index => new BoundOption(
+            Index: index,
+            Current: () => row with { Binding = row.Binding with { Current = row.Binding.Read(held.Getter) } }));
+
+    internal Fin<OptionValue> Decode(string token, Op key) => Switch(
+        state: (Token: token, Op: key),
+        verb: static (_, row) => Fin.Succ<OptionValue>(row),
+        toggle: static (held, row) => held.Token switch {
+            var value when string.Equals(value, row.On.English, StringComparison.OrdinalIgnoreCase) => Fin.Succ<OptionValue>(row with { Current = true }),
+            var value when string.Equals(value, row.Off.English, StringComparison.OrdinalIgnoreCase) => Fin.Succ<OptionValue>(row with { Current = false }),
+            _ => Fin.Fail<OptionValue>(held.Op.InvalidInput()),
+        },
+        number: static (held, row) => double.TryParse(
+            held.Token, NumberStyles.Float, CultureInfo.InvariantCulture, out double value) && row.Band.Contains(value)
+            ? Fin.Succ<OptionValue>(row with { Current = value })
+            : Fin.Fail<OptionValue>(held.Op.InvalidInput()),
+        count: static (held, row) => int.TryParse(
+            held.Token, NumberStyles.Integer, CultureInfo.InvariantCulture, out int value) && row.Band.Contains(value)
+            ? Fin.Succ<OptionValue>(row with { Current = value })
+            : Fin.Fail<OptionValue>(held.Op.InvalidInput()),
+        text: static (held, row) => held.Token.Length > 0 || row.Admission.AllowEmpty
+            ? Fin.Succ<OptionValue>(row with { Current = held.Token })
+            : Fin.Fail<OptionValue>(held.Op.InvalidInput()),
+        paint: static (held, row) => DecodeColor(held.Token, held.Op).Map(value => (OptionValue)(row with { Current = value })),
+        pick: static (held, row) => row.Values.Map(static (value, index) => (value, index))
+            .Find(entry => string.Equals(entry.value.English, held.Token, StringComparison.OrdinalIgnoreCase))
+            .Match(
+                Some: entry => Fin.Succ<OptionValue>(row with { Current = entry.index }),
+                None: () => int.TryParse(held.Token, NumberStyles.Integer, CultureInfo.InvariantCulture, out int index)
+                    && index >= 0 && index < row.Values.Count
+                    ? Fin.Succ<OptionValue>(row with { Current = index })
+                    : Fin.Fail<OptionValue>(held.Op.InvalidInput())),
+        enumChoice: static (held, row) => Enum.TryParse(row.Binding.Type, held.Token, ignoreCase: true, out object? value)
+            && value is not null
+            && row.Binding.Admits(value)
+            ? Fin.Succ<OptionValue>(row with { Binding = row.Binding with { Current = value } })
+            : Fin.Fail<OptionValue>(held.Op.InvalidInput()));
+
+    private static Fin<System.Drawing.Color> DecodeColor(string token, Op key) {
+        ReadOnlySpan<char> digits = token.AsSpan().Trim().TrimStart('#');
+        return uint.TryParse(digits, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out uint value) switch {
+            true when digits.Length is 6 => Fin.Succ(System.Drawing.Color.FromArgb(
+                red: (int)(value >> 16 & 0xff), green: (int)(value >> 8 & 0xff), blue: (int)(value & 0xff))),
+            true when digits.Length is 8 => Fin.Succ(System.Drawing.Color.FromArgb(
+                alpha: (int)(value >> 24), red: (int)(value >> 16 & 0xff), green: (int)(value >> 8 & 0xff), blue: (int)(value & 0xff))),
+            _ => Fin.Fail<System.Drawing.Color>(key.InvalidInput()),
+        };
+    }
 }
 ```
 
-## [04]-[SET_AND_LEASE]
+## [03]-[LEASE]
 
-- Owner: `OptionRow` — label plus value plus the varies column; `OptionSet` — the validated row collection whose factory proves name distinctness once; `BoundOption` — the internal bind product: native index, optional disposable carrier, current-value projection; `OptionLease` — the lifetime capsule owning every bound carrier for exactly the getter window; `OptionChoice` — the selection product: the row's label, its post-selection value, the native option index, and the host's own `StringOptionValue` evidence.
-- Entry: `OptionSet.Bind(GetBaseClass, Op) : Fin<OptionLease>` — binds every row in declaration order and stamps `SetOptionVaries` on each varies-marked index; `OptionLease.Selected(GetBaseClass, Op) : Fin<OptionChoice>` — resolves a `GetResult.Option` terminal through `getter.OptionIndex()` against the bound indices, projects the selected row's current value, and reads the list selection through the host option's `CurrentListOptionIndex`; `OptionLease.Snapshot() : Seq<(OptionLabel Label, OptionValue Current)>` — the whole set's live values; `Dispose` releases every carrier exactly once.
-- Law: carrier lifetime is the lease, never scattered disposal — the native `Option*` carriers are constructed at bind, never escape the capsule, and release deterministically on dispose; a carrier surviving its getter reads stale native memory and is unreachable through this seam.
-- Law: selection resolves by native index, never by label re-parse — the bind index the host returned is the join key, so localized display, hidden verbs, and duplicate-prefix names never mis-resolve.
-- Law: a set admits only distinct english names — the factory refuses a duplicate at construction, so the acquisition drive never binds an ambiguous command line.
+`OptionLease` exists before the first bind and receives each carrier as it is created. Any failed row releases the partial lease; success returns the same capsule to acquisition. One `OptionValue.Read` projection admits pointer-backed values for selection and snapshots before detached evidence leaves the getter window; one `OptionMark` threads the shared native identity through every evidence case as a base positional column.
 
-```csharp
+```csharp signature
 // --- [MODELS] -----------------------------------------------------------------------------
-public sealed record OptionRow(OptionLabel Label, OptionValue Value, bool Varies = false);
+public sealed record OptionRow(OptionLabel Label, OptionValue Value, OptionVariance Variance);
 
-public sealed record OptionSet(Seq<OptionRow> Rows) {
+public sealed record OptionMark(int NativeIndex, CommandLineOptionType Kind, string English, string Local);
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record OptionEvidence {
+    private OptionEvidence(OptionMark mark) => Mark = mark;
+
+    public OptionMark Mark { get; }
+
+    public sealed record Verb(OptionMark Mark) : OptionEvidence(Mark);
+    public sealed record Toggle(OptionMark Mark, string Off, string On, bool Current) : OptionEvidence(Mark);
+    public sealed record Number(OptionMark Mark, double Current) : OptionEvidence(Mark);
+    public sealed record Count(OptionMark Mark, int Current) : OptionEvidence(Mark);
+    public sealed record Text(OptionMark Mark, string Current) : OptionEvidence(Mark);
+    public sealed record Paint(OptionMark Mark, System.Drawing.Color Current) : OptionEvidence(Mark);
+    public sealed record Pick(OptionMark Mark, Seq<string> Values, int Current) : OptionEvidence(Mark);
+    public sealed record EnumChoice(OptionMark Mark, Seq<string> Values, string Current) : OptionEvidence(Mark);
+}
+
+public sealed record OptionChoice(OptionLabel Label, OptionValue Value, OptionEvidence Evidence);
+
+internal sealed record BoundOption(int Index, Func<OptionValue> Current);
+
+public sealed record OptionSet {
+    private OptionSet(Seq<OptionRow> rows) => Rows = rows;
+
+    public Seq<OptionRow> Rows { get; }
+
     public static Fin<OptionSet> Of(params ReadOnlySpan<OptionRow> rows) {
         Op op = Op.Of(name: nameof(OptionSet));
         Seq<OptionRow> table = toSeq(rows.ToArray());
         return from _ in guard(!table.IsEmpty, op.InvalidInput())
-               from __ in guard(
-                   table.Map(static row => row.Label.English).Distinct(StringComparer.OrdinalIgnoreCase).Count() == table.Count,
-                   op.InvalidInput())
-               select new OptionSet(Rows: table);
+               from __ in guard(table.ForAll(static row => row is not null
+                   && row.Label is not null
+                   && row.Value is not null
+                   && row.Variance is not null), op.InvalidInput())
+               from ___ in table.TraverseM(row => row.Value.Admit(op)).As()
+               from ____ in guard(table.Map(static row => row.Label.English)
+                   .Distinct(StringComparer.OrdinalIgnoreCase).Count == table.Count, op.InvalidInput())
+               select new OptionSet(rows: table);
     }
 
-    public Fin<OptionLease> Bind(GetBaseClass getter, Op key) =>
-        Rows.TraverseM(row => row.Value.Bind(getter: getter, label: row.Label, key: key).Map(bound => {
-                _ = Op.SideWhen(row.Varies, () => getter.SetOptionVaries(optionIndex: bound.Index, varies: true));
-                return (Row: row, Bound: bound);
-            })).As()
-            .Map(bound => new OptionLease(bound: bound));
+    public Fin<OptionLease> Bind(GetBaseClass getter, Op key) {
+        OptionLease lease = new();
+        return guard(RhinoApp.IsOnMainThread && getter is not null, key.InvalidContext()).ToFin()
+            .Bind(_ => Rows.FoldM<Fin, OptionLease>(lease, (held, row) =>
+                row.Value.Bind(getter: getter, label: row.Label, lease: held, key: key).Bind(bound => {
+                    held.Attach(row: row, bound: bound);
+                    return key.Catch(() => {
+                        getter.SetOptionVaries(optionIndex: bound.Index, varies: row.Variance.Varies);
+                        return Fin.Succ(held);
+                    });
+                })).As())
+            .Match(
+                Succ: static held => Fin.Succ(held),
+                Fail: error => lease.Release().Match(
+                    Succ: _ => Fin.Fail<OptionLease>(error),
+                    Fail: cleanup => Fin.Fail<OptionLease>(error + cleanup)));
+    }
 
     public Fin<(OptionLabel Label, OptionValue Value)> Decode(string name, string token, Op key) =>
-        Rows.Find(row => string.Equals(a: row.Label.English, b: name, comparisonType: StringComparison.OrdinalIgnoreCase))
-            .ToFin(Fail: key.MissingContext())
-            .Bind(row => row.Value.Decode(token: token, key: key).Map(value => (row.Label, value)));
+        from admittedName in key.AcceptText(name)
+        from admittedToken in Optional(token).ToFin(Fail: key.InvalidInput())
+        from row in Rows.Find(candidate => string.Equals(
+            candidate.Label.English, admittedName, StringComparison.OrdinalIgnoreCase)).ToFin(Fail: key.MissingContext())
+        from value in row.Value.Decode(token: admittedToken, key: key)
+        select (row.Label, value);
 }
-
-public sealed record OptionChoice(OptionLabel Label, OptionValue Value, int Index, Option<string> Raw);
 
 // --- [BOUNDARIES] -------------------------------------------------------------------------
-internal sealed record BoundOption(int Index, Option<IDisposable> Carrier, Func<OptionValue> Current) {
-    internal static BoundOption Plain(int index, Func<OptionValue> current) =>
-        new(Index: index, Carrier: Option<IDisposable>.None, Current: current);
-
-    internal static BoundOption Carried(int index, IDisposable carrier, Func<OptionValue> current) =>
-        new(Index: index, Carrier: Some(carrier), Current: current);
-}
-
 public sealed class OptionLease : IDisposable {
-    private readonly Seq<(OptionRow Row, BoundOption Bound)> bound;
+    private Seq<(OptionRow Row, BoundOption Bound)> bound = [];
+    private Seq<IDisposable> resources = [];
     private int released;
 
-    internal OptionLease(Seq<(OptionRow Row, BoundOption Bound)> bound) => this.bound = bound;
-
-    public Fin<OptionChoice> Selected(GetBaseClass getter, Op key) {
-        int index = getter.OptionIndex();
-        CommandLineOption native = getter.Option();
-        return bound.Find(entry => entry.Bound.Index == index)
-            .ToFin(Fail: key.InvalidResult())
-            .Map(entry => new OptionChoice(
-                Label: entry.Row.Label,
-                Value: entry.Row.Value is OptionValue.Pick pick
-                    ? pick with { Current = native.CurrentListOptionIndex }
-                    : entry.Bound.Current(),
-                Index: index,
-                Raw: Optional(native.StringOptionValue).Filter(static raw => raw.Length > 0)));
+    internal Unit Own(IDisposable resource) {
+        resources = resources.Add(resource);
+        return unit;
     }
 
-    public Seq<(OptionLabel Label, OptionValue Current)> Snapshot() =>
-        bound.Map(static entry => (entry.Row.Label, entry.Bound.Current()));
+    internal OptionLease Attach(OptionRow row, BoundOption boundOption) {
+        bound = bound.Add((row, boundOption));
+        return this;
+    }
 
-    public void Dispose() =>
-        _ = Interlocked.Exchange(location1: ref released, value: 1) is 0
-            ? bound.Iter(static entry => entry.Bound.Carrier.Iter(static carrier =>
-                ignore(Op.Of(name: nameof(OptionLease)).Catch(() => { carrier.Dispose(); return Fin.Succ(value: unit); }))))
-            : unit;
+    public Fin<OptionChoice> Selected(GetBaseClass getter, Op key) =>
+        from _ in AdmitLive(key)
+        from choice in key.Catch(() =>
+            from __ in guard(getter is not null && getter.Result() is GetResult.Option, key.InvalidResult())
+            let index = getter.OptionIndex()
+            from native in Optional(getter.Option()).ToFin(Fail: key.InvalidResult())
+            from entry in bound.Find(candidate => candidate.Bound.Index == index).ToFin(Fail: key.InvalidResult())
+            from current in entry.Row.Value.Read(native: Some(native), fallback: entry.Bound.Current, key: key)
+            select new OptionChoice(
+                Label: entry.Row.Label,
+                Value: current,
+                Evidence: Evidence(native, current)))
+        select choice;
+
+    internal Fin<Seq<(OptionLabel Label, OptionValue Current)>> Snapshot(Op key) => key.Catch(() =>
+        from _ in AdmitLive(key)
+        from current in bound
+            .TraverseM(entry => entry.Row.Value.Read(native: None, fallback: entry.Bound.Current, key: key)
+                .Map(value => (entry.Row.Label, value)))
+            .As()
+        select current.Strict());
+
+    private Fin<Unit> AdmitLive(Op key) => guard(
+        flag: RhinoApp.IsOnMainThread && Volatile.Read(ref released) is 0,
+        False: key.InvalidContext()).ToFin();
+
+    internal Fin<Unit> Release() {
+        if (Interlocked.Exchange(ref released, 1) is not 0) return Fin.Succ(unit);
+        Op op = Op.Of(name: nameof(OptionLease));
+        Fin<Unit> cleanup;
+        try {
+            cleanup = resources.Rev()
+                .Traverse(resource => op.Catch(() => Fin.Succ(Op.Side(resource.Dispose))).ToValidation())
+                .As()
+                .Map(static _ => unit)
+                .ToFin();
+        } finally {
+            bound = [];
+            resources = [];
+        }
+        return cleanup;
+    }
+
+    public void Dispose() => _ = Release().Match(
+        Succ: static released => released,
+        Fail: static fault => throw fault.ToException());
+
+    private static OptionEvidence Evidence(CommandLineOption native, OptionValue current) {
+        OptionMark mark = new(native.Index, native.OptionType, native.EnglishName, native.LocalName);
+        return current.Switch(
+            state: (Mark: mark, Native: native),
+            verb: static (held, _) => (OptionEvidence)new OptionEvidence.Verb(held.Mark),
+            toggle: static (held, row) => {
+                held.Native.ToggleValues(english: false, offValue: out string off, onValue: out string on);
+                return new OptionEvidence.Toggle(held.Mark, off, on, row.Current);
+            },
+            number: static (held, row) => new OptionEvidence.Number(held.Mark, row.Current),
+            count: static (held, row) => new OptionEvidence.Count(held.Mark, row.Current),
+            text: static (held, row) => new OptionEvidence.Text(held.Mark, row.Current),
+            paint: static (held, row) => new OptionEvidence.Paint(held.Mark, row.Current),
+            pick: static (held, row) => new OptionEvidence.Pick(
+                held.Mark, toSeq(held.Native.ListOptions(english: false)), row.Current),
+            enumChoice: static (held, row) => new OptionEvidence.EnumChoice(
+                held.Mark,
+                held.Native.OptionType is CommandLineOptionType.List ? toSeq(held.Native.ListOptions(english: false)) : [],
+                Convert.ToString(row.Binding.Current, CultureInfo.InvariantCulture) ?? string.Empty));
+    }
 }
 ```
-
-## [05]-[SURFACE_LEDGER]
-
-| [INDEX] | [CONCERN]           | [OWNER]        | [FORM]                                           | [ENTRY]                             |
-| :-----: | :------------------ | :------------- | :----------------------------------------------- | :---------------------------------- |
-|  [01]   | option identity     | `OptionLabel`  | `[ComplexValueObject]`, host-validated name      | `Create` / `Pair`                   |
-|  [02]   | modality vocabulary | `OptionValue`  | one union: bind, decode, projection per case     | `Bind` / `Decode`                   |
-|  [03]   | option set          | `OptionSet`    | distinct-name validated row collection           | `Of` / `Bind` / `Decode`            |
-|  [04]   | carrier lifetime    | `OptionLease`  | capsule over native carriers, idempotent release | `Selected` / `Snapshot` / `Dispose` |
-|  [05]   | selection product   | `OptionChoice` | label + value + native index + raw evidence      | `OptionLease.Selected`              |

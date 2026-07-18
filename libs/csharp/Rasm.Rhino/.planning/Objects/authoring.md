@@ -4,7 +4,7 @@ Custom-object and grip authoring belongs to `Rasm.Rhino.Objects`. Host subclassi
 
 ## [01]-[INDEX]
 
-- [02]-[OBJECT_PROGRAM]: `ObjectProgram` and the forwarding kernel every adapter shares.
+- [02]-[OBJECT_PROGRAM]: `ObjectProgram`, `RenderMeshProgram`, and the forwarding kernel every adapter shares.
 - [03]-[ADAPTERS]: the `ClassId`-ready host derivations.
 - [04]-[GRIP_PROGRAM]: `GripSeed`, `GripProgram`, `RasmGrip`, `RasmGrips`, and the enabler rig.
 - [05]-[GRIP_EDIT]: `GripMove`, `GripEdit`, `GripFacts`, and the `Grips` entry pair.
@@ -12,10 +12,12 @@ Custom-object and grip authoring belongs to `Rasm.Rhino.Objects`. Host subclassi
 
 ## [02]-[OBJECT_PROGRAM]
 
-- Owner: `ObjectProgram` carries every verified draw, duplicate, transform, morph, document, pick, selection, viewport, bounding-box, and tight-bounds hook. `HostForward` centralizes exception lifting, fallback behavior, and pick capture.
-- Law: the hook roster is closed by decompile — `OnDraw`, `GetBoundingBox`, `GetTightBoundingBox`, `OnDuplicate`, `OnDeleteFromDocument`, `OnAddToDocument`, `OnPick`, `OnPicked`, `OnSelectionChanged`, `OnTransform`, `OnSpaceMorph` is the complete protected-virtual set, plus the public-virtual `IsActiveInViewport`; a program field with no host virtual behind it is a phantom the page refuses.
-- Law: a hook fault logs and never escapes — every `Fin` refusal writes through `RhinoApp.WriteLine` and the callback returns, because a throw inside a host virtual is swallowed by the host's exception report and vanishes silently; the log is the one observable channel.
-- Law: picked objects cross as captures — `OnPicked` projects every reference through the selection page's `Picks.Capture` before the program sees it, so no `ObjRef` survives into program state; the `Pick` hook sifts candidate references inside the callback window and returns a subset, never new references.
+- Owner: `ObjectProgram` carries every verified draw, duplicate, transform, morph, document, pick, selection, viewport, bounding-box, tight-bounds, and render-mesh hook; `RenderMeshProgram` folds the five-virtual mesh-cache family into one program slot; `ObjectsTelemetry.Faulted` is the one generated callback-failure event over `CallbackFault(FaultSite, Error)` for every Objects hook seam — object callbacks, grips, render meshes, and history replay publish through it; `HostForward` centralizes lifting, the `Fallback`/`Probe` inherited-value recovery pair, and pick capture.
+- Law: `ObjectProgram` exposes only callbacks backed by a `RhinoObject` virtual, and each adapter forwards the same algebra; unsupported geometry kinds cannot mint phantom hooks.
+- Law: the render-mesh surface is the five-virtual cache family — `IsMeshable`, `MeshCount`, `CreateMeshes`, `GetMeshes`, and `DestroyMeshes` refine base-first through one `RenderMeshProgram`; no `OnGetRenderMeshes` virtual exists to forward, the non-virtual RDK accessor trio (`HasCustomRenderMeshes`, `CustomRenderMeshesBoundingBox`, the `RenderMeshes` delegator) stays the Display and Render owners' viewport-and-pipeline context, and the `Rhino.Render.CustomRenderMeshes.RenderMeshProvider` registration adapter belongs to that seam, never an object hook.
+- Law: replacement cache meshes are kernel-built — a `Cached` or `Built` hook supplying geometry composes the `MeshEdit.Of` arena frozen through `ToSpace(Context)` or `Surfaces.Apply(SurfaceOp.Tessellate)` with UV provenance, never a hand-assembled native `Mesh` or a `Mesh.CreateFromSurface` grid; roster meshes handed back become host-owned at the return, and the live `MeshingParameters` each virtual receives crosses to hooks encoded as `MeshPolicy`, never as the native carrier.
+- Law: a hook fault never escapes and never degrades to transcript text — every `Fin` refusal publishes the `CallbackFault(FaultSite, Error)` event before the host fallback returns; `NullLogger` is the logger-less composition, and provider policy remains outside the adapters.
+- Law: picked objects cross as captures — `PickCandidate` couples a callback-local slot with `PickCapture`; `Pick` returns admitted slots and `OnPicked` stricts the host's picked sequence once before the base call, so a one-shot enumerable feeds base and program alike and neither `ObjRef` nor `PickContext` enters program state.
 - Law: base runs first — every forwarding override invokes the host base before its hook, so standard drawing, transform application, and pick behavior survive an inert program, and a program augments rather than re-implements; suppression of base behavior is a genuinely new adapter, never a program flag.
 - Growth: a new host virtual is one program field plus one forwarding line per adapter.
 
@@ -23,6 +25,8 @@ Custom-object and grip authoring belongs to `Rasm.Rhino.Objects`. Host subclassi
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
 using System.Collections.Generic;
 using System.Linq;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Rasm.Domain;
 using Rasm.Rhino.Commands;
 using Rasm.Rhino.Document;
@@ -36,6 +40,61 @@ namespace Rasm.Rhino.Objects;
 
 // --- [MODELS] -----------------------------------------------------------------------------
 public readonly record struct TightExtent(BoundingBox Current, bool Grow, Transform Motion, bool BaseAnswered);
+public readonly record struct PickCandidate(int Slot, PickCapture Capture);
+
+[SmartEnum<int>]
+public sealed partial class FaultSite {
+    public static readonly FaultSite ObjectCallback = new(key: 0);
+    public static readonly FaultSite Pick = new(key: 1);
+    public static readonly FaultSite View = new(key: 2);
+    public static readonly FaultSite Bounds = new(key: 3);
+    public static readonly FaultSite GripLocation = new(key: 4);
+    public static readonly FaultSite GripRegrow = new(key: 5);
+    public static readonly FaultSite GripTopology = new(key: 6);
+    public static readonly FaultSite GripLifecycle = new(key: 7);
+    public static readonly FaultSite GripRegistration = new(key: 8);
+    public static readonly FaultSite RenderMesh = new(key: 9);
+    public static readonly FaultSite Replay = new(key: 10);
+}
+
+public sealed record CallbackFault(FaultSite Site, Error Error);
+
+public static partial class ObjectsTelemetry {
+    private const int Band = 6400;
+    private static readonly Atom<ILogger<ObjectProgram>> Sink =
+        Atom<ILogger<ObjectProgram>>(NullLogger<ObjectProgram>.Instance);
+
+    public static Unit Configure(ILogger<ObjectProgram> sink) =>
+        ignore(Sink.Swap(_ => sink ?? NullLogger<ObjectProgram>.Instance));
+
+    [LoggerMessage(
+        EventId = Band + 1,
+        EventName = "ObjectCallbackFaulted",
+        Level = LogLevel.Error,
+        Message = "object callback faulted")]
+    private static partial void Faulted(
+        ILogger logger,
+        [LogProperties(OmitReferenceName = true, SkipNullProperties = true)] CallbackFault fault);
+
+    internal static Unit Publish(FaultSite site, Error error) =>
+        Try.lift(() => {
+                Faulted(Sink.Value, new CallbackFault(Site: site, Error: error));
+                return unit;
+            })
+            .Run()
+            .IfFail(static _ => unit);
+}
+
+public readonly record struct RenderMeshBuild(MeshType Kind, Option<MeshPolicy> Policy, bool IgnoreCustom, int Inherited);
+
+public sealed record RenderMeshProgram(
+    Option<Func<MeshType, bool, Fin<bool>>> Meshable = default,
+    Option<Func<MeshType, Option<MeshPolicy>, int, Fin<int>>> Tally = default,
+    Option<Func<RenderMeshBuild, Fin<int>>> Built = default,
+    Option<Func<MeshType, Seq<Mesh>, Fin<Seq<Mesh>>>> Cached = default,
+    Option<Func<MeshType, Fin<Unit>>> Dropped = default) {
+    public static readonly RenderMeshProgram Inert = new();
+}
 
 public sealed record ObjectProgram(
     Option<Func<DrawEventArgs, Fin<Unit>>> Draw = default,
@@ -44,89 +103,137 @@ public sealed record ObjectProgram(
     Option<Func<SpaceMorph, Fin<Unit>>> Morphed = default,
     Option<Func<RhinoDoc, Fin<Unit>>> Entered = default,
     Option<Func<RhinoDoc, Fin<Unit>>> Left = default,
-    Option<Func<PickContext, Seq<ObjRef>, Fin<Seq<ObjRef>>>> Pick = default,
-    Option<Func<PickContext, Seq<PickCapture>, Fin<Unit>>> Picked = default,
+    Option<Func<Seq<PickCandidate>, Fin<Seq<int>>>> Pick = default,
+    Option<Func<Seq<PickCapture>, Fin<Unit>>> Picked = default,
     Option<Func<Fin<Unit>>> SelectionChanged = default,
     Option<Func<RhinoViewport, bool, Fin<bool>>> Viewable = default,
     Option<Func<RhinoViewport, BoundingBox, Fin<BoundingBox>>> Bounds = default,
-    Option<Func<TightExtent, Fin<BoundingBox>>> TightBounds = default) {
+    Option<Func<TightExtent, Fin<BoundingBox>>> TightBounds = default,
+    Option<RenderMeshProgram> RenderMeshes = default) {
     public static readonly ObjectProgram Inert = new();
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 internal static class HostForward {
-    internal static Unit Logged(this Fin<Unit> outcome) =>
-        outcome.IfFail(error => {
-            RhinoApp.WriteLine(message: error.Message);
-            return unit;
-        });
+    internal static Unit Reported(this Fin<Unit> outcome, FaultSite site) =>
+        outcome.IfFail(error => ObjectsTelemetry.Publish(site: site, error: error));
 
     internal static Unit Run<TArgs>(this Option<Func<TArgs, Fin<Unit>>> hook, TArgs args) =>
-        hook.Map(run => Op.Of().Catch(() => run(args)).Logged()).IfNone(noneValue: unit);
+        hook.Map(run => Op.Of(name: nameof(ObjectProgram)).Catch(() => run(args))
+            .Reported(site: FaultSite.ObjectCallback)).IfNone(noneValue: unit);
 
-    internal static Seq<ObjRef> Sift(this ObjectProgram program, PickContext context, Seq<ObjRef> candidates) =>
-        program.Pick.Match(
-            Some: filter => Op.Of().Catch(() => filter(context, candidates)
-                .Bind(chosen => guard(chosen.ForAll(item => candidates.Exists(candidate =>
-                        ReferenceEquals(candidate, item))), Op.Of().InvalidResult()).ToFin()
-                    .Map(_ => chosen))).Match(
-                Succ: static chosen => chosen,
-                Fail: error => {
-                    RhinoApp.WriteLine(message: error.Message);
-                    return candidates;
-                }),
-            None: () => candidates);
+    internal static Unit Run(this Option<Func<Fin<Unit>>> hook, FaultSite site) =>
+        hook.Map(run => Op.Of(name: nameof(ObjectProgram)).Catch(run).Reported(site: site)).IfNone(noneValue: unit);
+
+    internal static Fin<T> Attempt<T>(Func<Op, Fin<T>> body) {
+        Op op = Op.Of(name: nameof(ObjectProgram));
+        return op.Catch(() => body(op));
+    }
+
+    internal static T Fallback<T>(Option<Fin<T>> attempted, FaultSite site, T inherited) =>
+        attempted.Match(
+            Some: outcome => outcome.Match(
+                Succ: identity,
+                Fail: error => (ObjectsTelemetry.Publish(site: site, error: error), inherited).Item2),
+            None: () => inherited);
+
+    internal static T Probe<T>(Option<Fin<Option<T>>> attempted, FaultSite site, Func<T> inherited) =>
+        attempted.Match(
+            Some: outcome => outcome.Match(
+                Succ: found => found.IfNone(inherited),
+                Fail: error => (ObjectsTelemetry.Publish(site: site, error: error), inherited()).Item2),
+            None: inherited);
+
+    internal static Seq<ObjRef> Sift(this ObjectProgram program, Seq<ObjRef> candidates) =>
+        Fallback(
+            attempted: program.Pick.Map(filter => Attempt(op => candidates
+                .Map((candidate, slot) => Picks.Capture(reference: candidate, key: op)
+                    .Map(capture => new PickCandidate(Slot: slot, Capture: capture)))
+                .TraverseM(identity).As()
+                .Bind(filter)
+                .Bind(slots => guard(slots.ForAll(slot => slot >= 0 && slot < candidates.Count), op.InvalidResult())
+                    .ToFin()
+                    .Map(_ => slots.Distinct()))
+                .Map(slots => candidates
+                    .Map((candidate, slot) => (Candidate: candidate, Slot: slot))
+                    .Filter(row => slots.Exists(chosen => chosen == row.Slot))
+                    .Map(static row => row.Candidate)))),
+            site: FaultSite.Pick,
+            inherited: candidates);
 
     internal static bool Active(this ObjectProgram program, RhinoViewport viewport, bool inherited) =>
-        program.Viewable.Match(
-            Some: judge => Op.Of().Catch(() => judge(viewport, inherited)).Match(
-                Succ: static verdict => verdict,
-                Fail: error => {
-                    RhinoApp.WriteLine(message: error.Message);
-                    return inherited;
-                }),
-            None: () => inherited);
+        Fallback(
+            attempted: program.Viewable.Map(judge => Attempt(_ => judge(viewport, inherited))),
+            site: FaultSite.View,
+            inherited: inherited);
 
     internal static BoundingBox Box(this ObjectProgram program, RhinoViewport viewport, BoundingBox inherited) =>
-        program.Bounds.Match(
-            Some: grow => Op.Of().Catch(() => grow(viewport, inherited)
-                .Bind(answer => guard(answer.IsValid, Op.Of().InvalidResult()).ToFin().Map(_ => answer))).Match(
-                Succ: static bounds => bounds,
-                Fail: error => {
-                    RhinoApp.WriteLine(message: error.Message);
-                    return inherited;
-                }),
-            None: () => inherited);
+        Fallback(
+            attempted: program.Bounds.Map(grow => Attempt(op => grow(viewport, inherited)
+                .Bind(answer => guard(answer.IsValid, op.InvalidResult()).ToFin().Map(_ => answer)))),
+            site: FaultSite.Bounds,
+            inherited: inherited);
 
-    internal static (bool Answered, BoundingBox Bounds) Tight(
-        this ObjectProgram program,
-        BoundingBox bounds,
-        bool grow,
-        Transform motion,
-        bool inherited) =>
-        program.TightBounds.Match(
-            Some: refine => Op.Of().Catch(() => refine(new TightExtent(
-                    Current: bounds,
-                    Grow: grow,
-                    Motion: motion,
-                    BaseAnswered: inherited))
-                .Bind(answer => guard(answer.IsValid, Op.Of().InvalidResult()).ToFin().Map(_ => answer)))
-                .Match(
-                    Succ: answer => (answer.IsValid, answer),
-                    Fail: error => {
-                        RhinoApp.WriteLine(message: error.Message);
-                        return (inherited, bounds);
-                    }),
-            None: () => (inherited, bounds));
+    internal static bool Tight(this ObjectProgram program, ref BoundingBox box, bool grow, Transform motion, bool inherited) {
+        BoundingBox current = box;
+        (bool Answered, BoundingBox Bounds) refined = Fallback(
+            attempted: program.TightBounds.Map(refine => Attempt(op =>
+                refine(new TightExtent(Current: current, Grow: grow, Motion: motion, BaseAnswered: inherited))
+                    .Bind(answer => guard(answer.IsValid, op.InvalidResult()).ToFin().Map(_ => (true, answer))))),
+            site: FaultSite.Bounds,
+            inherited: (inherited, current));
+        box = refined.Bounds;
+        return refined.Answered;
+    }
 
-    internal static Unit Captured(this ObjectProgram program, PickContext context, IEnumerable<ObjRef> picked) =>
-        program.Picked.Map(consume => {
-            Op op = Op.Of(name: nameof(ObjectProgram));
-            return op.Catch(() => toSeq(picked)
-                    .TraverseM(reference => Picks.Capture(reference: reference, key: op)).As()
-                    .Bind(captures => consume(context, captures)))
-                .Logged();
-        }).IfNone(noneValue: unit);
+    internal static Unit Captured(this ObjectProgram program, Seq<ObjRef> picked) =>
+        program.Picked.Map(consume => Attempt(op => picked
+                .TraverseM(reference => Picks.Capture(reference: reference, key: op)).As()
+                .Bind(consume))
+            .Reported(site: FaultSite.Pick)).IfNone(noneValue: unit);
+
+    internal static bool Meshable(this ObjectProgram program, MeshType kind, bool inherited) =>
+        Fallback(
+            attempted: program.RenderMeshes.Bind(static meshes => meshes.Meshable)
+                .Map(judge => Attempt(_ => judge(kind, inherited))),
+            site: FaultSite.RenderMesh,
+            inherited: inherited);
+
+    internal static int Counted(this ObjectProgram program, MeshType kind, MeshingParameters parameters, int inherited) =>
+        Fallback(
+            attempted: program.RenderMeshes.Bind(static meshes => meshes.Tally)
+                .Map(refine => Attempt(op => Policy(parameters: parameters, op: op)
+                    .Bind(policy => refine(kind, policy, inherited))
+                    .Bind(answer => guard(answer >= 0, op.InvalidResult()).ToFin().Map(_ => answer)))),
+            site: FaultSite.RenderMesh,
+            inherited: inherited);
+
+    internal static int Constructed(this ObjectProgram program, MeshType kind, MeshingParameters parameters, bool ignore, int inherited) =>
+        Fallback(
+            attempted: program.RenderMeshes.Bind(static meshes => meshes.Built)
+                .Map(refine => Attempt(op => Policy(parameters: parameters, op: op)
+                    .Bind(policy => refine(new RenderMeshBuild(
+                        Kind: kind, Policy: policy, IgnoreCustom: ignore, Inherited: inherited)))
+                    .Bind(answer => guard(answer >= 0, op.InvalidResult()).ToFin().Map(_ => answer)))),
+            site: FaultSite.RenderMesh,
+            inherited: inherited);
+
+    internal static Mesh[] Roster(this ObjectProgram program, MeshType kind, Mesh[] inherited) =>
+        Fallback(
+            attempted: program.RenderMeshes.Bind(static meshes => meshes.Cached)
+                .Map(refine => Attempt(_ => refine(kind, toSeq(inherited ?? [])).Map(static refined => refined.ToArray()))),
+            site: FaultSite.RenderMesh,
+            inherited: inherited);
+
+    internal static Unit Dismantled(this ObjectProgram program, MeshType kind) =>
+        program.RenderMeshes.Bind(static meshes => meshes.Dropped)
+            .Map(run => Op.Of(name: nameof(RenderMeshProgram)).Catch(() => run(kind)).Reported(site: FaultSite.RenderMesh))
+            .IfNone(noneValue: unit);
+
+    private static Fin<Option<MeshPolicy>> Policy(MeshingParameters parameters, Op op) =>
+        Optional(parameters)
+            .Map(native => MeshPolicy.Capture(native: native, key: op).Map(Some))
+            .IfNone(() => Fin.Succ(value: Option<MeshPolicy>.None));
 }
 ```
 
@@ -151,21 +258,18 @@ public abstract class RasmBrepObject : CustomBrepObject {
     protected sealed override void OnSpaceMorph(SpaceMorph morph) { base.OnSpaceMorph(morph); _ = Program.Morphed.Run(args: morph); }
     protected sealed override void OnAddToDocument(RhinoDoc doc) { base.OnAddToDocument(doc); _ = Program.Entered.Run(args: doc); }
     protected sealed override void OnDeleteFromDocument(RhinoDoc doc) { base.OnDeleteFromDocument(doc); _ = Program.Left.Run(args: doc); }
-    protected sealed override IEnumerable<ObjRef> OnPick(PickContext context) => Program.Sift(context: context, candidates: toSeq(base.OnPick(context)));
-    protected sealed override void OnPicked(PickContext context, IEnumerable<ObjRef> pickedItems) { base.OnPicked(context, pickedItems); _ = Program.Captured(context: context, picked: pickedItems); }
-    protected sealed override void OnSelectionChanged() { base.OnSelectionChanged(); _ = Program.SelectionChanged.Map(static run => Op.Of().Catch(run).Logged()).IfNone(noneValue: unit); }
+    protected sealed override IEnumerable<ObjRef> OnPick(PickContext context) => Program.Sift(candidates: toSeq(base.OnPick(context)));
+    protected sealed override void OnPicked(PickContext context, IEnumerable<ObjRef> pickedItems) { Seq<ObjRef> picked = toSeq(pickedItems).Strict(); base.OnPicked(context, picked); _ = Program.Captured(picked: picked); }
+    protected sealed override void OnSelectionChanged() { base.OnSelectionChanged(); _ = Program.SelectionChanged.Run(site: FaultSite.ObjectCallback); }
     public sealed override bool IsActiveInViewport(RhinoViewport viewport) => Program.Active(viewport: viewport, inherited: base.IsActiveInViewport(viewport));
     protected sealed override BoundingBox GetBoundingBox(RhinoViewport viewport) => Program.Box(viewport: viewport, inherited: base.GetBoundingBox(viewport));
-    protected sealed override bool GetTightBoundingBox(ref BoundingBox tightBox, bool growBox, Transform xform) {
-        bool inherited = base.GetTightBoundingBox(ref tightBox, growBox, xform);
-        (bool answered, BoundingBox bounds) = Program.Tight(
-            bounds: tightBox,
-            grow: growBox,
-            motion: xform,
-            inherited: inherited);
-        tightBox = bounds;
-        return answered;
-    }
+    protected sealed override bool GetTightBoundingBox(ref BoundingBox tightBox, bool growBox, Transform xform) =>
+        Program.Tight(box: ref tightBox, grow: growBox, motion: xform, inherited: base.GetTightBoundingBox(ref tightBox, growBox, xform));
+    public sealed override bool IsMeshable(MeshType meshType) => Program.Meshable(kind: meshType, inherited: base.IsMeshable(meshType));
+    public sealed override int MeshCount(MeshType meshType, MeshingParameters parameters) => Program.Counted(kind: meshType, parameters: parameters, inherited: base.MeshCount(meshType, parameters));
+    public sealed override int CreateMeshes(MeshType meshType, MeshingParameters parameters, bool ignoreCustomParameters) => Program.Constructed(kind: meshType, parameters: parameters, ignore: ignoreCustomParameters, inherited: base.CreateMeshes(meshType, parameters, ignoreCustomParameters));
+    public sealed override Mesh[] GetMeshes(MeshType meshType) => Program.Roster(kind: meshType, inherited: base.GetMeshes(meshType));
+    public sealed override void DestroyMeshes(MeshType meshType) { base.DestroyMeshes(meshType); _ = Program.Dismantled(kind: meshType); }
 }
 
 public abstract class RasmCurveObject : CustomCurveObject {
@@ -182,21 +286,18 @@ public abstract class RasmCurveObject : CustomCurveObject {
     protected sealed override void OnSpaceMorph(SpaceMorph morph) { base.OnSpaceMorph(morph); _ = Program.Morphed.Run(args: morph); }
     protected sealed override void OnAddToDocument(RhinoDoc doc) { base.OnAddToDocument(doc); _ = Program.Entered.Run(args: doc); }
     protected sealed override void OnDeleteFromDocument(RhinoDoc doc) { base.OnDeleteFromDocument(doc); _ = Program.Left.Run(args: doc); }
-    protected sealed override IEnumerable<ObjRef> OnPick(PickContext context) => Program.Sift(context: context, candidates: toSeq(base.OnPick(context)));
-    protected sealed override void OnPicked(PickContext context, IEnumerable<ObjRef> pickedItems) { base.OnPicked(context, pickedItems); _ = Program.Captured(context: context, picked: pickedItems); }
-    protected sealed override void OnSelectionChanged() { base.OnSelectionChanged(); _ = Program.SelectionChanged.Map(static run => Op.Of().Catch(run).Logged()).IfNone(noneValue: unit); }
+    protected sealed override IEnumerable<ObjRef> OnPick(PickContext context) => Program.Sift(candidates: toSeq(base.OnPick(context)));
+    protected sealed override void OnPicked(PickContext context, IEnumerable<ObjRef> pickedItems) { Seq<ObjRef> picked = toSeq(pickedItems).Strict(); base.OnPicked(context, picked); _ = Program.Captured(picked: picked); }
+    protected sealed override void OnSelectionChanged() { base.OnSelectionChanged(); _ = Program.SelectionChanged.Run(site: FaultSite.ObjectCallback); }
     public sealed override bool IsActiveInViewport(RhinoViewport viewport) => Program.Active(viewport: viewport, inherited: base.IsActiveInViewport(viewport));
     protected sealed override BoundingBox GetBoundingBox(RhinoViewport viewport) => Program.Box(viewport: viewport, inherited: base.GetBoundingBox(viewport));
-    protected sealed override bool GetTightBoundingBox(ref BoundingBox tightBox, bool growBox, Transform xform) {
-        bool inherited = base.GetTightBoundingBox(ref tightBox, growBox, xform);
-        (bool answered, BoundingBox bounds) = Program.Tight(
-            bounds: tightBox,
-            grow: growBox,
-            motion: xform,
-            inherited: inherited);
-        tightBox = bounds;
-        return answered;
-    }
+    protected sealed override bool GetTightBoundingBox(ref BoundingBox tightBox, bool growBox, Transform xform) =>
+        Program.Tight(box: ref tightBox, grow: growBox, motion: xform, inherited: base.GetTightBoundingBox(ref tightBox, growBox, xform));
+    public sealed override bool IsMeshable(MeshType meshType) => Program.Meshable(kind: meshType, inherited: base.IsMeshable(meshType));
+    public sealed override int MeshCount(MeshType meshType, MeshingParameters parameters) => Program.Counted(kind: meshType, parameters: parameters, inherited: base.MeshCount(meshType, parameters));
+    public sealed override int CreateMeshes(MeshType meshType, MeshingParameters parameters, bool ignoreCustomParameters) => Program.Constructed(kind: meshType, parameters: parameters, ignore: ignoreCustomParameters, inherited: base.CreateMeshes(meshType, parameters, ignoreCustomParameters));
+    public sealed override Mesh[] GetMeshes(MeshType meshType) => Program.Roster(kind: meshType, inherited: base.GetMeshes(meshType));
+    public sealed override void DestroyMeshes(MeshType meshType) { base.DestroyMeshes(meshType); _ = Program.Dismantled(kind: meshType); }
 }
 
 public abstract class RasmMeshObject : CustomMeshObject {
@@ -211,21 +312,18 @@ public abstract class RasmMeshObject : CustomMeshObject {
     protected sealed override void OnSpaceMorph(SpaceMorph morph) { base.OnSpaceMorph(morph); _ = Program.Morphed.Run(args: morph); }
     protected sealed override void OnAddToDocument(RhinoDoc doc) { base.OnAddToDocument(doc); _ = Program.Entered.Run(args: doc); }
     protected sealed override void OnDeleteFromDocument(RhinoDoc doc) { base.OnDeleteFromDocument(doc); _ = Program.Left.Run(args: doc); }
-    protected sealed override IEnumerable<ObjRef> OnPick(PickContext context) => Program.Sift(context: context, candidates: toSeq(base.OnPick(context)));
-    protected sealed override void OnPicked(PickContext context, IEnumerable<ObjRef> pickedItems) { base.OnPicked(context, pickedItems); _ = Program.Captured(context: context, picked: pickedItems); }
-    protected sealed override void OnSelectionChanged() { base.OnSelectionChanged(); _ = Program.SelectionChanged.Map(static run => Op.Of().Catch(run).Logged()).IfNone(noneValue: unit); }
+    protected sealed override IEnumerable<ObjRef> OnPick(PickContext context) => Program.Sift(candidates: toSeq(base.OnPick(context)));
+    protected sealed override void OnPicked(PickContext context, IEnumerable<ObjRef> pickedItems) { Seq<ObjRef> picked = toSeq(pickedItems).Strict(); base.OnPicked(context, picked); _ = Program.Captured(picked: picked); }
+    protected sealed override void OnSelectionChanged() { base.OnSelectionChanged(); _ = Program.SelectionChanged.Run(site: FaultSite.ObjectCallback); }
     public sealed override bool IsActiveInViewport(RhinoViewport viewport) => Program.Active(viewport: viewport, inherited: base.IsActiveInViewport(viewport));
     protected sealed override BoundingBox GetBoundingBox(RhinoViewport viewport) => Program.Box(viewport: viewport, inherited: base.GetBoundingBox(viewport));
-    protected sealed override bool GetTightBoundingBox(ref BoundingBox tightBox, bool growBox, Transform xform) {
-        bool inherited = base.GetTightBoundingBox(ref tightBox, growBox, xform);
-        (bool answered, BoundingBox bounds) = Program.Tight(
-            bounds: tightBox,
-            grow: growBox,
-            motion: xform,
-            inherited: inherited);
-        tightBox = bounds;
-        return answered;
-    }
+    protected sealed override bool GetTightBoundingBox(ref BoundingBox tightBox, bool growBox, Transform xform) =>
+        Program.Tight(box: ref tightBox, grow: growBox, motion: xform, inherited: base.GetTightBoundingBox(ref tightBox, growBox, xform));
+    public sealed override bool IsMeshable(MeshType meshType) => Program.Meshable(kind: meshType, inherited: base.IsMeshable(meshType));
+    public sealed override int MeshCount(MeshType meshType, MeshingParameters parameters) => Program.Counted(kind: meshType, parameters: parameters, inherited: base.MeshCount(meshType, parameters));
+    public sealed override int CreateMeshes(MeshType meshType, MeshingParameters parameters, bool ignoreCustomParameters) => Program.Constructed(kind: meshType, parameters: parameters, ignore: ignoreCustomParameters, inherited: base.CreateMeshes(meshType, parameters, ignoreCustomParameters));
+    public sealed override Mesh[] GetMeshes(MeshType meshType) => Program.Roster(kind: meshType, inherited: base.GetMeshes(meshType));
+    public sealed override void DestroyMeshes(MeshType meshType) { base.DestroyMeshes(meshType); _ = Program.Dismantled(kind: meshType); }
 }
 
 public abstract class RasmPointObject : CustomPointObject {
@@ -240,99 +338,71 @@ public abstract class RasmPointObject : CustomPointObject {
     protected sealed override void OnSpaceMorph(SpaceMorph morph) { base.OnSpaceMorph(morph); _ = Program.Morphed.Run(args: morph); }
     protected sealed override void OnAddToDocument(RhinoDoc doc) { base.OnAddToDocument(doc); _ = Program.Entered.Run(args: doc); }
     protected sealed override void OnDeleteFromDocument(RhinoDoc doc) { base.OnDeleteFromDocument(doc); _ = Program.Left.Run(args: doc); }
-    protected sealed override IEnumerable<ObjRef> OnPick(PickContext context) => Program.Sift(context: context, candidates: toSeq(base.OnPick(context)));
-    protected sealed override void OnPicked(PickContext context, IEnumerable<ObjRef> pickedItems) { base.OnPicked(context, pickedItems); _ = Program.Captured(context: context, picked: pickedItems); }
-    protected sealed override void OnSelectionChanged() { base.OnSelectionChanged(); _ = Program.SelectionChanged.Map(static run => Op.Of().Catch(run).Logged()).IfNone(noneValue: unit); }
+    protected sealed override IEnumerable<ObjRef> OnPick(PickContext context) => Program.Sift(candidates: toSeq(base.OnPick(context)));
+    protected sealed override void OnPicked(PickContext context, IEnumerable<ObjRef> pickedItems) { Seq<ObjRef> picked = toSeq(pickedItems).Strict(); base.OnPicked(context, picked); _ = Program.Captured(picked: picked); }
+    protected sealed override void OnSelectionChanged() { base.OnSelectionChanged(); _ = Program.SelectionChanged.Run(site: FaultSite.ObjectCallback); }
     public sealed override bool IsActiveInViewport(RhinoViewport viewport) => Program.Active(viewport: viewport, inherited: base.IsActiveInViewport(viewport));
     protected sealed override BoundingBox GetBoundingBox(RhinoViewport viewport) => Program.Box(viewport: viewport, inherited: base.GetBoundingBox(viewport));
-    protected sealed override bool GetTightBoundingBox(ref BoundingBox tightBox, bool growBox, Transform xform) {
-        bool inherited = base.GetTightBoundingBox(ref tightBox, growBox, xform);
-        (bool answered, BoundingBox bounds) = Program.Tight(
-            bounds: tightBox,
-            grow: growBox,
-            motion: xform,
-            inherited: inherited);
-        tightBox = bounds;
-        return answered;
-    }
+    protected sealed override bool GetTightBoundingBox(ref BoundingBox tightBox, bool growBox, Transform xform) =>
+        Program.Tight(box: ref tightBox, grow: growBox, motion: xform, inherited: base.GetTightBoundingBox(ref tightBox, growBox, xform));
+    public sealed override bool IsMeshable(MeshType meshType) => Program.Meshable(kind: meshType, inherited: base.IsMeshable(meshType));
+    public sealed override int MeshCount(MeshType meshType, MeshingParameters parameters) => Program.Counted(kind: meshType, parameters: parameters, inherited: base.MeshCount(meshType, parameters));
+    public sealed override int CreateMeshes(MeshType meshType, MeshingParameters parameters, bool ignoreCustomParameters) => Program.Constructed(kind: meshType, parameters: parameters, ignore: ignoreCustomParameters, inherited: base.CreateMeshes(meshType, parameters, ignoreCustomParameters));
+    public sealed override Mesh[] GetMeshes(MeshType meshType) => Program.Roster(kind: meshType, inherited: base.GetMeshes(meshType));
+    public sealed override void DestroyMeshes(MeshType meshType) { base.DestroyMeshes(meshType); _ = Program.Dismantled(kind: meshType); }
 }
 ```
 
 ## [04]-[GRIP_PROGRAM]
 
-- Owner: `GripSeed` carries admitted index, origin, and weight. `GripProgram` owns seed and regrow functions plus every verified location, reset, mesh-update, topology, draw, and disposal hook. `RasmGrip` repairs the host weight sentinel and forwards location changes; `RasmGrips` forwards the set program; `GripRig` registers the enabler.
-- Law: `NewGeometry` fires once at the end of a drag — the shim collects every grip's index and current location, hands them to `Regrow`, and a refusal logs and answers null so the host keeps existing geometry; per-frame rebuild gating stays on the host's own `NewLocation`/`GripsMoved` flags, and the global `Dragging()` probe is a static host fact, never an instance flag.
+- Owner: `GripSeed` admits each grip and the complete zero-based roster consumed by regrow. `GripProgram` is one positional record — required seed and regrow functions, every verified location, reset, mesh-update, topology, draw, and disposal hook as optional slots — matching `ObjectProgram`'s form. `RasmGrip` repairs the host weight sentinel and forwards location changes; `RasmGrips` forwards the set program; `GripRig` registers the enabler.
+- Law: `NewGeometry` fires once at drag end — the shim collects each grip's index and current location, hands them to `Regrow`, and a refusal publishes `CallbackFault` then returns the inherited result so the host keeps existing geometry; host `NewLocation`/`GripsMoved` and global `Dragging()` remain the rebuild gates.
 - Law: `Weight` must be carried by the shim — the custom grip base deliberately stubs the member with a sentinel getter (`-1.234...E+308`) and a no-op setter, so `RasmGrip` overrides both accessors over a real field seeded from `GripSeed.Weight`; an authored grip trusting the base member reads garbage.
-- Law: the enabler keys on the grips type's `[Guid]` — `RegisterGripsEnabler` resolves `typeof(TGrips).GUID`, not `ClassIdAttribute`, re-registration replaces the prior enabler, and the enabler installs through `EnableCustomGrips` only when the mint answers `Some`; a non-`Some` candidate keeps standard host grips. Registration demands the declared `GuidAttribute` because the runtime synthesizes a fallback for an unattributed type, so `Type.GUID` is never empty and only the attribute probe proves a stable key.
+- Law: the enabler keys on the grips type's `[Guid]` — `RegisterGripsEnabler` resolves `typeof(TGrips).GUID`, not `ClassIdAttribute`, re-registration replaces the prior enabler, and the enabler installs through `EnableCustomGrips` only when the mint answers `Some`; a non-`Some` candidate keeps standard host grips. Registration demands the declared `GuidAttribute` because the runtime synthesizes a fallback for an unattributed type, so `Type.GUID` is never empty and only the attribute probe proves a stable key. `Sow` accumulates seed admission, admits exactly the zero-based contiguous index roster, stages every shim before mutation, and disposes the new grip owner when any incremental host addition fails.
 - Law: the grip draw hook runs before base — the base `OnDraw` draws the grips themselves, so a program draws dynamic elements first and the shim calls base after. Reset and mesh-update hooks augment the completed base operation; disposal notifies before base releases the carrier.
 
 ```csharp signature
 // --- [MODELS] -----------------------------------------------------------------------------
-public sealed record GripSeed(int Index, Point3d Origin, double Weight = 1.0) {
-    internal Fin<GripSeed> Admit(Op key) =>
-        from origin in key.AcceptInput(value: Origin)
-        from _ in guard(Index >= 0 && double.IsFinite(Weight) && Weight >= 0.0, key.InvalidInput()).ToFin()
-        select this with { Origin = origin };
+[ComplexValueObject]
+public sealed partial class GripSeed {
+    public int Index { get; }
+    public Point3d Origin { get; }
+    public double Weight { get; }
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref int index,
+        ref Point3d origin,
+        ref double weight) {
+        validationError = index >= 0 && origin.IsValid && double.IsFinite(weight) && weight >= 0.0
+            ? validationError
+            : new ValidationError(message: "grip seed is invalid");
+    }
+
+    internal static Fin<Seq<GripSeed>> AdmitRoster(Seq<GripSeed> seeds, Op key) =>
+        guard(
+            seeds.Map(static seed => seed.Index).Order()
+                .SequenceEqual(Enumerable.Range(start: 0, count: seeds.Count)),
+            key.InvalidInput())
+        .ToFin()
+        .Map(_ => seeds);
 }
 
 public readonly record struct GripMotion(bool NewLocation, bool Moved, bool Dragging);
 
-public sealed class GripProgram {
-    private GripProgram(
-        Func<GeometryBase, Fin<Seq<GripSeed>>> seeds,
-        Func<Seq<(int Index, Point3d Location)>, Fin<GeometryBase>> regrow,
-        Option<Func<int, Point3d, Fin<Unit>>> locationChanged,
-        Option<Func<GripsDrawEventArgs, Fin<Unit>>> draw,
-        Option<Func<Fin<Unit>>> reset,
-        Option<Func<Fin<Unit>>> resetMeshes,
-        Option<Func<MeshType, GripMotion, Fin<Unit>>> updateMesh,
-        Option<Func<int, int, int, int, bool, Fin<Option<GripObject>>>> neighbor,
-        Option<Func<int, int, Fin<Option<GripObject>>>> surfaceGrip,
-        Option<Func<Fin<Option<NurbsSurface>>>> surface,
-        Option<Func<bool, Fin<Unit>>> disposing) {
-        Seeds = seeds;
-        Regrow = regrow;
-        LocationChanged = locationChanged;
-        Draw = draw;
-        Reset = reset;
-        ResetMeshes = resetMeshes;
-        UpdateMesh = updateMesh;
-        Neighbor = neighbor;
-        SurfaceGrip = surfaceGrip;
-        Surface = surface;
-        Disposing = disposing;
-    }
-
-    internal Func<GeometryBase, Fin<Seq<GripSeed>>> Seeds { get; }
-    internal Func<Seq<(int Index, Point3d Location)>, Fin<GeometryBase>> Regrow { get; }
-    internal Option<Func<int, Point3d, Fin<Unit>>> LocationChanged { get; }
-    internal Option<Func<GripsDrawEventArgs, Fin<Unit>>> Draw { get; }
-    internal Option<Func<Fin<Unit>>> Reset { get; }
-    internal Option<Func<Fin<Unit>>> ResetMeshes { get; }
-    internal Option<Func<MeshType, GripMotion, Fin<Unit>>> UpdateMesh { get; }
-    internal Option<Func<int, int, int, int, bool, Fin<Option<GripObject>>>> Neighbor { get; }
-    internal Option<Func<int, int, Fin<Option<GripObject>>>> SurfaceGrip { get; }
-    internal Option<Func<Fin<Option<NurbsSurface>>>> Surface { get; }
-    internal Option<Func<bool, Fin<Unit>>> Disposing { get; }
-
-    public static Fin<GripProgram> Of(
-        Func<GeometryBase, Fin<Seq<GripSeed>>> seeds,
-        Func<Seq<(int Index, Point3d Location)>, Fin<GeometryBase>> regrow,
-        Option<Func<int, Point3d, Fin<Unit>>> locationChanged = default,
-        Option<Func<GripsDrawEventArgs, Fin<Unit>>> draw = default,
-        Option<Func<Fin<Unit>>> reset = default,
-        Option<Func<Fin<Unit>>> resetMeshes = default,
-        Option<Func<MeshType, GripMotion, Fin<Unit>>> updateMesh = default,
-        Option<Func<int, int, int, int, bool, Fin<Option<GripObject>>>> neighbor = default,
-        Option<Func<int, int, Fin<Option<GripObject>>>> surfaceGrip = default,
-        Option<Func<Fin<Option<NurbsSurface>>>> surface = default,
-        Option<Func<bool, Fin<Unit>>> disposing = default) {
-        Op op = Op.Of(name: nameof(GripProgram));
-        return from seed in Optional(seeds).ToFin(Fail: op.InvalidInput())
-               from grow in Optional(regrow).ToFin(Fail: op.InvalidInput())
-               select new GripProgram(seed, grow, locationChanged, draw, reset, resetMeshes, updateMesh, neighbor, surfaceGrip, surface, disposing);
-    }
-}
+public sealed record GripProgram(
+    Func<GeometryBase, Fin<Seq<GripSeed>>> Seeds,
+    Func<Seq<(int Index, Point3d Location)>, Fin<GeometryBase>> Regrow,
+    Option<Func<int, Point3d, Fin<Unit>>> LocationChanged = default,
+    Option<Func<GripsDrawEventArgs, Fin<Unit>>> Draw = default,
+    Option<Func<Fin<Unit>>> Reset = default,
+    Option<Func<Fin<Unit>>> ResetMeshes = default,
+    Option<Func<MeshType, GripMotion, Fin<Unit>>> UpdateMesh = default,
+    Option<Func<int, int, int, int, bool, Fin<Option<GripObject>>>> Neighbor = default,
+    Option<Func<int, int, Fin<Option<GripObject>>>> SurfaceGrip = default,
+    Option<Func<Fin<Option<NurbsSurface>>>> Surface = default,
+    Option<Func<bool, Fin<Unit>>> Disposing = default);
 
 // --- [SERVICES] ---------------------------------------------------------------------------
 public sealed class RasmGrip : CustomGripObject {
@@ -354,7 +424,7 @@ public sealed class RasmGrip : CustomGripObject {
 
     public sealed override void NewLocation() {
         base.NewLocation();
-        _ = locationChanged.Map(run => Op.Of().Catch(() => run(Index, CurrentLocation)).Logged()).IfNone(noneValue: unit);
+        _ = locationChanged.Map(run => Op.Of().Catch(() => run(Index, CurrentLocation)).Reported(FaultSite.GripLocation)).IfNone(noneValue: unit);
     }
 }
 
@@ -363,43 +433,53 @@ public abstract class RasmGrips : CustomObjectGrips {
 
     protected Fin<Unit> Sow(GeometryBase geometry) {
         Op op = Op.Of(name: nameof(RasmGrips));
-        return from source in Optional(geometry).ToFin(Fail: op.InvalidInput())
+        return from source in op.Need(geometry)
                from seeds in op.Catch(() => Program.Seeds(source))
-               from admitted in seeds.TraverseM(seed => Optional(seed).ToFin(Fail: op.InvalidInput())
-                   .Bind(value => value.Admit(key: op))).As()
-               from _ in guard(admitted.Map(static seed => seed.Index).Distinct().Count == admitted.Count, op.InvalidInput()).ToFin()
-               from __ in admitted.TraverseM(seed => op.Catch(() => {
-                   AddGrip(grip: new RasmGrip(seed: seed, locationChanged: Program.LocationChanged));
-                   return Fin.Succ(value: unit);
-               })).As()
+               from admitted in seeds.Traverse(seed => op.Need(seed).ToValidation()).As().ToFin()
+               from roster in GripSeed.AdmitRoster(seeds: admitted, key: op)
+               from _ in op.Catch(() => roster
+                   .Map(seed => new RasmGrip(seed: seed, locationChanged: Program.LocationChanged))
+                   .Strict()
+                   .TraverseM(grip => op.Catch(() => AddGrip(grip: grip))).As()
+                   .Map(static _ => unit))
+                   .MapFail(primary => op.Catch(() => {
+                       Dispose();
+                       return Fin.Succ(value: unit);
+                   }).Match(
+                       Succ: _ => primary,
+                       Fail: cleanup => primary + cleanup))
                select unit;
     }
 
-    protected sealed override GeometryBase NewGeometry() =>
-        Op.Of(name: nameof(RasmGrips)).Catch(() => Program.Regrow(toSeq(Enumerable.Range(start: 0, count: GripCount))
+    protected sealed override GeometryBase NewGeometry() {
+        GeometryBase inherited = base.NewGeometry();
+        Op op = Op.Of(name: nameof(RasmGrips));
+        return op.Catch(() => Program.Regrow(toSeq(Enumerable.Range(start: 0, count: GripCount))
                     .Map(index => Grip(index: index))
                     .Map(static grip => (grip.Index, grip.CurrentLocation)))
-                .Bind(grown => Optional(grown).ToFin(Fail: Op.Of(name: nameof(RasmGrips)).InvalidResult())))
+                .Bind(grown => Optional(grown).ToFin(Fail: op.InvalidResult())))
             .Match(
                 Succ: static grown => grown,
                 Fail: error => {
-                    RhinoApp.WriteLine(message: error.Message);
-                    return null!;
+                    _ = ObjectsTelemetry.Publish(site: FaultSite.GripRegrow, error: error);
+                    return inherited;
                 });
+    }
 
     protected sealed override void OnDraw(GripsDrawEventArgs args) {
-        _ = Program.Draw.Run(args: args);
+        _ = Program.Draw.Map(run => Op.Of(name: nameof(RasmGrips)).Catch(() => run(args))
+            .Reported(FaultSite.GripLifecycle)).IfNone(noneValue: unit);
         base.OnDraw(args);
     }
 
     protected sealed override void OnReset() {
         base.OnReset();
-        _ = Program.Reset.Map(run => Op.Of().Catch(run).Logged()).IfNone(noneValue: unit);
+        _ = Program.Reset.Run(site: FaultSite.GripLifecycle);
     }
 
     protected sealed override void OnResetMeshes() {
         base.OnResetMeshes();
-        _ = Program.ResetMeshes.Map(run => Op.Of().Catch(run).Logged()).IfNone(noneValue: unit);
+        _ = Program.ResetMeshes.Run(site: FaultSite.GripLifecycle);
     }
 
     protected sealed override void OnUpdateMesh(MeshType meshType) {
@@ -407,42 +487,33 @@ public abstract class RasmGrips : CustomObjectGrips {
         _ = Program.UpdateMesh.Map(run => Op.Of().Catch(() => run(
                 meshType,
                 new GripMotion(NewLocation: NewLocation, Moved: GripsMoved, Dragging: Dragging())))
-            .Map(_ => ignore(NewLocation = false))
-            .Logged()).IfNone(noneValue: unit);
+            .Reported(FaultSite.GripLifecycle)).IfNone(noneValue: unit);
+        NewLocation = false;
     }
 
     protected sealed override GripObject NeighborGrip(int gripIndex, int dr, int ds, int dt, bool wrap) =>
-        Program.Neighbor.Match(
-            Some: find => Op.Of().Catch(() => find(gripIndex, dr, ds, dt, wrap)).Match(
-                Succ: found => found.IfNone(() => base.NeighborGrip(gripIndex, dr, ds, dt, wrap)),
-                Fail: error => {
-                    RhinoApp.WriteLine(message: error.Message);
-                    return base.NeighborGrip(gripIndex, dr, ds, dt, wrap);
-                }),
-            None: () => base.NeighborGrip(gripIndex, dr, ds, dt, wrap));
+        HostForward.Probe(
+            attempted: Program.Neighbor.Map(find => Op.Of(name: nameof(RasmGrips)).Catch(() => find(gripIndex, dr, ds, dt, wrap))),
+            site: FaultSite.GripTopology,
+            inherited: () => base.NeighborGrip(gripIndex, dr, ds, dt, wrap));
 
     protected sealed override GripObject NurbsSurfaceGrip(int i, int j) =>
-        Program.SurfaceGrip.Match(
-            Some: find => Op.Of().Catch(() => find(i, j)).Match(
-                Succ: found => found.IfNone(() => base.NurbsSurfaceGrip(i, j)),
-                Fail: error => {
-                    RhinoApp.WriteLine(message: error.Message);
-                    return base.NurbsSurfaceGrip(i, j);
-                }),
-            None: () => base.NurbsSurfaceGrip(i, j));
+        HostForward.Probe(
+            attempted: Program.SurfaceGrip.Map(find => Op.Of(name: nameof(RasmGrips)).Catch(() => find(i, j))),
+            site: FaultSite.GripTopology,
+            inherited: () => base.NurbsSurfaceGrip(i, j));
 
     protected sealed override NurbsSurface NurbsSurface() =>
-        Program.Surface.Match(
-            Some: find => Op.Of().Catch(find).Match(
-                Succ: found => found.IfNone(base.NurbsSurface),
-                Fail: error => {
-                    RhinoApp.WriteLine(message: error.Message);
-                    return base.NurbsSurface();
-                }),
-            None: base.NurbsSurface);
+        HostForward.Probe(
+            attempted: Program.Surface.Map(find => Op.Of(name: nameof(RasmGrips)).Catch(find)),
+            site: FaultSite.GripTopology,
+            inherited: base.NurbsSurface);
 
     protected sealed override void Dispose(bool disposing) {
-        _ = Program.Disposing.Run(args: disposing);
+        if (disposing) {
+            _ = Program.Disposing.Map(run => Op.Of(name: nameof(RasmGrips)).Catch(() => run(disposing))
+                .Reported(FaultSite.GripLifecycle)).IfNone(noneValue: unit);
+        }
         base.Dispose(disposing);
     }
 }
@@ -451,7 +522,7 @@ public abstract class RasmGrips : CustomObjectGrips {
 public static class GripRig {
     public static Fin<Unit> Register<TGrips>(Func<RhinoObject, Option<TGrips>> mint) where TGrips : CustomObjectGrips {
         Op op = Op.Of(name: nameof(GripRig));
-        return from factory in Optional(mint).ToFin(Fail: op.InvalidInput())
+        return from factory in op.Need(mint)
                from __ in guard(
                    typeof(TGrips).IsDefined(typeof(System.Runtime.InteropServices.GuidAttribute), inherit: false),
                    op.InvalidInput()).ToFin()
@@ -465,10 +536,9 @@ public static class GripRig {
                                        return error;
                                    }),
                                None: () => Fin.Succ(value: unit)));
-                           _ = enabled.Logged();
+                           _ = enabled.Reported(FaultSite.GripRegistration);
                        },
                        customGripsType: typeof(TGrips));
-                   return Fin.Succ(value: unit);
                })
                select unit;
     }
@@ -477,7 +547,7 @@ public static class GripRig {
 
 ## [05]-[GRIP_EDIT]
 
-- Owner: `GripMove` `[Union]` — the relocation verbs: absolute point, delta vector, transform, and single-step undo; `GripEdit` `[Union]` — the two grip mutations: `Rig` toggles `GripsOn`, `Move` relocates one indexed grip or every grip through a `GripMove` verb; `GripFacts` — the whole grip read in one pass: identity, positions, movement state, weight, local frame, and the surface, curve, and cage parameter coordinates with their control-vertex indices, each projected as absence where the grip kind carries none; `GripReceipt`/`GripCensus` — the detached results; `Grips` — the two entries: `Census` the read, `Touch` the immediate mutation.
+- Owner: `GripMove` `[Union]` — the relocation verbs: absolute point, delta vector, transform, and single-step undo; `GripEdit` `[Union]` — the two grip mutations: `Rig` toggles `GripsOn`, `Move` relocates one indexed grip or every grip through a `GripMove` verb; `GripFacts` — the whole grip read in one pass: identity, positions, movement state, weight, local frame, and the surface, curve, and cage parameter coordinates with their control-vertex indices, each projected as absence where the grip kind carries none; `ObjectReceipt<Guid>`/`GripCensus` — the detached results; `Grips` — the two entries: `Census` the read, `Touch` the immediate mutation.
 - Law: grips resolve from their owner — `GripEdit.Rig` toggles `GripsOn`, `Census` and `GripEdit.Move` read `GetGrips` inside the grant, and a grip index addresses into that roster; no `GripObject` leases outward, because grip lifetime ends when the owner's grips turn off.
 - Law: parameter reads are capability probes — `GetSurfaceParameters`, `GetCurveParameters`, `GetCageParameters`, and the CV-index members answer `false` or empty on grips of another kind, and the facts project absence rather than faulting, so one census serves every grip kind.
 - Law: movement is immediate visual state under the host's drag machinery — `Move` and `UndoMove` mutate the grip, `Touch` opens no undo record, and the geometry consequence lands when the host drives the owner's grip pipeline; a program wanting transactional geometry replacement routes the regrown value through `TableOp.Replace`.
@@ -494,7 +564,7 @@ public abstract partial record GripMove {
 
     internal Fin<GripMove> Admit(Op op) =>
         Switch(
-            context: op,
+            op,
             to: static (key, move) => key.AcceptInput(value: move.Location).Map(_ => (GripMove)move),
             by: static (key, move) => key.AcceptInput(value: move.Delta).Map(_ => (GripMove)move),
             via: static (key, move) => key.AcceptInput(value: move.Motion).Map(_ => (GripMove)move),
@@ -502,32 +572,30 @@ public abstract partial record GripMove {
 
     internal Fin<Unit> Apply(GripObject grip, Op op) =>
         Switch(
-            context: (Grip: grip, Op: op),
-            to: static (context, move) => context.Op.Catch(() => { context.Grip.Move(newLocation: move.Location); return Fin.Succ(value: unit); }),
-            by: static (context, move) => context.Op.Catch(() => { context.Grip.Move(delta: move.Delta); return Fin.Succ(value: unit); }),
-            via: static (context, move) => context.Op.Catch(() => { context.Grip.Move(xform: move.Motion); return Fin.Succ(value: unit); }),
-            back: static (context, _) => context.Op.Catch(() => { context.Grip.UndoMove(); return Fin.Succ(value: unit); }));
+            (Grip: grip, Op: op),
+            to: static (context, move) => context.Op.Catch(() => context.Grip.Move(newLocation: move.Location)),
+            by: static (context, move) => context.Op.Catch(() => context.Grip.Move(delta: move.Delta)),
+            via: static (context, move) => context.Op.Catch(() => context.Grip.Move(xform: move.Motion)),
+            back: static (context, _) => context.Op.Catch(() => context.Grip.UndoMove()));
 }
 
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record GripEdit {
     private GripEdit() { }
-    public sealed record Rig(bool On) : GripEdit;
+    public sealed record Rig(ObjectSignal Signal) : GripEdit;
     public sealed record Move(Option<int> Index, GripMove Motion) : GripEdit;
 
     internal Fin<GripEdit> Admit(Op op) =>
         Switch(
-            context: op,
-            rig: static (_, edit) => Fin.Succ<GripEdit>(edit),
+            op,
+            rig: static (key, edit) => key.Need(edit.Signal).Map(_ => (GripEdit)edit),
             move: static (key, edit) =>
-                from motion in Optional(edit.Motion).ToFin(Fail: key.InvalidInput()).Bind(value => value.Admit(op: key))
+                from motion in key.Need(edit.Motion).Bind(value => value.Admit(op: key))
                 from _ in guard(edit.Index.Map(static value => value >= 0).IfNone(noneValue: true), key.InvalidInput()).ToFin()
                 select (GripEdit)new Move(Index: edit.Index, Motion: motion));
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
-public readonly record struct GripReceipt(Seq<Guid> Ids) : IDetachedDocumentResult;
-
 public sealed record GripCensus(Seq<(Guid Owner, Seq<GripFacts> Rows)> Rows) : IDetachedDocumentResult;
 
 public sealed record GripFacts(
@@ -573,7 +641,7 @@ public sealed record GripFacts(
 public static class Grips {
     public static Fin<GripCensus> Census(DocumentSession session, TableTarget target) {
         Op op = Op.Of();
-        return session.Demand(
+        return Optional(session).ToFin(Fail: op.MissingContext()).Bind(owner => owner.Demand(
             use: document =>
                 from natives in Objects.Resolve(document: document, target: target, key: op)
                 from rows in natives.TraverseM(native => op.Catch(() =>
@@ -582,19 +650,20 @@ public static class Grips {
                         .Map(facts => (native.Id, facts)))).As()
                 select new GripCensus(Rows: rows),
             key: op,
-            needs: [SessionNeed.Read]);
+            needs: [SessionNeed.Read]));
     }
 
-    public static Fin<GripReceipt> Touch(DocumentSession session, TableTarget target, GripEdit edit) {
+    public static Fin<ObjectReceipt<Guid>> Touch(DocumentSession session, TableTarget target, GripEdit edit) {
         Op op = Op.Of();
-        return from active in Optional(edit).ToFin(Fail: op.InvalidInput()).Bind(value => value.Admit(op: op))
-               from receipt in session.Demand(
+        return from owner in Optional(session).ToFin(Fail: op.MissingContext())
+               from active in op.Need(edit).Bind(value => value.Admit(op: op))
+               from receipt in owner.Demand(
                    use: document =>
                        from natives in Objects.Resolve(document: document, target: target, key: op)
                        from ids in natives.TraverseM(native => active.Switch(
-                           context: (Native: native, Op: op),
+                           (Native: native, Op: op),
                            rig: static (ctx, edit) => ctx.Op.Catch(() => {
-                               ctx.Native.GripsOn = edit.On;
+                               ctx.Native.GripsOn = edit.Signal.On;
                                return Fin.Succ(value: ctx.Native.Id);
                            }),
                            move: static (ctx, edit) =>
@@ -610,7 +679,7 @@ public static class Grips {
                                from _ in guard(!chosen.IsEmpty, ctx.Op.MissingContext()).ToFin()
                                from __ in chosen.TraverseM(grip => edit.Motion.Apply(grip: grip, op: ctx.Op)).As()
                                select ctx.Native.Id)).As()
-                       select new GripReceipt(Ids: ids),
+                       select new ObjectReceipt<Guid>(Facts: ids, UndoSerials: Seq<uint>()),
                    key: op,
                    needs: [SessionNeed.Mutate])
                select receipt;
@@ -624,6 +693,7 @@ public static class Grips {
 | :-----: | :--------------- | :--------------------- | :----------------------------------------------------- | :------------------------------ |
 |  [01]   | override program | `ObjectProgram`        | optional `Fin` hooks over the complete verified roster | adapter `Program` slots         |
 |  [02]   | host derivations | `Rasm*Object`          | sealed forwarding over one shared kernel, base-first   | `[ClassId]` concrete subclasses |
-|  [03]   | grip authoring   | `GripProgram`          | admitted seed/regrow core plus verified optional hooks | `RasmGrips` overrides           |
+|  [03]   | grip authoring   | `GripProgram`          | required seed/regrow core plus optional hook slots     | `RasmGrips` overrides           |
 |  [04]   | grip shims       | `RasmGrip`/`RasmGrips` | sentinel-weight repair and roster forwarding           | `GripRig.Register<TGrips>`      |
 |  [05]   | grip value edits | `GripEdit`             | rig and move over `GripMove` verbs, detached receipts  | `Grips.Touch` / `Census`        |
+|  [06]   | render-mesh cache | `RenderMeshProgram`   | base-first refinement over the five cache virtuals     | adapter mesh overrides          |

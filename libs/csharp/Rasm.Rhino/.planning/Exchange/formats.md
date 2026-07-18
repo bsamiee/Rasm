@@ -1,6 +1,6 @@
 # [RASM_RHINO_FORMATS]
 
-Codec capability matrix (`Rasm.Rhino.Exchange`). `FileCodec` is ONE generated `[SmartEnum<string>]` vocabulary whose declaration list is the whole interchange roster — every row carries its extensions, its ability set, and its direct host engine adapters as constructor data — and every secondary surface derives from that one declaration: extension detection, key lookup, dialog filter strings, plug-in file-type registration, and read/write dispatch are projections over `Items`, never parallel structures. Host option minting is `options.md`'s dial family — each engine column consumes its `Dials` row, so the tune baseline, per-format overrides, and scale lens compose once outside the matrix. Killed census forms are the handwritten `BuiltIn` roster beside three hand-maintained lookup dictionaries, the mutable custom-registration `Atom` that let a format enter outside the vocabulary, the sibling option-builder method family that restated one policy per format, the four parallel `FileVectorScale.Apply` overloads, per-row inline option spelling, and the filesystem backup policy embedded in a codec adapter — backup and collision are `operations.md` output policy, and a new format is one row. `Rhino.PlugIns` file-dialog territory binds through the same rows: `CodecPort` populates the host `FileTypeList` from import- and export-capable rows and dispatches the host's index-keyed `ReadFile`/`WriteFile` back onto the matrix.
+`FileCodec` owns codec identity, detection, filter projection, and direct Rhino engine dispatch. `CodecRequest` closes ingress and egress carrier shape under one `Codecs.Apply` rail, while `FormatDial.Seat` binds every option case to exactly one codec phase.
 
 ## [01]-[INDEX]
 
@@ -21,6 +21,7 @@ Codec capability matrix (`Rasm.Rhino.Exchange`). `FileCodec` is ONE generated `[
 using Rasm.Domain;
 using Rasm.Rhino.Document;
 using Rhino.FileIO;
+using System.Runtime.InteropServices;
 
 namespace Rasm.Rhino.Exchange;
 
@@ -97,9 +98,10 @@ public sealed record CodecTune(
 
 ## [03]-[VECTOR_SCALE]
 
-- Owner: `VectorUnit` `[SmartEnum<int>]` — the page-unit correspondence rows whose columns carry each host option type's own unit enum, so unit translation is a column read. `VectorLens<TOptions>` — the per-option-type setter row: four delegates naming where preserve, Rhino scale, source scale, and unit land on that host type. `VectorScale` — the one scale value with ONE generic `Apply<TOptions>(options, lens)`; the census's four hand-written `Apply` overloads collapse into lens rows declared beside the codec rows that consume them.
+- Owner: `VectorUnit` `[SmartEnum<int>]` carries host unit correspondences. `VectorLens<TOptions>` carries the four option setters. `VectorScale` `[ComplexValueObject]` admits the complete scale product and applies it through one generic lens.
 - Law: an explicit scale member (`Unit`, `Source`, `Rhino`) forces `PreserveModelScale` false unless `Preserve` is explicitly set; declaring both `Preserve = true` and an explicit member is a construction refusal, so a contradictory scale never reaches a host option.
 - Law: scale participation is a row fact — only rows whose option projection threads `Scale` consume it; a scale supplied to a non-vector row is inert by construction because no lens exists for its option type.
+- Boundary: `VectorScale.Apply` is the host-mutation capsule; its four ordered `Iter` statements are the platform-forced statement exemption, and every caller remains expression-shaped.
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
@@ -131,37 +133,50 @@ public sealed record VectorLens<TOptions>(
     Action<TOptions, double> Source,
     Action<TOptions, VectorUnit> Unit) where TOptions : class;
 
-public readonly record struct VectorScale(
-    Option<VectorUnit> Unit = default,
-    Option<double> Source = default,
-    Option<double> Rhino = default,
-    Option<bool> Preserve = default) {
+[ComplexValueObject]
+[StructLayout(LayoutKind.Auto)]
+public readonly partial struct VectorScale {
+    public Option<VectorUnit> Unit { get; }
+    public Option<double> Source { get; }
+    public Option<double> Rhino { get; }
+    public Option<bool> Preserve { get; }
+
     private bool HasExplicit => Unit.IsSome || Source.IsSome || Rhino.IsSome;
 
     private Option<bool> PreserveMode => Preserve | (HasExplicit ? Some(value: false) : Option<bool>.None);
 
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref Option<VectorUnit> unit,
+        ref Option<double> source,
+        ref Option<double> rhino,
+        ref Option<bool> preserve) =>
+        validationError = preserve.Case is true && (unit.IsSome || source.IsSome || rhino.IsSome)
+            ? new ValidationError("Preserved model scale cannot carry explicit scale members.")
+            : source.Exists(static value => !double.IsFinite(value) || value <= 0d)
+                ? new ValidationError("Source scale must be finite and positive.")
+                : rhino.Exists(static value => !double.IsFinite(value) || value <= 0d)
+                    ? new ValidationError("Rhino scale must be finite and positive.")
+                    : null;
+
     public static Fin<VectorScale> Of(
-        Option<VectorUnit> unit = default,
+        Option<VectorUnit> vectorUnit = default,
         Option<double> source = default,
         Option<double> rhino = default,
         Option<bool> preserve = default,
         Op? key = null) {
         Op op = key.OrDefault();
-        VectorScale candidate = new(Unit: unit, Source: source, Rhino: rhino, Preserve: preserve);
-        return from _mode in guard(!(preserve.Case is true && candidate.HasExplicit), op.InvalidInput()).ToFin()
-               from _source in source.Map(value => op.Positive(value: value).Map(static _ => unit)).IfNone(Fin.Succ(value: unit))
-               from _rhino in rhino.Map(value => op.Positive(value: value).Map(static _ => unit)).IfNone(Fin.Succ(value: unit))
-               select candidate;
+        return Validate(unit: vectorUnit, source: source, rhino: rhino, preserve: preserve, item: out VectorScale value) is null
+            ? Fin.Succ(value: value)
+            : Fin.Fail<VectorScale>(error: op.InvalidInput());
     }
 
     internal TOptions Apply<TOptions>(TOptions options, VectorLens<TOptions> lens) where TOptions : class {
-        VectorScale self = this;
-        _ = Op.Side(() => {
-            _ = self.PreserveMode.Iter(value => lens.Preserve(arg1: options, arg2: value));
-            _ = self.Rhino.Iter(value => lens.Rhino(arg1: options, arg2: value));
-            _ = self.Source.Iter(value => lens.Source(arg1: options, arg2: value));
-            _ = self.Unit.Iter(value => lens.Unit(arg1: options, arg2: value));
-        });
+        _ = PreserveMode.Iter(value => lens.Preserve(arg1: options, arg2: value));
+        _ = Rhino.Iter(value => lens.Rhino(arg1: options, arg2: value));
+        _ = Source.Iter(value => lens.Source(arg1: options, arg2: value));
+        _ = Unit.Iter(value => lens.Unit(arg1: options, arg2: value));
         return options;
     }
 }
@@ -185,11 +200,11 @@ internal static class VectorLenses {
 
 ## [04]-[CODEC_MATRIX]
 
-- Owner: `FileCodec` `[SmartEnum<string>]` — the interchange matrix. Each row declares its extension set, its ability set, and two `[UseDelegateFromConstructor]` engine columns whose bodies resolve the row's typed host options through its `Dials` row and invoke the direct engine; rows without an engine leg answer with the shared typed refusal, and the ability gate in the one entry keeps that refusal unreachable. Option minting is the dial family's — the tune baseline, per-format dial overrides, and the scale lens compose in one `Dials` resolution, so no row spells a host option member inline and one policy record still drives every host option type.
-- Entry: `Codecs.Read(RhinoDoc, DocumentPath, FileCodec, CodecTune, FileReadOptions, Op?)` and `Codecs.Write(RhinoDoc, DocumentPath, FileCodec, CodecTune, FileWriteOptions, Op?)` — one internal entry per direction, one dispatch through the row's engine column; both take a raw host handle, so they stay internal to the package where the only sanctioned holders live (the `Exchanges` demand window and the host dialog callbacks), and consumers enter through `Exchanges.Run`. A row whose host lane is document-attached (`RhinoDoc.Import` with an `ArchivableDictionary`, `RhinoDoc.Export` with the option dictionary) carries that lane INSIDE its engine column, so the caller never selects a transport and no second dispatch structure exists.
+- Owner: `FileCodec` `[SmartEnum<string>]` is the interchange matrix. Each row declares extensions, abilities, and two engine columns; each engine composes polymorphic `Dials.Resolve`, while unsupported legs share one typed refusal.
+- Entry: `Codecs.Apply(RhinoDoc, DocumentPath, FileCodec, CodecTune, CodecRequest, Op?)` accepts one carrier union and dispatches once through the selected row. `Exchanges.Run` and `CodecPort.Dispatch` remain the only raw-document consumers.
 - Law: `Detect`, `Of`, `Filter`, and `EnsureExtension` derive from `Items` through lazy frozen indexes — the declaration list is the single source, a new row lands in every derived surface with zero additional edits, and a reserved key (`json`) is refused at the row-lookup boundary so wire payload spellings never collide with interchange formats.
 - Law: the vocabulary is closed — the census's runtime custom-registration cell is dead; a format the matrix lacks is one new row, and a foreign plug-in's format reaches the document only through the host's own dialog dispatch, never through this matrix.
-- Law: engine outcomes normalize at the row — a `bool` engine and a `WriteFileResult` engine both fold to `Fin<Unit>` through the two adapters, so consumers see one rail regardless of which host generation the engine belongs to.
+- Law: engine outcomes normalize at the row — a `bool` engine and a `WriteFileResult` engine both fold to `Fin<Unit>` through the overloaded `Reader`/`Writer` factories, so a standard row is one factory call per direction and a hand-spelled engine closure survives only where the row composes a scale lens or a host-owned transport (`Ai`, `Eps`, `Pdf`, `3dm`, `Xaml`).
 - Boundary: `FilePdf` page authoring and raster encoding are `publish.md` egress; the `pdf`/`svg` rows here own only page-space vector import, and the raster rows exist as capability data the publish target vocabulary keys on.
 
 ```csharp signature
@@ -197,112 +212,127 @@ internal static class VectorLenses {
 [SmartEnum<string>]
 public sealed partial class FileCodec {
     public static readonly FileCodec ThreeDm = new("3dm", Seq(".3dm"),
-        Seq(CodecAbility.Archive, CodecAbility.Import, CodecAbility.Selection),
+        Seq(CodecAbility.Archive, CodecAbility.Import, CodecAbility.Export, CodecAbility.Selection),
         static (tune, carrier, doc, path, op) =>
             op.Confirm(success: doc.Import(filePath: path, options: new Rhino.Collections.ArchivableDictionary())),
-        Unwritten);
+        static (tune, carrier, doc, path, op) =>
+            op.Confirm(success: doc.Write3dmFile(path: path, options: carrier)));
     public static readonly FileCodec ThreeDs = new("3ds", Seq(".3ds"),
         Seq(CodecAbility.Import, CodecAbility.Export),
-        static (tune, carrier, doc, path, op) => Confirm(File3ds.Read(path, doc, Dials.ThreeDsRead(tune)), op),
-        static (tune, carrier, doc, path, op) => Confirm(File3ds.Write(path, doc, Dials.ThreeDsWrite(tune)), op));
+        Reader(File3ds.Read, static () => new FormatDial.ThreeDsReadCase(), static (dial, _) => dial.Mint()),
+        Writer(File3ds.Write, static () => new FormatDial.ThreeDsWriteCase(), static (dial, policy) => dial.Mint(tune: policy)));
     public static readonly FileCodec ThreeMf = new("3mf", Seq(".3mf"), Seq(CodecAbility.Export), Unread,
-        static (tune, carrier, doc, path, op) => Confirm(File3mf.Write(path, doc, Dials.ThreeMfWrite(tune)), op));
+        Writer(File3mf.Write, static () => new FormatDial.ThreeMfWriteCase(), static (dial, _) => dial.Mint()));
     public static readonly FileCodec Ai = new("ai", Seq(".ai"),
         Seq(CodecAbility.Import, CodecAbility.Export, CodecAbility.Vector),
-        static (tune, carrier, doc, path, op) => Confirm(FileAi.Read(path, doc, Dials.AiRead(tune)), op),
-        static (tune, carrier, doc, path, op) => Confirm(FileAi.Write(path, doc, Dials.AiWrite(tune)), op));
+        static (tune, carrier, doc, path, op) => Confirm(FileAi.Read(path, doc,
+            Dials.Scale(new FileAiReadOptions { PreserveModelScale = tune.Fidelity.IsModel }, tune, VectorLenses.AiRead)), op),
+        static (tune, carrier, doc, path, op) => Confirm(FileAi.Write(path, doc,
+            Dials.Scale(
+                Dials.Resolve(tune, carrier, static () => new FormatDial.AiWriteCase(), static (dial, policy, _) => dial.Mint(tune: policy)),
+                tune,
+                VectorLenses.AiWrite)), op));
     public static readonly FileCodec Amf = new("amf", Seq(".amf"), Seq(CodecAbility.Export), Unread,
-        static (tune, carrier, doc, path, op) => Confirm(FileAmf.Write(path, doc, Dials.AmfWrite(tune)), op));
+        Writer(FileAmf.Write, static () => new FormatDial.AmfWriteCase(), static (dial, _) => dial.Mint()));
     public static readonly FileCodec Obj = new("obj", Seq(".obj"),
         Seq(CodecAbility.Import, CodecAbility.Export, CodecAbility.Selection),
-        static (tune, carrier, doc, path, op) => Confirm(FileObj.Read(path, doc, Dials.ObjRead(tune, carrier)), op),
-        static (tune, carrier, doc, path, op) => Confirm(FileObj.Write(path, doc, Dials.ObjWrite(tune, carrier)), op));
+        Reader(FileObj.Read, static () => new FormatDial.ObjReadCase(), static (dial, _, host) => dial.Mint(carrier: host)),
+        Writer(FileObj.Write, static () => new FormatDial.ObjWriteCase(), static (dial, policy, host) => dial.Mint(tune: policy, carrier: host)));
     public static readonly FileCodec Ply = new("ply", Seq(".ply"),
         Seq(CodecAbility.Import, CodecAbility.Export, CodecAbility.Selection),
-        static (tune, carrier, doc, path, op) => Confirm(FilePly.Read(path, doc, Dials.PlyRead(tune)), op),
-        static (tune, carrier, doc, path, op) => Confirm(FilePly.Write(path, doc, Dials.PlyWrite(tune, carrier)), op));
+        Reader(FilePly.Read, static () => new FormatDial.PlyReadCase(), static (dial, _) => dial.Mint()),
+        Writer(FilePly.Write, static () => new FormatDial.PlyWriteCase(), static (dial, policy, host) => dial.Mint(tune: policy, carrier: host)));
     public static readonly FileCodec Cd = new("cd", Seq(".cd"), Seq(CodecAbility.Export), Unread,
-        static (tune, carrier, doc, path, op) => Confirm(FileCd.Write(path, doc, Dials.CdWrite(tune)), op));
+        Writer(FileCd.Write, static () => new FormatDial.CdWriteCase(), static (dial, _) => dial.Mint()));
     public static readonly FileCodec Dgn = new("dgn", Seq(".dgn"), Seq(CodecAbility.Import),
-        static (tune, carrier, doc, path, op) => Confirm(FileDgn.Read(path, doc, Dials.DgnRead(tune)), op), Unwritten);
+        Reader(FileDgn.Read, static () => new FormatDial.DgnReadCase(), static (dial, _) => dial.Mint()), Unwritten);
     public static readonly FileCodec Dst = new("dst", Seq(".dst"), Seq(CodecAbility.Import),
-        static (tune, carrier, doc, path, op) => Confirm(FileDst.Read(path, doc, Dials.DstRead(tune)), op), Unwritten);
+        Reader(FileDst.Read, static () => new FormatDial.DstReadCase(), static (dial, _) => dial.Mint()), Unwritten);
     public static readonly FileCodec Dwg = new("dwg", Seq(".dwg", ".dxf"),
         Seq(CodecAbility.Import, CodecAbility.Export),
-        static (tune, carrier, doc, path, op) => Confirm(FileDwg.Read(path, doc, Dials.DwgRead(tune)), op),
-        static (tune, carrier, doc, path, op) => Confirm(FileDwg.Write(path, doc, Dials.DwgWrite(tune)), op));
+        Reader(FileDwg.Read, static () => new FormatDial.DwgReadCase(), static (dial, _) => dial.Mint()),
+        Writer(FileDwg.Write, static () => new FormatDial.DwgWriteCase(), static (dial, policy) => dial.Mint(tune: policy)));
     public static readonly FileCodec Eps = new("eps", Seq(".eps"),
         Seq(CodecAbility.Import, CodecAbility.Vector),
-        static (tune, carrier, doc, path, op) => Confirm(FileEps.Read(path, doc, Dials.EpsRead(tune)), op), Unwritten);
+        static (tune, carrier, doc, path, op) => Confirm(FileEps.Read(path, doc,
+            Dials.Scale(new FileEpsReadOptions { PreserveModelScale = tune.Fidelity.IsModel }, tune, VectorLenses.Eps)), op), Unwritten);
     public static readonly FileCodec Stl = new("stl", Seq(".stl"),
         Seq(CodecAbility.Import, CodecAbility.Export),
-        static (tune, carrier, doc, path, op) => Confirm(FileStl.Read(path, doc, Dials.StlRead(tune)), op),
-        static (tune, carrier, doc, path, op) => Confirm(FileStl.Write(path, doc, Dials.StlWrite(tune)), op));
+        Reader(FileStl.Read, static () => new FormatDial.StlReadCase(), static (dial, _) => dial.Mint()),
+        Writer(FileStl.Write, static () => new FormatDial.StlWriteCase(), static (dial, _) => dial.Mint()));
     public static readonly FileCodec Stp = new("stp", Seq(".stp", ".step"),
         Seq(CodecAbility.Import, CodecAbility.Export),
-        static (tune, carrier, doc, path, op) => Confirm(FileStp.Read(path, doc, Dials.StpRead(tune)), op),
-        static (tune, carrier, doc, path, op) => Confirm(FileStp.Write(path, doc, Dials.StpWrite(tune)), op));
+        Reader(FileStp.Read, static () => new FormatDial.StpReadCase(), static (dial, _) => dial.Mint()),
+        Writer(FileStp.Write, static () => new FormatDial.StpWriteCase(), static (dial, _) => dial.Mint()));
     public static readonly FileCodec Fbx = new("fbx", Seq(".fbx"),
         Seq(CodecAbility.Import, CodecAbility.Export),
-        static (tune, carrier, doc, path, op) => Confirm(FileFbx.Read(path, doc, Dials.FbxRead(tune)), op),
-        static (tune, carrier, doc, path, op) => Confirm(FileFbx.Write(path, doc, Dials.FbxWrite(tune)), op));
+        Reader(FileFbx.Read, static () => new FormatDial.FbxReadCase(), static (dial, _) => dial.Mint()),
+        Writer(FileFbx.Write, static () => new FormatDial.FbxWriteCase(), static (dial, policy) => dial.Mint(tune: policy)));
     public static readonly FileCodec Ghs = new("ghs", Seq(".ghs"), Seq(CodecAbility.Import),
-        static (tune, carrier, doc, path, op) => Confirm(FileGHS.Read(path, doc, Dials.GhsRead(tune)), op), Unwritten);
+        Reader(FileGHS.Read, static () => new FormatDial.GhsReadCase(), static (dial, _) => dial.Mint()), Unwritten);
     public static readonly FileCodec Gts = new("gts", Seq(".gts"), Seq(CodecAbility.Export), Unread,
-        static (tune, carrier, doc, path, op) => Confirm(FileGts.Write(path, doc, Dials.GtsWrite(tune)), op));
+        Writer(FileGts.Write, static () => new FormatDial.GtsWriteCase(), static (dial, _) => dial.Mint()));
     public static readonly FileCodec Igs = new("igs", Seq(".igs", ".iges"), Seq(CodecAbility.Export), Unread,
-        static (tune, carrier, doc, path, op) => Confirm(FileIgs.Write(path, doc, Dials.IgsWrite(tune)), op));
+        Writer(FileIgs.Write, static () => new FormatDial.IgsWriteCase(), static (dial, _) => dial.Mint()));
     public static readonly FileCodec Lwo = new("lwo", Seq(".lwo"),
         Seq(CodecAbility.Import, CodecAbility.Export),
-        static (tune, carrier, doc, path, op) => Confirm(FileLwo.Read(path, doc, Dials.LwoRead(tune)), op),
-        static (tune, carrier, doc, path, op) => Confirm(FileLwo.Write(path, doc, Dials.LwoWrite(tune)), op));
+        Reader(FileLwo.Read, static () => new FormatDial.LwoReadCase(), static (dial, _) => dial.Mint()),
+        Writer(FileLwo.Write, static () => new FormatDial.LwoWriteCase(), static (dial, _) => dial.Mint()));
     public static readonly FileCodec Nwd = new("nwd", Seq(".nwd"), Seq(CodecAbility.Export), Unread,
-        static (tune, carrier, doc, path, op) => Confirm(FileNwd.Write(path, doc, Dials.NwdWrite(tune)), op));
+        Writer(FileNwd.Write, static () => new FormatDial.NwdWriteCase(), static (dial, _) => dial.Mint()));
     public static readonly FileCodec Pov = new("pov", Seq(".pov"), Seq(CodecAbility.Export), Unread,
-        static (tune, carrier, doc, path, op) => Confirm(FilePov.Write(path, doc, Dials.PovWrite(tune)), op));
+        Writer(FilePov.Write, static () => new FormatDial.PovWriteCase(), static (dial, _) => dial.Mint()));
     public static readonly FileCodec Sat = new("sat", Seq(".sat"), Seq(CodecAbility.Export), Unread,
-        static (tune, carrier, doc, path, op) => Confirm(FileSat.Write(path, doc, Dials.SatWrite(tune)), op));
+        Writer(FileSat.Write, static () => new FormatDial.SatWriteCase(), static (dial, _) => dial.Mint()));
     public static readonly FileCodec Skp = new("skp", Seq(".skp"),
         Seq(CodecAbility.Import, CodecAbility.Export),
-        static (tune, carrier, doc, path, op) => Confirm(FileSkp.Read(path, doc, Dials.SkpRead(tune)), op),
-        static (tune, carrier, doc, path, op) => Confirm(FileSkp.Write(path, doc, Dials.SkpWrite(tune)), op));
+        Reader(FileSkp.Read, static () => new FormatDial.SkpReadCase(), static (dial, _) => dial.Mint()),
+        Writer(FileSkp.Write, static () => new FormatDial.SkpWriteCase(), static (dial, policy) => dial.Mint(tune: policy)));
     public static readonly FileCodec Slc = new("slc", Seq(".slc"), Seq(CodecAbility.Export), Unread,
-        static (tune, carrier, doc, path, op) => Confirm(FileSlc.Write(path, doc, Dials.SlcWrite(tune)), op));
+        Writer(FileSlc.Write, static () => new FormatDial.SlcWriteCase(), static (dial, _) => dial.Mint()));
     public static readonly FileCodec Sw = new("sw", Seq(".sldprt", ".sldasm"), Seq(CodecAbility.Import),
-        static (tune, carrier, doc, path, op) => Confirm(FileSW.Read(path, doc, Dials.SwRead(tune)), op), Unwritten);
+        Reader(FileSW.Read, static () => new FormatDial.SwReadCase(), static (dial, _) => dial.Mint()), Unwritten);
     public static readonly FileCodec Udo = new("udo", Seq(".udo"), Seq(CodecAbility.Export), Unread,
-        static (tune, carrier, doc, path, op) => Confirm(FileUdo.Write(path, doc, Dials.UdoWrite(tune)), op));
+        Writer(FileUdo.Write, static () => new FormatDial.UdoWriteCase(), static (dial, _) => dial.Mint()));
     public static readonly FileCodec Vda = new("vda", Seq(".vda"), Seq(CodecAbility.Export), Unread,
-        static (tune, carrier, doc, path, op) => Confirm(FileVda.Write(path, doc, Dials.VdaWrite(tune)), op));
+        Writer(FileVda.Write, static () => new FormatDial.VdaWriteCase(), static (dial, _) => dial.Mint()));
     public static readonly FileCodec Vrml = new("vrml", Seq(".wrl", ".vrml"), Seq(CodecAbility.Export), Unread,
-        static (tune, carrier, doc, path, op) => Confirm(FileVrml.Write(path, doc, Dials.VrmlWrite(tune)), op));
+        Writer(FileVrml.Write, static () => new FormatDial.VrmlWriteCase(), static (dial, policy) => dial.Mint(tune: policy)));
     public static readonly FileCodec X3dv = new("x3dv", Seq(".x3dv"), Seq(CodecAbility.Export), Unread,
-        static (tune, carrier, doc, path, op) => Confirm(FileX3dv.Write(path, doc, Dials.X3dvWrite(tune)), op));
+        Writer(FileX3dv.Write, static () => new FormatDial.X3dvWriteCase(), static (dial, policy) => dial.Mint(tune: policy)));
     public static readonly FileCodec Xaml = new("xaml", Seq(".xaml"), Seq(CodecAbility.Export), Unread,
         static (tune, carrier, doc, path, op) => op.Confirm(success: doc.Export(filePath: path,
-            options: Dials.XamlWrite(tune).ToDictionary())));
+            options: Dials.Resolve(
+                tune,
+                carrier,
+                static () => new FormatDial.XamlWriteCase(),
+                static (dial, policy, _) => dial.Mint(tune: policy)).ToDictionary())));
     public static readonly FileCodec XT = new("x_t", Seq(".x_t", ".x_b"), Seq(CodecAbility.Export), Unread,
-        static (tune, carrier, doc, path, op) => Confirm(FileX_T.Write(path, doc, Dials.XTWrite(tune)), op));
+        Writer(FileX_T.Write, static () => new FormatDial.XTWriteCase(), static (dial, _) => dial.Mint()));
     public static readonly FileCodec Raw = new("raw", Seq(".raw"),
         Seq(CodecAbility.Import, CodecAbility.Export),
-        static (tune, carrier, doc, path, op) => Confirm(FileRaw.Read(path, doc, Dials.RawRead(tune)), op),
-        static (tune, carrier, doc, path, op) => Confirm(FileRaw.Write(path, doc, Dials.RawWrite(tune)), op));
+        Reader(FileRaw.Read, static () => new FormatDial.RawReadCase(), static (dial, _) => dial.Mint()),
+        Writer(FileRaw.Write, static () => new FormatDial.RawWriteCase(), static (dial, _) => dial.Mint()));
     public static readonly FileCodec Txt = new("txt", Seq(".txt"),
         Seq(CodecAbility.Import, CodecAbility.Export),
-        static (tune, carrier, doc, path, op) => Confirm(FileTxt.Read(path, doc, Dials.TxtRead(tune)), op),
-        static (tune, carrier, doc, path, op) => Confirm(FileTxt.Write(path, doc, Dials.TxtWrite(tune)), op));
+        Reader(FileTxt.Read, static () => new FormatDial.TxtReadCase(), static (dial, _) => dial.Mint()),
+        Writer(FileTxt.Write, static () => new FormatDial.TxtWriteCase(), static (dial, policy) => dial.Mint(tune: policy)));
     public static readonly FileCodec Csv = new("csv", Seq(".csv"), Seq(CodecAbility.Export), Unread,
-        static (tune, carrier, doc, path, op) => Confirm(FileCsv.Write(path, doc, Dials.CsvWrite(tune)), op));
+        Writer(FileCsv.Write, static () => new FormatDial.CsvWriteCase(), static (dial, policy) => dial.Mint(tune: policy)));
     public static readonly FileCodec Gltf = new("gltf", Seq(".gltf", ".glb"), Seq(CodecAbility.Export), Unread,
-        static (tune, carrier, doc, path, op) => Confirm(FileGltf.Write(path, doc, Dials.GltfWrite(tune)), op));
+        Writer(FileGltf.Write, static () => new FormatDial.GltfWriteCase(), static (dial, policy) => dial.Mint(tune: policy)));
     public static readonly FileCodec Usd = new("usd", Seq(".usd", ".usda", ".usdz"), Seq(CodecAbility.Export), Unread,
-        static (tune, carrier, doc, path, op) => Confirm(FileUsd.Write(path, doc, Dials.UsdWrite(tune)), op));
+        Writer(FileUsd.Write, static () => new FormatDial.UsdWriteCase(), static (dial, policy) => dial.Mint(tune: policy)));
     public static readonly FileCodec Pdf = new("pdf", Seq(".pdf"),
         Seq(CodecAbility.Import, CodecAbility.Vector),
-        static (tune, carrier, doc, path, op) => Confirm(FilePdf.Read(path, doc, Dials.PdfRead(tune)), op), Unwritten);
+        static (tune, carrier, doc, path, op) => Confirm(FilePdf.Read(path, doc,
+            Dials.Scale(
+                Dials.Resolve(tune, carrier, static () => new FormatDial.PdfReadCase(), static (dial, policy, _) => dial.Mint(tune: policy)),
+                tune,
+                VectorLenses.Pdf)), op), Unwritten);
     public static readonly FileCodec Svg = new("svg", Seq(".svg"),
         Seq(CodecAbility.Import, CodecAbility.Vector),
-        static (tune, carrier, doc, path, op) => Confirm(FileSvg.Read(path, doc, Dials.SvgRead(tune)), op), Unwritten);
+        Reader(FileSvg.Read, static () => new FormatDial.SvgReadCase(), static (dial, _) => dial.Mint()), Unwritten);
     public static readonly FileCodec Png = new("png", Seq(".png"), Seq(CodecAbility.Raster), Unread, Unwritten);
     public static readonly FileCodec Jpeg = new("jpeg", Seq(".jpg", ".jpeg"), Seq(CodecAbility.Raster), Unread, Unwritten);
     public static readonly FileCodec Tiff = new("tiff", Seq(".tif", ".tiff"), Seq(CodecAbility.Raster), Unread, Unwritten);
@@ -332,9 +362,53 @@ public sealed partial class FileCodec {
         Fin.Fail<Unit>(error: key.InvalidInput());
     private static Fin<Unit> Unwritten(CodecTune tune, FileWriteOptions carrier, RhinoDoc document, string path, Op key) =>
         Fin.Fail<Unit>(error: key.InvalidInput());
+
+    private static Func<CodecTune, FileReadOptions, RhinoDoc, string, Op, Fin<Unit>> Reader<TCase, TOptions>(
+        Func<string, RhinoDoc, TOptions, bool> engine, Func<TCase> dial, Func<TCase, CodecTune, TOptions> mint)
+        where TCase : FormatDial =>
+        (tune, carrier, doc, path, op) => Confirm(engine(path, doc, Dials.Resolve(tune, carrier, dial, (resolved, policy, _) => mint(resolved, policy))), op);
+
+    private static Func<CodecTune, FileReadOptions, RhinoDoc, string, Op, Fin<Unit>> Reader<TCase, TOptions>(
+        Func<string, RhinoDoc, TOptions, bool> engine, Func<TCase> dial, Func<TCase, CodecTune, FileReadOptions, TOptions> mint)
+        where TCase : FormatDial =>
+        (tune, carrier, doc, path, op) => Confirm(engine(path, doc, Dials.Resolve(tune, carrier, dial, mint)), op);
+
+    private static Func<CodecTune, FileWriteOptions, RhinoDoc, string, Op, Fin<Unit>> Writer<TCase, TOptions>(
+        Func<string, RhinoDoc, TOptions, bool> engine, Func<TCase> dial, Func<TCase, CodecTune, TOptions> mint)
+        where TCase : FormatDial =>
+        (tune, carrier, doc, path, op) => Confirm(engine(path, doc, Dials.Resolve(tune, carrier, dial, (resolved, policy, _) => mint(resolved, policy))), op);
+
+    private static Func<CodecTune, FileWriteOptions, RhinoDoc, string, Op, Fin<Unit>> Writer<TCase, TOptions>(
+        Func<string, RhinoDoc, TOptions, WriteFileResult> engine, Func<TCase> dial, Func<TCase, CodecTune, TOptions> mint)
+        where TCase : FormatDial =>
+        (tune, carrier, doc, path, op) => Confirm(engine(path, doc, Dials.Resolve(tune, carrier, dial, (resolved, policy, _) => mint(resolved, policy))), op);
+
+    private static Func<CodecTune, FileWriteOptions, RhinoDoc, string, Op, Fin<Unit>> Writer<TCase, TOptions>(
+        Func<string, RhinoDoc, TOptions, bool> engine, Func<TCase> dial, Func<TCase, CodecTune, FileWriteOptions, TOptions> mint)
+        where TCase : FormatDial =>
+        (tune, carrier, doc, path, op) => Confirm(engine(path, doc, Dials.Resolve(tune, carrier, dial, mint)), op);
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
+[Union]
+internal abstract partial record CodecRequest {
+    private CodecRequest() { }
+
+    internal sealed record ImportCase(FileReadOptions Carrier) : CodecRequest;
+    internal sealed record ExportCase(FileWriteOptions Carrier) : CodecRequest;
+
+    internal CodecPhase Phase => Switch(
+        importCase: static _ => CodecPhase.Import,
+        exportCase: static _ => CodecPhase.Export);
+
+    internal Fin<Unit> Dispatch(FileCodec codec, CodecTune tune, RhinoDoc document, string path, Op op) => Switch(
+        (Codec: codec, Tune: tune, Document: document, Path: path, Op: op),
+        importCase: static (ctx, request) => ctx.Codec.ReadEngine(
+            tune: ctx.Tune, carrier: request.Carrier, document: ctx.Document, path: ctx.Path, key: ctx.Op),
+        exportCase: static (ctx, request) => ctx.Codec.WriteEngine(
+            tune: ctx.Tune, carrier: request.Carrier, document: ctx.Document, path: ctx.Path, key: ctx.Op));
+}
+
 public static class Codecs {
     private static readonly FrozenSet<string> Reserved =
         new[] { "json", ".json" }.ToFrozenSet(comparer: StringComparer.OrdinalIgnoreCase);
@@ -353,13 +427,16 @@ public static class Codecs {
         Op op = key.OrDefault();
         return from text in op.AcceptText(value: keyOrExtension)
                from _reserved in guard(!Reserved.Contains(text), op.InvalidInput()).ToFin()
-               from row in FileCodec.Validate(text.TrimStart('.'), null, out FileCodec? named) is null
-                   ? Fin.Succ(value: named!)
-                   : ByExtension.Value.TryGetValue(text.StartsWith('.') ? text : "." + text, out FileCodec? byExt)
-                       ? Fin.Succ(value: byExt)
-                       : Fin.Fail<FileCodec>(error: op.InvalidInput())
+               from row in Resolve(text: text, op: op)
                select row;
     }
+
+    private static Fin<FileCodec> Resolve(string text, Op op) =>
+        FileCodec.Validate(text.TrimStart('.'), null, out FileCodec? named) is null
+            ? Optional(named).ToFin(Fail: op.InvalidResult())
+            : ByExtension.Value.TryGetValue(text.StartsWith('.') ? text : "." + text, out FileCodec? byExtension)
+                ? Fin.Succ(value: byExtension)
+                : Fin.Fail<FileCodec>(error: op.InvalidInput());
 
     public static string Filter(CodecPhase phase, Seq<FileCodec> subset = default) =>
         string.Join('|', (subset.IsEmpty ? toSeq(FileCodec.Items) : subset)
@@ -368,19 +445,17 @@ public static class Codecs {
                 $"{row.Key.ToUpperInvariant()} ({string.Join(", ", row.Extensions.Map(static e => "*" + e))})"
                 + $"|{string.Join(';', row.Extensions.Map(static e => "*" + e))}"));
 
-    internal static Fin<Unit> Read(RhinoDoc document, DocumentPath path, FileCodec codec, CodecTune tune, FileReadOptions carrier, Op? key = null) {
+    internal static Fin<Unit> Apply(
+        RhinoDoc document,
+        DocumentPath path,
+        FileCodec codec,
+        CodecTune tune,
+        CodecRequest request,
+        Op? key = null) {
         Op op = key.OrDefault();
-        return from _ability in guard(codec.Has(CodecAbility.Import), op.InvalidInput()).ToFin()
-               from _seat in guard(tune.Dial.ForAll(dial => dial.Codec == codec && dial.Phase == CodecPhase.Import), op.InvalidInput()).ToFin()
-               from done in op.Catch(() => codec.ReadEngine(tune: tune, carrier: carrier, document: document, path: path.Value, key: op))
-               select done;
-    }
-
-    internal static Fin<Unit> Write(RhinoDoc document, DocumentPath path, FileCodec codec, CodecTune tune, FileWriteOptions carrier, Op? key = null) {
-        Op op = key.OrDefault();
-        return from _ability in guard(codec.Has(CodecAbility.Export), op.InvalidInput()).ToFin()
-               from _seat in guard(tune.Dial.ForAll(dial => dial.Codec == codec && dial.Phase == CodecPhase.Export), op.InvalidInput()).ToFin()
-               from done in op.Catch(() => codec.WriteEngine(tune: tune, carrier: carrier, document: document, path: path.Value, key: op))
+        return from _ability in guard(codec.Has(request.Phase.Demands), op.InvalidInput()).ToFin()
+               from _seat in guard(tune.Dial.ForAll(dial => dial.Seat.Codec == codec && dial.Seat.Phase == request.Phase), op.InvalidInput()).ToFin()
+               from done in op.Catch(() => request.Dispatch(codec: codec, tune: tune, document: document, path: path.Value, op: op))
                select done;
     }
 }
@@ -388,7 +463,7 @@ public static class Codecs {
 
 ## [05]-[DIALOG_PORT]
 
-- Owner: `CodecPort` — the host file-dialog seam. `Register` folds every phase-capable row except the host-native `3dm` row into the host `FileTypeList` and records the host-returned index against its row in one phase-keyed committed cell, so the later index-keyed `ReadFile`/`WriteFile` dispatch is a frozen lookup, never a re-parsed extension. One carrier-discriminated `Dispatch` core owns index resolution, path admission, and the matrix entry — the host carrier's type selects the direction, so the two plug-in bases each collapse to one override folding the shared rail into their host verdict currency.
+- Owner: `CodecPort` — the host file-dialog seam. `Register` folds every phase-capable row except the host-native `3dm` row into the host `FileTypeList` and records the host-returned index against its row in one phase-keyed committed cell, so the later index-keyed `ReadFile`/`WriteFile` dispatch is a frozen lookup, never a re-parsed extension. One `CodecRequest`-discriminated `Dispatch` core owns index resolution, path admission, and the matrix entry; each plug-in base contributes only its host carrier case and folds the shared rail into its verdict currency.
 - Law: the index registry is one cell keyed on phase — each `AddFileTypes` invocation replaces its own phase's rows whole while the sibling phase's rows stand — the host owns registration timing, and a dispatch against an unregistered index is a typed refusal, never an index-out-of-range escape.
 - Law: the port dispatches with `CodecTune.Model` and the host-supplied `FileReadOptions`/`FileWriteOptions` carrier — dialog traffic carries host intent (import-versus-open, selected-versus-all) in the carrier, and the tune stays the canonical default because the dialog carries no policy surface.
 - Boundary: `Result`/`WriteFileResult` are the host's dialog verdict currencies; the port folds the matrix rail into them at the seam and nothing above the port sees them.
@@ -412,23 +487,20 @@ public static class CodecPort {
         return ignore(Registry.Swap(map => map.Filter((key, _) => key.Phase != phase) + bound));
     }
 
-    internal static Fin<FileCodec> Registered(int index, CodecPhase phase, Op key) =>
-        Registry.Value.Find((phase, index)).ToFin(Fail: key.InvalidInput());
-
-    internal static Fin<Unit> Dispatch(int index, RhinoDoc document, string filename, FileReadOptions carrier) {
+    internal static Fin<Unit> Dispatch(int index, RhinoDoc document, string filename, CodecRequest request) {
         Op op = Op.Of();
-        return Admitted(index: index, phase: CodecPhase.Import, filename: filename, op: op).Bind(seat =>
-            Codecs.Read(document: document, path: seat.Path, codec: seat.Codec, tune: CodecTune.Model, carrier: carrier, key: op));
-    }
-
-    internal static Fin<Unit> Dispatch(int index, RhinoDoc document, string filename, FileWriteOptions carrier) {
-        Op op = Op.Of();
-        return Admitted(index: index, phase: CodecPhase.Export, filename: filename, op: op).Bind(seat =>
-            Codecs.Write(document: document, path: seat.Path, codec: seat.Codec, tune: CodecTune.Model, carrier: carrier, key: op));
+        return Admitted(index: index, phase: request.Phase, filename: filename, op: op).Bind(seat =>
+            Codecs.Apply(
+                document: document,
+                path: seat.Path,
+                codec: seat.Codec,
+                tune: CodecTune.Model,
+                request: request,
+                key: op));
     }
 
     private static Fin<(FileCodec Codec, DocumentPath Path)> Admitted(int index, CodecPhase phase, string filename, Op op) =>
-        from codec in Registered(index: index, phase: phase, key: op)
+        from codec in Registry.Value.Find((phase, index)).ToFin(Fail: op.InvalidInput())
         from path in op.Catch(() => Fin.Succ(value: DocumentPath.Create(value: filename)))
         select (Codec: codec, Path: path);
 }
@@ -438,7 +510,11 @@ public abstract class CodecImportPort : FileImportPlugIn {
         ignore(CodecPort.Register(list: list, phase: CodecPhase.Import));
 
     protected sealed override Result ReadFile(string filename, int index, RhinoDoc doc, FileReadOptions options) =>
-        CodecPort.Dispatch(index: index, document: doc, filename: filename, carrier: options)
+        CodecPort.Dispatch(
+                index: index,
+                document: doc,
+                filename: filename,
+                request: new CodecRequest.ImportCase(Carrier: options))
             .Match(Succ: static _ => Result.Success, Fail: static _ => Result.Failure);
 }
 
@@ -447,7 +523,11 @@ public abstract class CodecExportPort : FileExportPlugIn {
         ignore(CodecPort.Register(list: list, phase: CodecPhase.Export));
 
     protected sealed override WriteFileResult WriteFile(string filename, int index, RhinoDoc doc, FileWriteOptions options) =>
-        CodecPort.Dispatch(index: index, document: doc, filename: filename, carrier: options)
+        CodecPort.Dispatch(
+                index: index,
+                document: doc,
+                filename: filename,
+                request: new CodecRequest.ExportCase(Carrier: options))
             .Match(Succ: static _ => WriteFileResult.Success, Fail: static _ => WriteFileResult.Failure);
 }
 ```
@@ -478,12 +558,12 @@ config:
 ---
 flowchart LR
     accTitle: Codec matrix dispatch topology
-    accDescr: FileCodec rows feed derived lookup surfaces, the two directional entries with their ability and dial-seat gates, and the host dialog port whose index-keyed callbacks route back onto the same entries.
+    accDescr: FileCodec rows feed derived lookup surfaces, one carrier-union entry with ability and dial-seat gates, and the host dialog port whose callbacks route back onto that entry.
     Rows["FileCodec rows — extensions · abilities · engine columns"] --> Lookup["derived: Detect · Of · Filter · EnsureExtension"]
-    Rows --> Entry[["Codecs.Read / Codecs.Write — one entry per direction"]]
-    Entry -->|ability + dial-seat gates, then one dispatch| Direct["engine column — typed host options from the Dials row, attached lane inside the row"]
+    Rows --> Entry[["Codecs.Apply — one carrier-union entry"]]
+    Entry -->|ability + dial-seat gates, then one dispatch| Direct["engine column — typed host options from Dials.Resolve, attached lane inside the row"]
     Rows --> Port["CodecPort — FileTypeList registration, index registry"]
-    Port --> Dialog["CodecImportPort.ReadFile / CodecExportPort.WriteFile — index-keyed dispatch"]
+    Port --> Dialog["CodecRequest carrier → one index-keyed CodecPort.Dispatch"]
     Dialog --> Entry
     linkStyle 2 stroke:#50FA7B,color:#F8F8F2
     classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2

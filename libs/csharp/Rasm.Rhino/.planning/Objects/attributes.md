@@ -11,11 +11,13 @@ Typed attribute mutation belongs to `Rasm.Rhino.Objects`. `AttributeEdit` closes
 
 ## [02]-[EDIT_FAMILY]
 
-- Owner: `OverrideMove` `[SmartEnum<int>]` parameterizes replace, add, and remove behavior over set-valued carriers. `AttributeEdit` `[Union]` keeps one case per distinct host payload shape and one total `Apply` over the working duplicate.
+- Owner: `OverrideMove` `[SmartEnum<int>]` parameterizes impose, extend, and retract over set-valued carriers; `ShadowPolicy` owns every cast/receive combination; `DecalSeed` and `MaterialRefSeed` are generated admitted products; `AttributeEdit` `[Union]` owns the assigned stored-attribute mutations and one total `Apply` over the working duplicate.
 - Law: source-dependent payloads admit one coherent product. Object-sourced color, plot color, plot weight, linetype, and material edits require their object value; every other source rejects that irrelevant value. `LinetypePatternScale` remains independent of source and may accompany any line-pattern edit.
 - Law: mode and visibility are refused by absence — no case writes `Mode` or `Visible`, because object mode transitions are the table rail's `TableOp.State` and a second write path forks the undo story; `Realm` writes the catalogued space and optional viewport anchor, which no table op carries.
 - Law: the three override families are three cases — `ModeOverride` collapses the four display-mode host members onto one `(viewport, mode)` option pair where `None` removes, `DetailHide` is one per-detail toggle, and `Activity` is the `OverrideMove`-dispatched set edit over `SetActiveInViewportOverrides`/`AddActiveInViewportOverride`/`RemoveActiveInViewportOverride`; a per-member sibling verb roster is the deleted form.
-- Law: removal is the `None` arm of the same case — `CustomLine`, `SectionFace`, and `Meshing` remove their custom carrier when the option is absent and install it when present, so set-versus-remove never becomes a boolean knob or a sibling case.
+- Law: removal is the `None` arm of the same case — `CustomLine`, `SectionFace`, and `Meshing` remove their custom carrier when absent and install it when present; `Meshing` admits and normalizes `MeshingParameters.ToEncodedString()` output once, then reconstructs the disposable carrier only inside `Apply`.
+- Law: display-mode override carries the mode id and resolves it with `DisplayModeDescription.GetDisplayMode(Guid)` inside `Apply`; an unresolved id is typed failure, never a retained `DisplayModeDescription`.
+- Law: `RenderingReset` is the sole rendering-attribute clear and composes `ClearRenderingAttributes`; piecemeal reset calls never compete with it.
 - Law: user strings reuse the document vocabulary — the `Tag` case carries the geometry page's `TagOp` and admits only its mutating verbs, applied against the attribute set's own user-string store; a read verb inside a mutation program is refused at the factory.
 - Law: groups, decals, and face materials share the impose/extend/retract grammar without sharing payload identity. `Impose` clears then installs, `Extend` installs a non-empty roster, `Retract` removes a non-empty roster, and empty `Impose` is the sole clear form.
 - Law: decal and face-material payloads are detached seeds, never live carriers — `DecalSeed.Build` fills a `DecalCreateParams` for `Decal.Create` and `MaterialRefSeed.Build` fills a `MaterialRefCreateParams` for `MaterialRefs.Create`, each minted and released inside its apply arm, because a live `Decal` or `MaterialRef` enumerated under an earlier grant is host state whose mutation does not persist.
@@ -50,44 +52,86 @@ public sealed partial class OverrideMove {
         select roster.Distinct();
 }
 
-public readonly record struct DecalSeed(
-    Guid Texture,
-    DecalMapping Mapping,
-    DecalProjection Projection,
-    Point3d Origin,
-    Vector3d Up,
-    Vector3d Across,
-    double Transparency = 0.0,
-    bool MapToInside = false,
-    double Height = 1.0,
-    double Radius = 1.0,
-    double HorzStart = 0.0,
-    double HorzEnd = 360.0,
-    double VertStart = 0.0,
-    double VertEnd = 180.0,
-    double MinU = 0.0,
-    double MinV = 0.0,
-    double MaxU = 1.0,
-    double MaxV = 1.0) {
-    internal Fin<DecalSeed> Admit(Op key) =>
-        from origin in key.AcceptInput(value: Origin)
-        from up in key.AcceptInput(value: Up)
-        from across in key.AcceptInput(value: Across)
-        from _ in guard(
-            Texture != Guid.Empty
-            && Transparency is >= 0.0 and <= 1.0
-            && double.IsFinite(Height) && double.IsFinite(Radius)
-            && double.IsFinite(HorzStart) && double.IsFinite(HorzEnd)
-            && double.IsFinite(VertStart) && double.IsFinite(VertEnd)
-            && MinU <= MaxU && MinV <= MaxV,
-            key.InvalidInput()).ToFin()
-        select this with { Origin = origin, Up = up, Across = across };
+[SmartEnum]
+public sealed partial class ShadowPolicy {
+    public static readonly ShadowPolicy None = new(casts: false, receives: false);
+    public static readonly ShadowPolicy Cast = new(casts: true, receives: false);
+    public static readonly ShadowPolicy Receive = new(casts: false, receives: true);
+    public static readonly ShadowPolicy Both = new(casts: true, receives: true);
+
+    public bool Casts { get; }
+    public bool Receives { get; }
+
+    internal static ShadowPolicy Of(bool casts, bool receives) => (casts, receives) switch {
+        (false, false) => None,
+        (true, false) => Cast,
+        (false, true) => Receive,
+        _ => Both,
+    };
+}
+
+[ComplexValueObject]
+public sealed partial class DecalSeed {
+    public Guid Texture { get; }
+    public DecalMapping Mapping { get; }
+    public DecalProjection Projection { get; }
+    public Point3d Origin { get; }
+    public Vector3d Up { get; }
+    public Vector3d Across { get; }
+    public double Transparency { get; }
+    public ObjectSignal MapToInside { get; }
+    public double Height { get; }
+    public double Radius { get; }
+    public double HorzStart { get; }
+    public double HorzEnd { get; }
+    public double VertStart { get; }
+    public double VertEnd { get; }
+    public double MinU { get; }
+    public double MinV { get; }
+    public double MaxU { get; }
+    public double MaxV { get; }
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref Guid texture,
+        ref DecalMapping mapping,
+        ref DecalProjection projection,
+        ref Point3d origin,
+        ref Vector3d up,
+        ref Vector3d across,
+        ref double transparency,
+        ref ObjectSignal mapToInside,
+        ref double height,
+        ref double radius,
+        ref double horzStart,
+        ref double horzEnd,
+        ref double vertStart,
+        ref double vertEnd,
+        ref double minU,
+        ref double minV,
+        ref double maxU,
+        ref double maxV) {
+        validationError = texture != Guid.Empty
+            && origin.IsValid && up.IsValid && across.IsValid
+            && mapToInside is not null
+            && transparency is >= 0.0 and <= 1.0
+            && double.IsFinite(height) && height > 0.0
+            && double.IsFinite(radius) && radius > 0.0
+            && double.IsFinite(horzStart) && double.IsFinite(horzEnd)
+            && double.IsFinite(vertStart) && double.IsFinite(vertEnd)
+            && double.IsFinite(minU) && double.IsFinite(minV)
+            && double.IsFinite(maxU) && double.IsFinite(maxV)
+            && minU <= maxU && minV <= maxV
+            ? validationError
+            : new ValidationError(message: "decal seed is invalid");
+    }
 
     internal DecalCreateParams Build() => new() {
         TextureInstanceId = Texture,
         DecalMapping = Mapping,
         DecalProjection = Projection,
-        MapToInside = MapToInside,
+        MapToInside = MapToInside.On,
         Transparency = Transparency,
         Origin = Origin,
         VectorUp = Up,
@@ -105,15 +149,31 @@ public readonly record struct DecalSeed(
     };
 }
 
-public readonly record struct MaterialRefSeed(
-    Guid PlugIn,
-    ObjectMaterialSource Source,
-    Guid FrontId,
-    Guid BackId,
-    int FrontIndex = -1,
-    int BackIndex = -1) {
-    internal Fin<MaterialRefSeed> Admit(Op key) =>
-        guard(PlugIn != Guid.Empty && FrontIndex >= -1 && BackIndex >= -1, key.InvalidInput()).ToFin().Map(_ => this);
+[ComplexValueObject]
+public sealed partial class MaterialRefSeed {
+    public Guid PlugIn { get; }
+    public ObjectMaterialSource Source { get; }
+    public Guid FrontId { get; }
+    public Guid BackId { get; }
+    public int FrontIndex { get; }
+    public int BackIndex { get; }
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref Guid plugIn,
+        ref ObjectMaterialSource source,
+        ref Guid frontId,
+        ref Guid backId,
+        ref int frontIndex,
+        ref int backIndex) {
+        validationError = plugIn != Guid.Empty
+            && frontIndex >= -1 && backIndex >= -1
+            && (frontId != Guid.Empty || frontIndex >= 0)
+            && (backId != Guid.Empty || backIndex >= 0)
+            ? validationError
+            : new ValidationError(message: "material reference seed is invalid");
+    }
 
     internal MaterialRefCreateParams Build() => new() {
         PlugInId = PlugIn,
@@ -136,23 +196,23 @@ public abstract partial record AttributeEdit {
     public sealed record LinePattern(ObjectLinetypeSource Source, Option<int> Index = default, Option<double> PatternScale = default) : AttributeEdit;
     public sealed record CustomLine(Option<Linetype> Pattern) : AttributeEdit;
     public sealed record MaterialBind(ObjectMaterialSource Source, Option<int> Index = default) : AttributeEdit;
-    public sealed record Shadows(bool Casts, bool Receives) : AttributeEdit;
+    public sealed record Shadows(ShadowPolicy Policy) : AttributeEdit;
     public sealed record Wires(int Density) : AttributeEdit;
     public sealed record DrawOrder(int Rank) : AttributeEdit;
     public sealed record Decorate(ObjectDecoration Ends) : AttributeEdit;
     public sealed record Realm(ActiveSpace Space, Option<Guid> Viewport = default) : AttributeEdit;
     public sealed record Groups(OverrideMove Move, Seq<int> Indices) : AttributeEdit;
-    public sealed record ModeOverride(Option<Guid> Viewport, Option<DisplayModeDescription> Mode) : AttributeEdit;
-    public sealed record DetailHide(Guid Detail, bool Hidden) : AttributeEdit;
-    public sealed record DetailBackground(bool Visible) : AttributeEdit;
-    public sealed record Activity(OverrideMove Move, Seq<Guid> Viewports, bool Active) : AttributeEdit;
+    public sealed record ModeOverride(Option<Guid> Viewport, Option<Guid> Mode) : AttributeEdit;
+    public sealed record DetailHide(Guid Detail, ObjectSignal Signal) : AttributeEdit;
+    public sealed record DetailBackground(ObjectSignal Signal) : AttributeEdit;
+    public sealed record Activity(OverrideMove Move, Seq<Guid> Viewports, ObjectSignal Signal) : AttributeEdit;
     public sealed record SectionSource(ObjectSectionAttributesSource Source) : AttributeEdit;
     public sealed record SectionIndex(int Index) : AttributeEdit;
     public sealed record SectionFace(Option<SectionStyle> Style) : AttributeEdit;
     public sealed record SectionLabel(SectionLabelStyle Style) : AttributeEdit;
     public sealed record HatchFill(Option<System.Drawing.Color> Fill = default, Option<System.Drawing.Color> Print = default) : AttributeEdit;
     public sealed record HatchBoundary(
-        Option<bool> Visible = default,
+        Option<ObjectSignal> Visible = default,
         Option<System.Drawing.Color> Color = default,
         Option<System.Drawing.Color> PlotColor = default,
         Option<ItemColorSource> ColorSource = default,
@@ -160,29 +220,44 @@ public abstract partial record AttributeEdit {
         Option<double> PlotWeightMillimeters = default) : AttributeEdit;
     public sealed record AnchorFrame(Plane Frame) : AttributeEdit;
     public sealed record AnchorMove(Transform Motion) : AttributeEdit;
-    public sealed record Meshing(Option<MeshingParameters> Custom) : AttributeEdit;
+    public sealed record Meshing(Option<string> Encoded) : AttributeEdit;
+    public sealed record RenderingReset : AttributeEdit;
     public sealed record Decals(OverrideMove Move, Seq<DecalSeed> Seeds, Seq<int> Crcs) : AttributeEdit;
     public sealed record Tag(TagOp Operation) : AttributeEdit;
     public sealed record FaceMaterials(OverrideMove Move, Seq<MaterialRefSeed> Seeds, Seq<Guid> Keys) : AttributeEdit;
 
     internal Fin<AttributeEdit> Admit(Op op) =>
         Switch(
-            context: op,
-            identity: static (key, edit) => guard(edit.Name.IsSome || edit.Url.IsSome, key.InvalidInput()).ToFin().Map(_ => (AttributeEdit)edit),
+            op,
+            identity: static (key, edit) =>
+                from name in edit.Name.Traverse(text => key.AcceptText(value: text)).As()
+                from url in edit.Url.Traverse(text => key.AcceptText(value: text)).As()
+                from _ in guard(name.IsSome || url.IsSome, key.InvalidInput()).ToFin()
+                select (AttributeEdit)new Identity(Name: name, Url: url),
             layer: static (key, edit) => guard(edit.Index >= 0, key.InvalidInput()).ToFin().Map(_ => (AttributeEdit)edit),
             paint: static (key, edit) => SourceValue(edit.Source is ObjectColorSource.ColorFromObject, edit.Value, edit, key),
             plot: static (key, edit) => SourceValue(edit.Source is ObjectPlotColorSource.PlotColorFromObject, edit.Value, edit, key),
-            plotWeight: static (key, edit) => SourceValue(edit.Source is ObjectPlotWeightSource.PlotWeightFromObject, edit.Millimeters, edit, key),
+            plotWeight: static (key, edit) =>
+                from admitted in SourceValue(
+                    edit.Source is ObjectPlotWeightSource.PlotWeightFromObject, edit.Millimeters, edit, key)
+                from _ in guard(edit.Millimeters
+                    .Map(static value => double.IsFinite(value) && value >= 0.0)
+                    .IfNone(noneValue: true), key.InvalidInput()).ToFin()
+                select admitted,
             linePattern: static (key, edit) =>
                 from _ in guard((edit.Source is ObjectLinetypeSource.LinetypeFromObject) == edit.Index.IsSome, key.InvalidInput()).ToFin()
                 from __ in guard(edit.Index.Map(static value => value >= 0).IfNone(noneValue: true), key.InvalidInput()).ToFin()
+                from ___ in guard(edit.PatternScale
+                    .Map(static value => double.IsFinite(value) && value > 0.0)
+                    .IfNone(noneValue: true), key.InvalidInput()).ToFin()
                 select (AttributeEdit)edit,
             customLine: static (_, edit) => Fin.Succ<AttributeEdit>(edit),
             materialBind: static (key, edit) =>
                 from _ in guard((edit.Source is ObjectMaterialSource.MaterialFromObject) == edit.Index.IsSome, key.InvalidInput()).ToFin()
                 from __ in guard(edit.Index.Map(static value => value >= 0).IfNone(noneValue: true), key.InvalidInput()).ToFin()
                 select (AttributeEdit)edit,
-            shadows: static (_, edit) => Fin.Succ<AttributeEdit>(edit),
+            shadows: static (key, edit) => key.Need(edit.Policy)
+                .Map(policy => (AttributeEdit)new Shadows(Policy: policy)),
             wires: static (_, edit) => Fin.Succ<AttributeEdit>(edit),
             drawOrder: static (_, edit) => Fin.Succ<AttributeEdit>(edit),
             decorate: static (_, edit) => Fin.Succ<AttributeEdit>(edit),
@@ -196,45 +271,78 @@ public abstract partial record AttributeEdit {
                 valid: static value => value >= 0,
                 build: static (move, values) => new Groups(Move: move, Indices: values),
                 key: key),
-            modeOverride: static (key, edit) => guard(edit.Viewport.Map(static value => value != Guid.Empty).IfNone(noneValue: true), key.InvalidInput()).ToFin().Map(_ => (AttributeEdit)edit),
-            detailHide: static (key, edit) => guard(edit.Detail != Guid.Empty, key.InvalidInput()).ToFin().Map(_ => (AttributeEdit)edit),
-            detailBackground: static (_, edit) => Fin.Succ<AttributeEdit>(edit),
-            activity: static (key, edit) => SetValues(
-                move: edit.Move,
-                values: edit.Viewports,
-                valid: static value => value != Guid.Empty,
-                build: (move, values) => new Activity(Move: move, Viewports: values, Active: edit.Active),
-                key: key),
+            modeOverride: static (key, edit) => guard(
+                edit.Viewport.Map(static value => value != Guid.Empty).IfNone(noneValue: true)
+                && edit.Mode.Map(static value => value != Guid.Empty).IfNone(noneValue: true),
+                key.InvalidInput()).ToFin().Map(_ => (AttributeEdit)edit),
+            detailHide: static (key, edit) =>
+                from _ in guard(edit.Detail != Guid.Empty, key.InvalidInput()).ToFin()
+                from __ in key.Need(edit.Signal)
+                select (AttributeEdit)edit,
+            detailBackground: static (key, edit) => key.Need(edit.Signal).Map(_ => (AttributeEdit)edit),
+            activity: static (key, edit) =>
+                from signal in key.Need(edit.Signal)
+                from values in SetValues(
+                    move: edit.Move,
+                    values: edit.Viewports,
+                    valid: static value => value != Guid.Empty,
+                    build: (move, values) => new Activity(Move: move, Viewports: values, Signal: signal),
+                    key: key)
+                select values,
             sectionSource: static (_, edit) => Fin.Succ<AttributeEdit>(edit),
             sectionIndex: static (key, edit) => guard(edit.Index >= -1, key.InvalidInput()).ToFin().Map(_ => (AttributeEdit)edit),
             sectionFace: static (_, edit) => Fin.Succ<AttributeEdit>(edit),
             sectionLabel: static (_, edit) => Fin.Succ<AttributeEdit>(edit),
             hatchFill: static (key, edit) => guard(edit.Fill.IsSome || edit.Print.IsSome, key.InvalidInput()).ToFin().Map(_ => (AttributeEdit)edit),
-            hatchBoundary: static (key, edit) => guard(
-                edit.Visible.IsSome || edit.Color.IsSome || edit.PlotColor.IsSome || edit.ColorSource.IsSome
-                || edit.PlotColorSource.IsSome || edit.PlotWeightMillimeters.IsSome,
-                key.InvalidInput()).ToFin().Map(_ => (AttributeEdit)edit),
+            hatchBoundary: static (key, edit) =>
+                from visibility in edit.Visible.Traverse(signal => key.Need(signal)).As()
+                from _ in guard(
+                    visibility.IsSome || edit.Color.IsSome || edit.PlotColor.IsSome || edit.ColorSource.IsSome
+                    || edit.PlotColorSource.IsSome || edit.PlotWeightMillimeters.IsSome,
+                    key.InvalidInput()).ToFin()
+                from __ in guard(edit.PlotWeightMillimeters
+                    .Map(static value => double.IsFinite(value) && value >= 0.0)
+                    .IfNone(noneValue: true), key.InvalidInput()).ToFin()
+                select (AttributeEdit)new HatchBoundary(
+                    Visible: visibility,
+                    Color: edit.Color,
+                    PlotColor: edit.PlotColor,
+                    ColorSource: edit.ColorSource,
+                    PlotColorSource: edit.PlotColorSource,
+                    PlotWeightMillimeters: edit.PlotWeightMillimeters),
             anchorFrame: static (key, edit) => key.AcceptInput(value: edit.Frame).Map(_ => (AttributeEdit)edit),
             anchorMove: static (key, edit) => key.AcceptInput(value: edit.Motion).Map(_ => (AttributeEdit)edit),
-            meshing: static (_, edit) => Fin.Succ<AttributeEdit>(edit),
+            meshing: static (key, edit) => edit.Encoded
+                .Traverse(text =>
+                    from accepted in key.AcceptText(value: text)
+                    from normalized in key.Catch(() => {
+                        using MeshingParameters? parameters = MeshingParameters.FromEncodedString(accepted);
+                        return parameters is null
+                            ? Fin.Fail<string>(error: key.InvalidInput())
+                            : Fin.Succ(value: parameters.ToEncodedString());
+                    })
+                    select normalized)
+                .As()
+                .Map(encoded => (AttributeEdit)new Meshing(Encoded: encoded)),
+            renderingReset: static (_, edit) => Fin.Succ<AttributeEdit>(edit),
             decals: static (key, edit) =>
                 from rosters in MoveShaped(
                     move: edit.Move,
                     seeds: edit.Seeds,
-                    admitSeed: seed => seed.Admit(key: key),
+                    admitSeed: seed => key.Need(seed),
                     keys: edit.Crcs,
                     validKey: static crc => crc != 0,
                     key: key)
                 select (AttributeEdit)new Decals(Move: edit.Move, Seeds: rosters.Seeds, Crcs: rosters.Keys),
             tag: static (key, edit) =>
-                from operation in Optional(edit.Operation).ToFin(Fail: key.InvalidInput())
+                from operation in key.Need(edit.Operation)
                 from _ in guard(operation.Mutates, key.InvalidInput()).ToFin()
                 select (AttributeEdit)new Tag(Operation: operation),
             faceMaterials: static (key, edit) =>
                 from rosters in MoveShaped(
                     move: edit.Move,
                     seeds: edit.Seeds,
-                    admitSeed: seed => seed.Admit(key: key),
+                    admitSeed: seed => key.Need(seed),
                     keys: edit.Keys,
                     validKey: static value => value != Guid.Empty,
                     key: key)
@@ -249,7 +357,7 @@ public abstract partial record AttributeEdit {
         Func<T, bool> valid,
         Func<OverrideMove, Seq<T>, AttributeEdit> build,
         Op key) =>
-        from mode in Optional(move).ToFin(Fail: key.InvalidInput())
+        from mode in key.Need(move)
         from admitted in mode.Admit(values: values, valid: valid, key: key)
         select build(mode, admitted);
 
@@ -260,7 +368,7 @@ public abstract partial record AttributeEdit {
         Seq<TKey> keys,
         Func<TKey, bool> validKey,
         Op key) =>
-        from mode in Optional(move).ToFin(Fail: key.InvalidInput())
+        from mode in key.Need(move)
         from grown in seeds.TraverseM(admitSeed).As()
         from identities in keys.TraverseM(value => validKey(value)
             ? Fin.Succ(value: value)
@@ -275,104 +383,74 @@ public abstract partial record AttributeEdit {
 
     internal Fin<Unit> Apply(ObjectAttributes attributes, Op op) =>
         Switch(
-            context: (Attributes: attributes, Op: op),
+            (Attributes: attributes, Op: op),
             identity: static (context, edit) => context.Op.Catch(() => {
                 _ = edit.Name.Iter(name => context.Attributes.Name = name);
                 _ = edit.Url.Iter(url => context.Attributes.Url = url);
-                return Fin.Succ(value: unit);
             }),
-            layer: static (context, edit) => context.Op.Catch(() => {
-                context.Attributes.LayerIndex = edit.Index;
-                return Fin.Succ(value: unit);
-            }),
+            layer: static (context, edit) => context.Op.Catch(() => context.Attributes.LayerIndex = edit.Index),
             paint: static (context, edit) => context.Op.Catch(() => {
                 context.Attributes.ColorSource = edit.Source;
                 _ = edit.Value.Iter(color => context.Attributes.ObjectColor = color);
-                return Fin.Succ(value: unit);
             }),
             plot: static (context, edit) => context.Op.Catch(() => {
                 context.Attributes.PlotColorSource = edit.Source;
                 _ = edit.Value.Iter(color => context.Attributes.PlotColor = color);
-                return Fin.Succ(value: unit);
             }),
             plotWeight: static (context, edit) => context.Op.Catch(() => {
                 context.Attributes.PlotWeightSource = edit.Source;
                 _ = edit.Millimeters.Iter(weight => context.Attributes.PlotWeight = weight);
-                return Fin.Succ(value: unit);
             }),
             linePattern: static (context, edit) => context.Op.Catch(() => {
                 context.Attributes.LinetypeSource = edit.Source;
                 _ = edit.Index.Iter(index => context.Attributes.LinetypeIndex = index);
                 _ = edit.PatternScale.Iter(scale => context.Attributes.LinetypePatternScale = scale);
-                return Fin.Succ(value: unit);
             }),
             customLine: static (context, edit) => context.Op.Catch(() => {
                 edit.Pattern.Match(
                     Some: pattern => context.Attributes.SetCustomLinetype(linetype: pattern),
                     None: () => context.Attributes.RemoveCustomLinetype());
-                return Fin.Succ(value: unit);
             }),
             materialBind: static (context, edit) => context.Op.Catch(() => {
                 context.Attributes.MaterialSource = edit.Source;
                 _ = edit.Index.Iter(index => context.Attributes.MaterialIndex = index);
-                return Fin.Succ(value: unit);
             }),
             shadows: static (context, edit) => context.Op.Catch(() => {
-                context.Attributes.CastsShadows = edit.Casts;
-                context.Attributes.ReceivesShadows = edit.Receives;
-                return Fin.Succ(value: unit);
+                context.Attributes.CastsShadows = edit.Policy.Casts;
+                context.Attributes.ReceivesShadows = edit.Policy.Receives;
             }),
-            wires: static (context, edit) => context.Op.Catch(() => {
-                context.Attributes.WireDensity = edit.Density;
-                return Fin.Succ(value: unit);
-            }),
-            drawOrder: static (context, edit) => context.Op.Catch(() => {
-                context.Attributes.DisplayOrder = edit.Rank;
-                return Fin.Succ(value: unit);
-            }),
-            decorate: static (context, edit) => context.Op.Catch(() => {
-                context.Attributes.ObjectDecoration = edit.Ends;
-                return Fin.Succ(value: unit);
-            }),
+            wires: static (context, edit) => context.Op.Catch(() => context.Attributes.WireDensity = edit.Density),
+            drawOrder: static (context, edit) => context.Op.Catch(() => context.Attributes.DisplayOrder = edit.Rank),
+            decorate: static (context, edit) => context.Op.Catch(() => context.Attributes.ObjectDecoration = edit.Ends),
             realm: static (context, edit) => context.Op.Catch(() => {
                 context.Attributes.Space = edit.Space;
                 context.Attributes.ViewportId = edit.Viewport.IfNone(noneValue: Guid.Empty);
-                return Fin.Succ(value: unit);
             }),
-            groups: static (context, edit) => context.Op.Catch(() => {
-                _ = Op.SideWhen(edit.Move == OverrideMove.Impose, context.Attributes.RemoveFromAllGroups);
-                _ = edit.Indices.Iter(index => {
-                    if (edit.Move == OverrideMove.Retract) {
-                        context.Attributes.RemoveFromGroup(groupIndex: index);
-                    } else {
-                        context.Attributes.AddToGroup(groupIndex: index);
-                    }
-                });
-                return Fin.Succ(value: unit);
-            }),
-            modeOverride: static (context, edit) => (edit.Mode.Case, edit.Viewport.Case) switch {
-                (DisplayModeDescription mode, Guid viewport) => context.Op.Confirm(
-                    success: context.Attributes.SetDisplayModeOverride(mode: mode, rhinoViewportId: viewport)),
-                (DisplayModeDescription mode, null) => context.Op.Confirm(
-                    success: context.Attributes.SetDisplayModeOverride(mode: mode)),
-                (null, Guid viewport) => context.Op.Catch(() => {
-                    context.Attributes.RemoveDisplayModeOverride(rhinoViewportId: viewport);
-                    return Fin.Succ(value: unit);
+            groups: static (context, edit) => edit.Move.Switch(
+                (context.Attributes, context.Op, edit.Indices),
+                impose: static held => held.Op.Catch(() => {
+                    held.Attributes.RemoveFromAllGroups();
+                    _ = held.Indices.Iter(index => held.Attributes.AddToGroup(groupIndex: index));
                 }),
-                _ => context.Op.Catch(() => {
-                    context.Attributes.RemoveDisplayModeOverride();
-                    return Fin.Succ(value: unit);
+                extend: static held => held.Op.Catch(() => _ = held.Indices.Iter(index => held.Attributes.AddToGroup(groupIndex: index))),
+                retract: static held => held.Op.Catch(() => _ = held.Indices.Iter(index => held.Attributes.RemoveFromGroup(groupIndex: index)))),
+            modeOverride: static (context, edit) => edit.Mode
+                .Traverse(id => Optional(DisplayModeDescription.GetDisplayMode(id)).ToFin(Fail: context.Op.MissingContext()))
+                .As()
+                .Bind(mode => (mode.Case, edit.Viewport.Case) switch {
+                    (DisplayModeDescription resolved, Guid viewport) => context.Op.Confirm(
+                        success: context.Attributes.SetDisplayModeOverride(mode: resolved, rhinoViewportId: viewport)),
+                    (DisplayModeDescription resolved, null) => context.Op.Confirm(
+                        success: context.Attributes.SetDisplayModeOverride(mode: resolved)),
+                    (null, Guid viewport) => context.Op.Catch(() => context.Attributes.RemoveDisplayModeOverride(rhinoViewportId: viewport)),
+                    _ => context.Op.Catch(() => context.Attributes.RemoveDisplayModeOverride()),
                 }),
-            },
-            detailHide: static (context, edit) => context.Op.Confirm(success: edit.Hidden
+            detailHide: static (context, edit) => context.Op.Confirm(success: edit.Signal.On
                 ? context.Attributes.AddHideInDetailOverride(detailId: edit.Detail)
                 : context.Attributes.RemoveHideInDetailOverride(detailId: edit.Detail)),
-            detailBackground: static (context, edit) => context.Op.Catch(() => {
-                context.Attributes.DetailBackgroundVisible = edit.Visible;
-                return Fin.Succ(value: unit);
-            }),
+            detailBackground: static (context, edit) => context.Op.Catch(() => context.Attributes.DetailBackgroundVisible = edit.Signal.On),
             activity: static (context, edit) => edit.Move.Switch(
-                state: (context.Attributes, context.Op, edit.Viewports, edit.Active),
+                (context.Attributes, context.Op, edit.Viewports, edit.Signal.On),
                 impose: static held => held.Op.Confirm(
                     success: held.Attributes.SetActiveInViewportOverrides(viewportIds: held.Viewports.ToArray(), active: held.Active)),
                 extend: static held => held.Viewports.TraverseM(viewport => held.Op.Confirm(
@@ -381,61 +459,44 @@ public abstract partial record AttributeEdit {
                 retract: static held => held.Viewports.TraverseM(viewport => held.Op.Confirm(
                     success: held.Attributes.RemoveActiveInViewportOverride(viewportId: viewport, active: held.Active))).As()
                     .Map(static _ => unit)),
-            sectionSource: static (context, edit) => context.Op.Catch(() => {
-                context.Attributes.SectionAttributesSource = edit.Source;
-                return Fin.Succ(value: unit);
-            }),
-            sectionIndex: static (context, edit) => context.Op.Catch(() => {
-                context.Attributes.SectionStyleIndex = edit.Index;
-                return Fin.Succ(value: unit);
-            }),
+            sectionSource: static (context, edit) => context.Op.Catch(() => context.Attributes.SectionAttributesSource = edit.Source),
+            sectionIndex: static (context, edit) => context.Op.Catch(() => context.Attributes.SectionStyleIndex = edit.Index),
             sectionFace: static (context, edit) => context.Op.Catch(() => {
                 edit.Style.Match(
                     Some: style => context.Attributes.SetCustomSectionStyle(sectionStyle: style),
                     None: () => context.Attributes.RemoveCustomSectionStyle());
-                return Fin.Succ(value: unit);
             }),
-            sectionLabel: static (context, edit) => context.Op.Catch(() => {
-                context.Attributes.ClippingPlaneLabelStyle = edit.Style;
-                return Fin.Succ(value: unit);
-            }),
+            sectionLabel: static (context, edit) => context.Op.Catch(() => context.Attributes.ClippingPlaneLabelStyle = edit.Style),
             hatchFill: static (context, edit) => context.Op.Catch(() => {
                 _ = edit.Fill.Iter(color => context.Attributes.HatchBackgroundFillColor = color);
                 _ = edit.Print.Iter(color => context.Attributes.HatchBackgroundFillPrintColor = color);
-                return Fin.Succ(value: unit);
             }),
             hatchBoundary: static (context, edit) => context.Op.Catch(() => {
-                _ = edit.Visible.Iter(visible => context.Attributes.HatchBoundaryVisible = visible);
+                _ = edit.Visible.Iter(signal => context.Attributes.HatchBoundaryVisible = signal.On);
                 _ = edit.Color.Iter(color => context.Attributes.HatchBoundaryColor = color);
                 _ = edit.PlotColor.Iter(color => context.Attributes.HatchBoundaryPlotColor = color);
                 _ = edit.ColorSource.Iter(source => context.Attributes.HatchBoundaryColorSource = source);
                 _ = edit.PlotColorSource.Iter(source => context.Attributes.HatchBoundaryPlotColorSource = source);
                 _ = edit.PlotWeightMillimeters.Iter(weight => context.Attributes.HatchBoundaryPlotWeightMillimeters = weight);
-                return Fin.Succ(value: unit);
             }),
-            anchorFrame: static (context, edit) => context.Op.Catch(() => {
-                context.Attributes.SetObjectFrame(plane: edit.Frame);
-                return Fin.Succ(value: unit);
-            }),
-            anchorMove: static (context, edit) => context.Op.Catch(() => {
-                context.Attributes.SetObjectFrame(xform: edit.Motion);
-                return Fin.Succ(value: unit);
-            }),
+            anchorFrame: static (context, edit) => context.Op.Catch(() => context.Attributes.SetObjectFrame(plane: edit.Frame)),
+            anchorMove: static (context, edit) => context.Op.Catch(() => context.Attributes.SetObjectFrame(xform: edit.Motion)),
             meshing: static (context, edit) => context.Op.Catch(() => {
-                edit.Custom.Match(
-                    Some: parameters => {
-                        context.Attributes.CustomMeshingParameters = parameters;
-                        context.Attributes.EnableCustomMeshingParameters = true;
-                    },
-                    None: () => context.Attributes.EnableCustomMeshingParameters = false);
+                if (edit.Encoded.Case is string encoded) {
+                    using MeshingParameters? parameters = MeshingParameters.FromEncodedString(encoded);
+                    if (parameters is null) { return Fin.Fail<Unit>(context.Op.InvalidResult()); }
+                    context.Attributes.CustomMeshingParameters = parameters;
+                    context.Attributes.EnableCustomMeshingParameters = true;
+                } else {
+                    context.Attributes.EnableCustomMeshingParameters = false;
+                    context.Attributes.CustomMeshingParameters = null;
+                }
                 return Fin.Succ(value: unit);
             }),
+            renderingReset: static (context, _) => context.Op.Catch(() => context.Attributes.ClearRenderingAttributes()),
             decals: static (context, edit) => edit.Move.Switch(
-                state: (context.Attributes, context.Op, edit.Seeds, edit.Crcs),
-                impose: static held => held.Op.Catch(() => {
-                        held.Attributes.Decals.RemoveAllDecals();
-                        return Fin.Succ(value: unit);
-                    })
+                (context.Attributes, context.Op, edit.Seeds, edit.Crcs),
+                impose: static held => held.Op.Catch(() => held.Attributes.Decals.RemoveAllDecals())
                     .Bind(_ => Grown(attributes: held.Attributes, seeds: held.Seeds, key: held.Op)),
                 extend: static held => Grown(attributes: held.Attributes, seeds: held.Seeds, key: held.Op),
                 retract: static held => held.Op.Catch(() =>
@@ -444,7 +505,7 @@ public abstract partial record AttributeEdit {
                         .TraverseM(decal => held.Op.Confirm(success: held.Attributes.Decals.Remove(decal: decal))).As()
                         .Map(static _ => unit))),
             tag: static (context, edit) => edit.Operation.Switch(
-                state: (context.Attributes, context.Op),
+                (context.Attributes, context.Op),
                 set: static (held, verb) =>
                     from key in held.Op.AcceptText(value: verb.Key)
                     from _ in held.Op.Confirm(success: held.Attributes.SetUserString(key: key, value: verb.Value))
@@ -455,16 +516,10 @@ public abstract partial record AttributeEdit {
                     from key in held.Op.AcceptText(value: verb.Key)
                     from _ in held.Op.Confirm(success: held.Attributes.DeleteUserString(key: key))
                     select unit,
-                clear: static (held, _) => held.Op.Catch(() => {
-                    held.Attributes.DeleteAllUserStrings();
-                    return Fin.Succ(value: unit);
-                })),
+                clear: static (held, _) => held.Op.Catch(() => held.Attributes.DeleteAllUserStrings())),
             faceMaterials: static (context, edit) => edit.Move.Switch(
-                state: (context.Attributes, context.Op, edit.Seeds, edit.Keys),
-                impose: static held => held.Op.Catch(() => {
-                        held.Attributes.MaterialRefs.Clear();
-                        return Fin.Succ(value: unit);
-                    })
+                (context.Attributes, context.Op, edit.Seeds, edit.Keys),
+                impose: static held => held.Op.Catch(() => held.Attributes.MaterialRefs.Clear())
                     .Bind(_ => Bound(attributes: held.Attributes, seeds: held.Seeds, key: held.Op)),
                 extend: static held => Bound(attributes: held.Attributes, seeds: held.Seeds, key: held.Op),
                 retract: static held => held.Keys.TraverseM(plugin => held.Op.Confirm(
@@ -483,7 +538,6 @@ public abstract partial record AttributeEdit {
         seeds.TraverseM(seed => key.Catch(() => {
                 using MaterialRef minted = attributes.MaterialRefs.Create(createParams: seed.Build());
                 attributes.MaterialRefs.Add(key: seed.PlugIn, value: minted);
-                return Fin.Succ(value: unit);
             })).As()
             .Map(static _ => unit);
 }
@@ -507,7 +561,7 @@ public sealed class AttributeProgram {
     public static Fin<AttributeProgram> Of(params ReadOnlySpan<AttributeEdit> edits) {
         Op op = Op.Of(name: nameof(AttributeProgram));
         return from values in toSeq(edits.ToArray())
-                   .TraverseM(edit => Optional(edit).ToFin(Fail: op.InvalidInput())).As()
+                   .TraverseM(edit => op.Need(edit)).As()
                from _ in guard(!values.IsEmpty, op.InvalidInput()).ToFin()
                from admitted in values.TraverseM(edit => edit.Admit(op: op)).As()
                select new AttributeProgram(edits: admitted);
@@ -515,7 +569,7 @@ public sealed class AttributeProgram {
 
     public Fin<Unit> Apply(ObjectAttributes attributes) {
         Op op = Op.Of(name: nameof(AttributeProgram));
-        return from working in Optional(attributes).ToFin(Fail: op.InvalidInput())
+        return from working in op.Need(attributes)
                from _ in Edits.TraverseM(edit => edit.Apply(attributes: working, op: op)).As()
                select unit;
     }
@@ -524,11 +578,11 @@ public sealed class AttributeProgram {
 
 ## [04]-[SNAPSHOT_AND_EFFECTIVE]
 
-- Owner: `AttributeAsk` `[Union]` — the two read questions: `Stored` the declared attribute state, `Resolved` the source-resolved display values for an optional viewport; `AttributeAnswer` `[Union]` — one typed roster per question. `AttributeSnapshot` captures stored scalar state, group and override rosters, user strings, decal rows with their `CRC` identities, material-reference rows, and carrier-presence facts in one pass. `EffectiveDisplay` captures resolved color and plot values plus the display-mode and activity overrides for the asked viewport.
+- Owner: `AttributeAsk` `[Union]` closes stored and source-resolved questions; `AttributeAnswer` `[Union]` owns their detached rosters; `AttributeSnapshot` captures stored scalar state, group and override rosters, shadow policy, normalized meshing policy, render-material identity, user strings, complete decal rows, material-reference rows, and foreign-owner presence facts; `EffectiveDisplay` captures resolved color, plot, mode, and activity values.
 - Entry: `Attributes.Ask(DocumentSession, TableTarget, AttributeAsk) : Fin<AttributeAnswer>` — one entry resolves through the state page's object fold and reads inside one `SessionNeed.Read` grant.
 - Law: stored and effective are different questions — the snapshot reports what the attribute set declares, `EffectiveDisplay` reports what `DrawColor`/`ComputedPlotColor`/`ComputedPlotWeight` resolve after source dispatch against layer, parent, and material; a consumer diffing the two reads exactly which sources defer.
 - Law: detail-hide is census membership — `HasHideInDetailOverrideSet(detailId)` is set membership in `GetHideInDetailOverrides()`, so the snapshot's `HiddenInDetails` roster answers any detail id and `EffectiveDisplay` stays a pure viewport question; a detail object id passed where a viewport id belongs is the conflation this split forecloses.
-- Law: snapshot products contain detached values only. Decals and material references project their catalogued read surfaces into records; no live carrier crosses the grant. Custom linetype, custom section style, meshing parameters, and mesh modifiers remain presence facts because their value programs belong to their owning pages.
+- Law: snapshot products contain detached values only. Decals and material references project their catalogued read surfaces into records, and custom meshing round-trips through the normalized encoded value. Custom linetype, custom section style, mapping, and mesh modifiers remain foreign-owner presence facts.
 - Boundary: `ComputedSectionStyle` demands a sectioner's attributes and stays a direct host call at the display seam; this page resolves the three display scalars every consumer needs.
 
 ```csharp signature
@@ -541,7 +595,7 @@ public abstract partial record AttributeAsk {
 
     internal Fin<AttributeAsk> Admit(Op op) =>
         Switch(
-            context: op,
+            op,
             stored: static (_, ask) => Fin.Succ<AttributeAsk>(ask),
             resolved: static (key, ask) => guard(
                 ask.Viewport.Map(static value => value != Guid.Empty).IfNone(noneValue: true),
@@ -558,8 +612,8 @@ public abstract partial record AttributeAnswer : IDetachedDocumentResult {
 // --- [MODELS] -----------------------------------------------------------------------------
 public sealed record OverrideCensus(
     Seq<Guid> HiddenInDetails,
-    Option<(Seq<Guid> Viewports, bool Active)> Activity,
-    bool DetailBackgroundVisible);
+    Option<(Seq<Guid> Viewports, ObjectSignal Signal)> Activity,
+    ObjectSignal DetailBackgroundVisible);
 
 public readonly record struct DecalSnapshot(
     int Crc,
@@ -569,7 +623,7 @@ public readonly record struct DecalSnapshot(
     Vector3d Up,
     Vector3d Across,
     double Transparency,
-    bool MapToInside,
+    ObjectSignal MapToInside,
     bool Visible,
     double Height,
     double Radius,
@@ -577,7 +631,36 @@ public readonly record struct DecalSnapshot(
     double EndLatitude,
     double StartLongitude,
     double EndLongitude,
-    Guid TextureInstanceId);
+    double MinU,
+    double MinV,
+    double MaxU,
+    double MaxV,
+    Guid TextureInstanceId) {
+    internal static DecalSnapshot Of(Decal decal) {
+        decal.GetUVBounds(out double minU, out double minV, out double maxU, out double maxV);
+        return new DecalSnapshot(
+            Crc: decal.CRC,
+            Mapping: decal.Mapping,
+            Projection: decal.Projection,
+            Origin: decal.Origin,
+            Up: decal.VectorUp,
+            Across: decal.VectorAcross,
+            Transparency: decal.Transparency,
+            MapToInside: decal.MapToInside ? ObjectSignal.Enabled : ObjectSignal.Disabled,
+            Visible: decal.IsVisible,
+            Height: decal.Height,
+            Radius: decal.Radius,
+            StartLatitude: decal.StartLatitude,
+            EndLatitude: decal.EndLatitude,
+            StartLongitude: decal.StartLongitude,
+            EndLongitude: decal.EndLongitude,
+            MinU: minU,
+            MinV: minV,
+            MaxU: maxU,
+            MaxV: maxV,
+            TextureInstanceId: decal.TextureInstanceId);
+    }
+}
 
 public readonly record struct MaterialRefSnapshot(
     Guid DictionaryKey,
@@ -602,6 +685,7 @@ public sealed record AttributeSnapshot(
     ObjectPlotWeightSource PlotWeightSource,
     ObjectLinetypeSource LinetypeSource,
     ObjectMaterialSource MaterialSource,
+    Option<Guid> RenderMaterialId,
     ObjectSectionAttributesSource SectionSource,
     System.Drawing.Color ObjectColor,
     System.Drawing.Color PlotColor,
@@ -610,8 +694,7 @@ public sealed record AttributeSnapshot(
     int WireDensity,
     int DisplayOrder,
     ObjectDecoration Decoration,
-    bool CastsShadows,
-    bool ReceivesShadows,
+    ShadowPolicy Shadows,
     Seq<int> Groups,
     OverrideCensus Overrides,
     int SectionStyleIndex,
@@ -619,7 +702,7 @@ public sealed record AttributeSnapshot(
     bool CustomSectionStyle,
     bool CustomLinetype,
     Plane Frame,
-    bool CustomMeshing,
+    Option<string> Meshing,
     bool HasMapping,
     bool DefinitionMember,
     Seq<(string Key, string Value)> UserStrings,
@@ -627,7 +710,7 @@ public sealed record AttributeSnapshot(
     Seq<MaterialRefSnapshot> MaterialRefs,
     System.Drawing.Color HatchFill,
     System.Drawing.Color HatchPrint,
-    bool HatchBoundaryVisible,
+    ObjectSignal HatchBoundaryVisible,
     System.Drawing.Color HatchBoundaryColor,
     System.Drawing.Color HatchBoundaryPlotColor,
     ItemColorSource HatchBoundaryColorSource,
@@ -642,6 +725,9 @@ public sealed record AttributeSnapshot(
             System.Collections.Specialized.NameValueCollection tags = attributes.GetUserStrings();
             using SectionStyle? customSection = attributes.GetCustomSectionStyle();
             using Linetype? customLine = attributes.GetCustomLinetype();
+            using MeshingParameters? customMesh = attributes.EnableCustomMeshingParameters
+                ? attributes.CustomMeshingParameters
+                : null;
             return Fin.Succ(value: new AttributeSnapshot(
                 ObjectId: attributes.ObjectId,
                 Name: Optional(attributes.Name).Filter(static text => text.Length > 0),
@@ -656,6 +742,7 @@ public sealed record AttributeSnapshot(
                 PlotWeightSource: attributes.PlotWeightSource,
                 LinetypeSource: attributes.LinetypeSource,
                 MaterialSource: attributes.MaterialSource,
+                RenderMaterialId: Optional(attributes.RenderMaterial).Map(static material => material.Id),
                 SectionSource: attributes.SectionAttributesSource,
                 ObjectColor: attributes.ObjectColor,
                 PlotColor: attributes.PlotColor,
@@ -664,40 +751,27 @@ public sealed record AttributeSnapshot(
                 WireDensity: attributes.WireDensity,
                 DisplayOrder: attributes.DisplayOrder,
                 Decoration: attributes.ObjectDecoration,
-                CastsShadows: attributes.CastsShadows,
-                ReceivesShadows: attributes.ReceivesShadows,
+                Shadows: ShadowPolicy.Of(casts: attributes.CastsShadows, receives: attributes.ReceivesShadows),
                 Groups: toSeq(attributes.GetGroupList()),
                 Overrides: new OverrideCensus(
                     HiddenInDetails: toSeq(attributes.GetHideInDetailOverrides()),
-                    Activity: overrides ? Some((toSeq(viewports), active)) : Option<(Seq<Guid>, bool)>.None,
-                    DetailBackgroundVisible: attributes.DetailBackgroundVisible),
+                    Activity: overrides
+                        ? Some((toSeq(viewports), active ? ObjectSignal.Enabled : ObjectSignal.Disabled))
+                        : Option<(Seq<Guid>, ObjectSignal)>.None,
+                    DetailBackgroundVisible: attributes.DetailBackgroundVisible
+                        ? ObjectSignal.Enabled
+                        : ObjectSignal.Disabled),
                 SectionStyleIndex: attributes.SectionStyleIndex,
                 SectionLabel: attributes.ClippingPlaneLabelStyle,
                 CustomSectionStyle: customSection is not null,
                 CustomLinetype: customLine is not null,
                 Frame: attributes.ObjectFrame(),
-                CustomMeshing: attributes.EnableCustomMeshingParameters,
+                Meshing: Optional(customMesh).Map(static parameters => parameters.ToEncodedString()),
                 HasMapping: attributes.HasMapping,
                 DefinitionMember: attributes.IsInstanceDefinitionObject,
                 UserStrings: toSeq(tags.AllKeys).Choose(key => Optional(key)
                     .Bind(name => Optional(tags[name]).Map(value => (name, value)))),
-                Decals: attributes.Decals.AsIterable().Map(static decal => new DecalSnapshot(
-                    Crc: decal.CRC,
-                    Mapping: decal.Mapping,
-                    Projection: decal.Projection,
-                    Origin: decal.Origin,
-                    Up: decal.VectorUp,
-                    Across: decal.VectorAcross,
-                    Transparency: decal.Transparency,
-                    MapToInside: decal.MapToInside,
-                    Visible: decal.IsVisible,
-                    Height: decal.Height,
-                    Radius: decal.Radius,
-                    StartLatitude: decal.StartLatitude,
-                    EndLatitude: decal.EndLatitude,
-                    StartLongitude: decal.StartLongitude,
-                    EndLongitude: decal.EndLongitude,
-                    TextureInstanceId: decal.TextureInstanceId)).ToSeq(),
+                Decals: attributes.Decals.AsIterable().Map(DecalSnapshot.Of).ToSeq(),
                 MaterialRefs: attributes.MaterialRefs.AsIterable().Map(static pair => new MaterialRefSnapshot(
                     DictionaryKey: pair.Key,
                     Source: pair.Value.MaterialSource,
@@ -708,7 +782,9 @@ public sealed record AttributeSnapshot(
                     BackIndex: pair.Value.BackFaceMaterialIndex)).ToSeq(),
                 HatchFill: attributes.HatchBackgroundFillColor,
                 HatchPrint: attributes.HatchBackgroundFillPrintColor,
-                HatchBoundaryVisible: attributes.HatchBoundaryVisible,
+                HatchBoundaryVisible: attributes.HatchBoundaryVisible
+                    ? ObjectSignal.Enabled
+                    : ObjectSignal.Disabled,
                 HatchBoundaryColor: attributes.HatchBoundaryColor,
                 HatchBoundaryPlotColor: attributes.HatchBoundaryPlotColor,
                 HatchBoundaryColorSource: attributes.HatchBoundaryColorSource,
@@ -729,13 +805,12 @@ public readonly record struct EffectiveDisplay(
     System.Drawing.Color Plot,
     double PlotWeight,
     Option<Guid> ModeOverride,
-    Option<bool> ActiveOverride) : IDetachedDocumentResult {
+    Option<ObjectSignal> ActiveOverride) : IDetachedDocumentResult {
     internal static Fin<EffectiveDisplay> Of(RhinoObject native, Rhino.RhinoDoc document, Option<Guid> viewport, Op key) =>
-        key.Catch(() => viewport.Match(
-            Some: scoped => {
-                ObjectAttributes attributes = native.Attributes;
-                bool active = attributes.HasActiveInViewportOverride(viewportId: scoped, active: out bool enabled);
-                return Fin.Succ(value: new EffectiveDisplay(
+        key.Catch(() => {
+            ObjectAttributes attributes = native.Attributes;
+            return Fin.Succ(value: viewport.Case is Guid scoped
+                ? new EffectiveDisplay(
                     Id: native.Id,
                     Draw: attributes.DrawColor(document: document, viewportId: scoped),
                     Plot: attributes.ComputedPlotColor(document: document, viewportId: scoped),
@@ -743,27 +818,29 @@ public readonly record struct EffectiveDisplay(
                     ModeOverride: attributes.HasDisplayModeOverride(viewportId: scoped)
                         ? Some(attributes.GetDisplayModeOverride(viewportId: scoped))
                         : Option<Guid>.None,
-                    ActiveOverride: active ? Some(enabled) : Option<bool>.None));
-            },
-            None: () => Fin.Succ(value: new EffectiveDisplay(
-                Id: native.Id,
-                Draw: native.Attributes.DrawColor(document: document),
-                Plot: native.Attributes.ComputedPlotColor(document: document),
-                PlotWeight: native.Attributes.ComputedPlotWeight(document: document),
-                ModeOverride: Option<Guid>.None,
-                ActiveOverride: Option<bool>.None))));
+                    ActiveOverride: attributes.HasActiveInViewportOverride(viewportId: scoped, active: out bool enabled)
+                        ? Some(enabled ? ObjectSignal.Enabled : ObjectSignal.Disabled)
+                        : Option<ObjectSignal>.None)
+                : new EffectiveDisplay(
+                    Id: native.Id,
+                    Draw: attributes.DrawColor(document: document),
+                    Plot: attributes.ComputedPlotColor(document: document),
+                    PlotWeight: attributes.ComputedPlotWeight(document: document),
+                    ModeOverride: Option<Guid>.None,
+                    ActiveOverride: Option<ObjectSignal>.None));
+        });
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static class Attributes {
     public static Fin<AttributeAnswer> Ask(DocumentSession session, TableTarget target, AttributeAsk ask) {
         Op op = Op.Of();
-        return from active in Optional(ask).ToFin(Fail: op.InvalidInput()).Bind(value => value.Admit(op: op))
+        return from active in op.Need(ask).Bind(value => value.Admit(op: op))
                from answer in session.Demand(
                    use: document =>
                        from natives in Objects.Resolve(document: document, target: target, key: op)
                        from folded in active.Switch(
-                           context: (Document: document, Natives: natives, Op: op),
+                           (Document: document, Natives: natives, Op: op),
                            stored: static (ctx, _) => ctx.Natives
                                .TraverseM(native => AttributeSnapshot.Of(attributes: native.Attributes, key: ctx.Op)).As()
                                .Map(static rows => (AttributeAnswer)new AttributeAnswer.Declared(Rows: rows)),
@@ -785,7 +862,7 @@ public static class Attributes {
 | :-----: | :----------------- | :------------------ | :------------------------------------------------------ | :----------------------------- |
 |  [01]   | attribute mutation | `AttributeEdit`     | admitted union, total `Apply`, host enums at the seam   | program payloads               |
 |  [02]   | set-valued edits   | `OverrideMove`      | impose/extend/retract over groups, overrides, carriers  | owning edit payloads           |
-|  [03]   | detached carriers  | seed records        | `DecalSeed`/`MaterialRefSeed` onto host create params   | `Decals` / `FaceMaterials`     |
+|  [03]   | detached carriers  | generated products  | `DecalSeed`/`MaterialRefSeed` onto host create params   | `Decals` / `FaceMaterials`     |
 |  [04]   | write program      | `AttributeProgram`  | short-circuit fold matching the `Amend` callback shape  | `TableOp.Amend(target, Apply)` |
 |  [05]   | read dispatch      | `AttributeAsk`      | stored and resolved questions, one typed answer union   | `Attributes.Ask`               |
 |  [06]   | stored state       | `AttributeSnapshot` | detached scalars, rosters, and catalogued carriers      | `AttributeAsk.Stored`          |

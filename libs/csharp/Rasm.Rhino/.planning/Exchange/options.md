@@ -1,19 +1,20 @@
 # [RASM_RHINO_OPTIONS]
 
-Per-format option matrix (`Rasm.Rhino.Exchange`). One `FormatDial` union carries every host option surface the direct engines accept — one case per format direction, each field an explicit override typed by the host's own nested enum, each case minting its host option object through one `Mint` where every content-shaping host member appears exactly once with its baseline: the `CodecTune`-derived value where the tune speaks, the verified host default otherwise. Each dial rides `CodecTune.Dial` as one slot, `Dials` resolves the matching case or the default case at each engine column, and the seat gate refuses a dial aimed at another format or direction before any host write. Killed forms: per-row inline option spelling scattered through the codec matrix, a parallel wrapper class per host option type, a second dispatch structure beside the codec rows, and a silent host default no fence names — the `Mint` bodies ARE the parameter matrix. Scale stays the `VectorScale` lens's: a dial case never restates the preserve/unit/scale axes, and a format whose whole option surface the lens owns (`FileAiReadOptions`, `FileEpsReadOptions`) mints no case.
+`FormatDial` owns per-codec option policy. `DialSeat` proves codec-phase correspondence once, each case mints one complete Rhino carrier, and polymorphic `Dials.Resolve` applies the selected case without a format-named resolver roster.
 
 ## [01]-[INDEX]
 
-- [02]-[SHARED_AXES]: `SubDForm` and `CsvColumn` the cross-host vocabularies, `DracoDial` the admitted compression value, `DwgCurveFit`/`ObjNgonDial` the enable-plus-value clusters, `IgesIdentity`/`IgesFitPolicy`/`IgesSurfaceForm`/`VdaHeader` the header and policy sub-records.
+- [02]-[SHARED_AXES]: `SubDForm` and `CsvColumn` the cross-host vocabularies, `DracoDial` and `ObjNgonDial` the admitted compression and n-gon values, and `IgesIdentity`/`IgesFitPolicy`/`IgesSurfaceForm`/`VdaHeader` the header and policy sub-records.
 - [03]-[DIAL_FAMILY]: `FormatDial` — the closed per-format case family with one `Mint` per case and the `Seat` correspondence.
-- [04]-[DIAL_BINDING]: `Dials` — the per-format resolver rows the codec engine columns consume, and the scale-lens composition.
+- [04]-[DIAL_BINDING]: `Dials.Resolve` — the polymorphic case resolver and scale-lens composition.
 
 ## [02]-[SHARED_AXES]
 
-- Owner: `SubDForm` `[SmartEnum<int>]` — the SubD tessellation vocabulary whose columns carry both host enums (`FileObjWriteOptions.SubDMeshing`, `FileGltfWriteOptions.SubDMeshing` — identical `Surface`/`ControlNet` rosters, two host types), so one domain row serves both consumers. `CsvColumn` `[SmartEnum<int>]` — the CSV column set: each row carries its tune-baseline predicate and its host setter, so column membership is set algebra over one vocabulary, never twenty-six parallel booleans. `DracoDial` — the admitted Draco value: level in `[1, 10]`, quantization bits in `[8, 32]`, refused at construction because the host clamps silently. `DwgCurveFit` and `ObjNgonDial` — enable-plus-value clusters collapsing the host's paired `bool` gate and value members into one field. `IgesIdentity`, `IgesFitPolicy`, `IgesSurfaceForm`, `VdaHeader` — plain sub-records whose defaults are the verified host defaults, so an IGES or VDA case carries coherent clusters instead of loose per-member fields; the fit policy is ONE shape the IGES case instantiates twice, once per entity slot, because the host's curve and surface fit members share names, meanings, and defaults exactly.
+- Owner: `SubDForm` `[SmartEnum<int>]` — the SubD tessellation vocabulary whose columns carry both host enums (`FileObjWriteOptions.SubDMeshing`, `FileGltfWriteOptions.SubDMeshing` — identical `Surface`/`ControlNet` rosters, two host types), so one domain row serves both consumers. `CsvColumn` `[SmartEnum<int>]` — the CSV column set: each row carries its tune-baseline predicate and its host setter, so column membership is set algebra over one vocabulary, never twenty-six parallel booleans. `DracoDial` and `ObjNgonDial` — admitted values for the host's clamped compression bands and n-gon cluster, the n-gon mode admitted against the host enum roster before any mint. `IgesIdentity`, `IgesFitPolicy`, `IgesSurfaceForm`, and `VdaHeader` — structural policy products; the fit policy is one shape the IGES case instantiates for both entity slots because the host columns share semantics and defaults.
 - Law: a shared vocabulary is earned only by two or more host enums sharing one roster — `SubDForm` qualifies; a single-host enum rides its case field directly as boundary material, because a one-to-one `[SmartEnum]` mirror restates host truth.
-- Law: `FieldOverride<T>` (the sheet rail's per-field write owner) is the enable-plus-value form everywhere a host pairs a `bool` gate with a value member — `Set(value)` writes gate-plus-value, `Clear()` forces the gate off, `Keep()` leaves the baseline — so "explicitly off" and "untouched" stay distinct states.
+- Law: `Option<FieldOverride<T>>` carries an optional enable-plus-value override: `None` and `Some(FieldOverride<T>.Keep)` retain the baseline, `Some(new FieldOverride<T>.SetCase(Value: value))` writes gate-plus-value, and `Some(new FieldOverride<T>.ClearCase())` forces the gate off. A class-shaped `FieldOverride<T>` never uses `default` as `Keep`.
 - Growth: a new cross-host vocabulary is one row set with one column per host enum; a new cluster is one sub-record with its `Apply`.
+- Boundary: each `Mint` block is a host-mutation capsule; object initialization and ordered `Iter`/`Apply` statements are the platform-forced statement exemption.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -22,6 +23,7 @@ using Rasm.Numerics;
 using Rhino;
 using Rhino.FileIO;
 using Rhino.Geometry;
+using System.Runtime.InteropServices;
 
 namespace Rasm.Rhino.Exchange;
 
@@ -79,44 +81,80 @@ public sealed partial class CsvColumn {
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------
-public sealed record DracoDial(Dimension Level, Dimension PositionBits, Dimension NormalBits, Dimension TextureBits) {
+[ComplexValueObject]
+[StructLayout(LayoutKind.Auto)]
+public readonly partial struct DracoDial {
+    public Dimension Level { get; }
+    public Dimension PositionBits { get; }
+    public Dimension NormalBits { get; }
+    public Dimension TextureBits { get; }
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref Dimension level,
+        ref Dimension positionBits,
+        ref Dimension normalBits,
+        ref Dimension textureBits) =>
+        validationError = level.Value is < 1 or > 10
+            ? new ValidationError("Draco compression level must be in [1, 10].")
+            : positionBits.Value is < 8 or > 32
+                || normalBits.Value is < 8 or > 32
+                || textureBits.Value is < 8 or > 32
+                ? new ValidationError("Draco quantization bits must be in [8, 32].")
+                : null;
+
     public static Fin<DracoDial> Of(int level, int positionBits, int normalBits, int textureBits, Op? key = null) {
         Op op = key.OrDefault();
-        return from _level in guard(level is >= 1 and <= 10, op.InvalidInput()).ToFin()
-               from _bits in guard(
-                   positionBits is >= 8 and <= 32 && normalBits is >= 8 and <= 32 && textureBits is >= 8 and <= 32,
-                   op.InvalidInput()).ToFin()
-               select new DracoDial(
-                   Level: Dimension.Create(value: level),
-                   PositionBits: Dimension.Create(value: positionBits),
-                   NormalBits: Dimension.Create(value: normalBits),
-                   TextureBits: Dimension.Create(value: textureBits));
+        return op.Catch(() => Validate(
+            level: Dimension.Create(value: level),
+            positionBits: Dimension.Create(value: positionBits),
+            normalBits: Dimension.Create(value: normalBits),
+            textureBits: Dimension.Create(value: textureBits),
+            item: out DracoDial value) is null
+                ? Fin.Succ(value: value)
+                : Fin.Fail<DracoDial>(error: op.InvalidInput()));
     }
 }
 
-public readonly record struct DwgCurveFit(
-    FieldOverride<double> MaxAngleDegrees = default,
-    FieldOverride<double> ChordHeight = default,
-    FieldOverride<double> SegmentLength = default) {
-    internal Unit Apply(FileDwgWriteOptions host) {
-        _ = MaxAngleDegrees.Apply(
-            set: value => { host.CurveUseMaxAngle = true; host.CurveMaxAngleDegrees = value; },
-            inherit: () => host.CurveUseMaxAngle = false);
-        _ = ChordHeight.Apply(
-            set: value => { host.CurveUseChordHeight = true; host.CurveChordHeight = value; },
-            inherit: () => host.CurveUseChordHeight = false);
-        _ = SegmentLength.Apply(
-            set: value => { host.CurveUseSegmentLength = true; host.CurveSegmentLength = value; },
-            inherit: () => host.CurveUseSegmentLength = false);
-        return unit;
-    }
-}
+[ComplexValueObject]
+[StructLayout(LayoutKind.Auto)]
+public readonly partial struct ObjNgonDial {
+    public FileObjWriteOptions.NGons Mode { get; }
+    public Dimension MinFaces { get; }
+    public bool IncludeUnweldedEdges { get; }
+    public bool CullInteriorVertexes { get; }
 
-public sealed record ObjNgonDial(
-    FileObjWriteOptions.NGons Mode,
-    Dimension MinFaces,
-    bool IncludeUnweldedEdges = true,
-    bool CullInteriorVertexes = true) {
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref FileObjWriteOptions.NGons mode,
+        ref Dimension minFaces,
+        ref bool includeUnweldedEdges,
+        ref bool cullInteriorVertexes) =>
+        validationError = !Enum.IsDefined(value: mode)
+            ? new ValidationError("N-gon mode is outside the host roster.")
+            : minFaces.Value < 2
+                ? new ValidationError("N-gon creation requires at least two faces.")
+                : null;
+
+    public static Fin<ObjNgonDial> Of(
+        FileObjWriteOptions.NGons mode,
+        int minFaces,
+        bool includeUnweldedEdges = true,
+        bool cullInteriorVertexes = true,
+        Op? key = null) {
+        Op op = key.OrDefault();
+        return op.Catch(() => Validate(
+            mode: mode,
+            minFaces: Dimension.Create(value: minFaces),
+            includeUnweldedEdges: includeUnweldedEdges,
+            cullInteriorVertexes: cullInteriorVertexes,
+            item: out ObjNgonDial value) is null
+                ? Fin.Succ(value: value)
+                : Fin.Fail<ObjNgonDial>(error: op.InvalidInput()));
+    }
+
     internal Unit Apply(FileObjWriteOptions host) {
         host.NgonMode = Mode;
         host.CreateNgons = Mode == FileObjWriteOptions.NGons.Create;
@@ -169,22 +207,37 @@ public sealed record VdaHeader(
 
 ## [03]-[DIAL_FAMILY]
 
-- Owner: `FormatDial` `[Union]` — one case per format direction with an option surface beyond the scale lens, closed under the private-protected root constructor. Every field is an explicit override — `Option<T>` for value members, `FieldOverride<T>` for enable-plus-value pairs, a shared-axis value where a cluster owns the shape — and `None`/`Keep` means the baseline, never a second host default. Each case's `Mint` constructs the host option object in one object initializer naming every content-shaping host member with its baseline, then applies its clusters; the fence is the roster.
+- Owner: `FormatDial` `[Union]` — one case per format direction with an option surface beyond the scale lens, closed under the private-protected root constructor. Every field is an explicit override — `Option<T>` for value members, `Option<FieldOverride<T>>` for enable-plus-value pairs, or an admitted cluster value — and `None`/`Keep` means the baseline, never a second host default. Each case's `Mint` constructs the host option object in one object initializer naming every content-shaping host member with its baseline, then applies its clusters; the fence is the roster.
 - Law: baselines are two-tier — where the codec matrix previously derived a member from `CodecTune` (fidelity, grouping, ordering, materials, resources), that derivation IS the baseline; every other member's baseline is the verified host default, so a dial-free call is byte-identical to the pre-dial matrix.
 - Law: host dialog and plumbing members (`UseSimpleDialog`, `ActualFilePathOnMac`, `IsDefault`, `Name`) never enter a case — they carry host UI state, not content policy — and immutable host members (`FileObjWriteOptions.AngleTolRadians`) are unreachable by construction.
-- Law: the seat is two base positional columns — every case constructor passes its owning `FileCodec` row and `CodecPhase` to the root constructor, so the correspondence is declared where the case is and the binding gate reads `Codec`/`Phase` off any dial with no dispatch; a hand-enumerated case-to-seat switch beside the family is the deleted form, because a class-hierarchy switch expression cannot prove exhaustiveness and restates what each declaration already states.
-- Law: host redundancies collapse at `Mint` — `FileObjWriteOptions.CreateNgons` derives from `ObjNgonDial.Mode`, `FileDwgWriteOptions`' three curve-fit gates derive from which `DwgCurveFit` fields are set, `FileStpReadOptions.LimitFaces` derives from the `FaceCap` override — so an inconsistent gate/value pair is unrepresentable.
+- Law: `DialSeat` admits the codec-phase product once and rejects any phase whose demanded ability the codec lacks. Every case constructor declares its seat beside its option body, and `Codecs.Apply` reads the generated value without another case roster.
+- Law: host redundancies collapse at `Mint` — `FileObjWriteOptions.CreateNgons` derives from `ObjNgonDial.Mode`, each `FileDwgWriteOptions` curve-fit gate derives from its adjacent `Option<FieldOverride<double>>`, and `FileStpReadOptions.LimitFaces` derives from `FaceCap`, so no consumer supplies a second gate.
 - Boundary: `FileObjWriteOptions`/`FileObjReadOptions`/`FilePlyWriteOptions` construct over the host `FileWriteOptions`/`FileReadOptions` carrier, so their `Mint` takes the carrier the engine column already holds; `FileXamlWriteOptions` projects through `ToDictionary()` into `RhinoDoc.Export` inside its codec row, and the dial never learns the transport.
-- Growth: a new host knob is one override field with its baseline line in `Mint`; a new format option type is one case, one `Seat` arm, one `Dials` row, and the consuming codec row swap.
+- Growth: a new host knob is one override field with its baseline line in `Mint`; a new format direction is one case and one codec engine expression.
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
+[ComplexValueObject]
+[StructLayout(LayoutKind.Auto)]
+public readonly partial struct DialSeat {
+    public FileCodec Codec { get; }
+    public CodecPhase Phase { get; }
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref FileCodec codec,
+        ref CodecPhase phase) =>
+        validationError = codec is not null && phase is not null && codec.Has(phase.Demands)
+            ? null
+            : new ValidationError("Codec phase is not supported by the selected codec.");
+}
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record FormatDial {
-    private protected FormatDial(FileCodec codec, CodecPhase phase) => (Codec, Phase) = (codec, phase);
+    private protected FormatDial(FileCodec codec, CodecPhase phase) => Seat = DialSeat.Create(codec: codec, phase: phase);
 
-    internal FileCodec Codec { get; }
-    internal CodecPhase Phase { get; }
+    internal DialSeat Seat { get; }
 
     public sealed record ThreeDsWriteCase(
         Option<bool> SaveViews = default,
@@ -198,7 +251,7 @@ public abstract partial record FormatDial {
     }
 
     public sealed record ThreeDsReadCase(
-        FieldOverride<double> Unweld = default,
+        Option<FieldOverride<double>> Unweld = default,
         Option<bool> ImportLights = default,
         Option<bool> ImportCameras = default) : FormatDial(FileCodec.ThreeDs, CodecPhase.Import) {
         internal File3dsReadOptions Mint() {
@@ -206,7 +259,9 @@ public abstract partial record FormatDial {
                 ImportLights = ImportLights.IfNone(true),
                 ImportCameras = ImportCameras.IfNone(true),
             };
-            _ = Unweld.Apply(set: angle => { host.Unweld = true; host.UnweldAngle = angle; }, inherit: () => host.Unweld = false);
+            _ = Unweld.Iter(field => field.Apply(
+                set: angle => { host.Unweld = true; host.UnweldAngle = angle; },
+                inherit: () => host.Unweld = false));
             return host;
         }
     }
@@ -277,7 +332,7 @@ public abstract partial record FormatDial {
         Option<bool> Triangulate = default,
         Option<bool> UnderbarMaterialNames = default,
         Option<bool> RelativeIndexing = default,
-        FieldOverride<int> VertexColors = default,
+        Option<FieldOverride<int>> VertexColors = default,
         Option<ObjNgonDial> Ngons = default,
         Option<MeshingParameters> Mesh = default) : FormatDial(FileCodec.Obj, CodecPhase.Export) {
         internal FileObjWriteOptions Mint(CodecTune tune, FileWriteOptions carrier) {
@@ -313,7 +368,9 @@ public abstract partial record FormatDial {
                 UseRelativeIndexing = RelativeIndexing.IfNone(false),
                 MeshParameters = Mesh.IfNone(() => MeshingParameters.Default),
             };
-            _ = VertexColors.Apply(set: format => { host.ExportVcs = true; host.VcsFormat = format; }, inherit: () => host.ExportVcs = false);
+            _ = VertexColors.Iter(field => field.Apply(
+                set: format => { host.ExportVcs = true; host.VcsFormat = format; },
+                inherit: () => host.ExportVcs = false));
             _ = Ngons.Iter(dial => dial.Apply(host: host));
             return host;
         }
@@ -406,7 +463,9 @@ public abstract partial record FormatDial {
         Option<bool> NoDxfHeader = default,
         Option<bool> PreserveArcNormals = default,
         Option<bool> WriteThickCurves = default,
-        DwgCurveFit CurveFit = default) : FormatDial(FileCodec.Dwg, CodecPhase.Export) {
+        Option<FieldOverride<double>> CurveMaxAngleDegrees = default,
+        Option<FieldOverride<double>> CurveChordHeight = default,
+        Option<FieldOverride<double>> CurveSegmentLength = default) : FormatDial(FileCodec.Dwg, CodecPhase.Export) {
         internal FileDwgWriteOptions Mint(CodecTune tune) {
             FileDwgWriteOptions host = new() {
                 Version = Version.IfNone(FileDwgWriteOptions.AutocadVersion.Acad2018),
@@ -434,7 +493,15 @@ public abstract partial record FormatDial {
                 PreserveArcNormals = PreserveArcNormals.IfNone(true),
                 WriteThickCurves = WriteThickCurves.IfNone(false),
             };
-            _ = CurveFit.Apply(host: host);
+            _ = CurveMaxAngleDegrees.Iter(field => field.Apply(
+                set: value => { host.CurveUseMaxAngle = true; host.CurveMaxAngleDegrees = value; },
+                inherit: () => host.CurveUseMaxAngle = false));
+            _ = CurveChordHeight.Iter(field => field.Apply(
+                set: value => { host.CurveUseChordHeight = true; host.CurveChordHeight = value; },
+                inherit: () => host.CurveUseChordHeight = false));
+            _ = CurveSegmentLength.Iter(field => field.Apply(
+                set: value => { host.CurveUseSegmentLength = true; host.CurveSegmentLength = value; },
+                inherit: () => host.CurveUseSegmentLength = false));
             return host;
         }
     }
@@ -480,7 +547,7 @@ public abstract partial record FormatDial {
     }
 
     public sealed record StlReadCase(
-        FieldOverride<double> Weld = default,
+        Option<FieldOverride<double>> Weld = default,
         Option<bool> SplitDisjointMeshes = default,
         Option<UnitSystem> Units = default) : FormatDial(FileCodec.Stl, CodecPhase.Import) {
         internal FileStlReadOptions Mint() {
@@ -488,7 +555,9 @@ public abstract partial record FormatDial {
                 SplitDisjointMeshes = SplitDisjointMeshes.IfNone(true),
                 STLModelUnits = Units.IfNone(UnitSystem.Millimeters),
             };
-            _ = Weld.Apply(set: angle => { host.Weld = true; host.WeldAngle = angle; }, inherit: () => host.Weld = false);
+            _ = Weld.Iter(field => field.Apply(
+                set: angle => { host.Weld = true; host.WeldAngle = angle; },
+                inherit: () => host.Weld = false));
             return host;
         }
     }
@@ -508,10 +577,12 @@ public abstract partial record FormatDial {
 
     public sealed record StpReadCase(
         Option<bool> JoinSurfaces = default,
-        FieldOverride<Dimension> FaceCap = default) : FormatDial(FileCodec.Stp, CodecPhase.Import) {
+        Option<FieldOverride<Dimension>> FaceCap = default) : FormatDial(FileCodec.Stp, CodecPhase.Import) {
         internal FileStpReadOptions Mint() {
             FileStpReadOptions host = new() { JoinSurfaces = JoinSurfaces.IfNone(true) };
-            _ = FaceCap.Apply(set: cap => { host.LimitFaces = true; host.MaxFaceCount = cap.Value; }, inherit: () => host.LimitFaces = false);
+            _ = FaceCap.Iter(field => field.Apply(
+                set: cap => { host.LimitFaces = true; host.MaxFaceCount = cap.Value; },
+                inherit: () => host.LimitFaces = false));
             return host;
         }
     }
@@ -539,7 +610,7 @@ public abstract partial record FormatDial {
     }
 
     public sealed record FbxReadCase(
-        FieldOverride<double> Unweld = default,
+        Option<FieldOverride<double>> Unweld = default,
         Option<bool> MeshesAsSubD = default,
         Option<bool> ImportLights = default,
         Option<bool> ImportCameras = default,
@@ -551,7 +622,9 @@ public abstract partial record FormatDial {
                 ImportCameras = ImportCameras.IfNone(true),
                 MapFbxYtoRhinoZ = MapYtoZ.IfNone(false),
             };
-            _ = Unweld.Apply(set: angle => { host.Unweld = true; host.UnweldAngle = angle; }, inherit: () => host.Unweld = false);
+            _ = Unweld.Iter(field => field.Apply(
+                set: angle => { host.Unweld = true; host.UnweldAngle = angle; },
+                inherit: () => host.Unweld = false));
             return host;
         }
     }
@@ -649,10 +722,12 @@ public abstract partial record FormatDial {
         };
     }
 
-    public sealed record LwoReadCase(FieldOverride<double> Unweld = default) : FormatDial(FileCodec.Lwo, CodecPhase.Import) {
+    public sealed record LwoReadCase(Option<FieldOverride<double>> Unweld = default) : FormatDial(FileCodec.Lwo, CodecPhase.Import) {
         internal FileLwoReadOptions Mint() {
             FileLwoReadOptions host = new();
-            _ = Unweld.Apply(set: angle => { host.Unweld = true; host.UnweldAngle = angle; }, inherit: () => host.Unweld = false);
+            _ = Unweld.Iter(field => field.Apply(
+                set: angle => { host.Unweld = true; host.UnweldAngle = angle; },
+                inherit: () => host.Unweld = false));
             return host;
         }
     }
@@ -705,7 +780,7 @@ public abstract partial record FormatDial {
         Option<bool> ImportCurves = default,
         Option<bool> JoinEdges = default,
         Option<bool> JoinFaces = default,
-        FieldOverride<double> Weld = default,
+        Option<FieldOverride<double>> Weld = default,
         Option<bool> UseGroupLayers = default,
         Option<bool> AddObjectsToGroups = default,
         Option<bool> EmbedTextures = default,
@@ -723,7 +798,9 @@ public abstract partial record FormatDial {
                 UseSketchUpTextureWriter = UseSketchUpTextureWriter.IfNone(false),
                 DisplayColorBy = DisplayColorBy.IfNone(0),
             };
-            _ = Weld.Apply(set: angle => { host.Weld = true; host.WeldAngle = angle; }, inherit: () => host.Weld = false);
+            _ = Weld.Iter(field => field.Apply(
+                set: angle => { host.Weld = true; host.WeldAngle = angle; },
+                inherit: () => host.Weld = false));
             return host;
         }
     }
@@ -878,25 +955,37 @@ public abstract partial record FormatDial {
         Option<bool> OpenMeshes = default,
         Option<bool> VertexColors = default,
         Option<bool> Layers = default,
-        FieldOverride<DracoDial> Draco = default) : FormatDial(FileCodec.Gltf, CodecPhase.Export) {
-        internal FileGltfWriteOptions Mint(CodecTune tune) => new() {
-            MapZToY = MapZtoY.IfNone(true),
-            ExportMaterials = Materials.IfNone(tune.Materials),
-            CullBackfaces = CullBackfaces.IfNone(true),
-            UseDisplayColorForUnsetMaterials = DisplayColorForUnsetMaterials.IfNone(true),
-            SubDMeshType = SubD.Map(static row => row.Gltf).IfNone(FileGltfWriteOptions.SubDMeshing.Surface),
-            SubDSurfaceMeshingDensity = SubDDensity.Map(static value => value.Value).IfNone(4),
-            ExportTextureCoordinates = TextureCoordinates.IfNone(tune.Materials),
-            ExportVertexNormals = VertexNormals.IfNone(tune.Fidelity.Measured),
-            ExportOpenMeshes = OpenMeshes.IfNone(true),
-            ExportVertexColors = VertexColors.IfNone(false),
-            ExportLayers = Layers.IfNone(tune.Group == CodecAxis.Layer),
-            UseDracoCompression = Draco.Value.IsSome || (!Draco.Inherit && tune.Fidelity == CodecFidelity.Small),
-            DracoCompressionLevel = Draco.Value.Map(static dial => dial.Level.Value).IfNone(int.Max(tune.Fidelity.Draco.Compression, 1)),
-            DracoQuantizationBitsPosition = Draco.Value.Map(static dial => dial.PositionBits.Value).IfNone(tune.Fidelity.Draco.BitsPos),
-            DracoQuantizationBitsNormal = Draco.Value.Map(static dial => dial.NormalBits.Value).IfNone(tune.Fidelity.Draco.BitsNormal),
-            DracoQuantizationBitsTextureCoordinate = Draco.Value.Map(static dial => dial.TextureBits.Value).IfNone(tune.Fidelity.Draco.BitsTexCoord),
-        };
+        Option<FieldOverride<DracoDial>> Draco = default) : FormatDial(FileCodec.Gltf, CodecPhase.Export) {
+        internal FileGltfWriteOptions Mint(CodecTune tune) {
+            (bool Use, Option<DracoDial> Value) baseline = (
+                Use: tune.Fidelity == CodecFidelity.Small,
+                Value: Option<DracoDial>.None);
+            (bool Use, Option<DracoDial> Value) draco = Draco
+                .Map(field => field.Switch(
+                    baseline,
+                    keepCase: static (state, _) => state,
+                    setCase: static (_, setting) => (Use: true, Value: Some(setting.Value)),
+                    clearCase: static (_, _) => (Use: false, Value: Option<DracoDial>.None)))
+                .IfNone(baseline);
+            return new() {
+                MapZToY = MapZtoY.IfNone(true),
+                ExportMaterials = Materials.IfNone(tune.Materials),
+                CullBackfaces = CullBackfaces.IfNone(true),
+                UseDisplayColorForUnsetMaterials = DisplayColorForUnsetMaterials.IfNone(true),
+                SubDMeshType = SubD.Map(static row => row.Gltf).IfNone(FileGltfWriteOptions.SubDMeshing.Surface),
+                SubDSurfaceMeshingDensity = SubDDensity.Map(static value => value.Value).IfNone(4),
+                ExportTextureCoordinates = TextureCoordinates.IfNone(tune.Materials),
+                ExportVertexNormals = VertexNormals.IfNone(tune.Fidelity.Measured),
+                ExportOpenMeshes = OpenMeshes.IfNone(true),
+                ExportVertexColors = VertexColors.IfNone(false),
+                ExportLayers = Layers.IfNone(tune.Group == CodecAxis.Layer),
+                UseDracoCompression = draco.Use,
+                DracoCompressionLevel = draco.Value.Map(static dial => dial.Level.Value).IfNone(int.Max(tune.Fidelity.Draco.Compression, 1)),
+                DracoQuantizationBitsPosition = draco.Value.Map(static dial => dial.PositionBits.Value).IfNone(tune.Fidelity.Draco.BitsPos),
+                DracoQuantizationBitsNormal = draco.Value.Map(static dial => dial.NormalBits.Value).IfNone(tune.Fidelity.Draco.BitsNormal),
+                DracoQuantizationBitsTextureCoordinate = draco.Value.Map(static dial => dial.TextureBits.Value).IfNone(tune.Fidelity.Draco.BitsTexCoord),
+            };
+        }
     }
 
     public sealed record UsdWriteCase(
@@ -947,68 +1036,25 @@ public abstract partial record FormatDial {
 
 ## [04]-[DIAL_BINDING]
 
-- Owner: `Dials` — the per-format resolver rows the codec engine columns consume. Each row extracts the matching case from `CodecTune.Dial` or constructs the default case, mints the host options, and — on the vector formats — composes the `VectorScale` lens after minting, so scale application order is one fact: baseline, dial overrides, scale lens.
-- Law: the seat gate lives at the codec entry — `Codecs.Read`/`Codecs.Write` refuse a `Some` dial whose base `Codec`/`Phase` columns are not the dispatched row and phase, so a DWG dial on an OBJ export or a read dial on a write is a typed refusal before any filesystem or host contact; a `None` dial passes every gate.
+- Owner: `Dials.Resolve` extracts one requested case or constructs its baseline, then threads one caller state through the supplied case projection. `Dials.Scale` composes vector scale after option minting.
+- Law: `Codecs.Apply` refuses a `Some` dial whose `DialSeat` differs from the dispatched codec and request phase before host or filesystem contact. `None` selects the supplied baseline case.
 - Law: `AiRead` and `EpsRead` are lens-only rows — their host surfaces carry nothing beyond the scale axes, so they mint directly with the `PreserveModelScale` fidelity baseline and no case exists to misconfigure.
 - Boundary: `Dials` returns bare host option objects only into the codec engine columns — the one internal seam already holding the raw `RhinoDoc` — and nothing above the matrix ever sees a host options type.
 
 ```csharp signature
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 internal static class Dials {
-    internal static File3dsWriteOptions ThreeDsWrite(CodecTune tune) => Match<FormatDial.ThreeDsWriteCase>(tune).IfNone(static () => new()).Mint(tune: tune);
-    internal static File3dsReadOptions ThreeDsRead(CodecTune tune) => Match<FormatDial.ThreeDsReadCase>(tune).IfNone(static () => new()).Mint();
-    internal static File3mfWriteOptions ThreeMfWrite(CodecTune tune) => Match<FormatDial.ThreeMfWriteCase>(tune).IfNone(static () => new()).Mint();
-    internal static FileAiWriteOptions AiWrite(CodecTune tune) => Scaled(options: Match<FormatDial.AiWriteCase>(tune).IfNone(static () => new()).Mint(tune: tune), tune: tune, lens: VectorLenses.AiWrite);
-    internal static FileAiReadOptions AiRead(CodecTune tune) => Scaled(options: new FileAiReadOptions { PreserveModelScale = tune.Fidelity.IsModel }, tune: tune, lens: VectorLenses.AiRead);
-    internal static FileAmfWriteOptions AmfWrite(CodecTune tune) => Match<FormatDial.AmfWriteCase>(tune).IfNone(static () => new()).Mint();
-    internal static FileObjWriteOptions ObjWrite(CodecTune tune, FileWriteOptions carrier) => Match<FormatDial.ObjWriteCase>(tune).IfNone(static () => new()).Mint(tune: tune, carrier: carrier);
-    internal static FileObjReadOptions ObjRead(CodecTune tune, FileReadOptions carrier) => Match<FormatDial.ObjReadCase>(tune).IfNone(static () => new()).Mint(carrier: carrier);
-    internal static FilePlyWriteOptions PlyWrite(CodecTune tune, FileWriteOptions carrier) => Match<FormatDial.PlyWriteCase>(tune).IfNone(static () => new()).Mint(tune: tune, carrier: carrier);
-    internal static FilePlyReadOptions PlyRead(CodecTune tune) => Match<FormatDial.PlyReadCase>(tune).IfNone(static () => new()).Mint();
-    internal static FileCdWriteOptions CdWrite(CodecTune tune) => Match<FormatDial.CdWriteCase>(tune).IfNone(static () => new()).Mint();
-    internal static FileDgnReadOptions DgnRead(CodecTune tune) => Match<FormatDial.DgnReadCase>(tune).IfNone(static () => new()).Mint();
-    internal static FileDstReadOptions DstRead(CodecTune tune) => Match<FormatDial.DstReadCase>(tune).IfNone(static () => new()).Mint();
-    internal static FileDwgWriteOptions DwgWrite(CodecTune tune) => Match<FormatDial.DwgWriteCase>(tune).IfNone(static () => new()).Mint(tune: tune);
-    internal static FileDwgReadOptions DwgRead(CodecTune tune) => Match<FormatDial.DwgReadCase>(tune).IfNone(static () => new()).Mint();
-    internal static FileEpsReadOptions EpsRead(CodecTune tune) => Scaled(options: new FileEpsReadOptions { PreserveModelScale = tune.Fidelity.IsModel }, tune: tune, lens: VectorLenses.Eps);
-    internal static FileStlWriteOptions StlWrite(CodecTune tune) => Match<FormatDial.StlWriteCase>(tune).IfNone(static () => new()).Mint();
-    internal static FileStlReadOptions StlRead(CodecTune tune) => Match<FormatDial.StlReadCase>(tune).IfNone(static () => new()).Mint();
-    internal static FileStpWriteOptions StpWrite(CodecTune tune) => Match<FormatDial.StpWriteCase>(tune).IfNone(static () => new()).Mint();
-    internal static FileStpReadOptions StpRead(CodecTune tune) => Match<FormatDial.StpReadCase>(tune).IfNone(static () => new()).Mint();
-    internal static FileFbxWriteOptions FbxWrite(CodecTune tune) => Match<FormatDial.FbxWriteCase>(tune).IfNone(static () => new()).Mint(tune: tune);
-    internal static FileFbxReadOptions FbxRead(CodecTune tune) => Match<FormatDial.FbxReadCase>(tune).IfNone(static () => new()).Mint();
-    internal static FileGHSReadOptions GhsRead(CodecTune tune) => Match<FormatDial.GhsReadCase>(tune).IfNone(static () => new()).Mint();
-    internal static FileGtsWriteOptions GtsWrite(CodecTune tune) => Match<FormatDial.GtsWriteCase>(tune).IfNone(static () => new()).Mint();
-    internal static FileIgsWriteOptions IgsWrite(CodecTune tune) => Match<FormatDial.IgsWriteCase>(tune).IfNone(static () => new()).Mint();
-    internal static FileLwoWriteOptions LwoWrite(CodecTune tune) => Match<FormatDial.LwoWriteCase>(tune).IfNone(static () => new()).Mint();
-    internal static FileLwoReadOptions LwoRead(CodecTune tune) => Match<FormatDial.LwoReadCase>(tune).IfNone(static () => new()).Mint();
-    internal static FileNwdWriteOptions NwdWrite(CodecTune tune) => Match<FormatDial.NwdWriteCase>(tune).IfNone(static () => new()).Mint();
-    internal static FilePovWriteOptions PovWrite(CodecTune tune) => Match<FormatDial.PovWriteCase>(tune).IfNone(static () => new()).Mint();
-    internal static FileRawWriteOptions RawWrite(CodecTune tune) => Match<FormatDial.RawWriteCase>(tune).IfNone(static () => new()).Mint();
-    internal static FileRawReadOptions RawRead(CodecTune tune) => Match<FormatDial.RawReadCase>(tune).IfNone(static () => new()).Mint();
-    internal static FileSatWriteOptions SatWrite(CodecTune tune) => Match<FormatDial.SatWriteCase>(tune).IfNone(static () => new()).Mint();
-    internal static FileSkpWriteOptions SkpWrite(CodecTune tune) => Match<FormatDial.SkpWriteCase>(tune).IfNone(static () => new()).Mint(tune: tune);
-    internal static FileSkpReadOptions SkpRead(CodecTune tune) => Match<FormatDial.SkpReadCase>(tune).IfNone(static () => new()).Mint();
-    internal static FileSlcWriteOptions SlcWrite(CodecTune tune) => Match<FormatDial.SlcWriteCase>(tune).IfNone(static () => new()).Mint();
-    internal static FileSwReadOptions SwRead(CodecTune tune) => Match<FormatDial.SwReadCase>(tune).IfNone(static () => new()).Mint();
-    internal static FileUdoWriteOptions UdoWrite(CodecTune tune) => Match<FormatDial.UdoWriteCase>(tune).IfNone(static () => new()).Mint();
-    internal static FileVdaWriteOptions VdaWrite(CodecTune tune) => Match<FormatDial.VdaWriteCase>(tune).IfNone(static () => new()).Mint();
-    internal static FileVrmlWriteOptions VrmlWrite(CodecTune tune) => Match<FormatDial.VrmlWriteCase>(tune).IfNone(static () => new()).Mint(tune: tune);
-    internal static FileX3dvWriteOptions X3dvWrite(CodecTune tune) => Match<FormatDial.X3dvWriteCase>(tune).IfNone(static () => new()).Mint(tune: tune);
-    internal static FileXamlWriteOptions XamlWrite(CodecTune tune) => Match<FormatDial.XamlWriteCase>(tune).IfNone(static () => new()).Mint(tune: tune);
-    internal static FileX_TWriteOptions XTWrite(CodecTune tune) => Match<FormatDial.XTWriteCase>(tune).IfNone(static () => new()).Mint();
-    internal static FileTxtWriteOptions TxtWrite(CodecTune tune) => Match<FormatDial.TxtWriteCase>(tune).IfNone(static () => new()).Mint(tune: tune);
-    internal static FileTxtReadOptions TxtRead(CodecTune tune) => Match<FormatDial.TxtReadCase>(tune).IfNone(static () => new()).Mint();
-    internal static FileCsvWriteOptions CsvWrite(CodecTune tune) => Match<FormatDial.CsvWriteCase>(tune).IfNone(static () => new()).Mint(tune: tune);
-    internal static FileGltfWriteOptions GltfWrite(CodecTune tune) => Match<FormatDial.GltfWriteCase>(tune).IfNone(static () => new()).Mint(tune: tune);
-    internal static FileUsdWriteOptions UsdWrite(CodecTune tune) => Match<FormatDial.UsdWriteCase>(tune).IfNone(static () => new()).Mint(tune: tune);
-    internal static FilePdfReadOptions PdfRead(CodecTune tune) => Scaled(options: Match<FormatDial.PdfReadCase>(tune).IfNone(static () => new()).Mint(tune: tune), tune: tune, lens: VectorLenses.Pdf);
-    internal static FileSvgReadOptions SvgRead(CodecTune tune) => Match<FormatDial.SvgReadCase>(tune).IfNone(static () => new()).Mint();
+    internal static TOptions Resolve<TCase, TState, TOptions>(
+        CodecTune tune,
+        TState state,
+        Func<TCase> baseline,
+        Func<TCase, CodecTune, TState, TOptions> mint) where TCase : FormatDial =>
+        tune.Dial
+            .Bind(static dial => dial is TCase match ? Some(match) : Option<TCase>.None)
+            .Map(dial => mint(dial, tune, state))
+            .IfNone(() => mint(baseline(), tune, state));
 
-    private static Option<TCase> Match<TCase>(CodecTune tune) where TCase : FormatDial =>
-        tune.Dial.Bind(static dial => dial is TCase match ? Some(match) : Option<TCase>.None);
-
-    private static TOptions Scaled<TOptions>(TOptions options, CodecTune tune, VectorLens<TOptions> lens) where TOptions : class =>
+    internal static TOptions Scale<TOptions>(TOptions options, CodecTune tune, VectorLens<TOptions> lens) where TOptions : class =>
         tune.Scale.Map(scale => scale.Apply(options: options, lens: lens)).IfNone(options);
 }
 ```
@@ -1040,8 +1086,8 @@ config:
 flowchart LR
     accTitle: Dial resolution and host option minting
     accDescr: A tune with its optional dial slot passes the seat gate, resolves to the matching or default dial case, mints the typed host options over the tune baseline, and composes the vector scale lens before the engine column consumes the result.
-    Tune["CodecTune — presets · Option dial slot"] --> Gate{{"Codecs.Read / Codecs.Write — seat gate"}}
-    Gate --> Resolve["Dials rows — matching case or default case"]
+    Tune["CodecTune — presets · Option dial slot"] --> Gate{{"Codecs.Apply — DialSeat gate"}}
+    Gate --> Resolve["Dials.Resolve — matching case or baseline"]
     Resolve --> Mint["case Mint — tune baseline · explicit overrides · shared axes"]
     Scale["VectorScale lens"] --> Mint
     Mint --> Host["typed host options → engine column"]

@@ -4,55 +4,111 @@
 
 ## [01]-[INDEX]
 
-- [02]-[OFFSET_POLICY]: `OffsetFrame`, `SurfaceOffsetLaw`, `RibbonLaw` — the offset discriminants and the ribbon carrier.
-- [03]-[SHAPE_POLICY]: `CurveEdit`, `ExtendLaw`, `ShortenLaw`, `SplitCutter`, `PullTarget`, `ProjectTarget`, `BlendLaw`, `TweenLaw`, `SpiralLaw`, `ParabolaSeed`, `AnalyticCurve`, `CatenaryLaw`, `FitLaw`, `RailFilletLaw` — the modality vocabularies.
+- [02]-[OFFSET_POLICY]: `CurveScalar`, `OffsetFrame`, `SurfaceOffsetTarget`, `SurfaceLift`, `RibbonRefit`, `RibbonLaw` — finite scalar admission, offset discriminants, and the ribbon carrier.
+- [03]-[SHAPE_POLICY]: `CurveEdit`, `ExtendLaw`, `ShortenLaw`, `SplitCutter`, `PullTarget`, `ProjectTarget`, `CurveBooleanLaw`, `BlendLaw`, `ArcBlendLaw`, `TweenLaw`, `SpiralLaw`, `ParabolaSeed`, `AnalyticCurve`, `CatenaryLaw`, `FitLaw`, `RailFilletLaw` — the modality vocabularies.
 - [04]-[OPERATION_RAIL]: `CurveSlot`, `CurveOp`, and the `Curves.Build` entry.
 - [05]-[SURFACE_LEDGER]: the page's owner table.
 
 ## [02]-[OFFSET_POLICY]
 
-- Owner: `OffsetFrame` `[Union]` — a planar offset frames in its plane, a freeform offset frames by direction point and normal with corner and end style; `SurfaceOffsetLaw` `[Union]` — constant distance, through-point, or the parameter/distance varying rows for on-surface offsetting; `RibbonLaw` — the whole `RibbonOffsetParameters` carrier as one policy value.
-- Law: varying distances are rows — the on-surface arm splits `(Parameter, Distance)` rows into the two parallel native arrays at the call, so cardinality is proven by construction.
+- Owner: `CurveScalar` admits every finite policy scalar once; `OffsetFrame` closes planar, fitted-normal, and loose-normal framing as explicit cases; `SurfaceOffsetTarget` closes each catalogued host-and-law pair; `SurfaceLift` closes normal and tangent lifting; `RibbonRefit` resolves refit tolerance from a behavior-bearing row; `RibbonLaw` carries the native ribbon policy as one value.
+- Law: varying distances are admitted `CurveScalar` rows — the on-surface arm splits `(Parameter, Distance)` rows into the two parallel native arrays at the call, so finiteness and cardinality are proven by construction.
 - Law: `RibbonLaw.Rig` is the one site naming `RibbonOffsetParameters` — offset distance, location, plane vector, blend radius, rebuild and refit knobs, cross-section alignment, and the `RibbonOffsetSurfaceMethod` row bake in one member with the tolerance slot reading the regime; the ribbon's rails, cross-sections, and breps cross as products behind per-class tallies.
 
 ```csharp
 // --- [TYPES] ------------------------------------------------------------------------------
+[ValueObject<double>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
+public readonly partial struct CurveScalar {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) =>
+        validationError = double.IsFinite(value)
+            ? null
+            : new ValidationError(message: string.Create(CultureInfo.InvariantCulture, $"CurveScalar must be finite (got {value:R})."));
+}
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record OffsetFrame {
     private OffsetFrame() { }
     public sealed record InPlane(Plane Value, CurveOffsetCornerStyle Corner = CurveOffsetCornerStyle.Sharp) : OffsetFrame;
     public sealed record ByNormal(
         Point3d DirectionPoint, Vector3d Normal, CurveOffsetCornerStyle Corner = CurveOffsetCornerStyle.Sharp,
-        CurveOffsetEndStyle End = CurveOffsetEndStyle.None, bool Loose = false) : OffsetFrame;
+        CurveOffsetEndStyle End = CurveOffsetEndStyle.None) : OffsetFrame;
+    public sealed record ByLooseNormal(
+        Point3d DirectionPoint, Vector3d Normal, CurveOffsetCornerStyle Corner = CurveOffsetCornerStyle.Sharp,
+        CurveOffsetEndStyle End = CurveOffsetEndStyle.None) : OffsetFrame;
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record SurfaceOffsetLaw {
-    private SurfaceOffsetLaw() { }
-    public sealed record ByDistance(double Value) : SurfaceOffsetLaw;
-    public sealed record ThroughPoint(Point2d Value) : SurfaceOffsetLaw;
-    public sealed record Varying(Seq<(double Parameter, double Distance)> Rows) : SurfaceOffsetLaw;
+public abstract partial record SurfaceOffsetTarget {
+    private SurfaceOffsetTarget() { }
+    public sealed record FaceDistance(GeometryHandle Host, int Face, CurveScalar Distance) : SurfaceOffsetTarget;
+    public sealed record FacePoint(GeometryHandle Host, int Face, Point2d Point) : SurfaceOffsetTarget;
+    public sealed record FaceVarying(GeometryHandle Host, int Face, Seq<(CurveScalar Parameter, CurveScalar Distance)> Rows) : SurfaceOffsetTarget;
+    public sealed record SurfaceDistance(GeometryHandle Host, CurveScalar Distance) : SurfaceOffsetTarget;
+    public sealed record SurfacePoint(GeometryHandle Host, Point2d Point) : SurfaceOffsetTarget;
+
+    internal Fin<Built<CurveSlot>> Apply(Curve curve, Context model, Op op) => Switch(
+        state: (Curve: curve, Model: model, Op: op),
+        faceDistance: static (ctx, target) => ModelGate.Borrow<Brep, Built<CurveSlot>>(target.Host, ctx.Op, brep =>
+            from _ in guard(target.Face >= 0 && target.Face < brep.Faces.Count, ctx.Op.InvalidInput())
+            from built in ModelGate.Many(ctx.Op, CurveSlot.OnSurface,
+                () => ctx.Curve.OffsetOnSurface(brep.Faces[target.Face], target.Distance.Value, ctx.Model.Absolute.Value))
+            select built),
+        facePoint: static (ctx, target) => ModelGate.Borrow<Brep, Built<CurveSlot>>(target.Host, ctx.Op, brep =>
+            from _ in guard(target.Face >= 0 && target.Face < brep.Faces.Count, ctx.Op.InvalidInput())
+            from built in ModelGate.Many(ctx.Op, CurveSlot.OnSurface,
+                () => ctx.Curve.OffsetOnSurface(brep.Faces[target.Face], target.Point, ctx.Model.Absolute.Value))
+            select built),
+        faceVarying: static (ctx, target) => ModelGate.Borrow<Brep, Built<CurveSlot>>(target.Host, ctx.Op, brep =>
+            from _ in guard(target.Face >= 0 && target.Face < brep.Faces.Count && !target.Rows.IsEmpty, ctx.Op.InvalidInput())
+            from built in ModelGate.Many(ctx.Op, CurveSlot.OnSurface, () => ctx.Curve.OffsetOnSurface(
+                    face: brep.Faces[target.Face],
+                    curveParameters: target.Rows.Map(static row => row.Parameter.Value).ToArray(),
+                    offsetDistances: target.Rows.Map(static row => row.Distance.Value).ToArray(),
+                    fittingTolerance: ctx.Model.Absolute.Value))
+            select built),
+        surfaceDistance: static (ctx, target) => ModelGate.Borrow<Surface, Built<CurveSlot>>(target.Host, ctx.Op, surface =>
+            ModelGate.Many(ctx.Op, CurveSlot.OnSurface,
+                () => ctx.Curve.OffsetOnSurface(surface, target.Distance.Value, ctx.Model.Absolute.Value))),
+        surfacePoint: static (ctx, target) => ModelGate.Borrow<Surface, Built<CurveSlot>>(target.Host, ctx.Op, surface =>
+            ModelGate.Many(ctx.Op, CurveSlot.OnSurface,
+                () => ctx.Curve.OffsetOnSurface(surface, target.Point, ctx.Model.Absolute.Value))));
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record SurfaceLift {
+    private SurfaceLift() { }
+    public sealed record Normal : SurfaceLift;
+    public sealed record Tangent : SurfaceLift;
+}
+
+[SmartEnum<int>]
+public sealed partial class RibbonRefit {
+    public static readonly RibbonRefit None = new(key: 0, resolve: static _ => 0.0);
+    public static readonly RibbonRefit AtTolerance = new(key: 1, resolve: static domain => domain.Absolute.Value);
+
+    [UseDelegateFromConstructor]
+    internal partial double Resolve(Context domain);
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
 public sealed record RibbonLaw(
-    double Distance,
+    CurveScalar Distance,
     Point3d Location,
-    double BlendRadius = 0.0,
+    RibbonRefit Refit,
+    CurveScalar BlendRadius = default,
     Option<Vector3d> PlaneVector = default,
     int RebuildPointCount = 0,
-    bool Refit = false,
     bool AlignCrossSections = false,
     RibbonOffsetSurfaceMethod SurfaceMethod = RibbonOffsetSurfaceMethod.Sweep2) {
     internal Fin<RibbonOffsetParameters> Rig(Context domain, Op key) =>
         key.Catch(() => Fin.Succ(value: new RibbonOffsetParameters {
-            OffsetDistance = Distance,
+            OffsetDistance = Distance.Value,
             OffsetLocation = Location,
             OffsetTolerance = domain.Absolute.Value,
             OffsetPlaneVector3d = PlaneVector.IfNone(Vector3d.Unset),
-            BlendRadius = BlendRadius,
+            BlendRadius = BlendRadius.Value,
             RebuildPointCount = RebuildPointCount,
-            RefitTolerance = Refit ? domain.Absolute.Value : 0.0,
+            RefitTolerance = Refit.Resolve(domain),
             AlignCrossSections = AlignCrossSections,
             RibbonSurfaceGenerationMethod = SurfaceMethod,
         }));
@@ -61,22 +117,13 @@ public sealed record RibbonLaw(
 
 ## [03]-[SHAPE_POLICY]
 
-- Owner: the modality vocabularies — `CurveBooleanVerb` admits only the three curve-boolean members; `ExtendLaw` fuses the extension side, style, and terminal (length, geometry, point, line, arc, on-surface); `ShortenLaw` fuses domain and end trimming; `SplitCutter` fuses parameter, brep, surface, and plane splitting; `PullTarget`/`ProjectTarget` fuse pull and projection destinations; `BlendLaw` fuses end-to-end and at-parameter blending; `TweenLaw` fuses plain, matched, and sampled tweening; `SpiralLaw`, `ParabolaSeed`, `AnalyticCurve`, and `CatenaryLaw` fuse the construction seed families; `FitLaw` carries the advanced `NurbsCurveFitParameters` surface as one policy value.
+- Owner: the modality vocabularies — `CurveBooleanLaw` carries exactly the source arity consumed by union, intersection, or difference; `ExtendLaw` fuses the extension side, style, and terminal; `ShortenLaw` fuses domain and end trimming; `SplitCutter` fuses parameter, brep, surface, and plane splitting; `PullTarget`/`ProjectTarget` fuse sources with their destinations; `BlendLaw` and `ArcBlendLaw` close blend construction; `TweenLaw` fuses plain, matched, and sampled tweening; `SpiralLaw`, `ParabolaSeed`, `AnalyticCurve`, and `CatenaryLaw` fuse the construction seed families; `FitLaw` carries the advanced `NurbsCurveFitParameters` surface as one policy value.
 - Law: the discriminant is the value's shape — every native overload family resolves from the case the caller constructed, so no arm reads a mode flag and no verb family grows a `ByX` sibling.
-- Law: `FitLaw.Rig` is the one site naming `NurbsCurveFitParameters` — tangent matching, kink splitting, the three intensity axes, degree, point count, subd-friendliness, closure, and optimization bake in one member; the fit's maximum-separation line and parameters land as receipt facts beside the fitted curve.
+- Law: `FitAxis` distinguishes fixed intensity from coefficient-bearing custom intensity; `FitCapability` carries orthogonal fit grants as set membership; generated `FitLaw` admits automatic, fixed, or variable control-point modes before `Rig` projects one native interpretation.
 - Law: catenary construction is one case over four shape terminals — through-point, length, parameter, and apex select the native static, and the apex, parameter, length, and deviation out-channels land as facts on every form.
 
 ```csharp
 // --- [TYPES] ------------------------------------------------------------------------------
-[SmartEnum<int>]
-public sealed partial class CurveBooleanVerb {
-    public static readonly CurveBooleanVerb Union = new(key: 0, requiresSecond: false);
-    public static readonly CurveBooleanVerb Intersection = new(key: 1, requiresSecond: true);
-    public static readonly CurveBooleanVerb Difference = new(key: 2, requiresSecond: true);
-
-    public bool RequiresSecond { get; }
-}
-
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CurveEdit {
     private CurveEdit() { }
@@ -115,16 +162,26 @@ public abstract partial record SplitCutter {
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PullTarget {
     private PullTarget() { }
-    public sealed record ToFace(GeometryHandle Brep, int Face, bool Loose = false) : PullTarget;
-    public sealed record ToMesh(GeometryHandle Mesh, bool Loose = false) : PullTarget;
+    public sealed record ToFace(GeometryHandle Brep, int Face) : PullTarget;
+    public sealed record ToFaceLoose(GeometryHandle Brep, int Face) : PullTarget;
+    public sealed record ToMesh(GeometryHandle Mesh) : PullTarget;
+    public sealed record ToMeshLoose(GeometryHandle Mesh) : PullTarget;
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ProjectTarget {
     private ProjectTarget() { }
-    public sealed record ToBreps(Seq<GeometryHandle> Values, Vector3d Direction, bool Loose = false) : ProjectTarget;
-    public sealed record ToMeshes(Seq<GeometryHandle> Values, Vector3d Direction, bool Loose = false) : ProjectTarget;
-    public sealed record ToPlane(Plane Value) : ProjectTarget;
+    public sealed record ToBreps(Seq<GeometryHandle> Curves, Seq<GeometryHandle> Breps, Vector3d Direction) : ProjectTarget;
+    public sealed record ToMeshes(Seq<GeometryHandle> Curves, Seq<GeometryHandle> Meshes, Vector3d Direction) : ProjectTarget;
+    public sealed record ToPlane(GeometryHandle Curve, Plane Plane) : ProjectTarget;
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record CurveBooleanLaw {
+    private CurveBooleanLaw() { }
+    public sealed record Union(Seq<GeometryHandle> Curves) : CurveBooleanLaw;
+    public sealed record Intersection(GeometryHandle First, GeometryHandle Second) : CurveBooleanLaw;
+    public sealed record Difference(GeometryHandle First, Seq<GeometryHandle> Subtractors) : CurveBooleanLaw;
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -132,6 +189,13 @@ public abstract partial record BlendLaw {
     private BlendLaw() { }
     public sealed record EndToEnd(BlendContinuity Continuity, Option<(double BulgeA, double BulgeB)> Bulge = default) : BlendLaw;
     public sealed record AtParameters(double T0, bool Reverse0, BlendContinuity Continuity0, double T1, bool Reverse1, BlendContinuity Continuity1) : BlendLaw;
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record ArcBlendLaw {
+    private ArcBlendLaw() { }
+    public sealed record ControlPointRatio(CurveScalar Ratio) : ArcBlendLaw;
+    public sealed record LineArcRadius(CurveScalar Radius) : ArcBlendLaw;
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -176,41 +240,121 @@ public abstract partial record CatenaryLaw {
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
-public sealed record FitLaw(
-    NurbsCurveFitParameters.TangentMatch TangentMatching = NurbsCurveFitParameters.TangentMatch.AtStartAndEnd,
-    NurbsCurveFitParameters.KinkSplit KinkSplitting = NurbsCurveFitParameters.KinkSplit.AtG1Changes,
-    NurbsCurveFitParameters.Intensity Smoothing = NurbsCurveFitParameters.Intensity.Moderate,
-    NurbsCurveFitParameters.Intensity Uniformity = NurbsCurveFitParameters.Intensity.Moderate,
-    NurbsCurveFitParameters.Intensity CurvatureBias = NurbsCurveFitParameters.Intensity.Moderate,
-    int Degree = 3,
-    int PointCount = 0,
-    double SmoothingCoefficient = 0.0,
-    double UniformityCoefficient = 0.0,
-    double CurvatureBiasCoefficient = 0.0,
-    bool SubDFriendly = false,
-    bool Closed = false,
-    bool ApplyTangentMatchingAtKinks = false,
-    bool OptimizeCurve = true,
-    IndexPair PointCountRange = default) {
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record FitAxis {
+    private FitAxis() { }
+    public sealed record Preset(FitPreset Value) : FitAxis;
+    public sealed record Custom(CurveScalar Coefficient) : FitAxis;
+
+    internal (NurbsCurveFitParameters.Intensity Intensity, double Coefficient) Native() => Switch(
+        preset: static value => (value.Value.Native, 0.0),
+        custom: static value => (NurbsCurveFitParameters.Intensity.Custom, value.Coefficient.Value));
+}
+
+[SmartEnum<int>]
+public sealed partial class FitPreset {
+    public static readonly FitPreset None = new(key: 0, native: NurbsCurveFitParameters.Intensity.None);
+    public static readonly FitPreset Low = new(key: 1, native: NurbsCurveFitParameters.Intensity.Low);
+    public static readonly FitPreset Moderate = new(key: 2, native: NurbsCurveFitParameters.Intensity.Moderate);
+    public static readonly FitPreset Medium = new(key: 3, native: NurbsCurveFitParameters.Intensity.Medium);
+    public static readonly FitPreset High = new(key: 4, native: NurbsCurveFitParameters.Intensity.High);
+    public static readonly FitPreset Extreme = new(key: 5, native: NurbsCurveFitParameters.Intensity.Extreme);
+
+    public NurbsCurveFitParameters.Intensity Native { get; }
+}
+
+[SmartEnum<int>]
+public sealed partial class FitCapability {
+    public static readonly FitCapability SubDFriendly = new(key: 0);
+    public static readonly FitCapability Closed = new(key: 1);
+    public static readonly FitCapability TangentsAtKinks = new(key: 2);
+    public static readonly FitCapability Optimize = new(key: 3);
+}
+
+[ComplexValueObject]
+[StructLayout(LayoutKind.Auto)]
+public readonly partial struct FitLaw {
+    public FitAxis Smoothing { get; }
+    public FitAxis Uniformity { get; }
+    public FitAxis CurvatureBias { get; }
+    public FrozenSet<FitCapability> Capabilities { get; }
+    public NurbsCurveFitParameters.TangentMatch TangentMatching { get; }
+    public NurbsCurveFitParameters.KinkSplit KinkSplitting { get; }
+    public int Degree { get; }
+    public int PointCount { get; }
+    public IndexPair PointCountRange { get; }
+
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref FitAxis smoothing,
+        ref FitAxis uniformity,
+        ref FitAxis curvatureBias,
+        ref FrozenSet<FitCapability> capabilities,
+        ref NurbsCurveFitParameters.TangentMatch tangentMatching,
+        ref NurbsCurveFitParameters.KinkSplit kinkSplitting,
+        ref int degree,
+        ref int pointCount,
+        ref IndexPair pointCountRange) {
+        if (!Admits(
+            smoothing, uniformity, curvatureBias, capabilities, tangentMatching, kinkSplitting,
+            degree, pointCount, pointCountRange)) {
+            validationError = new ValidationError("Curve fit policy is inconsistent.");
+        }
+    }
+
+    internal bool Admissible => Admits(
+        Smoothing, Uniformity, CurvatureBias, Capabilities, TangentMatching, KinkSplitting,
+        Degree, PointCount, PointCountRange);
+
     internal Fin<NurbsCurveFitParameters> Rig(Context domain, Op key) =>
-        key.Catch(() => Fin.Succ(value: new NurbsCurveFitParameters {
-            TangentMatching = TangentMatching,
-            KinkSplitting = KinkSplitting,
-            SmoothingIntensity = Smoothing,
-            UniformityIntensity = Uniformity,
-            CurvatureBiasIntensity = CurvatureBias,
-            Degree = Degree,
-            PointCount = PointCount,
-            KinkAngleRadians = domain.Angle.Value,
-            SmoothingCoefficient = SmoothingCoefficient,
-            UniformityCoefficient = UniformityCoefficient,
-            CurvatureBiasCoefficient = CurvatureBiasCoefficient,
-            SubDFriendly = SubDFriendly,
-            Closed = Closed,
-            ApplyTangentMatchingAtKinks = ApplyTangentMatchingAtKinks,
-            OptimizeCurve = OptimizeCurve,
-            PointCountRange = PointCountRange,
-        }));
+        from _ in guard(Admissible, key.InvalidInput()).ToFin()
+        from rigged in key.Catch(() => (Smoothing.Native(), Uniformity.Native(), CurvatureBias.Native()) switch {
+            var (smoothing, uniformity, curvature) => Fin.Succ(value: new NurbsCurveFitParameters {
+                TangentMatching = TangentMatching, KinkSplitting = KinkSplitting,
+                SmoothingIntensity = smoothing.Intensity,
+                UniformityIntensity = uniformity.Intensity,
+                CurvatureBiasIntensity = curvature.Intensity,
+                Degree = Degree,
+                PointCount = PointCount,
+                KinkAngleRadians = domain.Angle.Value,
+                SmoothingCoefficient = smoothing.Coefficient,
+                UniformityCoefficient = uniformity.Coefficient,
+                CurvatureBiasCoefficient = curvature.Coefficient,
+                SubDFriendly = Capabilities.Contains(FitCapability.SubDFriendly),
+                Closed = Capabilities.Contains(FitCapability.Closed),
+                ApplyTangentMatchingAtKinks = Capabilities.Contains(FitCapability.TangentsAtKinks),
+                OptimizeCurve = Capabilities.Contains(FitCapability.Optimize),
+                PointCountRange = PointCountRange,
+            }),
+        })
+        select rigged;
+
+    private static bool Admits(
+        FitAxis? smoothing,
+        FitAxis? uniformity,
+        FitAxis? curvatureBias,
+        FrozenSet<FitCapability>? capabilities,
+        NurbsCurveFitParameters.TangentMatch tangentMatching,
+        NurbsCurveFitParameters.KinkSplit kinkSplitting,
+        int degree,
+        int pointCount,
+        IndexPair pointCountRange) {
+        bool automatic = pointCount == 0 && pointCountRange is { I: 0, J: 0 };
+        bool fixedCount = pointCount > degree && pointCountRange is { I: 0, J: 0 };
+        bool variableCount = pointCount > degree
+            && pointCountRange.I == pointCount
+            && pointCountRange.J >= pointCount;
+        return Axis(smoothing) && Axis(uniformity) && Axis(curvatureBias)
+            && capabilities is not null && !capabilities.Any(static capability => capability is null)
+            && Enum.IsDefined(tangentMatching) && Enum.IsDefined(kinkSplitting)
+            && degree >= 1 && (automatic || fixedCount || variableCount);
+    }
+
+    private static bool Axis(FitAxis? axis) => axis switch {
+        FitAxis.Preset { Value: not null } => true,
+        FitAxis.Custom => true,
+        _ => false,
+    };
 }
 
 public sealed record RailFilletLaw(
@@ -226,8 +370,8 @@ public sealed record RailFilletLaw(
 
 - Owner: `CurveSlot` `[SmartEnum<int>]` — the consequence vocabulary; `CurveOp` `[Union]` — the whole verified curve host-op roster; `Curves` — the one entry folding any operation spread into one `Built<CurveSlot>`.
 - Law: refinement is value-semantic — fair, fit, rebuild, smooth, and simplify run the instance member on the borrowed curve and own the returned refinement; the boolean tolerance-less and tween tolerance-less overloads are obsolete, so every arm runs the tolerance form off the regime.
-- Law: correspondence maps survive — projection folds its curve and brep source indices, join folds its key map, curve-boolean union folds its index map, and the planar-region product folds its per-region partition as `SourceGroups`, so a consumer never re-derives which input produced which output.
-- Law: the boolean-regions carrier dies at the seam — `CurveBooleanRegions` is read inside the arm, its per-region curves cross as products partitioned by a `SourceGroups` fact, its point-to-region assignments land as a `SourceMap` fact, and the disposable carrier never escapes.
+- Law: correspondence maps survive — projection folds its curve and brep source indices, join folds its key map, curve-boolean union folds its index map, and the planar-region product folds its per-region partition as `SourceGroups`, so a consumer never re-derives which input produced which output. Mesh-target projection is the declared exception: `Curve.ProjectToMesh` exposes no index channel on any overload, so the `ToMeshes` arm records the product tally alone and carries no correspondence guarantee.
+- Law: the boolean-regions carrier dies at the seam — `CurveBooleanRegions` is read inside the arm, its per-region curves cross as products partitioned by a `SourceGroups` fact, and point assignments carry the `SourceAxis.Region` discriminant.
 - Law: end reconciliation answers pairs — `MakeEndsMeet` duplicates both curves, reconciles the duplicates, and crosses both as products, so the mutating native never touches an input handle.
 - Law: direction agreement is evidence — `DirectionsMatch` borrows both curves and lands the host `Curve.DoDirectionsMatch` verdict as a `Flag` fact with no product, so join, sweep, and loft preparation reads the verdict off the receipt rail; the kernel's typed direction-relation vocabulary stays the analysis-altitude owner, and this host boolean serves construction preparation only.
 - Growth: a new curve host verb is one case with its arm; a new modality is one case on the owning policy union.
@@ -268,9 +412,9 @@ public sealed partial class CurveSlot {
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CurveOp {
     private CurveOp() { }
-    public sealed record Offset(GeometryHandle Curve, OffsetFrame Frame, double Distance) : CurveOp;
-    public sealed record OffsetOnSurface(GeometryHandle Curve, GeometryHandle Host, Option<int> Face, SurfaceOffsetLaw Law) : CurveOp;
-    public sealed record OffsetLift(GeometryHandle Curve, GeometryHandle Surface, double Height, bool Tangent = false) : CurveOp;
+    public sealed record Offset(GeometryHandle Curve, OffsetFrame Frame, CurveScalar Distance) : CurveOp;
+    public sealed record OffsetOnSurface(GeometryHandle Curve, SurfaceOffsetTarget Target) : CurveOp;
+    public sealed record OffsetLift(GeometryHandle Curve, GeometryHandle Surface, CurveScalar Height, SurfaceLift Lift) : CurveOp;
     public sealed record Ribbon(GeometryHandle Curve, RibbonLaw Law) : CurveOp;
     public sealed record Fair(GeometryHandle Curve, int ClampStart, int ClampEnd, int Iterations) : CurveOp;
     public sealed record Fit(GeometryHandle Curve, int Degree) : CurveOp;
@@ -283,12 +427,12 @@ public abstract partial record CurveOp {
     public sealed record Shorten(GeometryHandle Curve, ShortenLaw Law) : CurveOp;
     public sealed record Split(GeometryHandle Curve, SplitCutter Cutter) : CurveOp;
     public sealed record Pull(GeometryHandle Curve, PullTarget Target) : CurveOp;
-    public sealed record Project(Seq<GeometryHandle> Curves, ProjectTarget Target) : CurveOp;
+    public sealed record Project(ProjectTarget Target) : CurveOp;
     public sealed record Join(Seq<GeometryHandle> Curves, bool PreserveDirection = false, bool Simple = false) : CurveOp;
-    public sealed record Boolean(CurveBooleanVerb Verb, Seq<GeometryHandle> First, Seq<GeometryHandle> Second) : CurveOp;
+    public sealed record Boolean(CurveBooleanLaw Law) : CurveOp;
     public sealed record Regions(Seq<GeometryHandle> Curves, Plane Frame, Seq<Point3d> Points, bool Combine) : CurveOp;
     public sealed record Blend(GeometryHandle First, GeometryHandle Second, BlendLaw Law) : CurveOp;
-    public sealed record ArcBlend(Point3d Start, Vector3d StartDirection, Point3d End, Vector3d EndDirection, double RatioOrRadius, bool LineArc = false) : CurveOp;
+    public sealed record ArcBlend(Point3d Start, Vector3d StartDirection, Point3d End, Vector3d EndDirection, ArcBlendLaw Law) : CurveOp;
     public sealed record FilletCurves(GeometryHandle First, Point3d NearFirst, GeometryHandle Second, Point3d NearSecond, double Radius, bool JoinResult, bool TrimInputs, bool ArcExtension) : CurveOp;
     public sealed record FilletCorners(GeometryHandle Curve, double Radius) : CurveOp;
     public sealed record Tween(GeometryHandle First, GeometryHandle Second, int Count, TweenLaw Law) : CurveOp;
@@ -320,81 +464,49 @@ public abstract partial record CurveOp {
         Switch(
             context: domain,
             offset: static (model, edit) => Borrowed(edit.Curve, Op.Of(name: nameof(Offset)), (curve, op) =>
-                Many(op, CurveSlot.Offset, () => edit.Frame switch {
-                    OffsetFrame.InPlane frame => curve.Offset(
-                        plane: frame.Value, distance: edit.Distance, tolerance: model.Absolute.Value, cornerStyle: frame.Corner),
-                    OffsetFrame.ByNormal frame => curve.Offset(
-                        directionPoint: frame.DirectionPoint, normal: frame.Normal, distance: edit.Distance,
-                        tolerance: model.Absolute.Value, angleTolerance: model.Angle.Value, loose: frame.Loose,
-                        cornerStyle: frame.Corner, endStyle: frame.End),
-                    _ => [],
-                })),
-            offsetOnSurface: static (model, edit) => Borrowed(edit.Curve, Op.Of(name: nameof(OffsetOnSurface)), (curve, op) =>
-                edit.Face.Case switch {
-                    int face => ModelGate.Borrow<Brep, Built<CurveSlot>>(handle: edit.Host, key: op, body: host =>
-                        from _ in guard(face >= 0 && face < host.Faces.Count, op.InvalidInput())
-                        from built in Many(op, CurveSlot.OnSurface, () => edit.Law switch {
-                            SurfaceOffsetLaw.ByDistance law => curve.OffsetOnSurface(face: host.Faces[face], distance: law.Value, fittingTolerance: model.Absolute.Value),
-                            SurfaceOffsetLaw.ThroughPoint law => curve.OffsetOnSurface(face: host.Faces[face], throughPoint: law.Value, fittingTolerance: model.Absolute.Value),
-                            SurfaceOffsetLaw.Varying law => curve.OffsetOnSurface(
-                                face: host.Faces[face],
-                                curveParameters: law.Rows.Map(static row => row.Parameter).ToArray(),
-                                offsetDistances: law.Rows.Map(static row => row.Distance).ToArray(),
-                                fittingTolerance: model.Absolute.Value),
-                            _ => [],
-                        })
-                        select built),
-                    _ => ModelGate.Borrow<Surface, Built<CurveSlot>>(handle: edit.Host, key: op, body: host =>
-                        Many(op, CurveSlot.OnSurface, () => edit.Law switch {
-                            SurfaceOffsetLaw.ByDistance law => curve.OffsetOnSurface(surface: host, distance: law.Value, fittingTolerance: model.Absolute.Value),
-                            SurfaceOffsetLaw.ThroughPoint law => curve.OffsetOnSurface(surface: host, throughPoint: law.Value, fittingTolerance: model.Absolute.Value),
-                            SurfaceOffsetLaw.Varying law => curve.OffsetOnSurface(
-                                surface: host,
-                                curveParameters: law.Rows.Map(static row => row.Parameter).ToArray(),
-                                offsetDistances: law.Rows.Map(static row => row.Distance).ToArray(),
-                                fittingTolerance: model.Absolute.Value),
-                            _ => [],
-                        })),
-                }),
+                edit.Frame.Switch(
+                    state: (Curve: curve, Model: model, Edit: edit, Op: op),
+                    inPlane: static (ctx, frame) => ModelGate.Many(ctx.Op, CurveSlot.Offset, () => ctx.Curve.Offset(
+                        plane: frame.Value, distance: ctx.Edit.Distance.Value, tolerance: ctx.Model.Absolute.Value, cornerStyle: frame.Corner)),
+                    byNormal: static (ctx, frame) => OffsetNormal(
+                        context: ctx, directionPoint: frame.DirectionPoint, normal: frame.Normal,
+                        corner: frame.Corner, end: frame.End, loose: false),
+                    byLooseNormal: static (ctx, frame) => OffsetNormal(
+                        context: ctx, directionPoint: frame.DirectionPoint, normal: frame.Normal,
+                        corner: frame.Corner, end: frame.End, loose: true))),
+            offsetOnSurface: static (model, edit) => Borrowed(edit.Curve, Op.Of(name: nameof(OffsetOnSurface)),
+                (curve, op) => edit.Target.Apply(curve, model, op)),
             offsetLift: static (_, edit) => Borrowed(edit.Curve, Op.Of(name: nameof(OffsetLift)), (curve, op) =>
                 ModelGate.Borrow<Surface, Built<CurveSlot>>(handle: edit.Surface, key: op, body: surface =>
-                    Single(op, CurveSlot.Lifted, () => edit.Tangent
-                        ? curve.OffsetTangentToSurface(surface: surface, height: edit.Height)
-                        : curve.OffsetNormalToSurface(surface: surface, height: edit.Height)))),
+                    edit.Lift.Switch(
+                        state: (Curve: curve, Surface: surface, Edit: edit, Op: op),
+                        normal: static ctx => ModelGate.Single(ctx.Op, CurveSlot.Lifted, () => ctx.Curve.OffsetNormalToSurface(
+                            surface: ctx.Surface, height: ctx.Edit.Height.Value)),
+                        tangent: static ctx => ModelGate.Single(ctx.Op, CurveSlot.Lifted, () => ctx.Curve.OffsetTangentToSurface(
+                            surface: ctx.Surface, height: ctx.Edit.Height.Value))))),
             ribbon: static (model, edit) => Borrowed(edit.Curve, Op.Of(name: nameof(Ribbon)), (curve, op) =>
                 from parameters in edit.Law.Rig(domain: model, key: op)
                 from built in op.Catch(() => {
                     Curve ribbon = curve.RibbonOffset(
                         ribbonParameters: parameters, railCurves: out Curve[] rails,
                         crossSectionCurves: out Curve[] sections, brepSurfaces: out Brep[] breps);
-                    return
-                        from primary in ModelGate.Own(built: ribbon, key: op)
-                        from railed in ModelGate.OwnMany(built: rails, key: op, allowEmpty: true).MapFail(e => { primary.Dispose(); return e; })
-                        from sectioned in ModelGate.OwnMany(built: sections, key: op, allowEmpty: true).MapFail(e => { primary.Dispose(); _ = railed.Iter(static h => h.Dispose()); return e; })
-                        from surfaced in ModelGate.OwnMany(built: breps, key: op, allowEmpty: true).MapFail(e => {
-                            primary.Dispose();
-                            _ = railed.Iter(static h => h.Dispose());
-                            _ = sectioned.Iter(static h => h.Dispose());
-                            return e;
-                        })
-                        select new Built<CurveSlot>(
-                            Products: Seq(primary) + railed + sectioned + surfaced,
-                            Evidence: BuildReceipt<CurveSlot>.Of(slot: CurveSlot.Ribboned, body: new BuildBody.Tally(Count: 1))
-                                + BuildReceipt<CurveSlot>.Of(slot: CurveSlot.Rails, body: new BuildBody.Tally(Count: railed.Count))
-                                + BuildReceipt<CurveSlot>.Of(slot: CurveSlot.Sections, body: new BuildBody.Tally(Count: sectioned.Count))
-                                + BuildReceipt<CurveSlot>.Of(slot: CurveSlot.Surfaced, body: new BuildBody.Tally(Count: surfaced.Count)));
+                    return ModelGate.Staged(op: op,
+                        (CurveSlot.Ribboned, (GeometryBase[])[ribbon], false),
+                        (CurveSlot.Rails, rails, true),
+                        (CurveSlot.Sections, sections, true),
+                        (CurveSlot.Surfaced, breps, true));
                 })
                 select built),
             fair: static (model, edit) => Borrowed(edit.Curve, Op.Of(name: nameof(Fair)), (curve, op) =>
-                Single(op, CurveSlot.Refined, () => curve.Fair(
+                ModelGate.Single(op, CurveSlot.Refined, () => curve.Fair(
                     distanceTolerance: model.Absolute.Value, angleTolerance: model.Angle.Value,
                     clampStart: edit.ClampStart, clampEnd: edit.ClampEnd, iterations: edit.Iterations))),
             fit: static (model, edit) => Borrowed(edit.Curve, Op.Of(name: nameof(Fit)), (curve, op) =>
-                Single(op, CurveSlot.Refined, () => curve.Fit(degree: edit.Degree, fitTolerance: model.Absolute.Value, angleTolerance: model.Angle.Value))),
+                ModelGate.Single(op, CurveSlot.Refined, () => curve.Fit(degree: edit.Degree, fitTolerance: model.Absolute.Value, angleTolerance: model.Angle.Value))),
             rebuild: static (_, edit) => Borrowed(edit.Curve, Op.Of(name: nameof(Rebuild)), (curve, op) =>
-                Single(op, CurveSlot.Refined, () => curve.Rebuild(pointCount: edit.PointCount, degree: edit.Degree, preserveTangents: edit.PreserveTangents))),
+                ModelGate.Single(op, CurveSlot.Refined, () => curve.Rebuild(pointCount: edit.PointCount, degree: edit.Degree, preserveTangents: edit.PreserveTangents))),
             smooth: static (_, edit) => Borrowed(edit.Curve, Op.Of(name: nameof(Smooth)), (curve, op) =>
-                Single(op, CurveSlot.Refined, () => edit.Frame.Case switch {
+                ModelGate.Single(op, CurveSlot.Refined, () => edit.Frame.Case switch {
                     Plane frame => curve.Smooth(
                         smoothFactor: edit.Factor, bXSmooth: edit.X, bYSmooth: edit.Y, bZSmooth: edit.Z,
                         bFixBoundaries: edit.FixBoundaries, coordinateSystem: edit.System, plane: frame),
@@ -403,7 +515,7 @@ public abstract partial record CurveOp {
                         bFixBoundaries: edit.FixBoundaries, coordinateSystem: edit.System),
                 })),
             simplify: static (model, edit) => Borrowed(edit.Curve, Op.Of(name: nameof(Simplify)), (curve, op) =>
-                Single(op, CurveSlot.Refined, () => edit.EndOnly.Case switch {
+                ModelGate.Single(op, CurveSlot.Refined, () => edit.EndOnly.Case switch {
                     CurveEnd end => curve.SimplifyEnd(end: end, options: edit.Options,
                         distanceTolerance: model.Absolute.Value, angleToleranceRadians: model.Angle.Value),
                     _ => curve.Simplify(options: edit.Options,
@@ -417,13 +529,7 @@ public abstract partial record CurveOp {
                         removeShort: static ctx => ctx.Op.Confirm(success: ctx.Working.RemoveShortSegments(tolerance: ctx.Domain.Absolute.Value)),
                         closeGap: static ctx => ctx.Op.Confirm(success: ctx.Working.MakeClosed(tolerance: ctx.Domain.Absolute.Value)),
                         trimDomain: static (ctx, law) => ctx.Op.Confirm(success: ctx.Working.TrimInterval(domain: law.Value)));
-                    return changed.Bind(_ => ModelGate.Own(built: working, key: op).Map(owned => new Built<CurveSlot>(
-                            Products: Seq(owned),
-                            Evidence: BuildReceipt<CurveSlot>.Of(slot: CurveSlot.Refined, body: new BuildBody.Tally(Count: 1)))))
-                        .MapFail(error => {
-                            working.Dispose();
-                            return error;
-                        });
+                    return changed.Bind(_ => ModelGate.Kept(op, CurveSlot.Refined, working)).Rollback(working);
                 })),
             nurbsFit: static (model, edit) => Borrowed(edit.Curve, Op.Of(name: nameof(NurbsFit)), (curve, op) =>
                 edit.Law.Rig(domain: model, key: op).Bind(parameters => {
@@ -432,7 +538,7 @@ public abstract partial record CurveOp {
                             NurbsCurve fitted = Curve.CreateNurbsCurveFit(
                                 curve: curve, domain: edit.Domain, rebuildOptions: parameters,
                                 maximumSeparation: out Line separation, thisSeparationParameter: out double atSource, nurbsSeparationParameter: out double atFit);
-                            return ModelGate.Own(built: fitted, key: op).Map(owned => new Built<CurveSlot>(
+                            return ModelGate.Own(built: fitted, key: op).Map(owned => Built<CurveSlot>.Of(operation: op,
                                 Products: Seq(owned),
                                 Evidence: BuildReceipt<CurveSlot>.Of(slot: CurveSlot.Refined, body: new BuildBody.Tally(Count: 1))
                                     + BuildReceipt<CurveSlot>.Of(slot: CurveSlot.FitEvidence, body: new BuildBody.Measure(Value: separation.Length))
@@ -443,79 +549,89 @@ public abstract partial record CurveOp {
                     }
                 })),
             extend: static (_, edit) => Borrowed(edit.Curve, Op.Of(name: nameof(Extend)), (curve, op) =>
-                edit.Law switch {
-                    ExtendLaw.ByLength law => Single(op, CurveSlot.Extended, () => curve.Extend(side: law.Side, length: law.Length, style: law.Style)),
-                    ExtendLaw.ToPoint law => Single(op, CurveSlot.Extended, () => curve.Extend(side: law.Side, style: law.Style, endPoint: law.Terminal)),
-                    ExtendLaw.ToGeometry law => ModelGate.BorrowMany<GeometryBase, Built<CurveSlot>>(handles: law.Bounds, key: op,
-                        body: bounds => Single(op, CurveSlot.Extended, () => curve.Extend(side: law.Side, style: law.Style, geometry: bounds.AsIterable()))),
-                    ExtendLaw.ByLine law => ModelGate.BorrowMany<GeometryBase, Built<CurveSlot>>(handles: law.Bounds, key: op,
-                        body: bounds => Single(op, CurveSlot.Extended, () => curve.ExtendByLine(side: law.Side, geometry: bounds.AsIterable()))),
-                    ExtendLaw.ByArc law => ModelGate.BorrowMany<GeometryBase, Built<CurveSlot>>(handles: law.Bounds, key: op,
-                        body: bounds => Single(op, CurveSlot.Extended, () => curve.ExtendByArc(side: law.Side, geometry: bounds.AsIterable()))),
-                    ExtendLaw.OnSurface law => law.Face.Case switch {
-                        int face => ModelGate.Borrow<Brep, Built<CurveSlot>>(handle: law.Target, key: op, body: host =>
-                            from _ in guard(face >= 0 && face < host.Faces.Count, op.InvalidInput())
-                            from built in Single(op, CurveSlot.Extended, () => curve.ExtendOnSurface(side: law.Side, face: host.Faces[face]))
+                edit.Law.Switch(
+                    state: (Curve: curve, Op: op),
+                    byLength: static (ctx, law) => ModelGate.Single(ctx.Op, CurveSlot.Extended, () => ctx.Curve.Extend(
+                        side: law.Side, length: law.Length, style: law.Style)),
+                    toGeometry: static (ctx, law) => ModelGate.BorrowMany<GeometryBase, Built<CurveSlot>>(handles: law.Bounds, key: ctx.Op,
+                        body: bounds => ModelGate.Single(ctx.Op, CurveSlot.Extended, () => ctx.Curve.Extend(
+                            side: law.Side, style: law.Style, geometry: bounds.AsIterable()))),
+                    toPoint: static (ctx, law) => ModelGate.Single(ctx.Op, CurveSlot.Extended, () => ctx.Curve.Extend(
+                        side: law.Side, style: law.Style, endPoint: law.Terminal)),
+                    byLine: static (ctx, law) => ModelGate.BorrowMany<GeometryBase, Built<CurveSlot>>(handles: law.Bounds, key: ctx.Op,
+                        body: bounds => ModelGate.Single(ctx.Op, CurveSlot.Extended, () => ctx.Curve.ExtendByLine(
+                            side: law.Side, geometry: bounds.AsIterable()))),
+                    byArc: static (ctx, law) => ModelGate.BorrowMany<GeometryBase, Built<CurveSlot>>(handles: law.Bounds, key: ctx.Op,
+                        body: bounds => ModelGate.Single(ctx.Op, CurveSlot.Extended, () => ctx.Curve.ExtendByArc(
+                            side: law.Side, geometry: bounds.AsIterable()))),
+                    onSurface: static (ctx, law) => law.Face.Case switch {
+                        int face => ModelGate.Borrow<Brep, Built<CurveSlot>>(handle: law.Target, key: ctx.Op, body: host =>
+                            from _ in guard(face >= 0 && face < host.Faces.Count, ctx.Op.InvalidInput())
+                            from built in ModelGate.Single(ctx.Op, CurveSlot.Extended, () => ctx.Curve.ExtendOnSurface(side: law.Side, face: host.Faces[face]))
                             select built),
-                        _ => ModelGate.Borrow<Surface, Built<CurveSlot>>(handle: law.Target, key: op,
-                            body: host => Single(op, CurveSlot.Extended, () => curve.ExtendOnSurface(side: law.Side, surface: host))),
-                    },
-                    _ => Fin.Fail<Built<CurveSlot>>(error: op.InvalidInput()),
-                }),
+                        _ => ModelGate.Borrow<Surface, Built<CurveSlot>>(handle: law.Target, key: ctx.Op,
+                            body: host => ModelGate.Single(ctx.Op, CurveSlot.Extended, () => ctx.Curve.ExtendOnSurface(side: law.Side, surface: host))),
+                    })),
             shorten: static (_, edit) => Borrowed(edit.Curve, Op.Of(name: nameof(Shorten)), (curve, op) =>
                 edit.Law.Switch(
                     state: (Curve: curve, Op: op),
-                    toDomain: static (ctx, law) => Single(ctx.Op, CurveSlot.Shortened, () => ctx.Curve.Trim(domain: law.Value)),
-                    atEnd: static (ctx, law) => Single(ctx.Op, CurveSlot.Shortened, () => ctx.Curve.Trim(side: law.Side, length: law.Length)))),
+                    toDomain: static (ctx, law) => ModelGate.Single(ctx.Op, CurveSlot.Shortened, () => ctx.Curve.Trim(domain: law.Value)),
+                    atEnd: static (ctx, law) => ModelGate.Single(ctx.Op, CurveSlot.Shortened, () => ctx.Curve.Trim(side: law.Side, length: law.Length)))),
             split: static (model, edit) => Borrowed(edit.Curve, Op.Of(name: nameof(Split)), (curve, op) =>
-                edit.Cutter switch {
-                    SplitCutter.AtParameters law => Many(op, CurveSlot.SplitApart, () => curve.Split(t: law.Values.AsIterable())),
-                    SplitCutter.ByPlane law => Many(op, CurveSlot.SplitApart, () => curve.Split(
-                        plane: law.Value, tolerance: model.Absolute.Value, angleToleranceRadians: model.Angle.Value)),
-                    SplitCutter.ByBrep law => ModelGate.Borrow<Brep, Built<CurveSlot>>(handle: law.Value, key: op, body: cutter =>
-                        Many(op, CurveSlot.SplitApart, () => curve.Split(cutter: cutter, tolerance: model.Absolute.Value, angleToleranceRadians: model.Angle.Value))),
-                    SplitCutter.BySurface law => ModelGate.Borrow<Surface, Built<CurveSlot>>(handle: law.Value, key: op, body: cutter =>
-                        Many(op, CurveSlot.SplitApart, () => curve.Split(cutter: cutter, tolerance: model.Absolute.Value, angleToleranceRadians: model.Angle.Value))),
-                    _ => Fin.Fail<Built<CurveSlot>>(error: op.InvalidInput()),
-                }),
+                edit.Cutter.Switch(
+                    state: (Curve: curve, Model: model, Op: op),
+                    atParameters: static (ctx, law) => ModelGate.Many(ctx.Op, CurveSlot.SplitApart, () => ctx.Curve.Split(t: law.Values.AsIterable())),
+                    byBrep: static (ctx, law) => ModelGate.Borrow<Brep, Built<CurveSlot>>(handle: law.Value, key: ctx.Op, body: cutter =>
+                        ModelGate.Many(ctx.Op, CurveSlot.SplitApart, () => ctx.Curve.Split(
+                            cutter: cutter, tolerance: ctx.Model.Absolute.Value, angleToleranceRadians: ctx.Model.Angle.Value))),
+                    bySurface: static (ctx, law) => ModelGate.Borrow<Surface, Built<CurveSlot>>(handle: law.Value, key: ctx.Op, body: cutter =>
+                        ModelGate.Many(ctx.Op, CurveSlot.SplitApart, () => ctx.Curve.Split(
+                            cutter: cutter, tolerance: ctx.Model.Absolute.Value, angleToleranceRadians: ctx.Model.Angle.Value))),
+                    byPlane: static (ctx, law) => ModelGate.Many(ctx.Op, CurveSlot.SplitApart, () => ctx.Curve.Split(
+                        plane: law.Value, tolerance: ctx.Model.Absolute.Value, angleToleranceRadians: ctx.Model.Angle.Value)))),
             pull: static (model, edit) => Borrowed(edit.Curve, Op.Of(name: nameof(Pull)), (curve, op) =>
-                edit.Target switch {
-                    PullTarget.ToFace law => ModelGate.Borrow<Brep, Built<CurveSlot>>(handle: law.Brep, key: op, body: host =>
-                        from _ in guard(law.Face >= 0 && law.Face < host.Faces.Count, op.InvalidInput())
-                        from built in law.Loose
-                            ? Many(op, CurveSlot.Pulled, () => Curve.PullToBrepFace(curve: curve, face: host.Faces[law.Face], tolerance: model.Absolute.Value, loose: true))
-                            : Many(op, CurveSlot.Pulled, () => curve.PullToBrepFace(face: host.Faces[law.Face], tolerance: model.Absolute.Value))
+                edit.Target.Switch(
+                    state: (Curve: curve, Model: model, Op: op),
+                    toFace: static (ctx, law) => ModelGate.Borrow<Brep, Built<CurveSlot>>(handle: law.Brep, key: ctx.Op, body: host =>
+                        from _ in guard(law.Face >= 0 && law.Face < host.Faces.Count, ctx.Op.InvalidInput())
+                        from built in ModelGate.Many(ctx.Op, CurveSlot.Pulled, () => ctx.Curve.PullToBrepFace(
+                            face: host.Faces[law.Face], tolerance: ctx.Model.Absolute.Value))
                         select built),
-                    PullTarget.ToMesh law => ModelGate.Borrow<Mesh, Built<CurveSlot>>(handle: law.Mesh, key: op, body: mesh =>
-                        Single(op, CurveSlot.Pulled, () => law.Loose
-                            ? curve.PullToMesh(mesh: mesh, tolerance: model.Absolute.Value, loose: true)
-                            : curve.PullToMesh(mesh: mesh, tolerance: model.Absolute.Value))),
-                    _ => Fin.Fail<Built<CurveSlot>>(error: op.InvalidInput()),
-                }),
+                    toFaceLoose: static (ctx, law) => ModelGate.Borrow<Brep, Built<CurveSlot>>(handle: law.Brep, key: ctx.Op, body: host =>
+                        from _ in guard(law.Face >= 0 && law.Face < host.Faces.Count, ctx.Op.InvalidInput())
+                        from built in ModelGate.Many(ctx.Op, CurveSlot.Pulled, () => Curve.PullToBrepFace(
+                            curve: ctx.Curve, face: host.Faces[law.Face], tolerance: ctx.Model.Absolute.Value, loose: true))
+                        select built),
+                    toMesh: static (ctx, law) => ModelGate.Borrow<Mesh, Built<CurveSlot>>(handle: law.Mesh, key: ctx.Op, body: mesh =>
+                        ModelGate.Single(ctx.Op, CurveSlot.Pulled, () => ctx.Curve.PullToMesh(mesh: mesh, tolerance: ctx.Model.Absolute.Value))),
+                    toMeshLoose: static (ctx, law) => ModelGate.Borrow<Mesh, Built<CurveSlot>>(handle: law.Mesh, key: ctx.Op, body: mesh =>
+                        ModelGate.Single(ctx.Op, CurveSlot.Pulled, () => ctx.Curve.PullToMesh(
+                            mesh: mesh, tolerance: ctx.Model.Absolute.Value, loose: true))))),
             project: static (model, edit) => {
                 Op op = Op.Of(name: nameof(Project));
-                return ModelGate.BorrowMany<Curve, Built<CurveSlot>>(handles: edit.Curves, key: op, body: curves =>
-                    edit.Target switch {
-                        ProjectTarget.ToBreps law => ModelGate.BorrowMany<Brep, Built<CurveSlot>>(handles: law.Values, key: op, body: breps =>
-                            op.Catch(() => {
+                return edit.Target.Switch(
+                    state: (Model: model, Op: op),
+                    toBreps: static (ctx, law) => ModelGate.BorrowMany<Curve, Built<CurveSlot>>(handles: law.Curves, key: ctx.Op, body: curves =>
+                        ModelGate.BorrowMany<Brep, Built<CurveSlot>>(handles: law.Breps, key: ctx.Op, body: breps =>
+                            ctx.Op.Catch(() => {
                                 Curve[] projected = Curve.ProjectToBrep(
                                     curves: curves.AsIterable(), breps: breps.AsIterable(), direction: law.Direction,
-                                    tolerance: model.Absolute.Value, loose: law.Loose, curveIndices: out int[] curveMap, brepIndices: out int[] brepMap);
-                                return ModelGate.OwnMany(built: projected, key: op).Map(owned => new Built<CurveSlot>(
-                                    Products: owned,
-                                    Evidence: BuildReceipt<CurveSlot>.Of(slot: CurveSlot.Projected, body: new BuildBody.Tally(Count: owned.Count))
-                                        + BuildReceipt<CurveSlot>.Of(slot: CurveSlot.Projected, body: new BuildBody.SourceMap(Rows: toSeq(curveMap ?? [])))
-                                        + BuildReceipt<CurveSlot>.Of(slot: CurveSlot.Projected, body: new BuildBody.SourceMap(Rows: toSeq(brepMap ?? [])))));
-                            })),
-                        ProjectTarget.ToMeshes law => ModelGate.BorrowMany<Mesh, Built<CurveSlot>>(handles: law.Values, key: op, body: meshes =>
-                            Many(op, CurveSlot.Projected, () => Curve.ProjectToMesh(
+                                    tolerance: ctx.Model.Absolute.Value,
+                                    curveIndices: out int[] curveMap, brepIndices: out int[] brepMap);
+                                return ModelGate.Mapped(
+                                    op: ctx.Op,
+                                    slot: CurveSlot.Projected,
+                                    built: projected,
+                                    mapLength: projected.Length,
+                                    maps: [(SourceAxis.Curve, curveMap), (SourceAxis.Brep, brepMap)]);
+                            }))),
+                    toMeshes: static (ctx, law) => ModelGate.BorrowMany<Curve, Built<CurveSlot>>(handles: law.Curves, key: ctx.Op, body: curves =>
+                        ModelGate.BorrowMany<Mesh, Built<CurveSlot>>(handles: law.Meshes, key: ctx.Op, body: meshes =>
+                            ModelGate.Many(ctx.Op, CurveSlot.Projected, () => Curve.ProjectToMesh(
                                 curves: curves.AsIterable(), meshes: meshes.AsIterable(), direction: law.Direction,
-                                tolerance: model.Absolute.Value, loose: law.Loose))),
-                        ProjectTarget.ToPlane law => curves.Count == 1
-                            ? Single(op, CurveSlot.Projected, () => Curve.ProjectToPlane(curve: curves[0], plane: law.Value))
-                            : Fin.Fail<Built<CurveSlot>>(error: op.InvalidInput()),
-                        _ => Fin.Fail<Built<CurveSlot>>(error: op.InvalidInput()),
-                    });
+                                tolerance: ctx.Model.Absolute.Value)))),
+                    toPlane: static (ctx, law) => ModelGate.Borrow<Curve, Built<CurveSlot>>(handle: law.Curve, key: ctx.Op, body: curve =>
+                        ModelGate.Single(ctx.Op, CurveSlot.Projected, () => Curve.ProjectToPlane(curve: curve, plane: law.Plane))));
             },
             join: static (model, edit) => {
                 Op op = Op.Of(name: nameof(Join));
@@ -524,33 +640,31 @@ public abstract partial record CurveOp {
                         Curve[] joined = Curve.JoinCurves(
                             inputCurves: curves.AsIterable(), joinTolerance: model.Absolute.Value,
                             preserveDirection: edit.PreserveDirection, simpleJoin: edit.Simple, key: out int[] map);
-                        return ModelGate.OwnMany(built: joined, key: op).Map(owned => new Built<CurveSlot>(
-                            Products: owned,
-                            Evidence: BuildReceipt<CurveSlot>.Of(slot: CurveSlot.Joined, body: new BuildBody.Tally(Count: owned.Count))
-                                + BuildReceipt<CurveSlot>.Of(slot: CurveSlot.Joined, body: new BuildBody.SourceMap(Rows: toSeq(map ?? [])))));
+                        return ModelGate.Mapped(
+                            op: op, slot: CurveSlot.Joined, built: joined, mapLength: curves.Count,
+                            maps: [(SourceAxis.Input, map)]);
                     }));
             },
             boolean: static (model, edit) => {
                 Op op = Op.Of(name: nameof(Boolean));
-                return ModelGate.BorrowMany<Curve, Built<CurveSlot>>(handles: edit.First, key: op, body: first =>
-                    ModelGate.BorrowMany<Curve, Built<CurveSlot>>(handles: edit.Second, key: op, allowEmpty: !edit.Verb.RequiresSecond, body: second =>
-                        from _ in guard(edit.Verb.RequiresSecond == !second.IsEmpty, op.InvalidInput())
-                        from built in edit.Verb.Switch(
-                            state: (First: first, Second: second, Tolerance: model.Absolute.Value, Op: op),
-                            union: static ctx => ctx.Op.Catch(() => {
-                                Curve[] fused = Curve.CreateBooleanUnion(curves: ctx.First.AsIterable(), tolerance: ctx.Tolerance, indexMap: out int[] map);
-                                return ModelGate.OwnMany(built: fused, key: ctx.Op).Map(owned => new Built<CurveSlot>(
-                                    Products: owned,
-                                    Evidence: BuildReceipt<CurveSlot>.Of(slot: CurveSlot.Booled, body: new BuildBody.Tally(Count: owned.Count))
-                                        + BuildReceipt<CurveSlot>.Of(slot: CurveSlot.Booled, body: new BuildBody.SourceMap(Rows: toSeq(map ?? [])))));
-                            }),
-                            intersection: static ctx => ctx.First.Count == 1 && ctx.Second.Count == 1
-                                ? Many(ctx.Op, CurveSlot.Booled, () => Curve.CreateBooleanIntersection(curveA: ctx.First[0], curveB: ctx.Second[0], tolerance: ctx.Tolerance))
-                                : Fin.Fail<Built<CurveSlot>>(error: ctx.Op.InvalidInput()),
-                            difference: static ctx => ctx.First.Count == 1
-                                ? Many(ctx.Op, CurveSlot.Booled, () => Curve.CreateBooleanDifference(curveA: ctx.First[0], subtractors: ctx.Second.AsIterable(), tolerance: ctx.Tolerance))
-                                : Fin.Fail<Built<CurveSlot>>(error: ctx.Op.InvalidInput()))
-                        select built));
+                return edit.Law.Switch(
+                    state: (Model: model, Op: op),
+                    union: static (ctx, law) => ModelGate.BorrowMany<Curve, Built<CurveSlot>>(handles: law.Curves, key: ctx.Op, body: curves =>
+                        ctx.Op.Catch(() => {
+                            Curve[] fused = Curve.CreateBooleanUnion(
+                                curves: curves.AsIterable(), tolerance: ctx.Model.Absolute.Value, indexMap: out int[] map);
+                            return ModelGate.Mapped(
+                                op: ctx.Op, slot: CurveSlot.Booled, built: fused, mapLength: curves.Count,
+                                maps: [(SourceAxis.Input, map)]);
+                        })),
+                    intersection: static (ctx, law) => ModelGate.Borrow<Curve, Built<CurveSlot>>(handle: law.First, key: ctx.Op, body: first =>
+                        ModelGate.Borrow<Curve, Built<CurveSlot>>(handle: law.Second, key: ctx.Op, body: second =>
+                            ModelGate.Many(ctx.Op, CurveSlot.Booled, () => Curve.CreateBooleanIntersection(
+                                curveA: first, curveB: second, tolerance: ctx.Model.Absolute.Value)))),
+                    difference: static (ctx, law) => ModelGate.Borrow<Curve, Built<CurveSlot>>(handle: law.First, key: ctx.Op, body: first =>
+                        ModelGate.BorrowMany<Curve, Built<CurveSlot>>(handles: law.Subtractors, key: ctx.Op, body: subtractors =>
+                            ModelGate.Many(ctx.Op, CurveSlot.Booled, () => Curve.CreateBooleanDifference(
+                                curveA: first, subtractors: subtractors.AsIterable(), tolerance: ctx.Model.Absolute.Value)))));
             },
             regions: static (model, edit) => {
                 Op op = Op.Of(name: nameof(Regions));
@@ -572,16 +686,17 @@ public abstract partial record CurveOp {
                                                 int planarCurve = live.SegmentDetails(region, boundary, segment, out Interval domain, out bool reversed);
                                                 return (Region: region, Boundary: boundary, Segment: segment, PlanarCurve: planarCurve, Domain: domain, Reversed: reversed);
                                             })));
-                                int offset = 0;
-                                Seq<Seq<int>> groups = regions.Map(region => {
-                                    Seq<int> rows = toSeq(Enumerable.Range(start: offset, count: region.Count));
-                                    offset += region.Count;
-                                    return rows;
-                                });
-                                return ModelGate.OwnMany(built: regions.Bind(static region => region), key: op).Map(owned => new Built<CurveSlot>(
+                                Seq<Seq<int>> groups = regions.Fold(
+                                    state: (Offset: 0, Groups: Seq<Seq<int>>()),
+                                    folder: static (state, region) => (
+                                        Offset: state.Offset + region.Count,
+                                        Groups: state.Groups + Seq(toSeq(Enumerable.Range(start: state.Offset, count: region.Count)))))
+                                    .Groups;
+                                return ModelGate.OwnMany(built: regions.Bind(static region => region), key: op).Map(owned => Built<CurveSlot>.Of(operation: op,
                                     Products: owned,
-                                    Evidence: BuildReceipt<CurveSlot>.Of(slot: CurveSlot.Regions, body: new BuildBody.SourceGroups(Groups: groups))
-                                        + BuildReceipt<CurveSlot>.Of(slot: CurveSlot.Regions, body: new BuildBody.SourceMap(Rows: pointRegions))
+                                    Evidence: BuildReceipt<CurveSlot>.Of(slot: CurveSlot.Regions, body: new BuildBody.SourceGroups(
+                                        Axis: SourceAxis.Region, Groups: groups))
+                                        + BuildReceipt<CurveSlot>.Of(slot: CurveSlot.Regions, body: new BuildBody.SourceMap(Axis: SourceAxis.Region, Rows: pointRegions))
                                         + BuildReceipt<CurveSlot>.Of(slot: CurveSlot.Regions, body: new BuildBody.RegionSegments(Rows: segments))));
                             }
                         });
@@ -593,48 +708,57 @@ public abstract partial record CurveOp {
                     ModelGate.Borrow<Curve, Built<CurveSlot>>(handle: edit.Second, key: op, body: second =>
                         edit.Law.Switch(
                             state: (First: first, Second: second, Op: op),
-                            endToEnd: static (ctx, law) => Single(ctx.Op, CurveSlot.Blended, () => law.Bulge.Case switch {
+                            endToEnd: static (ctx, law) => ModelGate.Single(ctx.Op, CurveSlot.Blended, () => law.Bulge.Case switch {
                                 (double bulgeA, double bulgeB) => Curve.CreateBlendCurve(
                                     curveA: ctx.First, curveB: ctx.Second, continuity: law.Continuity, bulgeA: bulgeA, bulgeB: bulgeB),
                                 _ => Curve.CreateBlendCurve(curveA: ctx.First, curveB: ctx.Second, continuity: law.Continuity),
                             }),
-                            atParameters: static (ctx, law) => Single(ctx.Op, CurveSlot.Blended, () => Curve.CreateBlendCurve(
+                            atParameters: static (ctx, law) => ModelGate.Single(ctx.Op, CurveSlot.Blended, () => Curve.CreateBlendCurve(
                                 curve0: ctx.First, t0: law.T0, reverse0: law.Reverse0, continuity0: law.Continuity0,
                                 curve1: ctx.Second, t1: law.T1, reverse1: law.Reverse1, continuity1: law.Continuity1)))));
             },
             arcBlend: static (_, edit) => {
                 Op op = Op.Of(name: nameof(ArcBlend));
-                return Single(op, CurveSlot.Blended, () => edit.LineArc
-                    ? Curve.CreateArcLineArcBlend(startPt: edit.Start, startDir: edit.StartDirection, endPt: edit.End, endDir: edit.EndDirection, radius: edit.RatioOrRadius)
-                    : Curve.CreateArcBlend(startPt: edit.Start, startDir: edit.StartDirection, endPt: edit.End, endDir: edit.EndDirection, controlPointLengthRatio: edit.RatioOrRadius));
+                return edit.Law.Switch(
+                    state: (Edit: edit, Op: op),
+                    controlPointRatio: static (ctx, law) => ModelGate.Single(ctx.Op, CurveSlot.Blended, () => Curve.CreateArcBlend(
+                        startPt: ctx.Edit.Start, startDir: ctx.Edit.StartDirection, endPt: ctx.Edit.End,
+                        endDir: ctx.Edit.EndDirection, controlPointLengthRatio: law.Ratio.Value)),
+                    lineArcRadius: static (ctx, law) => ModelGate.Single(ctx.Op, CurveSlot.Blended, () => Curve.CreateArcLineArcBlend(
+                        startPt: ctx.Edit.Start, startDir: ctx.Edit.StartDirection, endPt: ctx.Edit.End,
+                        endDir: ctx.Edit.EndDirection, radius: law.Radius.Value)));
             },
             filletCurves: static (model, edit) => {
                 Op op = Op.Of(name: nameof(FilletCurves));
                 return ModelGate.Borrow<Curve, Built<CurveSlot>>(handle: edit.First, key: op, body: first =>
                     ModelGate.Borrow<Curve, Built<CurveSlot>>(handle: edit.Second, key: op, body: second =>
-                        Many(op, CurveSlot.Filleted, () => Curve.CreateFilletCurves(
+                        ModelGate.Many(op, CurveSlot.Filleted, () => Curve.CreateFilletCurves(
                             curve0: first, point0: edit.NearFirst, curve1: second, point1: edit.NearSecond,
                             radius: edit.Radius, join: edit.JoinResult, trim: edit.TrimInputs, arcExtension: edit.ArcExtension,
                             tolerance: model.Absolute.Value, angleTolerance: model.Angle.Value))));
             },
             filletCorners: static (model, edit) => Borrowed(edit.Curve, Op.Of(name: nameof(FilletCorners)), (curve, op) =>
-                Single(op, CurveSlot.Filleted, () => Curve.CreateFilletCornersCurve(
+                ModelGate.Single(op, CurveSlot.Filleted, () => Curve.CreateFilletCornersCurve(
                     curve: curve, radius: edit.Radius, tolerance: model.Absolute.Value, angleTolerance: model.Angle.Value))),
             tween: static (model, edit) => {
                 Op op = Op.Of(name: nameof(Tween));
                 return ModelGate.Borrow<Curve, Built<CurveSlot>>(handle: edit.First, key: op, body: first =>
                     ModelGate.Borrow<Curve, Built<CurveSlot>>(handle: edit.Second, key: op, body: second =>
-                        Many(op, CurveSlot.Tweened, () => edit.Law switch {
-                            TweenLaw.Matched => Curve.CreateTweenCurvesWithMatching(curve0: first, curve1: second, numCurves: edit.Count, tolerance: model.Absolute.Value),
-                            TweenLaw.Sampled law => Curve.CreateTweenCurvesWithSampling(curve0: first, curve1: second, numCurves: edit.Count, numSamples: law.Samples, tolerance: model.Absolute.Value),
-                            _ => Curve.CreateTweenCurves(curve0: first, curve1: second, numCurves: edit.Count, tolerance: model.Absolute.Value),
-                        })));
+                        edit.Law.Switch(
+                            state: (First: first, Second: second, Edit: edit, Model: model, Op: op),
+                            plain: static ctx => ModelGate.Many(ctx.Op, CurveSlot.Tweened, () => Curve.CreateTweenCurves(
+                                curve0: ctx.First, curve1: ctx.Second, numCurves: ctx.Edit.Count, tolerance: ctx.Model.Absolute.Value)),
+                            matched: static ctx => ModelGate.Many(ctx.Op, CurveSlot.Tweened, () => Curve.CreateTweenCurvesWithMatching(
+                                curve0: ctx.First, curve1: ctx.Second, numCurves: ctx.Edit.Count, tolerance: ctx.Model.Absolute.Value)),
+                            sampled: static (ctx, law) => ModelGate.Many(ctx.Op, CurveSlot.Tweened, () => Curve.CreateTweenCurvesWithSampling(
+                                curve0: ctx.First, curve1: ctx.Second, numCurves: ctx.Edit.Count,
+                                numSamples: law.Samples, tolerance: ctx.Model.Absolute.Value)))));
             },
             matchCurve: static (_, edit) => {
                 Op op = Op.Of(name: nameof(MatchCurve));
                 return ModelGate.Borrow<Curve, Built<CurveSlot>>(handle: edit.First, key: op, body: first =>
                     ModelGate.Borrow<Curve, Built<CurveSlot>>(handle: edit.Second, key: op, body: second =>
-                        Many(op, CurveSlot.Matched, () => Curve.CreateMatchCurve(
+                        ModelGate.Many(op, CurveSlot.Matched, () => Curve.CreateMatchCurve(
                             curve0: first, reverse0: edit.ReverseFirst, continuity: edit.Continuity,
                             curve1: second, reverse1: edit.ReverseSecond, preserve: edit.Preserve, average: edit.Average))));
             },
@@ -642,19 +766,19 @@ public abstract partial record CurveOp {
                 Op op = Op.Of(name: nameof(Mean));
                 return ModelGate.Borrow<Curve, Built<CurveSlot>>(handle: edit.First, key: op, body: first =>
                     ModelGate.Borrow<Curve, Built<CurveSlot>>(handle: edit.Second, key: op, body: second =>
-                        Single(op, CurveSlot.Constructed, () => Curve.CreateMeanCurve(curveA: first, curveB: second, angleToleranceRadians: model.Angle.Value))));
+                        ModelGate.Single(op, CurveSlot.Constructed, () => Curve.CreateMeanCurve(curveA: first, curveB: second, angleToleranceRadians: model.Angle.Value))));
             },
             twoView: static (model, edit) => {
                 Op op = Op.Of(name: nameof(TwoView));
                 return ModelGate.Borrow<Curve, Built<CurveSlot>>(handle: edit.First, key: op, body: first =>
                     ModelGate.Borrow<Curve, Built<CurveSlot>>(handle: edit.Second, key: op, body: second =>
-                        Many(op, CurveSlot.Constructed, () => Curve.CreateCurve2View(
+                        ModelGate.Many(op, CurveSlot.Constructed, () => Curve.CreateCurve2View(
                             curveA: first, curveB: second, vectorA: edit.FirstDirection, vectorB: edit.SecondDirection,
                             tolerance: model.Absolute.Value, angleTolerance: model.Angle.Value))));
             },
             interpolated: static (_, edit) => {
                 Op op = Op.Of(name: nameof(Interpolated));
-                return Single(op, CurveSlot.Constructed, () => (edit.Knots.Case, edit.Tangents.Case) switch {
+                return ModelGate.Single(op, CurveSlot.Constructed, () => (edit.Knots.Case, edit.Tangents.Case) switch {
                     (CurveKnotStyle knots, (Vector3d start, Vector3d end)) => Curve.CreateInterpolatedCurve(
                         points: edit.Points.AsIterable(), degree: edit.Degree, knots: knots, startTangent: start, endTangent: end),
                     (CurveKnotStyle knots, _) => Curve.CreateInterpolatedCurve(points: edit.Points.AsIterable(), degree: edit.Degree, knots: knots),
@@ -663,11 +787,11 @@ public abstract partial record CurveOp {
             },
             controlPoints: static (_, edit) => {
                 Op op = Op.Of(name: nameof(ControlPoints));
-                return Single(op, CurveSlot.Constructed, () => Curve.CreateControlPointCurve(points: edit.Points.AsIterable(), degree: edit.Degree));
+                return ModelGate.Single(op, CurveSlot.Constructed, () => Curve.CreateControlPointCurve(points: edit.Points.AsIterable(), degree: edit.Degree));
             },
             fitPoints: static (model, edit) => {
                 Op op = Op.Of(name: nameof(FitPoints));
-                return Single(op, CurveSlot.Constructed, () => edit.Constrained.Case switch {
+                return ModelGate.Single(op, CurveSlot.Constructed, () => edit.Constrained.Case switch {
                     (int degree, Vector3d start, Vector3d end) => NurbsCurve.CreateFromFitPoints(
                         points: edit.Points.AsIterable(), tolerance: model.Absolute.Value, degree: degree,
                         periodic: edit.Periodic, startTangent: start, endTangent: end),
@@ -676,61 +800,61 @@ public abstract partial record CurveOp {
             },
             hSpline: static (_, edit) => {
                 Op op = Op.Of(name: nameof(HSpline));
-                return Single(op, CurveSlot.Constructed, () => edit.Tangents.Case switch {
+                return ModelGate.Single(op, CurveSlot.Constructed, () => edit.Tangents.Case switch {
                     (Vector3d start, Vector3d end) => NurbsCurve.CreateHSpline(points: edit.Points.AsIterable(), startTangent: start, endTangent: end),
                     _ => NurbsCurve.CreateHSpline(points: edit.Points.AsIterable()),
                 });
             },
             softEdit: static (_, edit) => Borrowed(edit.Curve, Op.Of(name: nameof(SoftEdit)), (curve, op) =>
-                Single(op, CurveSlot.Refined, () => Curve.CreateSoftEditCurve(
+                ModelGate.Single(op, CurveSlot.Refined, () => Curve.CreateSoftEditCurve(
                     curve: curve, t: edit.T, delta: edit.Delta, length: edit.Length, fixEnds: edit.FixEnds))),
             periodicClose: static (_, edit) => Borrowed(edit.Curve, Op.Of(name: nameof(PeriodicClose)), (curve, op) =>
-                Single(op, CurveSlot.Refined, () => Curve.CreatePeriodicCurve(curve: curve, smooth: edit.Smooth))),
+                ModelGate.Single(op, CurveSlot.Refined, () => Curve.CreatePeriodicCurve(curve: curve, smooth: edit.Smooth))),
             subDFriendly: static (_, edit) => Borrowed(edit.Curve, Op.Of(name: nameof(SubDFriendly)), (curve, op) =>
-                Single(op, CurveSlot.Refined, () => edit.Structure.Case switch {
+                ModelGate.Single(op, CurveSlot.Refined, () => edit.Structure.Case switch {
                     (int points, bool periodic) => NurbsCurve.CreateSubDFriendly(curve: curve, pointCount: points, periodicClosedCurve: periodic),
                     _ => NurbsCurve.CreateSubDFriendly(curve: curve),
                 })),
             subDFriendlyPoints: static (_, edit) => {
                 Op op = Op.Of(name: nameof(SubDFriendlyPoints));
-                return Single(op, CurveSlot.Refined, () => NurbsCurve.CreateSubDFriendly(
+                return ModelGate.Single(op, CurveSlot.Refined, () => NurbsCurve.CreateSubDFriendly(
                     points: edit.Points.AsIterable(), interpolatePoints: edit.Interpolate, periodicClosedCurve: edit.PeriodicClosed));
             },
             compatible: static (model, edit) => {
                 Op op = Op.Of(name: nameof(Compatible));
                 return ModelGate.BorrowMany<Curve, Built<CurveSlot>>(handles: edit.Curves, key: op, body: curves =>
-                    Many(op, CurveSlot.Refined, () => NurbsCurve.MakeCompatible(
+                    ModelGate.Many(op, CurveSlot.Refined, () => NurbsCurve.MakeCompatible(
                         curves: curves.AsIterable(), startPt: edit.Start, endPt: edit.End,
                         simplifyMethod: edit.SimplifyMethod, numPoints: edit.PointCount,
                         refitTolerance: model.Absolute.Value, angleTolerance: model.Angle.Value)));
             },
             spiral: static (_, edit) => {
                 Op op = Op.Of(name: nameof(Spiral));
-                return edit.Law switch {
-                    SpiralLaw.AboutAxis law => Single(op, CurveSlot.Constructed, () => NurbsCurve.CreateSpiral(
-                        axisStart: law.AxisStart, axisDir: law.AxisDirection, radiusPoint: edit.RadiusPoint,
-                        pitch: edit.Pitch, turnCount: edit.TurnCount, radius0: edit.Radius0, radius1: edit.Radius1)),
-                    SpiralLaw.AlongRail law => ModelGate.Borrow<Curve, Built<CurveSlot>>(handle: law.Rail, key: op, body: rail =>
-                        Single(op, CurveSlot.Constructed, () => NurbsCurve.CreateSpiral(
-                            railCurve: rail, t0: law.T0, t1: law.T1, radiusPoint: edit.RadiusPoint,
-                            pitch: edit.Pitch, turnCount: edit.TurnCount, radius0: edit.Radius0, radius1: edit.Radius1, pointsPerTurn: law.PointsPerTurn))),
-                    _ => Fin.Fail<Built<CurveSlot>>(error: op.InvalidInput()),
-                };
+                return edit.Law.Switch(
+                    state: (Edit: edit, Op: op),
+                    aboutAxis: static (ctx, law) => ModelGate.Single(ctx.Op, CurveSlot.Constructed, () => NurbsCurve.CreateSpiral(
+                        axisStart: law.AxisStart, axisDir: law.AxisDirection, radiusPoint: ctx.Edit.RadiusPoint,
+                        pitch: ctx.Edit.Pitch, turnCount: ctx.Edit.TurnCount, radius0: ctx.Edit.Radius0, radius1: ctx.Edit.Radius1)),
+                    alongRail: static (ctx, law) => ModelGate.Borrow<Curve, Built<CurveSlot>>(handle: law.Rail, key: ctx.Op, body: rail =>
+                        ModelGate.Single(ctx.Op, CurveSlot.Constructed, () => NurbsCurve.CreateSpiral(
+                            railCurve: rail, t0: law.T0, t1: law.T1, radiusPoint: ctx.Edit.RadiusPoint,
+                            pitch: ctx.Edit.Pitch, turnCount: ctx.Edit.TurnCount, radius0: ctx.Edit.Radius0,
+                            radius1: ctx.Edit.Radius1, pointsPerTurn: law.PointsPerTurn))));
             },
             parabola: static (_, edit) => {
                 Op op = Op.Of(name: nameof(Parabola));
                 return edit.Seed.Switch(
                     state: op,
-                    fromVertex: static (key, seed) => Single(key, CurveSlot.Constructed, () => NurbsCurve.CreateParabolaFromVertex(
+                    fromVertex: static (key, seed) => ModelGate.Single(key, CurveSlot.Constructed, () => NurbsCurve.CreateParabolaFromVertex(
                         vertex: seed.Vertex, startPoint: seed.Start, endPoint: seed.End)),
-                    fromFocus: static (key, seed) => Single(key, CurveSlot.Constructed, () => NurbsCurve.CreateParabolaFromFocus(
+                    fromFocus: static (key, seed) => ModelGate.Single(key, CurveSlot.Constructed, () => NurbsCurve.CreateParabolaFromFocus(
                         focus: seed.Focus, startPoint: seed.Start, endPoint: seed.End)),
-                    fromPoints: static (key, seed) => Single(key, CurveSlot.Constructed, () => NurbsCurve.CreateParabolaFromPoints(
+                    fromPoints: static (key, seed) => ModelGate.Single(key, CurveSlot.Constructed, () => NurbsCurve.CreateParabolaFromPoints(
                         startPoint: seed.Start, innerPoint: seed.Inner, endPoint: seed.End)));
             },
             arcBezier: static (_, edit) => {
                 Op op = Op.Of(name: nameof(ArcBezier));
-                return Single(op, CurveSlot.Constructed, () => NurbsCurve.CreateNonRationalArcBezier(
+                return ModelGate.Single(op, CurveSlot.Constructed, () => NurbsCurve.CreateNonRationalArcBezier(
                     degree: edit.Degree, center: edit.Center, start: edit.Start, end: edit.End,
                     radius: edit.Radius, tanSlider: edit.TanSlider, midSlider: edit.MidSlider));
             },
@@ -738,43 +862,27 @@ public abstract partial record CurveOp {
                 Op op = Op.Of(name: nameof(Analytic));
                 return edit.Seed.Switch(
                     state: op,
-                    ofLine: static (key, seed) => Single(key, CurveSlot.Constructed, () => NurbsCurve.CreateFromLine(line: seed.Value)),
-                    ofArc: static (key, seed) => Single(key, CurveSlot.Constructed, () => seed.Structure.Case switch {
+                    ofLine: static (key, seed) => ModelGate.Single(key, CurveSlot.Constructed, () => NurbsCurve.CreateFromLine(line: seed.Value)),
+                    ofArc: static (key, seed) => ModelGate.Single(key, CurveSlot.Constructed, () => seed.Structure.Case switch {
                         (int degree, int cvCount) => NurbsCurve.CreateFromArc(arc: seed.Value, degree: degree, cvCount: cvCount),
                         _ => NurbsCurve.CreateFromArc(arc: seed.Value),
                     }),
-                    ofCircle: static (key, seed) => Single(key, CurveSlot.Constructed, () => seed.Structure.Case switch {
+                    ofCircle: static (key, seed) => ModelGate.Single(key, CurveSlot.Constructed, () => seed.Structure.Case switch {
                         (int degree, int cvCount) => NurbsCurve.CreateFromCircle(circle: seed.Value, degree: degree, cvCount: cvCount),
                         _ => NurbsCurve.CreateFromCircle(circle: seed.Value),
                     }),
-                    ofEllipse: static (key, seed) => Single(key, CurveSlot.Constructed, () => NurbsCurve.CreateFromEllipse(ellipse: seed.Value)));
+                    ofEllipse: static (key, seed) => ModelGate.Single(key, CurveSlot.Constructed, () => NurbsCurve.CreateFromEllipse(ellipse: seed.Value)));
             },
             catenary: static (_, edit) => {
                 Op op = Op.Of(name: nameof(Catenary));
                 return op.Catch(() => {
                     (Curve Hung, Point3d Apex, double Parameter, double Length, double Deviation) result = edit.Law.Switch(
                         state: edit,
-                        throughPoint: static (request, law) => RunCatenary(
-                            run: (out Point3d apex, out double parameter, out double length, out double deviation) => Curve.CreateCatenaryCurveThroughPoint(
-                                catenary_start: request.Start, catenary_end: request.End, axis_dir: request.AxisDirection, law.Value,
-                                bSmooth: request.Smooth, point_count: request.PointCount,
-                                apex_out: out apex, parameter_out: out parameter, length_out: out length, max_deviation_out: out deviation)),
-                        fromLength: static (request, law) => RunCatenary(
-                            run: (out Point3d apex, out double parameter, out double length, out double deviation) => Curve.CreateCatenaryCurveFromLength(
-                                catenary_start: request.Start, catenary_end: request.End, axis_dir: request.AxisDirection, law.Value,
-                                bSmooth: request.Smooth, point_count: request.PointCount,
-                                apex_out: out apex, parameter_out: out parameter, length_out: out length, max_deviation_out: out deviation)),
-                        fromParameter: static (request, law) => RunCatenary(
-                            run: (out Point3d apex, out double parameter, out double length, out double deviation) => Curve.CreateCatenaryCurveFromParameter(
-                                catenary_start: request.Start, catenary_end: request.End, axis_dir: request.AxisDirection, law.Value,
-                                bSmooth: request.Smooth, point_count: request.PointCount,
-                                apex_out: out apex, parameter_out: out parameter, length_out: out length, max_deviation_out: out deviation)),
-                        fromApex: static (request, law) => RunCatenary(
-                            run: (out Point3d apex, out double parameter, out double length, out double deviation) => Curve.CreateCatenaryCurveFromApex(
-                                catenary_start: request.Start, catenary_end: request.End, axis_dir: request.AxisDirection, law.Value,
-                                bSmooth: request.Smooth, point_count: request.PointCount,
-                                apex_out: out apex, parameter_out: out parameter, length_out: out length, max_deviation_out: out deviation)));
-                    return ModelGate.Own(built: result.Hung, key: op).Map(owned => new Built<CurveSlot>(
+                        throughPoint: static (request, law) => Hung(native: Curve.CreateCatenaryCurveThroughPoint, request: request, shape: law.Value),
+                        fromLength: static (request, law) => Hung(native: Curve.CreateCatenaryCurveFromLength, request: request, shape: law.Value),
+                        fromParameter: static (request, law) => Hung(native: Curve.CreateCatenaryCurveFromParameter, request: request, shape: law.Value),
+                        fromApex: static (request, law) => Hung(native: Curve.CreateCatenaryCurveFromApex, request: request, shape: law.Value));
+                    return ModelGate.Own(built: result.Hung, key: op).Map(owned => Built<CurveSlot>.Of(operation: op,
                         Products: Seq(owned),
                         Evidence: BuildReceipt<CurveSlot>.Of(slot: CurveSlot.Constructed, body: new BuildBody.Marks(Points: Seq(result.Apex)))
                             + BuildReceipt<CurveSlot>.Of(slot: CurveSlot.Constructed, body: new BuildBody.Measure(Value: result.Parameter))
@@ -789,20 +897,10 @@ public abstract partial record CurveOp {
                         op.Catch(() => {
                             Curve workingFirst = (Curve)first.Duplicate();
                             Curve workingSecond = (Curve)second.Duplicate();
-                            return op.Confirm(success: Curve.MakeEndsMeet(
+                            return ModelGate.Staged(op: op, success: Curve.MakeEndsMeet(
                                 curveA: workingFirst, adjustStartCurveA: edit.AdjustStartFirst,
-                                curveB: workingSecond, adjustStartCurveB: edit.AdjustStartSecond)).Match(
-                                Succ: _ =>
-                                    from owned in ModelGate.Own(built: workingFirst, key: op)
-                                    from other in ModelGate.Own(built: workingSecond, key: op).MapFail(e => { owned.Dispose(); return e; })
-                                    select new Built<CurveSlot>(
-                                        Products: Seq(owned, other),
-                                        Evidence: BuildReceipt<CurveSlot>.Of(slot: CurveSlot.Reconciled, body: new BuildBody.Tally(Count: 2))),
-                                Fail: error => {
-                                    workingFirst.Dispose();
-                                    workingSecond.Dispose();
-                                    return Fin.Fail<Built<CurveSlot>>(error: error);
-                                });
+                                curveB: workingSecond, adjustStartCurveB: edit.AdjustStartSecond),
+                                (CurveSlot.Reconciled, (GeometryBase[])[workingFirst, workingSecond], false));
                         })));
             },
             railFillet: static (model, edit) => {
@@ -833,7 +931,7 @@ public abstract partial record CurveOp {
                 return
                     from text in op.AcceptText(value: edit.Text)
                     from font in op.AcceptText(value: edit.Font)
-                    from built in Many(op, CurveSlot.Outlined, () => Curve.CreateTextOutlines(
+                    from built in ModelGate.Many(op, CurveSlot.Outlined, () => Curve.CreateTextOutlines(
                         text: text, font: font, textHeight: edit.Height, textStyle: edit.Style, closeLoops: edit.CloseLoops,
                         plane: edit.Frame, smallCapsScale: edit.SmallCapsScale, tolerance: model.Absolute.Value))
                     select built;
@@ -842,25 +940,27 @@ public abstract partial record CurveOp {
                 Op op = Op.Of(name: nameof(DirectionsMatch));
                 return ModelGate.Borrow<Curve, Built<CurveSlot>>(handle: edit.First, key: op, body: first =>
                     ModelGate.Borrow<Curve, Built<CurveSlot>>(handle: edit.Second, key: op, body: second =>
-                        op.Catch(() => Fin.Succ(value: new Built<CurveSlot>(
+                        op.Catch(() => Fin.Succ(value: Built<CurveSlot>.Of(operation: op,
                             Products: Seq<GeometryHandle>(),
                             Evidence: BuildReceipt<CurveSlot>.Of(
                                 slot: CurveSlot.DirectionVerdict,
                                 body: new BuildBody.Flag(Value: Curve.DoDirectionsMatch(curveA: first, curveB: second))))))));
             });
 
+    private static Fin<Built<CurveSlot>> OffsetNormal(
+        (Curve Curve, Context Model, Offset Edit, Op Op) context,
+        Point3d directionPoint,
+        Vector3d normal,
+        CurveOffsetCornerStyle corner,
+        CurveOffsetEndStyle end,
+        bool loose) =>
+        ModelGate.Many(context.Op, CurveSlot.Offset, () => context.Curve.Offset(
+            directionPoint: directionPoint, normal: normal, distance: context.Edit.Distance.Value,
+            tolerance: context.Model.Absolute.Value, angleTolerance: context.Model.Angle.Value, loose: loose,
+            cornerStyle: corner, endStyle: end));
+
     private static Fin<Built<CurveSlot>> Borrowed(GeometryHandle handle, Op op, Func<Curve, Op, Fin<Built<CurveSlot>>> body) =>
         ModelGate.Borrow<Curve, Built<CurveSlot>>(handle: handle, key: op, body: curve => body(curve, op));
-
-    private static Fin<Built<CurveSlot>> Single(Op op, CurveSlot slot, Func<GeometryBase?> run) =>
-        op.Catch(() => ModelGate.Own(built: run(), key: op).Map(owned => new Built<CurveSlot>(
-            Products: Seq(owned),
-            Evidence: BuildReceipt<CurveSlot>.Of(slot: slot, body: new BuildBody.Tally(Count: 1)))));
-
-    private static Fin<Built<CurveSlot>> Many(Op op, CurveSlot slot, Func<System.Collections.Generic.IEnumerable<Curve>> run) =>
-        op.Catch(() => ModelGate.OwnMany(built: run(), key: op).Map(owned => new Built<CurveSlot>(
-            Products: owned,
-            Evidence: BuildReceipt<CurveSlot>.Of(slot: slot, body: new BuildBody.Tally(Count: owned.Count)))));
 
     private static Fin<Built<CurveSlot>> OwnRailFillet(
         System.Collections.Generic.IEnumerable<Brep> fillets,
@@ -868,62 +968,52 @@ public abstract partial record CurveOp {
         System.Collections.Generic.IEnumerable<Brep> trimmed1,
         double[] fit,
         Op op) =>
-        from builtFillets in ModelGate.OwnMany(built: fillets, key: op)
-        from built0 in ModelGate.OwnMany(built: trimmed0, key: op, allowEmpty: true).MapFail(error => {
-            _ = builtFillets.Iter(static handle => handle.Dispose());
-            return error;
-        })
-        from built1 in ModelGate.OwnMany(built: trimmed1, key: op, allowEmpty: true).MapFail(error => {
-            _ = builtFillets.Iter(static handle => handle.Dispose());
-            _ = built0.Iter(static handle => handle.Dispose());
-            return error;
-        })
-        select new Built<CurveSlot>(
-            Products: builtFillets + built0 + built1,
-            Evidence: BuildReceipt<CurveSlot>.Of(slot: CurveSlot.Filleted, body: new BuildBody.Tally(Count: builtFillets.Count))
-                + BuildReceipt<CurveSlot>.Of(slot: CurveSlot.Trimmed0, body: new BuildBody.Tally(Count: built0.Count))
-                + BuildReceipt<CurveSlot>.Of(slot: CurveSlot.Trimmed1, body: new BuildBody.Tally(Count: built1.Count))
-                + toSeq(fit ?? []).Fold(BuildReceipt<CurveSlot>.Empty, (receipt, value) =>
-                    receipt + BuildReceipt<CurveSlot>.Of(slot: CurveSlot.FitEvidence, body: new BuildBody.Measure(Value: value))));
+        ModelGate.Staged(op: op,
+            extra: toSeq(fit ?? []).Fold(BuildReceipt<CurveSlot>.Empty, (receipt, value) =>
+                receipt + BuildReceipt<CurveSlot>.Of(slot: CurveSlot.FitEvidence, body: new BuildBody.Measure(Value: value))),
+            (CurveSlot.Filleted, fillets, false),
+            (CurveSlot.Trimmed0, trimmed0, true),
+            (CurveSlot.Trimmed1, trimmed1, true));
 
-    private delegate Curve CatenaryRun(out Point3d apex, out double parameter, out double length, out double deviation);
+    private delegate Curve CatenaryNative<in TShape>(
+        Point3d catenary_start, Point3d catenary_end, Vector3d axis_dir, TShape shape, bool bSmooth, int point_count,
+        out Point3d apex_out, out double parameter_out, out double length_out, out double max_deviation_out);
 
-    private static (Curve Hung, Point3d Apex, double Parameter, double Length, double Deviation) RunCatenary(CatenaryRun run) {
-        Curve hung = run(out Point3d apex, out double parameter, out double length, out double deviation);
+    private static (Curve Hung, Point3d Apex, double Parameter, double Length, double Deviation) Hung<TShape>(
+        CatenaryNative<TShape> native, Catenary request, TShape shape) {
+        Curve hung = native(
+            request.Start, request.End, request.AxisDirection, shape, request.Smooth, request.PointCount,
+            out Point3d apex, out double parameter, out double length, out double deviation);
         return (Hung: hung, Apex: apex, Parameter: parameter, Length: length, Deviation: deviation);
     }
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static class Curves {
-    public static Fin<Built<CurveSlot>> Build(Context context, params ReadOnlySpan<CurveOp> operations) {
-        Op op = Op.Of();
-        return from domain in Optional(context).ToFin(Fail: op.MissingContext())
-               from _ in guard(operations.Length > 0, op.InvalidInput())
-               from built in ModelGate.Folded(
-                   context: domain,
-                   operations: toSeq(operations.ToArray()),
-                   apply: static (operation, model) => operation.Apply(domain: model))
-               select built;
-    }
+    public static Fin<Built<CurveSlot>> Build(Context context, params ReadOnlySpan<CurveOp> operations) =>
+        ModelGate.Entry(
+            context: context,
+            operations: operations,
+            admit: static (operation, _) => Fin.Succ(operation),
+            apply: static (operation, model) => operation.Apply(domain: model));
 }
 ```
 
 ## [05]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]          | [OWNER]            | [FORM]                                              | [ENTRY]                          |
-| :-----: | :----------------- | :----------------- | :--------------------------------------------------- | :-------------------------------- |
-|  [01]   | offset framing     | `OffsetFrame`      | planar or normal-framed with corner/end style       | `CurveOp.Offset`                 |
-|  [02]   | on-surface offset  | `SurfaceOffsetLaw` | constant, through-point, varying rows               | `CurveOp.OffsetOnSurface`        |
-|  [03]   | ribbon carrier     | `RibbonLaw`        | whole `RibbonOffsetParameters` as one value         | `CurveOp.Ribbon` / `Rig`         |
-|  [04]   | advanced fit       | `FitLaw`           | whole `NurbsCurveFitParameters` as one value        | `CurveOp.NurbsFit` / `Rig`       |
-|  [05]   | extension modality | `ExtendLaw`        | length, geometry, point, line, arc, on-surface      | `CurveOp.Extend`                 |
-|  [06]   | split modality     | `SplitCutter`      | parameters, brep, surface, plane                    | `CurveOp.Split`                  |
-|  [07]   | pull and project   | `PullTarget`/`ProjectTarget` | loose-granted destinations with index maps    | `CurveOp.Pull` / `Project`       |
-|  [08]   | curve booleans     | `CurveBooleanVerb`/`CurveOp` | three verbs + disposable region topology      | `Boolean` / `Regions`            |
-|  [09]   | blend and tween    | `BlendLaw` / `TweenLaw`      | end-to-end, at-parameter, matched, sampled    | `CurveOp.Blend` / `Tween`        |
-|  [10]   | spiral/parabola seeds | `SpiralLaw` / `ParabolaSeed`   | seed unions selecting statics             | construction cases               |
-|  [11]   | analytic/catenary seeds | `AnalyticCurve` / `CatenaryLaw` | seed unions selecting statics          | construction cases               |
-|  [12]   | value-semantic edit | `CurveEdit`                  | duplicate then cleanup, close, interval trim  | `CurveOp.Edit`                   |
-|  [13]   | rail surface fillet | `RailFilletLaw`              | rail and arc structure plus fit evidence      | `CurveOp.RailFillet`             |
-|  [14]   | curve verbs        | `CurveOp`                     | one flat `[Union]`, total generated dispatch  | `Curves.Build`                   |
+| [INDEX] | [CONCERN]               | [OWNER]                             | [FORM]                                        | [ENTRY]                  |
+| :-----: | :---------------------- | :---------------------------------- | :-------------------------------------------- | :----------------------- |
+|  [01]   | offset framing          | `OffsetFrame`                       | planar / fitted-normal / loose-normal cases   | `CurveOp.Offset`         |
+|  [02]   | surface offset          | `CurveScalar`/`SurfaceOffsetTarget` | finite scalar offset modes                    | surface offset cases     |
+|  [03]   | ribbon carrier          | `RibbonLaw`                         | `RibbonOffsetParameters` as one value         | `CurveOp.Ribbon`/`Rig`   |
+|  [04]   | advanced fit            | `FitLaw`                            | `NurbsCurveFitParameters` as one value        | `CurveOp.NurbsFit`/`Rig` |
+|  [05]   | extension modality      | `ExtendLaw`                         | length/geometry/point/line/arc/on-surface     | `CurveOp.Extend`         |
+|  [06]   | split modality          | `SplitCutter`                       | parameters/brep/surface/plane                 | `CurveOp.Split`          |
+|  [07]   | pull and project        | `PullTarget`/`ProjectTarget`        | destinations with brep-side index maps        | `CurveOp.Pull`/`Project` |
+|  [08]   | curve booleans          | `CurveBooleanLaw`/`CurveOp`         | verb-valid source arity and region topology   | `Boolean`/`Regions`      |
+|  [09]   | blend and tween         | `BlendLaw`/`ArcBlendLaw`/`TweenLaw` | payload-valid blend and tween modes           | blend and tween cases    |
+|  [10]   | spiral/parabola seeds   | `SpiralLaw`/`ParabolaSeed`          | seed unions selecting statics                 | construction cases       |
+|  [11]   | analytic/catenary seeds | `AnalyticCurve`/`CatenaryLaw`       | seed unions selecting statics                 | construction cases       |
+|  [12]   | value-semantic edit     | `CurveEdit`                         | duplicate then cleanup/close/interval trim    | `CurveOp.Edit`           |
+|  [13]   | rail surface fillet     | `RailFilletLaw`                     | rail and arc structure plus fit evidence      | `CurveOp.RailFillet`     |
+|  [14]   | curve verbs             | `CurveOp`                           | one flat `[Union]` with total dispatch        | `Curves.Build`           |

@@ -1,29 +1,30 @@
 # [RASM_RHINO_EVENTS]
 
-Document observation stream (`Rasm.Rhino.Document`). `EventFamily` binds the document, object, selection, component-table, view, page, display, draw, and panel event surface into detached facts. Every row declares its band, cadence, and typed binding policy; every band projection derives from those columns. `DocumentStream` admits one host or file observation, attaches the whole handler set transactionally, schedules delivery, bounds delivery evidence, and owns symmetric detachment. Callback-scoped native handles never cross the bind.
+`DocumentStream` owns observation from raw host and filesystem callbacks through detached facts, nonblocking delivery, bounded loss evidence, and retryable symmetric detachment. `Observation` carries source-specific admission, `EventFamily` carries host wiring as data, and `Watch` retains every delivery and release outcome under one identity.
 
 ## [01]-[INDEX]
 
-- [02]-[FAMILY_ROSTER]: `EventBand`, `Cadence`, and `EventFamily` rows with derived band projection.
-- [03]-[PAYLOAD_PROJECTION]: detached `EventPayload` cases and the `DocEvent` carrier.
-- [04]-[DELIVERY_POLICY]: `StreamLane`, `Delivery`, and bounded `StreamReceipt` evidence.
-- [05]-[STREAM_OWNER]: the `Observation` source family, `DocumentStream`, `Watch`, and subscription capsule.
-- [06]-[SURFACE_LEDGER]: the page owner table.
+- [02]-[FAMILY]: `EventFamily` binds host callbacks, cadence, and projection as data.
+- [03]-[PAYLOAD_PROJECTION]: `EventPayload` and `DocEvent` carry detached callback evidence.
+- [04]-[DELIVERY_POLICY]: `Delivery` and `ReceiptPolicy` close bounded delivery and loss evidence.
+- [05]-[STREAM_OWNER]: `DocumentStream` and `Watch` own admission, attachment, delivery, and release.
 
-## [02]-[FAMILY_ROSTER]
+## [02]-[FAMILY]
 
-- Owner: `EventBand` is the grouping vocabulary. `Cadence` owns delivery admission. `EventFamily` is the keyed host-event table; each row carries both columns and one typed bind delegate.
-- Law: `EventFamily.In(EventBand)` admits the band and derives every group from `EventFamily.Items`. A new family is one row, and no secondary roster can drift.
-- Law: draw rows carry only a viewport id, change counter, and optional parent-view serial; the drawing owner receives and uses `DisplayPipeline` inside its own callback, and an observation never dereferences a draw handle after callback return.
-- Law: the before-transform row detaches the transform and object identities while the native pointers are live; the after-transform row correlates its sole host field, `TransformEventId`, through a private before-transform listener and never invents missing document evidence.
-- Law: `ProjectionChanged` suppresses a repeated `(document, viewport, change-counter)` product at the bind. Draw rows remain unsuppressed and rely on an admitted dropping lane.
-- Boundary: table events carry stable table kind, index, transition, and detached prior/current component facts. Full live state resolves through `DocKey` at consumption time; callback-owned component handles never leave the callback.
+- Owner: `EventFamily` binds one symbolic host event key to its band, cadence, attach/detach pair, and callback-scope projection.
+- Entry: `EventFamily.In` derives band membership from generated `Items`, while `Bind` retains the exact attached delegate for release.
+- Law: draw facts retain phase and viewport evidence without retaining `DisplayPipeline`, and per-object phases add the drawn or culled `RhinoObject` identity; transform completion stays unkeyed when the verified host surface supplies no durable correlation identity.
+- Law: table projections detach transition, index, and prior/current component evidence; later live resolution re-enters through document identity.
+- Law: callback projection faults and sink faults remain disjoint receipts; delivery failure never reclassifies as callback failure.
+- Exemption: projection deduplication uses a bounded concurrent kernel because callbacks arrive across host threads.
+- Growth: a host callback lands as one symbolic `EventFamily` row whose projection expires every callback-owned handle before delivery.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
 using System.IO;
 using System.Threading;
 using System.Threading.Channels;
+using System.Threading.Tasks;
 using Rasm.Domain;
 using Rhino;
 using Rhino.Display;
@@ -34,15 +35,15 @@ using Rhino.Geometry;
 namespace Rasm.Rhino.Document;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-[SmartEnum<int>]
+[SmartEnum<string>]
 public sealed partial class EventBand {
-    public static readonly EventBand Lifecycle = new(key: 0);
-    public static readonly EventBand Structure = new(key: 1);
-    public static readonly EventBand Selection = new(key: 2);
-    public static readonly EventBand Tables = new(key: 3);
-    public static readonly EventBand Screen = new(key: 4);
-    public static readonly EventBand Draw = new(key: 5);
-    public static readonly EventBand Panels = new(key: 6);
+    public static readonly EventBand Lifecycle = new(key: nameof(Lifecycle));
+    public static readonly EventBand Structure = new(key: nameof(Structure));
+    public static readonly EventBand Selection = new(key: nameof(Selection));
+    public static readonly EventBand Tables = new(key: nameof(Tables));
+    public static readonly EventBand Screen = new(key: nameof(Screen));
+    public static readonly EventBand Draw = new(key: nameof(Draw));
+    public static readonly EventBand Panels = new(key: nameof(Panels));
 }
 
 [SmartEnum]
@@ -54,47 +55,47 @@ public sealed partial class Cadence {
     public partial bool Admits(Delivery delivery);
 }
 
-[SmartEnum<int>]
+[SmartEnum<string>]
 public sealed partial class EventFamily {
-    public static readonly EventFamily BeginOpen = new(key: 0, band: EventBand.Lifecycle, cadence: Cadence.Changed, bind: On<DocumentOpenEventArgs>(
+    public static readonly EventFamily BeginOpen = new(key: nameof(BeginOpen), band: EventBand.Lifecycle, cadence: Cadence.Changed, bind: On<DocumentOpenEventArgs>(
         subscribe: h => RhinoDoc.BeginOpenDocument += h,
         unsubscribe: h => RhinoDoc.BeginOpenDocument -= h,
         project: static (_, a, scope) => Gate(serial: a.DocumentSerialNumber, scope: scope, payload: EventPayload.Opened.Of(a))));
-    public static readonly EventFamily EndOpen = new(key: 1, band: EventBand.Lifecycle, cadence: Cadence.Changed, bind: On<DocumentOpenEventArgs>(
+    public static readonly EventFamily EndOpen = new(key: nameof(EndOpen), band: EventBand.Lifecycle, cadence: Cadence.Changed, bind: On<DocumentOpenEventArgs>(
         subscribe: h => RhinoDoc.EndOpenDocument += h,
         unsubscribe: h => RhinoDoc.EndOpenDocument -= h,
         project: static (_, a, scope) => Gate(serial: a.DocumentSerialNumber, scope: scope, payload: EventPayload.Opened.Of(a))));
-    public static readonly EventFamily ViewSettled = new(key: 2, band: EventBand.Lifecycle, cadence: Cadence.Changed, bind: On<DocumentOpenEventArgs>(
+    public static readonly EventFamily ViewSettled = new(key: nameof(ViewSettled), band: EventBand.Lifecycle, cadence: Cadence.Changed, bind: On<DocumentOpenEventArgs>(
         subscribe: h => RhinoDoc.EndOpenDocumentInitialViewUpdate += h,
         unsubscribe: h => RhinoDoc.EndOpenDocumentInitialViewUpdate -= h,
         project: static (_, a, scope) => Gate(serial: a.DocumentSerialNumber, scope: scope, payload: EventPayload.Opened.Of(a))));
-    public static readonly EventFamily BeginSave = new(key: 3, band: EventBand.Lifecycle, cadence: Cadence.Changed, bind: On<DocumentSaveEventArgs>(
+    public static readonly EventFamily BeginSave = new(key: nameof(BeginSave), band: EventBand.Lifecycle, cadence: Cadence.Changed, bind: On<DocumentSaveEventArgs>(
         subscribe: h => RhinoDoc.BeginSaveDocument += h,
         unsubscribe: h => RhinoDoc.BeginSaveDocument -= h,
         project: static (_, a, scope) => Gate(serial: a.DocumentSerialNumber, scope: scope, payload: EventPayload.Saved.Of(a))));
-    public static readonly EventFamily EndSave = new(key: 4, band: EventBand.Lifecycle, cadence: Cadence.Changed, bind: On<DocumentSaveEventArgs>(
+    public static readonly EventFamily EndSave = new(key: nameof(EndSave), band: EventBand.Lifecycle, cadence: Cadence.Changed, bind: On<DocumentSaveEventArgs>(
         subscribe: h => RhinoDoc.EndSaveDocument += h,
         unsubscribe: h => RhinoDoc.EndSaveDocument -= h,
         project: static (_, a, scope) => Gate(serial: a.DocumentSerialNumber, scope: scope, payload: EventPayload.Saved.Of(a))));
-    public static readonly EventFamily Closed = new(key: 5, band: EventBand.Lifecycle, cadence: Cadence.Changed, bind: Signal(
+    public static readonly EventFamily Closed = new(key: nameof(Closed), band: EventBand.Lifecycle, cadence: Cadence.Changed, bind: Signal(
         subscribe: h => RhinoDoc.CloseDocument += h, unsubscribe: h => RhinoDoc.CloseDocument -= h));
-    public static readonly EventFamily Created = new(key: 6, band: EventBand.Lifecycle, cadence: Cadence.Changed, bind: Signal(
+    public static readonly EventFamily Created = new(key: nameof(Created), band: EventBand.Lifecycle, cadence: Cadence.Changed, bind: Signal(
         subscribe: h => RhinoDoc.NewDocument += h, unsubscribe: h => RhinoDoc.NewDocument -= h));
-    public static readonly EventFamily ActiveChanged = new(key: 7, band: EventBand.Lifecycle, cadence: Cadence.Changed, bind: On<DocumentEventArgs>(
+    public static readonly EventFamily ActiveChanged = new(key: nameof(ActiveChanged), band: EventBand.Lifecycle, cadence: Cadence.Changed, bind: On<DocumentEventArgs>(
         subscribe: h => RhinoDoc.ActiveDocumentChanged += h,
         unsubscribe: h => RhinoDoc.ActiveDocumentChanged -= h,
         project: static (_, a, scope) => GateActive(serial: a.DocumentSerialNumber, scope: scope)));
-    public static readonly EventFamily PropertiesChanged = new(key: 8, band: EventBand.Lifecycle, cadence: Cadence.Changed, bind: Signal(
+    public static readonly EventFamily PropertiesChanged = new(key: nameof(PropertiesChanged), band: EventBand.Lifecycle, cadence: Cadence.Changed, bind: Signal(
         subscribe: h => RhinoDoc.DocumentPropertiesChanged += h, unsubscribe: h => RhinoDoc.DocumentPropertiesChanged -= h));
-    public static readonly EventFamily UnitsChanged = new(key: 9, band: EventBand.Lifecycle, cadence: Cadence.Changed, bind: On<UnitsChangedWithScalingEventArgs>(
+    public static readonly EventFamily UnitsChanged = new(key: nameof(UnitsChanged), band: EventBand.Lifecycle, cadence: Cadence.Changed, bind: On<UnitsChangedWithScalingEventArgs>(
         subscribe: h => RhinoDoc.UnitsChangedWithScaling += h,
         unsubscribe: h => RhinoDoc.UnitsChangedWithScaling -= h,
         project: static (_, a, scope) => Gate(serial: a.DocumentSerialNumber, scope: scope, payload: new EventPayload.UnitsScaled(Scale: a.Scale))));
-    public static readonly EventFamily UserStringChanged = new(key: 10, band: EventBand.Lifecycle, cadence: Cadence.Changed, bind: On<RhinoDoc.UserStringChangedArgs>(
+    public static readonly EventFamily UserStringChanged = new(key: nameof(UserStringChanged), band: EventBand.Lifecycle, cadence: Cadence.Changed, bind: On<RhinoDoc.UserStringChangedArgs>(
         subscribe: h => RhinoDoc.UserStringChanged += h,
         unsubscribe: h => RhinoDoc.UserStringChanged -= h,
         project: static (_, a, scope) => Gate(document: a.Document, scope: scope, payload: new EventPayload.UserString(Key: a.Key))));
-    public static readonly EventFamily WorksessionFile = new(key: 11, band: EventBand.Lifecycle, cadence: Cadence.Changed, bind: OnFallible<RhinoDoc.WorksessionFileChangedEventArgs>(
+    public static readonly EventFamily WorksessionFile = new(key: nameof(WorksessionFile), band: EventBand.Lifecycle, cadence: Cadence.Changed, bind: OnFallible<RhinoDoc.WorksessionFileChangedEventArgs>(
         subscribe: h => RhinoDoc.WorksessionFileChanged += h,
         unsubscribe: h => RhinoDoc.WorksessionFileChanged -= h,
         project: static (_, a, scope) => WorksessionChange.Of(a.ChangeKind).Map(change => Gate(
@@ -102,90 +103,93 @@ public sealed partial class EventFamily {
             scope: scope,
             payload: new EventPayload.Worksession(ModelSerial: a.WorksessionModelRuntimeSerialNumber, File: a.FilePath, Change: change)))));
 
-    public static readonly EventFamily ObjectAdded = new(key: 20, band: EventBand.Structure, cadence: Cadence.Changed, bind: On<RhinoObjectEventArgs>(
+    public static readonly EventFamily ObjectAdded = new(key: nameof(ObjectAdded), band: EventBand.Structure, cadence: Cadence.Changed, bind: On<RhinoObjectEventArgs>(
         subscribe: h => RhinoDoc.AddRhinoObject += h, unsubscribe: h => RhinoDoc.AddRhinoObject -= h, project: ObjectFact));
-    public static readonly EventFamily ObjectDeleted = new(key: 21, band: EventBand.Structure, cadence: Cadence.Changed, bind: On<RhinoObjectEventArgs>(
+    public static readonly EventFamily ObjectDeleted = new(key: nameof(ObjectDeleted), band: EventBand.Structure, cadence: Cadence.Changed, bind: On<RhinoObjectEventArgs>(
         subscribe: h => RhinoDoc.DeleteRhinoObject += h, unsubscribe: h => RhinoDoc.DeleteRhinoObject -= h, project: ObjectFact));
-    public static readonly EventFamily ObjectReplaced = new(key: 22, band: EventBand.Structure, cadence: Cadence.Changed, bind: On<RhinoReplaceObjectEventArgs>(
+    public static readonly EventFamily ObjectReplaced = new(key: nameof(ObjectReplaced), band: EventBand.Structure, cadence: Cadence.Changed, bind: On<RhinoReplaceObjectEventArgs>(
         subscribe: h => RhinoDoc.ReplaceRhinoObject += h,
         unsubscribe: h => RhinoDoc.ReplaceRhinoObject -= h,
         project: static (_, a, scope) => Gate(document: a.Document, scope: scope, payload: new EventPayload.Replaced(
             Old: a.ObjectId, New: Optional(a.NewRhinoObject).Map(static o => o.Id).Filter(static id => id != Guid.Empty)))));
-    public static readonly EventFamily ObjectUndeleted = new(key: 23, band: EventBand.Structure, cadence: Cadence.Changed, bind: On<RhinoObjectEventArgs>(
+    public static readonly EventFamily ObjectUndeleted = new(key: nameof(ObjectUndeleted), band: EventBand.Structure, cadence: Cadence.Changed, bind: On<RhinoObjectEventArgs>(
         subscribe: h => RhinoDoc.UndeleteRhinoObject += h, unsubscribe: h => RhinoDoc.UndeleteRhinoObject -= h, project: ObjectFact));
-    public static readonly EventFamily ObjectPurged = new(key: 24, band: EventBand.Structure, cadence: Cadence.Changed, bind: On<RhinoObjectEventArgs>(
+    public static readonly EventFamily ObjectPurged = new(key: nameof(ObjectPurged), band: EventBand.Structure, cadence: Cadence.Changed, bind: On<RhinoObjectEventArgs>(
         subscribe: h => RhinoDoc.PurgeRhinoObject += h, unsubscribe: h => RhinoDoc.PurgeRhinoObject -= h, project: ObjectFact));
-    public static readonly EventFamily AttributesAmended = new(key: 25, band: EventBand.Structure, cadence: Cadence.Changed, bind: On<RhinoModifyObjectAttributesEventArgs>(
+    public static readonly EventFamily AttributesAmended = new(key: nameof(AttributesAmended), band: EventBand.Structure, cadence: Cadence.Changed, bind: On<RhinoModifyObjectAttributesEventArgs>(
         subscribe: h => RhinoDoc.ModifyObjectAttributes += h,
         unsubscribe: h => RhinoDoc.ModifyObjectAttributes -= h,
         project: static (_, a, scope) => Gate(document: a.Document, scope: scope, payload: new EventPayload.Attributes(
             Object: Optional(a.RhinoObject).Map(static o => o.Id).Filter(static id => id != Guid.Empty)))));
-    public static readonly EventFamily BeforeTransform = new(key: 26, band: EventBand.Structure, cadence: Cadence.Changed, bind: On<RhinoTransformObjectsEventArgs>(
+    public static readonly EventFamily BeforeTransform = new(key: nameof(BeforeTransform), band: EventBand.Structure, cadence: Cadence.Changed, bind: On<RhinoTransformObjectsEventArgs>(
         subscribe: h => RhinoDoc.BeforeTransformObjects += h,
         unsubscribe: h => RhinoDoc.BeforeTransformObjects -= h,
         project: TransformFact));
-    public static readonly EventFamily AfterTransform = new(key: 27, band: EventBand.Structure, cadence: Cadence.Changed, bind: AfterTransformFact());
+    public static readonly EventFamily AfterTransform = new(key: nameof(AfterTransform), band: EventBand.Structure, cadence: Cadence.Changed, bind: On<RhinoAfterTransformObjectsEventArgs>(
+        subscribe: h => RhinoDoc.AfterTransformObjects += h,
+        unsubscribe: h => RhinoDoc.AfterTransformObjects -= h,
+        project: static (_, _, scope) => Unkeyed(scope: scope, payload: new EventPayload.TransformEnded())));
 
-    public static readonly EventFamily SelectionAdded = new(key: 40, band: EventBand.Selection, cadence: Cadence.Changed, bind: On<RhinoObjectSelectionEventArgs>(
+    public static readonly EventFamily SelectionAdded = new(key: nameof(SelectionAdded), band: EventBand.Selection, cadence: Cadence.Changed, bind: On<RhinoObjectSelectionEventArgs>(
         subscribe: h => RhinoDoc.SelectObjects += h, unsubscribe: h => RhinoDoc.SelectObjects -= h, project: SelectionFact));
-    public static readonly EventFamily SelectionRemoved = new(key: 41, band: EventBand.Selection, cadence: Cadence.Changed, bind: On<RhinoObjectSelectionEventArgs>(
+    public static readonly EventFamily SelectionRemoved = new(key: nameof(SelectionRemoved), band: EventBand.Selection, cadence: Cadence.Changed, bind: On<RhinoObjectSelectionEventArgs>(
         subscribe: h => RhinoDoc.DeselectObjects += h, unsubscribe: h => RhinoDoc.DeselectObjects -= h, project: SelectionFact));
-    public static readonly EventFamily SelectionCleared = new(key: 42, band: EventBand.Selection, cadence: Cadence.Changed, bind: On<RhinoDeselectAllObjectsEventArgs>(
+    public static readonly EventFamily SelectionCleared = new(key: nameof(SelectionCleared), band: EventBand.Selection, cadence: Cadence.Changed, bind: On<RhinoDeselectAllObjectsEventArgs>(
         subscribe: h => RhinoDoc.DeselectAllObjects += h,
         unsubscribe: h => RhinoDoc.DeselectAllObjects -= h,
         project: static (_, a, scope) => Gate(document: a.Document, scope: scope, payload: new EventPayload.Selection(Ids: Seq<Guid>(), Count: a.ObjectCount))));
 
-    public static readonly EventFamily LayerTable = new(key: 60, band: EventBand.Tables, cadence: Cadence.Changed, bind: Table<LayerTableEventArgs>(
+    public static readonly EventFamily LayerTable = new(key: nameof(LayerTable), band: EventBand.Tables, cadence: Cadence.Changed, bind: Table<LayerTableEventArgs>(
         subscribe: h => RhinoDoc.LayerTableEvent += h, unsubscribe: h => RhinoDoc.LayerTableEvent -= h, kind: TableKind.Layers,
         document: static a => a.Document, index: static a => a.LayerIndex, transition: static a => ComponentTransition.Of(a.EventType),
         previous: static a => ComponentState.Of(a.OldState), current: static a => ComponentState.Of(a.NewState)));
-    public static readonly EventFamily MaterialTable = new(key: 61, band: EventBand.Tables, cadence: Cadence.Changed, bind: Table<MaterialTableEventArgs>(
+    public static readonly EventFamily MaterialTable = new(key: nameof(MaterialTable), band: EventBand.Tables, cadence: Cadence.Changed, bind: Table<MaterialTableEventArgs>(
         subscribe: h => RhinoDoc.MaterialTableEvent += h, unsubscribe: h => RhinoDoc.MaterialTableEvent -= h, kind: TableKind.Materials,
         document: static a => a.Document, index: static a => a.Index, transition: static a => ComponentTransition.Of(a.EventType),
         previous: static a => ComponentState.Of(a.OldSettings), current: static a => ComponentState.Of(a.Document.Materials[a.Index])));
-    public static readonly EventFamily GroupTable = new(key: 62, band: EventBand.Tables, cadence: Cadence.Changed, bind: Table<GroupTableEventArgs>(
+    public static readonly EventFamily GroupTable = new(key: nameof(GroupTable), band: EventBand.Tables, cadence: Cadence.Changed, bind: Table<GroupTableEventArgs>(
         subscribe: h => RhinoDoc.GroupTableEvent += h, unsubscribe: h => RhinoDoc.GroupTableEvent -= h, kind: TableKind.Groups,
         document: static a => a.Document, index: static a => a.GroupIndex, transition: static a => ComponentTransition.Of(a.EventType),
         previous: static a => ComponentState.Of(a.OldState), current: static a => ComponentState.Of(a.NewState)));
-    public static readonly EventFamily LinetypeTable = new(key: 63, band: EventBand.Tables, cadence: Cadence.Changed, bind: Table<LinetypeTableEventArgs>(
+    public static readonly EventFamily LinetypeTable = new(key: nameof(LinetypeTable), band: EventBand.Tables, cadence: Cadence.Changed, bind: Table<LinetypeTableEventArgs>(
         subscribe: h => RhinoDoc.LinetypeTableEvent += h, unsubscribe: h => RhinoDoc.LinetypeTableEvent -= h, kind: TableKind.Linetypes,
         document: static a => a.Document, index: static a => a.LinetypeIndex, transition: static a => ComponentTransition.Of(a.EventType),
         previous: static a => ComponentState.Of(a.OldState), current: static a => ComponentState.Of(a.NewState)));
-    public static readonly EventFamily LightTable = new(key: 64, band: EventBand.Tables, cadence: Cadence.Changed, bind: Table<LightTableEventArgs>(
+    public static readonly EventFamily LightTable = new(key: nameof(LightTable), band: EventBand.Tables, cadence: Cadence.Changed, bind: Table<LightTableEventArgs>(
         subscribe: h => RhinoDoc.LightTableEvent += h, unsubscribe: h => RhinoDoc.LightTableEvent -= h, kind: TableKind.Lights,
         document: static a => a.Document, index: static a => a.LightIndex, transition: static a => ComponentTransition.Of(a.EventType),
         previous: static a => ComponentState.Of(a.OldState), current: static a => ComponentState.Of(a.NewState)));
-    public static readonly EventFamily DimensionStyleTable = new(key: 65, band: EventBand.Tables, cadence: Cadence.Changed, bind: Table<DimStyleTableEventArgs>(
+    public static readonly EventFamily DimensionStyleTable = new(key: nameof(DimensionStyleTable), band: EventBand.Tables, cadence: Cadence.Changed, bind: Table<DimStyleTableEventArgs>(
         subscribe: h => RhinoDoc.DimensionStyleTableEvent += h, unsubscribe: h => RhinoDoc.DimensionStyleTableEvent -= h, kind: TableKind.DimStyles,
         document: static a => a.Document, index: static a => a.Index, transition: static a => ComponentTransition.Of(a.EventType),
         previous: static a => ComponentState.Of(a.OldState), current: static a => ComponentState.Of(a.NewState)));
-    public static readonly EventFamily InstanceDefinitionTable = new(key: 66, band: EventBand.Tables, cadence: Cadence.Changed, bind: Table<InstanceDefinitionTableEventArgs>(
+    public static readonly EventFamily InstanceDefinitionTable = new(key: nameof(InstanceDefinitionTable), band: EventBand.Tables, cadence: Cadence.Changed, bind: Table<InstanceDefinitionTableEventArgs>(
         subscribe: h => RhinoDoc.InstanceDefinitionTableEvent += h, unsubscribe: h => RhinoDoc.InstanceDefinitionTableEvent -= h, kind: TableKind.InstanceDefinitions,
         document: static a => a.Document, index: static a => a.InstanceDefinitionIndex, transition: static a => ComponentTransition.Of(a.EventType),
         previous: static a => ComponentState.Of(a.OldState), current: static a => ComponentState.Of(a.NewState)));
-    public static readonly EventFamily SectionStyleTable = new(key: 67, band: EventBand.Tables, cadence: Cadence.Changed, bind: Table<SectionStyleTableEventArgs>(
+    public static readonly EventFamily SectionStyleTable = new(key: nameof(SectionStyleTable), band: EventBand.Tables, cadence: Cadence.Changed, bind: Table<SectionStyleTableEventArgs>(
         subscribe: h => RhinoDoc.SectionStyleTableEvent += h, unsubscribe: h => RhinoDoc.SectionStyleTableEvent -= h, kind: TableKind.SectionStyles,
         document: static a => a.Document, index: static a => a.Index, transition: static a => ComponentTransition.Of(a.EventType),
         previous: static a => ComponentState.Of(a.OldState), current: static a => ComponentState.Of(a.NewState)));
-    public static readonly EventFamily MarkupTable = new(key: 68, band: EventBand.Tables, cadence: Cadence.Changed, bind: Table<MarkupTableEventArgs>(
+    public static readonly EventFamily MarkupTable = new(key: nameof(MarkupTable), band: EventBand.Tables, cadence: Cadence.Changed, bind: Table<MarkupTableEventArgs>(
         subscribe: h => RhinoDoc.MarkupTableEvent += h, unsubscribe: h => RhinoDoc.MarkupTableEvent -= h, kind: TableKind.Markups,
         document: static a => a.Document, index: static a => a.Index, transition: static a => ComponentTransition.Of(a.EventType),
         previous: static a => ComponentState.Of(a.OldState), current: static a => ComponentState.Of(a.NewState)));
-    public static readonly EventFamily PageViewGroupTable = new(key: 69, band: EventBand.Tables, cadence: Cadence.Changed, bind: Table<PageViewGroupTableEventArgs>(
+    public static readonly EventFamily PageViewGroupTable = new(key: nameof(PageViewGroupTable), band: EventBand.Tables, cadence: Cadence.Changed, bind: Table<PageViewGroupTableEventArgs>(
         subscribe: h => RhinoDoc.PageViewGroupTableEvent += h, unsubscribe: h => RhinoDoc.PageViewGroupTableEvent -= h, kind: TableKind.PageViewGroups,
         document: static a => a.Document, index: static a => a.PageViewGroupIndex, transition: static a => ComponentTransition.Of(a.EventType),
         previous: static a => ComponentState.Of(a.OldState), current: static a => ComponentState.Of(a.NewState)));
-    public static readonly EventFamily HatchPatternTable = new(key: 70, band: EventBand.Tables, cadence: Cadence.Changed, bind: Table<HatchPatternTableEventArgs>(
+    public static readonly EventFamily HatchPatternTable = new(key: nameof(HatchPatternTable), band: EventBand.Tables, cadence: Cadence.Changed, bind: Table<HatchPatternTableEventArgs>(
         subscribe: h => RhinoDoc.HatchPatternTableEvent += h, unsubscribe: h => RhinoDoc.HatchPatternTableEvent -= h, kind: TableKind.HatchPatterns,
         document: static a => a.Document, index: static a => a.HatchPatternIndex, transition: static a => ComponentTransition.Of(a.EventType),
         previous: static a => ComponentState.Of(a.OldState), current: static a => ComponentState.Of(a.NewState)));
-    public static readonly EventFamily RenderMaterialTable = new(key: 71, band: EventBand.Tables, cadence: Cadence.Changed, bind: Render(
+    public static readonly EventFamily RenderMaterialTable = new(key: nameof(RenderMaterialTable), band: EventBand.Tables, cadence: Cadence.Changed, bind: Render(
         subscribe: h => RhinoDoc.RenderMaterialsTableEvent += h, unsubscribe: h => RhinoDoc.RenderMaterialsTableEvent -= h, kind: TableKind.RenderMaterials));
-    public static readonly EventFamily RenderEnvironmentTable = new(key: 72, band: EventBand.Tables, cadence: Cadence.Changed, bind: Render(
+    public static readonly EventFamily RenderEnvironmentTable = new(key: nameof(RenderEnvironmentTable), band: EventBand.Tables, cadence: Cadence.Changed, bind: Render(
         subscribe: h => RhinoDoc.RenderEnvironmentTableEvent += h, unsubscribe: h => RhinoDoc.RenderEnvironmentTableEvent -= h, kind: TableKind.RenderEnvironments));
-    public static readonly EventFamily RenderTextureTable = new(key: 73, band: EventBand.Tables, cadence: Cadence.Changed, bind: Render(
+    public static readonly EventFamily RenderTextureTable = new(key: nameof(RenderTextureTable), band: EventBand.Tables, cadence: Cadence.Changed, bind: Render(
         subscribe: h => RhinoDoc.RenderTextureTableEvent += h, unsubscribe: h => RhinoDoc.RenderTextureTableEvent -= h, kind: TableKind.RenderTextures));
-    public static readonly EventFamily TextureMappingTable = new(key: 74, band: EventBand.Tables, cadence: Cadence.Changed, bind: OnFallible<RhinoDoc.TextureMappingEventArgs>(
+    public static readonly EventFamily TextureMappingTable = new(key: nameof(TextureMappingTable), band: EventBand.Tables, cadence: Cadence.Changed, bind: OnFallible<RhinoDoc.TextureMappingEventArgs>(
         subscribe: h => RhinoDoc.TextureMappingEvent += h,
         unsubscribe: h => RhinoDoc.TextureMappingEvent -= h,
         project: static (_, a, scope) => ComponentTransition.Of(a.EventType).Map(transition => Gate(
@@ -195,53 +199,51 @@ public sealed partial class EventFamily {
                 Transition: transition,
                 Current: transition.CarriesCurrent ? Optional(a.NewMapping).Map(static mapping => mapping.Id) : Option<Guid>.None))));
 
-    public static readonly EventFamily ViewModified = new(key: 80, band: EventBand.Screen, cadence: Cadence.Changed, bind: ViewFact(
+    public static readonly EventFamily ViewModified = new(key: nameof(ViewModified), band: EventBand.Screen, cadence: Cadence.Changed, bind: ViewFact(
         subscribe: h => RhinoView.Modified += h, unsubscribe: h => RhinoView.Modified -= h));
-    public static readonly EventFamily ViewCreated = new(key: 81, band: EventBand.Screen, cadence: Cadence.Changed, bind: ViewFact(
+    public static readonly EventFamily ViewCreated = new(key: nameof(ViewCreated), band: EventBand.Screen, cadence: Cadence.Changed, bind: ViewFact(
         subscribe: h => RhinoView.Create += h, unsubscribe: h => RhinoView.Create -= h));
-    public static readonly EventFamily ViewDestroyed = new(key: 82, band: EventBand.Screen, cadence: Cadence.Changed, bind: ViewFact(
+    public static readonly EventFamily ViewDestroyed = new(key: nameof(ViewDestroyed), band: EventBand.Screen, cadence: Cadence.Changed, bind: ViewFact(
         subscribe: h => RhinoView.Destroy += h, unsubscribe: h => RhinoView.Destroy -= h));
-    public static readonly EventFamily ViewActivated = new(key: 83, band: EventBand.Screen, cadence: Cadence.Changed, bind: ViewFact(
+    public static readonly EventFamily ViewActivated = new(key: nameof(ViewActivated), band: EventBand.Screen, cadence: Cadence.Changed, bind: ViewFact(
         subscribe: h => RhinoView.SetActive += h, unsubscribe: h => RhinoView.SetActive -= h));
-    public static readonly EventFamily ViewRenamed = new(key: 84, band: EventBand.Screen, cadence: Cadence.Changed, bind: ViewFact(
+    public static readonly EventFamily ViewRenamed = new(key: nameof(ViewRenamed), band: EventBand.Screen, cadence: Cadence.Changed, bind: ViewFact(
         subscribe: h => RhinoView.Rename += h, unsubscribe: h => RhinoView.Rename -= h));
-    public static readonly EventFamily ViewDrawingChanged = new(key: 85, band: EventBand.Screen, cadence: Cadence.Changed, bind: On<ViewEnableDrawingEventArgs>(
-        subscribe: h => RhinoView.EnableDrawingChanged += h,
-        unsubscribe: h => RhinoView.EnableDrawingChanged -= h,
-        project: static (_, a, scope) => Gate(serial: a.DocumentSerialNumber, scope: scope, payload: new EventPayload.Drawing(Enabled: a.DrawingEnabled))));
-    public static readonly EventFamily PageSpaceChanged = new(key: 90, band: EventBand.Screen, cadence: Cadence.Changed, bind: On<PageViewSpaceChangeEventArgs>(
-        subscribe: h => RhinoPageView.PageViewSpaceChange += h,
-        unsubscribe: h => RhinoPageView.PageViewSpaceChange -= h,
-        project: static (_, a, scope) => Optional(a.PageView).Bind(page => Gate(document: page.Document, scope: scope, payload: new EventPayload.Page(
-            PageSerial: page.RuntimeSerialNumber,
-            OldDetail: Optional(a.OldActiveDetailId).Filter(static id => id != Guid.Empty),
-            NewDetail: Optional(a.NewActiveDetailId).Filter(static id => id != Guid.Empty))))));
-    public static readonly EventFamily PagePropertiesChanged = new(key: 91, band: EventBand.Screen, cadence: Cadence.Changed, bind: On<PageViewPropertiesChangeEventArgs>(
-        subscribe: h => RhinoPageView.PageViewPropertiesChange += h,
-        unsubscribe: h => RhinoPageView.PageViewPropertiesChange -= h,
-        project: static (_, a, scope) => Gate(serial: a.DocumentSerialNumber, scope: scope, payload: new EventPayload.Page(
-            PageSerial: a.PageViewSerialNumber, OldDetail: Option<Guid>.None, NewDetail: Option<Guid>.None))));
-    public static readonly EventFamily ProjectionChanged = new(key: 100, band: EventBand.Screen, cadence: Cadence.Changed, bind: ProjectionFact(
+    public static readonly EventFamily ProjectionChanged = new(key: nameof(ProjectionChanged), band: EventBand.Screen, cadence: Cadence.Changed, bind: ProjectionFact(
         subscribe: h => DisplayPipeline.ViewportProjectionChanged += h, unsubscribe: h => DisplayPipeline.ViewportProjectionChanged -= h));
-    public static readonly EventFamily DisplayModeChanged = new(key: 101, band: EventBand.Screen, cadence: Cadence.Changed, bind: On<DisplayModeChangedEventArgs>(
+    public static readonly EventFamily DisplayModeChanged = new(key: nameof(DisplayModeChanged), band: EventBand.Screen, cadence: Cadence.Changed, bind: On<DisplayModeChangedEventArgs>(
         subscribe: h => DisplayPipeline.DisplayModeChanged += h,
         unsubscribe: h => DisplayPipeline.DisplayModeChanged -= h,
         project: static (_, a, scope) => Optional(a.Viewport).Bind(viewport => Gate(document: a.RhinoDoc, scope: scope, payload: new EventPayload.DisplayMode(
             ViewportId: viewport.Id, Old: a.OldDisplayModeId, Next: a.ChangedDisplayModeId)))));
 
-    public static readonly EventFamily DrawForeground = new(key: 110, band: EventBand.Draw, cadence: Cadence.PerFrame, bind: DrawFact(
+    public static readonly EventFamily DrawForeground = new(key: nameof(DrawForeground), band: EventBand.Draw, cadence: Cadence.PerFrame, bind: DrawFact(
         subscribe: h => DisplayPipeline.DrawForeground += h, unsubscribe: h => DisplayPipeline.DrawForeground -= h));
-    public static readonly EventFamily DrawOverlay = new(key: 111, band: EventBand.Draw, cadence: Cadence.PerFrame, bind: DrawFact(
+    public static readonly EventFamily DrawOverlay = new(key: nameof(DrawOverlay), band: EventBand.Draw, cadence: Cadence.PerFrame, bind: DrawFact(
         subscribe: h => DisplayPipeline.DrawOverlay += h, unsubscribe: h => DisplayPipeline.DrawOverlay -= h));
+    public static readonly EventFamily ObjectCulling = new(key: nameof(ObjectCulling), band: EventBand.Draw, cadence: Cadence.PerFrame, bind: DrawFact<CullObjectEventArgs>(
+        subscribe: h => DisplayPipeline.ObjectCulling += h, unsubscribe: h => DisplayPipeline.ObjectCulling -= h, subject: static a => DrawSubject(a.RhinoObject)));
+    public static readonly EventFamily InitFrameBuffer = new(key: nameof(InitFrameBuffer), band: EventBand.Draw, cadence: Cadence.PerFrame, bind: DrawFact(
+        subscribe: h => DisplayPipeline.InitFrameBuffer += h, unsubscribe: h => DisplayPipeline.InitFrameBuffer -= h));
+    public static readonly EventFamily PreDrawObjects = new(key: nameof(PreDrawObjects), band: EventBand.Draw, cadence: Cadence.PerFrame, bind: DrawFact(
+        subscribe: h => DisplayPipeline.PreDrawObjects += h, unsubscribe: h => DisplayPipeline.PreDrawObjects -= h));
+    public static readonly EventFamily PreDrawTransparentObjects = new(key: nameof(PreDrawTransparentObjects), band: EventBand.Draw, cadence: Cadence.PerFrame, bind: DrawFact(
+        subscribe: h => DisplayPipeline.PreDrawTransparentObjects += h, unsubscribe: h => DisplayPipeline.PreDrawTransparentObjects -= h));
+    public static readonly EventFamily PreDrawObject = new(key: nameof(PreDrawObject), band: EventBand.Draw, cadence: Cadence.PerFrame, bind: DrawFact<DrawObjectEventArgs>(
+        subscribe: h => DisplayPipeline.PreDrawObject += h, unsubscribe: h => DisplayPipeline.PreDrawObject -= h, subject: static a => DrawSubject(a.RhinoObject)));
+    public static readonly EventFamily PostDrawObject = new(key: nameof(PostDrawObject), band: EventBand.Draw, cadence: Cadence.PerFrame, bind: DrawFact<DrawObjectEventArgs>(
+        subscribe: h => DisplayPipeline.PostDrawObject += h, unsubscribe: h => DisplayPipeline.PostDrawObject -= h, subject: static a => DrawSubject(a.RhinoObject)));
+    public static readonly EventFamily PostDrawObjects = new(key: nameof(PostDrawObjects), band: EventBand.Draw, cadence: Cadence.PerFrame, bind: DrawFact(
+        subscribe: h => DisplayPipeline.PostDrawObjects += h, unsubscribe: h => DisplayPipeline.PostDrawObjects -= h));
 
-    public static readonly EventFamily PanelVisibility = new(key: 120, band: EventBand.Panels, cadence: Cadence.Changed, bind: On<global::Rhino.UI.ShowPanelEventArgs>(
+    public static readonly EventFamily PanelVisibility = new(key: nameof(PanelVisibility), band: EventBand.Panels, cadence: Cadence.Changed, bind: On<global::Rhino.UI.ShowPanelEventArgs>(
         subscribe: h => global::Rhino.UI.Panels.Show += h,
         unsubscribe: h => global::Rhino.UI.Panels.Show -= h,
         project: static (_, a, scope) => Gate(
             serial: a.DocumentSerialNumber,
             scope: scope,
             payload: new EventPayload.Panel(PanelId: a.PanelId, State: a.Show ? PanelState.Shown : PanelState.Hidden))));
-    public static readonly EventFamily PanelClosed = new(key: 121, band: EventBand.Panels, cadence: Cadence.Changed, bind: On<global::Rhino.UI.PanelEventArgs>(
+    public static readonly EventFamily PanelClosed = new(key: nameof(PanelClosed), band: EventBand.Panels, cadence: Cadence.Changed, bind: On<global::Rhino.UI.PanelEventArgs>(
         subscribe: h => global::Rhino.UI.Panels.Closed += h,
         unsubscribe: h => global::Rhino.UI.Panels.Closed -= h,
         project: static (_, a, scope) => Gate(
@@ -278,9 +280,18 @@ public sealed partial class EventFamily {
         Action<EventHandler<TArgs>> unsubscribe,
         Func<object?, TArgs, EventScope, Fin<Option<EventEnvelope>>> project) where TArgs : EventArgs =>
         (scope, journal, deliver, reject) => {
-            EventHandler<TArgs> handler = (sender, args) => ignore(
-                Op.Of(name: nameof(EventFamily)).Catch(() => project(sender, args, scope).Bind(projected => projected.Match(
-                    Some: deliver, None: static () => Fin.Succ(value: unit)))).MapFail(error => { reject(obj: error); return error; }));
+            EventHandler<TArgs> handler = (sender, args) => {
+                Op key = Op.Of(name: nameof(EventFamily));
+                Fin<Unit> outcome = key.Catch(() => project(sender, args, scope)).Match(
+                    Succ: projected => projected.Match(
+                        Some: envelope => key.Catch(() => deliver(arg: envelope)),
+                        None: static () => Fin.Succ(value: unit)),
+                    Fail: error => {
+                        reject(obj: error);
+                        return Fin.Fail<Unit>(error: error);
+                    });
+                ignore(outcome);
+            };
             return Subscription.Attach(subscribe: subscribe, unsubscribe: unsubscribe, handler: handler);
         };
 
@@ -330,68 +341,36 @@ public sealed partial class EventFamily {
             Gate(document: view.Document, scope: scope, payload: new EventPayload.View(
                 ViewSerial: view.RuntimeSerialNumber, MainViewportId: view.MainViewport.Id, Page: view is RhinoPageView))));
 
-    private static Func<EventScope, ReceiptJournal, Func<EventEnvelope, Fin<Unit>>, Action<Error>, Fin<Subscription>> DrawFact(
-        Action<EventHandler<DrawEventArgs>> subscribe,
-        Action<EventHandler<DrawEventArgs>> unsubscribe) =>
-        On(subscribe: subscribe, unsubscribe: unsubscribe, project: static (_, a, scope) => Optional(a.Viewport).Bind(viewport =>
+    private static Func<EventScope, ReceiptJournal, Func<EventEnvelope, Fin<Unit>>, Action<Error>, Fin<Subscription>> DrawFact<TArgs>(
+        Action<EventHandler<TArgs>> subscribe,
+        Action<EventHandler<TArgs>> unsubscribe,
+        Func<TArgs, Option<(Guid Id, uint Serial)>>? subject = null) where TArgs : DrawEventArgs =>
+        On(subscribe: subscribe, unsubscribe: unsubscribe, project: (_, a, scope) => Optional(a.Viewport).Bind(viewport =>
             Gate(document: a.RhinoDoc, scope: scope, payload: new EventPayload.Frame(
                 ViewportId: viewport.Id,
                 ChangeCounter: viewport.ChangeCounter,
-                ViewSerial: Optional(viewport.ParentView).Map(static view => view.RuntimeSerialNumber)))));
+                ViewSerial: Optional(viewport.ParentView).Map(static view => view.RuntimeSerialNumber),
+                Object: subject is null ? Option<(Guid Id, uint Serial)>.None : subject(arg: a)))));
 
     private static Func<EventScope, ReceiptJournal, Func<EventEnvelope, Fin<Unit>>, Action<Error>, Fin<Subscription>> ProjectionFact(
         Action<EventHandler<DrawEventArgs>> subscribe,
         Action<EventHandler<DrawEventArgs>> unsubscribe) =>
         (scope, journal, deliver, reject) => {
-            System.Collections.Concurrent.ConcurrentDictionary<(Guid Viewport, uint Document), uint> seen = new();
+            ProjectionWindow seen = new(capacity: journal.Policy.CorrelationCapacity);
             return On(subscribe: subscribe, unsubscribe: unsubscribe, project: (_, a, watched) =>
                 Optional(a.RhinoDoc).Bind(document => Optional(a.Viewport).Bind(viewport => {
                     (Guid Viewport, uint Document) key = (viewport.Id, document.RuntimeSerialNumber);
                     uint counter = viewport.ChangeCounter;
-                    return Advance(seen: seen, key: key, counter: counter, capacity: journal.Policy.CorrelationCapacity)
+                    (bool Advanced, bool Reset) advance = seen.Advance(key: key, counter: counter);
+                    _ = advance.Reset
+                        ? journal.Post(new StreamReceipt.ProjectionReset(
+                            Watch: journal.Watch, ViewportId: key.Viewport, DocumentSerial: key.Document))
+                        : unit;
+                    return advance.Advanced
                         ? Gate(document: document, scope: watched, payload: new EventPayload.Projection(ViewportId: viewport.Id, ChangeCounter: counter))
                         : Option<EventEnvelope>.None;
                 })))(scope, journal, deliver, reject);
         };
-
-    private static Func<EventScope, ReceiptJournal, Func<EventEnvelope, Fin<Unit>>, Action<Error>, Fin<Subscription>> AfterTransformFact() =>
-        (scope, journal, deliver, reject) => {
-            System.Collections.Concurrent.ConcurrentDictionary<uint, TransformLink> documents = new();
-            long sequence = 0;
-            EventHandler<RhinoTransformObjectsEventArgs> before = (_, args) => ignore(
-                Op.Of(name: nameof(BeforeTransform)).Catch(() => Fin.Succ(value: TransformDocument(args).Map(key => Op.Side(() => {
-                    documents[key: args.TransformEventId] = new TransformLink(Key: key, Sequence: Interlocked.Increment(ref sequence));
-                    while (documents.Count > journal.Policy.CorrelationCapacity) {
-                        KeyValuePair<uint, TransformLink> oldest = documents.MinBy(static pair => pair.Value.Sequence);
-                        if (!documents.TryRemove(key: oldest.Key, value: out _)) {
-                            break;
-                        }
-                        _ = journal.Post(new StreamReceipt.TransformEvicted(Watch: journal.Watch, EventId: oldest.Key));
-                    }
-                })))).MapFail(error => { reject(obj: error); return error; }));
-            EventHandler<RhinoAfterTransformObjectsEventArgs> after = (_, args) => ignore(
-                Op.Of(name: nameof(AfterTransform)).Catch(() => {
-                    Option<EventEnvelope> envelope;
-                    if (documents.TryRemove(key: args.TransformEventId, value: out TransformLink link)) {
-                        envelope = Gate(key: link.Key, scope: scope, payload: new EventPayload.TransformEnded(EventId: args.TransformEventId));
-                    } else {
-                        _ = journal.Post(new StreamReceipt.TransformUnmatched(Watch: journal.Watch, EventId: args.TransformEventId));
-                        envelope = Unkeyed(scope: scope, payload: new EventPayload.TransformEnded(EventId: args.TransformEventId));
-                    }
-                    return envelope.Match(Some: deliver, None: static () => Fin.Succ(value: unit));
-                }).MapFail(error => { reject(obj: error); return error; }));
-            return Subscription.AttachAll(Seq<Func<Fin<Subscription>>>(
-                () => Subscription.Attach(
-                    subscribe: h => RhinoDoc.BeforeTransformObjects += h,
-                    unsubscribe: h => RhinoDoc.BeforeTransformObjects -= h,
-                    handler: before),
-                () => Subscription.Attach(
-                    subscribe: h => RhinoDoc.AfterTransformObjects += h,
-                    unsubscribe: h => RhinoDoc.AfterTransformObjects -= h,
-                    handler: after)));
-        };
-
-    private readonly record struct TransformLink(DocKey Key, long Sequence);
 
     private static Option<EventEnvelope> ObjectFact(object? sender, RhinoObjectEventArgs args, EventScope scope) =>
         Gate(document: (sender as RhinoDoc) ?? args.TheObject?.Document, scope: scope, payload: new EventPayload.Objects(Ids: Seq(args.ObjectId)));
@@ -403,7 +382,6 @@ public sealed partial class EventFamily {
 
     private static Option<EventEnvelope> TransformFact(object? sender, RhinoTransformObjectsEventArgs args, EventScope scope) =>
         TransformDocument(args).Bind(key => Gate(key: key, scope: scope, payload: new EventPayload.TransformStarted(
-            EventId: args.TransformEventId,
             Motion: args.Transform,
             Copies: args.ObjectsWillBeCopied,
             Objects: ObjectRefs(args.Objects),
@@ -421,26 +399,24 @@ public sealed partial class EventFamily {
     private static Seq<(Guid Id, uint Serial)> ObjectRefs(IEnumerable<RhinoObject?> objects) =>
         toSeq(objects).Choose(static item => Optional(item).Map(static value => (value.Id, value.RuntimeSerialNumber)));
 
-    private static bool Advance(
-        System.Collections.Concurrent.ConcurrentDictionary<(Guid Viewport, uint Document), uint> seen,
-        (Guid Viewport, uint Document) key,
-        uint counter,
-        int capacity) {
-        if (seen.Count >= capacity && !seen.ContainsKey(key: key)) {
-            seen.Clear();
-        }
-        while (true) {
-            if (!seen.TryGetValue(key: key, value: out uint prior)) {
-                if (seen.TryAdd(key: key, value: counter)) {
-                    return true;
+    private static Option<(Guid Id, uint Serial)> DrawSubject(RhinoObject? subject) =>
+        Optional(subject).Map(static value => (value.Id, value.RuntimeSerialNumber)).Filter(static value => value.Id != Guid.Empty);
+
+    private sealed class ProjectionWindow(int capacity) {
+        private readonly Lock gate = new();
+        private readonly Dictionary<(Guid Viewport, uint Document), uint> seen = new();
+
+        internal (bool Advanced, bool Reset) Advance((Guid Viewport, uint Document) key, uint counter) {
+            lock (gate) {
+                bool reset = seen.Count >= capacity && !seen.ContainsKey(key: key);
+                if (reset) {
+                    seen.Clear();
                 }
-                continue;
-            }
-            if (prior == counter) {
-                return false;
-            }
-            if (seen.TryUpdate(key: key, newValue: counter, comparisonValue: prior)) {
-                return true;
+                bool advanced = !seen.TryGetValue(key: key, value: out uint prior) || prior != counter;
+                if (advanced) {
+                    seen[key] = counter;
+                }
+                return (Advanced: advanced, Reset: reset);
             }
         }
     }
@@ -457,7 +433,7 @@ public sealed partial class EventFamily {
 
     private static Option<EventEnvelope> Gate(DocKey key, EventScope scope, EventPayload payload) =>
         scope.Switch(
-            state: (Key: key, Payload: payload),
+            (Key: key, Payload: payload),
             document: static (state, watched) => watched.Key == state.Key
                 ? Some(new EventEnvelope(Key: Some(state.Key), Payload: state.Payload))
                 : Option<EventEnvelope>.None,
@@ -474,7 +450,7 @@ public sealed partial class EventFamily {
 
     private static Option<EventEnvelope> Unkeyed(EventScope scope, EventPayload payload) =>
         scope.Switch(
-            state: payload,
+            payload,
             document: static (_, _) => Option<EventEnvelope>.None,
             anyDocument: static (fact, _) => Some(new EventEnvelope(Key: Option<DocKey>.None, Payload: fact)));
 }
@@ -482,12 +458,11 @@ public sealed partial class EventFamily {
 
 ## [03]-[PAYLOAD_PROJECTION]
 
-- Owner: `EventPayload` is the closed detached-evidence family. `EventEnvelope` is the internal projection product; `DocEvent` adds its family row at delivery.
-- Law: every reference-like host member is projected inside the callback. Documents become `DocKey`, views and viewports become runtime identities, transform participants become `(Guid, runtime serial)` products, and component states become detached identity/name/deletion facts.
-- Law: `Active` preserves the no-active-document transition. `AfterTransform` is the sole conditionally unkeyed host event because its argument contains only `TransformEventId`; an `AnyDocument` observer still receives an unmatched completion.
-- Law: every host transition enum spells a subset of its owning vocabulary's member names — table events over `Added`/`Deleted`/`Undeleted`/`Modified`/`Sorted`/`Current`, worksession kinds, render-content kinds — so each transition `[SmartEnum<string>]` keys rows on those names and one generic name-keyed `ComponentTransition.Named<T, TEvent>` admits every host transition enum; a new host value lands as one row with zero new conversion arm, and an unmapped or undefined value fails typed instead of falling to a default.
-- Law: render-material assignment preserves its layer-or-object target and old/new material identities; loaded, clearing, and cleared render-table transitions remain distinct typed rows.
-- Law: object-id projection is a total generated `Switch`. A new payload case fails the projection at compile time until its contribution is declared.
+- Owner: `EventPayload` owns detached callback evidence, while `DocEvent` adds source identity and the optional document key.
+- Law: every reference-like host member projects inside its callback into stable identity, value, transition, or component evidence.
+- Law: an absent active document remains a typed transition; transform completion remains unkeyed because the verified host surface supplies no durable correlation identity.
+- Law: name-keyed transition vocabularies admit host enums generically and fail unknown host values on the typed rail.
+- Law: `EventPayload.ObjectIds` defaults to no object contribution, and contributing cases override that projection; `DocEvent` delegates without an empty-arm dispatch ladder.
 
 ```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
@@ -508,10 +483,14 @@ public sealed partial class ComponentTransition {
 
     internal static Fin<T> Named<T, TEvent>(TEvent value)
         where T : class, ISmartEnum<string, T, ValidationError>
-        where TEvent : struct, Enum =>
-        T.TryGet(value.ToString(), out T? row)
-            ? Fin.Succ(value: row)
-            : Fin.Fail<T>(error: Op.Of(name: typeof(T).Name).InvalidResult(detail: value.ToString()));
+        where TEvent : struct, Enum {
+        Option<string> name = Optional(Enum.GetName(value: value));
+        return name
+            .ToFin(Fail: Op.Of(name: typeof(T).Name).InvalidResult())
+            .Bind(key => T.TryGet(key, out T? row)
+                ? Fin.Succ(value: row)
+                : Fin.Fail<T>(error: Op.Of(name: typeof(T).Name).InvalidResult(detail: key)));
+    }
 }
 
 [SmartEnum<string>]
@@ -578,6 +557,8 @@ public readonly record struct RenderAssignment(RenderTarget Target, Guid Previou
 public abstract partial record EventPayload {
     private EventPayload() { }
 
+    public virtual Seq<Guid> ObjectIds => Seq<Guid>();
+
     public sealed record Signal : EventPayload;
     public sealed record Opened(Option<string> File, bool Merge, bool Reference) : EventPayload {
         internal static Opened Of(DocumentOpenEventArgs args) =>
@@ -591,18 +572,31 @@ public abstract partial record EventPayload {
     public sealed record UnitsScaled(double Scale) : EventPayload;
     public sealed record UserString(string Key) : EventPayload;
     public sealed record Worksession(uint ModelSerial, string File, WorksessionChange Change) : EventPayload;
-    public sealed record Objects(Seq<Guid> Ids) : EventPayload;
-    public sealed record Replaced(Guid Old, Option<Guid> New) : EventPayload;
-    public sealed record Attributes(Option<Guid> Object) : EventPayload;
+    public sealed record Objects(Seq<Guid> Ids) : EventPayload {
+        public override Seq<Guid> ObjectIds => Ids;
+    }
+    public sealed record Replaced(Guid Old, Option<Guid> New) : EventPayload {
+        public override Seq<Guid> ObjectIds => New.ToSeq().Cons(value: Old);
+    }
+    public sealed record Attributes(Option<Guid> Object) : EventPayload {
+        public override Seq<Guid> ObjectIds => Object.ToSeq();
+    }
     public sealed record TransformStarted(
-        uint EventId,
         Transform Motion,
         bool Copies,
         Seq<(Guid Id, uint Serial)> Objects,
         Seq<(Guid Id, uint Serial)> Grips,
-        Seq<(Guid Id, uint Serial)> GripOwners) : EventPayload;
-    public sealed record TransformEnded(uint EventId) : EventPayload;
-    public sealed record Selection(Seq<Guid> Ids, int Count) : EventPayload;
+        Seq<(Guid Id, uint Serial)> GripOwners) : EventPayload {
+        public override Seq<Guid> ObjectIds => Objects
+            .Concat(Grips)
+            .Concat(GripOwners)
+            .Map(static item => item.Id)
+            .Distinct();
+    }
+    public sealed record TransformEnded : EventPayload;
+    public sealed record Selection(Seq<Guid> Ids, int Count) : EventPayload {
+        public override Seq<Guid> ObjectIds => Ids;
+    }
     public sealed record Component(
         TableKind Kind,
         int Index,
@@ -617,11 +611,11 @@ public abstract partial record EventPayload {
         ComponentTransition Transition,
         Option<Guid> Current) : EventPayload;
     public sealed record View(uint ViewSerial, Guid MainViewportId, bool Page) : EventPayload;
-    public sealed record Drawing(bool Enabled) : EventPayload;
-    public sealed record Page(uint PageSerial, Option<Guid> OldDetail, Option<Guid> NewDetail) : EventPayload;
     public sealed record Projection(Guid ViewportId, uint ChangeCounter) : EventPayload;
     public sealed record DisplayMode(Guid ViewportId, Guid Old, Guid Next) : EventPayload;
-    public sealed record Frame(Guid ViewportId, uint ChangeCounter, Option<uint> ViewSerial) : EventPayload;
+    public sealed record Frame(Guid ViewportId, uint ChangeCounter, Option<uint> ViewSerial, Option<(Guid Id, uint Serial)> Object) : EventPayload {
+        public override Seq<Guid> ObjectIds => Object.Map(static value => value.Id).ToSeq();
+    }
     public sealed record Panel(Guid PanelId, PanelState State) : EventPayload;
     public sealed record Files(Seq<FileEdge> Edges, long Overflow) : EventPayload;
 }
@@ -637,42 +631,14 @@ public abstract partial record EventOrigin {
 }
 
 public readonly record struct DocEvent(EventOrigin Origin, Option<DocKey> Key, EventPayload Payload) {
-    public Seq<Guid> ObjectIds => Payload.Switch(
-        signal: static _ => Seq<Guid>(),
-        opened: static _ => Seq<Guid>(),
-        saved: static _ => Seq<Guid>(),
-        active: static _ => Seq<Guid>(),
-        unitsScaled: static _ => Seq<Guid>(),
-        userString: static _ => Seq<Guid>(),
-        worksession: static _ => Seq<Guid>(),
-        objects: static fact => fact.Ids,
-        replaced: static fact => fact.New.ToSeq().Cons(value: fact.Old),
-        attributes: static fact => fact.Object.ToSeq(),
-        transformStarted: static fact => fact.Objects
-            .Concat(fact.Grips)
-            .Concat(fact.GripOwners)
-            .Map(static item => item.Id)
-            .Distinct(),
-        transformEnded: static _ => Seq<Guid>(),
-        selection: static fact => fact.Ids,
-        component: static _ => Seq<Guid>(),
-        renderContent: static _ => Seq<Guid>(),
-        textureMapping: static _ => Seq<Guid>(),
-        view: static _ => Seq<Guid>(),
-        drawing: static _ => Seq<Guid>(),
-        page: static _ => Seq<Guid>(),
-        projection: static _ => Seq<Guid>(),
-        displayMode: static _ => Seq<Guid>(),
-        frame: static _ => Seq<Guid>(),
-        panel: static _ => Seq<Guid>(),
-        files: static _ => Seq<Guid>());
+    public Seq<Guid> ObjectIds => Payload.ObjectIds;
 }
 
-[SmartEnum<int>]
+[SmartEnum<string>]
 public sealed partial class PanelState {
-    public static readonly PanelState Shown = new(key: 0);
-    public static readonly PanelState Hidden = new(key: 1);
-    public static readonly PanelState Closed = new(key: 2);
+    public static readonly PanelState Shown = new(key: nameof(Shown));
+    public static readonly PanelState Hidden = new(key: nameof(Hidden));
+    public static readonly PanelState Closed = new(key: nameof(Closed));
 }
 
 [SmartEnum<int>]
@@ -691,34 +657,62 @@ public readonly record struct FileEdge(FileChangeKind Kind, string Path, Option<
 
 ## [04]-[DELIVERY_POLICY]
 
-- Owner: `StreamLane` rows own channel construction over the full bounded-policy product. `Mailbox` is a one-value latest-state register, `Shed` a bounded newest-window that drops the oldest fact, `Ordered` a bounded accepted-prefix FIFO that refuses the incoming fact, and `Firehose` an unbounded lossless lane. `Delivery` carries its sink for direct modes or its lane for paced mode, so sink/lane mismatch cannot be constructed.
-- Law: a host callback never waits for a reader. A full ordered lane rejects the incoming fact and preserves the accepted prefix; the drop callback records the loss without blocking the host. `Dropping` is the `Cadence.PerFrame` admission column: a per-frame family refuses `Firehose` at observation admission because an unbounded lane under frame cadence grows without a shed edge.
-- Law: every drop, refused write, deferred overflow, reentrant suppression, callback fault, sink fault, cancellation, file-watch fault, file-batch overflow, transform-correlation loss, and journal eviction lands in `StreamReceipt`. Each `Watch` owns the journal identified by its `WatchKey`, and its `ReceiptPolicy` bounds every retained queue.
+- Owner: `Delivery` owns direct, idle-deferred, and paced modalities; `StreamLane` resolves paced channel construction from the admitted `ReceiptPolicy`.
+- Law: host callbacks never park. A paced lane either accepts immediately or emits loss evidence through the channel callback and write result.
+- Law: channel continuations never execute synchronously on a producing host callback.
+- Law: bounded lanes close every nonblocking full-buffer mode; `Coalesced` preserves the queued head and latest arrival by evicting the newest buffered predecessor.
+- Law: frame cadence admits only bounded dropping lanes; unbounded accumulation is rejected before attachment.
+- Law: `StreamLoss` is the paced-loss vocabulary carried unchanged by `StreamReceipt.PacedLoss`; one parameterized `ReceiptPolicy` bounds every queue and correlation set owned by a `Watch`.
+- Law: `ReceiptPolicy` owns named operational and maximum rows; generated admission rejects nonpositive values, individual ceiling breaches, and aggregate overcommit.
 
 ```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
-[SmartEnum<int>]
+[SmartEnum<string>]
 public sealed partial class StreamLane {
-    private const int Window = 1024;
-
-    public static readonly StreamLane Mailbox = new(key: 0, dropping: true, open: Bounded(capacity: 1, mode: BoundedChannelFullMode.DropOldest));
-    public static readonly StreamLane Shed = new(key: 1, dropping: true, open: Bounded(capacity: Window, mode: BoundedChannelFullMode.DropOldest));
-    public static readonly StreamLane Ordered = new(key: 2, dropping: true, open: Bounded(capacity: Window, mode: BoundedChannelFullMode.DropWrite));
+    public static readonly StreamLane Mailbox = new(
+        key: nameof(Mailbox),
+        dropping: true,
+        open: Bounded(capacity: static _ => 1, mode: BoundedChannelFullMode.DropOldest, loss: StreamLoss.Evicted));
+    public static readonly StreamLane Shed = new(
+        key: nameof(Shed),
+        dropping: true,
+        open: Bounded(capacity: static policy => policy.LaneCapacity, mode: BoundedChannelFullMode.DropOldest, loss: StreamLoss.Evicted));
+    public static readonly StreamLane Coalesced = new(
+        key: nameof(Coalesced),
+        dropping: true,
+        open: Bounded(capacity: static policy => policy.LaneCapacity, mode: BoundedChannelFullMode.DropNewest, loss: StreamLoss.Evicted));
+    public static readonly StreamLane Ordered = new(
+        key: nameof(Ordered),
+        dropping: true,
+        open: Bounded(capacity: static policy => policy.LaneCapacity, mode: BoundedChannelFullMode.DropWrite, loss: StreamLoss.Refused));
     public static readonly StreamLane Firehose = new(
-        key: 3,
+        key: nameof(Firehose),
         dropping: false,
-        open: static _ => Channel.CreateUnbounded<DocEvent>(
-            new UnboundedChannelOptions { SingleReader = true }));
+        open: static (_, _) => Channel.CreateUnbounded<DocEvent>(
+            new UnboundedChannelOptions { SingleReader = true, AllowSynchronousContinuations = false }));
 
     public bool Dropping { get; }
 
     [UseDelegateFromConstructor]
-    internal partial Channel<DocEvent> Open(Action<DocEvent> dropped);
+    internal partial Channel<DocEvent> Open(ReceiptPolicy policy, Action<StreamLoss, DocEvent> lost);
 
-    private static Func<Action<DocEvent>, Channel<DocEvent>> Bounded(int capacity, BoundedChannelFullMode mode) =>
-        dropped => Channel.CreateBounded<DocEvent>(
-            new BoundedChannelOptions(capacity: capacity) { FullMode = mode, SingleReader = true },
-            itemDropped: dropped);
+    private static Func<ReceiptPolicy, Action<StreamLoss, DocEvent>, Channel<DocEvent>> Bounded(
+        Func<ReceiptPolicy, int> capacity,
+        BoundedChannelFullMode mode,
+        StreamLoss loss) =>
+        (policy, lost) => Channel.CreateBounded<DocEvent>(
+            new BoundedChannelOptions(capacity: capacity(arg: policy)) {
+                FullMode = mode,
+                SingleReader = true,
+                AllowSynchronousContinuations = false,
+            },
+            itemDropped: item => lost(arg1: loss, arg2: item));
+}
+
+[SmartEnum<string>]
+public sealed partial class StreamLoss {
+    public static readonly StreamLoss Evicted = new(key: nameof(Evicted));
+    public static readonly StreamLoss Refused = new(key: nameof(Refused));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -732,8 +726,7 @@ public abstract partial record Delivery {
 [Union]
 public abstract partial record StreamReceipt {
     private StreamReceipt() { }
-    public sealed record Dropped(WatchKey Watch, StreamLane Lane, EventOrigin Origin) : StreamReceipt;
-    public sealed record Refused(WatchKey Watch, StreamLane Lane, EventOrigin Origin) : StreamReceipt;
+    public sealed record PacedLoss(WatchKey Watch, StreamLane Lane, StreamLoss Loss, EventOrigin Origin) : StreamReceipt;
     public sealed record DeferredOverflow(WatchKey Watch, EventOrigin Origin) : StreamReceipt;
     public sealed record Reentrant(WatchKey Watch, EventOrigin Origin) : StreamReceipt;
     public sealed record CallbackFault(WatchKey Watch, EventOrigin Origin, string Detail) : StreamReceipt;
@@ -741,29 +734,85 @@ public abstract partial record StreamReceipt {
     public sealed record Cancelled(WatchKey Watch, EventOrigin Origin) : StreamReceipt;
     public sealed record FileOverflow(WatchKey Watch, string WatchedPath) : StreamReceipt;
     public sealed record FileFault(WatchKey Watch, string WatchedPath, string Detail) : StreamReceipt;
-    public sealed record TransformEvicted(WatchKey Watch, uint EventId) : StreamReceipt;
-    public sealed record TransformUnmatched(WatchKey Watch, uint EventId) : StreamReceipt;
+    public sealed record ProjectionReset(WatchKey Watch, Guid ViewportId, uint DocumentSerial) : StreamReceipt;
+    public sealed record DetachFault(WatchKey Watch, string Detail) : StreamReceipt;
     public sealed record JournalOverflow(WatchKey Watch, long Lost) : StreamReceipt;
 }
 
 // --- [STATE] ------------------------------------------------------------------------------
 [ValueObject<long>]
 public readonly partial struct WatchKey {
+    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref long value) =>
         validationError = value > 0 ? null : new ValidationError(message: "Watch identity is not positive.");
 }
 
-[SmartEnum<int>]
+[ComplexValueObject]
 public sealed partial class ReceiptPolicy {
-    public static readonly ReceiptPolicy Operational = new(
-        key: 0, receiptCapacity: 512, deferredCapacity: 512, fileCapacity: 256, correlationCapacity: 128);
-    public static readonly ReceiptPolicy Diagnostic = new(
-        key: 1, receiptCapacity: 4096, deferredCapacity: 2048, fileCapacity: 1024, correlationCapacity: 512);
+    private static readonly (int Lane, int Receipt, int Deferred, int File, int Correlation) OperationalValues = (
+        Lane: 256,
+        Receipt: 4_096,
+        Deferred: 512,
+        File: 512,
+        Correlation: 2_048);
+    private static readonly (int Lane, int Receipt, int Deferred, int File, int Correlation, long Total) CapacityLimits = (
+        Lane: 4_096,
+        Receipt: 16_384,
+        Deferred: 4_096,
+        File: 4_096,
+        Correlation: 8_192,
+        Total: 24_576L);
 
+    public int LaneCapacity { get; }
     public int ReceiptCapacity { get; }
     public int DeferredCapacity { get; }
     public int FileCapacity { get; }
     public int CorrelationCapacity { get; }
+
+    public static ReceiptPolicy Operational { get; } = Create(
+        laneCapacity: OperationalValues.Lane,
+        receiptCapacity: OperationalValues.Receipt,
+        deferredCapacity: OperationalValues.Deferred,
+        fileCapacity: OperationalValues.File,
+        correlationCapacity: OperationalValues.Correlation);
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref int laneCapacity,
+        ref int receiptCapacity,
+        ref int deferredCapacity,
+        ref int fileCapacity,
+        ref int correlationCapacity) {
+        Seq<(int Value, int Maximum)> capacities = Seq(
+            (Value: laneCapacity, Maximum: CapacityLimits.Lane),
+            (Value: receiptCapacity, Maximum: CapacityLimits.Receipt),
+            (Value: deferredCapacity, Maximum: CapacityLimits.Deferred),
+            (Value: fileCapacity, Maximum: CapacityLimits.File),
+            (Value: correlationCapacity, Maximum: CapacityLimits.Correlation));
+        long total = capacities.Fold(0L, static (sum, row) => sum + row.Value);
+        validationError = capacities.ForAll(static row => row.Value > 0 && row.Value <= row.Maximum)
+                && total <= CapacityLimits.Total
+            ? null
+            : new ValidationError(message: "Observation capacities exceed their positive per-capacity or aggregate bounds.");
+    }
+
+    public static Fin<ReceiptPolicy> Of(
+        int laneCapacity,
+        int receiptCapacity,
+        int deferredCapacity,
+        int fileCapacity,
+        int correlationCapacity,
+        Op key) =>
+        key.AcceptValidated<ReceiptPolicy>(
+            fault: Validate(
+                laneCapacity,
+                receiptCapacity,
+                deferredCapacity,
+                fileCapacity,
+                correlationCapacity,
+                out ReceiptPolicy? admitted),
+            admitted: admitted);
 }
 
 internal sealed class ReceiptJournal(WatchKey watch, ReceiptPolicy policy) {
@@ -787,18 +836,28 @@ internal sealed class ReceiptJournal(WatchKey watch, ReceiptPolicy policy) {
             ? held with { Items = held.Items.Add(value: receipt) }
             : new ReceiptState(Items: held.Items.Tail.Add(value: receipt), Lost: checked(held.Lost + 1))));
 
+    internal SubscriptionRelease Faults(SubscriptionRelease release) {
+        _ = release is SubscriptionRelease.Faulted faulted
+            ? faulted.Errors.Fold(unit, (state, error) => (Post(new StreamReceipt.DetachFault(Watch: Watch, Detail: error.Message)), state).Item2)
+            : unit;
+        return release;
+    }
+
     private readonly record struct ReceiptState(Seq<StreamReceipt> Items, long Lost);
 }
 ```
 
 ## [05]-[STREAM_OWNER]
 
-- Owner: `Observation` closes the source family as `Host` and `File`. Both cases carry the same `Delivery` and `ReceiptPolicy`; the host case names scope and families, while the file case names path, trailing debounce window, and clock. `DocumentStream.Observe` is the one admission and attachment entry.
-- Law: every request validates source, delivery, receipt policy, and source-specific discriminants before the first attachment. `Subscription.AttachAll` rolls back every earlier attachment if a later attach fails.
-- Law: `Watch.Dispose` detaches handlers before completing its paced writer. A reader therefore terminates after consuming the accepted prefix.
-- Law: reentrancy state belongs to one observation. Recursive delivery from that observation is receipted without suppressing any sibling observation on the same thread.
-- Law: file delivery uses `TimeProvider.CreateTimer` as a resettable one-shot. Every file-system edge moves the deadline, and the trailing edge emits a bounded `Files` batch preserving change kind, path, previous rename path, and overflow count through the same inline, deferred, or paced spine as host facts.
-- Law: deferred delivery swaps the complete queued prefix to an empty successor on idle. Capacity applies per watch; cancellation suppresses queued sink work after teardown and leaves a receipt.
+- Owner: `Observation` carries each source's complete ingress, and `DocumentStream.Observe` owns admission, attachment, rollback, and watch minting.
+- Law: every source, delivery, policy, and source-specific value admits before the first attachment; sequential attachment rolls back the accumulated prefix on failure.
+- Law: `Watch.Close` cancels delivery, combines source and idle-pump detachment evidence, receipts each fault, and retains each failed owner for a later close attempt.
+- Law: close claims its owners under the lifecycle lock, executes callbacks after release, and publishes retry custody plus one settled result atomically; concurrent callers join that result.
+- Law: an empty subscription closes as `Released(0)`; `Open` denotes only unclaimed live custody.
+- Law: reentrancy and deferred capacity belong to one watch, so recursive or queued work cannot suppress or exhaust a sibling observation.
+- Law: deferred delivery owns one idle hook per watch; closing the watch detaches that hook and receipts every queued fact as cancelled.
+- Law: file callbacks fold into one resettable trailing-edge timer and one bounded batch before entering the same delivery spine as host facts.
+- Exemption: native attach/detach, timer ownership, `Lock` scopes, and callback `try/finally` blocks are platform-forced lifetime seams.
 
 ```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
@@ -827,30 +886,81 @@ public abstract partial record Observation {
 
 // --- [MODELS] -----------------------------------------------------------------------------
 public sealed class Watch : IDisposable {
-    private Subscription? subscription;
-    private Emission? emission;
+    private readonly Lock gate = new();
     private readonly ReceiptJournal journal;
+    private WatchClosure closure;
 
-    private Watch(Subscription subscription, Emission emission, ReceiptJournal journal) {
-        this.subscription = subscription;
-        this.emission = emission;
+    internal Watch(Subscription subscription, Emission emission, ReceiptJournal journal) {
         this.journal = journal;
+        closure = new WatchClosure.Ready(
+            Subscription: subscription,
+            Emission: emission,
+            Release: new SubscriptionRelease.Open());
         Reader = emission.Reader;
     }
 
     public WatchKey Key => journal.Watch;
     public Seq<StreamReceipt> Receipts => journal.Snapshot;
     public Option<ChannelReader<DocEvent>> Reader { get; }
+    public SubscriptionRelease Release {
+        get {
+            Task<SubscriptionRelease>? waiting;
+            lock (gate) {
+                if (closure is WatchClosure.Ready ready) {
+                    return ready.Release;
+                }
+                waiting = ((WatchClosure.Closing)closure).Settled;
+            }
+            return SubscriptionRelease.Join(waiting);
+        }
+    }
 
-    internal static Watch Of(Subscription subscription, Emission emission, ReceiptJournal journal) =>
-        new(subscription: subscription, emission: emission, journal: journal);
+    public SubscriptionRelease Close() {
+        WatchClosure.Ready? claimed = null;
+        Task<SubscriptionRelease>? waiting = null;
+        TaskCompletionSource<SubscriptionRelease>? flight = null;
+        lock (gate) {
+            if (closure is WatchClosure.Closing closing) {
+                waiting = closing.Settled;
+            } else {
+                claimed = (WatchClosure.Ready)closure;
+                if (claimed.Subscription is null && claimed.Emission is null) {
+                    return claimed.Release;
+                }
+                flight = SubscriptionRelease.BeginClose();
+                closure = new WatchClosure.Closing(Settled: flight.Task);
+            }
+        }
+        if (waiting is not null) {
+            return SubscriptionRelease.Join(waiting);
+        }
+        WatchClosure.Ready owner = claimed!;
+        owner.Emission?.Cancel();
+        SubscriptionRelease source = owner.Subscription?.Close()
+            ?? new SubscriptionRelease.Released(Attempted: 0);
+        SubscriptionRelease delivery = owner.Emission?.Complete()
+            ?? new SubscriptionRelease.Released(Attempted: 0);
+        SubscriptionRelease settled = journal.Faults(release: SubscriptionRelease.All(source, delivery));
+        lock (gate) {
+            closure = new WatchClosure.Ready(
+                Subscription: source is SubscriptionRelease.Faulted ? owner.Subscription : null,
+                Emission: delivery is SubscriptionRelease.Faulted ? owner.Emission : null,
+                Release: settled);
+            return SubscriptionRelease.Publish(pending: flight!, release: settled);
+        }
+    }
 
-    public void Dispose() {
-        Emission? active = Interlocked.Exchange(location1: ref emission, value: null);
-        active?.Cancel();
-        Subscription? captured = Interlocked.Exchange(location1: ref subscription, value: null);
-        captured?.Dispose();
-        active?.Complete();
+    public void Dispose() => ignore(Close());
+
+    private abstract record WatchClosure {
+        private WatchClosure() { }
+
+        internal sealed record Ready(
+            Subscription? Subscription,
+            Emission? Emission,
+            SubscriptionRelease Release) : WatchClosure;
+
+        internal sealed record Closing(Task<SubscriptionRelease> Settled) : WatchClosure;
     }
 }
 
@@ -859,12 +969,18 @@ internal sealed class Emission {
     private readonly ReceiptJournal journal;
     private readonly Reentrancy gate = new();
     private readonly Option<Channel<DocEvent>> channel;
+    private readonly Option<IdlePump> idle;
     private int active = 1;
 
-    private Emission(Delivery delivery, ReceiptJournal journal, Option<Channel<DocEvent>> channel) {
+    private Emission(
+        Delivery delivery,
+        ReceiptJournal journal,
+        Option<Channel<DocEvent>> channel,
+        Option<IdlePump> idle) {
         this.delivery = delivery;
         this.journal = journal;
         this.channel = channel;
+        this.idle = idle;
     }
 
     internal Option<ChannelReader<DocEvent>> Reader => channel.Map(static value => value.Reader);
@@ -872,16 +988,34 @@ internal sealed class Emission {
 
     internal static Fin<Emission> Open(Delivery delivery, ReceiptJournal journal, Op key) =>
         Optional(delivery).ToFin(Fail: key.InvalidInput()).Bind(active => active.Switch(
-            state: (Journal: journal, Op: key),
+            (Journal: journal, Op: key),
             inline: static (state, mode) => Optional(mode.Sink).ToFin(Fail: state.Op.InvalidInput())
-                .Map(_ => new Emission(delivery: mode, journal: state.Journal, channel: Option<Channel<DocEvent>>.None)),
+                .Map(_ => new Emission(
+                    delivery: mode,
+                    journal: state.Journal,
+                    channel: Option<Channel<DocEvent>>.None,
+                    idle: Option<IdlePump>.None)),
             deferred: static (state, mode) => Optional(mode.Sink).ToFin(Fail: state.Op.InvalidInput())
-                .Map(_ => new Emission(delivery: mode, journal: state.Journal, channel: Option<Channel<DocEvent>>.None)),
+                .Bind(_ => IdlePump.Open(journal: state.Journal))
+                .Map(pump => new Emission(
+                    delivery: mode,
+                    journal: state.Journal,
+                    channel: Option<Channel<DocEvent>>.None,
+                    idle: Some(pump))),
             paced: static (state, mode) => Optional(mode.Lane).ToFin(Fail: state.Op.InvalidInput()).Bind(lane =>
                 state.Op.Catch(() => {
-                    Channel<DocEvent> opened = lane.Open(dropped => ignore(state.Journal.Post(new StreamReceipt.Dropped(
-                        Watch: state.Journal.Watch, Lane: lane, Origin: dropped.Origin))));
-                    return Fin.Succ(value: new Emission(delivery: mode, journal: state.Journal, channel: Some(opened)));
+                    Channel<DocEvent> opened = lane.Open(
+                        policy: state.Journal.Policy,
+                        lost: (loss, fact) => ignore(state.Journal.Post(new StreamReceipt.PacedLoss(
+                            Watch: state.Journal.Watch,
+                            Lane: lane,
+                            Loss: loss,
+                            Origin: fact.Origin))));
+                    return Fin.Succ(value: new Emission(
+                        delivery: mode,
+                        journal: state.Journal,
+                        channel: Some(opened),
+                        idle: Option<IdlePump>.None));
                 }))));
 
     internal Fin<Unit> Emit(DocEvent fact) =>
@@ -890,26 +1024,32 @@ internal sealed class Emission {
             : gate.Active
                 ? Fin.Succ(value: journal.Post(new StreamReceipt.Reentrant(Watch: journal.Watch, Origin: fact.Origin)))
                 : delivery.Switch(
-                    state: (Owner: this, Fact: fact),
+                    (Owner: this, Fact: fact),
                     inline: static (state, mode) => state.Owner.gate.Guarded(
                         journal: state.Owner.journal, origin: state.Fact.Origin, run: () => mode.Sink(arg: state.Fact)),
-                    deferred: static (state, mode) => IdlePump.Enqueue(
-                        journal: state.Owner.journal,
-                        origin: state.Fact.Origin,
-                        alive: () => state.Owner.IsActive,
-                        run: () => state.Owner.gate.Guarded(
-                            journal: state.Owner.journal, origin: state.Fact.Origin, run: () => mode.Sink(arg: state.Fact))),
+                    deferred: static (state, mode) => state.Owner.idle
+                        .ToFin(Op.Of(name: nameof(Emission)).InvalidResult())
+                        .Bind(pump => pump.Enqueue(
+                            origin: state.Fact.Origin,
+                            alive: () => state.Owner.IsActive,
+                            run: () => state.Owner.gate.Guarded(
+                                journal: state.Owner.journal, origin: state.Fact.Origin, run: () => mode.Sink(arg: state.Fact)))),
                     paced: static (state, mode) => state.Owner.channel
                         .ToFin(Op.Of(name: nameof(Emission)).InvalidResult())
                         .Map(opened => opened.Writer.TryWrite(item: state.Fact)
                             ? unit
-                            : state.Owner.journal.Post(new StreamReceipt.Refused(
-                                Watch: state.Owner.journal.Watch, Lane: mode.Lane, Origin: state.Fact.Origin))));
+                            : state.Owner.journal.Post(new StreamReceipt.Cancelled(
+                                Watch: state.Owner.journal.Watch, Origin: state.Fact.Origin))));
 
     internal void Cancel() => Interlocked.Exchange(location1: ref active, value: 0);
 
-    internal void Complete() =>
+    internal SubscriptionRelease Complete() {
+        SubscriptionRelease release = idle.Match(
+            Some: static pump => pump.Close(),
+            None: static () => new SubscriptionRelease.Released(Attempted: 0));
         ignore(channel.Map(static opened => opened.Writer.TryComplete()));
+        return release;
+    }
 }
 
 // --- [SERVICES] ---------------------------------------------------------------------------
@@ -919,7 +1059,7 @@ public static class DocumentStream {
     public static Fin<Watch> Observe(Observation request) {
         Op op = Op.Of();
         return Optional(request).ToFin(Fail: op.InvalidInput()).Bind(active => active.Switch(
-            state: op,
+            op,
             host: static (key, observation) => ObserveHost(request: observation, key: key),
             file: static (key, observation) => ObserveFile(request: observation, key: key)));
     }
@@ -953,8 +1093,13 @@ public static class DocumentStream {
             policy: bounds)
         from emission in Emission.Open(delivery: delivery, journal: journal, key: key)
         from subscription in attach(emission, journal)
-            .MapFail(error => { emission.Cancel(); emission.Complete(); return error; })
-        select Watch.Of(subscription: subscription, emission: emission, journal: journal);
+            .MapFail(error => {
+                emission.Cancel();
+                return SubscriptionRelease.AddTo(
+                    primary: error,
+                    release: journal.Faults(release: emission.Complete()));
+            })
+        select new Watch(subscription: subscription, emission: emission, journal: journal);
 
     private static Fin<Subscription> Attach(
         EventScope scope,
@@ -1078,8 +1223,8 @@ public static class DocumentStream {
                         () => Subscription.Acquire(
                             acquire: () => createdWatcher.EnableRaisingEvents = true,
                             release: () => createdWatcher.EnableRaisingEvents = false)))
-                    .Map(handle => owner | handle)
-                    .MapFail(error => { owner.Dispose(); return error; });
+                    .Map(owner.Combine)
+                    .MapFail(owner.Rollback);
             } catch {
                 timer?.Dispose();
                 watcher?.Dispose();
@@ -1092,23 +1237,37 @@ public static class DocumentStream {
 
 // --- [COMPOSITION] ------------------------------------------------------------------------
 public sealed class Subscription : IDisposable {
-    private Action? detach;
+    private readonly Lock gate = new();
+    private SubscriptionClosure closure;
 
-    private Subscription(Action? detach) => this.detach = detach;
+    private Subscription(Seq<Action> detach) =>
+        closure = new SubscriptionClosure.Ready(Pending: detach, Release: new SubscriptionRelease.Open());
 
-    public static Subscription Of(Action detach) {
+    public SubscriptionRelease Release {
+        get {
+            Task<SubscriptionRelease>? waiting;
+            lock (gate) {
+                if (closure is SubscriptionClosure.Ready ready) {
+                    return ready.Release;
+                }
+                waiting = ((SubscriptionClosure.Closing)closure).Settled;
+            }
+            return SubscriptionRelease.Join(waiting);
+        }
+    }
+
+    internal static Subscription Of(Action detach) {
         ArgumentNullException.ThrowIfNull(detach);
-        return new(detach: detach);
+        return new(detach: Seq(detach));
     }
 
     public static Fin<Subscription> Attach<THandler>(Action<THandler> subscribe, Action<THandler> unsubscribe, THandler handler)
         where THandler : Delegate {
         Op key = Op.Of(name: nameof(Subscription));
         return key.Catch(() => { subscribe(obj: handler); return Fin.Succ(value: Of(detach: () => unsubscribe(obj: handler))); })
-            .MapFail(error => {
-                _ = key.Catch(() => { unsubscribe(obj: handler); return Fin.Succ(value: unit); });
-                return error;
-            });
+            .MapFail(error => key.Catch(() => { unsubscribe(obj: handler); return Fin.Succ(value: unit); }).Match(
+                Succ: _ => error,
+                Fail: cleanup => error + cleanup));
     }
 
     public static Fin<Subscription> Acquire(Action acquire, Action release) {
@@ -1116,31 +1275,142 @@ public sealed class Subscription : IDisposable {
         ArgumentNullException.ThrowIfNull(release);
         Op key = Op.Of(name: nameof(Subscription));
         return key.Catch(() => { acquire(); return Fin.Succ(value: Of(detach: release)); })
-            .MapFail(error => {
-                _ = key.Catch(() => { release(); return Fin.Succ(value: unit); });
-                return error;
-            });
+            .MapFail(error => key.Catch(() => { release(); return Fin.Succ(value: unit); }).Match(
+                Succ: _ => error,
+                Fail: cleanup => error + cleanup));
     }
 
     public static Fin<Subscription> AttachAll(Seq<Func<Fin<Subscription>>> attach) =>
         attach.Fold(
-            Fin.Succ(value: new Subscription(detach: null)),
+            Fin.Succ(value: new Subscription(detach: Seq<Action>())),
             static (rail, start) => rail.Bind(held => start()
-                .Map(next => held | next)
-                .MapFail(error => { held.Dispose(); return error; })));
+                .Map(held.Combine)
+                .MapFail(held.Rollback)));
 
-    public static Subscription operator |(Subscription first, Subscription second) {
-        ArgumentNullException.ThrowIfNull(first);
-        ArgumentNullException.ThrowIfNull(second);
-        return new(detach: () => { second.Dispose(); first.Dispose(); });
+    internal Subscription Combine(Subscription other) {
+        ArgumentNullException.ThrowIfNull(other);
+        return new(detach: other.Snapshot().Concat(Snapshot()));
     }
 
-    public void Dispose() {
-        Action? captured = Interlocked.Exchange(location1: ref detach, value: null);
-        _ = captured is null
-            ? unit
-            : ignore(Op.Of(name: nameof(Subscription)).Catch(() => { captured(); return Fin.Succ(value: unit); }));
+    public SubscriptionRelease Close() {
+        SubscriptionClosure.Ready? claimed = null;
+        Task<SubscriptionRelease>? waiting = null;
+        TaskCompletionSource<SubscriptionRelease>? flight = null;
+        lock (gate) {
+            if (closure is SubscriptionClosure.Closing closing) {
+                waiting = closing.Settled;
+            } else {
+                claimed = (SubscriptionClosure.Ready)closure;
+                if (claimed.Pending.IsEmpty) {
+                    SubscriptionRelease settled = claimed.Release is SubscriptionRelease.Open
+                        ? new SubscriptionRelease.Released(Attempted: 0)
+                        : claimed.Release;
+                    closure = claimed with { Release = settled };
+                    return settled;
+                }
+                flight = SubscriptionRelease.BeginClose();
+                closure = new SubscriptionClosure.Closing(Settled: flight.Task);
+            }
+        }
+        if (waiting is not null) {
+            return SubscriptionRelease.Join(waiting);
+        }
+        SubscriptionClosure.Ready owner = claimed!;
+        (Seq<Action> Retry, Seq<Error> Errors) outcome = owner.Pending.Fold(
+            (Retry: Seq<Action>(), Errors: Seq<Error>()),
+            static (state, action) => Op.Of(name: nameof(Subscription))
+                .Catch(() => { action(); return Fin.Succ(value: unit); })
+                .Match(
+                    Succ: _ => state,
+                    Fail: error => (
+                        Retry: state.Retry.Add(value: action),
+                        Errors: state.Errors.Add(value: error))));
+        SubscriptionRelease settled = outcome.Errors.IsEmpty
+            ? new SubscriptionRelease.Released(Attempted: owner.Pending.Count)
+            : new SubscriptionRelease.Faulted(Attempted: owner.Pending.Count, Errors: outcome.Errors);
+        lock (gate) {
+            closure = new SubscriptionClosure.Ready(Pending: outcome.Retry, Release: settled);
+            return SubscriptionRelease.Publish(pending: flight!, release: settled);
+        }
     }
+
+    public void Dispose() => ignore(Close());
+
+    internal Error Rollback(Error primary) => Close() switch {
+        SubscriptionRelease.Faulted faulted => faulted.Errors.Fold(primary, static (error, cleanup) => error + cleanup),
+        SubscriptionRelease.Open or SubscriptionRelease.Released => primary,
+    };
+
+    private Seq<Action> Snapshot() {
+        while (true) {
+            Task<SubscriptionRelease>? waiting;
+            lock (gate) {
+                if (closure is SubscriptionClosure.Ready ready) {
+                    return ready.Pending;
+                }
+                waiting = ((SubscriptionClosure.Closing)closure).Settled;
+            }
+            ignore(SubscriptionRelease.Join(waiting));
+        }
+    }
+
+    private abstract record SubscriptionClosure {
+        private SubscriptionClosure() { }
+
+        internal sealed record Ready(Seq<Action> Pending, SubscriptionRelease Release) : SubscriptionClosure;
+        internal sealed record Closing(Task<SubscriptionRelease> Settled) : SubscriptionClosure;
+    }
+}
+
+[Union]
+public abstract partial record SubscriptionRelease {
+    private SubscriptionRelease() { }
+    public sealed record Open : SubscriptionRelease;
+    public sealed record Released(int Attempted) : SubscriptionRelease;
+    public sealed record Faulted(int Attempted, Seq<Error> Errors) : SubscriptionRelease;
+
+    internal static TaskCompletionSource<SubscriptionRelease> BeginClose() =>
+        new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    internal static SubscriptionRelease Join(Task<SubscriptionRelease> pending) =>
+        pending.GetAwaiter().GetResult();
+
+    internal static SubscriptionRelease Publish(
+        TaskCompletionSource<SubscriptionRelease> pending,
+        SubscriptionRelease release) {
+        pending.SetResult(release);
+        return release;
+    }
+
+    internal static SubscriptionRelease All(params ReadOnlySpan<SubscriptionRelease> releases) {
+        int attempted = 0;
+        bool open = false;
+        Seq<Error> errors = Seq<Error>();
+        foreach (SubscriptionRelease release in releases) {
+            switch (release) {
+                case Open:
+                    open = true;
+                    break;
+                case Released ready:
+                    attempted = checked(attempted + ready.Attempted);
+                    break;
+                case Faulted faulted:
+                    attempted = checked(attempted + faulted.Attempted);
+                    errors = errors.Concat(faulted.Errors);
+                    break;
+            }
+        }
+        return !errors.IsEmpty
+            ? new Faulted(Attempted: attempted, Errors: errors)
+            : open
+                ? new Open()
+                : new Released(Attempted: attempted);
+    }
+
+    internal static Error AddTo(Error primary, SubscriptionRelease release) => release switch {
+        Faulted faulted => faulted.Errors.Fold(primary, static (error, cleanup) => error + cleanup),
+        Open or Released => primary,
+    };
 }
 
 internal sealed class Reentrancy {
@@ -1164,61 +1434,100 @@ internal sealed class Reentrancy {
     }
 }
 
-internal static class IdlePump {
+internal sealed class IdlePump : IDisposable {
     private static long sequence;
-    private static readonly Atom<Seq<DeferredWork>> Queue = Atom(value: Seq<DeferredWork>());
-    private static readonly Lazy<Fin<Unit>> Hook = new(
-        valueFactory: static () => Op.Of(name: nameof(IdlePump)).Catch(() => {
-            RhinoApp.Idle += static (_, _) => Drain();
-            return Fin.Succ(value: unit);
-        }),
-        mode: LazyThreadSafetyMode.ExecutionAndPublication);
+    private readonly Lock gate = new();
+    private readonly ReceiptJournal journal;
+    private DeferredStage stage = new DeferredStage.Open(Pending: Seq<DeferredWork>());
+    private Subscription? subscription;
 
-    internal static Fin<Unit> Enqueue(
-        ReceiptJournal journal,
+    private IdlePump(ReceiptJournal journal) => this.journal = journal;
+
+    internal static Fin<IdlePump> Open(ReceiptJournal journal) {
+        IdlePump pump = new(journal: journal);
+        return Subscription.Attach<EventHandler>(
+                subscribe: handler => RhinoApp.Idle += handler,
+                unsubscribe: handler => RhinoApp.Idle -= handler,
+                handler: pump.OnIdle)
+            .Map(attached => {
+                pump.subscription = attached;
+                return pump;
+            });
+    }
+
+    internal Fin<Unit> Enqueue(
         EventOrigin origin,
         Func<bool> alive,
-        Func<Fin<Unit>> run) => Hook.Value.Map(_ => {
-            DeferredWork work = new(
-                Id: Interlocked.Increment(ref sequence),
-                Journal: journal,
-                Origin: origin,
-                Alive: alive,
-                Run: run);
-            Seq<DeferredWork> accepted = Queue.Swap(f: current =>
-                current.Filter(item => item.Journal.Watch == journal.Watch).Count < journal.Policy.DeferredCapacity
-                    ? current.Add(value: work)
-                    : current);
-            return accepted.Exists(candidate => candidate.Id == work.Id)
-                ? unit
-                : journal.Post(new StreamReceipt.DeferredOverflow(Watch: journal.Watch, Origin: origin));
+        Func<Fin<Unit>> run) {
+        DeferredWork work = new(
+            Id: Interlocked.Increment(ref sequence),
+            Origin: origin,
+            Alive: alive,
+            Run: run);
+        (bool Open, bool Accepted) admission;
+        lock (gate) {
+            if (stage is DeferredStage.Open open && open.Pending.Count < journal.Policy.DeferredCapacity) {
+                stage = new DeferredStage.Open(Pending: open.Pending.Add(value: work));
+                admission = (Open: true, Accepted: true);
+            } else {
+                admission = (Open: stage is DeferredStage.Open, Accepted: false);
+            }
+        }
+        return Fin.Succ(value: admission switch {
+            { Accepted: true } => unit,
+            { Open: true } => journal.Post(new StreamReceipt.DeferredOverflow(Watch: journal.Watch, Origin: origin)),
+            _ => journal.Post(new StreamReceipt.Cancelled(Watch: journal.Watch, Origin: origin)),
         });
+    }
 
-    private static void Drain() {
-        Seq<DeferredWork> pending = Seq<DeferredWork>();
-        _ = Queue.Swap(f: current => (pending = current, Seq<DeferredWork>()).Item2);
-        _ = pending.Iter(static work => ignore(work.Alive()
+    internal SubscriptionRelease Close() {
+        Seq<DeferredWork> pending;
+        Subscription? claimed;
+        lock (gate) {
+            pending = stage is DeferredStage.Open open ? open.Pending : Seq<DeferredWork>();
+            stage = new DeferredStage.Closed();
+            claimed = subscription;
+        }
+        ignore(pending.Iter(work => ignore(journal.Post(new StreamReceipt.Cancelled(
+            Watch: journal.Watch,
+            Origin: work.Origin)))));
+        SubscriptionRelease release = claimed?.Close() ?? new SubscriptionRelease.Released(Attempted: 0);
+        lock (gate) {
+            if (release is not SubscriptionRelease.Faulted && ReferenceEquals(subscription, claimed)) {
+                subscription = null;
+            }
+        }
+        return release;
+    }
+
+    public void Dispose() => ignore(Close());
+
+    private void OnIdle(object? _, EventArgs __) => Drain();
+
+    private void Drain() {
+        Seq<DeferredWork> pending;
+        lock (gate) {
+            pending = stage is DeferredStage.Open open ? open.Pending : Seq<DeferredWork>();
+            stage = stage is DeferredStage.Open ? new DeferredStage.Open(Pending: Seq<DeferredWork>()) : stage;
+        }
+        ignore(pending.Iter(work => ignore(work.Alive()
             ? Op.Of(name: nameof(IdlePump)).Catch(work.Run)
-            : Fin.Succ(value: work.Journal.Post(new StreamReceipt.Cancelled(Watch: work.Journal.Watch, Origin: work.Origin)))));
+            : Fin.Succ(value: journal.Post(new StreamReceipt.Cancelled(
+                Watch: journal.Watch,
+                Origin: work.Origin))))));
+    }
+
+    [Union]
+    private abstract partial record DeferredStage {
+        private DeferredStage() { }
+        internal sealed record Open(Seq<DeferredWork> Pending) : DeferredStage;
+        internal sealed record Closed : DeferredStage;
     }
 
     private readonly record struct DeferredWork(
         long Id,
-        ReceiptJournal Journal,
         EventOrigin Origin,
         Func<bool> Alive,
         Func<Fin<Unit>> Run);
 }
 ```
-
-## [06]-[SURFACE_LEDGER]
-
-| [INDEX] | [CONCERN]         | [OWNER]          | [FORM]                                               | [ENTRY]                         |
-| :-----: | :---------------- | :--------------- | :--------------------------------------------------- | :------------------------------ |
-|  [01]   | event vocabulary  | `EventFamily`    | band/cadence/bind rows with derived band projection  | `In` / `Bind`                   |
-|  [02]   | evidence carriage | `EventPayload`   | detached closed family                               | `DocEvent.Payload`              |
-|  [03]   | delivery policy   | `Delivery`       | sink-bearing direct cases or lane-bearing paced case | `Inline` / `Deferred` / `Paced` |
-|  [04]   | back-pressure     | `StreamLane`     | nonblocking channel-construction rows                | `Open`                          |
-|  [05]   | observation spine | `DocumentStream` | one source-polymorphic admission and attachment rail | `Observe(Observation)`          |
-|  [06]   | lifetime          | `Watch`          | handler detachment plus channel completion           | `Dispose`                       |
-|  [07]   | diagnostics       | `StreamReceipt`  | watch-keyed, policy-bounded delivery evidence        | `Watch.Receipts`                |

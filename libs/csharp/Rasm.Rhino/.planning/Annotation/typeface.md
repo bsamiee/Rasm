@@ -1,26 +1,38 @@
 # [RASM_RHINO_ANNOTATION_TYPEFACE]
 
-Typeface and section-presentation rail (`Rasm.Rhino.Annotation`). `FaceQuery` resolves a validated quartet face or a full-axis `Font` constructor into `FaceInfo`, including every catalogued name, style axis, capability flag, installation verdict, and substitute. Installed census remains session-free machine state; document binding rides the `DimStyles` table directly — the host marks `RhinoDoc.Fonts` obsolete as a wrapper over that table — probing style rows by font quartet and adding a `Duplicate`-seeded style carrying the resolved `Font` when none matches. Section authoring seeds `new SectionStyle()`, amendment seeds the copy constructor, and both land the composed `SectionSpec` through the table; `.secstyles` import remaps referenced hatch indices before adding styles. `FontOrigin`/`FontType` remain absent because no public `Font` property exposes them, and `Font` itself is immutable — every property is read-only, so a face never mutates and only construction or resolution mints one.
+`FaceForm` carries quartet and axis inputs through one `FaceQuery` admission, while `FaceInfo` detaches every catalogued identity, axis, decoration, installation, simulation, and specialty-font fact.
+
+`SectionSpec` closes section fill, boundary, hatch, and fill-rule state without impossible products; `TypefaceOp` and `SectionOp` share `DraftPlan<T>`, `DraftSpine`, write policy, and typed receipts.
 
 ## [01]-[INDEX]
 
-- [02]-[FACE_MODEL]: `FaceWeight`, `FaceSlant`, `FaceStretch`, `FaceQuery`, and the detached `FaceInfo` projection.
-- [03]-[TYPEFACE_ENTRIES]: session-free resolution and census statics plus the `DimStyles`-backed document bind.
-- [04]-[SECTION_MODEL]: `SectionFillMode`, `SectionRule`, and the `SectionSpec` composition over sibling resources.
-- [05]-[SECTION_RAIL]: `SectionOp`, `SectionTransaction`, usage-censused snapshot, and catalogued table state.
+- [02]-[FACE_MODEL]: explicit host axes, quartet policy, decorations, query admission, and detached evidence.
+- [03]-[TYPEFACE_RAIL]: polymorphic census, resolution, and document binding.
+- [04]-[SECTION_MODEL]: closed fill, boundary, hatch, and whole-style composition.
+- [05]-[SECTION_RAIL]: mutation, import reconciliation, usage evidence, and read projection.
 - [06]-[SURFACE_LEDGER]: the page's owner table.
 
 ## [02]-[FACE_MODEL]
 
-- Owner: `FaceWeight`/`FaceSlant`/`FaceStretch` `[SmartEnum<int>]` — the three style-axis vocabularies keyed on the explicit `Font.FontWeight`/`Font.FontStyle`/`Font.FontStretch` byte values; `FaceQuery` `[Union]` — quartet resolution versus full-axis construction; `FaceInfo` — the one detached typeface projection.
-- Law: resolution answers evidence — `FaceInfo` carries `IsInstalled` beside the resolved names, and an uninstalled face resolves its substitute through `GetSubstituteFont` as a second `FaceInfo` on the answer, so a consumer never renders against a face the host will silently swap.
-- Law: the English name twins are exactly three — `EnglishFaceName`, `EnglishFamilyName`, `EnglishQuartetName`; PostScript, logfont, rich-text, and description names have no English form, and a projection claiming one is a phantom.
-- Law: quartet availability is the family's own fact — `FontQuartet` answers the four-face grid (`HasRegularFont`/`HasBoldFont`/`HasItalicFont`/`HasBoldItalicFont`), so a bold/italic grant validates against the quartet before resolution rather than after a silent substitution.
+- Owner: `FaceWeight`, `FaceSlant`, and `FaceStretch` key the full explicit host axes; `QuartetFace` owns the four legal bold/italic combinations and their availability probes; `FaceDecoration` owns underline and strikeout.
+- Law: every axis includes host `Unset`; omission remains host data rather than collapsing into `Normal`, `Upright`, or `Medium`.
+- Law: `FaceQuery.Of` folds every `FaceForm` case and decoration row through one admission, rejects duplicate decorations, checks quartet availability before resolution, and constructs an immutable `Font` through one union rail.
+- Law: `FaceResolution` carries substitute evidence when `IsInstalled` is false; no consumer renders against a silently substituted face.
 
 ```csharp signature
+// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+using Rasm.Domain;
+using Rasm.Rhino.Document;
+using Rhino;
+using Rhino.DocObjects;
+using Rhino.Geometry;
+
+namespace Rasm.Rhino.Annotation;
+
 // --- [TYPES] --------------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class FaceWeight {
+    public static readonly FaceWeight Unset = new(key: (int)Font.FontWeight.Unset);
     public static readonly FaceWeight Thin = new(key: (int)Font.FontWeight.Thin);
     public static readonly FaceWeight Ultralight = new(key: (int)Font.FontWeight.Ultralight);
     public static readonly FaceWeight Light = new(key: (int)Font.FontWeight.Light);
@@ -30,21 +42,21 @@ public sealed partial class FaceWeight {
     public static readonly FaceWeight Bold = new(key: (int)Font.FontWeight.Bold);
     public static readonly FaceWeight Ultrabold = new(key: (int)Font.FontWeight.Ultrabold);
     public static readonly FaceWeight Heavy = new(key: (int)Font.FontWeight.Heavy);
-
     internal Font.FontWeight Host => (Font.FontWeight)Key;
 }
 
 [SmartEnum<int>]
 public sealed partial class FaceSlant {
+    public static readonly FaceSlant Unset = new(key: (int)Font.FontStyle.Unset);
     public static readonly FaceSlant Upright = new(key: (int)Font.FontStyle.Upright);
     public static readonly FaceSlant Italic = new(key: (int)Font.FontStyle.Italic);
     public static readonly FaceSlant Oblique = new(key: (int)Font.FontStyle.Oblique);
-
     internal Font.FontStyle Host => (Font.FontStyle)Key;
 }
 
 [SmartEnum<int>]
 public sealed partial class FaceStretch {
+    public static readonly FaceStretch Unset = new(key: (int)Font.FontStretch.Unset);
     public static readonly FaceStretch Ultracondensed = new(key: (int)Font.FontStretch.Ultracondensed);
     public static readonly FaceStretch Extracondensed = new(key: (int)Font.FontStretch.Extracondensed);
     public static readonly FaceStretch Condensed = new(key: (int)Font.FontStretch.Condensed);
@@ -54,112 +66,175 @@ public sealed partial class FaceStretch {
     public static readonly FaceStretch Expanded = new(key: (int)Font.FontStretch.Expanded);
     public static readonly FaceStretch Extraexpanded = new(key: (int)Font.FontStretch.Extraexpanded);
     public static readonly FaceStretch Ultraexpanded = new(key: (int)Font.FontStretch.Ultraexpanded);
-
     internal Font.FontStretch Host => (Font.FontStretch)Key;
+}
+
+[SmartEnum<int>]
+public sealed partial class QuartetFace {
+    public static readonly QuartetFace Regular = new(key: 0, usesBold: false, usesItalic: false, available: static q => q.HasRegularFont);
+    public static readonly QuartetFace Bold = new(key: 1, usesBold: true, usesItalic: false, available: static q => q.HasBoldFont);
+    public static readonly QuartetFace Italic = new(key: 2, usesBold: false, usesItalic: true, available: static q => q.HasItalicFont);
+    public static readonly QuartetFace BoldItalic = new(key: 3, usesBold: true, usesItalic: true, available: static q => q.HasBoldItalicFont);
+    internal bool UsesBold { get; }
+    internal bool UsesItalic { get; }
+    [UseDelegateFromConstructor]
+    internal partial bool Available(FontQuartet quartet);
+}
+
+[SmartEnum]
+public sealed partial class FaceDecoration {
+    public static readonly FaceDecoration Underline = new(underlined: true, strikeout: false);
+    public static readonly FaceDecoration Strikeout = new(underlined: false, strikeout: true);
+    internal bool Underlined { get; }
+    internal bool Strikeout { get; }
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record FaceForm {
+    private FaceForm() { }
+    public sealed record Quartet(string Name, QuartetFace Face) : FaceForm;
+    public sealed record Axes(
+        string Family, FaceWeight Weight, FaceSlant Slant, FaceStretch Stretch,
+        Seq<FaceDecoration> Decorations) : FaceForm;
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record FaceQuery {
     private FaceQuery() { }
-    public sealed record Quartet(string Name, bool Bold, bool Italic) : FaceQuery;
-    public sealed record Axes(
-        string Family, FaceWeight Weight, FaceSlant Slant, FaceStretch Stretch,
-        bool Underlined = false, bool Strikethrough = false) : FaceQuery;
+    private sealed record QuartetCase(ResourceName Name, QuartetFace Face) : FaceQuery;
+    private sealed record AxesCase(
+        ResourceName Family, FaceWeight Weight, FaceSlant Slant, FaceStretch Stretch,
+        Seq<FaceDecoration> Decorations) : FaceQuery;
+
+    public static Fin<FaceQuery> Of(FaceForm? form, Op? key = null) {
+        Op op = key.OrDefault();
+        return op.Need(value: form).Bind(value => value.Switch(
+            state: op,
+            quartet: static (gate, input) =>
+                from label in gate.AcceptText(value: input.Name)
+                from face in gate.Need(value: input.Face)
+                select (FaceQuery)new QuartetCase(Name: ResourceName.Create(label), Face: face),
+            axes: static (gate, input) =>
+                from family in gate.AcceptText(value: input.Family)
+                from weight in gate.Need(value: input.Weight)
+                from slant in gate.Need(value: input.Slant)
+                from stretch in gate.Need(value: input.Stretch)
+                from decorations in input.Decorations.TraverseM(decoration => gate.Need(value: decoration)).As()
+                from _ in guard(decorations.Distinct().Count == decorations.Count, gate.InvalidInput()).ToFin()
+                select (FaceQuery)new AxesCase(
+                    Family: ResourceName.Create(family), Weight: weight, Slant: slant,
+                    Stretch: stretch, Decorations: decorations)));
+    }
 
     internal Fin<Font> Resolve(Op key) =>
         Switch(
             state: key,
-            quartet: static (op, query) =>
-                from name in op.AcceptText(value: query.Name)
+            quartetCase: static (op, query) =>
                 from family in op.Catch(() => toSeq(Font.InstalledFontsAsQuartets())
-                    .Find(row => string.Equals(row.QuartetName, name, StringComparison.OrdinalIgnoreCase))
+                    .Find(row => string.Equals(row.QuartetName, query.Name.Value, StringComparison.OrdinalIgnoreCase))
                     .ToFin(Fail: op.MissingContext()))
-                from _ in guard((query.Bold, query.Italic) switch {
-                    (false, false) => family.HasRegularFont,
-                    (true, false) => family.HasBoldFont,
-                    (false, true) => family.HasItalicFont,
-                    (true, true) => family.HasBoldItalicFont,
-                }, op.MissingContext()).ToFin()
+                from _ in guard(query.Face.Available(family), op.MissingContext()).ToFin()
                 from font in op.Catch(() => Optional(Font.FromQuartetProperties(
-                        quartetName: name, bold: query.Bold, italic: query.Italic))
+                        quartetName: query.Name.Value, bold: query.Face.UsesBold, italic: query.Face.UsesItalic))
                     .ToFin(Fail: op.MissingContext()))
                 select font,
-            axes: static (op, query) =>
-                from family in op.AcceptText(value: query.Family)
-                from weight in Optional(query.Weight).ToFin(Fail: op.InvalidInput())
-                from slant in Optional(query.Slant).ToFin(Fail: op.InvalidInput())
-                from stretch in Optional(query.Stretch).ToFin(Fail: op.InvalidInput())
-                from font in op.Catch(() => Optional(new Font(
-                        familyName: family, weight: weight.Host, style: slant.Host,
-                        stretch: stretch.Host, underlined: query.Underlined, strikethrough: query.Strikethrough))
-                    .ToFin(Fail: op.MissingContext()))
-                select font);
+            axesCase: static (op, query) => op.Catch(() => Optional(new Font(
+                    familyName: query.Family.Value,
+                    weight: query.Weight.Host,
+                    style: query.Slant.Host,
+                    stretch: query.Stretch.Host,
+                    underlined: query.Decorations.Exists(static item => item.Underlined),
+                    strikethrough: query.Decorations.Exists(static item => item.Strikeout)))
+                .ToFin(Fail: op.MissingContext())));
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------
 public sealed record FaceInfo(
-    string FaceName,
-    string FamilyName,
-    string FamilyPlusFaceName,
-    string QuartetName,
-    string PostScriptName,
-    string LogfontName,
-    string RichTextFontName,
-    string Description,
-    string EnglishFaceName,
-    string EnglishFamilyName,
-    string EnglishQuartetName,
-    FaceWeight Weight,
-    FaceSlant Slant,
-    FaceStretch Stretch,
-    bool Bold,
-    bool Italic,
-    bool Underlined,
-    bool Strikeout,
-    double PointSize,
-    bool IsInstalled,
-    bool IsSimulated,
-    bool IsEngravingFont,
-    bool IsSymbolFont,
-    bool IsSingleStrokeFont,
-    bool IsGeometricToleranceFont) {
-    internal static Fin<FaceInfo> Of(Font font, Op key) =>
-        Optional(font).ToFin(Fail: key.InvalidInput()).Bind(face => key.Catch(() =>
-            from weight in Optional(FaceWeight.TryGet((int)face.Weight, out FaceWeight? w) ? w : null).ToFin(Fail: key.InvalidResult())
-            from slant in Optional(FaceSlant.TryGet((int)face.Style, out FaceSlant? s) ? s : null).ToFin(Fail: key.InvalidResult())
-            from stretch in Optional(FaceStretch.TryGet((int)face.Stretch, out FaceStretch? st) ? st : null).ToFin(Fail: key.InvalidResult())
-            select new FaceInfo(
-                FaceName: face.FaceName, FamilyName: face.FamilyName, FamilyPlusFaceName: face.FamilyPlusFaceName,
-                QuartetName: face.QuartetName, PostScriptName: face.PostScriptName, LogfontName: face.LogfontName,
-                RichTextFontName: face.RichTextFontName, Description: face.Description,
-                EnglishFaceName: face.EnglishFaceName, EnglishFamilyName: face.EnglishFamilyName,
-                EnglishQuartetName: face.EnglishQuartetName,
-                Weight: weight, Slant: slant, Stretch: stretch,
-                Bold: face.Bold, Italic: face.Italic, Underlined: face.Underlined, Strikeout: face.Strikeout,
-                PointSize: face.PointSize,
-                IsInstalled: face.IsInstalled, IsSimulated: face.IsSimulated,
-                IsEngravingFont: face.IsEngravingFont, IsSymbolFont: face.IsSymbolFont,
-                IsSingleStrokeFont: face.IsSingleStrokeFont, IsGeometricToleranceFont: face.IsGeometricToleranceFont)));
+    string FaceName, string FamilyName, string FamilyPlusFaceName, string QuartetName,
+    string PostScriptName, string LogfontName, string RichTextFontName, string Description,
+    string EnglishFaceName, string EnglishFamilyName, string EnglishQuartetName,
+    FaceWeight Weight, FaceSlant Slant, FaceStretch Stretch,
+    bool Bold, bool Italic, bool Underlined, bool Strikeout, double PointSize,
+    bool IsInstalled, bool IsSimulated, bool IsEngravingFont, bool IsSymbolFont,
+    bool IsSingleStrokeFont, bool IsGeometricToleranceFont) {
+    internal static Fin<FaceInfo> Of(Font font, Op key) => key.Catch(() =>
+        from weight in key.AcceptValidated<FaceWeight>(candidate: (int)font.Weight)
+        from slant in key.AcceptValidated<FaceSlant>(candidate: (int)font.Style)
+        from stretch in key.AcceptValidated<FaceStretch>(candidate: (int)font.Stretch)
+        select new FaceInfo(
+            font.FaceName, font.FamilyName, font.FamilyPlusFaceName, font.QuartetName,
+            font.PostScriptName, font.LogfontName, font.RichTextFontName, font.Description,
+            font.EnglishFaceName, font.EnglishFamilyName, font.EnglishQuartetName,
+            weight, slant, stretch, font.Bold, font.Italic, font.Underlined, font.Strikeout, font.PointSize,
+            font.IsInstalled, font.IsSimulated, font.IsEngravingFont, font.IsSymbolFont,
+            font.IsSingleStrokeFont, font.IsGeometricToleranceFont));
 }
 
-public readonly record struct QuartetInfo(string Name, bool HasRegular, bool HasBold, bool HasItalic, bool HasBoldItalic);
-
+public readonly record struct QuartetInfo(
+    ResourceName Name, bool HasRegular, bool HasBold, bool HasItalic, bool HasBoldItalic);
 public sealed record FaceResolution(FaceInfo Face, Option<FaceInfo> Substitute);
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record FaceCensus {
+    private FaceCensus() { }
+    public sealed record Installed(Option<ResourceName> Family) : FaceCensus;
+    public sealed record Quartets : FaceCensus;
+    public sealed record Names : FaceCensus;
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record FaceCensusAnswer {
+    private FaceCensusAnswer() { }
+    public sealed record Faces(Seq<FaceInfo> Items) : FaceCensusAnswer;
+    public sealed record Quartets(Seq<QuartetInfo> Items) : FaceCensusAnswer;
+    public sealed record Names(Seq<ResourceName> Items) : FaceCensusAnswer;
+}
 ```
 
-## [03]-[TYPEFACE_ENTRIES]
+## [03]-[TYPEFACE_RAIL]
 
-- Owner: `Typefaces` — `Resolve` into `FaceResolution`, `Installed` optionally family-scoped, `Quartets` as the four-face grid, `FaceNames` as the flat roster, and the session-bound `Bind`.
-- Law: census is session-free — installed fonts are machine state the host answers without a document, so those entries take no session and mutate nothing.
-- Law: document binding is style-table state — `RhinoDoc.Fonts` and its `FindOrCreate` are the obsolete wrapper over `DimStyles`, so `Bind` composes the live table: `Font.FromQuartetProperties(quartetName, bold, italic)` resolves the face (null is a typed refusal, never a fabricated fallback), the probe matches live style rows on quartet name plus bold/italic, and a miss adds a `Duplicate`-seeded copy of the template — resolved through `StyleOp.Lens` — or the current style with the resolved `Font` written; `Bind` runs under the mutation grant and returns the index as a style `ResourceRef`, never a font handle.
+- Owner: `Typefaces.Resolve` handles immutable face resolution, `Typefaces.Census` handles machine-state discovery, and `TypefaceOp.Bind` handles the sole document mutation.
+- Law: `Bind` compares the complete `FaceInfo` projection, adds only on a miss, and commits through the shared Annotation spine.
 
 ```csharp signature
+// --- [TYPES] --------------------------------------------------------------------------------
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record TypefaceOp {
+    private TypefaceOp() { }
+    public sealed record Bind(FaceQuery Query, Option<ResourceRef> Template) : TypefaceOp;
+
+    internal Fin<DraftReceipt> Apply(RhinoDoc document, Op op) =>
+        Switch(
+            state: (Document: document, Op: op),
+            bind: static (ctx, edit) =>
+                from font in edit.Query.Resolve(key: ctx.Op)
+                from face in FaceInfo.Of(font: font, key: ctx.Op)
+                from template in edit.Template.Traverse(address => address.Resolve(
+                    document: ctx.Document, lens: StyleOp.Lens, key: ctx.Op)).As()
+                from candidates in ctx.Op.Catch(() => toSeq(ctx.Document.DimStyles)
+                    .Filter(static style => !style.IsDeleted)
+                    .TraverseM(style => FaceInfo.Of(font: style.Font, key: ctx.Op)
+                        .Map(resolved => (Style: style, Face: resolved))).As())
+                from index in candidates.Find(row => row.Face == face).Match(
+                        Some: static held => Fin.Succ(value: ResourceIndex.Create(held.Style.Index)),
+                        None: () =>
+                            from fresh in ctx.Op.Catch(() => Fin.Succ(value: template
+                                .IfNone(() => ctx.Document.DimStyles.Current)
+                                .Duplicate(newName: ctx.Document.DimStyles.GetUnusedStyleName(), newId: Guid.NewGuid(), newParentId: Guid.Empty)))
+                            from _ in ctx.Op.Catch(() => fresh.Font = font)
+                            from added in ctx.Op.Catch(() =>
+                                ResourceIndex.Admit(ctx.Document.DimStyles.Add(dimstyle: fresh, reference: false), ctx.Op))
+                            select added))
+                from receipt in DraftReceipt.Component(slot: DraftSlot.Bound, componentKind: DraftComponentKind.Style, index: index)
+                select receipt);
+}
+
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 public static class Typefaces {
     public static Fin<FaceResolution> Resolve(FaceQuery query) {
         Op op = Op.Of();
-        return from active in Optional(query).ToFin(Fail: op.InvalidInput())
-               from font in active.Resolve(key: op)
+        return from admitted in op.AcceptInput(value: query)
+               from font in admitted.Resolve(key: op)
                from face in FaceInfo.Of(font: font, key: op)
                from substitute in face.IsInstalled
                    ? Fin.Succ(Option<FaceInfo>.None)
@@ -168,173 +243,209 @@ public static class Typefaces {
                select new FaceResolution(Face: face, Substitute: substitute);
     }
 
-    public static Fin<Seq<FaceInfo>> Installed(Option<string> family = default) {
+    public static Fin<FaceCensusAnswer> Census(FaceCensus request) {
         Op op = Op.Of();
-        return family.Traverse(name => op.AcceptText(value: name)).As()
-            .Bind(scope => op.Catch(() => Fin.Succ(value: toSeq(scope.Match(
-                Some: static name => Font.InstalledFonts(familyName: name),
-                None: static () => Font.InstalledFonts())))))
-            .Bind(fonts => fonts.TraverseM(font => FaceInfo.Of(font: font, key: op)).As());
+        return op.AcceptInput(value: request).Bind(admitted => admitted.Switch(
+            installed: query =>
+                from fonts in op.Catch(() => Fin.Succ(value: toSeq(query.Family.Match(
+                    Some: static family => Font.InstalledFonts(familyName: family.Value),
+                    None: static () => Font.InstalledFonts()))))
+                from faces in fonts.TraverseM(font => FaceInfo.Of(font: font, key: op)).As()
+                select (FaceCensusAnswer)new FaceCensusAnswer.Faces(Items: faces),
+            quartets: _ => op.Catch(() => Fin.Succ<FaceCensusAnswer>(
+                value: new FaceCensusAnswer.Quartets(
+                    Items: toSeq(Font.InstalledFontsAsQuartets()).Map(static row => new QuartetInfo(
+                        Name: ResourceName.Create(row.QuartetName),
+                        HasRegular: row.HasRegularFont,
+                        HasBold: row.HasBoldFont,
+                        HasItalic: row.HasItalicFont,
+                        HasBoldItalic: row.HasBoldItalicFont))))),
+            names: _ => op.Catch(() => Fin.Succ<FaceCensusAnswer>(
+                value: new FaceCensusAnswer.Names(
+                    Items: toSeq(Font.AvailableFontFaceNames()).Map(static name => ResourceName.Create(name)))))));
     }
 
-    public static Fin<Seq<QuartetInfo>> Quartets() {
-        Op op = Op.Of();
-        return op.Catch(() => Fin.Succ(value: toSeq(Font.InstalledFontsAsQuartets()).Map(static quartet => new QuartetInfo(
-            Name: quartet.QuartetName,
-            HasRegular: quartet.HasRegularFont,
-            HasBold: quartet.HasBoldFont,
-            HasItalic: quartet.HasItalicFont,
-            HasBoldItalic: quartet.HasBoldItalicFont))));
-    }
-
-    public static Fin<Seq<string>> FaceNames() =>
-        Op.Of().Catch(() => Fin.Succ(value: toSeq(Font.AvailableFontFaceNames())));
-
-    public static Fin<ResourceRef> Bind(DocumentSession session, string face, bool bold, bool italic, Option<ResourceRef> template = default) {
-        Op op = Op.Of();
-        return from name in op.AcceptText(value: face)
-               from address in session.Demand(
-                   use: document =>
-                       from font in op.Need(value: Font.FromQuartetProperties(quartetName: name, bold: bold, italic: italic))
-                       from seed in template.Traverse(target => target.Resolve(document: document, lens: StyleOp.Lens, key: op)).As()
-                       from index in op.Catch(() => toSeq(document.DimStyles)
-                           .Find(style => !style.IsDeleted && style.Font.QuartetName == font.QuartetName && style.Font.Bold == bold && style.Font.Italic == italic)
-                           .Match(
-                               Some: held => Fin.Succ(value: held.Index),
-                               None: () => {
-                                   DimensionStyle fresh = seed.IfNone(() => document.DimStyles.Current).Duplicate(
-                                       newName: document.DimStyles.GetUnusedStyleName(),
-                                       newId: Guid.NewGuid(),
-                                       newParentId: Guid.Empty);
-                                   fresh.Font = font;
-                                   return document.DimStyles.Add(dimstyle: fresh, reference: false) is var found && found >= 0
-                                       ? Fin.Succ(value: found)
-                                       : Fin.Fail<int>(error: op.InvalidResult());
-                               }))
-                       from bound in ResourceRef.Of(index: index)
-                       select bound,
-                   key: op,
-                   needs: [SessionNeed.Mutate])
-               select address;
-    }
+    public static Fin<DraftReceipt> Commit(DocumentSession session, DraftPlan<TypefaceOp> plan) =>
+        DraftSpine.Commit(session: session, plan: plan,
+            apply: static (document, operation, key) => operation.Apply(document: document, op: key), op: Op.Of());
 }
 ```
 
 ## [04]-[SECTION_MODEL]
 
-- Owner: `SectionFillMode`/`SectionRule` `[SmartEnum<int>]` — the cut-face fill and fill-rule vocabularies keyed on explicit host values; `SectionFill` — background mode with display and print colors; `SectionBoundary` — visibility, stroke colors, width scale, plot weight, and the linetype address; `SectionHatch` — the pattern address with scale, rotation, and colors; `SectionSpec` — the whole presentation composed of the three rows plus the fill rule.
-- Law: composition binds by resolution — the boundary linetype and cut-fill pattern enter as `ResourceRef` values resolved against the sibling lenses inside the bracket before any index writes, so a section style can never bind an index its tables do not hold.
-- Law: colors quantize at the write — every fill, boundary, and hatch color is a kernel `PerceptualColor` minting its `System.Drawing.Color` inside `Apply`, never a host channel average.
-- Law: the seed is a constructor pair — `new SectionStyle()` births authoring and `new SectionStyle(other)` the amendment copy; the host exposes no `Duplicate()` member, and `Apply` stamps the spec's name so an amendment carrying a fresh name is also the rename.
+- Owner: `SectionFill`, `SectionBoundary`, and `SectionHatch` encode only realizable host states; `SectionSpec` composes them with the fill rule and admitted name.
+- Law: every inactive fill, boundary, and hatch branch restores its host-default subordinate fields before landing.
+- Law: absent fill, hidden boundary, and absent hatch carry no dead colors, scales, rotations, weights, or resource addresses.
+- Law: resource addresses resolve inside the document grant before any table index is written; every numeric host input is a generated value object.
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
 [SmartEnum<int>]
-public sealed partial class SectionFillMode {
-    public static readonly SectionFillMode None = new(key: (int)SectionBackgroundFillMode.None);
-    public static readonly SectionFillMode Viewport = new(key: (int)SectionBackgroundFillMode.Viewport);
-    public static readonly SectionFillMode SolidColor = new(key: (int)SectionBackgroundFillMode.SolidColor);
-
-    internal SectionBackgroundFillMode Host => (SectionBackgroundFillMode)Key;
-}
-
-[SmartEnum<int>]
 public sealed partial class SectionRule {
     public static readonly SectionRule ClosedCurves = new(key: (int)ObjectSectionFillRule.ClosedCurves);
     public static readonly SectionRule SolidObjects = new(key: (int)ObjectSectionFillRule.SolidObjects);
-
     internal ObjectSectionFillRule Host => (ObjectSectionFillRule)Key;
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-public sealed record SectionFill(SectionFillMode Mode, PerceptualColor Color, PerceptualColor PrintColor);
+[ValueObject<double>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
+public sealed partial class SectionScale {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) {
+        if (!double.IsFinite(value) || value <= 0.0) validationError = new ValidationError("Section scale must be finite and positive.");
+    }
+}
 
-public sealed record SectionBoundary(
-    bool Visible,
-    PerceptualColor Color,
-    PerceptualColor PrintColor,
-    double WidthScale,
-    double PlotWeightMillimeters,
-    Option<ResourceRef> Linetype = default);
+[ValueObject<double>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
+public sealed partial class SectionAngle {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) {
+        if (!double.IsFinite(value)) validationError = new ValidationError("Section angle must be finite.");
+    }
+}
 
-public sealed record SectionHatch(
-    Option<ResourceRef> Pattern,
-    double Scale,
-    double RotationRadians,
-    PerceptualColor Color,
-    PerceptualColor PrintColor);
+[ValueObject<double>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
+public sealed partial class SectionPlotWeight {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) {
+        if (!double.IsFinite(value) || value < 0.0) validationError = new ValidationError("Section plot weight must be finite and non-negative.");
+    }
+}
 
-public sealed record SectionSpec(string Name, SectionFill Fill, SectionBoundary Boundary, SectionHatch Hatch, SectionRule Rule) {
-    public static Fin<SectionSpec> Of(
-        string name, SectionFill fill, SectionBoundary boundary, SectionHatch hatch, SectionRule rule, Op? key = null) {
-        Op op = key.OrDefault();
-        return from label in op.AcceptText(value: name)
-               from admittedFill in Optional(fill).ToFin(Fail: op.InvalidInput())
-               from admittedBoundary in Optional(boundary).ToFin(Fail: op.InvalidInput())
-               from admittedHatch in Optional(hatch).ToFin(Fail: op.InvalidInput())
-               from admittedRule in Optional(rule).ToFin(Fail: op.InvalidInput())
-               from _ in op.Positive(value: admittedBoundary.WidthScale)
-               from __ in guard(admittedBoundary.PlotWeightMillimeters >= 0.0, op.InvalidInput()).ToFin()
-               from ___ in op.Positive(value: admittedHatch.Scale)
-               from ____ in op.AcceptInput(value: admittedHatch.RotationRadians)
-               select new SectionSpec(
-                   Name: label, Fill: admittedFill, Boundary: admittedBoundary,
-                   Hatch: admittedHatch, Rule: admittedRule);
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record SectionFill {
+    private SectionFill() { }
+    public sealed record None : SectionFill;
+    public sealed record Viewport : SectionFill;
+    public sealed record Solid(PerceptualColor Display, PerceptualColor Print) : SectionFill;
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record SectionBoundary {
+    private SectionBoundary() { }
+    public sealed record Hidden : SectionBoundary;
+    public sealed record Stroke(
+        PerceptualColor Display, PerceptualColor Print,
+        SectionScale Width, SectionPlotWeight PlotWeight,
+        Option<ResourceRef> Linetype) : SectionBoundary;
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record SectionHatch {
+    private SectionHatch() { }
+    public sealed record None : SectionHatch;
+    public sealed record Pattern(
+        ResourceRef Resource, SectionScale Scale, SectionAngle Rotation,
+        PerceptualColor Display, PerceptualColor Print) : SectionHatch;
+}
+
+[ComplexValueObject]
+public sealed partial class SectionSpec {
+    public ResourceName Name { get; }
+    public SectionFill Fill { get; }
+    public SectionBoundary Boundary { get; }
+    public SectionHatch Hatch { get; }
+    public SectionRule Rule { get; }
+
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref ResourceName name, ref SectionFill fill, ref SectionBoundary boundary,
+        ref SectionHatch hatch, ref SectionRule rule) {
+        if (name is null || fill is null || boundary is null || hatch is null || rule is null)
+            validationError = new ValidationError("Section presentation is incomplete.");
     }
 
-    internal Fin<Unit> Apply(SectionStyle style, RhinoDoc document, Op key) {
-        SectionSpec self = this;
-        return from linetype in self.Boundary.Linetype
-                   .Traverse(address => address.Resolve(document: document, lens: LinetypeOp.Lens, key: key)).As()
-               from pattern in self.Hatch.Pattern
-                   .Traverse(address => address.Resolve(document: document, lens: HatchSpec.Lens, key: key)).As()
-               from _ in key.Catch(() => {
-                   style.Name = self.Name;
-                   style.BackgroundFillMode = self.Fill.Mode.Host;
-                   style.BackgroundFillColor = Sys(self.Fill.Color);
-                   style.BackgroundFillPrintColor = Sys(self.Fill.PrintColor);
-                   style.BoundaryVisible = self.Boundary.Visible;
-                   style.BoundaryColor = Sys(self.Boundary.Color);
-                   style.BoundaryPrintColor = Sys(self.Boundary.PrintColor);
-                   style.BoundaryWidthScale = self.Boundary.WidthScale;
-                   style.BoundaryPlotWeightMillimeters = self.Boundary.PlotWeightMillimeters;
-                   _ = linetype.Match(
-                       Some: resolved => fun(() => style.SetBoundaryLinetype(linetype: resolved))(),
-                       None: () => fun(style.RemoveBoundaryLinetype)());
-                   style.HatchIndex = pattern.Map(static resolved => resolved.Index).IfNone(noneValue: -1);
-                   style.HatchScale = self.Hatch.Scale;
-                   style.HatchRotationRadians = self.Hatch.RotationRadians;
-                   style.HatchPatternColor = Sys(self.Hatch.Color);
-                   style.HatchPatternPrintColor = Sys(self.Hatch.PrintColor);
-                   style.SectionFillRule = self.Rule.Host;
-                   return Fin.Succ(value: unit);
-               })
-               select unit;
-    }
-
-    private static System.Drawing.Color Sys(PerceptualColor color) {
-        (byte red, byte green, byte blue, double alpha) = color.ToRgb();
-        return System.Drawing.Color.FromArgb((byte)Math.Round(alpha * 255.0), red, green, blue);
-    }
+    internal Fin<Unit> Apply(SectionStyle style, RhinoDoc document, Op key) =>
+        from clear in key.Catch(() => Fin.Succ(value: new SectionStyle()))
+        from linetype in (Boundary is SectionBoundary.Stroke { Linetype: var address }
+                ? address.Traverse(item => item.Resolve(document: document, lens: LinetypeOp.Lens, key: key)).As()
+                : Fin.Succ(Option<Linetype>.None))
+        from pattern in (Hatch is SectionHatch.Pattern { Resource: var address }
+                ? address.Resolve(document: document, lens: HatchSpec.Lens, key: key).Map(Some)
+                : Fin.Succ(Option<HatchPattern>.None))
+        from _ in key.Catch(() => {
+            style.Name = Name.Value;
+            style.SectionFillRule = Rule.Host;
+        })
+        from __ in Fill.Switch(
+            state: (Style: style, Clear: clear, Key: key),
+            none: static (ctx, _) => ctx.Key.Catch(() => {
+                ctx.Style.BackgroundFillMode = SectionBackgroundFillMode.None;
+                ctx.Style.BackgroundFillColor = ctx.Clear.BackgroundFillColor;
+                ctx.Style.BackgroundFillPrintColor = ctx.Clear.BackgroundFillPrintColor;
+            }),
+            viewport: static (ctx, _) => ctx.Key.Catch(() => {
+                ctx.Style.BackgroundFillMode = SectionBackgroundFillMode.Viewport;
+                ctx.Style.BackgroundFillColor = ctx.Clear.BackgroundFillColor;
+                ctx.Style.BackgroundFillPrintColor = ctx.Clear.BackgroundFillPrintColor;
+            }),
+            solid: static (ctx, fill) => ctx.Key.Catch(() => {
+                ctx.Style.BackgroundFillMode = SectionBackgroundFillMode.SolidColor;
+                ctx.Style.BackgroundFillColor = fill.Display.Sys();
+                ctx.Style.BackgroundFillPrintColor = fill.Print.Sys();
+            }))
+        from ___ in Boundary.Switch(
+            state: (Style: style, Clear: clear, Linetype: linetype, Key: key),
+            hidden: static (ctx, _) => ctx.Key.Catch(() => {
+                ctx.Style.BoundaryVisible = false;
+                ctx.Style.BoundaryColor = ctx.Clear.BoundaryColor;
+                ctx.Style.BoundaryPrintColor = ctx.Clear.BoundaryPrintColor;
+                ctx.Style.BoundaryWidthScale = ctx.Clear.BoundaryWidthScale;
+                ctx.Style.BoundaryPlotWeightMillimeters = ctx.Clear.BoundaryPlotWeightMillimeters;
+                ctx.Style.RemoveBoundaryLinetype();
+            }),
+            stroke: static (ctx, boundary) => ctx.Key.Catch(() => {
+                ctx.Style.BoundaryVisible = true;
+                ctx.Style.BoundaryColor = boundary.Display.Sys();
+                ctx.Style.BoundaryPrintColor = boundary.Print.Sys();
+                ctx.Style.BoundaryWidthScale = boundary.Width.Value;
+                ctx.Style.BoundaryPlotWeightMillimeters = boundary.PlotWeight.Value;
+                ctx.Linetype.Match(Some: ctx.Style.SetBoundaryLinetype, None: ctx.Style.RemoveBoundaryLinetype);
+            }))
+        from ____ in Hatch.Switch(
+            state: (Style: style, Clear: clear, Pattern: pattern, Key: key),
+            none: static (ctx, _) => ctx.Key.Catch(() => {
+                ctx.Style.HatchIndex = ctx.Clear.HatchIndex;
+                ctx.Style.HatchScale = ctx.Clear.HatchScale;
+                ctx.Style.HatchRotationRadians = ctx.Clear.HatchRotationRadians;
+                ctx.Style.HatchPatternColor = ctx.Clear.HatchPatternColor;
+                ctx.Style.HatchPatternPrintColor = ctx.Clear.HatchPatternPrintColor;
+            }),
+            pattern: static (ctx, hatch) => ctx.Key.Catch(() => {
+                ctx.Style.HatchIndex = ctx.Pattern.Map(static value => value.Index).IfNone(-1);
+                ctx.Style.HatchScale = hatch.Scale.Value;
+                ctx.Style.HatchRotationRadians = hatch.Rotation.Value;
+                ctx.Style.HatchPatternColor = hatch.Display.Sys();
+                ctx.Style.HatchPatternPrintColor = hatch.Print.Sys();
+            }))
+        select unit;
 }
 ```
 
 ## [05]-[SECTION_RAIL]
 
-- Owner: `SectionOp` `[Union]` — spec authoring and amendment, usage-gated deletion, and coupled `.secstyles` import landing styles beside remapped hatch patterns; `SectionTransaction` — the commit plan; `SectionSnapshot` — one-pass read with three-way usage census; `Sections` — the `Commit`/`Ask` entry pair.
-- Law: `Author` refuses an existing name and lands a fresh seed through `Add`; `Amend` seeds the copy constructor from the resolved style and lands through `Modify` by index, so the live component never mutates in the table.
-- Law: delete reads the census first — `InUse(index, out definitions, out objects, out layers)` answers who binds the style, the counts ride the snapshot, and a delete against a used style is the host's refusal surfaced typed, never a silent orphaning.
-- Law: import is one bracket, two tables — `SectionStyle.ReadFromFile` answers styles and referenced patterns together; patterns land first, source hatch indices remap to target indices, then styles enter `SectionStyleTable`.
+- Owner: `SectionSource` carries local versus reference admission behavior; `SectionOp` owns author, amend, guarded plural delete, and `.secstyles` import; `SectionSnapshot` returns the same `SectionSpec` composition plus usage and table state.
+- Law: amendment rides `SectionOp.Grip` — the shared `TableGrip` duplicate-then-`Modify` law — with the copy constructor as the duplicate row and id-resolved index as the index row.
+- Law: import canonicalizes hatch references through `PatternDef`, preflights names, compensates added patterns plus added or replaced styles in reverse landing order, and records every outcome in the shared receipt algebra.
+- Law: delete resolves and usage-gates every target before one `SectionStyleTable.Delete(IEnumerable<int>, bool, int)` call; any retained row makes the whole request fail before mutation.
+- Boundary: section projection captures host reads and every generated admission constructor inside one `Op.Catch` rail.
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
+[SmartEnum]
+public sealed partial class SectionSource {
+    public static readonly SectionSource Local = new(add: static (document, style) =>
+        document.SectionStyles.Add(sectionstyle: style));
+    public static readonly SectionSource Reference = new(add: static (document, style) =>
+        document.SectionStyles.AddReferenceSectionStyle(sectionstyle: style));
+
+    [UseDelegateFromConstructor]
+    internal partial int Add(RhinoDoc document, SectionStyle style);
+}
+
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SectionOp {
     private SectionOp() { }
-    public sealed record Author(SectionSpec Spec) : SectionOp;
-    public sealed record Amend(ResourceRef Target, SectionSpec Spec, bool Quiet = true) : SectionOp;
-    public sealed record Delete(ResourceRef Target, bool Quiet = true) : SectionOp;
-    public sealed record Import(string Path) : SectionOp;
+    public sealed record Author(SectionSpec Spec, SectionSource Source) : SectionOp;
+    public sealed record Amend(ResourceRef Target, SectionSpec Spec, WriteMode Mode) : SectionOp;
+    public sealed record Delete(Seq<ResourceRef> Targets, WriteMode Mode) : SectionOp;
+    public sealed record Import(DraftPath Path, WriteMode Mode) : SectionOp;
 
     internal static readonly ResourceLens<SectionStyle> Lens = new(
         ById: static (document, id) => document.SectionStyles.Find(id: id, ignoreDeletedSectionStyles: true) is var index && index >= 0
@@ -343,157 +454,223 @@ public abstract partial record SectionOp {
         ByName: static (document, name) => document.SectionStyles.FindName(name: name),
         ByIndex: static (document, index) => document.SectionStyles.FindIndex(index: index));
 
-    internal Fin<DraftReceipt> Apply(RhinoDoc document, Op op) =>
-        Switch(
-            (Document: document, Op: op),
-            author: static (context, edit) =>
-                from _ in guard(context.Document.SectionStyles.FindName(name: edit.Spec.Name) is null, context.Op.InvalidInput()).ToFin()
-                from seed in context.Op.Catch(() => Fin.Succ(value: new SectionStyle()))
-                from __ in edit.Spec.Apply(style: seed, document: context.Document, key: context.Op)
-                from index in context.Op.Catch(() => context.Document.SectionStyles.Add(sectionstyle: seed) is var added && added >= 0
-                    ? Fin.Succ(value: added)
-                    : Fin.Fail<int>(error: context.Op.InvalidResult()))
-                select DraftReceipt.Component(slot: DraftSlot.Authored, index: index),
-            amend: static (context, edit) =>
-                from style in edit.Target.Resolve(document: context.Document, lens: Lens, key: context.Op)
-                from index in context.Op.Catch(() => Fin.Succ(value: context.Document.SectionStyles.Find(
-                    id: style.Id, ignoreDeletedSectionStyles: true)))
-                from copy in context.Op.Catch(() => Fin.Succ(value: new SectionStyle(style)))
-                from _ in edit.Spec.Apply(style: copy, document: context.Document, key: context.Op)
-                from __ in context.Op.Confirm(success: context.Document.SectionStyles.Modify(
-                    sectionstyle: copy, index: index, quiet: edit.Quiet))
-                select DraftReceipt.Component(slot: DraftSlot.Amended, index: index),
-            delete: static (context, edit) =>
-                from style in edit.Target.Resolve(document: context.Document, lens: Lens, key: context.Op)
-                from index in context.Op.Catch(() => Fin.Succ(value: context.Document.SectionStyles.Find(
-                    id: style.Id, ignoreDeletedSectionStyles: true)))
-                from usage in context.Op.Catch(() => {
-                    bool bound = context.Document.SectionStyles.InUse(
-                        index: index,
-                        instanceDefinitionCount: out int definitions,
-                        objectCount: out int objects,
-                        layerCount: out int layers);
-                    return Fin.Succ(value: (
-                        HostBound: bound,
-                        Counts: new SectionUsage(Definitions: definitions, Objects: objects, Layers: layers)));
-                })
-                from _ in guard(!usage.HostBound && !usage.Counts.Bound, context.Op.InvalidInput()).ToFin()
-                from __ in context.Op.Confirm(success: context.Document.SectionStyles.Delete(index: index, quiet: edit.Quiet))
-                select DraftReceipt.Component(slot: DraftSlot.Deleted, index: index),
-            import: static (context, edit) =>
-                from path in context.Op.AcceptText(value: edit.Path)
-                from read in context.Op.Catch(() => SectionStyle.ReadFromFile(
-                        filename: path, sectionStyles: out SectionStyle[] styles, hatchPatterns: out HatchPattern[] patterns)
-                    ? Fin.Succ(value: (Styles: toSeq(styles ?? []), Patterns: toSeq(patterns ?? [])))
-                    : Fin.Fail<(Seq<SectionStyle>, Seq<HatchPattern>)>(error: context.Op.InvalidResult()))
-                from _ in guard(!read.Styles.IsEmpty, context.Op.InvalidResult()).ToFin()
-                from patternFacts in read.Patterns.TraverseM(pattern =>
-                    Optional(context.Document.HatchPatterns.FindName(name: pattern.Name)).Match(
-                        Some: existing => Fin.Succ(value: (Source: pattern.Index, Target: existing.Index)),
-                        None: () => context.Op.Catch(() => context.Document.HatchPatterns.Add(pattern: pattern) is var added && added >= 0
-                            ? Fin.Succ(value: (Source: pattern.Index, Target: added))
-                            : Fin.Fail<(int Source, int Target)>(error: context.Op.InvalidResult())))).As()
-                from styleFacts in read.Styles.TraverseM(style =>
-                    from hatchIndex in style.HatchIndex >= 0
-                        ? patternFacts.Find(pair => pair.Source == style.HatchIndex)
-                            .Map(static pair => pair.Target)
-                            .ToFin(Fail: context.Op.MissingContext())
-                        : Fin.Succ(value: -1)
-                    from added in context.Op.Catch(() => {
-                        style.HatchIndex = hatchIndex;
-                        int index = context.Document.SectionStyles.Add(sectionstyle: style);
-                        return index >= 0
-                            ? Fin.Succ(value: index)
-                            : Fin.Fail<int>(error: context.Op.InvalidResult());
-                    })
-                    select added).As()
-                select styleFacts.Fold(
-                    patternFacts.Fold(
-                        DraftReceipt.Path(slot: DraftSlot.Imported, path: path),
-                        static (state, pair) => state + DraftReceipt.Component(slot: DraftSlot.Imported, index: pair.Target)),
-                    static (state, index) => state + DraftReceipt.Component(slot: DraftSlot.Authored, index: index)));
+    internal static readonly TableGrip<SectionStyle> Grip = new(
+        Lens, DraftComponentKind.Section,
+        Index: static (document, style) => document.SectionStyles.Find(id: style.Id, ignoreDeletedSectionStyles: true),
+        Duplicate: static style => new SectionStyle(style),
+        Modify: static (document, copy, index, quiet) => document.SectionStyles.Modify(sectionstyle: copy, index: index, quiet: quiet));
+
+    private sealed record PatternIntent(int Source, HatchPattern Pattern, Option<ResourceIndex> Existing) {
+        internal static Fin<PatternIntent> Admit(RhinoDoc document, HatchPattern pattern, Op op) =>
+            from source in op.Need(value: pattern)
+            from definition in PatternDef.Read(pattern: source, key: op)
+            from canonical in definition.Mint(key: op)
+            from existing in Optional(document.HatchPatterns.FindName(name: canonical.Name)).Match(
+                Some: held =>
+                    from current in PatternDef.Read(pattern: held, key: op)
+                    from _ in guard(definition.Equivalent(current), op.InvalidInput()).ToFin()
+                    select Some(ResourceIndex.Create(held.Index)),
+                None: static () => Fin.Succ(Option<ResourceIndex>.None))
+            select new PatternIntent(Source: source.Index, Pattern: canonical, Existing: existing);
+    }
+    private sealed record PatternLanding(int Source, ResourceIndex Target, bool Added);
+    private sealed record SectionExisting(ResourceIndex Index, SectionStyle Original);
+    private sealed record SectionIntent(SectionStyle Style, Option<SectionExisting> Existing);
+    private sealed record SectionLanding(DraftSlot Slot, ResourceIndex Index, Option<SectionStyle> Original);
+
+    internal Fin<DraftReceipt> Apply(RhinoDoc document, Op op) => Switch(
+        (Document: document, Op: op),
+        author: static (ctx, edit) =>
+            from _ in guard(ctx.Document.SectionStyles.FindName(name: edit.Spec.Name.Value) is null, ctx.Op.InvalidInput()).ToFin()
+            from seed in ctx.Op.Catch(() => Fin.Succ(value: new SectionStyle()))
+            from __ in edit.Spec.Apply(style: seed, document: ctx.Document, key: ctx.Op)
+            from index in ctx.Op.Catch(() => ResourceIndex.Admit(edit.Source.Add(document: ctx.Document, style: seed), ctx.Op))
+            from receipt in DraftReceipt.Component(DraftSlot.Authored, DraftComponentKind.Section, index)
+            select receipt,
+        amend: static (ctx, edit) =>
+            Grip.Revised(target: edit.Target, document: ctx.Document, slot: DraftSlot.Amended, mode: edit.Mode, op: ctx.Op,
+                revise: (copy, key) => edit.Spec.Apply(style: copy, document: ctx.Document, key: key)),
+        delete: static (ctx, edit) =>
+            from _ in guard(!edit.Targets.IsEmpty, ctx.Op.InvalidInput()).ToFin()
+            from indices in edit.Targets.TraverseM(target =>
+                from style in target.Resolve(document: ctx.Document, lens: Lens, key: ctx.Op)
+                from index in ctx.Op.Catch(() => ResourceIndex.Admit(Grip.Index(ctx.Document, style), ctx.Op))
+                from usage in SectionUsage.Read(document: ctx.Document, index: index.Value, key: ctx.Op)
+                from __ in guard(!usage.Bound, ctx.Op.InvalidInput()).ToFin()
+                select index.Value).As()
+            from __ in guard(indices.Distinct().Count == indices.Count, ctx.Op.InvalidInput()).ToFin()
+            from deleted in ctx.Op.Catch(() => Fin.Succ(value: ctx.Document.SectionStyles.Delete(
+                sectionStyleIndices: indices, quiet: edit.Mode.QuietWrite, deleteWarning: 0)))
+            from ___ in guard(deleted == indices.Count, ctx.Op.InvalidResult()).ToFin()
+            from receipts in indices.TraverseM(index => DraftReceipt.Component(
+                DraftSlot.Deleted, DraftComponentKind.Section, ResourceIndex.Create(index))).As()
+            select receipts.Fold(DraftReceipt.Empty, static (receipt, next) => receipt.Contribute(next)),
+        import: static (ctx, edit) => ImportFile(
+            document: ctx.Document, path: edit.Path, mode: edit.Mode, op: ctx.Op));
+
+    private static Fin<DraftReceipt> ImportFile(RhinoDoc document, DraftPath path, WriteMode mode, Op op) =>
+        from read in op.Catch(() => SectionStyle.ReadFromFile(
+                filename: path.Value, sectionStyles: out SectionStyle[] styles, hatchPatterns: out HatchPattern[] patterns)
+            ? Fin.Succ(value: (Styles: toSeq(styles ?? []), Patterns: toSeq(patterns ?? [])))
+            : Fin.Fail<(Seq<SectionStyle>, Seq<HatchPattern>)>(error: op.InvalidResult()))
+        from plan in Preflight(document: document, styles: read.Styles, patterns: read.Patterns, op: op)
+        from patternFacts in DocumentCommit.Compensated(
+            source: plan.Patterns,
+            land: intent => LandPattern(document: document, intent: intent, op: op),
+            rollback: landed => RollbackPatterns(document: document, landed: landed, op: op))
+        from receipt in ImportSections(
+            document: document, path: path, mode: mode, plan: plan.Styles, patterns: patternFacts, op: op)
+        select receipt;
+
+    private static Fin<(Seq<PatternIntent> Patterns, Seq<SectionIntent> Styles)> Preflight(
+        RhinoDoc document, Seq<SectionStyle> styles, Seq<HatchPattern> patterns, Op op) => op.Catch(() =>
+        from _ in guard(!styles.IsEmpty, op.InvalidResult()).ToFin()
+        from admittedPatterns in patterns.TraverseM(pattern => PatternIntent.Admit(
+            document: document, pattern: pattern, op: op)).As()
+        from __ in guard(
+            admittedPatterns.AsIterable().Select(static row => row.Source).Distinct().Count() == admittedPatterns.Count
+            && admittedPatterns.AsIterable().Select(static row => row.Pattern.Name)
+                .Distinct(StringComparer.OrdinalIgnoreCase).Count() == admittedPatterns.Count,
+            op.InvalidInput()).ToFin()
+        from admittedStyles in styles.TraverseM(style =>
+            from value in op.AcceptInput(value: style)
+            from name in op.AcceptText(value: value.Name)
+            from existing in Optional(document.SectionStyles.FindName(name: name)).Match(
+                Some: held =>
+                    from index in op.Catch(() => ResourceIndex.Admit(document.SectionStyles.Find(name: held.Name), op))
+                    from original in op.Catch(() => Fin.Succ(value: new SectionStyle(held)))
+                    select Some(new SectionExisting(Index: index, Original: original)),
+                None: static () => Fin.Succ(Option<SectionExisting>.None))
+            select new SectionIntent(Style: value, Existing: existing)).As()
+        from ___ in guard(
+            admittedStyles.AsIterable().Select(static row => row.Style.Name)
+                .Distinct(StringComparer.OrdinalIgnoreCase).Count() == admittedStyles.Count
+            && admittedStyles.ForAll(row => row.Style.HatchIndex < 0
+                || admittedPatterns.Exists(pattern => pattern.Source == row.Style.HatchIndex)),
+            op.InvalidInput()).ToFin()
+        select (admittedPatterns, admittedStyles));
+
+    private static Fin<PatternLanding> LandPattern(RhinoDoc document, PatternIntent intent, Op op) =>
+        intent.Existing.Match(
+            Some: target => Fin.Succ(value: new PatternLanding(Source: intent.Source, Target: target, Added: false)),
+            None: () => op.Catch(() => ResourceIndex.Admit(document.HatchPatterns.Add(pattern: intent.Pattern), op)
+                .Map(target => new PatternLanding(Source: intent.Source, Target: target, Added: true))));
+
+    private static Fin<DraftReceipt> ImportSections(
+        RhinoDoc document, DraftPath path, WriteMode mode,
+        Seq<SectionIntent> plan, Seq<PatternLanding> patterns, Op op) {
+        Fin<Seq<SectionLanding>> landed = DocumentCommit.Compensated(
+            source: plan,
+            land: intent => LandSection(document: document, intent: intent, patterns: patterns, mode: mode, op: op),
+            rollback: changes => RollbackSections(document: document, landed: changes, op: op));
+        return landed.Match(
+            Succ: changes => FinishImport(
+                path: path, changes: changes, patternCount: patterns.Count).Match(
+                Succ: static receipt => Fin.Succ(value: receipt),
+                Fail: primary => RollbackImport(
+                    document: document, sections: changes, patterns: patterns, op: op).Match(
+                    Succ: _ => Fin.Fail<DraftReceipt>(error: primary),
+                    Fail: rollback => Fin.Fail<DraftReceipt>(error: primary + rollback))),
+            Fail: primary => RollbackPatterns(document: document, landed: patterns, op: op).Match(
+                Succ: _ => Fin.Fail<DraftReceipt>(error: primary),
+                Fail: rollback => Fin.Fail<DraftReceipt>(error: primary + rollback)));
+    }
+
+    private static Fin<DraftReceipt> FinishImport(
+        DraftPath path, Seq<SectionLanding> changes, int patternCount) =>
+        from sectionReceipts in changes.TraverseM(change => DraftReceipt.Component(
+                    slot: change.Slot, componentKind: DraftComponentKind.Section, index: change.Index)).As()
+        from patternReceipt in DraftReceipt.Tally(slot: DraftSlot.Imported, count: DraftCount.Create(patternCount))
+        from pathReceipt in DraftReceipt.Path(slot: DraftSlot.Imported, path: path)
+        select sectionReceipts.Fold(
+            pathReceipt.Contribute(patternReceipt), static (state, next) => state.Contribute(next));
+
+    private static Fin<SectionLanding> LandSection(
+        RhinoDoc document, SectionIntent intent, Seq<PatternLanding> patterns, WriteMode mode, Op op) =>
+        from hatch in intent.Style.HatchIndex < 0
+            ? Fin.Succ(value: intent.Style.HatchIndex)
+            : patterns.Find(pattern => pattern.Source == intent.Style.HatchIndex)
+                .Map(static pattern => pattern.Target.Value).ToFin(Fail: op.MissingContext())
+        from _ in op.Catch(() => intent.Style.HatchIndex = hatch)
+        from landed in intent.Existing.Match(
+            Some: existing =>
+                from __ in op.Confirm(success: document.SectionStyles.Modify(
+                    sectionstyle: intent.Style, index: existing.Index.Value, quiet: mode.QuietWrite))
+                select new SectionLanding(
+                    Slot: DraftSlot.Amended, Index: existing.Index, Original: Some(existing.Original)),
+            None: () => op.Catch(() => ResourceIndex.Admit(document.SectionStyles.Add(sectionstyle: intent.Style), op)
+                .Map(index => new SectionLanding(
+                    Slot: DraftSlot.Authored, Index: index, Original: Option<SectionStyle>.None))))
+        select landed;
+
+    private static Fin<Unit> RollbackPatterns(RhinoDoc document, Seq<PatternLanding> landed, Op op) =>
+        Rollback(
+            rows: toSeq(landed.Filter(static row => row.Added).AsIterable().Reverse()),
+            restore: row => op.Confirm(success: document.HatchPatterns.Delete(
+                hatchPatternIndex: row.Target.Value, quiet: true)));
+
+    private static Fin<Unit> RollbackSections(RhinoDoc document, Seq<SectionLanding> landed, Op op) =>
+        Rollback(
+            rows: toSeq(landed.AsIterable().Reverse()),
+            restore: row => row.Original.Match(
+                Some: original => op.Confirm(success: document.SectionStyles.Modify(
+                    sectionstyle: original, index: row.Index.Value, quiet: true)),
+                None: () => op.Confirm(success: document.SectionStyles.Delete(index: row.Index.Value, quiet: true))));
+
+    private static Fin<Unit> RollbackImport(
+        RhinoDoc document, Seq<SectionLanding> sections, Seq<PatternLanding> patterns, Op op) {
+        Fin<Unit> sectionRollback = RollbackSections(document: document, landed: sections, op: op);
+        Fin<Unit> patternRollback = RollbackPatterns(document: document, landed: patterns, op: op);
+        return sectionRollback.Match(
+            Succ: _ => patternRollback,
+            Fail: sectionFault => patternRollback.Match(
+                Succ: _ => Fin.Fail<Unit>(error: sectionFault),
+                Fail: patternFault => Fin.Fail<Unit>(error: sectionFault + patternFault)));
+    }
+
+    private static Fin<Unit> Rollback<T>(Seq<T> rows, Func<T, Fin<Unit>> restore) =>
+        rows.Fold(
+            Fin.Succ(value: unit),
+            (state, row) => restore(row).Match(
+                Succ: _ => state,
+                Fail: error => state.Match(
+                    Succ: _ => Fin.Fail<Unit>(error: error),
+                    Fail: prior => Fin.Fail<Unit>(error: prior + error))));
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------
-public sealed record SectionTransaction(string Name, Seq<SectionOp> Operations, RedrawPolicy Redraw, bool UndoRecorded = true) {
-    public static SectionTransaction Batch(string name, params ReadOnlySpan<SectionOp> operations) =>
-        new(Name: name, Operations: toSeq(operations.ToArray()), Redraw: RedrawPolicy.Deferred);
-}
+[ComplexValueObject]
+public sealed partial class SectionUsage {
+    public bool HostBound { get; }
+    public int Definitions { get; }
+    public int Objects { get; }
+    public int Layers { get; }
+    public bool Bound => HostBound || Definitions > 0 || Objects > 0 || Layers > 0;
 
-public readonly record struct SectionUsage(int Definitions, int Objects, int Layers) {
-    public bool Bound => Definitions > 0 || Objects > 0 || Layers > 0;
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref bool hostBound, ref int definitions, ref int objects, ref int layers) {
+        if (definitions < 0 || objects < 0 || layers < 0)
+            validationError = new ValidationError("Section usage cannot be negative.");
+    }
+
+    internal static Fin<SectionUsage> Read(RhinoDoc document, int index, Op key) => key.Catch(() => {
+        bool hostBound = document.SectionStyles.InUse(
+            index: index,
+            instanceDefinitionCount: out int definitions,
+            objectCount: out int objects,
+            layerCount: out int layers);
+        return Fin.Succ(value: Create(
+            hostBound: hostBound,
+            definitions: definitions,
+            objects: objects,
+            layers: layers));
+    });
 }
 
 public sealed record SectionSnapshot(
-    Guid Key,
-    string Name,
-    SectionFillMode FillMode,
-    PerceptualColor FillColor,
-    PerceptualColor FillPrintColor,
-    bool BoundaryVisible,
-    PerceptualColor BoundaryColor,
-    PerceptualColor BoundaryPrintColor,
-    double BoundaryWidthScale,
-    double BoundaryPlotWeightMillimeters,
-    Option<ResourceRef> BoundaryLinetype,
-    Option<ResourceRef> Hatch,
-    double HatchScale,
-    double HatchRotationRadians,
-    PerceptualColor HatchColor,
-    PerceptualColor HatchPrintColor,
-    SectionRule Rule,
-    bool InUse,
-    bool IsUnset,
-    SectionUsage Usage) : IDetachedDocumentResult {
-    internal static Fin<SectionSnapshot> Of(SectionStyle style, SectionUsage usage, Op key) =>
-        from fillMode in Optional(SectionFillMode.TryGet((int)style.BackgroundFillMode, out SectionFillMode? fill) ? fill : null)
-            .ToFin(Fail: key.InvalidResult())
-        from rule in Optional(SectionRule.TryGet((int)style.SectionFillRule, out SectionRule? sectionRule) ? sectionRule : null)
-            .ToFin(Fail: key.InvalidResult())
-        from fillColor in Color(style.BackgroundFillColor, key)
-        from fillPrintColor in Color(style.BackgroundFillPrintColor, key)
-        from boundaryColor in Color(style.BoundaryColor, key)
-        from boundaryPrintColor in Color(style.BoundaryPrintColor, key)
-        from hatchColor in Color(style.HatchPatternColor, key)
-        from hatchPrintColor in Color(style.HatchPatternPrintColor, key)
-        from boundaryLinetype in Optional(style.GetBoundaryLinetype())
-            .Traverse(linetype => ResourceRef.Of(id: linetype.Id)).As()
-        from hatch in style.HatchIndex >= 0
-            ? ResourceRef.Of(index: style.HatchIndex).Map(static address => Some(address))
-            : Fin.Succ(Option<ResourceRef>.None)
-        from snapshot in key.Catch(() => Fin.Succ(value: new SectionSnapshot(
-            Key: style.Id,
-            Name: style.Name,
-            FillMode: fillMode,
-            FillColor: fillColor,
-            FillPrintColor: fillPrintColor,
-            BoundaryVisible: style.BoundaryVisible,
-            BoundaryColor: boundaryColor,
-            BoundaryPrintColor: boundaryPrintColor,
-            BoundaryWidthScale: style.BoundaryWidthScale,
-            BoundaryPlotWeightMillimeters: style.BoundaryPlotWeightMillimeters,
-            BoundaryLinetype: boundaryLinetype,
-            Hatch: hatch,
-            HatchScale: style.HatchScale,
-            HatchRotationRadians: style.HatchRotationRadians,
-            HatchColor: hatchColor,
-            HatchPrintColor: hatchPrintColor,
-            Rule: rule,
-            InUse: style.InUse,
-            IsUnset: style.IsUnset,
-            Usage: usage)))
-        select snapshot;
+    ResourceId Key, SectionSpec Spec, bool InUse, bool IsUnset, SectionUsage Usage) : IDetachedDocumentResult;
 
-    private static Fin<PerceptualColor> Color(System.Drawing.Color value, Op key) =>
-        PerceptualColor.OfRgb(
-            red: value.R,
-            green: value.G,
-            blue: value.B,
-            alpha: value.A / 255.0,
-            key: key);
-}
-
-// --- [OPERATIONS] ---------------------------------------------------------------------------
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SectionAsk {
     private SectionAsk() { }
@@ -501,56 +678,79 @@ public abstract partial record SectionAsk {
     public sealed record TableState : SectionAsk;
     public sealed record MintName : SectionAsk;
 
-    internal Fin<SectionAnswer> Answer(RhinoDoc document, Op op) =>
-        Switch(
-            context: (Document: document, Op: op),
-            state: static (ctx, ask) =>
-                from style in ask.Target.Resolve(document: ctx.Document, lens: SectionOp.Lens, key: ctx.Op)
-                from index in ctx.Op.Catch(() => Fin.Succ(value: ctx.Document.SectionStyles.Find(
-                    id: style.Id, ignoreDeletedSectionStyles: true)))
-                from usage in ctx.Op.Catch(() => {
-                    bool bound = ctx.Document.SectionStyles.InUse(
-                        index: index, instanceDefinitionCount: out int definitions, objectCount: out int objects, layerCount: out int layers);
-                    return Fin.Succ(value: (Bound: bound, Usage: new SectionUsage(Definitions: definitions, Objects: objects, Layers: layers)));
-                })
-                from snapshot in SectionSnapshot.Of(style: style, usage: usage.Usage, key: ctx.Op)
-                select (SectionAnswer)new SectionAnswer.State(Snapshot: snapshot),
-            tableState: static (ctx, _) => ctx.Op.Catch(() => Fin.Succ<SectionAnswer>(value: new SectionAnswer.Rows(
-                ActiveCount: ctx.Document.SectionStyles.ActiveCount))),
-            mintName: static (ctx, _) =>
-                from minted in ctx.Op.AcceptText(value: ctx.Document.SectionStyles.GetUnusedSectionStyleName())
-                select (SectionAnswer)new SectionAnswer.Minted(Name: minted));
+    internal Fin<SectionAnswer> Answer(RhinoDoc document, Op op) => Switch(
+        (Document: document, Op: op),
+        state: static (ctx, ask) => ctx.Op.Catch(() =>
+            from style in ask.Target.Resolve(document: ctx.Document, lens: SectionOp.Lens, key: ctx.Op)
+            from index in ctx.Op.Catch(() => Fin.Succ(value: SectionOp.Grip.Index(ctx.Document, style)))
+            from usage in SectionUsage.Read(document: ctx.Document, index: index, key: ctx.Op)
+            from spec in Project(style: style, key: ctx.Op)
+            select (SectionAnswer)new SectionAnswer.State(Snapshot: new SectionSnapshot(
+                Key: ResourceId.Create(style.Id), Spec: spec, InUse: style.InUse, IsUnset: style.IsUnset, Usage: usage))),
+        tableState: static (ctx, _) => ctx.Op.Catch(() => Fin.Succ<SectionAnswer>(
+            value: new SectionAnswer.Rows(ActiveCount: DraftCount.Create(ctx.Document.SectionStyles.ActiveCount)))),
+        mintName: static (ctx, _) => ctx.Op.Catch(() =>
+            ctx.Op.AcceptText(value: ctx.Document.SectionStyles.GetUnusedSectionStyleName())
+                .Map(name => (SectionAnswer)new SectionAnswer.Minted(Name: ResourceName.Create(name))));
+
+    private static Fin<SectionSpec> Project(SectionStyle style, Op key) => key.Catch(() =>
+        from fillDisplay in style.BackgroundFillColor.Admitted(key)
+        from fillPrint in style.BackgroundFillPrintColor.Admitted(key)
+        from boundaryDisplay in style.BoundaryColor.Admitted(key)
+        from boundaryPrint in style.BoundaryPrintColor.Admitted(key)
+        from hatchDisplay in style.HatchPatternColor.Admitted(key)
+        from hatchPrint in style.HatchPatternPrintColor.Admitted(key)
+        from linetype in Optional(style.GetBoundaryLinetype()).Traverse(item => ResourceRef.Of(id: item.Id)).As()
+        from hatch in style.HatchIndex >= 0
+            ? ResourceRef.Of(index: style.HatchIndex).Map(Some)
+            : Fin.Succ(Option<ResourceRef>.None)
+        from rule in key.AcceptValidated<SectionRule>(candidate: (int)style.SectionFillRule)
+        from fill in style.BackgroundFillMode switch {
+            SectionBackgroundFillMode.None => Fin.Succ<SectionFill>(new SectionFill.None()),
+            SectionBackgroundFillMode.Viewport => Fin.Succ<SectionFill>(new SectionFill.Viewport()),
+            SectionBackgroundFillMode.SolidColor => Fin.Succ<SectionFill>(new SectionFill.Solid(fillDisplay, fillPrint)),
+            _ => Fin.Fail<SectionFill>(key.InvalidResult()),
+        }
+        select SectionSpec.Create(
+            name: ResourceName.Create(style.Name),
+            fill: fill,
+            boundary: style.BoundaryVisible
+                ? new SectionBoundary.Stroke(
+                    boundaryDisplay, boundaryPrint,
+                    SectionScale.Create(style.BoundaryWidthScale),
+                    SectionPlotWeight.Create(style.BoundaryPlotWeightMillimeters),
+                    linetype)
+                : new SectionBoundary.Hidden(),
+            hatch: hatch.Match<SectionHatch>(
+                Some: address => new SectionHatch.Pattern(
+                    address,
+                    SectionScale.Create(style.HatchScale),
+                    SectionAngle.Create(style.HatchRotationRadians),
+                    hatchDisplay,
+                    hatchPrint),
+                None: static () => new SectionHatch.None()),
+            rule: rule));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SectionAnswer : IDetachedDocumentResult {
     private SectionAnswer() { }
     public sealed record State(SectionSnapshot Snapshot) : SectionAnswer;
-    public sealed record Rows(int ActiveCount) : SectionAnswer;
-    public sealed record Minted(string Name) : SectionAnswer;
+    public sealed record Rows(DraftCount ActiveCount) : SectionAnswer;
+    public sealed record Minted(ResourceName Name) : SectionAnswer;
 }
 
+// --- [OPERATIONS] ---------------------------------------------------------------------------
 public static class Sections {
-    public static Fin<DraftReceipt> Commit(DocumentSession session, SectionTransaction plan) {
-        Op op = Op.Of();
-        return from active in Optional(plan).ToFin(Fail: op.InvalidInput())
-               from _ in guard(!active.Operations.IsEmpty, op.InvalidInput()).ToFin()
-               from receipt in DraftSpine.Commit(
-                   session: session, name: active.Name, redraw: active.Redraw, recording: active.UndoRecorded,
-                   run: document => active.Operations
-                       .TraverseM(operation => operation.Apply(document: document, op: op)).As()
-                       .Map(static receipts => receipts.Fold(DraftReceipt.Empty, static (state, value) => state + value)),
-                   op: op)
-               select receipt;
-    }
+    public static Fin<DraftReceipt> Commit(DocumentSession session, DraftPlan<SectionOp> plan) =>
+        DraftSpine.Commit(session: session, plan: plan,
+            apply: static (document, operation, key) => operation.Apply(document: document, op: key), op: Op.Of());
 
     public static Fin<SectionAnswer> Ask(DocumentSession session, SectionAsk request) {
         Op op = Op.Of();
-        return from active in Optional(request).ToFin(Fail: op.InvalidInput())
+        return from admitted in op.AcceptInput(value: request)
                from answer in session.Demand(
-                   use: document => active.Answer(document: document, op: op),
-                   key: op,
-                   needs: [SessionNeed.Read])
+                   use: document => admitted.Answer(document: document, op: op), key: op, needs: [SessionNeed.Read])
                select answer;
     }
 }
@@ -558,12 +758,11 @@ public static class Sections {
 
 ## [06]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]            | [OWNER]       | [FORM]                                                   | [ENTRY]                                |
-| :-----: | :------------------- | :------------ | :------------------------------------------------------- | :------------------------------------- |
-|  [01]   | face resolution      | `FaceQuery`   | quartet/axes union over explicit-value axis vocabularies | `Typefaces.Resolve`                    |
-|  [02]   | face projection      | `FaceInfo`    | every name face + axes + capability flags, detached      | `FaceResolution`                       |
-|  [03]   | installed census     | `Typefaces`   | session-free statics over the host font census           | `Installed` / `Quartets` / `FaceNames` |
-|  [04]   | style-table bind     | `Typefaces`   | `DimStyles` quartet probe + `Duplicate`-seeded add       | `Bind`                                 |
-|  [05]   | section presentation | `SectionSpec` | fill + boundary + hatch rows binding sibling resources   | `SectionOp.Author` / `Amend`           |
-|  [06]   | section mutations    | `SectionOp`   | author/amend, gated delete, `.secstyles` import remap    | `Sections.Commit`                      |
-|  [07]   | section reads        | `SectionAsk`  | usage-censused snapshot, table state, name mint          | `Sections.Ask`                         |
+| [INDEX] | [CONCERN]           | [OWNER]           | [FORM]                                               | [ENTRY]             |
+| :-----: | :------------------ | :---------------- | :--------------------------------------------------- | :------------------ |
+|  [01]   | face construction   | `FaceQuery`       | quartet policy or full explicit axes                 | `Typefaces.Resolve` |
+|  [02]   | machine census      | `FaceCensus`      | installed faces, quartet grid, or face names         | `Typefaces.Census`  |
+|  [03]   | document face bind  | `TypefaceOp`      | resolved face probe plus style-table add             | `Typefaces.Commit`  |
+|  [04]   | section composition | `SectionSpec`     | closed fill, boundary, hatch, and rule state         | `Create` / `Apply`  |
+|  [05]   | section mutations   | `SectionOp`       | local/reference author, amend, plural delete, import | `Sections.Commit`   |
+|  [06]   | section evidence    | `SectionSnapshot` | composed spec plus usage and table state             | `Sections.Ask`      |

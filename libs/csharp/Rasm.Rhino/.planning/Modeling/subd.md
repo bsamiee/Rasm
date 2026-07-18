@@ -1,18 +1,16 @@
 # [RASM_RHINO_MODELING_SUBD]
 
-`Rasm.Rhino.Modeling` owns command-fidelity SubD construction and value-semantic editing. One `SubDOp` union carries mesh conversion, surface fitting, lofting, sweep construction, primitives, joining, subdivision, interpolation, offsetting, coplanar merging, face packing, component transformation, tag authoring, brep conversion, and edge extraction through `SubDs.Build`. `SubDCreationLaw` carries every `SubDCreationOptions` preset and property; `SubDBrepLaw` carries the complete `SubDToBrepOptions` surface. Kernel stencil subdivision and limit evaluation remain kernel-owned.
+`SubDs.Build` owns SubD construction, interpolation, value-semantic editing, crease topology, edge projection, and Brep egress. `SubDOp` admits raw handles once, every policy enters through a generated owner, and every product exits through `Built<SubDSlot>`. `MeshOp.QuadRemesh` feeds `SubDOp.FromMesh`, while `SweepFrameLaw` carries one-rail framing directly on `SubDOp.FromSweepOne`.
 
 ## [01]-[INDEX]
 
-- [02]-[CREATION_POLICY]: `CreasePreset`, `SubDCreationLaw`, `SubDBrepLaw`, `SubDSeed`, `SubDSweepKind` — the conversion and primitive policies.
-- [03]-[OPERATION_RAIL]: `SubDSlot`, `SubDEditVerb`, `SubDOp`, and the `SubDs.Build` entry.
-- [04]-[SURFACE_LEDGER]: the page's owner table.
+- [02]-[ADMISSION]: `CreasePreset`, SubD topology policies, `SubDCreationSpec`, `SubDCreationLaw`, `SubDBrepLaw`, and `SubDEdgeSelection`.
+- [03]-[ALGEBRA]: `SubDEditVerb`, `SubDOp`, and `SubDSlot`.
+- [04]-[EXECUTION]: `SubDs.Build` and the value-semantic native fold.
 
-## [02]-[CREATION_POLICY]
+## [02]-[ADMISSION]
 
-- Owner: `CreasePreset` `[SmartEnum<int>]` — the four host option presets as rows carrying their factory columns; `SubDCreationLaw` `[Union]` — preset row or the full custom `SubDCreationOptions` surface; `SubDBrepLaw` — pack-faces plus the extraordinary-vertex process as one value; `SubDSeed` `[Union]` — the four sphere topologies and the capped cylinder; `SubDSweepKind` `[Union]` — one-rail with its roadlike grant versus two-rail.
-- Law: `Rig` is the one site naming `SubDCreationOptions` — interior-crease, convex-corner, concave-corner, and texture tests, the corner edge-count and angle bounds, and vertex interpolation write once; the rigged carrier is disposable and dies in the consuming arm.
-- Law: sphere topology is a case, never a parameter — quad, globe, tri, and icosahedron carry exactly the counts their native constructor demands, so an inapplicable count is unconstructible.
+`SubDCreationSpec` and `SubDBrepLaw` validate policy before native carriers exist, and each consuming seam rejects a zero-initialized smart-enum slot before native projection. Smart-enum rows project closure, corner, crease, symmetry, packing, interpolation, and edge-clamping choices onto native booleans only inside a consuming arm; `MeshShell` owns the shared open-or-solid offset policy. Primitive topologies remain direct `SubDOp` cases. `SubDEdgeSelection` separates edge location from edge character, so contradictory native flag combinations cannot cross admission. Component-addressed edits admit nonnegative indices at the value boundary and bind them to the live vertex, edge, or face roster before mutation.
 
 ```csharp
 // --- [TYPES] ------------------------------------------------------------------------------
@@ -27,84 +25,238 @@ public sealed partial class CreasePreset {
     internal partial SubDCreationOptions Mint();
 }
 
+[SmartEnum<int>]
+public sealed partial class SubDClosure {
+    public static readonly SubDClosure Open = new(key: 0, native: false);
+    public static readonly SubDClosure Closed = new(key: 1, native: true);
+
+    internal bool Native { get; }
+}
+
+[SmartEnum<int>]
+public sealed partial class SubDCorners {
+    public static readonly SubDCorners Smooth = new(key: 0, native: false);
+    public static readonly SubDCorners Cornered = new(key: 1, native: true);
+
+    internal bool Native { get; }
+}
+
+[SmartEnum<int>]
+public sealed partial class SubDLoftFeatures {
+    public static readonly SubDLoftFeatures Smooth = new(key: 0, native: (false, false));
+    public static readonly SubDLoftFeatures Cornered = new(key: 1, native: (true, false));
+    public static readonly SubDLoftFeatures Creased = new(key: 2, native: (false, true));
+    public static readonly SubDLoftFeatures CorneredAndCreased = new(key: 3, native: (true, true));
+
+    internal (bool Corners, bool Creases) Native { get; }
+}
+
+[SmartEnum<int>]
+public sealed partial class SubDJoinPolicy {
+    public static readonly SubDJoinPolicy Smooth = new(key: 0, native: (false, true));
+    public static readonly SubDJoinPolicy Creased = new(key: 1, native: (true, true));
+    public static readonly SubDJoinPolicy SmoothAsymmetric = new(key: 2, native: (false, false));
+    public static readonly SubDJoinPolicy CreasedAsymmetric = new(key: 3, native: (true, false));
+
+    internal (bool Creases, bool PreserveSymmetry) Native { get; }
+}
+
+[SmartEnum<int>]
+public sealed partial class SubDFacePacking {
+    public static readonly SubDFacePacking Unpacked = new(key: 0, native: false);
+    public static readonly SubDFacePacking Packed = new(key: 1, native: true);
+
+    internal bool Native { get; }
+}
+
+[SmartEnum<int>]
+public sealed partial class SubDVertexInterpolation {
+    public static readonly SubDVertexInterpolation ControlNet = new(key: 0, native: false);
+    public static readonly SubDVertexInterpolation LimitSurface = new(key: 1, native: true);
+
+    internal bool Native { get; }
+}
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SubDCreationLaw {
     private SubDCreationLaw() { }
     public sealed record Preset(CreasePreset Row) : SubDCreationLaw;
-    public sealed record Custom(
-        SubDCreationOptions.InteriorCreaseOption InteriorCrease,
-        SubDCreationOptions.ConvexCornerOption ConvexCorner,
-        SubDCreationOptions.ConcaveCornerOption ConcaveCorner,
-        SubDCreationOptions.TextureCoordinateOption TextureCoordinates,
-        uint MaximumConvexCornerEdgeCount = 2,
-        double MaximumConvexCornerAngleRadians = 2.0943951023931953,
-        double MinimumConcaveCornerAngleRadians = 4.1887902047863905,
-        uint MinimumConcaveCornerEdgeCount = 4,
-        bool InterpolateMeshVertices = false) : SubDCreationLaw;
+    public sealed record Custom(SubDCreationSpec Value) : SubDCreationLaw;
+
+    internal bool Admissible => Switch(
+        preset: static law => law.Row is not null,
+        custom: static law => law.Value.Admissible);
 
     internal Fin<SubDCreationOptions> Rig(Op key) =>
         key.Catch(() => Fin.Succ(value: Switch(
             preset: static law => law.Row.Mint(),
             custom: static law => new SubDCreationOptions {
-                InteriorCreaseTest = law.InteriorCrease,
-                ConvexCornerTest = law.ConvexCorner,
-                ConcaveCornerTest = law.ConcaveCorner,
-                TextureCoordinateTest = law.TextureCoordinates,
-                MaximumConvexCornerEdgeCount = law.MaximumConvexCornerEdgeCount,
-                MaximumConvexCornerAngleRadians = law.MaximumConvexCornerAngleRadians,
-                MinimumConcaveCornerAngleRadians = law.MinimumConcaveCornerAngleRadians,
-                MinimumConcaveCornerEdgeCount = law.MinimumConcaveCornerEdgeCount,
-                InterpolateMeshVertices = law.InterpolateMeshVertices,
+                InteriorCreaseTest = law.Value.InteriorCrease,
+                ConvexCornerTest = law.Value.ConvexCorner,
+                ConcaveCornerTest = law.Value.ConcaveCorner,
+                TextureCoordinateTest = law.Value.TextureCoordinates,
+                MaximumConvexCornerEdgeCount = law.Value.MaximumConvexCornerEdgeCount,
+                MaximumConvexCornerAngleRadians = law.Value.MaximumConvexCornerAngleRadians,
+                MinimumConcaveCornerAngleRadians = law.Value.MinimumConcaveCornerAngleRadians,
+                MinimumConcaveCornerEdgeCount = law.Value.MinimumConcaveCornerEdgeCount,
+                InterpolateMeshVertices = law.Value.VertexInterpolation.Native,
             })));
 }
 
-[Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record SubDSeed {
-    private SubDSeed() { }
-    public sealed record QuadSphere(Sphere Value, SubDComponentLocation VertexLocation, uint SubdivisionLevel) : SubDSeed;
-    public sealed record GlobeSphere(Sphere Value, SubDComponentLocation VertexLocation, uint AxialFaceCount, uint EquatorialFaceCount) : SubDSeed;
-    public sealed record TriSphere(Sphere Value, SubDComponentLocation VertexLocation, uint SubdivisionLevel) : SubDSeed;
-    public sealed record Icosahedron(Sphere Value, SubDComponentLocation VertexLocation) : SubDSeed;
-    public sealed record OfCylinder(Cylinder Value, uint CircumferenceFaceCount, uint HeightFaceCount, SubDEndCapStyle EndCap, SubDEdgeTag EndCapEdgeTag, SubDComponentLocation RadiusLocation) : SubDSeed;
+[ComplexValueObject]
+[StructLayout(LayoutKind.Auto)]
+public readonly partial struct SubDCreationSpec {
+    public SubDCreationOptions.InteriorCreaseOption InteriorCrease { get; }
+    public SubDCreationOptions.ConvexCornerOption ConvexCorner { get; }
+    public SubDCreationOptions.ConcaveCornerOption ConcaveCorner { get; }
+    public SubDCreationOptions.TextureCoordinateOption TextureCoordinates { get; }
+    public uint MaximumConvexCornerEdgeCount { get; }
+    public double MaximumConvexCornerAngleRadians { get; }
+    public double MinimumConcaveCornerAngleRadians { get; }
+    public uint MinimumConcaveCornerEdgeCount { get; }
+    public SubDVertexInterpolation VertexInterpolation { get; }
 
-    internal Fin<GeometryHandle> Build(Op key) =>
-        Switch(
-            context: key,
-            quadSphere: static (op, seed) => op.Catch(() => ModelGate.Own(built: SubD.CreateQuadSphere(
-                sphere: seed.Value, vertexLocation: seed.VertexLocation, quadSubdivisionLevel: seed.SubdivisionLevel), key: op)),
-            globeSphere: static (op, seed) => op.Catch(() => ModelGate.Own(built: SubD.CreateGlobeSphere(
-                sphere: seed.Value, vertexLocation: seed.VertexLocation,
-                axialFaceCount: seed.AxialFaceCount, equatorialFaceCount: seed.EquatorialFaceCount), key: op)),
-            triSphere: static (op, seed) => op.Catch(() => ModelGate.Own(built: SubD.CreateTriSphere(
-                sphere: seed.Value, vertexLocation: seed.VertexLocation, triSubdivisionLevel: seed.SubdivisionLevel), key: op)),
-            icosahedron: static (op, seed) => op.Catch(() => ModelGate.Own(built: SubD.CreateIcosahedron(
-                sphere: seed.Value, vertexLocation: seed.VertexLocation), key: op)),
-            ofCylinder: static (op, seed) => op.Catch(() => ModelGate.Own(built: SubD.CreateFromCylinder(
-                cylinder: seed.Value, circumferenceFaceCount: seed.CircumferenceFaceCount, heightFaceCount: seed.HeightFaceCount,
-                endCapStyle: seed.EndCap, endCapEdgeTag: seed.EndCapEdgeTag, radiusLocation: seed.RadiusLocation), key: op)));
-}
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref SubDCreationOptions.InteriorCreaseOption interiorCrease,
+        ref SubDCreationOptions.ConvexCornerOption convexCorner,
+        ref SubDCreationOptions.ConcaveCornerOption concaveCorner,
+        ref SubDCreationOptions.TextureCoordinateOption textureCoordinates,
+        ref uint maximumConvexCornerEdgeCount,
+        ref double maximumConvexCornerAngleRadians,
+        ref double minimumConcaveCornerAngleRadians,
+        ref uint minimumConcaveCornerEdgeCount,
+        ref SubDVertexInterpolation vertexInterpolation) {
+        if (!Admits(
+            interiorCrease, convexCorner, concaveCorner, textureCoordinates,
+            maximumConvexCornerEdgeCount, maximumConvexCornerAngleRadians,
+            minimumConcaveCornerAngleRadians, minimumConcaveCornerEdgeCount, vertexInterpolation)) {
+            validationError = new ValidationError("SubD corner thresholds are inconsistent.");
+        }
+    }
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record SubDSweepKind {
-    private SubDSweepKind() { }
-    public sealed record OneRail(GeometryHandle Rail, SweepFrameLaw Frame) : SubDSweepKind;
-    public sealed record TwoRail(GeometryHandle Rail1, GeometryHandle Rail2) : SubDSweepKind;
+    internal bool Admissible => Admits(
+        InteriorCrease, ConvexCorner, ConcaveCorner, TextureCoordinates,
+        MaximumConvexCornerEdgeCount, MaximumConvexCornerAngleRadians,
+        MinimumConcaveCornerAngleRadians, MinimumConcaveCornerEdgeCount, VertexInterpolation);
+
+    private static bool Admits(
+        SubDCreationOptions.InteriorCreaseOption interiorCrease,
+        SubDCreationOptions.ConvexCornerOption convexCorner,
+        SubDCreationOptions.ConcaveCornerOption concaveCorner,
+        SubDCreationOptions.TextureCoordinateOption textureCoordinates,
+        uint maximumConvexCornerEdgeCount,
+        double maximumConvexCornerAngleRadians,
+        double minimumConcaveCornerAngleRadians,
+        uint minimumConcaveCornerEdgeCount,
+        SubDVertexInterpolation? vertexInterpolation) =>
+        Enum.IsDefined(interiorCrease)
+        && Enum.IsDefined(convexCorner)
+        && Enum.IsDefined(concaveCorner)
+        && Enum.IsDefined(textureCoordinates)
+        && vertexInterpolation is not null
+        && maximumConvexCornerEdgeCount >= 2
+        && minimumConcaveCornerEdgeCount >= 3
+        && double.IsFinite(maximumConvexCornerAngleRadians)
+        && double.IsFinite(minimumConcaveCornerAngleRadians)
+        && maximumConvexCornerAngleRadians > 0.0
+        && minimumConcaveCornerAngleRadians > maximumConvexCornerAngleRadians;
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
-public readonly record struct SubDBrepLaw(bool PackFaces = true, SubDToBrepOptions.ExtraordinaryVertexProcessOption VertexProcess = SubDToBrepOptions.ExtraordinaryVertexProcessOption.LocalG1x) {
+[ComplexValueObject]
+[StructLayout(LayoutKind.Auto)]
+public readonly partial struct SubDBrepLaw {
+    public SubDFacePacking Packing { get; }
+    public SubDToBrepOptions.ExtraordinaryVertexProcessOption VertexProcess { get; }
+
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref SubDFacePacking packing,
+        ref SubDToBrepOptions.ExtraordinaryVertexProcessOption vertexProcess) {
+        if (!Admits(packing, vertexProcess)) {
+            validationError = new ValidationError("SubD Brep policy is invalid.");
+        }
+    }
+
+    internal bool Admissible => Admits(Packing, VertexProcess);
+
     internal Fin<SubDToBrepOptions> Rig(Op key) =>
-        key.Catch(() => Fin.Succ(value: new SubDToBrepOptions(packFaces: PackFaces, vertexProcess: VertexProcess)));
+        key.Catch(() => Fin.Succ(value: new SubDToBrepOptions(packFaces: Packing.Native, vertexProcess: VertexProcess)));
+
+    private static bool Admits(
+        SubDFacePacking? packing,
+        SubDToBrepOptions.ExtraordinaryVertexProcessOption vertexProcess) =>
+        packing is not null && Enum.IsDefined(vertexProcess);
+}
+
+[SmartEnum<int>]
+public sealed partial class SubDEdgeLocation {
+    public static readonly SubDEdgeLocation Boundary = new(key: 0, native: (true, false));
+    public static readonly SubDEdgeLocation Interior = new(key: 1, native: (false, true));
+
+    internal (bool Boundary, bool Interior) Native { get; }
+}
+
+[SmartEnum<int>]
+public sealed partial class SubDEdgeCharacter {
+    public static readonly SubDEdgeCharacter Smooth = new(key: 0, native: (true, false, false));
+    public static readonly SubDEdgeCharacter Sharp = new(key: 1, native: (false, true, false));
+    public static readonly SubDEdgeCharacter Crease = new(key: 2, native: (false, false, true));
+
+    internal (bool Smooth, bool Sharp, bool Crease) Native { get; }
+}
+
+[SmartEnum<int>]
+public sealed partial class SubDEdgeClamp {
+    public static readonly SubDEdgeClamp Natural = new(key: 0, native: false);
+    public static readonly SubDEdgeClamp Clamped = new(key: 1, native: true);
+
+    internal bool Native { get; }
+}
+
+[ComplexValueObject]
+[StructLayout(LayoutKind.Auto)]
+public readonly partial struct SubDEdgeSelection {
+    public Option<SubDEdgeLocation> Location { get; }
+    public Option<SubDEdgeCharacter> Character { get; }
+    public SubDEdgeClamp Ends { get; }
+
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref Option<SubDEdgeLocation> location,
+        ref Option<SubDEdgeCharacter> character,
+        ref SubDEdgeClamp ends) {
+        if (!Admits(location, character, ends)) {
+            validationError = new ValidationError("SubD edge selection is invalid.");
+        }
+    }
+
+    internal bool Admissible => Admits(Location, Character, Ends);
+
+    internal (bool Boundary, bool Interior, bool Smooth, bool Sharp, bool Crease, bool Clamp) Native {
+        get {
+            (bool boundary, bool interior) = Location.Map(static row => row.Native).IfNone((false, false));
+            (bool smooth, bool sharp, bool crease) = Character.Map(static row => row.Native).IfNone((false, false, false));
+            return (boundary, interior, smooth, sharp, crease, Ends.Native);
+        }
+    }
+
+    private static bool Admits(
+        Option<SubDEdgeLocation> location,
+        Option<SubDEdgeCharacter> character,
+        SubDEdgeClamp? ends) =>
+        ends is not null
+        && location.ForAll(static row => row is not null)
+        && character.ForAll(static row => row is not null);
 }
 ```
 
-## [03]-[OPERATION_RAIL]
+## [03]-[ALGEBRA]
 
-- Owner: `SubDSlot` `[SmartEnum<int>]` — the consequence vocabulary; `SubDEditVerb` `[Union]` — the value-semantic edit verbs applied to one working duplicate; `SubDOp` `[Union]` — conversion, primitive, join, edit, brep, and extraction verbs as one family; `SubDs` — the one entry folding any operation spread into one `Built<SubDSlot>`.
-- Law: edits are value-semantic — `Edit` duplicates the borrowed subd once, dispatches the verb on the working copy, refreshes tags and the surface mesh cache after a tag or interpolation edit, and owns the copy or the member's returned subd; component transform and pack tallies land as `Tally` facts.
-- Law: tags author creases — vertex and edge tag rows write through the component lists' `SetVertexTags`/`SetEdgeTags`, then `UpdateAllTagsAndSectorCoefficients` and `UpdateSurfaceMeshCache` run unconditionally, so an authored crease or corner is limit-surface-true before the product crosses.
-- Law: interpolation constrains by presence — a bare point spread solves all control points, a vertex-index spread constrains the named subset, and unequal cardinality refuses before the native call.
-- Law: the quad-remesh route composes — a subd from quad-remeshed geometry is the meshing rail's `QuadRemesh` product fed to `FromMesh`; no second remesh entry exists here.
+`SubDOp` is the sole construction algebra. `SubDEditVerb` duplicates one borrowed target; whole-surface and indexed interpolation are direct cases because their admission, identity, timing, and consumer coincide. One- and two-rail sweeps are direct `SubDOp` cases for the same reason. Tag, interpolation, subdivision, and transform edits refresh tags, sector coefficients, and the surface cache before ownership crosses `ModelGate`.
+
+- Law: quad-remesh composition feeds the meshing rail's `QuadRemesh` product to `FromMesh`; no second remesh entry exists here.
 - Growth: a new subd constructor or edit verb is one case with its arm; the spine and every consumer read it with zero new surface.
 
 ```csharp
@@ -127,9 +279,10 @@ public abstract partial record SubDEditVerb {
     private SubDEditVerb() { }
     public sealed record SubdivideAll(int Count = 1) : SubDEditVerb;
     public sealed record SubdivideFaces(Seq<int> Faces) : SubDEditVerb;
-    public sealed record Interpolate(Seq<Point3d> SurfacePoints, Seq<uint> Vertices = default) : SubDEditVerb;
+    public sealed record InterpolateSurface(Seq<Point3d> Points) : SubDEditVerb;
+    public sealed record InterpolateVertices(Seq<uint> Indices, Seq<Point3d> Points) : SubDEditVerb;
     public sealed record SetVertexPoint(uint Vertex, Point3d SurfacePoint) : SubDEditVerb;
-    public sealed record Shell(double Distance, bool Solidify) : SubDEditVerb;
+    public sealed record Shell(double Distance, MeshShell Kind) : SubDEditVerb;
     public sealed record MergeCoplanar : SubDEditVerb;
     public sealed record Pack : SubDEditVerb;
     public sealed record Flip : SubDEditVerb;
@@ -142,82 +295,153 @@ public abstract partial record SubDEditVerb {
 public abstract partial record SubDOp {
     private SubDOp() { }
     public sealed record FromMesh(GeometryHandle Source, SubDCreationLaw Law) : SubDOp;
-    public sealed record FromSurface(GeometryHandle Source, SubDFromSurfaceMethods Method, bool Corners) : SubDOp;
-    public sealed record FromLoft(Seq<GeometryHandle> Shapes, bool Closed, bool AddCorners, bool AddCreases, int Divisions) : SubDOp;
-    public sealed record FromSweep(SubDSweepKind Kind, Seq<GeometryHandle> Shapes, bool Closed, bool AddCorners) : SubDOp;
-    public sealed record Seed(SubDSeed Value) : SubDOp;
-    public sealed record Join(Seq<GeometryHandle> Targets, bool JoinedEdgesAreCreases, bool PreserveSymmetry = true) : SubDOp;
+    public sealed record FromSurface(GeometryHandle Source, SubDFromSurfaceMethods Method, SubDCorners Corners) : SubDOp;
+    public sealed record FromLoft(Seq<GeometryHandle> Shapes, SubDClosure Closure, SubDLoftFeatures Features, int Divisions) : SubDOp;
+    public sealed record FromSweepOne(GeometryHandle Rail, SweepFrameLaw Frame, Seq<GeometryHandle> Shapes, SubDClosure Closure, SubDCorners Corners) : SubDOp;
+    public sealed record FromSweepTwo(GeometryHandle Rail1, GeometryHandle Rail2, Seq<GeometryHandle> Shapes, SubDClosure Closure, SubDCorners Corners) : SubDOp;
+    public sealed record SeedQuadSphere(Sphere Value, SubDComponentLocation VertexLocation, uint SubdivisionLevel) : SubDOp;
+    public sealed record SeedGlobeSphere(Sphere Value, SubDComponentLocation VertexLocation, uint AxialFaceCount, uint EquatorialFaceCount) : SubDOp;
+    public sealed record SeedTriSphere(Sphere Value, SubDComponentLocation VertexLocation, uint SubdivisionLevel) : SubDOp;
+    public sealed record SeedIcosahedron(Sphere Value, SubDComponentLocation VertexLocation) : SubDOp;
+    public sealed record SeedCylinder(Cylinder Value, uint CircumferenceFaceCount, uint HeightFaceCount, SubDEndCapStyle EndCap, SubDEdgeTag EndCapEdgeTag, SubDComponentLocation RadiusLocation) : SubDOp;
+    public sealed record Join(Seq<GeometryHandle> Targets, SubDJoinPolicy Policy) : SubDOp;
     public sealed record Edit(GeometryHandle Target, SubDEditVerb Verb) : SubDOp;
     public sealed record ToBrep(GeometryHandle Target, SubDBrepLaw Law) : SubDOp;
-    public sealed record EdgeCurves(GeometryHandle Target, bool BoundaryOnly = false, bool InteriorOnly = false, bool SmoothOnly = false, bool SharpOnly = false, bool CreaseOnly = false, bool ClampEnds = false) : SubDOp;
+    public sealed record EdgeCurves(GeometryHandle Target, SubDEdgeSelection Selection) : SubDOp;
+
+    internal Fin<SubDOp> Admitted(Op key) =>
+        guard(this switch {
+            FromMesh edit => edit.Source is not null && edit.Law is { Admissible: true },
+            FromSurface edit => edit.Source is not null && edit.Corners is not null,
+            FromLoft edit => Handles(edit.Shapes)
+                && edit.Closure is not null
+                && (!edit.Closure.Native || edit.Shapes.Count >= 3)
+                && edit.Features is not null
+                && edit.Divisions > 0,
+            FromSweepOne edit => edit.Rail is not null && edit.Frame is { Admissible: true } && Handles(edit.Shapes)
+                && edit.Closure is not null && edit.Corners is not null,
+            FromSweepTwo edit => edit.Rail1 is not null && edit.Rail2 is not null && Handles(edit.Shapes)
+                && edit.Closure is not null && edit.Corners is not null,
+            SeedQuadSphere edit => edit.Value.IsValid,
+            SeedGlobeSphere edit => edit.Value.IsValid && edit.AxialFaceCount > 0 && edit.EquatorialFaceCount >= 3,
+            SeedTriSphere edit => edit.Value.IsValid,
+            SeedIcosahedron edit => edit.Value.IsValid,
+            SeedCylinder edit => edit.Value.IsValid && edit.CircumferenceFaceCount >= 3 && edit.HeightFaceCount > 0,
+            Join edit => Handles(edit.Targets) && edit.Policy is not null,
+            Edit edit => edit.Target is not null && EditAdmissible(edit.Verb),
+            ToBrep edit => edit.Target is not null && edit.Law.Admissible,
+            EdgeCurves edit => edit.Target is not null && edit.Selection.Admissible,
+            _ => false,
+        }, key.InvalidInput()).ToFin().Map(_ => this);
+
+    private static bool EditAdmissible(SubDEditVerb? verb) => verb switch {
+        SubDEditVerb.SubdivideAll { Count: > 0 } => true,
+        SubDEditVerb.SubdivideFaces edit => !edit.Faces.IsEmpty && edit.Faces.ForAll(static face => face >= 0),
+        SubDEditVerb.InterpolateSurface edit => !edit.Points.IsEmpty && edit.Points.ForAll(static point => point.IsValid),
+        SubDEditVerb.InterpolateVertices edit => !edit.Indices.IsEmpty && edit.Indices.Count == edit.Points.Count
+            && edit.Indices.ForAll(static index => index >= 0)
+            && edit.Points.ForAll(static point => point.IsValid),
+        SubDEditVerb.SetVertexPoint edit => edit.Vertex >= 0 && edit.SurfacePoint.IsValid,
+        SubDEditVerb.Shell edit => double.IsFinite(edit.Distance) && edit.Distance != 0.0 && edit.Kind is not null,
+        SubDEditVerb.TagVertices edit => !edit.Vertices.IsEmpty && edit.Vertices.ForAll(static vertex => vertex >= 0),
+        SubDEditVerb.TagEdges edit => !edit.Edges.IsEmpty && edit.Edges.ForAll(static edge => edge >= 0),
+        SubDEditVerb.MoveComponents edit => !edit.Components.IsEmpty && edit.Motion.IsValid && !edit.Motion.IsZero,
+        SubDEditVerb.MergeCoplanar or SubDEditVerb.Pack or SubDEditVerb.Flip => true,
+        _ => false,
+    };
+
+    private static bool Handles(Seq<GeometryHandle> handles) =>
+        !handles.IsEmpty && handles.ForAll(static handle => handle is not null);
 
     internal Fin<Built<SubDSlot>> Apply(Context domain) =>
         Switch(
-            context: domain,
+            domain,
             fromMesh: static (_, edit) => {
                 Op op = Op.Of(name: nameof(FromMesh));
                 return ModelGate.Borrow<Mesh, Built<SubDSlot>>(handle: edit.Source, key: op, body: mesh =>
                     from options in edit.Law.Rig(key: op)
                     from built in op.Catch(() => {
                         using SubDCreationOptions live = options;
-                        return Single(op, SubDSlot.Converted, () => SubD.CreateFromMesh(mesh: mesh, options: live));
+                        return ModelGate.Single(op, SubDSlot.Converted, () => SubD.CreateFromMesh(mesh: mesh, options: live));
                     })
                     select built);
             },
             fromSurface: static (_, edit) => {
                 Op op = Op.Of(name: nameof(FromSurface));
                 return ModelGate.Borrow<Surface, Built<SubDSlot>>(handle: edit.Source, key: op, body: surface =>
-                    Single(op, SubDSlot.Fitted, () => SubD.CreateFromSurface(surface: surface, method: edit.Method, corners: edit.Corners)));
+                    ModelGate.Single(op, SubDSlot.Fitted, () => SubD.CreateFromSurface(
+                        surface: surface, method: edit.Method, corners: edit.Corners.Native)));
             },
             fromLoft: static (_, edit) => {
                 Op op = Op.Of(name: nameof(FromLoft));
-                return ModelGate.BorrowMany<NurbsCurve, Built<SubDSlot>>(handles: edit.Shapes, key: op, body: shapes =>
-                    Single(op, SubDSlot.Lofted, () => SubD.CreateFromLoft(
-                        curves: shapes.AsIterable(), closed: edit.Closed, addCorners: edit.AddCorners,
-                        addCreases: edit.AddCreases, divisions: edit.Divisions)));
+                return ModelGate.BorrowMany<NurbsCurve, Built<SubDSlot>>(handles: edit.Shapes, key: op, body: shapes => {
+                    (bool corners, bool creases) = edit.Features.Native;
+                    return ModelGate.Single(op, SubDSlot.Lofted, () => SubD.CreateFromLoft(
+                        curves: shapes.AsIterable(), closed: edit.Closure.Native, addCorners: corners,
+                        addCreases: creases, divisions: edit.Divisions));
+                });
             },
-            fromSweep: static (_, edit) => {
-                Op op = Op.Of(name: nameof(FromSweep));
+            fromSweepOne: static (_, edit) => {
+                Op op = Op.Of(name: nameof(FromSweepOne));
                 return ModelGate.BorrowMany<NurbsCurve, Built<SubDSlot>>(handles: edit.Shapes, key: op, body: shapes =>
-                    edit.Kind.Switch(
-                        state: (Shapes: shapes, Edit: edit, Op: op),
-                        oneRail: static (ctx, kind) => ModelGate.Borrow<NurbsCurve, Built<SubDSlot>>(handle: kind.Rail, key: ctx.Op, body: rail => {
-                            (SweepFrame frame, Vector3d normal) = kind.Frame.Native;
-                            return Single(ctx.Op, SubDSlot.Swept, () => SubD.CreateFromSweep(
-                                rail1: rail, shapes: ctx.Shapes.AsIterable(), closed: ctx.Edit.Closed, addCorners: ctx.Edit.AddCorners,
-                                roadlikeFrame: frame == SweepFrame.Roadlike, roadlikeNormal: normal));
-                        }),
-                        twoRail: static (ctx, kind) => ModelGate.Borrow<NurbsCurve, Built<SubDSlot>>(handle: kind.Rail1, key: ctx.Op, body: rail1 =>
-                            ModelGate.Borrow<NurbsCurve, Built<SubDSlot>>(handle: kind.Rail2, key: ctx.Op, body: rail2 =>
-                                Single(ctx.Op, SubDSlot.Swept, () => SubD.CreateFromSweep(
-                                    rail1: rail1, rail2: rail2, shapes: ctx.Shapes.AsIterable(),
-                                    closed: ctx.Edit.Closed, addCorners: ctx.Edit.AddCorners))))));
+                    ModelGate.Borrow<NurbsCurve, Built<SubDSlot>>(handle: edit.Rail, key: op, body: rail => {
+                        (SweepFrame frame, Vector3d normal) = edit.Frame.Native;
+                        return ModelGate.Single(op, SubDSlot.Swept, () => SubD.CreateFromSweep(
+                            rail1: rail, shapes: shapes.AsIterable(), closed: edit.Closure.Native, addCorners: edit.Corners.Native,
+                            roadlikeFrame: frame == SweepFrame.Roadlike, roadlikeNormal: normal));
+                    }));
             },
-            seed: static (_, edit) => {
-                Op op = Op.Of(name: nameof(Seed));
-                return edit.Value.Build(key: op).Map(product => new Built<SubDSlot>(
-                    Products: Seq(product),
-                    Evidence: BuildReceipt<SubDSlot>.Of(slot: SubDSlot.Seeded, body: new BuildBody.Tally(Count: 1))));
+            fromSweepTwo: static (_, edit) => {
+                Op op = Op.Of(name: nameof(FromSweepTwo));
+                return ModelGate.BorrowMany<NurbsCurve, Built<SubDSlot>>(handles: edit.Shapes, key: op, body: shapes =>
+                    ModelGate.Borrow<NurbsCurve, Built<SubDSlot>>(handle: edit.Rail1, key: op, body: rail1 =>
+                        ModelGate.Borrow<NurbsCurve, Built<SubDSlot>>(handle: edit.Rail2, key: op, body: rail2 =>
+                            ModelGate.Single(op, SubDSlot.Swept, () => SubD.CreateFromSweep(
+                                rail1: rail1, rail2: rail2, shapes: shapes.AsIterable(),
+                                closed: edit.Closure.Native, addCorners: edit.Corners.Native)))));
+            },
+            seedQuadSphere: static (_, edit) => {
+                Op op = Op.Of(name: nameof(SeedQuadSphere));
+                return ModelGate.Single(op, SubDSlot.Seeded, () => SubD.CreateQuadSphere(
+                    sphere: edit.Value, vertexLocation: edit.VertexLocation, quadSubdivisionLevel: edit.SubdivisionLevel));
+            },
+            seedGlobeSphere: static (_, edit) => {
+                Op op = Op.Of(name: nameof(SeedGlobeSphere));
+                return ModelGate.Single(op, SubDSlot.Seeded, () => SubD.CreateGlobeSphere(
+                    sphere: edit.Value, vertexLocation: edit.VertexLocation,
+                    axialFaceCount: edit.AxialFaceCount, equatorialFaceCount: edit.EquatorialFaceCount));
+            },
+            seedTriSphere: static (_, edit) => {
+                Op op = Op.Of(name: nameof(SeedTriSphere));
+                return ModelGate.Single(op, SubDSlot.Seeded, () => SubD.CreateTriSphere(
+                    sphere: edit.Value, vertexLocation: edit.VertexLocation, triSubdivisionLevel: edit.SubdivisionLevel));
+            },
+            seedIcosahedron: static (_, edit) => {
+                Op op = Op.Of(name: nameof(SeedIcosahedron));
+                return ModelGate.Single(op, SubDSlot.Seeded, () => SubD.CreateIcosahedron(
+                    sphere: edit.Value, vertexLocation: edit.VertexLocation));
+            },
+            seedCylinder: static (_, edit) => {
+                Op op = Op.Of(name: nameof(SeedCylinder));
+                return ModelGate.Single(op, SubDSlot.Seeded, () => SubD.CreateFromCylinder(
+                    cylinder: edit.Value, circumferenceFaceCount: edit.CircumferenceFaceCount, heightFaceCount: edit.HeightFaceCount,
+                    endCapStyle: edit.EndCap, endCapEdgeTag: edit.EndCapEdgeTag, radiusLocation: edit.RadiusLocation));
             },
             join: static (model, edit) => {
                 Op op = Op.Of(name: nameof(Join));
-                return ModelGate.BorrowMany<SubD, Built<SubDSlot>>(handles: edit.Targets, key: op, body: targets =>
-                    op.Catch(() => ModelGate.OwnMany(built: SubD.JoinSubDs(
-                            subdsToJoin: targets.AsIterable(), tolerance: model.Absolute.Value,
-                            joinedEdgesAreCreases: edit.JoinedEdgesAreCreases, preserveSymmetry: edit.PreserveSymmetry), key: op)
-                        .Map(owned => new Built<SubDSlot>(
-                            Products: owned,
-                            Evidence: BuildReceipt<SubDSlot>.Of(slot: SubDSlot.Joined, body: new BuildBody.Tally(Count: owned.Count))))));
+                return ModelGate.BorrowMany<SubD, Built<SubDSlot>>(handles: edit.Targets, key: op, body: targets => {
+                    (bool creases, bool preserveSymmetry) = edit.Policy.Native;
+                    return ModelGate.Many(op, SubDSlot.Joined, () => SubD.JoinSubDs(
+                        subdsToJoin: targets.AsIterable(), tolerance: model.Absolute.Value,
+                        joinedEdgesAreCreases: creases, preserveSymmetry: preserveSymmetry));
+                });
             },
             edit: static (model, request) => {
                 Op op = Op.Of(name: nameof(Edit));
                 return ModelGate.Borrow<SubD, Built<SubDSlot>>(handle: request.Target, key: op, body: source =>
                     op.Catch(() => {
                         SubD working = (SubD)source.Duplicate();
-                        return Edited(working: working, verb: request.Verb, domain: model, op: op).MapFail(error => {
-                            working.Dispose();
-                            return error;
-                        });
+                        return Edited(working: working, verb: request.Verb, domain: model, op: op).Rollback(working);
                     }));
             },
             toBrep: static (_, edit) => {
@@ -226,61 +450,69 @@ public abstract partial record SubDOp {
                     from options in edit.Law.Rig(key: op)
                     from built in op.Catch(() => {
                         using SubDToBrepOptions live = options;
-                        return Single(op, SubDSlot.Brepped, () => subd.ToBrep(options: live));
+                        return ModelGate.Single(op, SubDSlot.Brepped, () => subd.ToBrep(options: live));
                     })
                     select built);
             },
             edgeCurves: static (_, edit) => {
                 Op op = Op.Of(name: nameof(EdgeCurves));
-                return ModelGate.Borrow<SubD, Built<SubDSlot>>(handle: edit.Target, key: op, body: subd =>
-                    op.Catch(() => ModelGate.OwnMany(built: subd.DuplicateEdgeCurves(
-                            boundaryOnly: edit.BoundaryOnly, interiorOnly: edit.InteriorOnly, smoothOnly: edit.SmoothOnly,
-                            sharpOnly: edit.SharpOnly, creaseOnly: edit.CreaseOnly, clampEnds: edit.ClampEnds), key: op, allowEmpty: true)
-                        .Map(owned => new Built<SubDSlot>(
-                            Products: owned,
-                            Evidence: BuildReceipt<SubDSlot>.Of(slot: SubDSlot.EdgeCurves, body: new BuildBody.Tally(Count: owned.Count))))));
+                return ModelGate.Borrow<SubD, Built<SubDSlot>>(handle: edit.Target, key: op, body: subd => {
+                    (bool boundary, bool interior, bool smooth, bool sharp, bool crease, bool clamp) = edit.Selection.Native;
+                    return ModelGate.Many(op, SubDSlot.EdgeCurves,
+                        () => subd.DuplicateEdgeCurves(boundary, interior, smooth, sharp, crease, clamp),
+                        allowEmpty: true);
+                });
             });
 
     private static Fin<Built<SubDSlot>> Edited(SubD working, SubDEditVerb verb, Context domain, Op op) =>
         verb.Switch(
-            state: (Working: working, Domain: domain, Op: op),
+            (Working: working, Domain: domain, Op: op),
             subdivideAll: static (ctx, edit) => ctx.Op.Confirm(success: ctx.Working.Subdivide(count: edit.Count))
                 .Bind(_ => Refreshed(ctx.Op, ctx.Working)),
-            subdivideFaces: static (ctx, edit) => ctx.Op.Confirm(success: ctx.Working.Subdivide(faceIndices: edit.Faces.AsIterable()))
-                .Bind(_ => Refreshed(ctx.Op, ctx.Working)),
-            interpolate: static (ctx, edit) =>
-                from _ in guard(edit.Vertices.IsEmpty || edit.Vertices.Count == edit.SurfacePoints.Count, ctx.Op.InvalidInput())
-                from __ in ctx.Op.Confirm(success: edit.Vertices.IsEmpty
-                    ? ctx.Working.InterpolateSurfacePoints(surfacePoints: edit.SurfacePoints.ToArray())
-                    : ctx.Working.InterpolateSurfacePoints(vertexIndices: edit.Vertices.ToArray(), surfacePoints: edit.SurfacePoints.ToArray()))
+            subdivideFaces: static (ctx, edit) =>
+                from _ in guard(edit.Faces.ForAll(face => face < ctx.Working.Faces.Count), ctx.Op.InvalidInput()).ToFin()
+                from __ in ctx.Op.Confirm(success: ctx.Working.Subdivide(faceIndices: edit.Faces.AsIterable()))
                 from built in Refreshed(ctx.Op, ctx.Working)
                 select built,
-            setVertexPoint: static (ctx, edit) => ctx.Op
-                .Confirm(success: ctx.Working.SetVertexSurfacePoint(vertexIndex: edit.Vertex, surfacePoint: edit.SurfacePoint))
-                .Bind(_ => Refreshed(ctx.Op, ctx.Working)),
-            shell: static (ctx, edit) => ctx.Op.Catch(() =>
-                ModelGate.Own(built: ctx.Working.Offset(distance: edit.Distance, solidify: edit.Solidify), key: ctx.Op).Map(owned => {
-                    ctx.Working.Dispose();
-                    return new Built<SubDSlot>(
-                        Products: Seq(owned),
-                        Evidence: BuildReceipt<SubDSlot>.Of(slot: SubDSlot.Edited, body: new BuildBody.Tally(Count: 1)));
-                })),
+            interpolateSurface: static (ctx, edit) =>
+                from _ in ctx.Op.Confirm(ctx.Working.InterpolateSurfacePoints(edit.Points.ToArray()))
+                from built in Refreshed(ctx.Op, ctx.Working)
+                select built,
+            interpolateVertices: static (ctx, edit) =>
+                from _ in guard(edit.Indices.ForAll(index => index < ctx.Working.Vertices.Count), ctx.Op.InvalidInput()).ToFin()
+                from __ in ctx.Op.Confirm(ctx.Working.InterpolateSurfacePoints(edit.Indices.ToArray(), edit.Points.ToArray()))
+                from built in Refreshed(ctx.Op, ctx.Working)
+                select built,
+            setVertexPoint: static (ctx, edit) =>
+                from _ in guard(edit.Vertex < ctx.Working.Vertices.Count, ctx.Op.InvalidInput()).ToFin()
+                from __ in ctx.Op.Confirm(success: ctx.Working.SetVertexSurfacePoint(
+                    vertexIndex: edit.Vertex, surfacePoint: edit.SurfacePoint))
+                from built in Refreshed(ctx.Op, ctx.Working)
+                select built,
+            shell: static (ctx, edit) => ModelGate.Owned(ctx.Op, SubDSlot.Edited, ctx.Working,
+                () => ctx.Working.Offset(distance: edit.Distance, solidify: edit.Kind.Native)),
             mergeCoplanar: static ctx => ctx.Op
                 .Confirm(success: ctx.Working.MergeAllCoplanarFaces(tolerance: ctx.Domain.Absolute.Value, angleTolerance: ctx.Domain.Angle.Value))
                 .Bind(_ => Refreshed(ctx.Op, ctx.Working)),
             pack: static ctx => ctx.Op.Catch(() => {
                 uint packed = ctx.Working.PackFaces();
-                return Kept(ctx.Op, ctx.Working, extra: BuildReceipt<SubDSlot>.Of(slot: SubDSlot.Edited, body: new BuildBody.Tally(Count: (int)packed)));
+                return ModelGate.Kept(ctx.Op, SubDSlot.Edited, ctx.Working, extra: BuildReceipt<SubDSlot>.Of(slot: SubDSlot.Edited, body: new BuildBody.Tally(Count: (int)packed)));
             }),
             flip: static ctx => ctx.Op.Confirm(success: ctx.Working.Flip()).Bind(_ => Refreshed(ctx.Op, ctx.Working)),
-            tagVertices: static (ctx, edit) => ctx.Op.Catch(() => {
-                ctx.Working.Vertices.SetVertexTags(vertexIndices: edit.Vertices.AsIterable(), tag: edit.Tag);
-                return Refreshed(ctx.Op, ctx.Working);
-            }),
-            tagEdges: static (ctx, edit) => ctx.Op.Catch(() => {
-                ctx.Working.Edges.SetEdgeTags(edgeIndices: edit.Edges.AsIterable(), tag: edit.Tag);
-                return Refreshed(ctx.Op, ctx.Working);
-            }),
+            tagVertices: static (ctx, edit) =>
+                from _ in guard(edit.Vertices.ForAll(vertex => vertex < ctx.Working.Vertices.Count), ctx.Op.InvalidInput()).ToFin()
+                from built in ctx.Op.Catch(() => {
+                    ctx.Working.Vertices.SetVertexTags(vertexIndices: edit.Vertices.AsIterable(), tag: edit.Tag);
+                    return Refreshed(ctx.Op, ctx.Working);
+                })
+                select built,
+            tagEdges: static (ctx, edit) =>
+                from _ in guard(edit.Edges.ForAll(edge => edge < ctx.Working.Edges.Count), ctx.Op.InvalidInput()).ToFin()
+                from built in ctx.Op.Catch(() => {
+                    ctx.Working.Edges.SetEdgeTags(edgeIndices: edit.Edges.AsIterable(), tag: edit.Tag);
+                    return Refreshed(ctx.Op, ctx.Working);
+                })
+                select built,
             moveComponents: static (ctx, edit) => ctx.Op.Catch(() => {
                 uint moved = ctx.Working.TransformComponents(
                     components: edit.Components.AsIterable(), xform: edit.Motion, componentLocation: edit.Location);
@@ -295,49 +527,22 @@ public abstract partial record SubDOp {
         op.Catch(() => {
             _ = working.UpdateAllTagsAndSectorCoefficients();
             _ = working.UpdateSurfaceMeshCache(lazyUpdate: false);
-            return Kept(op, working);
+            return ModelGate.Kept(op, SubDSlot.Edited, working);
         });
 
-    private static Fin<Built<SubDSlot>> Kept(Op op, SubD working) =>
-        ModelGate.Own(built: working, key: op).Map(owned => new Built<SubDSlot>(
-            Products: Seq(owned),
-            Evidence: BuildReceipt<SubDSlot>.Of(slot: SubDSlot.Edited, body: new BuildBody.Tally(Count: 1))));
-
-    private static Fin<Built<SubDSlot>> Kept(Op op, SubD working, BuildReceipt<SubDSlot> extra) =>
-        ModelGate.Own(built: working, key: op).Map(owned => new Built<SubDSlot>(
-            Products: Seq(owned),
-            Evidence: BuildReceipt<SubDSlot>.Of(slot: SubDSlot.Edited, body: new BuildBody.Tally(Count: 1)) + extra));
-
-    private static Fin<Built<SubDSlot>> Single(Op op, SubDSlot slot, Func<GeometryBase?> run) =>
-        op.Catch(() => ModelGate.Own(built: run(), key: op).Map(owned => new Built<SubDSlot>(
-            Products: Seq(owned),
-            Evidence: BuildReceipt<SubDSlot>.Of(slot: slot, body: new BuildBody.Tally(Count: 1)))));
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static class SubDs {
-    public static Fin<Built<SubDSlot>> Build(Context context, params ReadOnlySpan<SubDOp> operations) {
-        Op op = Op.Of();
-        return from domain in Optional(context).ToFin(Fail: op.MissingContext())
-               from _ in guard(operations.Length > 0, op.InvalidInput())
-               from built in ModelGate.Folded(
-                   context: domain,
-                   operations: toSeq(operations.ToArray()),
-                   apply: static (operation, model) => operation.Apply(domain: model))
-               select built;
-    }
+    public static Fin<Built<SubDSlot>> Build(Context context, params ReadOnlySpan<SubDOp> operations) =>
+        ModelGate.Entry(
+            context: context,
+            operations: operations,
+            admit: static (operation, key) => operation.Admitted(key: key),
+            apply: static (operation, model) => operation.Apply(domain: model));
 }
 ```
 
-## [04]-[SURFACE_LEDGER]
+## [04]-[EXECUTION]
 
-| [INDEX] | [CONCERN]           | [OWNER]           | [FORM]                                              | [ENTRY]                    |
-| :-----: | :------------------ | :---------------- | :-------------------------------------------------- | :------------------------- |
-|  [01]   | crease policy       | `SubDCreationLaw` | preset rows or full `SubDCreationOptions` surface   | `SubDOp.FromMesh` / `Rig`  |
-|  [02]   | brep conversion     | `SubDBrepLaw`     | packing + extraordinary-vertex process as one value | `SubDOp.ToBrep` / `Rig`    |
-|  [03]   | primitive seeding   | `SubDSeed`        | four sphere topologies and the capped cylinder      | `SubDOp.Seed`              |
-|  [04]   | sweep modality      | `SubDSweepKind`   | one-rail with roadlike grant versus two-rail        | `SubDOp.FromSweep`         |
-|  [05]   | value-semantic edit | `SubDEditVerb`    | duplicate-edit-refresh-own verbs                    | `SubDOp.Edit`              |
-|  [06]   | crease authoring    | `SubDEditVerb`    | tag rows + unconditional tag/sector refresh         | `TagVertices` / `TagEdges` |
-|  [07]   | edge extraction     | `SubDOp`          | filtered edge curves as products                    | `SubDOp.EdgeCurves`        |
-|  [08]   | subd verbs          | `SubDOp`          | one flat `[Union]`, total generated dispatch        | `SubDs.Build`              |
+`SubDs.Build` admits every operation before `ModelGate.Folded`. Construction arms own fresh geometry, edit arms duplicate exactly once, and extraction arms detach edge curves. Native `SubDCreationOptions` and `SubDToBrepOptions` live only inside their consuming arm.

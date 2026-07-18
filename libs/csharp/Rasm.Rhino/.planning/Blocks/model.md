@@ -1,179 +1,373 @@
 # [RASM_RHINO_BLOCK_MODEL]
 
-The block state vocabulary (`Rasm.Rhino.Blocks`). One `BlockRef` union addresses a definition by id, name, or table index through one resolution fold; one `BlockSnapshot` reads the definition's whole state — identity, update and archive discriminants, layer style, member roster, usage topology — in a single pass; and the reference-scope, conflict, deletion, explode, and preview policies are compact value rows the operation rail consumes. Native enum adaptation stays at this edge: the host update-type, archive-status, and layer-style discriminants ride the snapshot as seam values, one derived `LinkState` fold over (update × status × source path) is the interior vocabulary, the census-era per-native-enum wrapper types are dead, and the wrapper-identifier roster (`DefinitionId`/`DefinitionIndex`/`DefinitionName`/`DefinitionPrefix`/`ArchivePath` and kin) collapses into the one address union. Change detection composes the document geometry probe — `GeometryCrc` chained over the member roster — and federation identity is the kernel `ContentHash` over canonical bytes; the census-era local FNV hasher is dead.
+Block state vocabulary (`Rasm.Rhino.Blocks`) owns one live address, one whole-state projection, one dependency request, and closed policy values for every mutation and preview seam. Native discriminants enter once, `LinkState` carries their interior meaning, `BlockStamp` separates process-local geometry change from federation content identity, and every sibling re-resolves the Document-owned `ResourceRef` through `Definitions.Lens` inside its document window.
 
 ## [01]-[INDEX]
 
-- [02]-[ADDRESS]: `BlockRef` — the one definition address union and its resolution fold.
-- [03]-[SNAPSHOT]: `ReferenceScope`, `SourceHealth`, the derived `LinkState` fold, `BlockUsage`, and the one `BlockSnapshot` read product with the `BlockStamp` change probe.
-- [04]-[POLICY_ROWS]: `ConflictPolicy`, `DeletionPolicy`, `ExplodePolicy`, `Placement`, and the `PreviewSpec` render request.
-- [05]-[SURFACE_LEDGER]: the page's owner table.
+| [INDEX] | [OWNER] | [CONTRACT] |
+| :-----: | :------ | :--------- |
+|  [01]   | `Definitions` | folder `ResourceLens<InstanceDefinition>` row |
+|  [02]   | `BlockSnapshot` | whole-state evidence and dependency probes |
+|  [03]   | policy values | authoring, deletion, explosion, placement, and preview decisions |
 
 ## [02]-[ADDRESS]
 
-- Owner: `BlockRef` `[Union]` — `ById` over the definition guid, `ByName` over the validated definition name, `ByIndex` over the table index; one `Resolve` fold answers the live `InstanceDefinition` and every arm treats deleted definitions as absent.
-- Law: the address is the package's one definition identity — receipts, graph vertices, and lifecycle keys carry the guid, prose-facing surfaces carry the name, and the table index appears only where the host answers one; a wrapper struct per identity form is the deleted shape.
-- Law: resolution reads live per call — the table mutates under commands and linked refresh, so no resolved handle is cached on a value; a consumer holding a `BlockRef` re-resolves at each use inside the owning operation.
-- Boundary: `Resolve` is the only site naming the table `Find` members and the roster scan; every sibling page addresses through this union.
+Document spine's `ResourceRef` is the only definition address; `Definitions.Lens` is this folder's one `ResourceLens<InstanceDefinition>` row, so resolution re-enters the mutable table per use, rejects deleted or invalid entries, and prevents a native `InstanceDefinition` from escaping its owning document window — a folder-local address union beside the lens row is the deleted form.
 
-```csharp
-// --- [TYPES] ------------------------------------------------------------------------------
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record BlockRef {
-    private BlockRef() { }
-    public sealed record ById(Guid Value) : BlockRef;
-    public sealed record ByName(string Value) : BlockRef;
-    public sealed record ByIndex(int Value) : BlockRef;
+```csharp signature
+// --- [TYPES] -------------------------------------------------------------------------------
+public static class Definitions {
+    internal static readonly ResourceLens<InstanceDefinition> Lens = new(
+        ById: static (document, id) => document.InstanceDefinitions.Find(instanceId: id, ignoreDeletedInstanceDefinitions: true),
+        ByName: static (document, name) => document.InstanceDefinitions.Find(name) is { IsDeleted: false } named ? named : null,
+        ByIndex: static (document, index) => index >= 0 && index < document.InstanceDefinitions.Count
+            && document.InstanceDefinitions[index] is { IsDeleted: false } row ? row : null);
 
-    public static Fin<BlockRef> Of(Guid id) =>
-        id != Guid.Empty
-            ? Fin.Succ<BlockRef>(value: new ById(Value: id))
-            : Fin.Fail<BlockRef>(error: Op.Of(name: nameof(BlockRef)).InvalidInput());
-
-    public static Fin<BlockRef> Of(string name) =>
-        Op.Of(name: nameof(BlockRef)).AcceptText(value: name).Map(static valid => (BlockRef)new ByName(Value: valid));
-
-    public static Fin<BlockRef> Of(int index) =>
-        index >= 0
-            ? Fin.Succ<BlockRef>(value: new ByIndex(Value: index))
-            : Fin.Fail<BlockRef>(error: Op.Of(name: nameof(BlockRef)).InvalidInput());
-
-    internal Fin<InstanceDefinition> Resolve(RhinoDoc document, Op key) =>
-        Switch(
-            state: (Document: document, Op: key),
-            byId: static (ctx, address) => Optional(ctx.Document.InstanceDefinitions.Find(
-                instanceId: address.Value, ignoreDeletedInstanceDefinitions: true)).ToFin(Fail: ctx.Op.MissingContext()),
-            byName: static (ctx, address) => Optional(ctx.Document.InstanceDefinitions.Find(address.Value))
-                .ToFin(Fail: ctx.Op.MissingContext()),
-            byIndex: static (ctx, address) => ctx.Op.Catch(() =>
-                Optional(ctx.Document.InstanceDefinitions[address.Value]).ToFin(Fail: ctx.Op.MissingContext())));
+    internal static Fin<InstanceDefinition> Resolve(ResourceRef target, RhinoDoc document, Op key) =>
+        target.Resolve(document: document, lens: Lens, key: key);
 }
 ```
 
 ## [03]-[SNAPSHOT]
 
-- Owner: `ReferenceScope` `[SmartEnum<int>]` — the host `wheretoLook` axis as named rows whose key IS the native argument: `Direct` the top-level document placements, `Nested` adding placements inside other definitions, `Worksession` adding reference-document placements. `SourceHealth` `[SmartEnum<int>]` — the linked-archive availability vocabulary over the verified native status roster. `LinkState` `[Union]` — the ONE derived fold over (update type × archive status × source path): `Static` and `Linked` with its path, embed grant, and health; the host's `Embedded` update row is obsolete and normalizes to `Static`, so a separate embedded case is unconstructible. `BlockUsage` — the split reference tally. `BlockSnapshot` — the one definition read product. `BlockStamp` — the in-process change probe chaining the document `GeometryCrc` over the member geometry roster.
-- Law: usage is queried, never assumed — the snapshot resolves `UseCount` with its top-level and nested split, `InUse` under the asked scope, and the container set before any delete or purge decision reads it; the layer, linetype, and nesting probes (`UsesLayer`, `UsesLinetype`, `UsesDefinition`) are read directly off the resolved definition at the deciding site, and a consumer counting references by scanning objects re-derives what the host already answers.
-- Law: the native discriminants stop here — `InstanceDefinitionUpdateType`, `InstanceDefinitionArchiveFileStatus`, and `InstanceDefinitionLayerStyle` ride the snapshot as seam values so evidence is never dropped, and interior branching reads `LinkState` — the one derived vocabulary — never a re-derivation of the product; a wrapper row type per native enum is the deleted form.
-- Law: a linked state demands its source — `LinkState.Of` refuses a linked update type whose source archive is blank, because every linked-source transition on the operation rail addresses that path; the health rows split not-found from not-readable from the three drift directions so refresh policy dispatches on the row.
-- Law: identity is two probes with distinct scopes — `BlockStamp` answers "did this definition's geometry change inside this process" for cache and preview invalidation, and federation identity composes the kernel `ContentHash` over the kernel's canonical byte encode; a host CRC persisted as durable identity is the deleted form because the CRC is host-version-local.
-- Growth: a new definition fact is one snapshot field read in the same pass; a new scope is one `ReferenceScope` row; a new availability state is one `SourceHealth` row.
+`BlockSnapshot` resolves its `ResourceRef` through `Definitions.Lens`, then captures identity, normalized source state, member order, placed-reference evidence, usage, containers, and both change probes in one host read. Member admission revalidates geometry and attributes with native diagnostic evidence before either enters identity. `BlockDependency` admits table indexes against their live bounds before one table fold composes the native dependency probes; its single integer result is `0` when absent, `1` for a present table dependency, and the host nesting depth for a definition dependency.
 
-```csharp
-// --- [TYPES] ------------------------------------------------------------------------------
+`LinkState` normalizes obsolete `Embedded` definitions to `Static`. Linked cases require a nonblank source and preserve embed, tenuous, nested-link, layer-style, and archive-health evidence for refresh policy.
+
+`BlockStamp.Geometry` remains an in-process invalidation probe. `BlockStamp.Content` hashes length-prefixed definition fields and a detached `File3dm` serialization of every admitted geometry and attribute payload. Ordinal-derived archive ids preserve member order without admitting live definition, member, or archive-minted identity.
+
+```csharp signature
+// --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+using System.Buffers.Binary;
+using System.Numerics;
+using System.Runtime.CompilerServices;
+using System.Text;
+using CommunityToolkit.HighPerformance.Buffers;
+
+// --- [TYPES] -------------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class ReferenceScope {
-    public static readonly ReferenceScope Direct = new(key: 0);
-    public static readonly ReferenceScope Nested = new(key: 1);
-    public static readonly ReferenceScope Worksession = new(key: 2);
+    public static readonly ReferenceScope Direct = new(key: 0, hostValue: 0);
+    public static readonly ReferenceScope Nested = new(key: 1, hostValue: 1);
+    public static readonly ReferenceScope Definition = new(key: 2, hostValue: 2);
+
+    public int HostValue { get; }
 }
 
 [SmartEnum<int>]
 public sealed partial class SourceHealth {
-    public static readonly SourceHealth Current = new(key: 0, stale: false, broken: false);
-    public static readonly SourceHealth Newer = new(key: 1, stale: true, broken: false);
-    public static readonly SourceHealth Older = new(key: 2, stale: true, broken: false);
-    public static readonly SourceHealth Different = new(key: 3, stale: true, broken: false);
-    public static readonly SourceHealth NotFound = new(key: 4, stale: false, broken: true);
-    public static readonly SourceHealth Unreadable = new(key: 5, stale: false, broken: true);
+    public static readonly SourceHealth Current = new(key: (int)InstanceDefinitionArchiveFileStatus.LinkedFileIsUpToDate, stale: false, broken: false);
+    public static readonly SourceHealth Newer = new(key: (int)InstanceDefinitionArchiveFileStatus.LinkedFileIsNewer, stale: true, broken: false);
+    public static readonly SourceHealth Older = new(key: (int)InstanceDefinitionArchiveFileStatus.LinkedFileIsOlder, stale: true, broken: false);
+    public static readonly SourceHealth Different = new(key: (int)InstanceDefinitionArchiveFileStatus.LinkedFileIsDifferent, stale: true, broken: false);
+    public static readonly SourceHealth NotFound = new(key: (int)InstanceDefinitionArchiveFileStatus.LinkedFileNotFound, stale: false, broken: true);
+    public static readonly SourceHealth Unreadable = new(key: (int)InstanceDefinitionArchiveFileStatus.LinkedFileNotReadable, stale: false, broken: true);
 
     public bool Stale { get; }
     public bool Broken { get; }
 
     internal static Option<SourceHealth> Of(InstanceDefinitionArchiveFileStatus status) =>
-        status switch {
-            InstanceDefinitionArchiveFileStatus.LinkedFileIsUpToDate => Some(Current),
-            InstanceDefinitionArchiveFileStatus.LinkedFileIsNewer => Some(Newer),
-            InstanceDefinitionArchiveFileStatus.LinkedFileIsOlder => Some(Older),
-            InstanceDefinitionArchiveFileStatus.LinkedFileIsDifferent => Some(Different),
-            InstanceDefinitionArchiveFileStatus.LinkedFileNotFound => Some(NotFound),
-            InstanceDefinitionArchiveFileStatus.LinkedFileNotReadable => Some(Unreadable),
-            _ => Option<SourceHealth>.None,
-        };
+        TryGet((int)status, out SourceHealth? found) ? Some(found) : Option<SourceHealth>.None;
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record LinkState {
     private LinkState() { }
     public sealed record Static : LinkState;
-    public sealed record Linked(string Path, bool AlsoEmbedded, SourceHealth Health) : LinkState;
+    public sealed record Linked(
+        string Path,
+        bool AlsoEmbedded,
+        SourceHealth Health,
+        InstanceDefinitionLayerStyle LayerStyle,
+        bool Tenuous,
+        bool SkipNested) : LinkState;
 
-    internal static Fin<LinkState> Of(
-        InstanceDefinitionUpdateType update,
-        InstanceDefinitionArchiveFileStatus status,
-        Option<string> source,
-        Op key) =>
-        update switch {
-            InstanceDefinitionUpdateType.Static => Fin.Succ<LinkState>(value: new Static()),
+    internal static Fin<LinkState> Of(InstanceDefinition definition, Op key) =>
+        definition.UpdateType switch {
+            InstanceDefinitionUpdateType.Static or InstanceDefinitionUpdateType.Embedded =>
+                Fin.Succ<LinkState>(value: new Static()),
             InstanceDefinitionUpdateType.Linked or InstanceDefinitionUpdateType.LinkedAndEmbedded =>
-                from path in source.ToFin(Fail: key.InvalidResult(detail: nameof(InstanceDefinition.SourceArchive)))
-                from health in SourceHealth.Of(status: status).ToFin(Fail: key.InvalidResult(detail: status.ToString()))
+                from path in key.AcceptText(value: definition.SourceArchive)
+                from health in SourceHealth.Of(status: definition.ArchiveFileStatus)
+                    .ToFin(Fail: key.InvalidResult(detail: definition.ArchiveFileStatus.ToString()))
                 select (LinkState)new Linked(
                     Path: path,
-                    AlsoEmbedded: update is InstanceDefinitionUpdateType.LinkedAndEmbedded,
-                    Health: health),
-            var legacy => Fin.Fail<LinkState>(error: key.InvalidResult(detail: legacy.ToString())),
+                    AlsoEmbedded: definition.UpdateType is InstanceDefinitionUpdateType.LinkedAndEmbedded,
+                    Health: health,
+                    LayerStyle: definition.LayerStyle,
+                    Tenuous: definition.IsTenuous,
+                    SkipNested: definition.SkipNestedLinkedDefinitions),
+            var unknown => Fin.Fail<LinkState>(error: key.InvalidResult(detail: unknown.ToString())),
         };
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
-public readonly record struct BlockUsage(int Total, int TopLevel, int Nested);
+[Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record BlockDependency {
+    private BlockDependency() { }
+    public sealed record Layer(int Index) : BlockDependency;
+    public sealed record Linetype(int Index) : BlockDependency;
+    public sealed record Definition(ResourceRef Target) : BlockDependency;
+
+    internal Fin<int> Measure(InstanceDefinition owner, RhinoDoc document, Op key) => Switch(
+        context: (Owner: owner, Document: document, Op: key),
+        layer: static (context, probe) => MeasureTable(
+            index: probe.Index,
+            owner: context.Owner,
+            document: context.Document,
+            count: static active => active.Layers.Count,
+            includes: static (definition, index) => definition.UsesLayer(layerIndex: index),
+            op: context.Op),
+        linetype: static (context, probe) => MeasureTable(
+            index: probe.Index,
+            owner: context.Owner,
+            document: context.Document,
+            count: static active => active.Linetypes.Count,
+            includes: static (definition, index) => definition.UsesLinetype(linetypeIndex: index),
+            op: context.Op),
+        definition: static (context, probe) => Definitions.Resolve(
+                target: probe.Target,
+                document: context.Document,
+                key: context.Op)
+            .Bind(nested => context.Op.Catch(() => Fin.Succ(
+                value: context.Owner.UsesDefinition(otherIdefIndex: nested.Index)))));
+
+    private static Fin<int> MeasureTable(
+        int index,
+        InstanceDefinition owner,
+        RhinoDoc document,
+        Func<RhinoDoc, int> count,
+        Func<InstanceDefinition, int, bool> includes,
+        Op op) => op.Catch(() => index >= 0 && index < count(arg: document)
+        ? Fin.Succ(value: includes(arg1: owner, arg2: index) ? 1 : 0)
+        : Fin.Fail<int>(error: op.InvalidInput()));
+}
+
+// --- [MODELS] ------------------------------------------------------------------------------
+[ComplexValueObject]
+public sealed partial class BlockUsage {
+    public int Total { get; }
+    public int TopLevel { get; }
+    public int Nested { get; }
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref int total,
+        ref int topLevel,
+        ref int nested) =>
+        validationError = total >= 0 && topLevel >= 0 && nested >= 0 && total == topLevel + nested
+            ? validationError
+            : new ValidationError(message: "usage counts are inconsistent");
+
+    internal static Fin<BlockUsage> Of(int total, int topLevel, int nested, Op key) {
+        ValidationError? error = Validate(total, topLevel, nested, out BlockUsage? usage);
+        return error is null && usage is not null
+            ? Fin.Succ(value: usage)
+            : Fin.Fail<BlockUsage>(error: key.InvalidResult(detail: error?.ToString() ?? nameof(BlockUsage)));
+    }
+}
+
+public sealed record BlockStamp(GeometryCrc Geometry, UInt128 Content);
+
+internal sealed record BlockMemberProjection(
+    Guid Id,
+    GeometryBase Geometry,
+    ObjectAttributes Attributes);
+
+public sealed record BlockPlacement(Guid Id, Transform Motion, Point3d Insertion);
 
 public sealed record BlockSnapshot(
     Guid Key,
     int Index,
     string Name,
     Option<string> Description,
-    InstanceDefinitionUpdateType UpdateType,
-    InstanceDefinitionArchiveFileStatus ArchiveStatus,
-    InstanceDefinitionLayerStyle LayerStyle,
     LinkState Link,
     int ObjectCount,
     Seq<Guid> MemberIds,
+    Seq<BlockPlacement> Placements,
     BlockUsage Usage,
     bool InUse,
-    Seq<int> ContainerIndexes) {
-    public static Fin<BlockSnapshot> Of(InstanceDefinition definition, ReferenceScope scope, Op key) =>
-        Optional(definition).ToFin(Fail: key.InvalidInput()).Bind(active => key.Catch(() => {
+    Seq<int> ContainerIndexes,
+    BlockStamp Stamp) {
+    public static Fin<BlockSnapshot> Of(ResourceRef target, RhinoDoc document, ReferenceScope scope, Op key) =>
+        from address in Optional(target).ToFin(Fail: key.InvalidInput())
+        from owner in Optional(document).ToFin(Fail: key.InvalidInput())
+        from referenceScope in Optional(scope).ToFin(Fail: key.InvalidInput())
+        from active in Definitions.Resolve(target: address, document: owner, key: key)
+        from snapshot in key.Catch(() => {
+            Seq<RhinoObject> members = toSeq(active.GetObjects());
+            Seq<InstanceObject> references = toSeq(active.GetReferences(wheretoLook: referenceScope.HostValue));
             int total = active.UseCount(topLevelReferenceCount: out int topLevel, nestedReferenceCount: out int nested);
-            Option<string> source = Optional(active.SourceArchive).Filter(static path => path.Length > 0);
-            return LinkState.Of(update: active.UpdateType, status: active.ArchiveFileStatus, source: source, key: key)
-                .Map(link => new BlockSnapshot(
-                    Key: active.Id,
-                    Index: active.Index,
-                    Name: active.Name,
-                    Description: Optional(active.Description).Filter(static text => text.Length > 0),
-                    UpdateType: active.UpdateType,
-                    ArchiveStatus: active.ArchiveFileStatus,
-                    LayerStyle: active.LayerStyle,
-                    Link: link,
-                    ObjectCount: active.ObjectCount,
-                    MemberIds: toSeq(active.GetObjects()).Map(static member => member.Id),
-                    Usage: new BlockUsage(Total: total, TopLevel: topLevel, Nested: nested),
-                    InUse: active.InUse(wheretoLook: (int)scope),
-                    ContainerIndexes: toSeq(active.GetContainers()).Map(static container => container.Index)));
-        }));
-}
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
-public static class BlockStamp {
-    public static Fin<GeometryCrc> Of(InstanceDefinition definition, Op key) =>
-        Optional(definition).ToFin(Fail: key.InvalidInput()).Bind(active => key.Catch(() =>
-            Fin.Succ(value: GeometryCrc.Create(value: toSeq(active.GetObjects())
-                .Choose(static member => Optional(member.Geometry))
-                .Fold(0u, static (chain, geometry) => geometry.DataCRC(currentRemainder: chain))))));
+            return from projected in members
+                       .Traverse(member => (
+                           Optional(member).ToFin(Fail: key.InvalidResult()).ToValidation(),
+                           guard(member.Id != Guid.Empty, key.InvalidResult()).ToFin().ToValidation(),
+                           Optional(member.Geometry).ToFin(Fail: key.InvalidResult()).ToValidation(),
+                           Optional(member.Attributes).ToFin(Fail: key.InvalidResult()).ToValidation())
+                           .Apply(static (owner, _, shape, attributes) => new BlockMemberProjection(
+                               Id: owner.Id,
+                               Geometry: shape,
+                               Attributes: attributes))
+                       .As())
+                       .As()
+                       .ToFin()
+                   from placements in references
+                       .Traverse(reference => Optional(reference)
+                           .ToFin(Fail: key.InvalidResult())
+                           .Bind(placed => guard(placed.Id != Guid.Empty, key.InvalidResult()).ToFin()
+                               .Map(_ => new BlockPlacement(
+                                   Id: placed.Id,
+                                   Motion: placed.InstanceXform,
+                                   Insertion: placed.InsertionPoint)))
+                           .ToValidation())
+                       .As()
+                       .ToFin()
+                   from _valid in projected
+                       .Traverse(member => (
+                           Valid(member.Geometry, key).ToValidation(),
+                           Valid(member.Attributes, key).ToValidation())
+                           .Apply(static (_, _) => unit)
+                           .As())
+                       .As()
+                       .ToFin()
+                   from _ in guard(projected.Count == active.ObjectCount, key.InvalidResult()).ToFin()
+                   let memberIds = projected.Map(static member => member.Id)
+                   let crc = projected.Fold(0u, static (chain, member) =>
+                       member.Geometry.DataCRC(currentRemainder: chain))
+                   let geometry = GeometryCrc.Create(value: crc)
+                   from link in LinkState.Of(definition: active, key: key)
+                   from usage in BlockUsage.Of(total: total, topLevel: topLevel, nested: nested, key: key)
+                   let description = Optional(active.Description).Filter(static text => text.Length > 0)
+                   from content in Identity(
+                       name: active.Name,
+                       description: description,
+                       update: active.UpdateType,
+                       status: active.ArchiveFileStatus,
+                       style: active.LayerStyle,
+                       source: Optional(active.SourceArchive).Filter(static path => path.Length > 0),
+                       tenuous: active.IsTenuous,
+                       skipNested: active.SkipNestedLinkedDefinitions,
+                       objectCount: active.ObjectCount,
+                       crc: crc,
+                       members: projected,
+                       op: key)
+                   select new BlockSnapshot(
+                       Key: active.Id,
+                       Index: active.Index,
+                       Name: active.Name,
+                       Description: description,
+                       Link: link,
+                       ObjectCount: active.ObjectCount,
+                       MemberIds: memberIds,
+                       Placements: placements,
+                       Usage: usage,
+                       InUse: !placements.IsEmpty,
+                       ContainerIndexes: toSeq(active.GetContainers()).Map(static container => container.Index),
+                       Stamp: new BlockStamp(Geometry: geometry, Content: content));
+        })
+        select snapshot;
+
+    public Fin<int> Probe(BlockDependency dependency, RhinoDoc document, Op key) =>
+        Optional(dependency).ToFin(Fail: key.InvalidInput())
+            .Bind(active => Resolve(document: document, key: key)
+                .Bind(owner => active.Measure(owner: owner, document: document, key: key)));
+
+    private Fin<InstanceDefinition> Resolve(RhinoDoc document, Op key) =>
+        ResourceRef.Of(id: Key).Bind(target => Definitions.Resolve(target: target, document: document, key: key));
+
+    private static Fin<UInt128> Identity(
+        string name,
+        Option<string> description,
+        InstanceDefinitionUpdateType update,
+        InstanceDefinitionArchiveFileStatus status,
+        InstanceDefinitionLayerStyle style,
+        Option<string> source,
+        bool tenuous,
+        bool skipNested,
+        int objectCount,
+        uint crc,
+        Seq<BlockMemberProjection> members,
+        Op op) => op.Catch(() => {
+        using ArrayPoolBufferWriter<byte> bytes = new();
+        Write(bytes: bytes, value: name);
+        Write(bytes: bytes, value: description.IfNone(string.Empty));
+        Write(bytes: bytes, value: (int)update);
+        Write(bytes: bytes, value: (int)status);
+        Write(bytes: bytes, value: (int)style);
+        Write(bytes: bytes, value: source.IfNone(string.Empty));
+        Write(bytes: bytes, value: tenuous);
+        Write(bytes: bytes, value: skipNested);
+        Write(bytes: bytes, value: objectCount);
+        Write(bytes: bytes, value: crc);
+        Write(bytes: bytes, value: members.Count);
+
+        using File3dm archive = new();
+        Seq<(Guid Expected, Guid Actual)> archived = members
+            .Map((member, index) => {
+                Guid expected = ArchiveId(ordinal: index);
+                using ObjectAttributes attributes = member.Attributes.Duplicate();
+                attributes.ObjectId = expected;
+                return (
+                    Expected: expected,
+                    Actual: archive.Objects.Add(item: member.Geometry, attributes: attributes));
+            })
+            .Strict();
+        return from _ in archived
+                   .Traverse(row => guard(row.Actual == row.Expected, op.InvalidResult()).ToFin().ToValidation())
+                   .As()
+                   .ToFin()
+               from payload in Optional(archive.ToByteArray()).ToFin(Fail: op.InvalidResult())
+               let __ = Write(bytes: bytes, value: payload)
+               select ContentHash.Of(canonicalBytes: bytes.WrittenSpan);
+    });
+
+    private static Guid ArchiveId(int ordinal) {
+        Span<byte> bytes = stackalloc byte[16];
+        BinaryPrimitives.WriteInt32BigEndian(destination: bytes[^sizeof(int)..], value: checked(ordinal + 1));
+        return new Guid(bytes, bigEndian: true);
+    }
+
+    private static Fin<Unit> Valid(Rhino.Runtime.CommonObject value, Op op) => op.Catch(() =>
+        value.IsValidWithLog(out string log)
+            ? Fin.Succ(value: unit)
+            : Fin.Fail<Unit>(error: new Fault.InvalidValue(
+                Label: value.GetType().Name,
+                Requirement: string.IsNullOrWhiteSpace(value: log) ? "Native object validity failed." : log,
+                Key: Some(op))));
+
+    private static void Write<T>(ArrayPoolBufferWriter<byte> bytes, T value) where T : unmanaged, IBinaryInteger<T> {
+        _ = value.TryWriteBigEndian(destination: bytes.GetSpan(sizeHint: Unsafe.SizeOf<T>()), bytesWritten: out int written);
+        bytes.Advance(count: written);
+    }
+
+    private static void Write(ArrayPoolBufferWriter<byte> bytes, bool value) =>
+        Write(bytes: bytes, value: value ? 1 : 0);
+
+    private static void Write(ArrayPoolBufferWriter<byte> bytes, string value) {
+        int count = Encoding.UTF8.GetByteCount(value: value);
+        Write(bytes: bytes, value: count);
+        _ = Encoding.UTF8.GetBytes(value, bytes.GetSpan(sizeHint: count));
+        bytes.Advance(count: count);
+    }
+
+    private static Unit Write(ArrayPoolBufferWriter<byte> bytes, byte[] value) {
+        Write(bytes: bytes, value: value.Length);
+        value.AsSpan().CopyTo(destination: bytes.GetSpan(sizeHint: value.Length));
+        bytes.Advance(count: value.Length);
+        return unit;
+    }
 }
 ```
 
-## [04]-[POLICY_ROWS]
+## [04]-[POLICY_VALUES]
 
-- Owner: `ConflictPolicy` `[SmartEnum<int>]` — the authoring collision decision: `Fail` refuses an existing name, `Reuse` returns the existing definition, `Mint` derives an unused name through the host name minter; `DeletionPolicy` — the reference and reporting decision a delete carries; `ExplodePolicy` — nesting depth and the viewport-scoped hidden-piece skip as one value; `Placement` — one validated instance placement: transform, attributes, history, reference grant; `PreviewSpec` `[Union]` — the two verified render requests: the standard projection render and the axonometric render with its display-mode id, camera, and decoration grant.
-- Law: a policy arrives pre-constructed and carries the whole decision — the operation rail dispatches the value it was handed and reconstructs nothing; a boolean tail re-deriving conflict or explode behavior at a call site is the deleted form.
-- Law: a placement admits only a valid transform — the factory refuses an invalid motion so the host placement member never sees one, and the reference grant is placement data because reference objects enter worksessions differently.
-- Law: the preview request discriminates the host overload — the two `CreatePreviewBitmap` signatures are two cases of one request, so a caller states what it wants and never selects an overload; the rendered product crosses as an owned lease, never a bare bitmap field.
+Closed policy owners carry host arguments as data. Operations dispatch `ConflictPolicy`, `DeletionPolicy`, `ExplodePolicy`, `Placement`, and `BlockPreview`; call sites never reconstruct those decisions from boolean tails or nullable overload slots.
 
-```csharp
-// --- [TYPES] ------------------------------------------------------------------------------
+`BlockPreview` selects all verified preview modalities, including member selection. `PreviewExtent` carries dimensions and their width, height, and pixel budget through one admission gate; `PreviewFrame` admits projection, extent, and raster scale once for every modality, while each case carries only its distinct target, display, camera, and decoration evidence. A rendered bitmap crosses only through lifecycle custody, and generated union dispatch selects each host overload once from its admitted case.
+
+```csharp signature
+// --- [TYPES] -------------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class ConflictPolicy {
     public static readonly ConflictPolicy Fail = new(key: 0);
@@ -181,62 +375,196 @@ public sealed partial class ConflictPolicy {
     public static readonly ConflictPolicy Mint = new(key: 2);
 }
 
+[SmartEnum<int>]
+public sealed partial class DeletionPolicy {
+    public static readonly DeletionPolicy RetainReferences = new(key: 0, deleteReferences: false, quiet: true);
+    public static readonly DeletionPolicy Cascade = new(key: 1, deleteReferences: true, quiet: true);
+    public static readonly DeletionPolicy InteractiveCascade = new(key: 2, deleteReferences: true, quiet: false);
+
+    public bool DeleteReferences { get; }
+    public bool Quiet { get; }
+}
+
+[SmartEnum<int>]
+public sealed partial class ExplodeDepth {
+    public static readonly ExplodeDepth Shallow = new(key: 0, nested: false);
+    public static readonly ExplodeDepth Recursive = new(key: 1, nested: true);
+
+    public bool Nested { get; }
+}
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record PreviewSpec {
-    private PreviewSpec() { }
-    public sealed record Standard(
-        DefinedViewportProjection Projection,
-        DisplayMode Mode,
-        System.Drawing.Size Size,
-        bool DpiScaling = true) : PreviewSpec;
-    public sealed record Axonometric(
-        Guid DisplayModeId,
-        DefinedViewportProjection Projection,
-        IsometricCamera Camera,
-        System.Drawing.Size Size,
-        bool Decorations = false,
-        bool DpiScaling = true) : PreviewSpec;
+public abstract partial record ExplodePolicy {
+    private ExplodePolicy() { }
+    public sealed record All(ExplodeDepth Depth) : ExplodePolicy;
+    public sealed record Visible(ExplodeDepth Depth, Guid ViewportId) : ExplodePolicy;
+}
+
+[SmartEnum<int>]
+public sealed partial class PlacementKind {
+    public static readonly PlacementKind Ordinary = new(key: 0, isReference: false);
+    public static readonly PlacementKind Reference = new(key: 1, isReference: true);
+
+    public bool IsReference { get; }
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record Placement {
+    private Placement() { }
+    public sealed record Bare(Transform Motion) : Placement;
+    public sealed record Attributed(Transform Motion, ObjectAttributes Attributes) : Placement;
+    public sealed record Recorded(
+        Transform Motion,
+        ObjectAttributes Attributes,
+        HistoryRecord History,
+        PlacementKind Kind) : Placement;
+}
+
+[ComplexValueObject]
+public sealed partial class PreviewExtent {
+    public int Width { get; }
+    public int Height { get; }
+    public int MaxWidth { get; }
+    public int MaxHeight { get; }
+    public long MaxPixels { get; }
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref int width,
+        ref int height,
+        ref int maxWidth,
+        ref int maxHeight,
+        ref long maxPixels) =>
+        validationError = width > 0
+            && height > 0
+            && maxWidth > 0
+            && maxHeight > 0
+            && maxPixels > 0
+            && width <= maxWidth
+            && height <= maxHeight
+            && width <= maxPixels / height
+            ? validationError
+            : new ValidationError(message: "preview extent is invalid");
+
+    internal System.Drawing.Size ToSize() => new(width: Width, height: Height);
+}
+
+[SmartEnum<int>]
+public sealed partial class RasterScale {
+    public static readonly RasterScale Device = new(key: 0, applyDpiScaling: true);
+    public static readonly RasterScale Pixel = new(key: 1, applyDpiScaling: false);
+
+    public bool ApplyDpiScaling { get; }
+}
+
+[ComplexValueObject]
+internal sealed partial class PreviewFrame {
+    public DefinedViewportProjection Projection { get; }
+    public PreviewExtent Extent { get; }
+    public RasterScale Scale { get; }
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref DefinedViewportProjection projection,
+        ref PreviewExtent extent,
+        ref RasterScale scale) =>
+        validationError = !Enum.IsDefined(value: projection) || extent is null || scale is null
+            ? new ValidationError(message: "preview frame is invalid")
+            : null;
+
+    internal static Fin<PreviewFrame> Of(
+        DefinedViewportProjection projection,
+        PreviewExtent extent,
+        RasterScale scale,
+        Op key) => Admission.Admitted(
+            fault: Validate(projection, extent, scale, out PreviewFrame? admitted),
+            value: admitted,
+            refusal: key.InvalidInput());
+}
+
+[SmartEnum<int>]
+public sealed partial class PreviewDecoration {
+    public static readonly PreviewDecoration Plain = new(key: 0, draw: false);
+    public static readonly PreviewDecoration Drawn = new(key: 1, draw: true);
+
+    public bool Draw { get; }
+}
+
+[Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record BlockPreview {
+    private BlockPreview() { }
+    private sealed record StandardCase(PreviewFrame Frame, DisplayMode Mode) : BlockPreview;
+    private sealed record SelectedCase(
+        Guid MemberId, PreviewFrame Frame, DisplayMode Mode) : BlockPreview;
+    private sealed record AxonometricCase(
+        Guid DisplayModeId, PreviewFrame Frame, IsometricCamera Camera, PreviewDecoration Decoration) : BlockPreview;
+
+    public static Fin<BlockPreview> Standard(
+        DefinedViewportProjection projection, DisplayMode mode, PreviewExtent extent, RasterScale scale, Op key) =>
+        (PreviewFrame.Of(projection: projection, extent: extent, scale: scale, key: key).ToValidation(),
+         guard(Enum.IsDefined(value: mode), key.InvalidInput()).ToFin().ToValidation())
+        .Apply((frame, _) => (BlockPreview)new StandardCase(Frame: frame, Mode: mode))
+        .As()
+        .ToFin();
+
+    public static Fin<BlockPreview> Selected(
+        Guid memberId, DefinedViewportProjection projection, DisplayMode mode,
+        PreviewExtent extent, RasterScale scale, Op key) =>
+        (guard(memberId != Guid.Empty, key.InvalidInput()).ToFin().ToValidation(),
+         PreviewFrame.Of(projection: projection, extent: extent, scale: scale, key: key).ToValidation(),
+         guard(Enum.IsDefined(value: mode), key.InvalidInput()).ToFin().ToValidation())
+        .Apply((_, frame, _) => (BlockPreview)new SelectedCase(MemberId: memberId, Frame: frame, Mode: mode))
+        .As()
+        .ToFin();
+
+    public static Fin<BlockPreview> Axonometric(
+        Guid displayModeId, DefinedViewportProjection projection, IsometricCamera camera,
+        PreviewExtent extent, PreviewDecoration decoration, RasterScale scale, Op key) =>
+        (guard(displayModeId != Guid.Empty, key.InvalidInput()).ToFin().ToValidation(),
+         PreviewFrame.Of(projection: projection, extent: extent, scale: scale, key: key).ToValidation(),
+         guard(Enum.IsDefined(value: camera), key.InvalidInput()).ToFin().ToValidation(),
+         Optional(decoration).ToFin(Fail: key.InvalidInput()).ToValidation())
+        .Apply((_, frame, _, admittedDecoration) =>
+            (BlockPreview)new AxonometricCase(
+                DisplayModeId: displayModeId, Frame: frame, Camera: camera, Decoration: admittedDecoration))
+        .As()
+        .ToFin();
 
     internal Fin<System.Drawing.Bitmap> Render(InstanceDefinition definition, Op key) =>
         Switch(
-            state: (Definition: definition, Op: key),
-            standard: static (ctx, spec) => ctx.Op.Catch(() => Optional(ctx.Definition.CreatePreviewBitmap(
-                definedViewportProjection: spec.Projection, displayMode: spec.Mode,
-                bitmapSize: spec.Size, applyDpiScaling: spec.DpiScaling)).ToFin(Fail: ctx.Op.InvalidResult())),
-            axonometric: static (ctx, spec) => ctx.Op.Catch(() => Optional(ctx.Definition.CreatePreviewBitmap(
-                displayModeId: spec.DisplayModeId, viewportProjection: spec.Projection, isometricCamera: spec.Camera,
-                drawDecorations: spec.Decorations, bitmapSize: spec.Size, applyDpiScaling: spec.DpiScaling)).ToFin(Fail: ctx.Op.InvalidResult())));
-}
-
-// --- [MODELS] -----------------------------------------------------------------------------
-public readonly record struct DeletionPolicy(bool DeleteReferences = true, bool Quiet = true);
-
-public readonly record struct ExplodePolicy(bool Nested = false, Option<Guid> SkipHiddenInViewport = default);
-
-public sealed record Placement(
-    Transform Motion,
-    Option<ObjectAttributes> Attributes = default,
-    Option<HistoryRecord> History = default,
-    bool Reference = false) {
-    public static Fin<Placement> Of(
-        Transform motion,
-        Option<ObjectAttributes> attributes = default,
-        Option<HistoryRecord> history = default,
-        bool reference = false) =>
-        motion.IsValid
-            ? Fin.Succ(value: new Placement(Motion: motion, Attributes: attributes, History: history, Reference: reference))
-            : Fin.Fail<Placement>(error: Op.Of(name: nameof(Placement)).InvalidInput());
+            context: (Definition: definition, Op: key),
+            standardCase: static (context, spec) => context.Op.Catch(() => Optional(context.Definition.CreatePreviewBitmap(
+                    definedViewportProjection: spec.Frame.Projection,
+                    displayMode: spec.Mode,
+                    bitmapSize: spec.Frame.Extent.ToSize(),
+                    applyDpiScaling: spec.Frame.Scale.ApplyDpiScaling))
+                .ToFin(Fail: context.Op.InvalidResult())),
+            selectedCase: static (context, spec) => context.Op.Catch(() => Optional(context.Definition.CreatePreviewBitmap(
+                    definitionObjectId: spec.MemberId,
+                    viewportProjection: spec.Frame.Projection,
+                    displayMode: spec.Mode,
+                    bitmapSize: spec.Frame.Extent.ToSize(),
+                    applyDpiScaling: spec.Frame.Scale.ApplyDpiScaling))
+                .ToFin(Fail: context.Op.InvalidResult())),
+            axonometricCase: static (context, spec) => context.Op.Catch(() => Optional(context.Definition.CreatePreviewBitmap(
+                    displayModeId: spec.DisplayModeId,
+                    viewportProjection: spec.Frame.Projection,
+                    isometricCamera: spec.Camera,
+                    drawDecorations: spec.Decoration.Draw,
+                    bitmapSize: spec.Frame.Extent.ToSize(),
+                    applyDpiScaling: spec.Frame.Scale.ApplyDpiScaling))
+                .ToFin(Fail: context.Op.InvalidResult())));
 }
 ```
 
 ## [05]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]          | [OWNER]          | [FORM]                                          | [ENTRY]                      |
-| :-----: | :----------------- | :--------------- | :---------------------------------------------- | :--------------------------- |
-|  [01]   | definition address | `BlockRef`       | one union: id, name, index                      | `Of` / `Resolve`             |
-|  [02]   | reference scope    | `ReferenceScope` | rows whose key is the native `wheretoLook`      | `(int)scope`                 |
-|  [03]   | definition state   | `BlockSnapshot`  | one-pass read, native discriminants at the seam | `Of(definition, scope, key)` |
-|  [04]   | link vocabulary    | `LinkState`      | one derived fold over update × status × source  | `BlockSnapshot.Link`         |
-|  [05]   | change probe       | `BlockStamp`     | chained `GeometryCrc` over the member roster    | `Of(definition, key)`        |
-|  [06]   | operation policies | `ConflictPolicy` | conflict, deletion, explode, placement rows     | operation rail payloads      |
-|  [07]   | preview request    | `PreviewSpec`    | two verified render overloads as one union      | `Render(definition, key)`    |
+| [INDEX] | [OWNER] | [KIND] | [INGRESS] | [EGRESS] |
+| :-----: | :------ | :----- | :-------- | :------- |
+|  [01]   | `Definitions` | lens row | `Lens` | `Resolve` |
+|  [02]   | `BlockSnapshot` | record | `Of` · `Probe` | state · dependency measure |
+|  [03]   | `LinkState` | union | `Of` | static or linked evidence |
+|  [04]   | policy owners | generated values | generated admission | native arguments |
+|  [05]   | `BlockPreview` | union | factories | `Render` |

@@ -1,6 +1,6 @@
 # [RASM_RHINO_RENDER_CONTENT]
 
-RDK content (`Rasm.Rhino.Render`) resolves one `ContentRef` address, routes all document-table behavior through `ContentKind`, brackets direct state writes through `ChangeScope`, snapshots detached identity and topology through `ContentSnapshot`, reads host-derived hashes through `HashProbe`, and mints serialized content through `ContentIo`. Native discriminants stop at this edge, live `RenderContent` values stay inside their demand window, and every unattached mint remains an owned `Lease<RenderContent>` until attachment transfers custody or disposal releases it.
+`ContentRef` owns live RDK graph identity across resolution, table routing, scoped mutation, detached topology, replayable hash evidence, and serialized ingress. `ContentKind`, `ContentStyle`, `ProxyKind`, `ChangeReason`, and `HashAxis` translate native discriminants once; every live `RenderContent` remains demand-window bound, and every unattached mint remains an owned `Lease<RenderContent>`.
 
 ## [01]-[INDEX]
 
@@ -12,8 +12,8 @@ RDK content (`Rasm.Rhino.Render`) resolves one `ContentRef` address, routes all 
 
 ## [02]-[KIND_AND_REASON]
 
-- Owner: `ContentKind` `[SmartEnum<int>]` — the material/environment/texture axis whose key IS the native `RenderContentKind` value and whose columns are each kind's consumed document-table behavior: attach, detach, change-scope open/close, and roster; unified lookup remains `ContentRef.Resolve`, so no decorative per-table find column survives. `ChangeReason` `[SmartEnum<int>]` — the host `RenderContent.ChangeContexts` roster as named rows whose key IS the native value, so `Native` derives from the key and `Of` recovers a delivered native context through keyed lookup, total over the host roster. `ChangeScope` — the internal write bracket: `BeginChange(reason)` opens, the body runs trapped, `EndChange` closes on every exit.
-- Law: kind is derived, never asked — `ContentKind.Of(RenderContent)` classifies by the subclass the instance already is, so no consumer re-tests `is RenderMaterial` beside the vocabulary, and a fourth content kind is one row with its table columns.
+- Owner: `ContentKind` rows own kind-specific table behavior, `ContentStyle` validates and decomposes the complete native capability mask, `ProxyKind` classifies proxy topology, `ChangeReason` translates change context, and `ChangeScope` closes every direct mutation bracket. Sibling mutation rails commit through the Document spine's `DocumentCommit.Sealed` envelope (which owns the suppress/restore/flush bracket), and `Seam` carries the folder-wide projections — `Row` (native discriminant onto its vocabulary row), `Leased` (unattached mint into owned custody), `Quantized` (`PerceptualColor` onto the host byte color); a generated multi-member `Validate` outcome lifts through the kernel `Op.AcceptValidated` outcome rows, never a folder-local lifter.
+- Law: kind is derived, never asked — each `ContentKind` row carries its runtime carrier type, `ContentKind.Of(RenderContent, Op)` derives from `Items`, and `ContentKind.Of(RenderContentKind, Op)` admits the native discriminant. Null ingress is invalid input; an unmatched live subtype is an invalid host result.
 - Law: every direct field, parameter, parameter-binding, texture, rename, or child-slot write rides `ChangeScope.Write` with a named `ChangeReason`; host-owned table, assignment, replacement, grouping, and export verbs retain their own change semantics.
 - Law: `ContentKind` columns are the only site naming `RenderMaterials`/`RenderEnvironments`/`RenderTextures`; every content operation reaches a table through its kind row.
 - Growth: a new change context is one `ChangeReason` row; a new content kind is one `ContentKind` row whose columns close its table behavior.
@@ -33,6 +33,7 @@ namespace Rasm.Rhino.Render;
 public sealed partial class ContentKind {
     public static readonly ContentKind Material = new(
         key: (int)RenderContentKind.Material,
+        carrier: typeof(RenderMaterial),
         attach: static (document, content) => content is RenderMaterial value && document.RenderMaterials.Add(value),
         detach: static (document, content) => content is RenderMaterial value && document.RenderMaterials.Remove(value),
         open: static (document, reason) => document.RenderMaterials.BeginChange(reason),
@@ -40,6 +41,7 @@ public sealed partial class ContentKind {
         roster: static document => toSeq(document.RenderMaterials).Map(static content => (RenderContent)content));
     public static readonly ContentKind Environment = new(
         key: (int)RenderContentKind.Environment,
+        carrier: typeof(RenderEnvironment),
         attach: static (document, content) => content is RenderEnvironment value && document.RenderEnvironments.Add(value),
         detach: static (document, content) => content is RenderEnvironment value && document.RenderEnvironments.Remove(value),
         open: static (document, reason) => document.RenderEnvironments.BeginChange(reason),
@@ -47,11 +49,14 @@ public sealed partial class ContentKind {
         roster: static document => toSeq(document.RenderEnvironments).Map(static content => (RenderContent)content));
     public static readonly ContentKind Texture = new(
         key: (int)RenderContentKind.Texture,
+        carrier: typeof(RenderTexture),
         attach: static (document, content) => content is RenderTexture value && document.RenderTextures.Add(value),
         detach: static (document, content) => content is RenderTexture value && document.RenderTextures.Remove(value),
         open: static (document, reason) => document.RenderTextures.BeginChange(reason),
         close: static document => document.RenderTextures.EndChange(),
         roster: static document => toSeq(document.RenderTextures).Map(static content => (RenderContent)content));
+
+    internal Type Carrier { get; }
 
     [UseDelegateFromConstructor]
     internal partial bool Attach(RhinoDoc document, RenderContent content);
@@ -68,13 +73,17 @@ public sealed partial class ContentKind {
     [UseDelegateFromConstructor]
     internal partial Seq<RenderContent> Roster(RhinoDoc document);
 
-    public static Option<ContentKind> Of(RenderContent content) =>
-        Optional(content).Bind(static value => value switch {
-            RenderMaterial => Some(Material),
-            RenderEnvironment => Some(Environment),
-            RenderTexture => Some(Texture),
-            _ => Option<ContentKind>.None,
-        });
+    public static Fin<ContentKind> Of(RenderContent? content, Op key) =>
+        Optional(content).ToFin(Fail: key.InvalidInput()).Bind(active =>
+            toSeq(Items)
+                .Filter(row => row.Carrier.IsInstanceOfType(active))
+                .Head
+                .ToFin(Fail: key.InvalidResult(detail: active.GetType().Name)));
+
+    internal static Fin<ContentKind> Of(RenderContentKind native, Op key) =>
+        TryGet((int)native, out ContentKind? row)
+            ? Fin.Succ(value: row!)
+            : Fin.Fail<ContentKind>(error: key.InvalidResult(detail: native.ToString()));
 }
 
 [SmartEnum<int>]
@@ -98,17 +107,70 @@ public sealed partial class ChangeReason {
             : Fin.Fail<ChangeReason>(error: key.InvalidResult(detail: native.ToString()));
 }
 
+[SmartEnum<int>]
+public sealed partial class ContentStyle {
+    public static readonly ContentStyle TextureSummary = new(key: (int)RenderContentStyles.TextureSummary);
+    public static readonly ContentStyle QuickPreview = new(key: (int)RenderContentStyles.QuickPreview);
+    public static readonly ContentStyle PreviewCache = new(key: (int)RenderContentStyles.PreviewCache);
+    public static readonly ContentStyle ProgressivePreview = new(key: (int)RenderContentStyles.ProgressivePreview);
+    public static readonly ContentStyle LocalTextureMapping = new(key: (int)RenderContentStyles.LocalTextureMapping);
+    public static readonly ContentStyle GraphDisplay = new(key: (int)RenderContentStyles.GraphDisplay);
+    public static readonly ContentStyle Adjustment = new(key: (int)RenderContentStyles.Adjustment);
+    public static readonly ContentStyle Fields = new(key: (int)RenderContentStyles.Fields);
+    public static readonly ContentStyle ModalEditing = new(key: (int)RenderContentStyles.ModalEditing);
+    public static readonly ContentStyle DynamicFields = new(key: (int)RenderContentStyles.DynamicFields);
+    public static readonly ContentStyle NameTypeSection = new(key: (int)RenderContentStyles.NameTypeSection);
+
+    internal RenderContentStyles Native => (RenderContentStyles)Key;
+
+    internal static Fin<Seq<ContentStyle>> Of(RenderContentStyles native, Op key) {
+        int mask = toSeq(Items).Fold(0, static (known, row) => known | row.Key);
+        int value = (int)native;
+        return (value & ~mask) == 0
+            ? Fin.Succ(value: toSeq(Items).Filter(row => (value & row.Key) == row.Key))
+            : Fin.Fail<Seq<ContentStyle>>(error: key.InvalidResult(detail: $"unknown RenderContentStyles bits: 0x{value & ~mask:X}"));
+    }
+}
+
+[SmartEnum<int>]
+public sealed partial class ProxyKind {
+    public static readonly ProxyKind None = new(key: (int)ProxyTypes.None);
+    public static readonly ProxyKind Single = new(key: (int)ProxyTypes.Single);
+    public static readonly ProxyKind Multi = new(key: (int)ProxyTypes.Multi);
+    public static readonly ProxyKind Texture = new(key: (int)ProxyTypes.Texture);
+
+    internal static Fin<ProxyKind> Of(ProxyTypes native, Op key) =>
+        TryGet((int)native, out ProxyKind? proxy)
+            ? Fin.Succ(value: proxy)
+            : Fin.Fail<ProxyKind>(error: key.InvalidResult(detail: native.ToString()));
+}
+
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 internal static class ChangeScope {
     internal static Fin<TOut> Write<TOut>(RenderContent content, ChangeReason reason, Func<RenderContent, Fin<TOut>> body, Op key) =>
         key.Catch(() => {
             content.BeginChange(reason.Native);
             try {
-                return key.Catch(() => body(content));
+                return body(content);
             } finally {
                 content.EndChange();
             }
         });
+}
+
+internal static class Seam {
+    internal static Fin<TRow> Row<TRow, TNative>(this Op key, IEnumerable<TRow> rows, TNative native, Func<TRow, TNative> project)
+        where TRow : class where TNative : notnull =>
+        Optional(rows.FirstOrDefault(row => EqualityComparer<TNative>.Default.Equals(project(row), native)))
+            .ToFin(Fail: key.InvalidResult(detail: native.ToString() ?? string.Empty));
+
+    internal static Fin<Lease<RenderContent>> Leased(this Fin<RenderContent> minted) =>
+        minted.Map(static value => (Lease<RenderContent>)new Lease<RenderContent>.Owned(Value: value));
+
+    internal static System.Drawing.Color Quantized(this PerceptualColor color) =>
+        color.ToRgb() switch {
+            var (red, green, blue, alpha) => System.Drawing.Color.FromArgb(alpha, red, green, blue),
+        };
 }
 ```
 
@@ -157,7 +219,7 @@ public abstract partial record ContentRef {
 ## [04]-[SNAPSHOT_AND_HASH]
 
 - Owner: `SlotState` carries one occupied child-slot fact. `ContentSnapshot` carries detached identity, metadata, ownership serials, native discriminants, state predicates, tree position, slot roster, and usage. `HashProbe` admits whole or exclusion-aware host hash reads; `HashWitness` detaches the read value beside the posture that produced it.
-- Law: `RenderContentStyles`, `ProxyTypes`, and `LengthUnit` stop at `ContentSnapshot`; downstream branches consume named snapshot predicates instead of decoding host masks again.
+- Law: `RenderContentStyles` and `ProxyTypes` stop at `ContentSnapshot.Of`; the detached snapshot carries admitted `ContentStyle` rows and one `ProxyKind`, so downstream branches never decode host discriminants again. `LengthUnit` remains native value evidence.
 - Law: `ContentSnapshot.Of` walks `FirstChild`/`NextSibling` once and reads `ChildSlotOn`/`ChildSlotAmount` during that visit.
 - Law: `HashProbe.Whole` reads `RenderHash`; every other probe calls `RenderHashExclude`, whose parameter roster is joined with the host-documented semicolon delimiter. Content migration remains `MatchData` on the operation rail.
 - Law: the `DocumentWorkflow` posture selects the `LinearWorkflow` hash overload, and the consuming read resolves the document's own workflow inside its demand window — a live `LinearWorkflow` never crosses into a probe value.
@@ -219,8 +281,8 @@ public sealed record ContentSnapshot(
     Option<string> Notes,
     Option<string> Tags,
     Option<string> Category,
-    RenderContentStyles Styles,
-    ProxyTypes Proxy,
+    Seq<ContentStyle> Styles,
+    ProxyKind Proxy,
     LengthUnit Units,
     bool TopLevel,
     bool Hidden,
@@ -238,7 +300,10 @@ public sealed record ContentSnapshot(
     int UseCount) : IDetachedDocumentResult {
     public static Fin<ContentSnapshot> Of(RenderContent content, Op key) =>
         Optional(content).ToFin(Fail: key.InvalidInput()).Bind(active => key.Catch(() =>
-            ContentKind.Of(active).ToFin(key.InvalidInput()).Map(kind => new ContentSnapshot(
+            from kind in ContentKind.Of(content: active, key: key)
+            from styles in ContentStyle.Of(native: active.Styles, key: key)
+            from proxy in ProxyKind.Of(native: active.ProxyType, key: key)
+            select new ContentSnapshot(
                 Key: active.Id,
                 TypeId: active.TypeId,
                 GroupId: active.GroupId,
@@ -250,8 +315,8 @@ public sealed record ContentSnapshot(
                 Notes: Optional(active.Notes).Filter(static text => text.Length > 0),
                 Tags: Optional(active.Tags).Filter(static text => text.Length > 0),
                 Category: Optional(active.Category).Filter(static text => text.Length > 0),
-                Styles: active.Styles,
-                Proxy: active.ProxyType,
+                Styles: styles,
+                Proxy: proxy,
                 Units: active.ModelUnits,
                 TopLevel: active.TopLevel,
                 Hidden: active.Hidden,
@@ -266,7 +331,7 @@ public sealed record ContentSnapshot(
                 Parent: Optional(active.Parent).Map(static parent => parent.Id),
                 SlotInParent: Optional(active.ChildSlotName).Filter(static slot => slot.Length > 0),
                 Slots: SlotsOf(parent: active),
-                UseCount: active.UseCount()))));
+                UseCount: active.UseCount())));
 
     private static Seq<SlotState> SlotsOf(RenderContent parent) {
         Seq<SlotState> Read(Option<RenderContent> cursor, Seq<SlotState> state) =>
@@ -311,24 +376,22 @@ public abstract partial record ContentIo {
         Switch(
             state: (Document: document, Op: key),
             xmlCase: static (ctx, source) => ctx.Op.Catch(() =>
-                Optional(RenderContent.FromXml(xml: source.Value, doc: ctx.Document))
-                    .ToFin(Fail: ctx.Op.InvalidResult())
-                    .Map(static minted => (Lease<RenderContent>)new Lease<RenderContent>.Owned(Value: minted))),
+                Optional(RenderContent.FromXml(xml: source.Value, doc: ctx.Document)).ToFin(Fail: ctx.Op.InvalidResult()).Leased()),
             archiveCase: static (ctx, source) => ctx.Op.Catch(() =>
-                Optional(RenderContent.LoadFromFile(filename: source.Path))
-                    .ToFin(Fail: ctx.Op.InvalidResult())
-                    .Map(static minted => (Lease<RenderContent>)new Lease<RenderContent>.Owned(Value: minted))));
+                Optional(RenderContent.LoadFromFile(filename: source.Path)).ToFin(Fail: ctx.Op.InvalidResult()).Leased()));
 }
 ```
 
 ## [06]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]          | [OWNER]           | [FORM]                                               | [ENTRY]                       |
-| :-----: | :----------------- | :---------------- | :--------------------------------------------------- | :---------------------------- |
-|  [01]   | kind axis          | `ContentKind`     | rows whose key is native, table behavior as columns  | `Of` / table columns          |
-|  [02]   | change vocabulary  | `ChangeReason`    | rows carrying the native `ChangeContexts` value      | `Of(native, key)` / `Native`  |
-|  [03]   | write bracket      | `ChangeScope`     | begin/body/end on every exit                         | `Write(content, reason, ...)` |
-|  [04]   | content address    | `ContentRef`      | one union: id, slot path                             | `Of` / `Resolve`              |
-|  [05]   | content state      | `ContentSnapshot` | one-pass identity and topology read                  | `Of(content, key)`            |
-|  [06]   | render-hash read   | `HashProbe`       | admitted exclusions, workflow posture, `HashWitness` | `Excluding` / `Read`          |
-|  [07]   | serialized ingress | `ContentIo`       | admitted XML/file mint leased until custody transfer | `Xml` / `Archive` / `Mint`    |
+| [INDEX] | [CONCERN]          | [OWNER]           | [FORM]                                               | [ENTRY]                            |
+| :-----: | :----------------- | :---------------- | :--------------------------------------------------- | :--------------------------------- |
+|  [01]   | kind axis          | `ContentKind`     | rows whose key is native, table behavior as columns  | `Of` / table columns               |
+|  [02]   | change vocabulary  | `ChangeReason`    | rows carrying the native `ChangeContexts` value      | `Of(native, key)` / `Native`       |
+|  [03]   | write bracket      | `ChangeScope`     | begin/body/end on every exit                         | `Write(content, reason, ...)`      |
+|  [04]   | commit envelope    | `DocumentCommit`  | Document-owned suppress/seal/restore/flush composition | `Sealed(document, ...)`            |
+|  [05]   | shared projections | `Seam`            | row/lease/color folds onto the rail                  | `Row`/`Leased`/`Quantized`            |
+|  [06]   | content address    | `ContentRef`      | one union: id, slot path                             | `Of` / `Resolve`                   |
+|  [07]   | content state      | `ContentSnapshot` | one-pass identity and topology read                  | `Of(content, key)`                 |
+|  [08]   | render-hash read   | `HashProbe`       | admitted exclusions, workflow posture, `HashWitness` | `Excluding` / `Read`               |
+|  [09]   | serialized ingress | `ContentIo`       | admitted XML/file mint leased until custody transfer | `Xml` / `Archive` / `Mint`         |

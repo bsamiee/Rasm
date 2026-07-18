@@ -1,98 +1,90 @@
 # [RASM_RHINO_ETO_RUNTIME]
 
-Ambient Eto runtime owner of `Rasm.Rhino.Eto` — the process-wide surfaces that sit beside the control tree: UI-thread dispatch over `Application`, the `UITimer` clock as a leased pulse, display and input-device projection, typed clipboard and drag-drop transfer under validated MIME keys, and system presence (notification toast, tray indicator, taskbar progress). Census code routed UI-thread work through host-app dispatch and touched none of the transfer, notification, tray, screen, or static-input surface; this owner internalizes each behind one rail so downstream code composes a marshalled effect or a keyed payload and never reaches `Application.Instance`, a stringy MIME argument, or a raw static read. Dispatch is the one thread boundary every sibling page assumes: realization, binding wires, chrome mutation, and scene swaps all run inside a frame this owner marshals.
+`UiThread` owns every crossing into Eto's control tree, and the ambient runtime projects cadence, displays, input, transfer, drag/drop, notifications, tray presence, and taskbar state as typed values. Every marshal completes on a caller-visible rail, drag providers remain behind admitted values, and every event or host resource returns deterministic lifetime ownership.
 
 ## [01]-[INDEX]
 
-- [02]-[DISPATCH]: `UiThread` — the one UI-thread boundary: synchronous railed reads, fire-and-forget posts, awaitable marshalling, the affinity guard, and the message-pump verb.
-- [03]-[CLOCK]: `Pulse` + `PulseBeat` — the widget-free `UITimer` clock as a leased resource delivering monotonic beat evidence.
-- [04]-[STAGE]: `Displays` + `PointerState` + `ModifierState` + `CursorRow` — display roster and geometry, live pointer and modifier reads, and the cursor roster as rows with one apply verb.
-- [05]-[TRANSFER]: `Mime` + `PayloadSlot` + `TransferTarget` + `Transfer` — the one typed-payload contract over clipboard and drag bundles, write folds and `Option`-railed reads.
-- [06]-[DRAG]: `DragPlan` + `Drop` — drag initiation as a value over `DoDragDrop` and drop admission projecting `DragEventArgs` into one typed record.
-- [07]-[PRESENCE]: `Toast` + `TrayLease` + `TaskbarPulse` — notification delivery, leased tray presence, and OS progress projection over a closed state row set.
+- [02]-[THREAD]: `UiThread` folds current-frame, blocking, and awaited dispatch through one entry.
+- [03]-[AMBIENT]: `Pulse`, `Displays`, `PointerState`, `ModifierState`, and `CursorRow` detach ambient time, display, and input facts.
+- [04]-[TRANSFER]: `Transfer`, `DragPlan`, and `Drop` own payload algebra, drag initiation, and admitted negotiation.
+- [05]-[PRESENCE]: `Toast`, `TrayLease`, `TaskbarPulse`, and `PresenceBadge` own system presence and release.
 
-## [02]-[DISPATCH]
+## [02]-[THREAD]
 
-- Owner: `UiThread` — the ONE boundary between any producer thread and the control tree. Three marshal shapes discriminate on the caller's need, never on a flag: `On<T>` blocks and returns the railed UI-side result, `Post` fires and forgets, `OnAsync<T>` returns an awaitable rail. `Guard` is the affinity assert projected to a typed `UiFault.OffThread`, and `Pump` runs one message-loop pass for a synchronous modal wait. Every body crosses through `Op.Catch`, so a throwing UI-side computation is a typed fault on the caller's rail, never an unhandled marshal exception.
-- Law: sibling pages assume the frame — `Element.Realize`, `Bind.Rig` wires, `Surface.Swap`, and chrome mutation run inside a marshalled frame; the ONE self-dispatching surface is this owner, and a second dispatch mechanism (an ambient context capture, a host-app invoke) in this sub-domain is the deleted form. Rhino's own command-thread routing is the HostUi unit's shell concern; this owner is the Eto shape.
-- Law: `On` from the UI thread executes inline — `Application.Instance.Invoke` already collapses the re-entrant case — so callers never pre-test affinity; `Guard` exists for entry points whose contract REQUIRES an existing frame and must refuse rather than marshal.
-- Packages: LanguageExt.Core (`Fin`, `Task` interop), Rasm.Domain (project — `Op`, `Op.Catch`), Eto.Forms (host — `Application.Instance`, `Invoke`, `AsyncInvoke`, `InvokeAsync`, `EnsureUIThread`, `RunIteration`, `IsUIThread`).
-- Growth: a new marshal shape the host ships is one member on this owner; a per-page dispatch helper is the deleted form.
+- Owner: `UiThread` resolves one `UiDispatch<TResult>` through `Application.Instance`; no callback discards a failure.
+- Cases: `Current` asserts affinity, `Blocking` runs in-frame or marshals through `Invoke`, and `Awaited` marshals through `InvokeAsync`.
+- Entry: `UiThread.Run` is the one modality-polymorphic crossing and always returns an observable `ValueTask<Fin<TResult>>`.
+- Receipt: the returned `Fin<TResult>` captures host marshal faults and body faults.
+- Growth: another host dispatch form is one `UiDispatch<TResult>` case.
+- Boundary: `HostThread` owns Rhino command affinity; a body needing both enters `HostThread` before this owner.
 
-```csharp
+```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using System.Diagnostics;
 using Eto.Drawing;
 using Eto.Forms;
 using Rasm.Csp;
 using Rasm.Domain;
 using Rasm.Numerics;
-using Rasm.Rhino.Document;
+using Rasm.Parametric;
 
 namespace Rasm.Rhino.Eto;
 
+// --- [TYPES] --------------------------------------------------------------------------------
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record UiDispatch<TResult> {
+    private UiDispatch() { }
+    public sealed record Current(Func<Fin<TResult>> Body) : UiDispatch<TResult>;
+    public sealed record Blocking(Func<Fin<TResult>> Body) : UiDispatch<TResult>;
+    public sealed record Awaited(Func<Fin<TResult>> Body) : UiDispatch<TResult>;
+}
+
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 public static class UiThread {
-    public static Fin<T> On<T>(Func<Fin<T>> body, Op? key = null) {
+    public static ValueTask<Fin<TResult>> Run<TResult>(UiDispatch<TResult> dispatch, Op? key = null) {
         Op op = key.OrDefault();
-        return op.Catch(() => Application.Instance.Invoke(() => op.Catch(body)));
+        return Optional(dispatch).Match(
+            Some: work => work.Switch(
+                state: op,
+                current: static (at, current) => ValueTask.FromResult(
+                    at.Catch(() => Application.Instance.IsUIThread
+                        ? current.Body()
+                        : Fin.Fail<TResult>(new UiFault.OffThread(Key: at)))),
+                blocking: static (at, blocking) => ValueTask.FromResult(at.Catch(() => Application.Instance.IsUIThread
+                    ? blocking.Body()
+                    : Application.Instance.Invoke(blocking.Body))),
+                awaited: static (at, awaited) => new ValueTask<Fin<TResult>>(Await(at, awaited.Body))),
+            None: () => ValueTask.FromResult(Fin.Fail<TResult>(
+                new UiFault.Rejected(Key: op, Field: nameof(dispatch), Reason: "dispatch requires a case"))));
     }
 
-    public static Unit Post(Action body, Op? key = null) {
-        Op op = key.OrDefault();
-        return Op.Side(() => Application.Instance.AsyncInvoke(() => ignore(op.Catch(body))));
-    }
-
-    public static async Task<Fin<T>> OnAsync<T>(Func<Fin<T>> body, Op? key = null) {
-        Op op = key.OrDefault();
-        return await Application.Instance.InvokeAsync(() => op.Catch(body)).ConfigureAwait(false);
-    }
-
-    public static Fin<Unit> Guard(Op? key = null) =>
-        Application.Instance.IsUIThread ? Fin.Succ(value: unit) : Fin.Fail<Unit>(error: new UiFault.OffThread(Key: key.OrDefault()));
-
-    public static Unit Pump() => Op.Side(Application.Instance.RunIteration);
-}
-```
-
-## [03]-[CLOCK]
-
-- Owner: `Pulse` — the widget-free Eto clock as a leased resource: `Start` admits the interval as a `PositiveMagnitude` in seconds, constructs the `UITimer`, subscribes `Elapsed` once (the named platform-forced event seam), and returns the Document sub-domain's `Subscription` capsule — `Acquire` pairs `timer.Start` with the stop-and-dispose release, idempotent on `Dispose` — so a running timer cannot leak past its owner and no hand-rolled detach record exists beside the capsule. `PulseBeat` is the per-tick evidence: monotonic ordinal plus elapsed seconds derived from `Stopwatch` timestamps, because the host tick carries no time payload.
-- Law: this clock paces UI cadence only — debounce displays, ambient polling, toast timeouts; frame-accurate animation pacing (display links, redraw targets, motion clocks) is the Viewport unit's motion owner, and easing/spring math is kernel territory — a duplicate temporal derivation here is the deleted form.
-- Law: `Elapsed` fires on the UI thread by host contract, so the beat handler mutates UI state directly; a handler dispatching again through `UiThread` is a double-marshal defect.
-- Growth: a beat-evidence axis (drift, missed-tick count) is one `PulseBeat` field computed in the one subscription body.
-
-```csharp
-// --- [MODELS] -------------------------------------------------------------------------------
-public readonly record struct PulseBeat(long Ordinal, double ElapsedSeconds) : IValidityEvidence {
-    public bool IsValid => ValidityClaim.All(ValidityClaim.Nonnegative(value: ElapsedSeconds), ValidityClaim.Of(holds: Ordinal >= 0));
-}
-
-// --- [OPERATIONS] ---------------------------------------------------------------------------
-public static class Pulse {
-    public static Fin<Subscription> Start(PositiveMagnitude intervalSeconds, Action<PulseBeat> onBeat, Op? key = null) =>
+    public static Fin<Unit> Iterate(Op? key = null) =>
         key.OrDefault().Catch(() => {
-            long origin = Stopwatch.GetTimestamp();
-            long ordinal = 0;
-            UITimer timer = new((_, _) => onBeat(new PulseBeat(
-                Ordinal: Interlocked.Increment(ref ordinal),
-                ElapsedSeconds: Stopwatch.GetElapsedTime(startingTimestamp: origin).TotalSeconds))) {
-                Interval = intervalSeconds.Value,
-            };
-            return Subscription.Acquire(acquire: timer.Start, release: () => { timer.Stop(); timer.Dispose(); });
+            Application.Instance.EnsureUIThread();
+            Application.Instance.RunIteration();
+            return Fin.Succ(unit);
         });
+
+    private static async Task<Fin<TResult>> Await<TResult>(Op op, Func<Fin<TResult>> body) {
+        try {
+            return await Application.Instance.InvokeAsync(() => op.Catch(body)).ConfigureAwait(false);
+        } catch (Exception thrown) {
+            return Fin.Fail<TResult>(new UiFault.HostRejected(Key: op, Detail: thrown.Message));
+        }
+    }
 }
 ```
 
-## [04]-[STAGE]
+## [03]-[AMBIENT]
 
-- Owner: `Displays` — the projection over the host `Screen` statics: roster, primary, point and rectangle resolution, per-display scale evidence (`DPI`, `Scale`, `LogicalPixelSize`, `Bounds`, `WorkingArea`), and railed region capture — plus `PointerState`/`ModifierState`, the live device reads, and `CursorRow` `[SmartEnum<int>]`, the built-in cursor roster as rows with `Apply(Control)` and the global `Override()` pointer swap. A raw static-field cursor lookup or a scattered `Screen.Screens` walk is the deleted form: consumers read one projection record.
-- Law: `DisplayFacts` is evidence per display — geometry, working area, scale triple, primacy — snapshotted at read; screen topology changes re-read, never cache, because the host set mutates with hardware.
-- Law: capture is railed — `Displays.Capture(bounds)` wraps `Screen.GetImage` through `Op.Catch` so a platform that refuses screen recording surfaces a typed fault, never a null image.
-- Cases: `CursorRow` `Standard` · `Arrow` · `Crosshair` · `Hand` · `Move` · `Beam` · `SplitVertical` · `SplitHorizontal` · `SizeAll` · `Denied` — the verified `Cursors` roster; a custom cursor is one added row minting `Cursor(Bitmap, PointF)`.
-- Growth: a new host cursor is one row; a new display fact is one `DisplayFacts` field read in one place.
+- Owner: `Pulse` leases `UITimer` and advances one kernel `MonotonicTimeline` beat chain per lease; `Displays`, `PointerState`, and `ModifierState` snapshot ambient facts; `CursorRow` applies one cursor vocabulary.
+- Entry: `Pulse.Start` accepts cadence and clock explicitly — the clock admits through `MonotonicTimeline.Of`, `Capture` seeds the origin, and each tick advances the chain through `Beat`, so no tick reads or subtracts raw provider timestamps.
+- Receipt: `PulseBeat` carries ordinal, elapsed time, requested interval, drift, and missed-beat evidence; `Pulse.Failures` retains primary callback faults plus reporter faults.
+- Auto: display topology is re-read rather than cached; pointer reads reject unsupported backends before touching provider state.
+- Growth: another beat metric extends `PulseBeat`; another cursor is one `CursorRow` row.
+- Boundary: `Pulse` paces UI housekeeping; viewport motion owns frame pacing.
+- Exemption: `UITimer` construction, start, and release form the callback-boundary statement seam; a failed start disposes the unleased timer.
 
-```csharp
+```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class CursorRow {
@@ -106,226 +98,563 @@ public sealed partial class CursorRow {
     public static readonly CursorRow SplitHorizontal = new(key: 7, resolve: static () => Cursors.HorizontalSplit);
     public static readonly CursorRow SizeAll = new(key: 8, resolve: static () => Cursors.SizeAll);
     public static readonly CursorRow Denied = new(key: 9, resolve: static () => Cursors.NotAllowed);
+
     [UseDelegateFromConstructor]
     internal partial Cursor Resolve();
+
     public Unit Apply(Control control) => Op.Side(() => control.Cursor = Resolve());
-    public Unit Override() => Op.Side(() => Mouse.SetCursor(cursor: Resolve()));
+    public Unit Override() => Op.Side(() => Mouse.SetCursor(Resolve()));
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------
-public sealed record DisplayFacts(RectangleF Bounds, RectangleF WorkingArea, float Dpi, float Scale, float LogicalPixelSize, bool Primary) : IValidityEvidence {
-    public bool IsValid => ValidityClaim.All(ValidityClaim.Positive(value: Dpi), ValidityClaim.Positive(value: Scale));
-    internal static DisplayFacts Of(Screen screen) =>
-        new(Bounds: screen.Bounds, WorkingArea: screen.WorkingArea, Dpi: screen.DPI, Scale: screen.Scale, LogicalPixelSize: screen.LogicalPixelSize, Primary: screen.IsPrimary);
-}
+public readonly record struct PulseBeat(long Ordinal, TimeSpan Elapsed, TimeSpan Interval, TimeSpan Drift, long Missed);
+
+public sealed record DisplayFacts(
+    RectangleF Bounds,
+    RectangleF WorkingArea,
+    float Dpi,
+    float Scale,
+    float LogicalPixelSize,
+    bool Primary);
 
 public readonly record struct PointerState(PointF Position, MouseButtons Pressed) {
-    public static PointerState Read() => new(Position: Mouse.Position, Pressed: Mouse.Buttons);
-    public static bool AnyLive(MouseButtons buttons) => Mouse.IsAnyButtonPressed(buttons: buttons);
+    public static Fin<PointerState> Read(Op? key = null) => Mouse.IsSupported
+        ? Fin.Succ(new PointerState(Mouse.Position, Mouse.Buttons))
+        : Fin.Fail<PointerState>(new UiFault.Unavailable(Key: key.OrDefault(), Capability: nameof(Mouse)));
+
     public bool Holds(MouseButtons buttons) => (Pressed & buttons) != MouseButtons.None;
 }
 
 public readonly record struct ModifierState(Keys Held) {
-    public static ModifierState Read() => new(Held: Keyboard.Modifiers);
-    public static bool Locked(Keys key) => Keyboard.IsKeyLocked(key: key);
+    public static ModifierState Read() => new(Keyboard.Modifiers);
+    public static bool Locked(Keys key) => Keyboard.IsKeyLocked(key);
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
-public static class Displays {
-    public static Seq<DisplayFacts> Roster() => toSeq(Screen.Screens).Map(DisplayFacts.Of);
+// --- [SERVICES] -----------------------------------------------------------------------------
+public sealed class Pulse : UiLease {
+    private readonly UITimer timer;
+    private readonly MonotonicTimeline timeline;
+    private readonly MonotonicStamp origin;
+    private readonly Atom<Option<MonotonicBeat>> chain = Atom(Option<MonotonicBeat>.None);
+    private readonly TimeSpan interval;
+    private readonly Action<PulseBeat> publish;
+    private readonly Action<Error> report;
+    private readonly Atom<Seq<Error>> failures = Atom(Seq<Error>());
+    private readonly Op key;
 
-    public static DisplayFacts Primary() => DisplayFacts.Of(screen: Screen.PrimaryScreen);
-
-    public static DisplayFacts At(PointF point) => DisplayFacts.Of(screen: Screen.FromPoint(point: point));
-
-    public static DisplayFacts Covering(RectangleF bounds) => DisplayFacts.Of(screen: Screen.FromRectangle(rectangle: bounds));
-
-    public static Fin<Image> Capture(RectangleF bounds, Op? key = null) {
-        Op op = key.OrDefault();
-        return op.Catch(() => Optional(Screen.FromRectangle(rectangle: bounds).GetImage(rect: bounds))
-            .ToFin(Fail: new UiFault.Unavailable(Key: op, Capability: nameof(Screen.GetImage))));
+    private Pulse(
+        UITimer timer,
+        MonotonicTimeline timeline,
+        MonotonicStamp origin,
+        TimeSpan interval,
+        Action<PulseBeat> publish,
+        Action<Error> report,
+        Op key) {
+        this.timer = timer;
+        this.timeline = timeline;
+        this.origin = origin;
+        this.interval = interval;
+        this.publish = publish;
+        this.report = report;
+        this.key = key;
     }
+
+    public Seq<Error> Failures => failures.Value;
+
+    public static Fin<Pulse> Start(
+        PositiveMagnitude seconds,
+        TimeProvider clock,
+        Action<PulseBeat> publish,
+        Action<Error> report,
+        Op? key = null) {
+        Op op = key.OrDefault();
+        return op.Catch(() => {
+            ArgumentNullException.ThrowIfNull(publish);
+            ArgumentNullException.ThrowIfNull(report);
+            TimeSpan interval = TimeSpan.FromSeconds(seconds.Value);
+            return interval.Ticks < 1
+                ? Fin.Fail<Pulse>(new UiFault.Rejected(Key: op, Field: nameof(seconds), Reason: "timer cadence is below host resolution"))
+                : MonotonicTimeline.Of(provider: clock, key: op).Bind(timeline =>
+                    timeline.Capture(key: op).Bind(origin => {
+                        Pulse? pulse = null;
+                        UITimer? timer = null;
+                        bool started = false;
+                        try {
+                            timer = new UITimer((_, _) => pulse!.Tick()) { Interval = seconds.Value };
+                            pulse = new Pulse(timer, timeline, origin, interval, publish, report, op);
+                            timer.Start();
+                            started = true;
+                            return Fin.Succ(pulse);
+                        } finally {
+                            if (!started)
+                                timer?.Dispose();
+                        }
+                    }));
+        });
+    }
+
+    protected override Fin<Unit> Free() => Seq<Action>(timer.Stop, timer.Dispose).Drained(key);
+
+    private void Tick() => _ = chain.Swap(prior => prior
+        .Match(Some: held => timeline.Beat(seed: held, key: key), None: () => timeline.Beat(seed: origin, key: key))
+        .Match(
+            Succ: beat => {
+                _ = key.Catch(() => {
+                    publish(new PulseBeat(
+                        Ordinal: beat.Ordinal,
+                        Elapsed: beat.Elapsed,
+                        Interval: interval,
+                        Drift: beat.Elapsed - TimeSpan.FromTicks(interval.Ticks * beat.Ordinal),
+                        Missed: Math.Max(0L, (beat.Elapsed.Ticks / interval.Ticks) - beat.Ordinal)));
+                    return Fin.Succ(unit);
+                }).Match(Succ: static published => published, Fail: Retain);
+                return Some(beat);
+            },
+            Fail: fault => (Retain(fault), prior).Item2));
+
+    private Unit Retain(Error fault) =>
+        ignore(failures.Swap(held => held.Add(fault.Reported(report, key))));
+}
+
+public static class Displays {
+    public static Seq<DisplayFacts> Roster() => toSeq(Screen.Screens).Map(Snapshot);
+    public static DisplayFacts Primary() => Snapshot(Screen.PrimaryScreen);
+    public static DisplayFacts At(PointF point) => Snapshot(Screen.FromPoint(point));
+    public static DisplayFacts Covering(RectangleF bounds) => Snapshot(Screen.FromRectangle(bounds));
+    public static Fin<Image> Capture(RectangleF bounds, Op? key = null) =>
+        key.OrDefault().Catch(() => Fin.Succ<Image>(Screen.FromRectangle(bounds).GetImage(bounds)));
+
+    private static DisplayFacts Snapshot(Screen screen) =>
+        new(screen.Bounds, screen.WorkingArea, screen.DPI, screen.Scale, screen.LogicalPixelSize, screen.IsPrimary);
 }
 ```
 
-## [05]-[TRANSFER]
+## [04]-[TRANSFER]
 
-- Owner: `Mime` `[ValueObject<string>]` — the validated MIME key every keyed transfer read and write carries — `PayloadSlot`, the closed `[Union]` over the five host payload shapes (text, bytes, stream, boxed object, and the un-keyed URI list the host carries as the `Uris` property — file drops and copied paths), `TransferTarget`, the two-lifetime union (`Board` the persistent process-external clipboard, `Bundle` a drag-scoped `DataObject`), and `Transfer`, the one write fold plus `Option`-railed reads. `Clipboard` and `DataObject` both implement the host `IDataObject` contract, so the target union projects one `Surface` and every keyed verb runs one body over it; only the stream pair (`GetDataStream`/`SetDataStream`) is class-level off-interface, carried as the target's one `Streamed` dispatch. A stringy `type` argument, an unguarded `GetString` null, or a per-target verb copy is the deleted form.
-- Law: writes fold — `Transfer.Write(target, slots)` lands every slot in one pass, each slot dispatching its own `Set*` member on the projected `Surface` (or the `Uris` property for `Linked`, the `Streamed` dispatch for `Streamed`); every keyed write shape has its read verb (`ReadText`/`ReadBytes`/`ReadStream`/`ReadBoxed`), `ReadUris` gates on `ContainsUris`, and reads gate on `Contains` first, so absence is `None` and a read of a wrong-shaped slot is the host's concern surfaced through `Op.Catch`.
-- Law: canonical keys are rows — `Mime.PlainText`, `Mime.Png`, and the sub-domain's own `Mime.Rasm` (the boxed-payload key intra-process drags share) are declared once; ad-hoc literals at call sites are the deleted form.
-- Growth: a new payload shape the host ships is one `PayloadSlot` case breaking the write fold at compile time; a new canonical key is one static row.
+- Owner: `Transfer` folds read, write, inspect, and clear operations over clipboard or drag bundles; `Drop` hides `DragEventArgs` after admission.
+- Cases: `PayloadSlot` spans text, HTML, image, URI, bytes, stream, and boxed payloads; `TransferQuery` mirrors every readable shape, while `PayloadPresence` makes optional versus required reads explicit.
+- Entry: `Transfer.Apply` is the one bidirectional transfer entry; awaited `Transfer.Begin` marshals the complete drag lifetime through `UiThread`, and `Drop.Of` admits drop ingress.
+- Receipt: optional reads preserve absence in `TransferReceipt.Read`; required absence returns `UiFault.AbsentPayload`; writes expose every slot fact, and detached drag bundles publish only after every fact succeeds.
+- Growth: another payload shape adds one `PayloadSlot` case, one `TransferQuery` case, and compiler-forced fold arms.
+- Boundary: `DragEventArgs` remains private inside `Drop`; byte slots detach into immutable storage before egress, and `Transfer.Begin` owns streamed slots through drag completion and releases every stream on either outcome.
+- Exemption: provider effect and drop-description assignment form the drag/drop statement seam.
 
-```csharp
+```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public readonly partial struct Mime {
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
-        validationError = string.IsNullOrWhiteSpace(value: value) || !value.Contains(value: '/')
-            ? new ValidationError(message: $"Mime requires a type/subtype key (got '{value}').")
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
+        if (string.IsNullOrWhiteSpace(value)) {
+            validationError = new ValidationError(message: "MIME identity requires a type and subtype.");
+            return;
+        }
+        value = value.Trim();
+        int separator = value.IndexOf('/', StringComparison.Ordinal);
+        validationError = separator <= 0
+            || separator >= value.Length - 1
+            || value.IndexOf('/', separator + 1) >= 0
+            || value.Any(char.IsWhiteSpace)
+            ? new ValidationError(message: "MIME identity requires a type and subtype.")
             : null;
-    public static readonly Mime PlainText = Create(value: "text/plain");
-    public static readonly Mime Png = Create(value: "image/png");
-    public static readonly Mime Rasm = Create(value: "application/x-rasm");
+    }
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PayloadSlot {
     private PayloadSlot() { }
-    public sealed record Text(Mime Key, string Value) : PayloadSlot;
-    public sealed record Bytes(Mime Key, byte[] Value) : PayloadSlot;
-    public sealed record Streamed(Mime Key, Stream Value) : PayloadSlot;
-    public sealed record Boxed(Mime Key, object Value) : PayloadSlot;
+    public sealed record Text(string Value) : PayloadSlot;
+    public sealed record Html(string Value) : PayloadSlot;
+    public sealed record Picture(Image Value) : PayloadSlot;
     public sealed record Linked(Seq<Uri> Value) : PayloadSlot;
+    public sealed record Bytes(Mime Key, Arr<byte> Value) : PayloadSlot;
+    public sealed record Streamed(Mime Key, Stream Value) : PayloadSlot, IDisposable {
+        private int released;
+        public void Dispose() {
+            if (Interlocked.Exchange(ref released, 1) == 0)
+                Value.Dispose();
+        }
+    }
+    public sealed record Boxed(Mime Key, object Value) : PayloadSlot;
+
+    internal string Identity => Switch(
+        text: static _ => nameof(Text),
+        html: static _ => nameof(Html),
+        picture: static _ => nameof(Picture),
+        linked: static _ => nameof(Linked),
+        bytes: static slot => slot.Key.Value,
+        streamed: static slot => slot.Key.Value,
+        boxed: static slot => slot.Key.Value);
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record TransferQuery {
+    private TransferQuery() { }
+    public sealed record Text : TransferQuery;
+    public sealed record Html : TransferQuery;
+    public sealed record Picture : TransferQuery;
+    public sealed record Linked : TransferQuery;
+    public sealed record Bytes(Mime Key) : TransferQuery;
+    public sealed record Streamed(Mime Key) : TransferQuery;
+    public sealed record Boxed(Mime Key, Type Expected) : TransferQuery;
+
+    internal string Identity => Switch(
+        text: static _ => nameof(Text),
+        html: static _ => nameof(Html),
+        picture: static _ => nameof(Picture),
+        linked: static _ => nameof(Linked),
+        bytes: static query => query.Key.Value,
+        streamed: static query => query.Key.Value,
+        boxed: static query => query.Key.Value);
+}
+
+[SmartEnum<int>]
+public sealed partial class PayloadPresence {
+    public static readonly PayloadPresence Optional = new(key: 0, isRequired: false);
+    public static readonly PayloadPresence Required = new(key: 1, isRequired: true);
+    internal bool IsRequired { get; }
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record TransferOp {
+    private TransferOp() { }
+    public sealed record Read(TransferQuery Query, PayloadPresence Presence) : TransferOp;
+    public sealed record Write(Seq<PayloadSlot> Slots) : TransferOp;
+    public sealed record Inspect : TransferOp;
+    public sealed record Clear : TransferOp;
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record TransferReceipt {
+    private TransferReceipt() { }
+    public sealed record Read(Option<PayloadSlot> Payload) : TransferReceipt;
+    public sealed record Written(Seq<TransferWriteFact> Slots) : TransferReceipt {
+        public int Count => Slots.Filter(static fact => fact.IsValid).Count;
+
+        public Option<Error> Failure => Slots
+            .Choose(static fact => fact is TransferWriteFact.Rejected rejected ? Some(rejected.Fault) : None)
+            .Fold(Option<Error>.None, static (held, fault) => Some(held.Match(
+                Some: prior => prior + fault,
+                None: () => fault)));
+    }
+    public sealed record Inventory(Seq<string> Types) : TransferReceipt;
+    public sealed record Cleared : TransferReceipt;
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record TransferWriteFact : IValidityEvidence {
+    private TransferWriteFact() { }
+    public sealed record Committed(string Slot) : TransferWriteFact;
+    public sealed record Rejected(string Slot, Error Fault) : TransferWriteFact;
+
+    public bool IsValid => this is Committed;
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record TransferTarget {
     private TransferTarget() { }
     public sealed record Board : TransferTarget;
-    public sealed record Bundle(DataObject Payload) : TransferTarget;
+    internal sealed record Bundle(DataObject Data) : TransferTarget;
     public static readonly TransferTarget Clipboard = new Board();
-    public static TransferTarget Of(DataObject payload) => new Bundle(Payload: payload);
 
     internal IDataObject Surface => Switch(
-        board: static _ => (IDataObject)global::Eto.Forms.Clipboard.Instance,
-        bundle: static held => held.Payload);
+        board: static _ => global::Eto.Forms.Clipboard.Instance,
+        bundle: static target => target.Data);
 
-    internal Stream Streamed(string type) => Switch(
+    internal Stream ReadStream(string type) => Switch(
         state: type,
-        board: static (key, _) => global::Eto.Forms.Clipboard.Instance.GetDataStream(type: key),
-        bundle: static (key, held) => held.Payload.GetDataStream(type: key));
+        board: static (value, _) => global::Eto.Forms.Clipboard.Instance.GetDataStream(value),
+        bundle: static (value, target) => target.Data.GetDataStream(value));
 
-    internal Unit Streamed(Stream value, string type) => Switch(
-        state: (Value: value, Type: type),
-        board: static (row, _) => Op.Side(() => global::Eto.Forms.Clipboard.Instance.SetDataStream(stream: row.Value, type: row.Type)),
-        bundle: static (row, held) => Op.Side(() => held.Payload.SetDataStream(stream: row.Value, type: row.Type)));
+    internal Unit WriteStream(string type, Stream value) => Switch(
+        state: (Type: type, Value: value),
+        board: static (row, _) => Op.Side(() => global::Eto.Forms.Clipboard.Instance.SetDataStream(row.Value, row.Type)),
+        bundle: static (row, target) => Op.Side(() => target.Data.SetDataStream(row.Value, row.Type)));
+}
+
+// --- [MODELS] -------------------------------------------------------------------------------
+public sealed record DragPlan(Seq<PayloadSlot> Slots, DragEffects Permitted, Option<(Image Image, PointF Offset)> Ghost);
+public readonly record struct DragReceipt(int Payloads, DragEffects Permitted);
+public readonly record struct DropReceipt(PointF Location, DragEffects Allowed, DragEffects Resolved);
+
+// --- [SERVICES] -----------------------------------------------------------------------------
+public sealed class Drop {
+    private readonly DragEventArgs provider;
+
+    private Drop(DragEventArgs provider) {
+        this.provider = provider;
+        Location = provider.Location;
+        Allowed = provider.AllowedEffects;
+        Payload = new TransferTarget.Bundle(provider.Data);
+    }
+
+    public PointF Location { get; }
+    public DragEffects Allowed { get; }
+    public TransferTarget Payload { get; }
+
+    public static Fin<Drop> Of(DragEventArgs provider, Op? key = null) =>
+        Optional(provider)
+            .ToFin(new UiFault.Rejected(Key: key.OrDefault(), Field: nameof(provider), Reason: "drop provider is absent"))
+            .Map(static admitted => new Drop(admitted));
+
+    public Fin<DropReceipt> Resolve(DragEffects effect, Option<(string Format, string Inner)> description, Op? key = null) {
+        Op op = key.OrDefault();
+        return (effect & Allowed) != effect
+            ? Fin.Fail<DropReceipt>(new UiFault.Rejected(
+                Key: op, Field: nameof(effect), Reason: "resolved drop effect is outside the provider allowance"))
+            : op.Catch(() => {
+                DragEffects prior = provider.Effects;
+                return op.Catch(() => {
+                    _ = description.Iter(row => provider.SetDropDescription(row.Format, row.Inner));
+                    provider.Effects = effect;
+                    return Fin.Succ(new DropReceipt(Location, Allowed, effect));
+                }).MapFail(fault => fault.Also(op.Catch(() =>
+                    Fin.Succ(Op.Side(() => provider.Effects = prior)))));
+            });
+    }
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 public static class Transfer {
-    public static Fin<Unit> Write(TransferTarget target, Seq<PayloadSlot> slots, Op? key = null) =>
-        key.OrDefault().Catch(() => Fin.Succ(value: ignore(slots.Iter(slot => Land(target: target, slot: slot)))));
+    public static Fin<TransferReceipt> Apply(TransferTarget target, TransferOp operation, Op? key = null) =>
+        key.OrDefault().Catch(() => operation.Switch(
+            state: (Target: target, Key: key.OrDefault()),
+            read: static (held, op) => Read(held.Target, op.Query).Match(
+                Some: payload => Fin.Succ<TransferReceipt>(new TransferReceipt.Read(Some(payload))),
+                None: () => op.Presence.IsRequired
+                    ? Fin.Fail<TransferReceipt>(new UiFault.AbsentPayload(Key: held.Key, Payload: op.Query.Identity))
+                    : Fin.Succ<TransferReceipt>(new TransferReceipt.Read(None))),
+            write: static (held, op) => Fin.Succ<TransferReceipt>(new TransferReceipt.Written(
+                op.Slots.Map(slot => held.Key.Catch(() => Fin.Succ(Land(held.Target, slot))).Match(
+                    Succ: _ => (TransferWriteFact)new TransferWriteFact.Committed(slot.Identity),
+                    Fail: fault => new TransferWriteFact.Rejected(slot.Identity, fault))))),
+            inspect: static (held, _) => Fin.Succ<TransferReceipt>(new TransferReceipt.Inventory(toSeq(held.Target.Surface.Types))),
+            clear: static (held, _) => Fin.Succ<TransferReceipt>(
+                (Op.Side(held.Target.Surface.Clear), new TransferReceipt.Cleared()).Item2)));
 
-    public static Option<string> ReadText(TransferTarget target, Mime mime) =>
-        Keyed(target: target, mime: mime, read: static (surface, type) => surface.GetString(type: type));
+    public static ValueTask<Fin<DragReceipt>> Begin(Control source, DragPlan plan, Op? key = null) {
+        Op op = key.OrDefault();
+        return UiThread.Run(new UiDispatch<DragReceipt>.Awaited(() => Drag(source, plan, op)), op);
+    }
 
-    public static Option<byte[]> ReadBytes(TransferTarget target, Mime mime) =>
-        Keyed(target: target, mime: mime, read: static (surface, type) => surface.GetData(type: type));
+    private static Fin<DragReceipt> Drag(Control source, DragPlan plan, Op op) {
+        Fin<DragReceipt> outcome = op.Catch(() => {
+            DataObject data = new();
+            return Apply(new TransferTarget.Bundle(data), new TransferOp.Write(plan.Slots), op).Bind(receipt =>
+                receipt is TransferReceipt.Written written
+                    ? written.Failure.Match(
+                        Some: Fin.Fail<DragReceipt>,
+                        None: () => op.Catch(() => {
+                            _ = plan.Ghost.Match(
+                                Some: ghost => Op.Side(() => source.DoDragDrop(data, plan.Permitted, ghost.Image, ghost.Offset)),
+                                None: () => Op.Side(() => source.DoDragDrop(data, plan.Permitted)));
+                            return Fin.Succ(new DragReceipt(written.Count, plan.Permitted));
+                        }))
+                    : Fin.Fail<DragReceipt>(new UiFault.Rejected(Key: op, Field: nameof(plan.Slots), Reason: "drag payload was not written")));
+        });
+        Fin<Unit> cleanup = plan.Slots
+            .Choose(static slot => slot is PayloadSlot.Streamed streamed ? Some<Action>(streamed.Dispose) : None)
+            .Drained(op);
+        return outcome.Sealed(cleanup);
+    }
 
-    public static Option<Stream> ReadStream(TransferTarget target, Mime mime) =>
-        target.Surface.Contains(type: mime.Value) ? Optional(target.Streamed(type: mime.Value)) : None;
+    private static Option<PayloadSlot> Read(TransferTarget target, TransferQuery query) => query.Switch(
+        state: target,
+        text: static (at, _) => at.Surface.ContainsText ? Some<PayloadSlot>(new PayloadSlot.Text(at.Surface.Text)) : None,
+        html: static (at, _) => at.Surface.ContainsHtml ? Some<PayloadSlot>(new PayloadSlot.Html(at.Surface.Html)) : None,
+        picture: static (at, _) => at.Surface.ContainsImage ? Some<PayloadSlot>(new PayloadSlot.Picture(at.Surface.Image)) : None,
+        linked: static (at, _) => at.Surface.ContainsUris ? Some<PayloadSlot>(new PayloadSlot.Linked(toSeq(at.Surface.Uris))) : None,
+        bytes: static (at, op) => at.Surface.Contains(op.Key.Value)
+            ? Some<PayloadSlot>(new PayloadSlot.Bytes(op.Key, Arr.create<byte>(at.Surface.GetData(op.Key.Value))))
+            : None,
+        streamed: static (at, op) => at.Surface.Contains(op.Key.Value) ? Some<PayloadSlot>(new PayloadSlot.Streamed(op.Key, at.ReadStream(op.Key.Value))) : None,
+        boxed: static (at, op) => at.Surface.Contains(op.Key.Value)
+            ? Optional(at.Surface.GetObject(op.Key.Value, op.Expected)).Map(value => (PayloadSlot)new PayloadSlot.Boxed(op.Key, value))
+            : None);
 
-    public static Option<Seq<Uri>> ReadUris(TransferTarget target) =>
-        target.Surface is var surface && surface.ContainsUris ? Optional(surface.Uris).Map(static held => toSeq(held)) : None;
-
-    public static Option<T> ReadBoxed<T>(TransferTarget target, Mime mime) =>
-        Keyed(target: target, mime: mime, read: static (surface, type) => surface.GetObject<T>(type: type));
-
-    public static Fin<T> Require<T>(TransferTarget target, Mime mime) =>
-        ReadBoxed<T>(target: target, mime: mime).ToFin(Fail: new UiFault.AbsentPayload(Mime: mime.Value));
-
-    public static Unit Clear(TransferTarget target) => Op.Side(target.Surface.Clear);
-
-    private static Option<T> Keyed<T>(TransferTarget target, Mime mime, Func<IDataObject, string, T> read) =>
-        target.Surface is var surface && surface.Contains(type: mime.Value) ? Optional(read(surface, mime.Value)) : None;
-
-    private static Unit Land(TransferTarget target, PayloadSlot slot) =>
-        slot.Switch(
-            state: (Surface: target.Surface, Target: target),
-            text: static (held, row) => Op.Side(() => held.Surface.SetString(value: row.Value, type: row.Key.Value)),
-            bytes: static (held, row) => Op.Side(() => held.Surface.SetData(value: row.Value, type: row.Key.Value)),
-            streamed: static (held, row) => held.Target.Streamed(value: row.Value, type: row.Key.Value),
-            boxed: static (held, row) => Op.Side(() => held.Surface.SetObject(value: row.Value, type: row.Key.Value)),
-            linked: static (held, row) => Op.Side(() => held.Surface.Uris = [.. row.Value]));
+    private static Unit Land(TransferTarget target, PayloadSlot slot) => slot.Switch(
+        state: target,
+        text: static (at, payload) => Op.Side(() => at.Surface.Text = payload.Value),
+        html: static (at, payload) => Op.Side(() => at.Surface.Html = payload.Value),
+        picture: static (at, payload) => Op.Side(() => at.Surface.Image = payload.Value),
+        linked: static (at, payload) => Op.Side(() => at.Surface.Uris = [.. payload.Value]),
+        bytes: static (at, payload) => Op.Side(() => at.Surface.SetData(payload.Value.ToArray(), payload.Key.Value)),
+        streamed: static (at, payload) => at.WriteStream(payload.Key.Value, payload.Value),
+        boxed: static (at, payload) => Op.Side(() => at.Surface.SetObject(payload.Value, payload.Key.Value)));
 }
 ```
 
-## [06]-[DRAG]
+## [05]-[PRESENCE]
 
-- Owner: `DragPlan` — drag initiation as one value: payload slots, permitted `DragEffects`, and an optional drag image with cursor offset — whose `Begin(Control)` builds the `DataObject` through the `[05]` write fold and enters the host `DoDragDrop` overload the image option selects — and `Drop`, the admission record projecting `DragEventArgs` into typed evidence (location, allowed and resolved effects, the payload as a `TransferTarget.Bundle`) at the one seam a drop handler crosses. `SetDropDescription` rides the plan as an optional annotation row.
-- Law: effect negotiation is data — the handler reads `Drop.Allowed`, decides, and writes `Drop.Resolve(effect)` back through the args; scattering `Effects` writes across handlers is the deleted form.
-- Law: drop handlers admit ONCE — `Drop.Of(args)` at the handler head, every subsequent read off the typed record; reaching back into raw `DragEventArgs` past the seam is the deleted form.
-- Growth: a per-format preview row or a spring-loaded hover policy is one field on the plan consumed at `Begin`; a second drag entry is the deleted form.
+- Owner: `Toast` owns notification activation, `TrayLease` owns tray lifetime, and `TaskbarPulse` plus `PresenceBadge` project process status through `UiThread`.
+- Entry: `ToastDelivery.Deliver`, `TrayLease.Show`, `TaskbarPulse.Apply`, and `PresenceBadge.Apply` synchronously marshal their complete presence transaction and return its `Fin`.
+- Receipt: `ToastLease` and `TrayLease` extend `UiLease`, retain activation and reporter failures, and marshal deterministic release through the same owner; taskbar state is recoverable from `PulseState`.
+- Growth: another progress mode is one `PulseState` case carrying exactly the evidence `Taskbar.SetProgress` consumes.
+- Boundary: a notification requiring a tray indicator rejects an absent anchor before `Show`; macOS notification refusal remains a host fault.
+- Boundary: `ToastDelivery` owns OS notification-center presence only; Rhino-host notification and viewport-toast presence belong to the host boundary's `Notices` and status owners, and the two surfaces never alias.
+- Exemption: notification and tray event wiring, native show/hide, and deterministic detach are the presence-boundary statement seam.
 
-```csharp
-// --- [MODELS] -------------------------------------------------------------------------------
-public sealed record DragPlan(Seq<PayloadSlot> Slots, DragEffects Permitted, Option<(Image Image, PointF Offset)> Ghost = default, Option<(string Format, string Inner)> Description = default) {
-    public Fin<Unit> Begin(Control source, Op? key = null) {
-        Op op = key.OrDefault();
-        DataObject payload = new();
-        return Transfer.Write(target: TransferTarget.Of(payload: payload), slots: Slots, key: op).Bind(_ =>
-            op.Catch(() => Fin.Succ(value: Ghost.Match(
-                Some: ghost => Op.Side(() => source.DoDragDrop(data: payload, allowedEffects: Permitted, image: ghost.Image, cursorOffset: ghost.Offset)),
-                None: () => Op.Side(() => source.DoDragDrop(data: payload, allowedEffects: Permitted))))));
+```csharp signature
+// --- [TYPES] --------------------------------------------------------------------------------
+[ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public readonly partial struct ToastKey {
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
+        if (string.IsNullOrWhiteSpace(value)) {
+            validationError = new ValidationError(message: "Toast identity requires text.");
+            return;
+        }
+        value = value.Trim();
+        validationError = null;
     }
 }
 
-public sealed record Drop(PointF Location, DragEffects Allowed, TransferTarget Payload, DragEventArgs Raw) {
-    public static Drop Of(DragEventArgs args) =>
-        new(Location: args.Location, Allowed: args.AllowedEffects, Payload: TransferTarget.Of(payload: args.Data), Raw: args);
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record PulseState {
+    private PulseState() { }
+    public sealed record Idle : PulseState;
+    public sealed record Working(UnitInterval Progress) : PulseState;
+    public sealed record Waiting : PulseState;
+    public sealed record Paused(UnitInterval Progress) : PulseState;
+    public sealed record Failed(UnitInterval Progress) : PulseState;
 
-    public Unit Resolve(DragEffects effect) => Op.Side(() => Raw.Effects = effect);
-
-    public Unit Describe(string format, string inner) => Op.Side(() => Raw.SetDropDescription(format: format, inner: inner));
-}
-```
-
-## [07]-[PRESENCE]
-
-- Owner: `Toast` — notification delivery as one value (title, message, optional icon and content image, optional tray anchor) over the verified `Notification` surface — `TrayLease`, the tray presence as a leased resource (`Show` acquires, `Halt` hides and disposes) carrying its `ContextMenu` and activation callback — and `TaskbarPulse`, the OS progress projection whose `PulseState` `[SmartEnum<int>]` rows carry the host `TaskbarProgressState` column and whose fraction is a kernel `UnitInterval`, so an out-of-range progress write is unrepresentable.
-- Law: tray menus are chrome projections — the `ContextMenu` a lease binds arrives from the `chrome.md` intent-table fold, so tray verbs share availability and receipts with every other placement; a tray-local menu construction is the deleted form.
-- Law: `TrayLease` stays a payload-bearing lease — its live `TrayIndicator` anchors `Toast.Deliver`, evidence the Document `Subscription` detach capsule cannot carry — so `Halt` is the lease's own hide-and-dispose verb, never a hand-rolled duplicate of the capsule.
-- Law: progress is stateless projection — `TaskbarPulse.Show(state, fraction)` writes and forgets; the long-running work owns its own progress fold and projects here at its cadence.
-- Growth: a new presence surface (badge label, dock bounce) is one owner member over its verified host member; a new progress mode is one `PulseState` row.
-
-```csharp
-// --- [TYPES] --------------------------------------------------------------------------------
-[SmartEnum<int>]
-public sealed partial class PulseState {
-    public static readonly PulseState Idle = new(key: 0, row: TaskbarProgressState.None);
-    public static readonly PulseState Working = new(key: 1, row: TaskbarProgressState.Progress);
-    public static readonly PulseState Waiting = new(key: 2, row: TaskbarProgressState.Indeterminate);
-    public static readonly PulseState Paused = new(key: 3, row: TaskbarProgressState.Paused);
-    public static readonly PulseState Failed = new(key: 4, row: TaskbarProgressState.Error);
-    internal TaskbarProgressState Row { get; }
+    internal (TaskbarProgressState State, float Progress) Project() => Switch(
+        idle: static _ => (TaskbarProgressState.None, 0f),
+        working: static state => (TaskbarProgressState.Progress, (float)state.Progress.Value),
+        waiting: static _ => (TaskbarProgressState.Indeterminate, 0f),
+        paused: static state => (TaskbarProgressState.Paused, (float)state.Progress.Value),
+        failed: static state => (TaskbarProgressState.Error, (float)state.Progress.Value));
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------
-public sealed record Toast(string Title, string Message, Option<Icon> Badge = default, Option<Image> Content = default) {
-    public Fin<Unit> Deliver(Option<TrayLease> anchor = default, Op? key = null) =>
-        key.OrDefault().Catch(() => {
-            Notification notification = new() { Title = Title, Message = Message };
-            _ = Badge.Iter(icon => notification.Icon = icon);
-            _ = Content.Iter(image => notification.ContentImage = image);
-            notification.Show(indicator: anchor.Map(static lease => lease.Indicator).IfNoneUnsafe((TrayIndicator?)null));
-            return Fin.Succ(value: unit);
-        });
-}
+public sealed record Toast(ToastKey Key, string Title, string Message, Option<Image> Content);
 
 // --- [SERVICES] -----------------------------------------------------------------------------
-public sealed class TrayLease {
-    private TrayLease(TrayIndicator indicator) => Indicator = indicator;
+public sealed class ToastLease : UiLease {
+    private readonly EventHandler<NotificationEventArgs> activated;
+    private readonly Atom<Seq<Error>> failures = Atom(Seq<Error>());
+    private readonly Op key;
+    private readonly Notification notification;
+
+    internal ToastLease(
+        ToastKey key,
+        Notification notification,
+        Action<ToastKey> onActivated,
+        Action<Error> report,
+        Op op) {
+        this.key = op;
+        this.notification = notification;
+        activated = (_, args) => {
+            if (string.Equals(args.UserData, key.Value, StringComparison.Ordinal))
+                _ = op.Catch(() => Fin.Succ(Op.Side(() => onActivated(key)))).Match(
+                    Succ: static handled => handled,
+                    Fail: fault => ignore(failures.Swap(held => held.Add(fault.Reported(report, op)))));
+        };
+        Application.Instance.NotificationActivated += activated;
+    }
+
+    public Seq<Error> Failures => failures.Value;
+
+    protected override Fin<Unit> Free() => UiThread.Run(
+        new UiDispatch<Unit>.Blocking(() => Seq<Action>(
+            () => Application.Instance.NotificationActivated -= activated,
+            notification.Dispose).Drained(key)), key).Result;
+}
+
+public sealed class TrayLease : UiLease {
+    private readonly EventHandler<EventArgs> activated;
+    private readonly Atom<Seq<Error>> failures;
+    private readonly Op key;
+
+    private TrayLease(TrayIndicator indicator, EventHandler<EventArgs> activated, Atom<Seq<Error>> failures, Op key) {
+        Indicator = indicator;
+        this.activated = activated;
+        this.failures = failures;
+        this.key = key;
+    }
 
     internal TrayIndicator Indicator { get; }
+    public Seq<Error> Failures => failures.Value;
 
-    public static Fin<TrayLease> Show(string title, Image image, ContextMenu menu, Action onActivated, Op? key = null) =>
-        key.OrDefault().Catch(() => {
+    public static Fin<TrayLease> Show(
+        string title,
+        Image image,
+        ContextMenu menu,
+        Action onActivated,
+        Action<Error> report,
+        Op? key = null) {
+        Op op = key.OrDefault();
+        return UiThread.Run(new UiDispatch<TrayLease>.Blocking(() => op.Catch(() => {
             TrayIndicator indicator = new() { Title = title, Image = image };
-            indicator.SetMenu(menu: menu);
-            indicator.Activated += (_, _) => onActivated();
-            indicator.Show();
-            return Fin.Succ(value: new TrayLease(indicator: indicator));
-        });
+            Atom<Seq<Error>> failures = Atom(Seq<Error>());
+            EventHandler<EventArgs> activated = (_, _) =>
+                _ = op.Catch(() => Fin.Succ(Op.Side(onActivated))).Match(
+                    Succ: static handled => handled,
+                    Fail: fault => ignore(failures.Swap(held => held.Add(fault.Reported(report, op)))));
+            try {
+                indicator.SetMenu(menu);
+                indicator.Activated += activated;
+                indicator.Show();
+                return Fin.Succ(new TrayLease(indicator, activated, failures, op));
+            } catch {
+                try { indicator.Activated -= activated; }
+                finally { indicator.Dispose(); }
+                throw;
+            }
+        })), op).Result;
+    }
 
-    public Unit Halt() => Op.Side(() => { Indicator.Hide(); Indicator.Dispose(); });
+    protected override Fin<Unit> Free() => UiThread.Run(
+        new UiDispatch<Unit>.Blocking(() => Seq<Action>(
+            () => Indicator.Activated -= activated,
+            Indicator.Hide,
+            Indicator.Dispose).Drained(key)), key).Result;
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
-public static class TaskbarPulse {
-    public static Unit Show(PulseState state, UnitInterval fraction) =>
-        Op.Side(() => Taskbar.SetProgress(state: state.Row, progress: (float)fraction.Value));
+public static class ToastDelivery {
+    public static Fin<ToastLease> Deliver(
+        Toast toast,
+        Action<ToastKey> onActivated,
+        Option<TrayLease> anchor,
+        Action<Error> report,
+        Op? key = null) {
+        Op op = key.OrDefault();
+        Notification? notification = null;
+        return UiThread.Run(new UiDispatch<ToastLease>.Blocking(() => op.Catch(() => {
+            Notification owned = notification = new Notification { Title = toast.Title, Message = toast.Message, UserData = toast.Key.Value };
+            _ = toast.Content.Iter(image => owned.ContentImage = image);
+            if (owned.RequiresTrayIndicator && anchor.IsNone)
+                return Fin.Fail<ToastLease>(new UiFault.Unavailable(Key: op, Capability: nameof(TrayIndicator)));
+            owned.Show(anchor.Map(static held => held.Indicator).IfNoneUnsafe((TrayIndicator?)null));
+            return Fin.Succ(new ToastLease(toast.Key, owned, onActivated, report, op));
+        }).MapFail(fault => Optional(notification).Map(owned =>
+            op.Catch(() => Fin.Succ(Op.Side(owned.Dispose))).Match(
+                Succ: _ => fault,
+                Fail: cleanup => fault + cleanup)).IfNone(fault))), op).Result;
+    }
+}
 
-    public static Unit Clear() => Op.Side(() => Taskbar.SetProgress(state: TaskbarProgressState.None));
+public static class TaskbarPulse {
+    public static Fin<Unit> Apply(PulseState state, Op? key = null) {
+        Op op = key.OrDefault();
+        return UiThread.Run(new UiDispatch<Unit>.Blocking(() => op.Catch(() => {
+            (TaskbarProgressState host, float progress) = state.Project();
+            Taskbar.SetProgress(host, progress);
+            return Fin.Succ(unit);
+        })), op).Result;
+    }
+}
+
+public static class PresenceBadge {
+    public static Fin<Unit> Apply(Option<string> label, Op? key = null) {
+        Op op = key.OrDefault();
+        return UiThread.Run(new UiDispatch<Unit>.Blocking(() => op.Catch(() => {
+            Application.Instance.BadgeLabel = label.IfNone(string.Empty);
+            return Fin.Succ(unit);
+        })), op).Result;
+    }
 }
 ```

@@ -1,236 +1,414 @@
 # [RASM_RHINO_BLOCK_LIFECYCLE]
 
-The block lifecycle rail (`Rasm.Rhino.Blocks`). One owner carries host event ingress, versioned preview leasing, deferred refresh, document eviction, and native disposable release: definition-table and document-close facts arrive through the document observation stream under deferred delivery — never a second idle queue or a private event bridge — and one vault atom holds every rendered preview as a versioned entry whose bitmap disposes exactly when its last grant returns and its version is superseded. Refresh behavior is a policy row with its behavior columns, not a cache-mode enum deciding unrelated semantics, and linked-file change composes the document file observation with its debounced clock-stamped gate driving one `Refresh` commit on the operation rail. The census-era `RefCache`/`PreviewVault`/`SnapshotVault`/`BlockVaults`/`EventBridge`/`IdlePump` split collapses into this one spine.
+Preview lifecycle (`Rasm.Rhino.Blocks`) owns bitmap custody, versioned grants, document-scoped invalidation, linked-source refresh, and deterministic disposal. Host acquisition and disposal stay outside `Atom.Swap`; `Change` captures both swaps and every transition on one `Fin<VaultOutcome>` rail.
 
 ## [01]-[INDEX]
 
-- [02]-[REFRESH_POLICY]: `RefreshPolicy` — the invalidation behavior rows.
-- [03]-[PREVIEW_VAULT]: `PreviewKey`, the versioned vault atom, and the `PreviewGrant` custody window.
-- [04]-[EVENT_INGRESS]: observation attachment, document eviction, and the linked-file watch.
-- [05]-[SURFACE_LEDGER]: the page's owner table.
+| [INDEX] | [OWNER] | [CONTRACT] |
+| :-----: | :------ | :--------- |
+|  [01]   | `RefreshPolicy` · `LinkWatchPolicy` | invalidation and observation policy |
+|  [02]   | `PreviewGrant` | versioned bitmap custody window |
+|  [03]   | `BlockLifecycle` | observation, lease, eviction, and linked refresh |
 
 ## [02]-[REFRESH_POLICY]
 
-- Owner: `RefreshPolicy` keyless `[SmartEnum]` — the invalidation decision as rows with two behavior columns: `Rerender` re-renders a stale granted entry on the idle edge, `Evict` drops the entry outright; `Lazy` marks stale and re-renders on the next lease, `Eager` re-renders granted entries immediately after invalidation, `Drop` evicts on every invalidation.
-- Law: the policy decides only staleness handling — grant custody, version arithmetic, and disposal are vault law identical under every row, so a row swap never changes who owns a bitmap.
-- Growth: a new invalidation behavior is one row with its two columns; the invalidation fold reads it with zero new surface.
+`RefreshPolicy` partitions matching versions by grant state. Every row removes and closes zero-grant versions; `Lazy` keeps granted versions stale, `Eager` keeps them stale and regenerates them, and `Drop` moves them to retirement.
 
-```csharp
-// --- [TYPES] ------------------------------------------------------------------------------
-[SmartEnum]
+```csharp signature
+// --- [TYPES] -------------------------------------------------------------------------------
+[SmartEnum<int>]
 public sealed partial class RefreshPolicy {
-    public static readonly RefreshPolicy Lazy = new(rerender: false, evict: false);
-    public static readonly RefreshPolicy Eager = new(rerender: true, evict: false);
-    public static readonly RefreshPolicy Drop = new(rerender: false, evict: true);
+    public static readonly RefreshPolicy Lazy = new(key: 0, rerenderGranted: false, retireGranted: false);
+    public static readonly RefreshPolicy Eager = new(key: 1, rerenderGranted: true, retireGranted: false);
+    public static readonly RefreshPolicy Drop = new(key: 2, rerenderGranted: false, retireGranted: true);
 
-    public bool Rerender { get; }
-    public bool Evict { get; }
+    public bool RerenderGranted { get; }
+    public bool RetireGranted { get; }
+}
+
+[ComplexValueObject]
+public sealed partial class LinkWatchPolicy {
+    public TimeSpan Debounce { get; }
+    public TimeProvider Clock { get; }
+    public ReceiptPolicy Receipts { get; }
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref TimeSpan debounce,
+        ref TimeProvider clock,
+        ref ReceiptPolicy receipts) =>
+        validationError = debounce >= TimeSpan.Zero && clock is not null && receipts is not null
+            ? validationError
+            : new ValidationError(message: "linked observation policy is invalid");
 }
 ```
 
-## [03]-[PREVIEW_VAULT]
+## [03]-[PREVIEW_CUSTODY]
 
-- Owner: `PreviewKey` — the vault identity: document key, definition guid, and the structural `PreviewSpec`, so two specs never alias one image; `PreviewEntry` — the internal versioned holding: owned bitmap lease, version, grant count, staleness; `VaultState` — the ONE CAS domain: the live map plus the retired ledger of superseded versions still under grant; `PreviewGrant` — the consumer custody window: the bitmap is readable for exactly the grant's lifetime, and disposal returns the reference.
-- Entry: `BlockLifecycle.Lease(DocumentSession, BlockRef, PreviewSpec) : Fin<PreviewGrant>` — a fresh vault hit grants the held version; a miss or a stale entry renders through the operation rail's `Preview` ask outside the swap, commits the new version under one swap, and grants the new image.
-- Law: disposal is version-and-grant arithmetic across both maps — a superseded or evicted version with live grants parks in the retired ledger and disposes when its LAST grant returns; a zero-grant version disposes at the supersede or evict transition; a live grant therefore never dereferences a disposed native, and an unreferenced image never lingers.
-- Law: live and retired transition as one value — `VaultState` is one atom, so a supersede that must both replace the live entry and park the prior version commits in one CAS; two separate cells expose a half-moved state to a concurrent release, and the single atom makes that state unobservable.
-- Law: rendering runs outside the swap and the grant reserves at the commit — the host `CreatePreviewBitmap` call is acquisition, the swap commits the new version with its first grant already counted, and a racing supersede therefore parks the prior granted version instead of disposing under a live window; nothing renders or disposes inside a CAS body.
-- Law: the grant is the one public bitmap window — no result shape carries a bare `System.Drawing.Bitmap`, and a consumer keeping an image past its grant copies it inside the window.
+`PreviewKey` combines document, definition, and structural request identity. `PreviewGrant` is the only public bitmap window; `Commit` mints each version above every live and retired version the key already holds, so a re-created key after eviction never aliases a retired grant. Superseded versions with grants move atomically to `Retired`; zero-grant versions release after publication and surface cleanup faults on the reachable grant, while a failed transition releases the uncommitted image.
 
-```csharp
-// --- [MODELS] -----------------------------------------------------------------------------
-public sealed record PreviewKey(DocKey Document, Guid Definition, PreviewSpec Spec) : IDetachedDocumentResult;
+`VaultOutcome` carries transition products without captured mutation. `Change` stamps one result inside the immutable state returned by `Swap`, removes only its own stamp, captures both CAS operations, and returns one fault-aware result to every caller.
+
+```csharp signature
+// --- [MODELS] ------------------------------------------------------------------------------
+public sealed record PreviewKey : IDetachedDocumentResult {
+    internal PreviewKey(DocKey document, Guid definition, BlockPreview spec) =>
+        (Document, Definition, Spec) = (document, definition, spec);
+
+    public DocKey Document { get; }
+    public Guid Definition { get; }
+    public BlockPreview Spec { get; }
+}
 
 internal sealed record PreviewEntry(int Version, Lease<System.Drawing.Bitmap> Image, int Grants, bool Stale);
 
-internal sealed record VaultState(
-    HashMap<PreviewKey, PreviewEntry> Live,
-    HashMap<(PreviewKey Key, int Version), PreviewEntry> Retired) {
-    internal static readonly VaultState Empty = new(
-        Live: HashMap<PreviewKey, PreviewEntry>(),
-        Retired: HashMap<(PreviewKey, int), PreviewEntry>());
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+internal abstract partial record VaultOutcome {
+    private VaultOutcome() { }
+    public sealed record Miss : VaultOutcome;
+    public sealed record Granted(int Version, System.Drawing.Bitmap Image) : VaultOutcome;
+    public sealed record Committed(int Version, System.Drawing.Bitmap Image, Seq<Lease<System.Drawing.Bitmap>> Closing) : VaultOutcome;
+    public sealed record Swept(Seq<Lease<System.Drawing.Bitmap>> Closing, Seq<PreviewKey> Rerender) : VaultOutcome;
+
+    internal static readonly VaultOutcome Clean = new Swept(
+        Closing: Seq<Lease<System.Drawing.Bitmap>>(),
+        Rerender: Seq<PreviewKey>());
 }
 
-// --- [SERVICES] ---------------------------------------------------------------------------
+internal sealed record VaultReceipt(long Ticket, VaultOutcome Outcome);
+
+internal sealed record VaultState(
+    HashMap<PreviewKey, PreviewEntry> Live,
+    HashMap<(PreviewKey Key, int Version), PreviewEntry> Retired,
+    Option<VaultReceipt> Receipt) {
+    internal static readonly VaultState Empty = new(
+        Live: HashMap<PreviewKey, PreviewEntry>(),
+        Retired: HashMap<(PreviewKey, int), PreviewEntry>(),
+        Receipt: Option<VaultReceipt>.None);
+}
+
+// --- [SERVICES] ----------------------------------------------------------------------------
 public sealed class PreviewGrant : IDisposable {
-    private readonly Action release;
+    private readonly Lock gate = new();
+    private readonly Func<Seq<Error>> release;
+    private Seq<Error> cleanupFaults;
     private int released;
 
-    internal PreviewGrant(PreviewKey key, int version, System.Drawing.Bitmap image, Action release) {
+    internal PreviewGrant(
+        PreviewKey key,
+        int version,
+        System.Drawing.Bitmap image,
+        Seq<Error> cleanupFaults,
+        Func<Seq<Error>> release) {
         Key = key;
         Version = version;
         Image = image;
+        this.cleanupFaults = cleanupFaults;
         this.release = release;
     }
 
     public PreviewKey Key { get; }
     public int Version { get; }
     public System.Drawing.Bitmap Image { get; }
+    public Seq<Error> CleanupFaults {
+        get { lock (gate) { return cleanupFaults; } }
+    }
 
-    public void Dispose() =>
-        _ = Interlocked.Exchange(location1: ref released, value: 1) is 0 ? fun(release)() : unit;
+    public void Dispose() {
+        if (Interlocked.Exchange(location1: ref released, value: 1) == 0) {
+            Seq<Error> faults = release();
+            lock (gate) {
+                cleanupFaults = cleanupFaults.Concat(faults);
+            }
+        }
+    }
 }
 ```
 
-## [04]-[EVENT_INGRESS]
+## [04]-[LIFECYCLE]
 
-- Owner: `BlockLifecycle` — the one spine: the vault atom, the session-scoped engagement, the invalidation fold, the lease entry, the eviction fold, and the linked-file watch.
-- Entry: `Engage(DocumentSession, RefreshPolicy) : Fin<Watch>` binds ONE deferred observation over the definition-table and document-close families scoped to the session's document; `Lease(DocumentSession, BlockRef, PreviewSpec) : Fin<PreviewGrant>`; `Evict(DocKey) : Unit` releases every entry of a closed document; `WatchLinked(DocumentSession, BlockRef, string, TimeSpan, TimeProvider) : Fin<Watch>` drives a debounced `Refresh` commit per settled file change.
-- Law: ingress is the document stream, never a private handler — the observation is `Observation.Host` under `EventScope.Document(session.Key)`, the keyed definition-table `Component` fact invalidates that document's entries, and the keyed `Closed` fact evicts them precisely; the sink rides `Delivery.Deferred`, so invalidation runs on the host idle edge, a definition-table storm inside one command coalesces, and the vault never re-renders mid-mutation.
-- Law: the engagement owns the eager path with a bounded lifetime — `Eager` re-renders only stale entries still under grant through the engaging session, the watch disposes before the session it composes, and a disposed session fails a straggling re-render typed instead of touching a dead handle; an image nobody holds re-renders lazily on its next lease, so idle work is proportional to live consumers, never vault size.
-- Law: the linked-file watch composes `Observation.File` — debounce window and clock ride the observation value, the fire gate is the stream's resettable one-shot timer, and the settled fire commits one `Refresh` through the operation rail so the reload carries undo, redraw, and receipt evidence; the worksession family remains the host-raised sibling for paths the host itself watches.
-- Boundary: this page names no host event member — `DocumentStream`, `Watch`, `EventFamily`, and the operation rail are its whole reach.
+`Engage` observes definition-table, worksession-file, and document-close facts through deferred document delivery. Definition and worksession facts invalidate the document; close facts evict it through the same sweep under `RefreshPolicy.Drop`, so one atom transition owns invalidation and eviction. No mutation runs inside the host callback that raised the table event.
 
-```csharp
-// --- [SERVICES] ---------------------------------------------------------------------------
+`Lease` first reserves a fresh cached version or renders outside the atom and commits the owned lease with its first grant. Eager regeneration and closing-image cleanup settle as independent applicative attempts, and every failure remains typed before the fold returns to `Fin<Unit>`.
+
+`WatchLinked` accepts one admitted observation policy, delegates its debounce, clock, and receipt bounds to `Observation.File`, and commits one typed `Refresh` transaction per settled change.
+
+```csharp signature
+// --- [SERVICES] ----------------------------------------------------------------------------
 public static class BlockLifecycle {
     private static readonly Atom<VaultState> Vault = Atom(value: VaultState.Empty);
+    private static long ticket;
 
     public static Fin<Watch> Engage(DocumentSession session, RefreshPolicy policy) {
         Op op = Op.Of();
-        return from active in Optional(policy).ToFin(Fail: op.InvalidInput())
+        return from owner in Optional(session).ToFin(Fail: op.InvalidInput())
+               from active in Optional(policy).ToFin(Fail: op.InvalidInput())
                from watch in DocumentStream.Observe(request: new Observation.Host(
-                   Scope: new EventScope.Document(Key: session.Key),
-                   Families: Seq(EventFamily.InstanceDefinitionTable, EventFamily.Closed),
-                   Delivery: new Delivery.Deferred(Sink: fact =>
-                       fact.Origin is EventOrigin.Host { Family: var family } && family == EventFamily.Closed
-                           ? Fin.Succ(value: Evict(document: session.Key))
-                           : Invalidate(document: session.Key, policy: active, session: session, op: op)),
+                   Scope: new EventScope.Document(Key: owner.Key),
+                   Families: Seq(
+                       EventFamily.InstanceDefinitionTable,
+                       EventFamily.WorksessionFile,
+                       EventFamily.Closed),
+                   Delivery: new Delivery.Deferred(Sink: fact => fact.Origin switch {
+                       EventOrigin.Host { Family: var family } when family == EventFamily.Closed =>
+                           Evict(document: owner.Key),
+                       EventOrigin.Host { Family: var family }
+                           when family == EventFamily.InstanceDefinitionTable || family == EventFamily.WorksessionFile =>
+                           Invalidate(document: owner.Key, policy: active, session: Some(owner), op: op),
+                       _ => Fin.Succ(value: unit),
+                   }),
                    Receipts: ReceiptPolicy.Operational))
                select watch;
     }
 
-    public static Fin<PreviewGrant> Lease(DocumentSession session, BlockRef target, PreviewSpec spec) {
+    public static Fin<PreviewGrant> Lease(DocumentSession session, ResourceRef target, BlockPreview spec) {
         Op op = Op.Of();
-        return from key in session.Demand(
-                   use: document => target.Resolve(document: document, key: op)
-                       .Map(definition => new PreviewKey(Document: session.Key, Definition: definition.Id, Spec: spec)),
+        return from owner in Optional(session).ToFin(Fail: op.InvalidInput())
+               from address in Optional(target).ToFin(Fail: op.InvalidInput())
+               from request in Optional(spec).ToFin(Fail: op.InvalidInput())
+               from key in owner.Demand(
+                   use: document => Definitions.Resolve(target: address, document: document, key: op)
+                       .Map(definition => new PreviewKey(document: owner.Key, definition: definition.Id, spec: request)),
                    key: op,
                    needs: [SessionNeed.Read])
-               from grant in TryGrant(key: key).Match(
+               from cached in TryGrant(key: key, op: op)
+               from grant in cached.Match(
                    Some: static held => Fin.Succ(value: held),
-                   None: () => Render(session: session, target: target, key: key, op: op))
+                   None: () => Render(session: owner, target: address, key: key, op: op))
                select grant;
     }
 
-    public static Unit Evict(DocKey document) {
-        Seq<Lease<System.Drawing.Bitmap>> closing = Seq<Lease<System.Drawing.Bitmap>>();
-        _ = Vault.Swap(f: state => {
-            Seq<(PreviewKey Key, PreviewEntry Entry)> gone = state.Live.AsIterable()
-                .Filter(pair => pair.Key.Document == document)
-                .Map(static pair => (pair.Key, pair.Value))
-                .ToSeq();
-            closing = gone.Filter(static row => row.Entry.Grants == 0).Map(static row => row.Entry.Image);
-            return new VaultState(
-                Live: gone.Fold(state.Live, static (map, row) => map.Remove(key: row.Key)),
-                Retired: gone.Filter(static row => row.Entry.Grants > 0)
-                    .Fold(state.Retired, static (map, row) => map.AddOrUpdate(key: (row.Key, row.Entry.Version), value: row.Entry)));
-        });
-        return ignore(closing.Iter(static image => image.Dispose()));
-    }
+    public static Fin<Unit> Evict(DocKey document) =>
+        Invalidate(document: document, policy: RefreshPolicy.Drop, session: Option<DocumentSession>.None, op: Op.Of());
 
     public static Fin<Watch> WatchLinked(
-        DocumentSession session, BlockRef target, string path, TimeSpan debounce, TimeProvider clock) =>
-        DocumentStream.Observe(request: new Observation.File(
-            Path: path,
-            Debounce: debounce,
-            Clock: clock,
-            Delivery: new Delivery.Deferred(Sink: fact => Blocks.Commit(
-                session: session,
-                plan: BlockTransaction.Batch(name: nameof(WatchLinked), new BlockOp.Refresh(Target: target))).Map(static _ => unit)),
-            Receipts: ReceiptPolicy.Operational));
+        DocumentSession session,
+        ResourceRef target,
+        string path,
+        LinkWatchPolicy policy) {
+        Op op = Op.Of();
+        return from owner in Optional(session).ToFin(Fail: op.InvalidInput())
+               from address in Optional(target).ToFin(Fail: op.InvalidInput())
+               from active in Optional(policy).ToFin(Fail: op.InvalidInput())
+               from source in op.AcceptText(value: path)
+               from watch in DocumentStream.Observe(request: new Observation.File(
+                   Path: source,
+                   Debounce: active.Debounce,
+                   Clock: active.Clock,
+                   Delivery: new Delivery.Deferred(Sink: _ =>
+                       from plan in BlockTransaction.Batch(
+                           name: nameof(WatchLinked),
+                           redraw: RedrawPolicy.Deferred,
+                           operations: [new BlockOp.Refresh(Target: address)])
+                       from __ in Blocks.Commit(session: owner, transaction: plan)
+                       select unit),
+                   Receipts: active.Receipts))
+               select watch;
+    }
 
-    private static Fin<Unit> Invalidate(DocKey document, RefreshPolicy policy, DocumentSession session, Op op) {
-        Seq<Lease<System.Drawing.Bitmap>> closing = Seq<Lease<System.Drawing.Bitmap>>();
-        Seq<PreviewKey> granted = Seq<PreviewKey>();
-        _ = Vault.Swap(f: state => {
+    private static Fin<Unit> Invalidate(
+        DocKey document,
+        RefreshPolicy policy,
+        Option<DocumentSession> session,
+        Op op) {
+        return Change(transition: state => {
             Seq<(PreviewKey Key, PreviewEntry Entry)> hit = state.Live.AsIterable()
                 .Filter(pair => pair.Key.Document == document)
                 .Map(static pair => (pair.Key, pair.Value))
                 .ToSeq();
-            granted = hit.Filter(static row => row.Entry.Grants > 0).Map(static row => row.Key);
-            closing = policy.Evict ? hit.Filter(static row => row.Entry.Grants == 0).Map(static row => row.Entry.Image) : Seq<Lease<System.Drawing.Bitmap>>();
-            return policy.Evict
-                ? new VaultState(
-                    Live: hit.Fold(state.Live, static (map, row) => map.Remove(key: row.Key)),
-                    Retired: hit.Filter(static row => row.Entry.Grants > 0)
-                        .Fold(state.Retired, static (map, row) => map.AddOrUpdate(key: (row.Key, row.Entry.Version), value: row.Entry)))
-                : state with { Live = hit.Fold(state.Live, static (map, row) => map.AddOrUpdate(key: row.Key, value: row.Entry with { Stale = true })) };
-        });
-        _ = closing.Iter(static image => image.Dispose());
-        return policy.Rerender && !policy.Evict
-            ? granted.TraverseM(key => Rerendered(session: session, key: key, op: op)).As().Map(static _ => unit)
-            : Fin.Succ(value: unit);
+            Seq<Lease<System.Drawing.Bitmap>> closing = hit
+                .Filter(static row => row.Entry.Grants == 0)
+                .Map(static row => row.Entry.Image);
+            Seq<PreviewKey> rerender = policy.RerenderGranted
+                ? hit.Filter(static row => row.Entry.Grants > 0).Map(static row => row.Key)
+                : Seq<PreviewKey>();
+            VaultState next = hit.Fold(
+                (State: state, Policy: policy),
+                static (fold, row) => (
+                    State: row.Entry.Grants == 0 || fold.Policy.RetireGranted
+                        ? fold.State with {
+                            Live = fold.State.Live.Remove(key: row.Key),
+                            Retired = row.Entry.Grants > 0
+                                ? fold.State.Retired.AddOrUpdate(
+                                    key: (row.Key, row.Entry.Version),
+                                    value: row.Entry)
+                                : fold.State.Retired,
+                        }
+                        : fold.State with {
+                            Live = fold.State.Live.AddOrUpdate(
+                                key: row.Key,
+                                value: row.Entry with { Stale = true }),
+                        },
+                    Policy: fold.Policy)).State;
+            return (next, new VaultOutcome.Swept(Closing: closing, Rerender: rerender));
+        }, op: op).Bind(outcome => outcome is VaultOutcome.Swept swept
+                ? Settle(
+                    () => Settle(faults: ReleaseAll(images: swept.Closing, op: op)),
+                    () => swept.Rerender
+                        .Traverse(key => session.ToFin(Fail: op.MissingContext())
+                            .Bind(active => Rerendered(session: active, key: key, op: op))
+                            .ToValidation())
+                        .As()
+                        .ToFin()
+                        .Map(static _ => unit))
+                : Fin.Fail<Unit>(error: op.InvalidResult()));
     }
 
     private static Fin<Unit> Rerendered(DocumentSession session, PreviewKey key, Op op) =>
-        BlockRef.Of(id: key.Definition)
+        ResourceRef.Of(id: key.Definition)
             .Bind(target => Render(session: session, target: target, key: key, op: op))
-            .Map(static grant => fun(grant.Dispose)());
+            .Bind(grant => op.Catch(() => {
+                grant.Dispose();
+                return Settle(faults: grant.CleanupFaults);
+            }));
 
-    private static Fin<PreviewGrant> Render(DocumentSession session, BlockRef target, PreviewKey key, Op op) =>
+    private static Fin<PreviewGrant> Render(DocumentSession session, ResourceRef target, PreviewKey key, Op op) =>
         Blocks.Ask(session: session, request: new BlockAsk.Preview(Target: target, Spec: key.Spec)).Bind(answer =>
             answer is BlockAnswer.Rendered rendered
-                ? op.Catch(() => {
-                    Option<Lease<System.Drawing.Bitmap>> zeroGrantPrior = Option<Lease<System.Drawing.Bitmap>>.None;
-                    int committed = 0;
-                    _ = Vault.Swap(f: state => {
-                        Option<PreviewEntry> prior = state.Live.Find(key: key);
-                        committed = prior.Map(static held => held.Version + 1).IfNone(noneValue: 1);
-                        zeroGrantPrior = prior.Filter(static held => held.Grants == 0).Map(static held => held.Image);
-                        PreviewEntry next = new(Version: committed, Image: rendered.Preview, Grants: 1, Stale: false);
-                        return new VaultState(
-                            Live: state.Live.AddOrUpdate(key: key, value: next),
-                            Retired: prior.Filter(static held => held.Grants > 0)
-                                .Map(held => state.Retired.AddOrUpdate(key: (key, held.Version), value: held))
-                                .IfNone(state.Retired));
-                    });
-                    _ = zeroGrantPrior.Iter(static image => image.Dispose());
-                    return Fin.Succ(value: new PreviewGrant(
-                        key: key, version: committed, image: rendered.Preview.Resource,
-                        release: () => Release(key: key, version: committed)));
-                })
+                ? Commit(key: key, image: rendered.Preview, op: op)
                 : Fin.Fail<PreviewGrant>(error: op.InvalidResult()));
 
-    private static Option<PreviewGrant> TryGrant(PreviewKey key) {
-        Option<(int Version, System.Drawing.Bitmap Image)> taken = Option<(int, System.Drawing.Bitmap)>.None;
-        _ = Vault.Swap(f: state => state.Live.Find(key: key).Case switch {
-            PreviewEntry { Stale: false } current =>
-                ((taken = Some((current.Version, current.Image.Resource))), state with {
-                    Live = state.Live.AddOrUpdate(key: key, value: current with { Grants = current.Grants + 1 }),
-                }).Item2,
-            _ => ((taken = Option<(int, System.Drawing.Bitmap)>.None), state).Item2,
-        });
-        return taken.Map(held => new PreviewGrant(
-            key: key, version: held.Version, image: held.Image,
-            release: () => Release(key: key, version: held.Version)));
+    private static Fin<PreviewGrant> Commit(PreviewKey key, Lease<System.Drawing.Bitmap> image, Op op) {
+        Fin<VaultOutcome> transitioned = Change(transition: state => {
+                Option<PreviewEntry> prior = state.Live.Find(key: key);
+                int liveVersion = prior.Map(static held => held.Version).IfNone(noneValue: 0);
+                int retiredVersion = state.Retired.AsIterable()
+                    .Filter(pair => pair.Key.Key == key)
+                    .Fold(0, static (high, pair) => int.Max(high, pair.Key.Version));
+                int version = int.Max(liveVersion, retiredVersion) + 1;
+                Seq<Lease<System.Drawing.Bitmap>> closing = prior
+                    .Filter(static held => held.Grants == 0)
+                    .Map(static held => Seq(held.Image))
+                    .IfNone(Seq<Lease<System.Drawing.Bitmap>>());
+                PreviewEntry next = new(Version: version, Image: image, Grants: 1, Stale: false);
+                VaultState changed = new(
+                    Live: state.Live.AddOrUpdate(key: key, value: next),
+                    Retired: prior.Filter(static held => held.Grants > 0)
+                        .Map(held => state.Retired.AddOrUpdate(key: (key, held.Version), value: held))
+                        .IfNone(state.Retired),
+                    Receipt: state.Receipt);
+                return (changed, new VaultOutcome.Committed(
+                    Version: version,
+                    Image: image.Resource,
+                    Closing: closing));
+            }, op: op);
+
+        return transitioned.Bind(outcome => outcome is VaultOutcome.Committed committed
+                ? Fin.Succ(value: Granted(
+                    key: key,
+                    version: committed.Version,
+                    image: committed.Image,
+                    cleanupFaults: ReleaseAll(images: committed.Closing, op: op)))
+                : Fin.Fail<PreviewGrant>(error: op.InvalidResult()))
+            .MapFail(primary => ReleaseAll(images: Seq(image), op: op)
+                .Fold(primary, static (error, cleanup) => error + cleanup));
     }
 
-    private static void Release(PreviewKey key, int version) {
-        Option<Lease<System.Drawing.Bitmap>> closing = Option<Lease<System.Drawing.Bitmap>>.None;
-        _ = Vault.Swap(f: state => state.Live.Find(key: key).Case switch {
-            PreviewEntry current when current.Version == version =>
-                state with { Live = state.Live.AddOrUpdate(key: key, value: current with { Grants = int.Max(current.Grants - 1, 0) }) },
-            _ => state.Retired.Find(key: (key, version)).Case switch {
-                PreviewEntry parked when parked.Grants <= 1 =>
-                    ((closing = Some(parked.Image)), state with { Retired = state.Retired.Remove(key: (key, version)) }).Item2,
-                PreviewEntry parked =>
-                    state with { Retired = state.Retired.AddOrUpdate(key: (key, version), value: parked with { Grants = parked.Grants - 1 }) },
-                _ => state,
-            },
-        });
-        _ = closing.Iter(static image => image.Dispose());
+    private static Fin<Option<PreviewGrant>> TryGrant(PreviewKey key, Op op) =>
+        Change(transition: state => state.Live.Find(key: key).Case switch {
+            PreviewEntry { Stale: false } current => (
+                state with {
+                    Live = state.Live.AddOrUpdate(
+                        key: key,
+                        value: current with { Grants = current.Grants + 1 }),
+                },
+                new VaultOutcome.Granted(Version: current.Version, Image: current.Image.Resource)),
+            _ => (state, new VaultOutcome.Miss()),
+        }, op: op).Map(outcome => outcome is VaultOutcome.Granted granted
+                ? Some(Granted(
+                    key: key,
+                    version: granted.Version,
+                    image: granted.Image,
+                    cleanupFaults: Seq<Error>()))
+                : Option<PreviewGrant>.None);
+
+    private static PreviewGrant Granted(
+        PreviewKey key,
+        int version,
+        System.Drawing.Bitmap image,
+        Seq<Error> cleanupFaults) =>
+        new(
+            key: key,
+            version: version,
+            image: image,
+            cleanupFaults: cleanupFaults,
+            release: () => Release(key: key, version: version));
+
+    private static Seq<Error> ReleaseAll(Seq<Lease<System.Drawing.Bitmap>> images, Op op) => images
+        .Choose(image => op.Catch(() => { image.Dispose(); return Fin.Succ(value: unit); }).Match(
+            Succ: static _ => Option<Error>.None,
+            Fail: static error => Some(error)));
+
+    private static Fin<Unit> Settle(Seq<Error> faults) =>
+        faults.Head.Match(
+            Some: first => Fin.Fail<Unit>(error: faults.Tail.Fold(first, static (error, fault) => error + fault)),
+            None: static () => Fin.Succ(value: unit));
+
+    private static Fin<Unit> Settle(params Func<Fin<Unit>>[] attempts) =>
+        toSeq(attempts)
+            .Traverse(attempt => attempt().ToValidation())
+            .As()
+            .ToFin()
+            .Map(static _ => unit);
+
+    private static Seq<Error> Release(PreviewKey key, int version) {
+        Op op = Op.Of(name: nameof(Release));
+        return Change(transition: state => state.Live.Find(key: key).Case switch {
+                PreviewEntry current when current.Version == version => (
+                    state with {
+                        Live = state.Live.AddOrUpdate(
+                            key: key,
+                            value: current with { Grants = int.Max(current.Grants - 1, 0) }),
+                    },
+                    VaultOutcome.Clean),
+                _ => state.Retired.Find(key: (key, version)).Case switch {
+                    PreviewEntry parked when parked.Grants <= 1 => (
+                        state with { Retired = state.Retired.Remove(key: (key, version)) },
+                        (VaultOutcome)new VaultOutcome.Swept(
+                            Closing: Seq(parked.Image),
+                            Rerender: Seq<PreviewKey>())),
+                    PreviewEntry parked => (
+                        state with {
+                            Retired = state.Retired.AddOrUpdate(
+                                key: (key, version),
+                                value: parked with { Grants = parked.Grants - 1 }),
+                        },
+                        VaultOutcome.Clean),
+                    _ => (state, VaultOutcome.Clean),
+                },
+            }, op: op)
+            .Match(
+                Succ: outcome => outcome is VaultOutcome.Swept swept
+                    ? ReleaseAll(images: swept.Closing, op: op)
+                    : Seq<Error>(),
+                Fail: static error => Seq(error));
     }
+
+    private static Fin<VaultOutcome> Change(
+        Func<VaultState, (VaultState State, VaultOutcome Outcome)> transition,
+        Op op) => op.Catch(() => {
+        long current = Interlocked.Increment(location: ref ticket);
+        VaultState settled = Vault.Swap(f: state => {
+            (VaultState next, VaultOutcome outcome) = transition(arg: state);
+            return next with { Receipt = Some(new VaultReceipt(Ticket: current, Outcome: outcome)) };
+        });
+        VaultOutcome result = settled.Receipt
+            .Filter(receipt => receipt.Ticket == current)
+            .Map(static receipt => receipt.Outcome)
+            .IfNone(new VaultOutcome.Miss());
+        _ = Vault.Swap(f: state => state.Receipt.Exists(receipt => receipt.Ticket == current)
+            ? state with { Receipt = Option<VaultReceipt>.None }
+            : state);
+        return Fin.Succ(value: result);
+    });
 }
 ```
 
 ## [05]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]            | [OWNER]          | [FORM]                                             | [ENTRY]                                   |
-| :-----: | :------------------- | :--------------- | :------------------------------------------------- | :---------------------------------------- |
-|  [01]   | invalidation rows    | `RefreshPolicy`  | keyless rows, `Rerender`/`Evict` columns           | `Engage(session, policy)`                 |
-|  [02]   | preview identity     | `PreviewKey`     | document + definition + structural spec            | vault keying                              |
-|  [03]   | vault state          | `VaultState`     | one CAS domain: live map + retired grant ledger    | `BlockLifecycle` swaps                    |
-|  [04]   | custody window       | `PreviewGrant`   | version-pinned bitmap access, idempotent return    | `Lease` / `Dispose`                       |
-|  [05]   | event ingress        | `BlockLifecycle` | one deferred keyed observation over two families   | `Engage` / `Evict`                        |
-|  [06]   | linked-file watching | `BlockLifecycle` | debounced `Observation.File` driving one `Refresh` | `WatchLinked(session, target, path, ...)` |
+| [INDEX] | [OWNER] | [INGRESS] | [STATE] | [EGRESS] |
+| :-----: | :------ | :-------- | :------ | :------- |
+|  [01]   | `BlockLifecycle` | `Engage` · `Lease` · `WatchLinked` · `Evict` | `Atom<VaultState>` | watch or grant |
+|  [02]   | `PreviewGrant` | `Granted` | release gate | bounded bitmap access |
+|  [03]   | policy owners | generated admission | invalidation decisions | policy values |

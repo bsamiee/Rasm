@@ -1,22 +1,24 @@
-# [RASM_RHINO_INTERACTION]
+# [RASM_RHINO_DISPLAY_INTERACTION]
 
-In-viewport interaction owner (`Rasm.Rhino.Display`). Three host tiers become three typed owners on one fact vocabulary: `Pointers` adapts the document-wide `MouseCallback` hook — the six paired begin/end overrides plus enter/hover/leave — into a `PointerFact` stream delivered through a bounded channel so a per-move callback submits and returns; `GumballRig` owns the manipulator lifecycle — one `GumballSeat` `[Union]` collapsing the `GumballObject.SetFrom*` family, `GumballAppearanceSettings` as policy, the `GumballDisplayConduit` seat/pick/update drag fold over `PickGumball` and both `UpdateGumball` overloads; and `WidgetHost` registers the Rhino 9 `UserInterfaceObjectBase` families — grip, direction grip, rotation grip, text dot, SVG control, and slider — as typed `WidgetSpec` rows whose events fold into one `WidgetFact` stream and whose hit facts come from the picked `MouseState` (`Button`, `FrustumLine`, curve/line `IsMouseOver` tests). Every fact carries kernel-neutral values — screen points as `Point2d`, world rays as `Line`, identities as `Guid` — and no live host handle, `MouseCallbackEventArgs`, or `MouseState` crosses into a consumer.
+`Pointers.Configure`, `Gumballs.Configure`, and `WidgetHost.Configure` own the three Rhino viewport-interaction modalities. Each admits host input once, emits bounded value facts, and confines callback arguments, mouse state, acquisition handles, and registered UI objects to its lease.
+
+`Marks.Render` remains the widget paint seam, document mutation remains downstream of `GumballReceipt.Completed` carrying `GumballDecision.Accept`, and `DocumentSession` binds document-local widget registration without exporting `RhinoDoc`.
 
 ## [01]-[INDEX]
 
-- [02]-[POINTER_STREAM]: `PointerPhase` rows, `PointerFact`, and the `Pointers` mouse-hook adapter with channel handoff.
-- [03]-[GUMBALL]: `GumballSeat` seating union, `GumballRig` the conduit lifecycle with the pick/update drag fold and transform evidence.
-- [04]-[WIDGETS]: `WidgetSpec` rows over the Rhino 9 in-viewport UI-object families, `WidgetFact`, and the `WidgetHost` registration lifecycle.
+- [01]-[POINTERS]: callback phase projection, overflow policy, and pointer lease.
+- [02]-[GUMBALL]: geometry seating, pick/update fold, and transform evidence.
+- [03]-[WIDGETS]: registered grip, label, SVG, and slider families over one fact channel.
 
-## [02]-[POINTER_STREAM]
+## [02]-[POINTERS]
 
-- Owner: `PointerPhase` `[SmartEnum<int>]` — the hook phases with their host pairing as a column: `Move`/`EndMove`, `Down`/`EndDown`, `Up`/`EndUp`, `DoubleClick`, `Enter`, `Hover`, `Leave` — the `Paired` column marks the begin/end pairs Rhino 9 delivers, so a consumer distinguishing raw from post-processed mouse traffic reads the row, never a naming convention. `PointerFact` — the typed fact: phase, viewport id, screen point as `Point2d`, the `PointerButton` row re-closed from the host `MouseButton` with the shift/control modifier flags, the over-gumball flag, and the capture timestamp. `Pointers` — the public pointer rail whose ONE private `MouseCallback` hook projects args into facts and `TryWrite`s them into a bounded channel; `Enabled` is the mount bit, and the host attaches each event only where an override exists, so the hook overrides all ten.
-- Entry: `Pointers.Mount(Option<int> capacity, Op?) : Fin<(ChannelReader<PointerFact>, IDisposable)>` — the reader is the consumer seam, the disposer disables the hook and completes the writer.
-- Law: the callback submits and returns — a full channel drops the oldest (`BoundedChannelFullMode.DropOldest`) because pointer traffic is latest-wins for every consumer this package serves; blocking the host mouse thread is unrepresentable.
-- Law: tooltip text rides the one `Pointers.Tooltip` verb over `MouseCursor.SetToolTip(string)` — a fact-driven response beside the stream, never an ambient static call scattered at consumers.
-- Boundary: a fact carries `IsOverGumball()` as data so a drag consumer yields to the manipulator without probing host state; the gumball itself is `[03]`'s owner.
+- Owner: `PointerFact` carries phase, edge, button, modifiers, gumball occupancy, viewport identity, point, and monotonic ordinal.
+- Entry: `Pointers.Configure` mounts or retires a hook and sets tooltip text through one request family.
+- Law: callback work is one non-blocking `TryWrite`; overflow behavior is explicit policy and drop evidence remains readable from the lease.
+- Law: retire closes callback admission, disables the hook, settles admitted callbacks within the request-owned bound, completes the channel, and then snapshots final totals.
+- Boundary: `MouseCallbackEventArgs` and `MouseCallback` never cross the callback adapter.
 
-```csharp
+```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System.Threading.Channels;
 using Rasm.Domain;
@@ -27,469 +29,867 @@ using Rasm.Rhino.Viewport;
 namespace Rasm.Rhino.Display;
 
 // --- [TYPES] --------------------------------------------------------------------------------
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+internal abstract partial record LeaseState {
+    private LeaseState() { }
+    internal sealed record Open(int Claims) : LeaseState;
+    internal sealed record Closing(int Claims, Guid Token, TaskCompletionSource<Unit> Quiesced, TaskCompletionSource<Fin<Unit>> Completed) : LeaseState;
+    internal sealed record Retryable(int Claims) : LeaseState;
+    internal sealed record Closed : LeaseState;
+}
+
+internal sealed class LifecycleGate {
+    private readonly Atom<LeaseState> state = Atom<LeaseState>(new LeaseState.Open(Claims: 0));
+    private readonly TimeSpan settleWithin;
+    private LifecycleGate(TimeSpan settleWithin) => this.settleWithin = settleWithin;
+    internal static Fin<LifecycleGate> Of(TimeSpan settleWithin, Op key) =>
+        guard(settleWithin > TimeSpan.Zero, key.InvalidInput()).ToFin().Map(_ => new LifecycleGate(settleWithin));
+
+    internal Fin<T> Within<T>(Func<Fin<T>> body, Func<Fin<T>> refused, Op key) =>
+        TryClaim() ? Settle(key.Catch(body)) : key.Catch(refused);
+
+    internal Fin<Unit> Close(Func<Fin<Unit>> stop, Func<Fin<Unit>> settle, Op key) {
+        Guid token = Guid.NewGuid();
+        TaskCompletionSource<Unit> quiesced = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource<Fin<Unit>> completed = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        LeaseState next = state.Swap(current => current.Switch(
+            (Token: token, Quiesced: quiesced, Completed: completed),
+            open: static (ctx, row) => (LeaseState)new LeaseState.Closing(row.Claims, ctx.Token, ctx.Quiesced, ctx.Completed),
+            closing: static (_, row) => row,
+            retryable: static (ctx, row) => new LeaseState.Closing(row.Claims, ctx.Token, ctx.Quiesced, ctx.Completed),
+            closed: static (_, row) => row));
+        return next.Switch(
+            (Gate: this, Token: token, Stop: stop, Settle: settle, Key: key),
+            open: static (ctx, _) => Fin.Fail<Unit>(ctx.Key.InvalidContext()),
+            closing: static (ctx, row) => row.Token == ctx.Token
+                ? ctx.Gate.CloseOwned(row, ctx.Stop, ctx.Settle, ctx.Key)
+                : ctx.Gate.Await(row.Completed.Task, ctx.Key).Bind(static outcome => outcome),
+            retryable: static (ctx, _) => Fin.Fail<Unit>(ctx.Key.InvalidContext()),
+            closed: static (_, _) => Fin.Succ(unit));
+    }
+
+    private bool TryClaim() => state.Swap(current => current.Switch(
+        open: static row => (LeaseState)new LeaseState.Open(row.Claims + 1),
+        closing: static row => row,
+        retryable: static row => row,
+        closed: static row => row)).Switch(
+            open: static _ => true,
+            closing: static _ => false,
+            retryable: static _ => false,
+            closed: static _ => false);
+
+    private Fin<T> Settle<T>(Fin<T> outcome) => outcome.BiBind(
+        Succ: value => (Release(), Fin.Succ(value)).Item2,
+        Fail: failure => (Release(), Fin.Fail<T>(failure)).Item2);
+
+    private Unit Release() => state.Swap(current => current.Switch(
+        open: static row => (LeaseState)new LeaseState.Open(row.Claims - 1),
+        closing: static row => new LeaseState.Closing(row.Claims - 1, row.Token, row.Quiesced, row.Completed),
+        retryable: static row => new LeaseState.Retryable(row.Claims - 1),
+        closed: static row => row)).Switch(
+            open: static _ => unit,
+            closing: static row => Op.SideWhen(row.Claims == 0, () => row.Quiesced.TrySetResult(unit)),
+            retryable: static _ => unit,
+            closed: static _ => unit);
+
+    private Fin<Unit> CloseOwned(LeaseState.Closing row, Func<Fin<Unit>> stop, Func<Fin<Unit>> settle, Op key) {
+        Fin<Unit> stopped = key.Catch(stop);
+        Fin<Unit> drained = row.Claims == 0 ? Fin.Succ(unit) : Await(row.Quiesced.Task, key).Map(static _ => unit);
+        Fin<Unit> settled = drained.Match(
+            Succ: _ => key.Catch(settle),
+            Fail: static _ => Fin.Succ(unit));
+        Seq<Error> trouble = Seq(
+                stopped,
+                drained,
+                settled)
+            .Choose(static step => step.Match(
+                Succ: static _ => Option<Error>.None,
+                Fail: static failure => Some(failure)));
+        Fin<Unit> outcome = trouble.IsEmpty
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(trouble.Fold(Errors.None, static (folded, failure) => folded + failure));
+        _ = state.Swap(current => current.Switch(
+            open: static value => (LeaseState)value,
+            closing: value => value.Token == row.Token
+                ? trouble.IsEmpty ? new LeaseState.Closed() : new LeaseState.Retryable(value.Claims)
+                : value,
+            retryable: static value => value,
+            closed: static value => value));
+        _ = row.Completed.TrySetResult(outcome);
+        return outcome;
+    }
+
+    private Fin<T> Await<T>(Task<T> signal, Op key) => key.Catch(() =>
+        signal.Wait(settleWithin) ? Fin.Succ(signal.Result) : Fin.Fail<T>(key.InvalidContext()));
+}
+
 [SmartEnum<int>]
 public sealed partial class PointerPhase {
-    public static readonly PointerPhase Move = new(key: 0, paired: true);
-    public static readonly PointerPhase EndMove = new(key: 1, paired: true);
-    public static readonly PointerPhase Down = new(key: 2, paired: true);
-    public static readonly PointerPhase EndDown = new(key: 3, paired: true);
-    public static readonly PointerPhase Up = new(key: 4, paired: true);
-    public static readonly PointerPhase EndUp = new(key: 5, paired: true);
-    public static readonly PointerPhase DoubleClick = new(key: 6, paired: false);
-    public static readonly PointerPhase Enter = new(key: 7, paired: false);
-    public static readonly PointerPhase Hover = new(key: 8, paired: false);
-    public static readonly PointerPhase Leave = new(key: 9, paired: false);
+    public static readonly PointerPhase Move = new(0);
+    public static readonly PointerPhase Down = new(1);
+    public static readonly PointerPhase Up = new(2);
+    public static readonly PointerPhase DoubleClick = new(3);
+    public static readonly PointerPhase Enter = new(4);
+    public static readonly PointerPhase Hover = new(5);
+    public static readonly PointerPhase Leave = new(6);
+}
 
-    public bool Paired { get; }
+[SmartEnum<int>]
+public sealed partial class PointerEdge {
+    public static readonly PointerEdge Begin = new(0);
+    public static readonly PointerEdge End = new(1);
+    public static readonly PointerEdge Atomic = new(2);
 }
 
 [SmartEnum<int>]
 public sealed partial class PointerButton {
-    public static readonly PointerButton None = new(key: 0);
-    public static readonly PointerButton Left = new(key: 1);
-    public static readonly PointerButton Right = new(key: 2);
-    public static readonly PointerButton Middle = new(key: 3);
+    public static readonly PointerButton None = new(0);
+    public static readonly PointerButton Left = new(1);
+    public static readonly PointerButton Right = new(2);
+    public static readonly PointerButton Middle = new(3);
 
-    internal static PointerButton Of(Rhino.UI.MouseButton button) =>
-        button switch {
-            Rhino.UI.MouseButton.Left => Left,
-            Rhino.UI.MouseButton.Right => Right,
-            Rhino.UI.MouseButton.Middle => Middle,
-            _ => None,
-        };
+    internal static PointerButton Of(MouseButton value) => value switch {
+        MouseButton.Left => Left,
+        MouseButton.Right => Right,
+        MouseButton.Middle => Middle,
+        _ => None,
+    };
+}
+
+[SmartEnum<int>]
+public sealed partial class PointerOverflow {
+    public static readonly PointerOverflow Oldest = new(0, BoundedChannelFullMode.DropOldest);
+    public static readonly PointerOverflow Newest = new(1, BoundedChannelFullMode.DropNewest);
+    public static readonly PointerOverflow Incoming = new(2, BoundedChannelFullMode.DropWrite);
+    internal BoundedChannelFullMode Native { get; }
+    internal Channel<T> Bounded<T>(int capacity, Atom<long> rejected) =>
+        Channel.CreateBounded<T>(new BoundedChannelOptions(capacity) {
+            FullMode = Native,
+            SingleReader = false,
+            SingleWriter = true,
+        }, _ => ignore(rejected.Swap(static count => count + 1)));
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record PointerRequest {
+    private PointerRequest() { }
+    public sealed record Mount(int Capacity, PointerOverflow Overflow, TimeSpan SettleWithin) : PointerRequest;
+    public sealed record Tooltip(string Text) : PointerRequest;
+    public sealed record Retire(PointerLease Lease) : PointerRequest;
+
+    internal bool Valid => Switch(
+        mount: static row => row.Overflow is not null,
+        tooltip: static row => row.Text is not null,
+        retire: static row => row.Lease is not null);
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record PointerReceipt {
+    private PointerReceipt() { }
+    public sealed record Mounted(PointerLease Lease) : PointerReceipt;
+    public sealed record TooltipSet : PointerReceipt;
+    public sealed record Retired(long Submitted, long Rejected) : PointerReceipt;
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------
 public readonly record struct PointerFact(
     PointerPhase Phase,
-    Guid ViewportId,
+    PointerEdge Edge,
+    Guid Viewport,
     Point2d At,
     PointerButton Button,
     bool Shift,
     bool Control,
     bool OverGumball,
-    long Timestamp);
+    long Ordinal);
 
 // --- [SERVICES] -----------------------------------------------------------------------------
-public static class Pointers {
-    public static Fin<Unit> Tooltip(string text, Op? key = null) {
-        Op op = key.OrDefault();
-        return from valid in op.AcceptText(value: text)
-               from _ in op.Catch(() => Rhino.UI.MouseCursor.SetToolTip(valid))
-               select unit;
+public sealed class PointerLease : IDisposable {
+    private readonly Channel<PointerFact> channel;
+    private readonly PointerHook hook;
+    private readonly LifecycleGate lifecycle;
+    private readonly Atom<long> rejected;
+    private readonly Atom<Seq<Error>> faults;
+    private readonly Op key;
+    internal PointerLease(Channel<PointerFact> channel, Atom<long> rejected, Atom<Seq<Error>> faults, LifecycleGate lifecycle, Op key) {
+        (this.channel, this.rejected, this.faults, this.lifecycle, this.key) = (channel, rejected, faults, lifecycle, key);
+        hook = new PointerHook(channel.Writer, rejected, faults, lifecycle, key);
     }
+    public ChannelReader<PointerFact> Facts => channel.Reader;
+    public Seq<Error> Faults => faults.Value;
+    public long Submitted => hook.Submitted;
+    public long Rejected => rejected.Value;
+    public Option<int> Buffered => channel.Reader.CanCount ? Some(channel.Reader.Count) : None;
+    internal Unit Enable() => ignore(hook.Enabled = true);
+    internal Fin<PointerReceipt> Retire() => Release().Map(_ =>
+        (PointerReceipt)new PointerReceipt.Retired(Submitted, Rejected));
 
-    public static Fin<(ChannelReader<PointerFact> Facts, IDisposable Mount)> Mount(Option<int> capacity = default, Op? key = null) =>
-        key.OrDefault().Catch(() => {
-            Channel<PointerFact> channel = Channel.CreateBounded<PointerFact>(new BoundedChannelOptions(capacity.IfNone(256)) {
-                FullMode = BoundedChannelFullMode.DropOldest,
-                SingleReader = false,
-                SingleWriter = true,
-            });
-            Hook hook = new(sink: channel.Writer) { Enabled = true };
-            return Fin.Succ<(ChannelReader<PointerFact>, IDisposable)>((channel.Reader, Subscription.Of(detach: () => {
-                hook.Enabled = false;
-                _ = channel.Writer.TryComplete();
-            })));
-        });
+    private Fin<Unit> Release() => lifecycle.Close(
+        stop: () => Fin.Succ((hook.Enabled = false, unit).Item2),
+        settle: () => Fin.Succ((channel.Writer.TryComplete(), unit).Item2),
+        key: key);
 
-    private sealed class Hook : Rhino.UI.MouseCallback {
-        private readonly ChannelWriter<PointerFact> sink;
+    public void Dispose() => _ = Release().IfFail(failure => ignore(faults.Swap(rows => rows.Add(failure))));
+}
 
-        internal Hook(ChannelWriter<PointerFact> sink) => this.sink = sink;
+internal sealed class PointerHook : MouseCallback {
+    private readonly ChannelWriter<PointerFact> sink;
+    private readonly Atom<long> rejected;
+    private readonly Atom<Seq<Error>> faults;
+    private readonly LifecycleGate lifecycle;
+    private readonly Op key;
+    private long ordinal;
+    internal PointerHook(ChannelWriter<PointerFact> sink, Atom<long> rejected, Atom<Seq<Error>> faults, LifecycleGate lifecycle, Op key) =>
+        (this.sink, this.rejected, this.faults, this.lifecycle, this.key) = (sink, rejected, faults, lifecycle, key);
+    internal long Submitted => Interlocked.Read(ref ordinal);
 
-        protected override void OnMouseMove(Rhino.UI.MouseCallbackEventArgs e) => Emit(phase: PointerPhase.Move, e: e);
-        protected override void OnEndMouseMove(Rhino.UI.MouseCallbackEventArgs e) => Emit(phase: PointerPhase.EndMove, e: e);
-        protected override void OnMouseDown(Rhino.UI.MouseCallbackEventArgs e) => Emit(phase: PointerPhase.Down, e: e);
-        protected override void OnEndMouseDown(Rhino.UI.MouseCallbackEventArgs e) => Emit(phase: PointerPhase.EndDown, e: e);
-        protected override void OnMouseUp(Rhino.UI.MouseCallbackEventArgs e) => Emit(phase: PointerPhase.Up, e: e);
-        protected override void OnEndMouseUp(Rhino.UI.MouseCallbackEventArgs e) => Emit(phase: PointerPhase.EndUp, e: e);
-        protected override void OnMouseDoubleClick(Rhino.UI.MouseCallbackEventArgs e) => Emit(phase: PointerPhase.DoubleClick, e: e);
-        protected override void OnMouseEnter(Rhino.UI.MouseCallbackEventArgs e) => Emit(phase: PointerPhase.Enter, e: e);
-        protected override void OnMouseHover(Rhino.UI.MouseCallbackEventArgs e) => Emit(phase: PointerPhase.Hover, e: e);
-        protected override void OnMouseLeave(Rhino.UI.MouseCallbackEventArgs e) => Emit(phase: PointerPhase.Leave, e: e);
+    protected override void OnMouseMove(MouseCallbackEventArgs e) => Emit(PointerPhase.Move, PointerEdge.Begin, e);
+    protected override void OnEndMouseMove(MouseCallbackEventArgs e) => Emit(PointerPhase.Move, PointerEdge.End, e);
+    protected override void OnMouseDown(MouseCallbackEventArgs e) => Emit(PointerPhase.Down, PointerEdge.Begin, e);
+    protected override void OnEndMouseDown(MouseCallbackEventArgs e) => Emit(PointerPhase.Down, PointerEdge.End, e);
+    protected override void OnMouseUp(MouseCallbackEventArgs e) => Emit(PointerPhase.Up, PointerEdge.Begin, e);
+    protected override void OnEndMouseUp(MouseCallbackEventArgs e) => Emit(PointerPhase.Up, PointerEdge.End, e);
+    protected override void OnMouseDoubleClick(MouseCallbackEventArgs e) => Emit(PointerPhase.DoubleClick, PointerEdge.Atomic, e);
+    protected override void OnMouseEnter(MouseCallbackEventArgs e) => Emit(PointerPhase.Enter, PointerEdge.Atomic, e);
+    protected override void OnMouseHover(MouseCallbackEventArgs e) => Emit(PointerPhase.Hover, PointerEdge.Atomic, e);
+    protected override void OnMouseLeave(MouseCallbackEventArgs e) => Emit(PointerPhase.Leave, PointerEdge.Atomic, e);
 
-        private void Emit(PointerPhase phase, Rhino.UI.MouseCallbackEventArgs e) =>
-            _ = sink.TryWrite(new PointerFact(
-                Phase: phase,
-                ViewportId: e.View.ActiveViewport.Id,
-                At: new Point2d(e.ViewportPoint.X, e.ViewportPoint.Y),
-                Button: PointerButton.Of(button: e.MouseButton),
-                Shift: e.ShiftKeyDown,
-                Control: e.CtrlKeyDown,
-                OverGumball: e.IsOverGumball() != Rhino.UI.Gumball.GumballMode.None,
-                Timestamp: Environment.TickCount64));
+    private void Emit(PointerPhase phase, PointerEdge edge, MouseCallbackEventArgs e) {
+        _ = lifecycle.Within(() => {
+            long current = Interlocked.Increment(ref ordinal);
+            bool accepted = sink.TryWrite(new PointerFact(
+                phase, edge, e.View.ActiveViewport.Id, new Point2d(e.ViewportPoint.X, e.ViewportPoint.Y),
+                PointerButton.Of(e.MouseButton), e.ShiftKeyDown, e.CtrlKeyDown,
+                e.IsOverGumball() != GumballMode.None, current));
+            _ = Op.SideWhen(!accepted, () => ignore(rejected.Swap(static count => count + 1)));
+            return Fin.Succ(unit);
+        }, static () => Fin.Succ(unit), key).IfFail(failure => ignore(faults.Swap(rows => rows.Add(failure))));
+    }
+}
+
+// --- [OPERATIONS] ---------------------------------------------------------------------------
+public static class Pointers {
+    public static Fin<PointerReceipt> Configure(PointerRequest request, Op? key = null) {
+        Op op = key.OrDefault();
+        return guard(request is not null && request.Valid, op.InvalidInput()).ToFin().Bind(_ => request.Switch(
+            op,
+            mount: static (op, row) => from capacity in op.Positive(row.Capacity)
+                                      from lifecycle in LifecycleGate.Of(row.SettleWithin, op)
+                                      from lease in op.Catch(() => {
+                                          Atom<long> rejected = Atom(0L);
+                                          Atom<Seq<Error>> faults = Atom(Seq<Error>());
+                                          Channel<PointerFact> channel = row.Overflow.Bounded<PointerFact>((int)capacity, rejected);
+                                          PointerLease value = new(channel, rejected, faults, lifecycle, op);
+                                          _ = value.Enable();
+                                          return Fin.Succ(value);
+                                      })
+                                      select (PointerReceipt)new PointerReceipt.Mounted(lease),
+            tooltip: static (op, row) => from text in op.AcceptText(row.Text)
+                                         from _ in op.Catch(() => MouseCursor.SetToolTip(text))
+                                         select (PointerReceipt)new PointerReceipt.TooltipSet(),
+            retire: static (_, row) => row.Lease.Retire()));
     }
 }
 ```
 
 ## [03]-[GUMBALL]
 
-- Owner: `GumballSeat` `[Union]` — one seating vocabulary over the `GumballObject.SetFrom*` family: `BoundsCase(BoundingBox, Option<Plane>)` through `SetFromBoundingBox(boundingBox:)` or the framed `SetFromBoundingBox(frame:, frameBoundingBox:)`, plus `LineCase`, `PlaneCase`, `ArcCase`, `CircleCase`, `EllipseCase`, `CurveCase`, `ExtrusionCase`, `LightCase`, `HatchCase` — each one host call, so seating any geometry family is one union case. `GumballRig` — the lifecycle capsule: constructs the `GumballObject` and `GumballDisplayConduit`, applies the `GumballAppearanceSettings` policy through `SetBaseGumball`, mounts, and folds the drag: `Pick(PickContext, GetPoint)` through `PickGumball`, `Drag(Point3d, Line)` and `Drag(Plane)` through the two `UpdateGumball` overloads, and `Evidence()` projecting the drag's total and incremental transforms (`TotalTransform`/`GumballTransform`) as values.
-- Entry: `GumballRig.Mount(GumballSeat, Option<GumballAppearanceSettings>, ActiveSpace, Op?) : Fin<GumballRig>` — the conduit constructs space-bound through `GumballDisplayConduit(ActiveSpace)`, the parameterless host constructor being obsolete; the rig is `IDisposable` and disposal disables the conduit.
-- Law: the drag is a fold over host updates — pick seats the drag, each update recomputes the conduit's transform, and `Evidence` reads it as a `Transform` value with the seat echo; a consumer never mutates geometry from inside the drag — it applies the evidence transform through its own transaction rail after the drag commits.
-- Law: appearance is policy data applied once at `SetBaseGumball`; per-drag appearance mutation re-seats the rig.
-- Boundary: `PickContext` and `GetPoint` arrive from the interaction unit's acquisition rail as borrowed host values inside the pick call — the rig holds neither.
+- Owner: `GumballSeat` closes the host seating family; `GumballMove` closes line-ray and plane updates; `GumballEvidence` carries total and incremental transforms without mutating geometry.
+- Entry: `Gumballs.Configure` owns mount, pick, move, inspect, and completion over one request algebra.
+- Law: completion returns accepted or rejected evidence; the caller alone applies an accepted transform through its transaction rail.
+- Law: a move admits its shape at the request — ray point and world line, frame plane validity — and the whole native update, evidence read included, runs inside one catch boundary, so a host throw lands as a `Fin` failure, never an escape from `Gumballs.Configure`.
+- Boundary: `PickContext` and `GetPoint` are borrowed only by `Pick`, and the lease owns both disposable host objects.
 
-```csharp
+```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record GumballSeat {
     private GumballSeat() { }
-    public sealed record BoundsCase(BoundingBox Bounds, Option<Plane> Frame) : GumballSeat;
-    public sealed record LineCase(Line Value) : GumballSeat;
-    public sealed record PlaneCase(Plane Value) : GumballSeat;
-    public sealed record ArcCase(Arc Value) : GumballSeat;
-    public sealed record CircleCase(Circle Value) : GumballSeat;
-    public sealed record EllipseCase(Ellipse Value) : GumballSeat;
-    public sealed record CurveCase(Curve Value) : GumballSeat;
-    public sealed record ExtrusionCase(Extrusion Value) : GumballSeat;
-    public sealed record LightCase(Light Value) : GumballSeat;
-    public sealed record HatchCase(Hatch Value) : GumballSeat;
+    public sealed record Bounds(BoundingBox Value, Option<global::Rhino.Geometry.Plane> Frame) : GumballSeat;
+    public sealed record Line(global::Rhino.Geometry.Line Value) : GumballSeat;
+    public sealed record Plane(global::Rhino.Geometry.Plane Value) : GumballSeat;
+    public sealed record Arc(global::Rhino.Geometry.Arc Value) : GumballSeat;
+    public sealed record Circle(global::Rhino.Geometry.Circle Value) : GumballSeat;
+    public sealed record Ellipse(global::Rhino.Geometry.Ellipse Value) : GumballSeat;
+    public sealed record Curve(global::Rhino.Geometry.Curve Value) : GumballSeat;
+    public sealed record Extrusion(global::Rhino.Geometry.Extrusion Value) : GumballSeat;
+    public sealed record Light(global::Rhino.Geometry.Light Value) : GumballSeat;
+    public sealed record Hatch(global::Rhino.Geometry.Hatch Value) : GumballSeat;
 
-    internal Fin<Unit> Seat(Rhino.UI.Gumball.GumballObject gumball, Op key) =>
-        Switch(
-            state: (Gumball: gumball, Op: key),
-            boundsCase: static (ctx, seat) => seat.Frame.Match(
-                Some: frame => ctx.Op.Confirm(success: ctx.Gumball.SetFromBoundingBox(frame: frame, frameBoundingBox: seat.Bounds)),
-                None: () => ctx.Op.Confirm(success: ctx.Gumball.SetFromBoundingBox(boundingBox: seat.Bounds))),
-            lineCase: static (ctx, seat) => ctx.Op.Confirm(success: ctx.Gumball.SetFromLine(line: seat.Value)),
-            planeCase: static (ctx, seat) => ctx.Op.Confirm(success: ctx.Gumball.SetFromPlane(plane: seat.Value)),
-            arcCase: static (ctx, seat) => ctx.Op.Confirm(success: ctx.Gumball.SetFromArc(arc: seat.Value)),
-            circleCase: static (ctx, seat) => ctx.Op.Confirm(success: ctx.Gumball.SetFromCircle(circle: seat.Value)),
-            ellipseCase: static (ctx, seat) => ctx.Op.Confirm(success: ctx.Gumball.SetFromEllipse(ellipse: seat.Value)),
-            curveCase: static (ctx, seat) => ctx.Op.Confirm(success: ctx.Gumball.SetFromCurve(curve: seat.Value)),
-            extrusionCase: static (ctx, seat) => ctx.Op.Confirm(success: ctx.Gumball.SetFromExtrusion(extrusion: seat.Value)),
-            lightCase: static (ctx, seat) => ctx.Op.Confirm(success: ctx.Gumball.SetFromLight(light: seat.Value)),
-            hatchCase: static (ctx, seat) => ctx.Op.Confirm(success: ctx.Gumball.SetFromHatch(hatch: seat.Value)));
+    internal bool Valid => Switch(
+        bounds: static row => row.Value.IsValid
+            && row.Frame.Match(Some: static frame => frame.IsValid, None: static () => true),
+        line: static row => row.Value.IsValid,
+        plane: static row => row.Value.IsValid,
+        arc: static row => row.Value.IsValid,
+        circle: static row => row.Value.IsValid,
+        ellipse: static row => row.Value.IsValid,
+        curve: static row => row.Value is { IsValid: true },
+        extrusion: static row => row.Value is { IsValid: true },
+        light: static row => row.Value is { IsValid: true },
+        hatch: static row => row.Value is { IsValid: true });
+
+    internal Fin<Unit> Apply(GumballObject target, Op key) => Switch(
+        (Target: target, Op: key),
+        bounds: static (ctx, row) => row.Frame.Match(
+            Some: frame => ctx.Op.Confirm(ctx.Target.SetFromBoundingBox(frame, row.Value)),
+            None: () => ctx.Op.Confirm(ctx.Target.SetFromBoundingBox(row.Value))),
+        line: static (ctx, row) => ctx.Op.Confirm(ctx.Target.SetFromLine(row.Value)),
+        plane: static (ctx, row) => ctx.Op.Confirm(ctx.Target.SetFromPlane(row.Value)),
+        arc: static (ctx, row) => ctx.Op.Confirm(ctx.Target.SetFromArc(row.Value)),
+        circle: static (ctx, row) => ctx.Op.Confirm(ctx.Target.SetFromCircle(row.Value)),
+        ellipse: static (ctx, row) => ctx.Op.Confirm(ctx.Target.SetFromEllipse(row.Value)),
+        curve: static (ctx, row) => ctx.Op.Confirm(ctx.Target.SetFromCurve(row.Value)),
+        extrusion: static (ctx, row) => ctx.Op.Confirm(ctx.Target.SetFromExtrusion(row.Value)),
+        light: static (ctx, row) => ctx.Op.Confirm(ctx.Target.SetFromLight(row.Value)),
+        hatch: static (ctx, row) => ctx.Op.Confirm(ctx.Target.SetFromHatch(row.Value)));
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record GumballMove {
+    private GumballMove() { }
+    public sealed record Ray(Point3d Point, Line WorldLine) : GumballMove;
+    public sealed record Frame(Plane Value) : GumballMove;
+
+    internal bool Valid => Switch(
+        ray: static row => row.Point.IsValid && row.WorldLine.IsValid,
+        frame: static row => row.Value.IsValid);
+}
+
+[SmartEnum<int>]
+public sealed partial class GumballDecision {
+    public static readonly GumballDecision Reject = new(key: 0, accepted: false);
+    public static readonly GumballDecision Accept = new(key: 1, accepted: true);
+
+    public bool Accepted { get; }
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record GumballRequest {
+    private GumballRequest() { }
+    public sealed record Mount(GumballSeat Seat, ActiveSpaceUse Space) : GumballRequest;
+    internal sealed record Pick(GumballRig Rig, PickContext Context, GetPoint Point) : GumballRequest;
+    public sealed record Move(GumballRig Rig, GumballMove Value) : GumballRequest;
+    public sealed record Inspect(GumballRig Rig) : GumballRequest;
+    public sealed record Complete(GumballRig Rig, GumballDecision Decision) : GumballRequest;
+
+    internal bool Valid => Switch(
+        mount: static row => row.Seat is not null && row.Seat.Valid && row.Space is not null,
+        pick: static row => row.Rig is not null && row.Rig.IsLive && row.Context is not null && row.Point is not null,
+        move: static row => row.Rig is not null && row.Rig.IsLive && row.Value is not null && row.Value.Valid,
+        inspect: static row => row.Rig is not null && row.Rig.IsLive,
+        complete: static row => row.Rig is not null && row.Rig.IsLive && row.Decision is not null);
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record GumballReceipt {
+    private GumballReceipt() { }
+    public sealed record Mounted(GumballRig Rig) : GumballReceipt;
+    public sealed record Picked(bool Value) : GumballReceipt;
+    public sealed record Moved(GumballEvidence Evidence) : GumballReceipt;
+    public sealed record Inspected(GumballEvidence Evidence) : GumballReceipt;
+    public sealed record Completed(GumballEvidence Evidence, GumballDecision Decision) : GumballReceipt;
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------
-public readonly record struct GumballEvidence(Transform Total, Transform Incremental, GumballSeat Seat, bool Dragging);
+public readonly record struct GumballEvidence(Transform Total, Transform Incremental, bool Dragging);
 
 // --- [SERVICES] -----------------------------------------------------------------------------
 public sealed class GumballRig : IDisposable {
-    private readonly Rhino.UI.Gumball.GumballObject gumball;
-    private readonly Rhino.UI.Gumball.GumballDisplayConduit conduit;
-    private readonly GumballSeat seat;
-    private bool dragging;
+    private readonly GumballObject gumball;
+    private readonly GumballDisplayConduit conduit;
     private int released;
+    internal GumballRig(GumballObject gumball, GumballDisplayConduit conduit) =>
+        (this.gumball, this.conduit) = (gumball, conduit);
+    internal bool IsLive => Volatile.Read(ref released) == 0;
+    internal bool Dragging { get; set; }
+    internal GumballEvidence Evidence => new(conduit.TotalTransform, conduit.GumballTransform, Dragging);
+    internal GumballDisplayConduit Conduit => conduit;
 
-    private GumballRig(Rhino.UI.Gumball.GumballObject gumball, Rhino.UI.Gumball.GumballDisplayConduit conduit, GumballSeat seat) {
-        this.gumball = gumball;
-        this.conduit = conduit;
-        this.seat = seat;
+    internal Fin<Unit> Release(Op key) {
+        if (Interlocked.Exchange(ref released, 1) != 0) { return Fin.Succ(unit); }
+        Seq<Error> trouble = Seq(
+                key.Catch(() => { conduit.Enabled = false; return Fin.Succ(unit); }),
+                key.Catch(() => { conduit.Dispose(); return Fin.Succ(unit); }),
+                key.Catch(() => { gumball.Dispose(); return Fin.Succ(unit); }))
+            .Choose(static step => step.Match(
+                Succ: static _ => Option<Error>.None,
+                Fail: static failure => Some(failure)));
+        return trouble.IsEmpty
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(trouble.Fold(Errors.None, static (folded, failure) => folded + failure));
     }
 
-    public static Fin<GumballRig> Mount(GumballSeat seat, Option<Rhino.UI.Gumball.GumballAppearanceSettings> appearance = default, ActiveSpace space = ActiveSpace.ModelSpace, Op? key = null) {
+    public void Dispose() => _ = Release(Op.Of(nameof(GumballRig)));
+}
+
+// --- [OPERATIONS] ---------------------------------------------------------------------------
+public static class Gumballs {
+    public static Fin<GumballReceipt> Configure(GumballRequest request, Op? key = null) {
         Op op = key.OrDefault();
-        return from request in Optional(seat).ToFin(Fail: op.InvalidInput())
-               from rig in op.Catch(() => {
-                   Rhino.UI.Gumball.GumballObject ball = new();
-                   Rhino.UI.Gumball.GumballDisplayConduit pipe = new(space: space);
-                   return Fin.Succ(new GumballRig(gumball: ball, conduit: pipe, seat: request));
-               })
-               from _ in request.Seat(gumball: rig.gumball, key: op)
-               from __ in op.Catch(() => {
-                   rig.conduit.SetBaseGumball(gumball: rig.gumball, appearanceSettings: appearance.IfNone(() => new Rhino.UI.Gumball.GumballAppearanceSettings()));
-                   rig.conduit.Enabled = true;
-                   return Fin.Succ(value: unit);
-               })
-               select rig;
+        return guard(request is not null && request.Valid, op.InvalidInput()).ToFin().Bind(_ => request.Switch(
+            op,
+            mount: static (op, row) => Mount(row, op).Map(static rig => (GumballReceipt)new GumballReceipt.Mounted(rig)),
+            pick: static (op, row) => op.Catch(() => row.Rig.Conduit.PickGumball(row.Context, row.Point))
+                .Map(value => { row.Rig.Dragging = value; return (GumballReceipt)new GumballReceipt.Picked(value); }),
+            move: static (op, row) => op.Catch(() => row.Value.Switch(
+                    (Rig: row.Rig, Op: op),
+                    ray: static (ctx, value) => ctx.Op.Confirm(ctx.Rig.Conduit.UpdateGumball(value.Point, value.WorldLine)),
+                    frame: static (ctx, value) => ctx.Op.Confirm(ctx.Rig.Conduit.UpdateGumball(value.Value)))
+                .Map(_ => (GumballReceipt)new GumballReceipt.Moved(row.Rig.Evidence))),
+            inspect: static (op, row) => op.Catch(() => Fin.Succ<GumballReceipt>(new GumballReceipt.Inspected(row.Rig.Evidence))),
+            complete: static (op, row) => op.Catch(() => {
+                row.Rig.Dragging = false;
+                return Fin.Succ<GumballReceipt>(new GumballReceipt.Completed(row.Rig.Evidence, row.Decision));
+            })));
     }
 
-    public Fin<bool> Pick(Input.Custom.PickContext pick, Input.Custom.GetPoint point, Op? key = null) {
-        Op op = key.OrDefault();
-        return from context in Optional(pick).ToFin(Fail: op.InvalidInput())
-               from getter in Optional(point).ToFin(Fail: op.InvalidInput())
-               from picked in op.Catch(() => Fin.Succ(conduit.PickGumball(pickContext: context, getPoint: getter)))
-               from _ in Fin.Succ(ignore(dragging = picked))
-               select picked;
-    }
-
-    public Fin<Unit> Drag(Point3d point, Line worldLine, Op? key = null) =>
-        key.OrDefault().Confirm(success: conduit.UpdateGumball(point: point, worldLine: worldLine));
-
-    public Fin<Unit> Drag(Plane frame, Op? key = null) =>
-        key.OrDefault().Confirm(success: conduit.UpdateGumball(frame: frame));
-
-    public GumballEvidence Evidence() => new(Total: conduit.TotalTransform, Incremental: conduit.GumballTransform, Seat: seat, Dragging: dragging);
-
-    public Unit Commit() => ignore(dragging = false);
-
-    public void Dispose() {
-        if (Interlocked.Exchange(location1: ref released, value: 1) is not 0) { return; }
-        conduit.Enabled = false;
-        conduit.Dispose();
-        gumball.Dispose();
-    }
+    private static Fin<GumballRig> Mount(GumballRequest.Mount row, Op op) =>
+        op.Catch(() => Fin.Succ(new GumballObject())).Bind(ball =>
+            op.Catch(() => Fin.Succ(new GumballDisplayConduit(row.Space.Native))).BiBind(
+                Succ: pipe => {
+                    GumballRig rig = new(ball, pipe);
+                    return (from _ in op.Catch(() => row.Seat.Apply(ball, op))
+                            from __ in op.Catch(() => {
+                                pipe.SetBaseGumball(ball, new GumballAppearanceSettings());
+                                pipe.Enabled = true;
+                                return unit;
+                            })
+                            select rig).BiBind(
+                                Succ: static mounted => Fin.Succ(mounted),
+                                Fail: failure => rig.Release(op).Match(
+                                    Succ: _ => Fin.Fail<GumballRig>(failure),
+                                    Fail: cleanup => Fin.Fail<GumballRig>(failure + cleanup)));
+                },
+                Fail: failure => op.Catch(() => { ball.Dispose(); return Fin.Succ(unit); }).Match(
+                    Succ: _ => Fin.Fail<GumballRig>(failure),
+                    Fail: cleanup => Fin.Fail<GumballRig>(failure + cleanup))));
 }
 ```
 
 ## [04]-[WIDGETS]
 
-- Owner: `WidgetSpec` `[Union]` — the Rhino 9 in-viewport widget rows: `GripCase` a constrained snap-point grip (the location constructor plus `GripRadius`/`Constrain`/`SetSnapPoints`/`ObjectSnapPermitted`, with an optional chrome tuple over `GripShape`/`GripColor`/`GripFillColor`/`GripStrokeWidth`/`GripShapeRotationRadians`), `DirectionCase` a direction-arrow grip (the location-direction constructor plus `ArrowRadius`, `OneWay`, and the optional `DirectionLineLength`), `RotationCase(Plane, double)` a rotation-arc grip (the plane-radius constructor) with the `OnRotationDrag(double, MouseState)` hook, `TextDotCase` (the location-text constructor plus `TextHeight`, an optional ink triple over `TextColor`/`DotBackgroundColor`/`DotBorderColor`, and `MouseOverTextHeight`), `SvgCase(string, Point2d, Size2i)` an SVG-backed control (the protected screen location-size constructor plus `SetSvg`), and `SliderCase` a ranged slider (`Range`/`Value`/`HorizontalOrientation`/`DisplayValue`/`DigitPrecision` with the `OnValueChanged` hook). `WidgetFact` `[Union]` — the event stream: `PressedCase(Line)` carrying the pick ray, `ClickedCase(bool)` single-versus-double, `HoverCase(bool)` from the enter/leave pair, `MovedCase(Point3d)` from the grip's `OnDrag(Point3d, MouseState)` drag hook, `RotatedCase(double)`, `SlidCase(double)`, `HitCase(Option<double>)` from the picked `MouseState` curve/line tests. `WidgetSink` — the internal projection record every adapter shares: identity, channel writer, and the optional painter, so a fact spelling exists exactly once and an adapter override is one verb call. `WidgetHost` — the registration lifecycle: mints the internal host adapter per row, registers through `UserInterfaceObjectBase.RegisterForAllDocuments()`, retires through `Unregister()`, and folds every widget's events into one channel; `BoundToActiveView` and `Visible` are mount policy bits.
-- Law: every family's `OnDraw(DrawEventArgs)` rides `UserInterfaceObjectBase`, so `Mount`'s optional paint composes the draw page's mark algebra over any widget kind — an in-viewport widget is a pipeline participant, never a private renderer; mouse overrides receive the picked `MouseState` and project `Button`, `FrustumLine`, and `IsMouseOver(Curve, out double)`/`IsMouseOver(Line)` into `WidgetFact` rows before any consumer sees them.
-- Law: one host adapter class per host base is an internal fact; the public surface is the spec union plus the fact stream, so a new widget family is one spec case, one internal adapter over the shared `WidgetSink`, and one fact projection — consumers never subclass host bases.
-- Growth: the Rhino 9 `UserInterfaceControl` SVG surface makes custom chrome one `SvgCase` payload; a richer custom widget is a new spec case over `UserInterfaceObjectBase`, never a parallel registration path.
-- Boundary: widget geometry is world-space host drawing under the active view binding; HUD-space chrome belongs to the draw page's screen band inside a conduit, and the two do not mix on one spec.
+- Owner: `WidgetSpec` closes grip, direction, rotation, text-dot, SVG, and slider payloads; `WidgetScope` chooses all-document or document-group registration.
+- Entry: `WidgetHost.Configure` mounts, changes, inspects, or retires one widget and returns typed identity and state receipts.
+- Law: adapters project every host callback through one `WidgetSink`; painting draws the native widget visual through `base.OnDraw`, then overlays the mounted `Seq<Mark>` through `Marks.Render`, and never invents a renderer.
+- Law: document-local registration uses `ViewUserInterface.Add` and removal uses the same table; all-document registration pairs `RegisterForAllDocuments` with `Unregister`.
+- Law: `LifecycleGate` admits configuration and callback claims, closes admission before bounded retirement, and retains failed mounts for the next cleanup attempt.
+- Law: change captures native state before either write and compensates visibility and active-view binding independently when either write fails.
+- Boundary: a mounted widget is visible only through `WidgetId`, `WidgetFact`, and `WidgetState` values.
 
-```csharp
+```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
+[ValueObject<Guid>]
+public readonly partial struct WidgetId {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Guid value) =>
+        validationError = value == Guid.Empty ? new ValidationError(message: "Widget identity is empty.") : null;
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record WidgetConstraint {
+    private WidgetConstraint() { }
+    public sealed record Free : WidgetConstraint;
+    public sealed record Curve(global::Rhino.Geometry.Curve Value) : WidgetConstraint;
+    public sealed record Line(global::Rhino.Geometry.Line Value) : WidgetConstraint;
+    public sealed record Arc(global::Rhino.Geometry.Arc Value) : WidgetConstraint;
+    public sealed record Circle(global::Rhino.Geometry.Circle Value) : WidgetConstraint;
+
+    internal bool Valid => Switch(
+        free: static _ => true,
+        curve: static row => row.Value is { IsValid: true },
+        line: static row => row.Value.IsValid,
+        arc: static row => row.Value.IsValid,
+        circle: static row => row.Value.IsValid);
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record WidgetScope {
+    private WidgetScope() { }
+    public sealed record AllDocuments : WidgetScope;
+    public sealed record Document(DocumentSession Session, Guid Group) : WidgetScope;
+
+    internal bool Valid => Switch(
+        allDocuments: static _ => true,
+        document: static row => row.Session is not null && row.Group != Guid.Empty);
+}
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record WidgetSpec {
     private WidgetSpec() { }
-    public sealed record GripCase(
-        Point3d At, double Radius, Option<Curve> Constraint, Seq<Point3d> SnapPoints, bool ObjectSnap,
-        Option<(Rhino.UI.GripUserInterfaceObjectShape Shape, PerceptualColor Stroke, PerceptualColor Fill, float StrokeWidth, double RotationRadians)> Chrome = default) : WidgetSpec;
-    public sealed record DirectionCase(Point3d At, Vector3d Direction, double ArrowRadius, Option<double> LineLength = default, bool OneWay = false) : WidgetSpec;
-    public sealed record RotationCase(Plane Arc, double Radius) : WidgetSpec;
-    public sealed record TextDotCase(
-        string Text, int Height, Point3d At,
-        Option<(PerceptualColor Text, PerceptualColor Back, PerceptualColor Border)> Ink = default, Option<int> HoverHeight = default) : WidgetSpec;
-    public sealed record SvgCase(string Svg, Point2d At, Size2i Extent) : WidgetSpec;
-    public sealed record SliderCase(Interval Range, double Value, bool Horizontal = true, bool DisplayValue = true, Option<int> Precision = default) : WidgetSpec;
+    public sealed record Grip(Point3d At, double Radius, WidgetConstraint Constraint, Seq<Point3d> Snaps, bool ObjectSnap) : WidgetSpec;
+    public sealed record Direction(Point3d At, Vector3d Vector, double Radius, Option<double> LineLength, bool OneWay, bool GripPointVisible) : WidgetSpec;
+    public sealed record Rotation(Plane Plane, double Radius, bool GripPointVisible) : WidgetSpec;
+    public sealed record Text(string Value, Point3d At, int Height, PerceptualColor Ink, PerceptualColor Fill, PerceptualColor Border) : WidgetSpec;
+    public sealed record Svg(string Value, Point2d At, Size2i Extent) : WidgetSpec;
+    public sealed record Slider(Interval Range, double Value, bool Horizontal, bool DisplayValue, int Precision) : WidgetSpec;
+
+    internal bool Valid => Switch(
+        grip: static row => row.At.IsValid
+            && row.Constraint is not null
+            && row.Constraint.Valid
+            && row.Snaps.ForAll(static point => point.IsValid)
+            && row.Radius > 0.0
+            && double.IsFinite(row.Radius),
+        direction: static row => row.At.IsValid
+            && row.Vector.IsValid
+            && !row.Vector.IsZero
+            && row.Radius > 0.0
+            && double.IsFinite(row.Radius)
+            && row.LineLength.Match(Some: static value => value > 0.0 && double.IsFinite(value), None: static () => true),
+        rotation: static row => row.Plane.IsValid && row.Radius > 0.0 && double.IsFinite(row.Radius),
+        text: static row => !string.IsNullOrWhiteSpace(row.Value) && row.At.IsValid && row.Height > 0,
+        svg: static row => !string.IsNullOrWhiteSpace(row.Value) && Quant.Finite(row.At) && row.Extent.IsValid,
+        slider: static row => double.IsFinite(row.Range.T0)
+            && double.IsFinite(row.Range.T1)
+            && row.Range.T0 < row.Range.T1
+            && row.Value >= row.Range.T0
+            && row.Value <= row.Range.T1
+            && row.Precision >= 0);
+}
+
+[SmartEnum<int>]
+public sealed partial class ClickUse {
+    public static readonly ClickUse Single = new(key: 0);
+    public static readonly ClickUse Double = new(key: 1);
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record WidgetHit {
+    private WidgetHit() { }
+    public sealed record Curve(Option<double> Parameter) : WidgetHit;
+    public sealed record Line(bool Over) : WidgetHit;
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record WidgetFact {
     private WidgetFact() { }
-    public sealed record PressedCase(Guid Widget, Line PickRay) : WidgetFact;
-    public sealed record ClickedCase(Guid Widget, bool Double) : WidgetFact;
-    public sealed record HoverCase(Guid Widget, bool Over) : WidgetFact;
-    public sealed record MovedCase(Guid Widget, Point3d To) : WidgetFact;
-    public sealed record RotatedCase(Guid Widget, double Angle) : WidgetFact;
-    public sealed record SlidCase(Guid Widget, double Value) : WidgetFact;
-    public sealed record HitCase(Guid Widget, Option<double> CurveParameter) : WidgetFact;
+    public sealed record Pressed(WidgetId Widget, Guid Viewport, PointerButton Button, Line Ray) : WidgetFact;
+    public sealed record Released(WidgetId Widget, Guid Viewport, PointerButton Button, Line Ray) : WidgetFact;
+    public sealed record Clicked(WidgetId Widget, ClickUse Use) : WidgetFact;
+    public sealed record Hovered(WidgetId Widget, bool Value) : WidgetFact;
+    public sealed record Moved(WidgetId Widget, Point3d To) : WidgetFact;
+    public sealed record Rotated(WidgetId Widget, double Angle) : WidgetFact;
+    public sealed record Slid(WidgetId Widget, double Value) : WidgetFact;
+    public sealed record Hit(WidgetId Widget, WidgetHit Result) : WidgetFact;
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
-internal sealed record WidgetSink(Guid Identity, System.Threading.Channels.ChannelWriter<WidgetFact> Writer, Option<Func<ConduitFrame, Fin<Unit>>> Painter) {
-    internal Unit Paint(DrawEventArgs args) =>
-        ignore(Painter.Iter(body => ignore(body(new ConduitFrame(
-            Pipeline: args.Display, Viewport: args.Viewport, Context: FrameContext.Of(pipeline: args.Display), Phase: ConduitPhase.PostObjects)))));
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record WidgetRequest {
+    private WidgetRequest() { }
+    public sealed record Mount(WidgetSpec Spec, WidgetScope Scope, bool ActiveViewOnly, bool Visible, Seq<Mark> Marks) : WidgetRequest;
+    public sealed record Change(WidgetId Widget, bool Visible, bool ActiveViewOnly) : WidgetRequest;
+    public sealed record Inspect(WidgetId Widget) : WidgetRequest;
+    public sealed record Retire(WidgetId Widget) : WidgetRequest;
 
-    internal Unit Pressed(Rhino.UI.MouseState mouse) => ignore(Writer.TryWrite(new WidgetFact.PressedCase(Widget: Identity, PickRay: mouse.FrustumLine)));
-
-    internal Unit Clicked(bool doubled) => ignore(Writer.TryWrite(new WidgetFact.ClickedCase(Widget: Identity, Double: doubled)));
-
-    internal Unit Hover(bool over) => ignore(Writer.TryWrite(new WidgetFact.HoverCase(Widget: Identity, Over: over)));
-
-    internal Unit Moved(Point3d to) => ignore(Writer.TryWrite(new WidgetFact.MovedCase(Widget: Identity, To: to)));
-
-    internal Unit Rotated(double angle) => ignore(Writer.TryWrite(new WidgetFact.RotatedCase(Widget: Identity, Angle: angle)));
-
-    internal Unit Slid(double value) => ignore(Writer.TryWrite(new WidgetFact.SlidCase(Widget: Identity, Value: value)));
-
-    internal Unit Hit(Option<double> parameter) => ignore(Writer.TryWrite(new WidgetFact.HitCase(Widget: Identity, CurveParameter: parameter)));
+    internal bool Valid => Switch(
+        mount: static row => row.Spec is not null
+            && row.Spec.Valid
+            && row.Scope is not null
+            && row.Scope.Valid
+            && row.Marks.ForAll(static mark => mark is not null && mark.Valid),
+        change: static row => row.Widget.Value != Guid.Empty,
+        inspect: static row => row.Widget.Value != Guid.Empty,
+        retire: static row => row.Widget.Value != Guid.Empty);
 }
 
-internal sealed class GripWidget : Rhino.UI.GripUserInterfaceObject {
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record WidgetReceipt {
+    private WidgetReceipt() { }
+    public sealed record Mounted(WidgetId Widget) : WidgetReceipt;
+    public sealed record Changed(WidgetState State) : WidgetReceipt;
+    public sealed record Inspected(WidgetState State) : WidgetReceipt;
+    public sealed record Retired(WidgetId Widget) : WidgetReceipt;
+}
+
+// --- [MODELS] -------------------------------------------------------------------------------
+public readonly record struct WidgetState(WidgetId Widget, bool Visible, bool ActiveViewOnly, bool Registered);
+internal sealed record WidgetEffect : IDetachedDocumentResult;
+internal sealed record WidgetMount(UserInterfaceObjectBase Native, Func<Fin<Unit>> Retire);
+internal sealed record WidgetSink(
+    WidgetId Identity,
+    ChannelWriter<WidgetFact> Writer,
+    Seq<Mark> Program,
+    SpriteSheet Sprites,
+    Atom<Seq<Error>> Faults,
+    Atom<long> Submitted,
+    Atom<long> Rejected,
+    LifecycleGate Lifecycle,
+    Op Key) {
+    internal Unit Paint(DrawEventArgs args) => Observe(Lifecycle.Within(
+        body: () => Marks.Render(
+            new Canvas.Pipeline(ConduitFrame.Of(args.Display, args.Viewport, ConduitPhase.PostObjects)),
+            Sprites,
+            Program).Map(static _ => unit),
+        refused: static () => Fin.Succ(unit),
+        key: Key));
+    internal Unit Press(MouseState mouse) => Emit(() => new WidgetFact.Pressed(Identity, mouse.View.ActiveViewport.Id, PointerButton.Of(mouse.Button), mouse.FrustumLine));
+    internal Unit Release(MouseState mouse) => Emit(() => new WidgetFact.Released(Identity, mouse.View.ActiveViewport.Id, PointerButton.Of(mouse.Button), mouse.FrustumLine));
+    internal Unit Click(ClickUse use) => Emit(() => new WidgetFact.Clicked(Identity, use));
+    internal Unit Hover(bool value) => Emit(() => new WidgetFact.Hovered(Identity, value));
+    internal Unit Move(Point3d value) => Emit(() => new WidgetFact.Moved(Identity, value));
+    internal Unit Rotate(double value) => Emit(() => new WidgetFact.Rotated(Identity, value));
+    internal Unit Slide(double value) => Emit(() => new WidgetFact.Slid(Identity, value));
+    internal Unit Hit(Func<WidgetHit> project) => Emit(() => new WidgetFact.Hit(Identity, project()));
+
+    private Unit Emit(Func<WidgetFact> project) => Observe(Lifecycle.Within(
+        body: () => {
+            _ = Submitted.Swap(static count => count + 1);
+            _ = Op.SideWhen(!Writer.TryWrite(project()), () => ignore(Rejected.Swap(static count => count + 1)));
+            return Fin.Succ(unit);
+        },
+        refused: static () => Fin.Succ(unit),
+        key: Key));
+
+    private Unit Observe(Fin<Unit> outcome) => outcome.Match(
+        Succ: static _ => unit,
+        Fail: failure => ignore(Faults.Swap(rows => rows.Add(failure))));
+}
+
+// --- [ADAPTERS] -----------------------------------------------------------------------------
+internal sealed class GripWidget : GripUserInterfaceObject {
     private readonly WidgetSink sink;
-    private readonly Option<Curve> constraint;
-
-    internal GripWidget(WidgetSpec.GripCase spec, WidgetSink sink)
-        : base(spec.At) {
+    private readonly WidgetConstraint constraint;
+    internal GripWidget(WidgetSpec.Grip spec, WidgetSink sink) : base(spec.At) {
         this.sink = sink;
-        constraint = spec.Constraint;
         GripRadius = (float)spec.Radius;
         ObjectSnapPermitted = spec.ObjectSnap;
-        _ = spec.Constraint.Iter(curve => Constrain(curve: curve));
-        _ = Op.SideWhen(!spec.SnapPoints.IsEmpty, () => SetSnapPoints(points: spec.SnapPoints.AsEnumerable()));
-        _ = spec.Chrome.Iter(chrome => {
-            GripShape = chrome.Shape;
-            GripColor = Quant.Sys(chrome.Stroke);
-            GripFillColor = Quant.Sys(chrome.Fill);
-            GripStrokeWidth = chrome.StrokeWidth;
-            GripShapeRotationRadians = (float)chrome.RotationRadians;
-        });
+        constraint = spec.Constraint;
+        _ = spec.Constraint.Switch(
+            this,
+            free: static (_, _) => unit,
+            curve: static (owner, value) => Op.Side(() => owner.Constrain(value.Value)),
+            line: static (owner, value) => Op.Side(() => owner.Constrain(value.Value)),
+            arc: static (owner, value) => Op.Side(() => owner.Constrain(value.Value)),
+            circle: static (owner, value) => Op.Side(() => owner.Constrain(value.Value)));
+        _ = Op.SideWhen(!spec.Snaps.IsEmpty, () => SetSnapPoints(spec.Snaps.AsEnumerable()));
     }
-
-    protected override void OnDraw(DrawEventArgs args) => sink.Paint(args: args);
-
-    protected override void OnMouseDown(Rhino.UI.MouseState mouse) => sink.Pressed(mouse: mouse);
-
-    protected override void OnDrag(Point3d newLocation, Rhino.UI.MouseState mouse) => sink.Moved(to: newLocation);
-
-    protected override void OnMouseMove(Rhino.UI.MouseState mouse) =>
-        _ = constraint.Iter(curve => sink.Hit(parameter: mouse.IsMouseOver(curve, out double t) ? Some(t) : Option<double>.None));
-
-    protected override void OnMouseUp(Rhino.UI.MouseState mouse) => sink.Moved(to: GripLocation);
-
-    protected override void OnMouseEnter(Rhino.UI.MouseState mouse) => sink.Hover(over: true);
-
-    protected override void OnMouseLeave(Rhino.UI.MouseState mouse) => sink.Hover(over: false);
-
-    protected override void OnMouseClick(Rhino.UI.MouseState mouse) => sink.Clicked(doubled: false);
-
-    protected override void OnMouseDoubleClick(Rhino.UI.MouseState mouse) => sink.Clicked(doubled: true);
+    protected override void OnDraw(DrawEventArgs e) { base.OnDraw(e); sink.Paint(e); }
+    protected override void OnMouseDown(MouseState e) => sink.Press(e);
+    protected override void OnMouseUp(MouseState e) => sink.Release(e);
+    protected override void OnDrag(Point3d value, MouseState _) => sink.Move(value);
+    protected override void OnMouseMove(MouseState e) => _ = constraint.Switch(
+        (Sink: sink, Mouse: e),
+        free: static (_, _) => unit,
+        curve: static (ctx, value) => ctx.Sink.Hit(() => new WidgetHit.Curve(ctx.Mouse.IsMouseOver(value.Value, out double t) ? Some(t) : None)),
+        line: static (ctx, value) => ctx.Sink.Hit(() => new WidgetHit.Line(ctx.Mouse.IsMouseOver(value.Value))),
+        arc: static (ctx, value) => ctx.Sink.Hit(() => { using Curve curve = value.Value.ToNurbsCurve(); return new WidgetHit.Curve(ctx.Mouse.IsMouseOver(curve, out double t) ? Some(t) : None); }),
+        circle: static (ctx, value) => ctx.Sink.Hit(() => { using Curve curve = value.Value.ToNurbsCurve(); return new WidgetHit.Curve(ctx.Mouse.IsMouseOver(curve, out double t) ? Some(t) : None); }));
+    protected override void OnMouseEnter(MouseState _) => sink.Hover(true);
+    protected override void OnMouseLeave(MouseState _) => sink.Hover(false);
+    protected override void OnMouseClick(MouseState _) => sink.Click(ClickUse.Single);
+    protected override void OnMouseDoubleClick(MouseState _) => sink.Click(ClickUse.Double);
 }
 
-internal sealed class DirectionWidget : Rhino.UI.DirectionGripUserInterfaceObject {
+internal sealed class DirectionWidget : DirectionGripUserInterfaceObject {
     private readonly WidgetSink sink;
-
-    internal DirectionWidget(WidgetSpec.DirectionCase spec, WidgetSink sink)
-        : base(spec.At, spec.Direction) {
+    internal DirectionWidget(WidgetSpec.Direction spec, WidgetSink sink) : base(spec.At, spec.Vector) {
         this.sink = sink;
-        ArrowRadius = (float)spec.ArrowRadius;
+        ArrowRadius = (float)spec.Radius;
         OneWay = spec.OneWay;
-        _ = spec.LineLength.Iter(length => DirectionLineLength = (float)length);
+        GripPointVisible = spec.GripPointVisible;
+        _ = spec.LineLength.Iter(value => DirectionLineLength = (float)value);
     }
-
-    protected override void OnDraw(DrawEventArgs args) => sink.Paint(args: args);
-
-    protected override void OnMouseDown(Rhino.UI.MouseState mouse) => sink.Pressed(mouse: mouse);
-
-    protected override void OnMouseEnter(Rhino.UI.MouseState mouse) => sink.Hover(over: true);
-
-    protected override void OnMouseLeave(Rhino.UI.MouseState mouse) => sink.Hover(over: false);
-
-    protected override void OnMouseClick(Rhino.UI.MouseState mouse) => sink.Clicked(doubled: false);
+    protected override void OnDraw(DrawEventArgs e) { base.OnDraw(e); sink.Paint(e); }
+    protected override void OnMouseDown(MouseState e) => sink.Press(e);
+    protected override void OnMouseUp(MouseState e) => sink.Release(e);
+    protected override void OnMouseEnter(MouseState _) => sink.Hover(true);
+    protected override void OnMouseLeave(MouseState _) => sink.Hover(false);
 }
 
-internal sealed class RotationWidget : Rhino.UI.RotationGripUserInterfaceObject {
+internal sealed class RotationWidget : RotationGripUserInterfaceObject {
     private readonly WidgetSink sink;
-
-    internal RotationWidget(WidgetSpec.RotationCase spec, WidgetSink sink)
-        : base(spec.Arc, spec.Radius) =>
+    internal RotationWidget(WidgetSpec.Rotation spec, WidgetSink sink) : base(spec.Plane, spec.Radius) {
         this.sink = sink;
-
-    protected override void OnDraw(DrawEventArgs args) => sink.Paint(args: args);
-
-    protected override void OnMouseDown(Rhino.UI.MouseState mouse) => sink.Pressed(mouse: mouse);
-
-    protected override void OnRotationDrag(double angle, Rhino.UI.MouseState mouse) => sink.Rotated(angle: angle);
-
-    protected override void OnMouseEnter(Rhino.UI.MouseState mouse) => sink.Hover(over: true);
-
-    protected override void OnMouseLeave(Rhino.UI.MouseState mouse) => sink.Hover(over: false);
+        GripPointVisible = spec.GripPointVisible;
+    }
+    protected override void OnDraw(DrawEventArgs e) { base.OnDraw(e); sink.Paint(e); }
+    protected override void OnMouseDown(MouseState e) => sink.Press(e);
+    protected override void OnMouseUp(MouseState e) => sink.Release(e);
+    protected override void OnRotationDrag(double value, MouseState _) => sink.Rotate(value);
 }
 
-internal sealed class TextDotWidget : Rhino.UI.TextDotUserInterfaceObject {
+internal sealed class TextWidget : TextDotUserInterfaceObject {
     private readonly WidgetSink sink;
-
-    internal TextDotWidget(WidgetSpec.TextDotCase spec, WidgetSink sink)
-        : base(spec.At, spec.Text) {
+    internal TextWidget(WidgetSpec.Text spec, WidgetSink sink) : base(spec.At, spec.Value) {
         this.sink = sink;
         TextHeight = spec.Height;
-        _ = spec.Ink.Iter(ink => {
-            TextColor = Quant.Sys(ink.Text);
-            DotBackgroundColor = Quant.Sys(ink.Back);
-            DotBorderColor = Quant.Sys(ink.Border);
-        });
-        _ = spec.HoverHeight.Iter(height => MouseOverTextHeight = height);
+        TextColor = Quant.Sys(spec.Ink);
+        DotBackgroundColor = Quant.Sys(spec.Fill);
+        DotBorderColor = Quant.Sys(spec.Border);
     }
-
-    protected override void OnDraw(DrawEventArgs args) => sink.Paint(args: args);
-
-    protected override void OnMouseDown(Rhino.UI.MouseState mouse) => sink.Pressed(mouse: mouse);
-
-    protected override void OnMouseEnter(Rhino.UI.MouseState mouse) => sink.Hover(over: true);
-
-    protected override void OnMouseLeave(Rhino.UI.MouseState mouse) => sink.Hover(over: false);
-
-    protected override void OnMouseClick(Rhino.UI.MouseState mouse) => sink.Clicked(doubled: false);
-
-    protected override void OnMouseDoubleClick(Rhino.UI.MouseState mouse) => sink.Clicked(doubled: true);
+    protected override void OnDraw(DrawEventArgs e) { base.OnDraw(e); sink.Paint(e); }
+    protected override void OnMouseDown(MouseState e) => sink.Press(e);
+    protected override void OnMouseUp(MouseState e) => sink.Release(e);
+    protected override void OnMouseEnter(MouseState _) => sink.Hover(true);
+    protected override void OnMouseLeave(MouseState _) => sink.Hover(false);
+    protected override void OnMouseClick(MouseState _) => sink.Click(ClickUse.Single);
+    protected override void OnMouseDoubleClick(MouseState _) => sink.Click(ClickUse.Double);
 }
 
-internal sealed class SvgWidget : Rhino.UI.UserInterfaceControl {
+internal sealed class SvgWidget : UserInterfaceControl {
     private readonly WidgetSink sink;
-
-    internal SvgWidget(WidgetSpec.SvgCase spec, WidgetSink sink)
-        : base(new System.Drawing.Point((int)spec.At.X, (int)spec.At.Y), spec.Extent.Native) {
+    internal SvgWidget(WidgetSpec.Svg spec, WidgetSink sink) : base(new System.Drawing.Point((int)spec.At.X, (int)spec.At.Y), spec.Extent.Native) {
         this.sink = sink;
-        SetSvg(svg: spec.Svg);
+        SetSvg(spec.Value);
     }
-
-    protected override void OnDraw(DrawEventArgs args) => sink.Paint(args: args);
-
-    protected override void OnMouseDown(Rhino.UI.MouseState mouse) => sink.Pressed(mouse: mouse);
-
-    protected override void OnMouseEnter(Rhino.UI.MouseState mouse) => sink.Hover(over: true);
-
-    protected override void OnMouseLeave(Rhino.UI.MouseState mouse) => sink.Hover(over: false);
-
-    protected override void OnMouseClick(Rhino.UI.MouseState mouse) => sink.Clicked(doubled: false);
-
-    protected override void OnMouseDoubleClick(Rhino.UI.MouseState mouse) => sink.Clicked(doubled: true);
+    protected override void OnDraw(DrawEventArgs e) { base.OnDraw(e); sink.Paint(e); }
+    protected override void OnMouseDown(MouseState e) => sink.Press(e);
+    protected override void OnMouseUp(MouseState e) => sink.Release(e);
+    protected override void OnMouseClick(MouseState _) => sink.Click(ClickUse.Single);
+    protected override void OnMouseDoubleClick(MouseState _) => sink.Click(ClickUse.Double);
 }
 
-internal sealed class SliderWidget : Rhino.UI.UserInterfaceSlider {
+internal sealed class SliderWidget : UserInterfaceSlider {
     private readonly WidgetSink sink;
-
-    internal SliderWidget(WidgetSpec.SliderCase spec, WidgetSink sink) {
+    internal SliderWidget(WidgetSpec.Slider spec, WidgetSink sink) {
         this.sink = sink;
         Range = spec.Range;
         Value = spec.Value;
         HorizontalOrientation = spec.Horizontal;
         DisplayValue = spec.DisplayValue;
-        _ = spec.Precision.Iter(digits => DigitPrecision = digits);
+        DigitPrecision = spec.Precision;
     }
-
-    protected override void OnDraw(DrawEventArgs args) => sink.Paint(args: args);
-
-    protected override void OnValueChanged() => sink.Slid(value: Value);
+    protected override void OnDraw(DrawEventArgs e) { base.OnDraw(e); sink.Paint(e); }
+    protected override void OnValueChanged() => sink.Slide(Value);
 }
 
+// --- [SERVICES] -----------------------------------------------------------------------------
 public sealed class WidgetHost : IDisposable {
-    private readonly System.Threading.Channels.Channel<WidgetFact> channel;
-    private readonly Atom<HashMap<Guid, Rhino.UI.UserInterfaceObjectBase>> mounted = Atom(HashMap<Guid, Rhino.UI.UserInterfaceObjectBase>());
-    private int released;
+    private readonly Channel<WidgetFact> channel;
+    private readonly Atom<HashMap<WidgetId, WidgetMount>> mounted = Atom(HashMap<WidgetId, WidgetMount>());
+    private readonly Atom<Seq<Error>> faults = Atom(Seq<Error>());
+    private readonly Atom<long> submitted = Atom(0L);
+    private readonly Atom<long> rejected;
+    private readonly LifecycleGate lifecycle;
+    private readonly SpriteSheet sprites = new();
+    private WidgetHost(Channel<WidgetFact> channel, Atom<long> rejected, LifecycleGate lifecycle) =>
+        (this.channel, this.rejected, this.lifecycle) = (channel, rejected, lifecycle);
+    public ChannelReader<WidgetFact> Facts => channel.Reader;
+    public Seq<Error> Faults => faults.Value;
+    public long Submitted => submitted.Value;
+    public long Rejected => rejected.Value;
+    public Option<int> Buffered => channel.Reader.CanCount ? Some(channel.Reader.Count) : None;
 
-    private WidgetHost(System.Threading.Channels.Channel<WidgetFact> channel) => this.channel = channel;
-
-    public System.Threading.Channels.ChannelReader<WidgetFact> Facts => channel.Reader;
-
-    public static WidgetHost Of(Option<int> capacity = default) =>
-        new(channel: System.Threading.Channels.Channel.CreateBounded<WidgetFact>(new System.Threading.Channels.BoundedChannelOptions(capacity.IfNone(256)) {
-            FullMode = System.Threading.Channels.BoundedChannelFullMode.DropOldest,
-        }));
-
-    public Fin<Guid> Mount(WidgetSpec spec, Option<Func<ConduitFrame, Fin<Unit>>> paint = default, bool activeViewOnly = true, Op? key = null) {
+    public static Fin<WidgetHost> Of(int capacity, PointerOverflow overflow, TimeSpan settleWithin, Op? key = null) {
         Op op = key.OrDefault();
-        WidgetSink sink = new(Identity: Guid.NewGuid(), Writer: channel.Writer, Painter: paint);
-        return from widget in op.Catch(() => Fin.Succ(spec.Switch<Rhino.UI.UserInterfaceObjectBase>(
-                   gripCase: row => new GripWidget(spec: row, sink: sink),
-                   directionCase: row => new DirectionWidget(spec: row, sink: sink),
-                   rotationCase: row => new RotationWidget(spec: row, sink: sink),
-                   textDotCase: row => new TextDotWidget(spec: row, sink: sink),
-                   svgCase: row => new SvgWidget(spec: row, sink: sink),
-                   sliderCase: row => new SliderWidget(spec: row, sink: sink))))
-               from _ in op.Catch(() => {
-                   widget.BoundToActiveView = activeViewOnly;
-                   widget.Visible = true;
-                   return op.Confirm(success: widget.RegisterForAllDocuments());
-               })
-               from __ in Fin.Succ(ignore(mounted.Swap(held => held.AddOrUpdate(sink.Identity, widget))))
-               select sink.Identity;
+        return guard(overflow is not null, op.InvalidInput()).ToFin()
+            .Bind(_ => op.Positive(capacity))
+            .Bind(value => LifecycleGate.Of(settleWithin, op).Bind(lifecycle => op.Catch(() => {
+                Atom<long> rejected = Atom(0L);
+                Channel<WidgetFact> channel = overflow.Bounded<WidgetFact>((int)value, rejected);
+                return Fin.Succ(new WidgetHost(channel, rejected, lifecycle));
+            })));
     }
 
-    public Fin<Unit> Retire(Guid widget, Op? key = null) {
+    public Fin<WidgetReceipt> Configure(WidgetRequest request, Op? key = null) {
         Op op = key.OrDefault();
-        return mounted.Value.Find(widget).ToFin(Fail: op.InvalidInput())
-            .Bind(held => op.Catch(() => {
-                held.Unregister();
-                _ = mounted.Swap(map => map.Remove(widget));
-                return Fin.Succ(value: unit);
-            }));
+        return lifecycle.Within(
+            body: () => guard(request is not null && request.Valid, op.InvalidInput()).ToFin().Bind(_ => request.Switch(
+                (Host: this, Op: op),
+                mount: static (ctx, row) => ctx.Host.Mount(row, ctx.Op),
+                change: static (ctx, row) => ctx.Host.Change(row, ctx.Op),
+                inspect: static (ctx, row) => ctx.Host.Find(row.Widget, ctx.Op).Bind(value => ctx.Op.Catch(() =>
+                    Fin.Succ<WidgetReceipt>(new WidgetReceipt.Inspected(ctx.Host.State(row.Widget, value))))),
+                retire: static (ctx, row) => from value in ctx.Host.Find(row.Widget, ctx.Op)
+                                             from _ in ctx.Host.Retire(row.Widget, value, ctx.Op)
+                                             select (WidgetReceipt)new WidgetReceipt.Retired(row.Widget))),
+            refused: () => Fin.Fail<WidgetReceipt>(op.InvalidContext()),
+            key: op);
     }
 
-    public void Dispose() {
-        if (Interlocked.Exchange(location1: ref released, value: 1) is not 0) { return; }
-        _ = toSeq(mounted.Value.Values).Iter(static widget => widget.Unregister());
-        _ = channel.Writer.TryComplete();
+    private Fin<WidgetReceipt> Mount(WidgetRequest.Mount row, Op op) {
+        WidgetId identity = WidgetId.Create(Guid.NewGuid());
+        WidgetSink sink = new(identity, channel.Writer, row.Marks, sprites, faults, submitted, rejected, lifecycle, op);
+        return from widget in op.Catch(() => row.Spec.Switch(
+                   sink,
+                   grip: static (state, spec) => (UserInterfaceObjectBase)new GripWidget(spec, state),
+                   direction: static (state, spec) => new DirectionWidget(spec, state),
+                   rotation: static (state, spec) => new RotationWidget(spec, state),
+                   text: static (state, spec) => new TextWidget(spec, state),
+                   svg: static (state, spec) => new SvgWidget(spec, state),
+                   slider: static (state, spec) => new SliderWidget(spec, state)))
+               from retire in row.Scope.Switch(
+                   (Widget: widget, Op: op),
+                   allDocuments: static (ctx, _) => ctx.Op.Confirm(ctx.Widget.RegisterForAllDocuments())
+                       .Map(_ => (Func<Fin<Unit>>)(() => ctx.Op.Catch(ctx.Widget.Unregister))),
+                   document: static (ctx, scope) => scope.Session.Demand(
+                       use: doc => ctx.Op.Confirm(doc.ViewUserInterface.Add(ctx.Widget, scope.Group)).Map(static _ => new WidgetEffect()),
+                       key: ctx.Op,
+                       needs: [SessionNeed.Mutate])
+                       .Map(_ => (Func<Fin<Unit>>)(() => scope.Session.Demand(
+                           use: doc => ctx.Op.Catch(() => ctx.Op.Confirm(doc.ViewUserInterface.Remove(ctx.Widget) > 0)
+                               .Map(static _ => new WidgetEffect())),
+                           key: ctx.Op,
+                           needs: [SessionNeed.Mutate]).Map(static _ => unit))))
+               let value = new WidgetMount(widget, retire)
+               from receipt in SetState(identity, value, row.Visible, row.ActiveViewOnly, op)
+                   .Bind(_ => op.Catch(() => {
+                       _ = mounted.Swap(items => items.Add(identity, value));
+                       return Fin.Succ<WidgetReceipt>(new WidgetReceipt.Mounted(identity));
+                   })).BiBind(
+                   Succ: static value => Fin.Succ(value),
+                   Fail: error => retire().Match(
+                       Succ: _ => Fin.Fail<WidgetReceipt>(error),
+                       Fail: cleanup => Fin.Fail<WidgetReceipt>(error + cleanup)))
+               select receipt;
     }
+
+    private Fin<WidgetReceipt> Change(WidgetRequest.Change row, Op op) =>
+        Find(row.Widget, op).Bind(value => op.Catch(() => Fin.Succ(State(row.Widget, value))).Bind(prior =>
+            SetState(row.Widget, value, row.Visible, row.ActiveViewOnly, op)
+                .Map(state => (WidgetReceipt)new WidgetReceipt.Changed(state))
+                .BindFail(primary => Restore(value, prior, op).Match(
+                    Succ: _ => Fin.Fail<WidgetReceipt>(primary),
+                    Fail: cleanup => Fin.Fail<WidgetReceipt>(primary + cleanup)))));
+
+    private Fin<WidgetMount> Find(WidgetId identity, Op op) => mounted.Value.Find(identity).ToFin(op.InvalidInput());
+    private Fin<Unit> Retire(WidgetId identity, WidgetMount value, Op op) =>
+        from _ in value.Retire()
+        from __ in op.Catch(() => Fin.Succ((mounted.Swap(items => items.Remove(identity)), unit).Item2))
+        select unit;
+
+    private static WidgetState State(WidgetId identity, WidgetMount value) =>
+        new(identity, value.Native.Visible, value.Native.BoundToActiveView, value.Native.IsRegistered());
+
+    private static Fin<WidgetState> SetState(WidgetId identity, WidgetMount value, bool visible, bool activeViewOnly, Op op) =>
+        op.Catch(() => {
+            value.Native.Visible = visible;
+            value.Native.BoundToActiveView = activeViewOnly;
+            return Fin.Succ(State(identity, value));
+        });
+
+    private static Fin<Unit> Restore(WidgetMount value, WidgetState prior, Op op) {
+        Seq<Error> trouble = Seq(
+                op.Catch(() => Fin.Succ((value.Native.Visible = prior.Visible, unit).Item2)),
+                op.Catch(() => Fin.Succ((value.Native.BoundToActiveView = prior.ActiveViewOnly, unit).Item2)))
+            .Choose(static step => step.Match(
+                Succ: static _ => Option<Error>.None,
+                Fail: static failure => Some(failure)));
+        return trouble.IsEmpty
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(trouble.Fold(Errors.None, static (folded, failure) => folded + failure));
+    }
+
+    private Fin<Unit> ReleaseAll(Op op) {
+        return Aggregate(toSeq(mounted.Value.Keys)
+                .Map(identity => Find(identity, op).Bind(value => Retire(identity, value, op))))
+            .Bind(_ => Aggregate(Seq(
+                op.Catch(() => Fin.Succ((channel.Writer.TryComplete(), unit).Item2)),
+                op.Catch(() => { sprites.Dispose(); return Fin.Succ(unit); }))));
+    }
+
+    private static Fin<Unit> Aggregate(Seq<Fin<Unit>> steps) => steps
+        .Choose(static step => step.Match(
+            Succ: static _ => Option<Error>.None,
+            Fail: static failure => Some(failure)))
+        .Strict() is var trouble && trouble.IsEmpty
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(trouble.Fold(Errors.None, static (folded, failure) => folded + failure));
+
+    public void Dispose() => _ = lifecycle.Close(
+        stop: static () => Fin.Succ(unit),
+        settle: () => ReleaseAll(Op.Of(nameof(WidgetHost))),
+        key: Op.Of(nameof(WidgetHost)))
+        .IfFail(error => ignore(faults.Swap(rows => rows.Add(error))));
 }
-```
-
-```mermaid
-flowchart LR
-    Hook["Pointers hook : MouseCallback — paired begin/end overrides"] -->|PointerFact channel| Consumers["drag folds · hover chrome · acquisition rails"]
-    Seat["GumballSeat — SetFrom* union"] --> Rig["GumballRig — SetBaseGumball · PickGumball · UpdateGumball"]
-    Rig -->|GumballEvidence Transform| Commit["document transaction rail"]
-    Specs["WidgetSpec rows — grip · direction · rotation · text dot · svg · slider"] --> Host["WidgetHost — RegisterForAllDocuments / Unregister"]
-    Host -->|WidgetFact channel| Consumers
-    Host -->|OnDraw DrawEventArgs| Draw["draw.md Marks over ConduitFrame"]
-    State["MouseState — Button · FrustumLine · IsMouseOver"] -->|typed hit facts| Host
 ```

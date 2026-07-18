@@ -1,18 +1,19 @@
 # [RASM_RHINO_RENDER_KINDS]
 
-Content specializations (`Rasm.Rhino.Render`). Material, texture, and environment read their shared surface from the `RenderContent` owner and add only kind-specific capability here: the material bridge borrows a baked `Material` or a `PhysicallyBasedMaterial` projection for exactly one window each; texture-usage slots read through the native `StandardChildSlots` vocabulary; material classification folds the host scent predicates onto one vocabulary; texture configuration captures every public settable property; and environment simulation crosses through a detached, reconstructible `EnvironmentState`. Mint verbs yield owned leases, live handles die inside the demand window, and native enums remain seam values.
+`RenderKind` owns material, texture, and environment specialization over one `RenderContent` lifecycle, and the photometric-web payload the light rail defers here. Material projections remain callback-bounded borrows, texture state replays every writable axis while retaining read-only simulation evidence, environment state detaches every native carrier, and each mint exits as an owned `Lease<RenderContent>`.
 
 ## [01]-[INDEX]
 
 - [02]-[MATERIAL_BRIDGE]: `MaterialMint`, `MaterialBridge`, `SlotUsage`, and the `MaterialScent` classification fold.
 - [03]-[TEXTURE]: `TextureConfig` total-state configuration, `TextureTraits`, `TextureFacsimile`, and the bitmap mint/export pair.
 - [04]-[ENVIRONMENT]: `EnvironmentState` and the bake/mint pair over `SimulatedEnvironment`.
-- [05]-[SURFACE_LEDGER]: page owner table.
+- [05]-[PHOTOMETRIC]: `PhotometricDialect`, the `PhotometricWeb` payload, serializer discovery, and the material-graph attach.
+- [06]-[SURFACE_LEDGER]: page owner table.
 
 ## [02]-[MATERIAL_BRIDGE]
 
-- Owner: `MaterialMint` `[Union]` — render-material construction from a document `Material` addressed by table index: `Direct` through `FromMaterial`, `Basic` through `CreateBasicMaterial`, `Imported` through `CreateImportedMaterial` with its reference grant; each resolves the `Material` inside the window and yields an owned `Lease<RenderContent>` for the operation rail to attach. `MaterialBridge` — the two bake directions as symmetric borrow windows: `Bake<TOut>` projects `ToMaterial(TextureGeneration)` for exactly one callback window and disposes the baked `Material` on exit, and `Pbr<TOut>` borrows the `ConvertToPhysicallyBased` projection likewise, disposing the backing material on exit. `SlotUsage` — one detached standard-slot read: occupying texture id, enable, amount, and the resolved child-slot name for a native `StandardChildSlots` value. `MaterialScent` keyless `[SmartEnum]` — the host material-class heuristics as rows with `Plain`/`Textured` predicate columns, folded into the detached `ScentCensus`.
-- Law: the PBR route is `ToMaterial`/`ConvertToPhysicallyBased` onto `Rhino.DocObjects.PhysicallyBasedMaterial` — every baked or projected material is borrowed for one window, never stored, and no result shape carries a live material.
+- Owner: `MaterialMint` carries each table address and admits it against the live material roster inside the document-aware mint seam. `MaterialBridge` bounds baked and physically based projections to one callback. `SlotUsage` detaches standard-slot state and its native texture-type correspondence, and `MaterialScent` derives classification from predicate rows.
+- Law: `MaterialBridge.Pbr` routes `ToMaterial`/`ConvertToPhysicallyBased` onto `Rhino.DocObjects.PhysicallyBasedMaterial`; each projection remains borrowed for one window.
 - Law: `Rhino.Render.PhysicallyBasedMaterial` is whole-class obsolete and never enters the design.
 - Law: slot vocabulary is the native `StandardChildSlots` — the PBR slot roster including its aliasing rows is host truth the seam consumes; a wrapper row per slot is the deleted form, and `SlotFromTextureType`/`TextureTypeFromSlot` answer the type-to-slot correspondence where a consumer needs it.
 - Law: assignment is operation-rail work — `AssignTo` over resolved object references with its sub-face and block choices rides the registry page's `ContentOp.Assign` case, so this page carries no table mutation.
@@ -23,6 +24,7 @@ Content specializations (`Rasm.Rhino.Render`). Material, texture, and environmen
 using Rasm.Domain;
 using Rasm.Rhino.Document;
 using Rhino;
+using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.Geometry;
 using Rhino.Render;
@@ -33,28 +35,35 @@ namespace Rasm.Rhino.Render;
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record MaterialMint {
     private MaterialMint() { }
-    public sealed record Direct(int MaterialIndex) : MaterialMint;
-    public sealed record Basic(int MaterialIndex) : MaterialMint;
-    public sealed record Imported(int MaterialIndex, bool Reference) : MaterialMint;
+    private sealed record DirectCase(int MaterialIndex) : MaterialMint;
+    private sealed record BasicCase(int MaterialIndex) : MaterialMint;
+    private sealed record ImportedCase(int MaterialIndex, bool Reference) : MaterialMint;
+
+    public static MaterialMint Direct(int materialIndex) =>
+        new DirectCase(MaterialIndex: materialIndex);
+
+    public static MaterialMint Basic(int materialIndex) =>
+        new BasicCase(MaterialIndex: materialIndex);
+
+    public static MaterialMint Imported(int materialIndex, bool reference) =>
+        new ImportedCase(MaterialIndex: materialIndex, Reference: reference);
 
     internal Fin<Lease<RenderContent>> Mint(RhinoDoc document, Op key) =>
         Switch(
             state: (Document: document, Op: key),
-            direct: static (ctx, mint) => Resolved(ctx.Document, mint.MaterialIndex, ctx.Op).Bind(source => ctx.Op.Catch(() =>
-                Optional(RenderMaterial.FromMaterial(material: source, doc: ctx.Document))
-                    .ToFin(Fail: ctx.Op.InvalidResult())
-                    .Map(static minted => (Lease<RenderContent>)new Lease<RenderContent>.Owned(Value: minted)))),
-            basic: static (ctx, mint) => Resolved(ctx.Document, mint.MaterialIndex, ctx.Op).Bind(source => ctx.Op.Catch(() =>
-                Optional(RenderMaterial.CreateBasicMaterial(material: source, doc: ctx.Document))
-                    .ToFin(Fail: ctx.Op.InvalidResult())
-                    .Map(static minted => (Lease<RenderContent>)new Lease<RenderContent>.Owned(Value: minted)))),
-            imported: static (ctx, mint) => Resolved(ctx.Document, mint.MaterialIndex, ctx.Op).Bind(source => ctx.Op.Catch(() =>
-                Optional(RenderMaterial.CreateImportedMaterial(material: source, doc: ctx.Document, reference: mint.Reference))
-                    .ToFin(Fail: ctx.Op.InvalidResult())
-                    .Map(static minted => (Lease<RenderContent>)new Lease<RenderContent>.Owned(Value: minted)))));
+            directCase: static (ctx, mint) => Minted(ctx, mint.MaterialIndex,
+                static (source, document) => RenderMaterial.FromMaterial(material: source, doc: document)),
+            basicCase: static (ctx, mint) => Minted(ctx, mint.MaterialIndex,
+                static (source, document) => RenderMaterial.CreateBasicMaterial(material: source, doc: document)),
+            importedCase: static (ctx, mint) => Minted(ctx, mint.MaterialIndex,
+                (source, document) => RenderMaterial.CreateImportedMaterial(material: source, doc: document, reference: mint.Reference)));
 
-    private static Fin<Material> Resolved(RhinoDoc document, int index, Op key) =>
-        key.Catch(() => Optional(document.Materials[index]).ToFin(Fail: key.MissingContext()));
+    private static Fin<Lease<RenderContent>> Minted(
+        (RhinoDoc Document, Op Op) ctx, int index, Func<Material, RhinoDoc, RenderContent?> route) =>
+        from _index in guard(index >= 0 && index < ctx.Document.Materials.Count, ctx.Op.InvalidInput()).ToFin()
+        from minted in ctx.Op.Catch(() => Optional(ctx.Document.Materials[index]).ToFin(Fail: ctx.Op.MissingContext())
+            .Bind(source => Optional(route(source, ctx.Document)).ToFin(Fail: ctx.Op.InvalidResult()).Leased()))
+        select minted;
 }
 
 [SmartEnum]
@@ -84,7 +93,12 @@ public readonly record struct ScentMark(MaterialScent Scent, bool Plain, bool Te
 public sealed record ScentCensus(Seq<ScentMark> Rows) : IDetachedDocumentResult;
 
 public readonly record struct SlotUsage(
-    RenderMaterial.StandardChildSlots Slot, Option<Guid> Texture, bool On, double Amount, string SlotName) : IDetachedDocumentResult;
+    RenderMaterial.StandardChildSlots Slot,
+    RenderMaterial.TextureType TextureType,
+    Option<Guid> Texture,
+    bool On,
+    double Amount,
+    string SlotName) : IDetachedDocumentResult;
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 public static class MaterialBridge {
@@ -92,7 +106,7 @@ public static class MaterialBridge {
         RenderMaterial material, RenderTexture.TextureGeneration generation, Func<Material, Fin<TOut>> borrow, Op key) =>
         key.Catch(() => {
             using Material baked = material.ToMaterial(tg: generation);
-            return Optional(baked).ToFin(Fail: key.InvalidResult()).Bind(active => key.Catch(() => borrow(active)));
+            return Optional(baked).ToFin(Fail: key.InvalidResult()).Bind(borrow);
         });
 
     internal static Fin<TOut> Pbr<TOut>(
@@ -101,13 +115,14 @@ public static class MaterialBridge {
             PhysicallyBasedMaterial projected = material.ConvertToPhysicallyBased(tg: generation);
             return Optional(projected).ToFin(Fail: key.InvalidResult()).Bind(active => {
                 using Material backing = active.Material;
-                return key.Catch(() => borrow(active));
+                return borrow(active);
             });
         });
 
     internal static Fin<SlotUsage> Usage(RenderMaterial material, RenderMaterial.StandardChildSlots slot, Op key) =>
         key.Catch(() => Fin.Succ(value: new SlotUsage(
             Slot: slot,
+            TextureType: RenderMaterial.TextureTypeFromSlot(slot: slot),
             Texture: Optional(material.GetTextureFromUsage(slot: slot)).Map(static texture => texture.Id),
             On: material.GetTextureOnFromUsage(slot: slot),
             Amount: material.GetTextureAmountFromUsage(slot: slot),
@@ -117,10 +132,10 @@ public static class MaterialBridge {
 
 ## [03]-[TEXTURE]
 
-- Owner: `TextureConfig` — every public settable texture property as one total-state record: projection, wrap, the UVW repeat/offset/rotation triple with the repeat and offset locks, mapping channel, environment mapping mode, and preview/display flags; `Of` reads it in one pass, and `Apply` writes every field inside one change bracket. `TextureTraits` — the derived classification read: local mapping transform, the internal environment-mapping mode beside the effective one `TextureConfig` writes, texel extent, and the capability predicates. `TextureFacsimile` — the reconstructible `SimulatedTexture` payload: filename, UVW values, channel, projection, filtering, and exact `Color4f` transparency. `TextureMint` `[Union]` — the two current bitmap-content admission routes, direct `Bitmap` and detached `SimulatedTexture` state, collapsed behind one leased `Mint` entry. `TextureExport` owns confirmed `SaveAsImage` output.
+- Owner: `TextureConfig` is the replayable live-content state, including `TextureGraphInfo`. `TextureTraits` detaches classification. `SimulatedMapping` owns direct and environment-aware mapping writes, `TextureFacsimile` carries reconstructible simulation state plus read-only transform provenance, `TextureMint` admits each native source, and `TextureExport` confirms image egress.
 - Law: configuration writes are total state, never a patch — `Apply` re-asserts every field under one `ChangeReason`, so an absent field cannot silently clear and the write is replayable from the record alone.
 - Law: read-only `LocalMappingTransform` and `OriginalFilename` never enter writable state; local mapping reconstructs from the admitted UVW fields, while original filename remains observation-only host provenance.
-- Law: the facsimile is the baked carrier's only crossing — a `SimulatedTexture` lives inside a `using` window, `TextureFacsimile.Of` detaches it, and `Apply` reconstructs every carried field through a fresh doc-aware carrier.
+- Law: `TextureFacsimile` records `OriginalFilename` and `LocalMappingTransform` as evidence while replaying the host-writable axes through a fresh document-aware carrier.
 - Boundary: live evaluation (`CreateEvaluator`) and the bake gate (`SimulateTexture`) are the Display render page's `TextureBake` owner; this page configures the content, that one evaluates it, and the two never merge.
 
 ```csharp signature
@@ -135,11 +150,14 @@ public sealed record TextureConfig(
     Vector3d Rotation,
     int MappingChannel,
     TextureEnvironmentMappingMode EnvironmentMode,
+    TextureGraphInfo Graph,
     bool PreviewIn3D,
     bool PreviewLocalMapping,
     bool DisplayInViewport) : IDetachedDocumentResult {
-    public static Fin<TextureConfig> Of(RenderTexture texture, Op key) =>
-        key.Catch(() => Fin.Succ(value: new TextureConfig(
+    public static Fin<TextureConfig> Of(RenderTexture texture, Op key) => key.Catch(() => {
+        TextureGraphInfo graph = new();
+        texture.GraphInfo(ref graph);
+        return Fin.Succ(value: new TextureConfig(
             Projection: texture.GetProjectionMode(),
             Wrap: texture.GetWrapType(),
             Repeat: texture.GetRepeat(),
@@ -149,9 +167,11 @@ public sealed record TextureConfig(
             Rotation: texture.GetRotation(),
             MappingChannel: texture.GetMappingChannel(),
             EnvironmentMode: texture.GetEnvironmentMappingMode(),
+            Graph: graph,
             PreviewIn3D: texture.GetPreviewIn3D(),
             PreviewLocalMapping: texture.GetPreviewLocalMapping(),
-            DisplayInViewport: texture.GetDisplayInViewport())));
+            DisplayInViewport: texture.GetDisplayInViewport()));
+    });
 
     internal Fin<Unit> Apply(RenderTexture texture, ChangeReason reason, Op key) {
         TextureConfig self = this;
@@ -165,6 +185,7 @@ public sealed record TextureConfig(
             texture.SetRotation(self.Rotation, reason.Native);
             texture.SetMappingChannel(self.MappingChannel, reason.Native);
             texture.SetEnvironmentMappingMode(self.EnvironmentMode, reason.Native);
+            texture.SetGraphInfo(self.Graph);
             texture.SetPreviewIn3D(self.PreviewIn3D, reason.Native);
             texture.SetPreviewLocalMapping(self.PreviewLocalMapping, reason.Native);
             texture.SetDisplayInViewport(self.DisplayInViewport, reason.Native);
@@ -173,9 +194,68 @@ public sealed record TextureConfig(
     }
 }
 
+// --- [TYPES] --------------------------------------------------------------------------------
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record SimulatedMapping {
+    private SimulatedMapping() { }
+    private sealed record DirectCase(SimulatedTexture.ProjectionModes Projection, int Channel) : SimulatedMapping;
+    private sealed record EnvironmentCase(
+        SimulatedTexture.ProjectionModes Projection,
+        int Channel,
+        SimulatedTexture.EnvironmentMappingModes Environment) : SimulatedMapping;
+
+    public static Fin<SimulatedMapping> Of(
+        SimulatedTexture.ProjectionModes projection,
+        int channel,
+        Option<SimulatedTexture.EnvironmentMappingModes> environment = default) =>
+        channel >= 0
+            ? Fin.Succ(value: environment.Match(
+                Some: mode => (SimulatedMapping)new EnvironmentCase(
+                    Projection: projection,
+                    Channel: channel,
+                    Environment: mode),
+                None: () => new DirectCase(Projection: projection, Channel: channel)))
+            : Fin.Fail<SimulatedMapping>(error: Op.Of(name: nameof(SimulatedMapping)).InvalidInput());
+
+    internal static Fin<SimulatedMapping> Capture(SimulatedTexture texture) {
+        using Texture projected = texture.Texture();
+        Option<SimulatedTexture.EnvironmentMappingModes> environment = projected.ProjectionMode switch {
+            TextureProjectionModes.EnvironmentMapBox => Some(SimulatedTexture.EnvironmentMappingModes.Box),
+            TextureProjectionModes.EnvironmentMapLightProbe => Some(SimulatedTexture.EnvironmentMappingModes.Lightprobe),
+            TextureProjectionModes.EnvironmentMapSpherical => Some(SimulatedTexture.EnvironmentMappingModes.Spherical),
+            TextureProjectionModes.EnvironmentMapCube => Some(SimulatedTexture.EnvironmentMappingModes.Cubemap),
+            TextureProjectionModes.EnvironmentMapVCrossCube => Some(SimulatedTexture.EnvironmentMappingModes.VerticalCrossCubemap),
+            TextureProjectionModes.EnvironmentMapHCrossCube => Some(SimulatedTexture.EnvironmentMappingModes.HorizontalCrossCubemap),
+            TextureProjectionModes.EnvironmentMapHemispherical => Some(SimulatedTexture.EnvironmentMappingModes.Hemispherical),
+            TextureProjectionModes.EnvironmentMapEmap => Some(SimulatedTexture.EnvironmentMappingModes.Emap),
+            _ when texture.ProjectionMode == SimulatedTexture.ProjectionModes.Emap =>
+                Some(SimulatedTexture.EnvironmentMappingModes.Automatic),
+            _ => None,
+        };
+        return Of(
+            projection: texture.ProjectionMode,
+            channel: texture.MappingChannel,
+            environment: environment);
+    }
+
+    internal Unit Apply(SimulatedTexture texture) =>
+        Switch(
+            state: texture,
+            directCase: static (target, mapping) => {
+                target.ProjectionMode = mapping.Projection;
+                target.MappingChannel = mapping.Channel;
+                return unit;
+            },
+            environmentCase: static (target, mapping) => {
+                target.SetMappingChannelAndProjectionMode(mapping.Projection, mapping.Channel, mapping.Environment);
+                return unit;
+            });
+}
+
 public readonly record struct TextureTraits(
     Option<(int Width, int Height, int Depth)> Texels,
     Transform LocalTransform,
+    RenderTexture.eLocalMappingType LocalMappingType,
     TextureEnvironmentMappingMode InternalEnvironmentMode,
     bool HdrCapable,
     bool Linear,
@@ -185,6 +265,7 @@ public readonly record struct TextureTraits(
         key.Catch(() => Fin.Succ(value: new TextureTraits(
             Texels: Optional(texture.PixelSize2),
             LocalTransform: texture.LocalMappingTransform,
+            LocalMappingType: texture.GetLocalMappingType(),
             InternalEnvironmentMode: texture.GetInternalEnvironmentMappingMode(),
             HdrCapable: texture.IsHdrCapable(),
             Linear: texture.IsLinear(),
@@ -194,27 +275,29 @@ public readonly record struct TextureTraits(
 
 public sealed record TextureFacsimile(
     Option<string> Filename,
+    Option<string> OriginalFilename,
+    Transform LocalTransform,
     Vector2d Repeat,
     Vector2d Offset,
     double Rotation,
     bool Repeating,
-    int MappingChannel,
-    SimulatedTexture.ProjectionModes Projection,
-    Option<(Rhino.Display.Color4f Color, double Sensitivity)> Transparency,
+    SimulatedMapping Mapping,
+    Option<(Color4f Color, double Sensitivity)> Transparency,
     bool Filtered) : IDetachedDocumentResult {
-    internal static TextureFacsimile Of(SimulatedTexture simulated) =>
-        new(
+    internal static Fin<TextureFacsimile> Of(SimulatedTexture simulated) =>
+        SimulatedMapping.Capture(texture: simulated).Map(mapping => new TextureFacsimile(
             Filename: Optional(simulated.Filename).Filter(static path => path.Length > 0),
+            OriginalFilename: Optional(simulated.OriginalFilename).Filter(static path => path.Length > 0),
+            LocalTransform: simulated.LocalMappingTransform,
             Repeat: simulated.Repeat,
             Offset: simulated.Offset,
             Rotation: simulated.Rotation,
             Repeating: simulated.Repeating,
-            MappingChannel: simulated.MappingChannel,
-            Projection: simulated.ProjectionMode,
+            Mapping: mapping,
             Transparency: simulated.HasTransparentColor
                 ? Some((simulated.TransparentColor, simulated.TransparentColorSensitivity))
-                : Option<(Rhino.Display.Color4f, double)>.None,
-            Filtered: simulated.Filtered);
+                : Option<(Color4f, double)>.None,
+            Filtered: simulated.Filtered));
 
     internal Fin<Unit> Apply(SimulatedTexture simulated, Op key) {
         TextureFacsimile self = this;
@@ -224,16 +307,15 @@ public sealed record TextureFacsimile(
             simulated.Offset = self.Offset;
             simulated.Rotation = self.Rotation;
             simulated.Repeating = self.Repeating;
-            simulated.MappingChannel = self.MappingChannel;
-            simulated.ProjectionMode = self.Projection;
+            _ = self.Mapping.Apply(texture: simulated);
             simulated.Filtered = self.Filtered;
-            self.Transparency.Match(
-                Some: row => {
-                    simulated.HasTransparentColor = true;
-                    simulated.TransparentColor = row.Color;
-                    simulated.TransparentColorSensitivity = row.Sensitivity;
-                },
-                None: () => simulated.HasTransparentColor = false);
+            if (self.Transparency.Case is System.ValueTuple<Color4f, double> row) {
+                simulated.HasTransparentColor = true;
+                simulated.TransparentColor = row.Item1;
+                simulated.TransparentColorSensitivity = row.Item2;
+            } else {
+                simulated.HasTransparentColor = false;
+            }
             return Fin.Succ(value: unit);
         });
     }
@@ -243,21 +325,28 @@ public sealed record TextureFacsimile(
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record TextureMint {
     private TextureMint() { }
-    public sealed record Bitmap(System.Drawing.Bitmap Value) : TextureMint;
-    public sealed record Simulated(TextureFacsimile Value) : TextureMint;
+    private sealed record BitmapCase(System.Drawing.Bitmap Value) : TextureMint;
+    private sealed record SimulatedCase(TextureFacsimile Value) : TextureMint;
+
+    public static Fin<TextureMint> From(System.Drawing.Bitmap value) =>
+        Optional(value).ToFin(Fail: Op.Of(name: nameof(TextureMint)).InvalidInput())
+            .Map(static admitted => (TextureMint)new BitmapCase(Value: admitted));
+
+    public static Fin<TextureMint> From(TextureFacsimile value) =>
+        Optional(value).ToFin(Fail: Op.Of(name: nameof(TextureMint)).InvalidInput())
+            .Map(static admitted => (TextureMint)new SimulatedCase(Value: admitted));
 
     internal Fin<Lease<RenderContent>> Mint(RhinoDoc document, Op key) =>
         Switch(
             state: (Document: document, Op: key),
-            bitmap: static (ctx, mint) => ctx.Op.Catch(() => Optional(RenderTexture.NewBitmapTexture(bitmap: mint.Value, doc: ctx.Document))
-                .ToFin(Fail: ctx.Op.InvalidResult())
-                .Map(static content => (Lease<RenderContent>)new Lease<RenderContent>.Owned(Value: content))),
-            simulated: static (ctx, mint) => ctx.Op.Catch(() => {
+            bitmapCase: static (ctx, mint) => ctx.Op.Catch(() =>
+                Optional(RenderTexture.NewBitmapTexture(bitmap: mint.Value, doc: ctx.Document)).ToFin(Fail: ctx.Op.InvalidResult()).Leased()),
+            simulatedCase: static (ctx, mint) => ctx.Op.Catch(() => {
                 using SimulatedTexture carrier = new(ctx.Document);
                 return mint.Value.Apply(simulated: carrier, key: ctx.Op)
                     .Bind(_ => Optional(RenderTexture.NewBitmapTexture(texture: carrier, doc: ctx.Document))
                         .ToFin(Fail: ctx.Op.InvalidResult())
-                        .Map(static content => (Lease<RenderContent>)new Lease<RenderContent>.Owned(Value: content)));
+                        .Leased());
             }));
 }
 
@@ -272,9 +361,9 @@ public static class TextureExport {
 
 ## [04]-[ENVIRONMENT]
 
-- Owner: `EnvironmentState` — the detached environment simulation: background color across the kernel `PerceptualColor` seam, native background projection, and optional reconstructible image. `Bake` runs `SimulateEnvironment(bool)` inside a `using` window and detaches; `Mint` reconstructs a `SimulatedEnvironment`, including its doc-aware image carrier, and constructs a basic environment through `NewBasicEnvironment` onto an owned lease.
-- Law: the bake window is the only site holding a `SimulatedEnvironment` — the disposable carrier never crosses, the state record does, and a re-derived background blend beside the kernel color owner is the deleted form.
-- Law: mint round-trips the bake — `Mint(Bake(x))` reconstructs the same background payload, so environment duplication across documents travels as one value, never a handle.
+- Owner: `EnvironmentState` detaches background color, projection, and image state. `Bake` contains the simulation lease, and `Mint` reconstructs the document-aware carriers before yielding an owned content lease.
+- Law: `EnvironmentState.Bake` is the only site holding a `SimulatedEnvironment`; the disposable carrier never crosses its window.
+- Law: environment duplication travels as one detached value; simulation-only transform provenance remains evidence while every host-writable image axis replays.
 
 ```csharp signature
 // --- [MODELS] -------------------------------------------------------------------------------
@@ -287,11 +376,19 @@ public sealed record EnvironmentState(
             using SimulatedEnvironment simulated = environment.SimulateEnvironment(isForDataOnly: isForDataOnly);
             return Optional(simulated).ToFin(Fail: key.InvalidResult()).Bind(active => {
                 using SimulatedTexture image = active.BackgroundImage;
-                Option<TextureFacsimile> detachedImage = image.ConstPointer() == IntPtr.Zero
-                    ? Option<TextureFacsimile>.None
-                    : Some(TextureFacsimile.Of(simulated: image));
-                return PerceptualColor.OfRgb(active.BackgroundColor.R, active.BackgroundColor.G, active.BackgroundColor.B, active.BackgroundColor.A / 255.0)
-                    .Map(background => new EnvironmentState(Background: background, Projection: active.BackgroundProjection, Image: detachedImage));
+                Fin<Option<TextureFacsimile>> detached = image.ConstPointer() == IntPtr.Zero
+                    ? Fin.Succ(Option<TextureFacsimile>.None)
+                    : TextureFacsimile.Of(simulated: image).Map(static value => Some(value));
+                return from detachedImage in detached
+                       from background in PerceptualColor.OfRgb(
+                           active.BackgroundColor.R,
+                           active.BackgroundColor.G,
+                           active.BackgroundColor.B,
+                           active.BackgroundColor.A)
+                       select new EnvironmentState(
+                           Background: background,
+                           Projection: active.BackgroundProjection,
+                           Image: detachedImage);
             });
         });
 
@@ -299,39 +396,190 @@ public sealed record EnvironmentState(
         EnvironmentState self = this;
         return key.Catch(() => {
             using SimulatedEnvironment simulated = new();
-            (byte r, byte g, byte b, double alpha) = self.Background.ToRgb();
-            simulated.BackgroundColor = System.Drawing.Color.FromArgb(
-                byte.CreateSaturating(Math.Round(alpha * byte.MaxValue)), r, g, b);
+            simulated.BackgroundColor = self.Background.Quantized();
             simulated.BackgroundProjection = self.Projection;
-            return self.Image.Match(
-                Some: facsimile => {
-                    using SimulatedTexture reconstructed = new(document);
-                    return facsimile.Apply(simulated: reconstructed, key: key)
-                        .Bind(_ => {
-                            simulated.BackgroundImage = reconstructed;
-                            return Basic(simulated: simulated, document: document, key: key);
-                        });
-                },
-                None: () => Basic(simulated: simulated, document: document, key: key));
+            if (self.Image.Case is TextureFacsimile facsimile) {
+                using SimulatedTexture reconstructed = new(document);
+                return from _ in facsimile.Apply(simulated: reconstructed, key: key)
+                       from __ in key.Catch(() => { simulated.BackgroundImage = reconstructed; return Fin.Succ(value: unit); })
+                       from minted in Basic(simulated: simulated, document: document, key: key)
+                       select minted;
+            }
+            return Basic(simulated: simulated, document: document, key: key);
         });
     }
 
     private static Fin<Lease<RenderContent>> Basic(SimulatedEnvironment simulated, RhinoDoc document, Op key) =>
         Optional(RenderEnvironment.NewBasicEnvironment(environment: simulated, doc: document))
             .ToFin(Fail: key.InvalidResult())
-            .Map(static minted => (Lease<RenderContent>)new Lease<RenderContent>.Owned(Value: minted));
+            .Leased();
 }
 ```
 
-## [05]-[SURFACE_LEDGER]
+## [05]-[PHOTOMETRIC]
 
-| [INDEX] | [CONCERN]              | [OWNER]            | [FORM]                                                 | [ENTRY]                         |
-| :-----: | :--------------------- | :----------------- | :----------------------------------------------------- | :------------------------------ |
-|  [01]   | material minting       | `MaterialMint`     | one union over the three `From*` routes, leased result | `Mint(document, key)`           |
-|  [02]   | material bake and PBR  | `MaterialBridge`   | one borrow window per bake direction                   | `Bake` / `Pbr` / `Usage`        |
-|  [03]   | material class         | `MaterialScent`    | predicate-column rows folded into `ScentCensus`        | `CensusOf(material)`            |
-|  [04]   | texture configuration  | `TextureConfig`    | total public writable state, bracketed write           | `Of` / `Apply(texture, reason)` |
-|  [05]   | texture classification | `TextureTraits`    | derived local transform and capability read            | `Of(texture, key)`              |
-|  [06]   | baked-texture crossing | `TextureFacsimile` | detached, reconstructible simulation payload           | `Of` / `Apply`                  |
-|  [07]   | texture mint/export    | `TextureMint`      | direct/simulated leased mint plus confirmed export     | `Mint` / `TextureExport.Export` |
-|  [08]   | environment bake/mint  | `EnvironmentState` | detached bake, round-tripping leased mint              | `Bake` / `Mint(document, key)`  |
+- Owner: `PhotometricDialect` closes the light-distribution file vocabulary by extension and description; `PhotometricWeb` is the admitted payload the Objects lights rail defers here; `PhotometricPress` derives one registry `ContentSerializer` program per dialect row for host discovery, and its single transfer admission converts owned leases into `ContentTransfer` custody while disposing and refusing every other lease case.
+- Law: the host carries no first-class photometric type — `Rhino.Geometry.Light` ends at intensity and power, so the web travels as texture-kind render content on the light's attached render material, addressed as a `ContentRef` child slot and embedded through the content's own `FilesToEmbed` roster.
+- Law: attach is one fold — `PhotometricWeb.AttachTo` accepts owned custody only, arms the named child slot before `SetChild`, restores prior slot state on refusal, and surrenders custody only after host acceptance inside one `ChangeScope.Write` bracket; a second attach spelling beside it is the deleted form.
+- Law: a new distribution dialect is one `PhotometricDialect` row; the serializer-program fold covers every row, so discovery, description, and admission cannot drift.
+- Boundary: the content class the serializer materializes is the discovering plugin's `CustomRenderContentAttribute` type; this page owns admission, discovery, attach, and the embed census, never the plugin's field layout — field declaration rides the fields page.
+- Boundary: the lights rail's photometric reach ends at `Radiance`; `LightEdit` never grows an IES case, and the seam crossing is this page's `PhotometricWeb` alone.
+
+```csharp signature
+// --- [TYPES] --------------------------------------------------------------------------------
+[SmartEnum<string>]
+public sealed partial class PhotometricDialect {
+    public static readonly PhotometricDialect Ies = new(".ies", "IES photometric distribution");
+    public static readonly PhotometricDialect Eulumdat = new(".ldt", "EULUMDAT photometric distribution");
+    public static readonly PhotometricDialect CieRecord = new(".cie", "CIE photometric distribution");
+
+    internal string Description { get; }
+
+    internal static Fin<PhotometricDialect> OfPath(string path, Op key) =>
+        key.Catch(() =>
+            Validate(System.IO.Path.GetExtension(path).ToLowerInvariant(), null, out PhotometricDialect? dialect) is null
+                ? Fin.Succ(value: dialect!)
+                : Fin.Fail<PhotometricDialect>(error: key.InvalidInput()));
+}
+
+// --- [MODELS] -------------------------------------------------------------------------------
+public sealed record PhotometricWeb : IDetachedDocumentResult {
+    private PhotometricWeb(string path, PhotometricDialect dialect) => (Path, Dialect) = (path, dialect);
+    public string Path { get; }
+    public PhotometricDialect Dialect { get; }
+
+    public static Fin<PhotometricWeb> Of(string path, Op? key = null) {
+        Op op = key.OrDefault();
+        return from admitted in op.AcceptText(value: path)
+               from dialect in PhotometricDialect.OfPath(path: admitted, key: op)
+               from _ in guard(System.IO.File.Exists(admitted), op.MissingContext()).ToFin()
+               select new PhotometricWeb(path: admitted, dialect: dialect);
+    }
+
+    internal Fin<Unit> AttachTo(RenderContent parent, string childSlot, PhotometricPress press, ChangeReason reason, Op key) {
+        PhotometricWeb self = this;
+        return from slot in key.AcceptText(value: childSlot)
+               from lease in press.Materialize(web: self, key: key)
+               from custody in PhotometricPress.Transfer(lease: lease, key: key)
+               from _ in AttachOwned(
+                   parent: parent,
+                   slot: slot,
+                   owned: custody.Owned,
+                   transfer: custody.Transfer,
+                   reason: reason,
+                   key: key)
+               select unit;
+    }
+
+    private static Fin<Unit> AttachOwned(
+        RenderContent parent,
+        string slot,
+        Lease<RenderContent>.Owned owned,
+        ContentTransfer transfer,
+        ChangeReason reason,
+        Op key) {
+        Fin<Unit> attached = ChangeScope.Write(content: parent, reason: reason, key: key, body: live =>
+            from prior in key.Catch(() => Fin.Succ(value: live.ChildSlotOn(childSlotName: slot)))
+            from _ in key.Catch(() => {
+                live.SetChildSlotOn(childSlotName: slot, bOn: true, cc: reason.Native);
+                return key.Confirm(success: live.SetChild(child: owned.Value, childSlotName: slot, cc: reason.Native));
+            }).Match(
+                Succ: _ => transfer.Take(key).Map(static _ => unit),
+                Fail: fault => RestoreSlot(
+                    parent: live, slot: slot, prior: prior, reason: reason, primary: fault, key: key))
+            select unit);
+        return attached.Match(
+            Succ: value => Release(transfer: transfer, key: key).Map(_ => value),
+            Fail: primary => Release(transfer: transfer, key: key).Match(
+                Succ: _ => Fin.Fail<Unit>(error: primary),
+                Fail: release => Fin.Fail<Unit>(error: primary + release)));
+    }
+
+    private static Fin<Unit> Release(ContentTransfer transfer, Op key) => key.Catch(() => {
+        transfer.Dispose();
+        return Fin.Succ(value: unit);
+    });
+
+    private static Fin<Unit> RestoreSlot(
+        RenderContent parent,
+        string slot,
+        bool prior,
+        ChangeReason reason,
+        Error primary,
+        Op key) =>
+        key.Catch(() => {
+            parent.SetChildSlotOn(childSlotName: slot, bOn: prior, cc: reason.Native);
+            return Fin.Succ(value: unit);
+        }).Match(
+            Succ: _ => Fin.Fail<Unit>(error: primary),
+            Fail: restore => Fin.Fail<Unit>(error: primary + restore));
+
+    internal Seq<string> Embedded(RenderContent content) =>
+        toSeq(content.GetEmbeddedFilesList());
+}
+
+// --- [SERVICES] -----------------------------------------------------------------------------
+public sealed record PhotometricPress(Func<PhotometricWeb, RhinoDoc?, Fin<Lease<RenderContent>>> Reader) {
+    internal Fin<Lease<RenderContent>> Materialize(PhotometricWeb web, Op key, RhinoDoc? document = null) =>
+        key.Catch(() => Reader(web, document));
+
+    public Fin<Seq<RenderContentSerializer>> Serializers(
+        RetentionPolicy retention,
+        Action<Error> record,
+        Op? key = null) {
+        Op op = key.OrDefault();
+        PhotometricPress self = this;
+        return from activeRetention in Optional(retention).ToFin(Fail: op.InvalidInput())
+               from activeRecord in Optional(record).ToFin(Fail: op.InvalidInput())
+               from rows in toSeq(PhotometricDialect.Items).TraverseM(dialect =>
+                   from extension in ContentExtension.Of(value: dialect.Key, key: op)
+                   from serializer in ContentSerializer.Of(program: new SerializerProgram(
+                       FileExtension: extension,
+                       Kind: ContentKind.Texture,
+                       Read: Some<Func<string, Fin<ContentTransfer>>>(path =>
+                           self.Read(path: path, record: activeRecord, key: op)),
+                       Write: None,
+                       LoadMultiple: None,
+                       Retention: activeRetention,
+                       EnglishDescription: dialect.Description,
+                       LocalDescription: dialect.Description), key: op)
+                   select (RenderContentSerializer)serializer).As()
+               select rows;
+    }
+
+    private Fin<ContentTransfer> Read(string path, Action<Error> record, Op key) =>
+        (from web in PhotometricWeb.Of(path: path, key: key)
+         from lease in Materialize(web: web, key: key)
+         from custody in Transfer(lease: lease, key: key)
+         select custody.Transfer).MapFail(failure => {
+             record(failure);
+             return failure;
+         });
+
+    internal static Fin<(Lease<RenderContent>.Owned Owned, ContentTransfer Transfer)> Transfer(
+        Lease<RenderContent> lease,
+        Op key) =>
+        key.Catch(() => {
+            if (lease is Lease<RenderContent>.Owned owned) {
+                return Fin.Succ(value: (Owned: owned, Transfer: new ContentTransfer(owned: owned)));
+            }
+            lease.Dispose();
+            return Fin.Fail<(Lease<RenderContent>.Owned, ContentTransfer)>(error: key.InvalidResult());
+        });
+}
+```
+
+## [06]-[SURFACE_LEDGER]
+
+| [INDEX] | [CONCERN]              | [OWNER]              | [FORM]                                                 | [ENTRY]                         |
+| :-----: | :--------------------- | :------------------- | :----------------------------------------------------- | :------------------------------ |
+|  [01]   | material minting       | `MaterialMint`       | document-aware leased mint                             | `Direct` / `Basic` / `Imported` |
+|  [02]   | material bake and PBR  | `MaterialBridge`     | callback-bounded material projection                   | `Bake` / `Pbr` / `Usage`        |
+|  [03]   | material class         | `MaterialScent`      | predicate-column rows folded into `ScentCensus`        | `CensusOf(material)`            |
+|  [04]   | texture configuration  | `TextureConfig`      | total replayable state                                 | `Of` / `Apply(texture, reason)` |
+|  [05]   | texture classification | `TextureTraits`      | detached local mapping and capability census            | `Of(texture, key)`              |
+|  [06]   | baked-texture crossing | `TextureFacsimile`   | replayable facsimile state                             | `Of` / `Apply`                  |
+|  [07]   | texture mint/export    | `TextureMint`        | admitted leased texture lifecycle                      | `From` / `Mint`                 |
+|  [08]   | environment bake/mint  | `EnvironmentState`   | detached state and document-aware leased mint           | `Bake` / `Mint(document, key)`  |
+|  [09]   | photometric payload    | `PhotometricWeb`     | dialect-admitted content attachment                    | `Of` / `AttachTo`               |
+|  [10]   | photometric readers    | `PhotometricPress`   | declarative registry serializer roster                  | `Serializers(retention, record)` |
