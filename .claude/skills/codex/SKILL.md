@@ -1,6 +1,6 @@
 ---
 name: codex
-description: Dispatch self-contained work to Codex (gpt-5.6 Terra/Sol/Luna) through the `codex` MCP tool or the `codex` CLI — an isolated peer agent returning one report; writes, design, hard reviews, fleet fix waves, research, and volume extraction all ride it. Trigger on repo sweeps, audits, investigation, log or dataset distillation, live web research, implementation from spec, migrations, a second perspective on any plan or diff, any mention of codex, gpt-5.6, Terra, Sol, Luna, or OpenAI models, and any request to offload work or conserve usage. Claude-surface delegation belongs to agent-dispatch; Gemini calls belong to agy.
+description: Dispatch self-contained work to Codex (gpt-5.6 Sol/Terra) through the `codex` MCP tool or the `codex` CLI — an isolated peer agent returning one report; writes, design, hard reviews, fleet fix waves, research, and volume extraction all ride it. Trigger on repo sweeps, audits, investigation, log or dataset distillation, live web research, implementation from spec, migrations, a second perspective on any plan or diff, any mention of codex, gpt-5.6, Sol, Terra, or OpenAI models, and any request to offload work or conserve usage. Claude-surface delegation belongs to agent-dispatch; Gemini calls belong to agy.
 ---
 
 # [CODEX]
@@ -34,10 +34,14 @@ MCP surface — fleet server `codex`, tools `codex` and `codex-reply`; the promp
 - A heavy MCP tool call issued from INSIDE a codex turn can wedge the lane — pin nested lookups to light calls (`get_latest_package_version`, never `get_package_context`).
 - MCP tool calls serialize within a lane; CLI lanes with native tools parallelize reads.
 
-CLI surface:
+CLI surface — the default form inherits the config effort (high); the second form pins a deviation:
 
 ```bash template
-codex exec -s <sandbox> -m <model> [-c 'model_reasoning_effort="<tier>"'] [-c developer_instructions="<lane-law>"] --skip-git-repo-check [-C <dir>] [-o <report>] "<prompt>" </dev/null 2>/dev/null
+codex exec -s <sandbox> -m <model> [-c developer_instructions="<lane-law>"] --skip-git-repo-check [-C <dir>] [-o <report>] "<prompt>" </dev/null 2>/dev/null
+```
+
+```bash template
+codex exec -s <sandbox> -m <model> -c 'model_reasoning_effort="<tier>"' [-c developer_instructions="<lane-law>"] --skip-git-repo-check [-C <dir>] [-o <report>] "<prompt>" </dev/null 2>/dev/null
 ```
 
 - `</dev/null` is mandatory from a harness: `codex exec` reads piped stdin to EOF even with a prompt argument — an open-but-silent stdin blocks forever; the stderr `Reading additional input from stdin...` notice is pre-EOF, not a hang.
@@ -65,26 +69,25 @@ codex exec -s <sandbox> -m <model> [-c 'model_reasoning_effort="<tier>"'] [-c de
 
 ## [04]-[MODEL_AND_EFFORT]
 
-Every lane pins the model; effort inherits the config default, stated only to deviate. Bare `gpt-5.6` is an API-only slug that 400s under ChatGPT auth — always the suffixed name.
+Every lane pins the model; effort inherits the config default (high), stated only to deviate. Bare `gpt-5.6` is an API-only slug that 400s under ChatGPT auth — always the suffixed name.
 
-| [INDEX] | [MODEL]         | [ROLE]                                                                                                    |
-| :-----: | :-------------- | :-------------------------------------------------------------------------------------------------------- |
-|  [01]   | `gpt-5.6-terra` | dispatch default — sweeps, audits, investigation, research, implementation from spec, second perspectives |
-|  [02]   | `gpt-5.6-sol`   | flagship for judgment-bearing legs — deep design, hard reviews; runs whole fix/critique fleets            |
-|  [03]   | `gpt-5.6-luna`  | high-volume legs with a known-good result shape: extraction, classification, structured summaries         |
+Sol is the primary model, carrying roughly 80% of dispatch: every non-trivial write, deep design, hard reviews, whole fix/critique fleets, and second perspectives. Sol at `medium` covers menial file writes — api catalogs and their kin — over terra at any tier, and sol at `low` covers volume extraction and classification. Terra runs at `medium` or lower for navigation, exploration, and research. `gpt-5.6-luna` is NEVER dispatched.
+
+| [INDEX] | [MODEL]         | [ROLE]                                                                                        |
+| :-----: | :-------------- | :--------------------------------------------------------------------------------------------- |
+|  [01]   | `gpt-5.6-sol`   | primary — writes, design, reviews, fleets; `medium` menial writes, `low` extraction            |
+|  [02]   | `gpt-5.6-terra` | navigation, exploration, research at `medium` or lower                                         |
 
 Sol carries the family's highest measured reward-hacking rate — high tiers tighten sandbox and approval, never relax them. Each effort row is the flag to deviate to it:
 
-| [INDEX] | [TIER] | [SELECT]                             | [USE]                                                                   |
-| :-----: | :----- | :----------------------------------- | :---------------------------------------------------------------------- |
-|  [01]   | low    | `-c model_reasoning_effort="low"`    | trivial glue: probes, one-line extractions, mechanical relabels         |
-|  [02]   | medium | `-c model_reasoning_effort="medium"` | bulk mechanical fan-out legs where throughput beats depth               |
-|  [03]   | high   | `-c model_reasoning_effort="high"`   | research and review legs; solid depth for the common case               |
-|  [04]   | xhigh  | `-c model_reasoning_effort="xhigh"`  | deeper single-agent reasoning for harder investigation and design       |
-|  [05]   | max    | `-c model_reasoning_effort="max"`    | the hardest problems — maximum single-agent depth, multi-minute latency |
-|  [06]   | ultra  | `-c model_reasoning_effort="ultra"`  | the lane self-decomposes into parallel subagents; the spawn gate rules  |
+| [INDEX] | [TIER] | [SELECT]                             | [USE]                                                             |
+| :-----: | :----- | :----------------------------------- | :---------------------------------------------------------------- |
+|  [01]   | low    | `-c model_reasoning_effort="low"`    | trivial glue: probes, extraction, classification, relabels        |
+|  [02]   | medium | `-c model_reasoning_effort="medium"` | menial writes and fan-out legs where throughput beats depth       |
+|  [03]   | high   | `-c model_reasoning_effort="high"`   | the config default — research, review, and write legs             |
+|  [04]   | xhigh  | `-c model_reasoning_effort="xhigh"`  | deeper single-agent reasoning for the hardest investigation, design, and review legs |
 
-- Deviate surgically, one axis at a time: max deepens the single hardest leg, low/medium serve throughput; latency tracks task shape, not tier.
+- Deviate surgically, one axis at a time: xhigh deepens the single hardest leg, low/medium serve throughput; latency tracks task shape, not tier.
 - Overrun means CIRCLING — re-verifying unchanged work, loops adding no evidence — never duration; a well-scoped high-tier leg legitimately runs an hour.
 - Circling resolves in fixed order: land the missing completion bar first; still circling, downshift to medium; added instructions come last, one at a time.
 - Upshift is the mirror — xhigh earns its latency on review-shaped legs; an upshift without a completion bar buys longer runs, not better ones.
@@ -136,7 +139,7 @@ Independent scopes run as concurrent `codex exec` processes, one per scope, each
 
 Inside ONE lane, `collaboration.*` is the subagent tool family — `spawn_agent`, `followup_task`, `send_message`, `wait_agent`, `interrupt_agent`, `list_agents` (rollout-verified names; official docs list a different, stale set — never "correct" toward it). Children share the workspace live, inherit sandbox and model, and inherit NO conversation turns unless `fork_turns` opts in — a spawn task is self-contained like any codex prompt.
 
-- GATE: an injected developer-role gate admits children ONLY on imperative spawn wording in the user prompt or AGENTS.md/skill chain — exact tool names, count, wait, per-child return shape. Permissive "you may spawn" and `developer_instructions` mandates fail silently with zero spawns. `ultra` only biases decomposition the gate must still admit — reach for it only when one lane must run its own fleet.
+- GATE: an injected developer-role gate admits children ONLY on imperative spawn wording in the user prompt or AGENTS.md/skill chain — exact tool names, count, wait, per-child return shape. Permissive "you may spawn" and `developer_instructions` mandates fail silently with zero spawns.
 - AUDIT: grep the parent rollout for `function_call` items named `spawn_agent` — `collab_tool_call` is a stale marker that false-negatives; the sessions store's `thread_spawn_edges` table is the version-stable SQL audit path.
 - Worthwhile shapes are read-only star fan-outs — miners, censuses, verifiers returning distilled results; anti-patterns are parallel writers on the shared tree plus delegated fix-judgment — findings are signals, the lane owns the judgment.
 - A row-shaped sweep rides ONE lane's `spawn_agents_on_csv`: one worker per CSV row under the concurrency cap, `output_schema` typing each row; the `output_csv_path` export lands only under `workspace-write`. Reusable personas are `~/.codex/agents/*.toml` files spawned by name.
@@ -157,6 +160,6 @@ Every run mints a resumable thread on both surfaces — capture the id at dispat
 
 ## [11]-[FAILURE]
 
-- Quota exhaustion fails the call LOUDLY with no partial output — a wrapper returns `ok: false` with the error text and NEVER performs the work itself. Each caller owns its fallback by role: terra legs re-dispatch to a native opus agent, sol to fable, luna to sonnet — same task text, native execution. Never pre-assign a Claude twin to idle alongside a healthy codex leg.
+- Quota exhaustion fails the call LOUDLY with no partial output — a wrapper returns `ok: false` with the error text and NEVER performs the work itself. Each caller owns its fallback by role: sol legs re-dispatch to a native fable agent, terra to opus — same task text, native execution. Never pre-assign a Claude twin to idle alongside a healthy codex leg.
 - Codex output is a colleague's, not an oracle's — verify load-bearing claims against source or current documentation before acting; push back through a session resume, identified as Claude, with evidence.
 - A non-zero exit reports verbatim; retry only with a changed command. "Ran out of room in the model's context window" is OVER-SCOPED, not transient — split into narrower sequential lanes whose later legs read the earlier legs' reports; relaunching as-is fails identically.

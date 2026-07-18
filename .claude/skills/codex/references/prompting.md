@@ -28,7 +28,7 @@ One canonical block per concern; each lane selects its rows in this order.
 |  [03]   | implement / write    | workspace-write | enumerated moves as the bar, layer pin, item-by-item cadence, `edits[]` contract          |
 |  [04]   | review / judgment    | either          | verdict-only under read-only; workspace-write folds a fixlog forward with an orphan drain |
 |  [05]   | research / web       | read-only       | `-c web_search="live"`, cited-source contract                                             |
-|  [06]   | volume extraction    | workspace-write | luna, `spawn_agents_on_csv`, per-row `output_schema`, one worker per row                  |
+|  [06]   | volume extraction    | workspace-write | sol at `low`, `spawn_agents_on_csv`, per-row `output_schema`, one worker per row          |
 |  [07]   | spawn-mandate parent | inherits        | overlay on any shape: the imperative spawn step rides the USER prompt                     |
 |  [08]   | resume / follow-up   | inherited       | `codex-reply` or `exec resume` with a sharpened prompt only — never re-pay exploration    |
 
