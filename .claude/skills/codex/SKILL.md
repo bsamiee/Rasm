@@ -35,61 +35,53 @@ Every dispatch carries four things — Goal Context Constraints Done-when — Sp
 
 - `<role>` on a judgment lane adds the findings-are-untrusted clause, `<completion_bar>` sits early where it beats codex early-stop, and `<capability_mandate>` is earned by a focused campaign and states every expansion move as a measurable condition; `<verification>` extends with a cite-check on recon and a rubric walk on judgment.
 
-[PROMPT_STRUCTURE]:
-
-Recon developer-instructions:
+[PROMPT_STRUCTURE] — one dispatch, both channels; a lane keeps only the blocks its vocabulary row selects and fills every placeholder with instance logic:
 
 ```text template
-<context_gathering>
-Territory: <the exact files/dirs the lane may open>. Do not open files outside it, including skill or instruction files (.claude/, CLAUDE.md, AGENTS.md, ~/.codex/skills).
-Budget: at most <N> tool calls total. Parallelize reads and take large windows (400+ lines per command), capping each command's output so nothing truncates; never concatenate the whole territory into one command.
-Stop as soon as the product is complete. If something is still uncertain at the budget, proceed and record it in coverage.unverified instead of re-reading.
-</context_gathering>
+# developer-instructions — the lane law
+<role>
+<identity: what this lane is and the one product it returns>. Territory: <the exact files and directories this lane may open>; never <hard-exclusions: surfaces this lane must not open or edit>. <conduct-invariants: the behavior contract — e.g. edits forbidden on a read lane, findings-are-untrusted on a judgment lane>.
+</role>
 
-<verification>
-Before the final message, confirm every cited spelling appears verbatim in the cited file; move anything unconfirmed into coverage.unverified.
-</verification>
-
-<output_contract>
-Your final message is a single JSON object with exactly this shape:
-<SHAPE with coverage{requested,read,skipped,unverified}>
-- JSON only: no prose before or after it, no code fences, no markdown.
-- Every key shown is required.
-- Use null for a value you could not determine and [] for an empty list; never guess.
-</output_contract>
-```
-
-Write developer-instructions:
-
-```text template
 <completion_bar>
-Done is every named move landed to full depth with its product entry written — proof-complete, with observable evidence from the real surface, never effort-spent. Complete every named move before yielding; do not stop at analysis or a partial edit. If the chosen approach resists, pick the next-best one and proceed; a move the territory genuinely admits no edit for returns as a deferred entry naming its blocker. Implement EXACTLY and ONLY the named moves, choosing the simplest valid interpretation of any ambiguity; edit only files inside <write-territory>, touch no other path, never git; no new files, wrappers, or parallel surfaces. Your layer is <layer>: a finding outside the named scope lands as a typed entry in the product, never an edit — and re-verifying unchanged work adds no evidence; move to the next deliverable.
+Done is <deliverables: each named with the observable evidence that proves it>. Implement exactly and only <the named moves>; choose the simplest valid interpretation of any ambiguity. <blocked-policy: the typed entry a blocked deliverable returns instead of a partial edit>. Your layer is <layer>; out-of-layer discoveries land as <typed-row> in the product, never edits.
 </completion_bar>
 
-<read_discipline>
-A stable input — law corpus, dossier, catalog, charter — is read ONCE: extract what you need into plan notes and re-open only the exact line span behind an edit. Read in large windows (400+ lines per command). Work ITEM BY ITEM — derive one item's findings, land its edits, record its product entry, advance; edits land as derived and never pool toward the end, because only plan notes, on-disk products, and landed edits survive compaction. Budget: at most <N> tool calls total; at the budget, land what is derived and record the remainder as deferred entries.
-</read_discipline>
+<context_gathering>
+Read fully, in order: <read-ladder: the stable inputs once and first, then the per-item inputs>.
+Budget: at most <N> tool calls total — parallelize reads, take large windows, cap each command's output; never concatenate the territory into one command.
+Stop when the product is complete; uncertainty remaining at the budget lands in <uncertainty-slot>, never re-reads.
+</context_gathering>
+
+<decision_procedure>
+<adjudication: the verdict order, the evidence each verdict requires, and the classes that push back rather than land>
+</decision_procedure>
+
+<capability_mandate>
+<expansion-moves: each stated as a measurable condition on surfaces the lane already edits; correctness outranks addition>
+</capability_mandate>
 
 <verification>
-After editing, re-read each changed file and confirm it is coherent and nothing it carried was lost. Fix what fails before yielding; a check you did not run is never claimed as run. Verification matches the territory's medium: a markdown/prose territory verifies by reading — no compiler, build, or test gate runs against it. <verification-commands: truth rail per added host member; format gate once, batched, after the final edit>
+Re-read each changed region after landing it. <command-checks: the exact verification commands with their pass conditions, run once, batched, after the final edit>. A check not run is never claimed as run.
 </verification>
 
 <output_contract>
 Your final message is a single JSON object with exactly this shape:
-{"edits":[{"file":"<path>","move":"<move-kind>","description":"<string>"}], <task-specific keys>, "summary":"<string>"}
-- JSON only: no prose before or after it, no code fences, no markdown.
-- Every key shown is required.
-- Use null for a value you could not determine and [] for an empty list; never guess.
+<shape: every key named inline, task-specific keys included>
+JSON only — no prose outside it, no code fences; every key shown is required; null for a value you could not determine and [] for an empty list, never guess.
 </output_contract>
+
+# prompt — the task instance
+Goal: <the one outcome this dispatch produces>.
+Context: <the inputs on disk — absolute paths, one line of semantics each>.
+Constraints: <the instance values the law above parameterizes — territory, budget N, layer>.
+Done when: <this instance's deliverables, matching the output contract keys>.
 ```
 
-A judgment lane extends the write template: `<role>` adds "a finding is an untrusted report about where to look, never ground truth"; `<context_gathering>` orders doctrine pages, then the findings file, then each cited file whole before its first edit; `<decision_procedure>` inserts before verification — refute each finding against disk, doctrine, and the numbered settled-rulings roster (each ruling with its falsifiable citation) first, implement only survivors, and a citation-backed push-back counts equal to a fix; `<verification>` adds a rubric walk over every finding id; `<output_contract>` becomes the per-id verdict ledger.
-
-Spawn overlay — on the USER prompt, never the developer channel, because the injected spawn gate hears only the user channel and permissive wording yields zero spawns:
+Spawn step — rides the USER prompt, never the developer channel: the injected spawn gate hears only the user channel, and permissive wording yields zero spawns:
 
 ```text template
-Spawn exactly <N> parallel sub-agents with collaboration.spawn_agent, one per <split>; collect them with collaboration.wait_agent before synthesizing. Each sub-agent receives a self-contained task naming its exact territory and returns <per-child shape>.
-</text>
+Before <phase-anchor>, spawn exactly <N> parallel sub-agents with collaboration.spawn_agent, one per <split-axis>, then collect every one with collaboration.wait_agent before <synthesis-step>. Spawned agents inherit none of your conversation — each task is self-contained: absolute paths for its territory, <per-child-mandate: the one question it answers>, and its exact return shape <per-child-shape>. Sub-agents read and report only — never edit, never propose code to paste; their returns are candidate data you judge under your own law.
 ```
 
 ## [02]-[DISPATCH]
@@ -203,7 +195,7 @@ codex exec --json -o <report> \
 
 Independent scopes run as concurrent `codex exec` processes, one per scope, each fleet-grade with its own artifacts; reconcile reports after all complete. Concurrent write runs against overlapping paths collide — partition write scopes or serialize.
 
-Inside ONE lane, `collaboration.*` is the subagent tool family — `spawn_agent`, `followup_task`, `send_message`, `wait_agent`, `interrupt_agent`, `list_agents` (rollout-verified names; official docs list a different, stale set — never "correct" toward it). Children share the workspace live, inherit the model, and inherit NO conversation turns unless `fork_turns` opts in — a spawn task is self-contained like any codex prompt.
+Inside ONE lane, `collaboration.*` is the subagent tool family — `spawn_agent`, `send_message`, `followup_task`, `wait_agent`, `interrupt_agent`, `list_agents`. Children share the workspace live, inherit the model, and inherit NO conversation turns unless `fork_turns` opts in — a spawn task is self-contained like any codex prompt.
 
 - GATE: an injected developer-role gate admits children ONLY on imperative spawn wording in the user prompt or AGENTS.md/skill chain — exact tool names, count, wait, per-child return shape. Permissive "you may spawn" and `developer_instructions` mandates fail silently with zero spawns.
 - AUDIT: grep the parent rollout for `function_call` items named `spawn_agent` — `collab_tool_call` is a stale marker that false-negatives; the sessions store's `thread_spawn_edges` table is the version-stable SQL audit path.
