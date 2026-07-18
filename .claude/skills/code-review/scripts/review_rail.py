@@ -343,6 +343,19 @@ class CrRich(msgspec.Struct, frozen=True, rename="camel"):
     fingerprint: str = ""
 
 
+class GtRange(msgspec.Struct, frozen=True):
+    start: int = 0
+    lines: int = 0
+
+
+class GtHunk(msgspec.Struct, frozen=True, rename="camel"):
+    header: str = ""
+    old_range: GtRange | None = None
+    new_range: GtRange | None = None
+    before: str | None = None
+    after: str | None = None
+
+
 class GtComment(msgspec.Struct, frozen=True, rename="camel"):
     id: str = ""
     path: str = ""
@@ -355,16 +368,21 @@ class GtComment(msgspec.Struct, frozen=True, rename="camel"):
     body: str = ""
     verified_evidence: str | None = None
     suggestion: str | None = None
-    hunk: str | None = None
+    hunk: GtHunk | str | None = None
 
 
 class GreptileRow(msgspec.Struct, frozen=True, rename="camel"):
     run_id: str = ""
+    remote_url: str = ""
     base_ref: str = ""
     head_ref: str = ""
+    base_sha: str = ""
     head_sha: str = ""
+    created_at: str = ""
+    completed_at: str = ""
     status: str = ""
     comment_count: int = 0
+    confidence: int = 0
 
 
 class GreptileLedger(msgspec.Struct, frozen=True):
@@ -1329,7 +1347,7 @@ def greptile_payload(text: str, origin: str, /) -> Result[tuple[dict[str, object
     )
 
 
-def gt_admitted(row: dict[str, object], /) -> Option[Finding]:
+def gt_admitted(row: dict[str, object], /) -> Result[Option[Finding], Fault]:
     def converted() -> GtComment:
         return msgspec.convert(row, type=GtComment, strict=False)
 
@@ -1339,7 +1357,11 @@ def gt_admitted(row: dict[str, object], /) -> Option[Finding]:
             "greptile", comment.path, span, headline(comment.body), comment.suggestion or comment.body, comment.severity, ENCODER.encode(row)
         ).map(lambda held: replace(held, id=comment.id))
 
-    return catch(exception=msgspec.ValidationError)(converted)().to_option().bind(projected)
+    return (
+        catch(exception=msgspec.ValidationError)(converted)()
+        .map(projected)
+        .map_error(lambda drift: Fault(code="malformed", detail=f"greptile comment {row.get('id') or '<unnamed>'}: {drift}"))
+    )
 
 
 def greptile_harvested(context: Context, /) -> Result[tuple[Finding, ...], Fault]:
@@ -1348,18 +1370,28 @@ def greptile_harvested(context: Context, /) -> Result[tuple[Finding, ...], Fault
     def kept_lines(text: str, /) -> str:
         return "\n".join(line for line in text.splitlines() if not line.startswith(EXIT_MARK))
 
+    def payload_or_empty(text: str, /) -> Result[tuple[dict[str, object], ...], Fault]:
+        return Ok(()) if "no committed code changes to review" in text else greptile_payload(text, str(log))
+
     return (
         read_bytes(log)
         .map(lambda raw: kept_lines(ANSI_RE.sub("", raw.decode(errors="replace"))))
-        .bind(lambda text: greptile_payload(text, str(log)))
-        .map(lambda rows: tuple(Block.of_seq(rows).choose(gt_admitted)))
+        .bind(payload_or_empty)
+        .bind(lambda rows: traverse(gt_admitted, Block.of_seq(rows)).map(lambda held: tuple(Block.of_seq(held).choose(lambda entry: entry))))
     )
 
 
-def greptile_trace() -> str:
+def remote_slug(url: str, /) -> str:
+    held = url.strip().removesuffix(".git").replace(":", "/")
+    return "/".join(held.split("/")[-2:])
+
+
+def greptile_trace(context: Context, /) -> str:
+    mine = sh(("git", "-C", str(context.repo), "remote", "get-url", "origin")).map(remote_slug).default_with(lambda _f: "")
     return (
         shaped(GREPTILE_LEDGER, GreptileLedger)
-        .bind(lambda ledger: Some(ledger.reviews[-1]) if ledger.reviews else Nothing)
+        .map(lambda ledger: tuple(row for row in ledger.reviews if remote_slug(row.remote_url) == mine))
+        .bind(lambda rows: Some(max(rows, key=lambda row: row.created_at)) if rows else Nothing)
         .map(
             lambda last: (
                 f"cli-ledger:{last.run_id}:{last.status}:{last.comment_count}:head={last.head_sha}"
@@ -1863,7 +1895,7 @@ def cr_argv(scope: Scope, /) -> tuple[str, ...]:
 
 
 def greptile_argv(scope: Scope, /) -> tuple[str, ...]:
-    return ("greptile", "review", "--json", *(("-b", scope.ref) if scope.kind == "base" else ()))
+    return ("greptile", "review", "--json", *(("-b", scope.ref) if scope.kind in REF_KINDS else ()))
 
 
 def ms_argv(scope: Scope, /) -> tuple[str, ...]:
@@ -1942,29 +1974,55 @@ CR_SIGS: Final[tuple[FaultSig, ...]] = (
 )
 GT_SIGS: Final[tuple[FaultSig, ...]] = (
     FaultSig(
-        pattern=re.compile(r"^\s*this review is too large to send", re.IGNORECASE),
+        pattern=re.compile(r"too large to send|this review touches \d+ files|this review changes \d+ .*config files", re.IGNORECASE),
         signature="oversized",
-        remedy="slice the diff into smaller commits, review each vs the prior boundary",
+        remedy=(
+            "client-side caps — 500 changed files, 50 config files, 3000000 payload bytes (U3 patches + paths + commit messages + config +"
+            " instructions); slice commits and review each vs the prior boundary"
+        ),
     ),
     FaultSig(
-        pattern=re.compile(r"billing_not_configured|does not include per-use CLI reviews", re.IGNORECASE),
+        pattern=re.compile(r"no committed code changes to review", re.IGNORECASE),
+        signature="empty-diff",
+        remedy="nothing committed past the base — a clean empty round, zero findings",
+    ),
+    FaultSig(
+        pattern=re.compile(r"every committed change was held back", re.IGNORECASE),
+        signature="engine-error",
+        remedy="relaunch with --include naming the held-back files",
+    ),
+    FaultSig(
+        pattern=re.compile(r"billing|per-use CLI reviews|require a paid plan|monthly flex usage limit|reviews are not enabled", re.IGNORECASE),
         signature="billing",
         remedy="configure per-use CLI-review billing",
     ),
     FaultSig(
-        pattern=re.compile(r"not indexed|repository .* not found", re.IGNORECASE),
-        signature="not-indexed",
-        remedy="index the repo in Greptile cloud, then retry",
+        pattern=re.compile(r"rate limit|too many reviews|daily review limit|Greptile is busy", re.IGNORECASE),
+        signature="rate-limited",
+        remedy="wait the rolling window, relaunch",
     ),
     FaultSig(
-        pattern=re.compile(r"GREPTILE_API_KEY|unauthorized|not signed in", re.IGNORECASE),
+        pattern=re.compile(r"not indexed|not connected to Greptile|could not recognize this repository", re.IGNORECASE),
+        signature="not-indexed",
+        remedy="connect the repo in the Greptile dashboard, then retry",
+    ),
+    FaultSig(
+        pattern=re.compile(
+            r"GREPTILE_API_KEY|unauthorized|not signed in|API key invalid|session expired|authorization expired|sign-in needs permission",
+            re.IGNORECASE,
+        ),
         signature="auth-failed",
         remedy="re-auth `greptile login`; check GREPTILE_API_KEY",
     ),
     FaultSig(
-        pattern=re.compile(r"unknown revision|bad base|invalid .*branch|could not find base branch", re.IGNORECASE),
+        pattern=re.compile(r"could not find (?:the )?(?:base|default) branch|does not share history|unknown revision|detached HEAD", re.IGNORECASE),
         signature="base-unresolvable",
-        remedy="pass a resolvable -b <base>",
+        remedy="pass a resolvable -b <base> (any committish) from a checked-out branch",
+    ),
+    FaultSig(
+        pattern=re.compile(r"could not start the review|did not start within \d+ seconds", re.IGNORECASE),
+        signature="no-start",
+        remedy="transient start failure; relaunch",
     ),
     NETWORK_SIG,
 )
@@ -2011,7 +2069,7 @@ ADAPTERS: Final[Mapping[Reviewer, Adapter]] = MappingProxyType({
         source=lambda context: cr_epoch(context.repo, context.run, time.time()).map(str).default_value("store-missing"),
     ),
     "greptile": Adapter(
-        scopes=frozenset({"committed", "base"}),
+        scopes=frozenset({"committed", "base", "base-commit"}),
         armed=greptile_argv,
         preflight=gt_preflight,
         focused=greptile_focused,
@@ -2024,7 +2082,7 @@ ADAPTERS: Final[Mapping[Reviewer, Adapter]] = MappingProxyType({
             signatures=GT_SIGS,
         ),
         harvested=greptile_harvested,
-        source=lambda _context: greptile_trace(),
+        source=greptile_trace,
     ),
     "macroscope": Adapter(
         scopes=frozenset({"uncommitted", "base"}),
