@@ -15,7 +15,7 @@ export const meta = {
         },
         {
             title: 'Ideate',
-            detail: 'per package, fired the moment that package map lanes land: an opus corrections census (the deduped disk-verified fix addendum) and ONE fable ideas author writing one per-sub-folder power-idea dossier per .planning folder plus one package-wide dossier of broader owner-named ambitions — one author, internally coherent, no entry duplicated across grains',
+            detail: 'per package, fired the moment that package map lanes land: sharded opus corrections censuses (the deduped disk-verified fix addendum, one lane per few sub-folders) and ONE fable ideas author writing one per-sub-folder power-idea dossier per .planning folder plus one package-wide dossier of broader owner-named ambitions — one author, internally coherent, no entry duplicated across grains; an idea no existing owner can absorb lands as a [NEW_PAGE] entry, and a genuinely new territory as a wide-dossier [NEW_FOLDER] roster (3+ pages at guidance depth), both realization-only — batch writers skip them, the package realization writer implements or the disposition cards them, and run-authored pages join the finder, fixer, and density fans',
         },
         {
             title: 'Build',
@@ -1102,7 +1102,10 @@ const LEDGER = (base, scopes) =>
     scopes;
 
 const PROSE_COMMENTS = (L) =>
-    'PROSE + COMMENTS — apply docs/standards/style-guide.md, information-structure.md, and formatting.md. The page is a design ' +
+    'PROSE + COMMENTS — apply docs/standards/style-guide.md, information-structure.md, and formatting.md; these pages and this ' +
+    'block are the COMPLETE prose law for this lane. Your project instructions (AGENTS.md/CLAUDE.md) route durable markdown to ' +
+    'the `docgen` skill — that route serves interactive agents and does NOT apply here: never read, load, or open the docgen ' +
+    'bundle from any root. The page is a design ' +
     'spec: lead each section with the controlling contract, one idea per paragraph, close on the consequence; no provenance, ' +
     'narration, freshness disclaimers, or hedges. Backtick every symbol, type, field, function, operator, package ID, path, ' +
     'command, flag, and literal; name the exact member over paraphrased behavior; trimming never reduces technical density. ' +
@@ -1176,8 +1179,9 @@ const IDEAS = (subFiles, wide) =>
                 '` — broader ambitions, each naming its owner pages. Realize ONLY the entries naming one of YOUR pages as ' +
                 'owner; an entry owned elsewhere is not yours and gets no note. '
               : '') +
-          'An idea disk already realizes, or the doctrine forbids, is dropped; an idea you decline is not a defect. Ambition ' +
-          'and information, never a prescription, a design, or a ceiling.'
+          'An entry marked [NEW_PAGE] or [NEW_FOLDER] is OUT OF SCOPE for every batch writer — never author it, never note ' +
+          'it; the package realization writer owns it. An idea disk already realizes, or the doctrine forbids, is dropped; an ' +
+          'idea you decline is not a defect. Ambition and information, never a prescription, a design, or a ceiling.'
         : '';
 
 const readFirst = (L, pkg, dossiers) =>
@@ -1364,6 +1368,22 @@ const ideasPrompt = (L, pkg, mapIndex, subRows, widePath) =>
             'file, not here. EVERY wide entry names its OWNER PAGES explicitly (the pages that must absorb it) — batch writers ' +
             'claim wide entries by owner page, so an owner-less entry is unimplementable and forbidden; an idea whose value ' +
             'crosses the package boundary names BOTH ends and the seam it rides.',
+        'NEW SURFACES — an idea is never forced onto the existing corpus. A capability no existing owner can absorb lands as ' +
+            'a `[NEW_PAGE <path>]` entry: in the owning folder\'s dossier when the page belongs to an existing sub-folder, in ' +
+            'the wide dossier when it belongs to none; the entry names the page\'s ownership boundary (what it owns versus its ' +
+            'siblings), the key owner families and vocabularies it is expected to carry, its seams both ends, and the domain ' +
+            'or catalog ground. A genuinely high-value capability gap demanding its own territory lands as a wide-dossier ' +
+            '`[NEW_FOLDER <path>]` entry: the folder charter in one sentence, WHY the package demands it, and a roster of AT ' +
+            'LEAST THREE pages — a two-page folder is not a folder — each roster row carrying the page name, its ownership ' +
+            'boundary, expected owner families, and seams, at the guidance depth of the existing folders\' page set: enough ' +
+            'that an implementing agent never guesses location, charter, or seam, never the full build-out. Every ' +
+            '[NEW_PAGE]/[NEW_FOLDER] entry states in its body: REALIZATION-ONLY — batch writers skip this entry; the package ' +
+            'realization writer implements it or the disposition writer cards it. The grain is YOUR judgment, neither forced ' +
+            'nor suppressed: imagine the package complete and shipped as a professional library for its real domain — a ' +
+            'capability a domain expert would expect and find missing earns its surface at the grain that fits the missing ' +
+            "territory's size: growth on an existing owner for what an owner admits, a [NEW_PAGE] for a concern no page owns, " +
+            'a [NEW_FOLDER] for a whole missing domain — obvious gaps and nuanced advanced ones alike, judged future-facing ' +
+            'with zero naive gaps tolerated; the census of real gaps rules the count.',
         'VALUE BAR — the census/ideas partition is severity of imagination, not anchor quality: a stale label, wrong ' +
             'spelling, dropped wire column, or single uncomposed member is a CORRECTION and drops here; an entry earns its row ' +
             'by naming capability whose absence a domain expert would call a gap in the PRODUCT, not a defect in the prose.',
@@ -1505,8 +1525,10 @@ const IMPL_READ = (L, pkg, dossiers, pack) =>
     (pack
         ? ': the audit law pack `' +
           pack +
-          '` carries every binding checklist section VERBATIM with its source anchor — read it IN FULL in large windows ' +
-          'FIRST; a doctrine page at source opens only when a design decision turns on law outside the pack'
+          '` carries every binding checklist section VERBATIM with its source anchor — read it IN FULL, in at most three ' +
+          'large windows, FIRST. The pack REPLACES the atlas: never `tree` or `loc` the doctrine tree, never re-read a stack ' +
+          'README or root page wholesale beside it; a doctrine page opens only at the exact section a named design decision ' +
+          'requires, when that law is outside the pack'
         : ', scoped at-source: `' +
           L.stack +
           '/README.md` [02]-[DOCTRINE] laws + the [03]-[COLLAPSE_SCAN] table, OWNER_CHOOSER (`shapes.md` [01]), RAIL_CHOOSER + ' +
@@ -1537,9 +1559,10 @@ const IMPL_READ = (L, pkg, dossiers, pack) =>
     L.deepPkgs +
     ') on top of the folder domain packages; a disputed spelling resolves via ' +
     L.verify +
-    '. OUT OF SCOPE: instruction files (CLAUDE.md, AGENTS.md, `.claude/` config), skill bundles, the repo-root README, and ' +
-    'any strata or topology hunt beyond the named files — the law above is complete, and a name this brief states is never ' +
-    'searched for on disk.';
+    '. OUT OF SCOPE: instruction files (CLAUDE.md, AGENTS.md, `.claude/` config), skill bundles under ANY root ' +
+    '(`.claude/skills/`, `~/.codex/skills/` — the PROSE block above carries the complete register law; the docgen bundle is ' +
+    'never opened), the repo-root README, and any strata or topology hunt beyond the named files — the law above is ' +
+    'complete, and a name this brief states is never searched for on disk.';
 
 // Redteam read law — the terminal-review twin of IMPL_READ: every read is a NAMED file, never an enumeration ladder
 // (telemetry: opus executes a named concrete file and silently truncates a "read EVERY page the ls returns" mandate);
@@ -1577,7 +1600,7 @@ const RT_READ = (L, pkg, dossiers, pack) =>
     (dossiers
         ? ': the dossiers `' + dossiers + '` carry verified extracts — spot-verify every anchor behind an edit.'
         : ': dossiers absent — derive grounding from the reads above.') +
-    ' OUT OF SCOPE: instruction files (CLAUDE.md, AGENTS.md, `.claude/` config), skill bundles, the repo-root README.';
+    ' OUT OF SCOPE: instruction files (CLAUDE.md, AGENTS.md, `.claude/` config), skill bundles under ANY root (`.claude/skills/`, `~/.codex/skills/`), the repo-root README.';
 
 const implementPrompt = (L, batch, dossiers, ideate, scopes, roster, unmapped, pack, reg, sibling, half, lbase) =>
     [CONTEXT(L), REG[reg].stance(L), OWN_PASS, BUILD_LAW(L), BODY(L), VERIFY(L), RIPPLE_LAW, CURRENT_STATE, PROSE_COMMENTS(L)]
@@ -1651,9 +1674,9 @@ const CRIT_READ = (L, pkg, dossiers, roster, unmapped, pack) =>
     pkg +
     '/.api/`) open only at the member blocks your pages cite or compose; a disputed spelling resolves via ' +
     L.verify +
-    '. OUT OF SCOPE: instruction files (CLAUDE.md, AGENTS.md, `.claude/` config), skill bundles including `docgen` (the ' +
-    'PROSE block above carries the standards route), the repo-root README, and any strata or ' +
-    'topology hunt — the law above is complete, and a name this brief states is never searched for on disk.';
+    '. OUT OF SCOPE: instruction files (CLAUDE.md, AGENTS.md, `.claude/` config), skill bundles under ANY root ' +
+    '(`.claude/skills/`, `~/.codex/skills/` — the PROSE block above carries the complete register law), the repo-root ' +
+    'README, and any strata or topology hunt — the law above is complete, and a name this brief states is never searched for on disk.';
 
 const critiquePrompt = (L, batch, dossiers, ideate, scopes, roster, unmapped, implReport, reg, pack, sibling, half, lbase) =>
     [CONTEXT(L), REG[reg].stance(L), BUILD_LAW(L), BODY(L), VERIFY(L), RIPPLE_LAW, CURRENT_STATE, PROSE_COMMENTS(L)]
@@ -1796,7 +1819,11 @@ const ideasRealizePrompt = (L, pkg, ideaFiles, scopes, pack) =>
             '`. Per entry, in dossier order, exactly one outcome: (1) REALIZED-PRIOR — current disk already carries ' +
             'the capability fully or in a stronger form: record the landing anchor, never re-build. (2) IMPLEMENTED-NOW — disk ' +
             "admits the entry: build it at the strongest form the doctrine allows, in the owning pages' existing form, growth " +
-            'as cases, rows, fields, and operations on existing owners, seams aligned both ends per RIPPLE LAW. (3) CARDED — ' +
+            'as cases, rows, fields, and operations on existing owners, seams aligned both ends per RIPPLE LAW. You are the ' +
+            "run's SOLE author for [NEW_PAGE] and [NEW_FOLDER] entries: a grounded [NEW_PAGE] is authored ground-up at the " +
+            'doctrine bar in the code-fence-first form of its mature siblings, wired both ends into the seams its entry names, ' +
+            'its index-doc rows via `indexRows`; a grounded [NEW_FOLDER] is authored COMPLETE — every roster page at that same ' +
+            'bar — or not at all: a partial folder is forbidden, and a folder you cannot complete is CARDED whole. (3) CARDED — ' +
             'gated on a decision, a provenance-bound data source, or a frozen wire: one fully-specified card row via ' +
             '`indexRows` targeting the owning IDEAS.md, naming the gate. (4) DECLINED — the value claim fails re-derivation ' +
             'against current disk: the reason rides `summary`. Ambition is the charter here and truth outranks it: never ' +
@@ -2656,6 +2683,14 @@ const ORPHANS = built
 const ORPHANS_BY_PKG = {};
 for (const d of built.filter((x) => x.fix && x.fix.ok && !x.rt))
     ORPHANS_BY_PKG[d.pkg] = (ORPHANS_BY_PKG[d.pkg] || []).concat([d.fix.report, d.crit && d.crit.report].filter(Boolean));
+// Run-authored NEW pages — the realization writer's [NEW_PAGE]/[NEW_FOLDER] output rides its inline rt-record `files` —
+// join the finder fan, the package-fixer territories, and the Density pass, so a fresh page meets the same attack
+// machinery as a rebuilt one; index docs and foreign-package files are excluded.
+const INDEX_DOC_RE = /(README|ARCHITECTURE|IDEAS|TASKLOG)\.md$/;
+const NEW_PAGES = [...new Set(built.flatMap((d) => (d.rt && d.rt.files) || []))].filter(
+    (f) => f.includes('/.planning/') && f.endsWith('.md') && !INDEX_DOC_RE.test(f) && !LANDED.includes(f) && PKGS.includes(pkgOf(f)),
+);
+const LANDED_ALL = LANDED.concat(NEW_PAGES);
 log(
     'Build: ' +
         LANDED.length +
@@ -2678,7 +2713,7 @@ if (!LANDED.length) {
 phase('Close');
 const LANDED_LANGS = [...new Set(LANDED.map((p) => langOf(p)).filter(Boolean))];
 const finderTasks = LANDED_LANGS.flatMap((k) => {
-    const langPages = LANDED.filter((p) => langOf(p) === k);
+    const langPages = LANDED_ALL.filter((p) => langOf(p) === k);
     const langSeams = SEAM_ROWS.filter((s) => langOf(s.file) === k || langOf(s.counterpart) === k);
     return chunk(langPages, FINDER_PAGES)
         .map((pages, i) => ({ gov: false, lang: k, pages, seams: langSeams, i }))
@@ -2765,7 +2800,7 @@ log(
 // residuals. Each package chains its ideas implementer AFTER its fixer, keeping same-package writers serial while
 // packages stay parallel. ONE terminal sweeper then drains the remainders, dead territories, global index rows, and
 // cross-package work in one scoped pass — the drain loop is gone; `remaining` after the sweep is the run residual.
-const FIXED_PKGS = [...new Set(LANDED.map(pkgOf))];
+const FIXED_PKGS = [...new Set(LANDED_ALL.map(pkgOf))];
 const rowPkgOf = (doc) => FIXED_PKGS.find((p) => doc === p || doc.indexOf(p + '/') === 0) || '';
 const backlogPkgOf = (row) => {
     const ps = [...new Set((row.files || []).map(rowPkgOf))];
@@ -2776,7 +2811,7 @@ const pkgClose = await Promise.all(
     FIXED_PKGS.map(async (pkg) => {
         const L = Lof(pkg);
         const tag = pkg.split('/').pop();
-        const pkgPages = LANDED.filter((p) => pkgOf(p) === pkg);
+        const pkgPages = LANDED_ALL.filter((p) => pkgOf(p) === pkg);
         const pkgRows = ROWS.filter((r) => rowPkgOf(r.doc) === pkg);
         const fx = await slot(() =>
             recon(
@@ -2842,7 +2877,7 @@ const sweep = await slot(() =>
                 found,
                 UNMAPPED,
                 FAILED,
-                LANDED,
+                LANDED_ALL,
             ),
         ropts('sweeper', 'Close', FIXER_SCHEMA, [], { arr: 'remaining' }, { writes: true, fix: true, calls: 400 }),
     ),
@@ -2918,7 +2953,7 @@ const locChunk = (rows, cap) => {
 };
 const DENSITY_SETS = FIXED_PKGS.flatMap((pkg) =>
     locChunk(
-        LANDED.filter((p) => pkgOf(p) === pkg).map((p) => ({ page: p, lines: pageLinesOf[p] || 500, map: densityMapOf(p) })),
+        LANDED_ALL.filter((p) => pkgOf(p) === pkg).map((p) => ({ page: p, lines: pageLinesOf[p] || 500, map: densityMapOf(p) })),
         DENSITY_MAP_LOC,
     ).map((set, i) => ({ pkg, i, set })),
 );
@@ -2937,10 +2972,10 @@ await Promise.all(
             .catch(() => null),
     ),
 );
-log('Density: ' + mappedPages.size + '/' + LANDED.length + ' page(s) mapped across ' + DENSITY_SETS.length + ' mapper(s)');
+log('Density: ' + mappedPages.size + '/' + LANDED_ALL.length + ' page(s) mapped across ' + DENSITY_SETS.length + ' mapper(s)');
 const densityFixes = (
     await Promise.all(
-        LANDED.map((page) => {
+        LANDED_ALL.map((page) => {
             const L = Lof(pkgOf(page));
             return slot(async () => {
                 const pkR = LAWPACK[L.key] ? await LAWPACK[L.key] : null;
@@ -2972,7 +3007,7 @@ log(
     'Density: ' +
         DENSITY_REPORTS.length +
         '/' +
-        LANDED.length +
+        LANDED_ALL.length +
         ' file pass(es) landed; closer ' +
         (densityClose && densityClose.ok ? 'landed, ' + (densityClose.entries || 0) + ' row(s) remaining' : 'absent'),
 );
@@ -2982,6 +3017,7 @@ return {
     languages: LANDED_LANGS,
     batches: BATCHES.length,
     landed: LANDED.length,
+    newPages: NEW_PAGES.length,
     failed: FAILED,
     ideas: ideas && {
         entries: (ideas.entries || []).length,
