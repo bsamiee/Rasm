@@ -1,5 +1,5 @@
 ---
-description: Ground a new planning session — topology, campaign state, planning law — then take the session objective
+description: Ground a new planning session — topology, scaffold, planning law — then take the session objective
 argument-hint: [target folder path(s) or a language (csharp|python|typescript); empty = branch-level grounding]
 disable-model-invocation: true
 ---
@@ -8,18 +8,17 @@ disable-model-invocation: true
 
 Ground this session for planning-corpus work, then take the objective. TARGET: $ARGUMENTS — folder paths deepen those folders at prime; a bare language word deepens that branch; empty grounds at branch level and defers folder deepening to the objective. Grounding is read-only and plan-mode-compatible; no work, no proposals, no workflow launch before the objective arrives.
 
-The frame: three peer branches — `libs/csharp`, `libs/python`, `libs/typescript` — building world-class, lib-grade foundations, and the entire operating surface is DESIGN DOCS: every capability is a transcription-complete code fence inside a `.planning/` design page, rebuilt root-up without hesitation; no session lands source files. CLAUDE.md and the root README are already loaded — never re-read them, never restate their content.
+Frame: three peer branches — `libs/csharp`, `libs/python`, `libs/typescript` — building world-class, lib-grade foundations, and the entire operating surface is DESIGN DOCS: every capability is a transcription-complete code fence inside a `.planning/` design page, rebuilt root-up without hesitation; no session lands source files. CLAUDE.md and the root README are already loaded — never re-read them, never restate their content.
 
 Budget law: [01] + [02] ground the session; [03] spends only on what the target or objective names; the whole prime stays under 100k tokens. Batch every multi-file read through one `tail -n +1` command, never per-file reads.
 
 ## [01]-[TOPOLOGY]
 
 Run all four in one parallel block:
-
-1. `tree -L 3 libs` — the full branch/package map with per-file size, modified-age, and git-modified columns: package rosters, index docs, thinness/staleness and uncommitted-pass signals in one view.
-2. `fd -H -t d -d 3 '^\.(planning|api)$' libs` — the scaffold census: which folders carry a `.planning/` (the lifecycle signal) and which carry an `.api/` catalog tier (a planning folder without one is a gap signal).
+1. `tree -L 3 libs` — maps every branch and package with per-file size and modified-age columns: package rosters, index docs, and relative page weight in one view.
+2. `fd -H -t d -d 3 '^\.(planning|api)$' libs` — censuses the scaffold: which folders carry a `.planning/` and which carry an `.api/` catalog tier, so a planning folder missing its catalog tier is visible.
 3. `fd -d 1 -t f .` — root files, names only. Root file — central manifests, lockfiles, workspace/solution files, tool config — is an owner to know exists and never read at prime.
-4. `ls .claude/workflows/` — the workflow roster, self-describing: each file's `meta` block states its own contract; a one-off mid-campaign workflow is a live-campaign signal paired with its root brief. Read the session-start git status for uncommitted `.planning`/doc concentrations — a landed-but-uncommitted pass.
+4. `ls .claude/workflows/` — lists the workflow roster, names only. Each file's `meta` block states its own contract; a roster entry is read when the arrived objective names it, never at prime.
 
 ## [02]-[PLANNING_LAW]
 
@@ -29,7 +28,7 @@ READ 100%, one batch (`==> path <==` headers delimit files):
 fd -H -t f -e md -E 'IDEAS.md' -E 'TASKLOG.md' . libs/.planning libs/csharp/.planning libs/python/.planning libs/typescript/.planning -X tail -n +1
 ```
 
-This is the complete Tier-0 + branch law: `campaign-method.md` (the loop, the bar, the agent-role law, the two naivety axes, collapse-floor freedom), `architecture.md` (strata, dependency direction, wire seams), `README.md` (the authoring standard), `planning-targets.md` (the target index), each branch router + `ARCHITECTURE.md`, and whatever branch system pages sit on disk. `IDEAS.md`/`TASKLOG.md` never open at prime — card pools enter context only when a dispatched rail works them. Cross-check `planning-targets.md` rows against the [01] scaffold census; a row disk contradicts is a finding for the readiness report.
+This is the complete Tier-0 + branch law: `campaign-method.md` (the loop, the bar, the agent-role law, the two naivety axes, collapse-floor freedom), `architecture.md` (strata, dependency direction, wire seams), `README.md` (the authoring standard), `planning-targets.md` (the target index), each branch router + `ARCHITECTURE.md`, and whatever branch system pages sit on disk. `IDEAS.md`/`TASKLOG.md` never open at prime — card pools enter context only when a dispatched rail works them.
 
 ## [03]-[TARGET_DEEPENING]
 
@@ -44,23 +43,6 @@ fd -H -t f --max-depth 3 -E '_tmp' -E '.planning' '^(README|ARCHITECTURE)\.md$' 
 
 - Never warm-up reads: `docs/stacks/<lang>/` doctrine is composed in full by whichever agent writes or judges fences in that language, at that moment; `tools/assay/README.md` is read when a verification rail actually runs (`uv run python -m tools.assay ...`); a central manifest is scanned only when package work enters scope.
 
-## [04]-[SESSION_DISPATCH]
+## [04]-[CLOSE]
 
-The session shapes and their entry rails — selected when the objective arrives, never before:
-
-| [INDEX] | [SHAPE]                            | [ENTRY]                                                                                           |
-| :-----: | :--------------------------------- | :------------------------------------------------------------------------------------------------ |
-|  [01]   | Major cross-folder campaign        | design workflow: survey->draft->judge->decide -> DECISION brief -> `realize`; `cold-verify` gates |
-|  [02]   | Campaign brief authoring           | `brief` `{targets, upstream, deep, mandate, review, gold}` — one or dependency-ordered waterfall  |
-|  [03]   | Targeted rebuild / quality pass    | `rebuild` with a target path, an array of paths, or `{targets}` — every page hostile-rebuilt      |
-|  [04]   | Align / clean / hygiene            | `align-cards`, `hygiene-sweep`, `tidy-planning-docs`                                              |
-|  [05]   | Idea/task pool + realization       | `ideate` (pool generation), `implement-cs`/`implement-py`/`implement-ts` (cards -> fences)        |
-|  [06]   | Doctrine refining (`docs/stacks/`) | `stack-cs`/`stack-py`/`stack-ts`                                                                  |
-|  [07]   | Package roster / catalog work      | `survey` (research -> admit -> catalog -> integrate, per folder), `rebuild-api`                   |
-|  [08]   | Finalization / corrections pass    | `finalize` a package root or folder subset (split-brain, phantoms, flow, collapse)                |
-
-A shape with no fitting workflow gets a one-off workflow authored via `.claude/skills/workflow-creator` and deleted after landing. Passes re-run across sessions until cold passes find nothing.
-
-## [05]-[CLOSE]
-
-Return a compact readiness report — the live campaign state (root briefs and DECISIONs, ephemeral workflows, uncommitted planning concentrations), the topology signals worth acting on (scaffold gaps, thin or stale folders, any `planning-targets.md` row disk contradicts), the dispatch rail(s) that fit, and any blocker — then ask for the session objective, scope, and constraints. Maximum signal, zero restated law.
+State in a few lines what grounded: the branches and packages mapped, the planning law read, and whatever TARGET deepened. Then ask for the session objective, scope, and constraints. Priming ends there — no findings, no proposals, no rail selection, no restated law.
