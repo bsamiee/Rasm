@@ -97,7 +97,7 @@ const pool = async (items, cap, worker) => {
         while (i < items.length) {
             const k = i++;
             await launch();
-            out[k] = await worker(items[k], k);
+            out[k] = await worker(items[k], k).catch(() => null); // per-member guard: one throw rejects the whole pool
         }
     };
     await Promise.all(Array.from({ length: Math.min(cap, items.length) }, () => run()));

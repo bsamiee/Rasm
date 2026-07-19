@@ -13,7 +13,7 @@ Smell test: `await parallel(...)`, then a plain transform (`flat`/`map`/`filter`
 
 ## [02]-[CONCURRENCY]
 
-Runtime runs up to 16 agents at once (fewer on machines with few CPU cores) and queues the excess — passing 100 thunks to `parallel()` is legal, ~16 run at a time, all 100 finish. A 1000-agent lifetime cap throws; every open-ended loop carries its own counter or budget guard long before it. A run that schedules past 25 agents or projects past 1.5 million tokens raises the advisory large-workflow warning (api reference).
+Runtime runs up to 16 agents at once (fewer on machines with few CPU cores) and queues the excess — passing 100 thunks to `parallel()` is legal, ~16 run at a time, all 100 finish. A 1000-agent lifetime cap throws; every open-ended loop carries its own counter or budget guard long before it. Scheduling past the advisory agent-count or token thresholds raises the large-workflow warning (api reference).
 
 For a large list of long multi-stage chains, `parallel()` enqueues all N at once and leans on the limiter; a bounded pool holds a true steady state of at most `cap` chains — what heavy multi-minute chains want:
 
@@ -31,7 +31,7 @@ const pool = async (items, cap, worker) => {
         while (next < items.length) {
             const i = next++;
             await launch();
-            out[i] = await worker(items[i], i);
+            out[i] = await worker(items[i], i).catch(() => null); // one throw would reject the whole pool
         }
     };
     await Promise.all(Array.from({ length: Math.min(cap, items.length) }, () => run()));
@@ -41,6 +41,8 @@ const done = (await pool(pages, 10, (p) => processPage(p))).filter(Boolean);
 ```
 
 That `launch()` gate spaces the roll-out: each worker awaits the shared gate before starting a job, so launches sit one stagger interval apart and the pool ramps to `cap` gradually — identically on a fresh run and on a cache-replaying resume. Tune `cap` and the stagger to the work's weight; ~10 concurrent and ~1500 ms suit heavy multi-stage agents.
+
+Every member of a hand-built fan carries its own `.catch(() => null)`. `agent()` throws — budget exhaustion, the lifetime cap — and `Promise.all` rejects wholesale on the first throw, discarding every sibling that already finished. Null-on-failure is `parallel()`'s guarantee alone (api reference); a slot or pool fan buys it per member or loses a whole wave's completed work to one dead lane.
 
 Slot the agents, never the chains, when chains have uneven stage widths. That pool above holds at most `cap` CHAINS; a chain whose current stage is one agent still occupies a whole slot, and a chain that bursts several concurrent agents in one stage overshoots the cap. Moving the semaphore to the individual `agent()` call — each call acquires a slot, chains launch freely via `Promise.all` — keeps the true in-flight agent count exactly at cap with work-conserving backfill. Its cost is FIFO ordering across stages; throughput is unchanged because the cap stays saturated:
 
@@ -67,10 +69,11 @@ const makeSlots = (cap) => {
     };
 };
 const slot = makeSlots(14);
+const guard = (p) => p.catch(() => null); // per-member, or one throw discards every finished sibling
 await Promise.all(
     batches.map(async (b) => {
-        const [a, c] = await Promise.all([slot(() => agent(lensA(b))), slot(() => agent(lensB(b)))]);
-        const impl = await slot(() => agent(implPrompt(b, a, c))); // chain continues per batch
+        const [a, c] = await Promise.all([guard(slot(() => agent(lensA(b)))), guard(slot(() => agent(lensB(b))))]);
+        const impl = await guard(slot(() => agent(implPrompt(b, a, c)))); // chain continues per batch
     }),
 );
 ```
@@ -142,7 +145,7 @@ That budget also rules POOL-per-cluster shapes (one agent per atomic cluster und
 - A wait no single call can hold restructures as: the agent returns a receipt → the orchestrator holds time (`await new Promise(r => setTimeout(r, ms))` — the orchestrator's one clock) → a fresh short-lived agent runs the next check round.
 - Repeated mechanics are staged artifacts, never prose. Any step executed more than once across rounds or lanes (checks, promotions, validations) is written ONCE as an executable script and executed verbatim thereafter. Each fresh agent re-deriving mechanics from prose is an independent chance to botch them; across N rounds a botch is guaranteed — a mis-expanded pgrep pattern silently declares live lanes dead.
 - `stallMs` is a stall override, never a wait license: raise it for a legitimately slow single agent (a long build inside one call), never to let an agent poll.
-- `isolation: 'worktree'` costs ~200-500 ms and disk per agent. Use it only when parallel agents mutate files and otherwise collide; disjoint write scopes make it unnecessary.
+- `isolation: 'worktree'` costs ~200-500 ms and disk per agent, so it earns its price only where parallel agents mutate the same files and otherwise collide; disjoint write scopes make it unnecessary.
 - A run targeting a worktree (or any non-default checkout) isolates through PATH AUTHORITY, never launch context: lanes do not reliably follow the launching session's directory, so a "repo root"-relative product instruction forks products across checkouts — some lanes writing the original repo while explicitly-pinned lanes write the worktree. An orchestrator mints one absolute root (an args-overridable constant), states it in every lane prompt as the resolution root for relative paths, and mints native product paths absolute from it; codex lanes pin the same root as `cwd`.
 - Native lanes inherit the parent session's FULL tool + MCP surface, and every tool definition spends the lane's context before its first turn. A heavy native fan-out of mechanical lanes routes through `agentType` pointing at a `.claude/agents/` definition with a minimal `tools:` field (Bash/Read/Grep/Edit for a mechanical lane) so each lane starts lean; codex lanes already solve this through the codex skill's graded MCP selection.
 
@@ -152,6 +155,6 @@ That budget also rules POOL-per-cluster shapes (one agent per atomic cluster und
 - Launch same-script runs one call at a time. Three parallel `Workflow` invocations of one scriptPath in a single batch misdeliver `args`: two runs receive them, the third receives empty `args` and skips on its own validation. Launch same-scriptPath runs sequentially, and give every workflow an early guard — `if (!required) return { skipped: true, reason }` — so the failure mode is a 6 ms no-op instead of a silent mis-run.
 - A launch into territory adjacent to a LIVE writer carries the seam law. When a new agent's territory shares a file with an agent still running — or with that agent's uncommitted output — the new agent's prompt names the foreign content FROZEN (never edit, move, or reformat it), sequences the shared file LAST with a mandatory full re-read immediately before the first edit, and restricts that file to surgical Edit operations — one full-file Write clobbers the sibling.
 - A sibling's territory breach observed mid-flight is adjudicated at its receipt, never by intervening in a live run.
-- Grant permissions before a long parallel run. Subagents run in `acceptEdits` mode and inherit the session tool allowlist; a non-allowlisted shell, web, or MCP call surfaces a mid-run permission prompt and stalls the run until answered.
+- Grant permissions before a long parallel run — subagent permission inheritance is the api reference's sandbox law, and one un-granted call stalls the whole fan.
 - Host singletons serialize. Agents sharing one external mutable resource — a live app instance, a database, a port — contend invisibly; a narrow real run (api reference) is what surfaces the serialization before the full fan does.
-- `budget.spent()` pools across the main loop and every workflow in the turn — parallel runs drain one shared target. Codex lanes are invisible to it; budget-gated loops meter only their native lanes.
+- `budget.spent()` pools across the main loop and every workflow in the turn — parallel runs drain one shared target.

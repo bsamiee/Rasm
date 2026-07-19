@@ -117,7 +117,7 @@ Inside a long `[COMPOSITION]`, mark each phase with a bare subsection divider wh
 - Knobs (`CAP`/`BATCH`/`STALL`) live in `[CONSTANTS]` at the top, never buried in the pool block.
 - args-derived values are `[INPUTS]`, never `[CONSTANTS]` — they depend on the runtime `args`. An input derived through a helper co-locates that helper in `[INPUTS]`.
 - A const that references a function or a later value is not a `[CONSTANTS]`: a dispatch table over the prompt builders is `[OPERATIONS]` after them; a composed `DOCTRINE` const follows the blocks it joins.
-- Banned drift labels: `[HARNESS]` `[SCHEMAS]` `[LAW]` `[CONFIG]` `[PROMPTS]` `[HELPERS]` `[FOLDER]` `[SCOPE]` and singular `[INPUT]`.
+- Banned drift labels: `[HARNESS]` `[SCHEMAS]` `[SCHEMA]` `[LAW]` `[CONFIG]` `[PROMPTS]` `[HELPERS]` `[UTILS]` `[COMMON]` `[MISC]` `[FUNCTIONS]` `[LAYERS]` `[IMPORTS]` `[INTERFACES]` `[ENUMS]` `[DTO]` `[QUERIES]` `[FOLDER]` `[SCOPE]` and singular `[INPUT]`.
 
 ## [04]-[GLOBALS]
 
@@ -164,7 +164,7 @@ Without `schema`, `agent()` returns the subagent's final text verbatim. With `sc
 |  [03]   | `schema`    | object       | JSON Schema forcing structured output; `agent()` returns the validated object                      |
 |  [04]   | `model`     | string       | Per-agent model: `'sonnet'`/`'opus'`/`'fable'`/`'inherit'` or a full ID; `'sonnet'` is the floor   |
 |  [05]   | `effort`    | string       | Reasoning tier `'low'`…`'max'`, independent of `model`; not in the cache key                       |
-|  [06]   | `isolation` | `'worktree'` | Fresh git worktree per agent; expensive — only when parallel agents mutate the same files          |
+|  [06]   | `isolation` | `'worktree'` | Fresh git worktree per agent; its cost and the case that earns it, throughput reference            |
 |  [07]   | `agentType` | string       | Run as a registered subagent type; validated against the live registry                             |
 |  [08]   | `stallMs`   | number       | Per-agent stall override (default 180000 ms); raise for a slow agent; not in the cache key         |
 
@@ -217,7 +217,7 @@ One rule: default to `pipeline()`. Reach for `parallel()` only when a stage genu
 |  [02]   | `budget.spent()`     | Output tokens spent this turn — main loop and all workflows share one pool |
 |  [03]   | `budget.remaining()` | `max(0, total − spent())`, or `Infinity` with no target                    |
 
-That target is a hard ceiling: once `spent()` reaches `total`, further `agent()` calls throw; in-flight agents finish and their results are kept. Guard budget loops on `budget.total` — with no target, `remaining()` is `Infinity` and the loop runs to the agent cap. Codex tokens are invisible to `budget.spent()`; budget-gated loops meter only their native lanes.
+That target is a hard ceiling: once `spent()` reaches `total`, further `agent()` calls throw; in-flight agents finish and their results are kept. Guard budget loops on `budget.total` — with no target, `remaining()` is `Infinity` and the loop runs to the agent cap. Codex tokens never register in `spent()`, so a budget-gated loop meters only its native lanes and a codex-heavy run drains far past what the target reflects.
 
 ## [08]-[NESTING]
 

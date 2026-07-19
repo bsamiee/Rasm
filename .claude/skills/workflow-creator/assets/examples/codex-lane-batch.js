@@ -20,10 +20,7 @@ export const meta = {
     name: 'codex-lane-batch',
     description: 'Audit each heavy scope on a codex lane, batch the short probes into one wrapper, consolidate from the report files',
     whenToUse: 'Transcript-heavy audit legs that should burn codex tokens, not session context',
-    phases: [
-        { title: 'Audit', detail: 'one wrapper per heavy scope + one batched wrapper for the probes', model: 'sonnet' },
-        { title: 'Resolve' },
-    ],
+    phases: [{ title: 'Audit', detail: 'one wrapper per heavy scope + one batched wrapper for the probes', model: 'sonnet' }, { title: 'Resolve' }],
 };
 
 // --- [INPUTS] --------------------------------------------------------------------------
@@ -92,42 +89,51 @@ const auditTask = (scope) =>
 
 // One wrapper, one blocking codex call, envelope CONTENT written unmodified, thin receipt back — never
 // re-judging the work. Effort inherits the operator default; no config clause without a real deviation.
-const lanePrompt = (label, task) =>
-    'DISPATCH ROLE: codex performs the complete TASK below through one blocking codex MCP call; never perform, edit, judge, or relay ' +
-    'the work yourself. (1) ToolSearch "select:mcp__codex__codex". (2) Call mcp__codex__codex ONCE with ' +
-    'model="gpt-5.6-terra", cwd set to the repo root, "developer-instructions" = the LANE LAW block below VERBATIM, ' +
-    'prompt = the TASK block below VERBATIM. On a tool error retry the identical call ONCE. (3) The tool result is a JSON envelope ' +
-    '{threadId, content}; Write the CONTENT text (never the envelope) unmodified to ' +
-    SCRATCH +
-    '/' +
-    label +
-    '-report.json (a repo-relative path — resolve it against the repo root for the Write tool; delete any leftover file there first). ' +
-    '(4) Return ok, report path, entries = the findings count parsed from the content, headline = per-severity tallies, failure empty — ' +
-    'or ok=false with the error text VERBATIM after a failed retry.\n\nLANE LAW:\n\n' +
-    LAW +
-    '\n\nTASK:\n\n' +
-    task;
+const lanePrompt = (label, task) => {
+    const report = SCRATCH + '/' + label + '-report.json'; // repo-relative — resolved against the repo root by the wrapper's tools
+    return (
+        'DISPATCH ROLE: codex performs the complete TASK below through one blocking codex MCP call; never perform, edit, judge, or relay ' +
+        'the work yourself. (1) ToolSearch "select:mcp__codex__codex". (2) Call mcp__codex__codex ONCE with ' +
+        'model="gpt-5.6-terra", cwd set to the repo root, "developer-instructions" = the LANE LAW block below VERBATIM, ' +
+        'prompt = the TASK block below VERBATIM. On a tool error retry ONCE with a sharpened prompt — that retry is your whole recovery ' +
+        'budget. (3) The tool result is a JSON envelope {threadId, content}; Write the CONTENT text (never the envelope) unmodified to ' +
+        report +
+        ' (delete any leftover file there first). (4) Verify that write with one Bash call: jq -e ".findings" ' +
+        report +
+        ' >/dev/null — probe the contract key, never bare parseability, which any wrong-shaped JSON passes; re-emission is fallible, so ' +
+        'rewrite once from the tool result on a miss and return ok=false with the probe error after a second miss. ' +
+        '(5) Return ok, report path, entries = the findings count parsed from the content, headline = per-severity tallies, failure empty — ' +
+        'or ok=false with the error text VERBATIM after a failed retry.\n\nLANE LAW:\n\n' +
+        LAW +
+        '\n\nTASK:\n\n' +
+        task
+    );
+};
 
 // The batched wrapper makes one codex call PER probe, sequentially, and returns ONE combined receipt —
 // short legs never earn a wrapper each. The probe tier deviation (medium) is the one legal config clause.
-const batchPrompt = (label, files) =>
-    'DISPATCH ROLE: run ' +
-    files.length +
-    ' SEQUENTIAL blocking codex MCP calls, one per probe file below, each with model="gpt-5.6-terra", cwd at the repo ' +
-    'root, config={"model_reasoning_effort":"medium"}, "developer-instructions" = the LANE LAW block below VERBATIM, and prompt = ' +
-    '"Probe <file>: verify every path, version, and member it cites against disk." ' +
-    '(1) ToolSearch "select:mcp__codex__codex" once. (2) Call per probe; on a tool error retry that probe ONCE, then record it failed and ' +
-    'continue. Each tool result is a JSON envelope {threadId, content}; content holds the probe findings JSON. (3) Merge every findings ' +
-    'array from the CONTENT texts and Write the merged JSON to ' +
-    SCRATCH +
-    '/' +
-    label +
-    '-report.json (repo-relative — resolve against the repo root; delete any leftover file first). (4) Return ok = at least one ' +
-    'probe succeeded, the report path, entries = merged findings count, headline = "<n> probes | <tallies>", failure = the failed probe ' +
-    'names or empty.\n\nLANE LAW:\n\n' +
-    LAW +
-    '\n\nPROBES: ' +
-    JSON.stringify(files);
+const batchPrompt = (label, files) => {
+    const report = SCRATCH + '/' + label + '-report.json';
+    return (
+        'DISPATCH ROLE: run ' +
+        files.length +
+        ' SEQUENTIAL blocking codex MCP calls, one per probe file below, each with model="gpt-5.6-terra", cwd at the repo ' +
+        'root, config={"model_reasoning_effort":"medium"}, "developer-instructions" = the LANE LAW block below VERBATIM, and prompt = ' +
+        '"Probe <file>: verify every path, version, and member it cites against disk." ' +
+        '(1) ToolSearch "select:mcp__codex__codex" once. (2) Call per probe; on a tool error retry that probe ONCE with a sharpened ' +
+        'prompt, then record it failed and continue. Each tool result is a JSON envelope {threadId, content}; content holds the probe ' +
+        'findings JSON. (3) Merge every findings array from the CONTENT texts and Write the merged JSON to ' +
+        report +
+        ' (delete any leftover file first), then verify with one Bash call: jq -e ".findings" ' +
+        report +
+        ' >/dev/null — the contract key, never bare parseability; rewrite once on a miss. (4) Return ok = at least one ' +
+        'probe succeeded and the probe passed, the report path, entries = merged findings count, headline = "<n> probes | <tallies>", ' +
+        'failure = the failed probe names or empty.\n\nLANE LAW:\n\n' +
+        LAW +
+        '\n\nPROBES: ' +
+        JSON.stringify(files)
+    );
+};
 
 // Orchestrator-owned scope rides the receipt so a lane that dies before writing still names its territory.
 // QUOTA FALLBACK: usage exhaustion fails the call loudly; the CALLER re-dispatches the same task natively at

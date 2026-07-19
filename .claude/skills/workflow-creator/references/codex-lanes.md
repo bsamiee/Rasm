@@ -41,7 +41,7 @@ const receipt = await agent(codexLane('audit-auth', task, /*writes*/ false), {
 
 ## [02]-[PRODUCTS]
 
-Each heavy product goes to disk through the wrapper's Write tool and only the receipt crosses the wire — the patterns reference's report-file pattern owns the receipt-and-roster contract and the terminal read. A codex prompt states the product shape as a prose JSON contract ("Final message: ONLY a JSON object with keys …"); the wrapper's `schema` option is the validation boundary — no schema files on this path. Failure lives in the receipt envelope, never as sentinel values inside data rows. Codex tokens are invisible to `budget.spent()` — budget-gated loops meter only their native lanes.
+Each heavy product goes to disk through the wrapper's Write tool and only the receipt crosses the wire — the patterns reference's report-file pattern owns the receipt-and-roster contract and the terminal read. A codex prompt states the product shape as a prose JSON contract ("Final message: ONLY a JSON object with keys …"); the wrapper's `schema` option is the validation boundary — no schema files on this path. Failure lives in the receipt envelope, never as sentinel values inside data rows. Codex tokens never meter against the token budget (api reference).
 
 ## [03]-[SCALE]
 
