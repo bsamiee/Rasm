@@ -2112,9 +2112,13 @@ const FINDING_CONSUMPTION =
     'Group findings by `claimKey` (the same key across lanes is ONE defect with corroborating evidence) and order work by ' +
     '`severity` then `owner`.';
 
-// One fixer per package: its territory is exact — its package's rows, findings, and index docs; everything foreign
-// lands in `remaining` for the sweeper, never edited. The fan is path-disjoint by construction.
-const pkgFixerPrompt = (L, pkg, pages, roster, unmapped, rows, work, backlog, orphans, censusPaths, failed) =>
+// SLICE FIXER — the Close drain fans over LOC-balanced PAGE slices, not packages: the run arrives with every work row
+// typed and naming its exact files, so a package-grain partition throws that resolution away and collapses to ONE
+// writer whenever a run targets one package. Territory is this lane's page set; concurrency law is Build's, proven at
+// fourteen live writers — sibling scopes declared, seam ledger on disk, expand-form bound on foreign pages, `deferred`
+// for anything a live sibling owns. Index docs are the one surface no slice may write: two slices inside one package
+// would both target its ARCHITECTURE.md, so every slice EMITS `indexRows` and the terminal sweeper applies them once.
+const sliceFixerPrompt = (L, tag, pages, siblings, roster, unmapped, work, backlog, orphans, censusPaths, failed, lbase) =>
     [
         ROOT_LAW,
         BAR_LINES([L.key]),
@@ -2123,85 +2127,72 @@ const pkgFixerPrompt = (L, pkg, pages, roster, unmapped, rows, work, backlog, or
         SOLO_LAW,
         PROSE_COMMENTS(L),
         SCOPE_BOUND,
+        CURRENT_STATE,
+        LEDGER(lbase, JSON.stringify(siblings)),
         GIT_GROUND,
-        'TASK: PACKAGE FIXER for `' +
-            pkg +
-            '` (WRITER) — full write authority over this package and libs-wide ripple authority for rows anchored in it, with ' +
-            'the expand-form bound LIFTED inside the package (collapse, rename, and contract are yours; no sibling writer runs ' +
-            'here). TERRITORY BOUND: your edits live under `' +
-            pkg +
-            '` with the exact ripple endpoints of rows you drain; a row demanding a central-manifest edit, a branch-level doc, ' +
-            "or another package's interior is NOT yours — record it in `remaining` with its blocker `sweeper` and move on. " +
-            'This package\'s landed pages: ' +
+        'TASK: SLICE FIXER `' +
+            tag +
+            '` (WRITER) — full write authority over YOUR PAGES and libs-wide ripple authority for rows anchored in them, ' +
+            'with the expand-form bound LIFTED inside your own pages (collapse, rename, and contract are yours there). ' +
+            'YOUR PAGES: ' +
             JSON.stringify(pages) +
-            '.\n' +
-            '(1) INDEX ROWS scoped to this package — apply each to its owning doc exactly once (the package ARCHITECTURE.md + ' +
-            "README.md + IDEAS.md at the path before `/.planning/`), dedupe semantically identical rows, keep each doc's " +
-            'section grammar, verify every landed page is truthfully reflected: ' +
-            JSON.stringify(rows) +
-            '.\n' +
+            '.\nTERRITORY BOUND — sibling slices are LIVE CONCURRENT WRITERS over the pages listed in the ledger block ' +
+            'above. Inside your pages you rule. Outside them: a first-order ripple your edit opens is repaired NOW in ' +
+            'EXPAND-FORM only (add the case, row, field, operation, or counterpart) and recorded in `seamsTouched`; a ' +
+            "rename, removal, or collapse of a foreign surface, and ANY edit inside a live sibling's pages, is recorded " +
+            'in `remaining` with its blocker and never raced. A row demanding a central manifest, a branch-level doc, or ' +
+            'an index doc is NOT yours — blocker `sweeper`.\n' +
+            '(1) INDEX ROWS — you APPLY NONE. The owning-package ARCHITECTURE.md, README.md, and IDEAS.md are ' +
+            'decision-carrying single-writer surfaces your siblings share, so every index or IDEAS row your work demands ' +
+            'returns as an exact `indexRows` row for the sweeper to apply once. Emitting the row IS the work; writing the ' +
+            'doc is the collision.\n' +
             (work
                 ? '(2) VERIFIED WORK DOSSIER — ON DISK at ' +
                   work +
-                  ': pre-verified rows keyed by `pkg`. Read it IN FULL; every live row with pkg = `' +
-                  pkg +
-                  '` is yours — re-open its anchors before the edit (freshness stays yours), fix at root or reject with ' +
-                  'reason; a foreign or cross-package (pkg="") row is not yours. Spot-check a sample of the culled receipts; ' +
-                  'never re-litigate the culled set. That dossier is the CONSOLIDATED SPINE, never the whole pool: the ' +
-                  'verifier works one budget over the entire run, so the raw sets below are the unconsolidated remainder ' +
-                  'and every row of theirs absent from the dossier — neither live nor culled there — is yours to re-verify ' +
-                  'and drain under the same law. Dedupe against the dossier first; a row it already carries is worked once.\n' +
-                  '(2a) DEFERRED BACKLOG rows anchored in this package (re-verify each {files, claim} on current disk, fix what ' +
-                  'holds, reject what disk already resolved): ' +
-                  JSON.stringify(backlog) +
-                  '.\n' +
-                  '(2b) ORPHANED FIXLOGS of this package (implement/critique fixlogs whose redteam never landed — read each IN ' +
-                  'FULL from disk, drain the seam/deferred/index rows under the same law, fold surviving harvest rows into your ' +
-                  '`harvest` return): ' +
+                  ': pre-verified rows, each naming its `files`. Read it IN FULL; every live row whose files sit in YOUR ' +
+                  'PAGES is yours — re-open its anchors before the edit (freshness stays yours), fix at root or reject ' +
+                  'with reason. A row whose files sit in a sibling slice is NOT yours and gets no edit and no note; a ' +
+                  'cross-package (pkg="") row is the sweeper\'s. Spot-check a sample of the culled receipts; never ' +
+                  're-litigate the culled set. That dossier is the CONSOLIDATED SPINE, never the whole pool: the verifier ' +
+                  'works one budget over the entire run, so the raw sets below are the unconsolidated remainder and every ' +
+                  'row of theirs intersecting your pages — neither live nor culled there — is yours to re-verify and ' +
+                  'drain under the same law. Dedupe against the dossier first; a row it already carries is worked once.\n'
+                : '') +
+            '(2a) DEFERRED BACKLOG rows intersecting your pages (re-verify each {files, claim} on current disk, fix what ' +
+            'holds, reject what disk already resolved): ' +
+            JSON.stringify(backlog) +
+            '.\n' +
+            (orphans && orphans.length
+                ? '(2b) ORPHANED FIXLOGS (implement/critique fixlogs whose redteam never landed — read each IN FULL from ' +
+                  'disk; drain the seam/deferred rows intersecting your pages, return their index rows via `indexRows`, ' +
+                  'fold surviving harvest rows into your `harvest` return): ' +
                   JSON.stringify(orphans) +
-                  '.\n' +
-                  (censusPaths && censusPaths.length
-                      ? '(2c) CORRECTIONS CENSUS shards — `' +
-                        censusPaths.join('`, `') +
-                        '` (read each IN FULL; every row NOT already resolved on current disk is yours: land it at its root or ' +
-                        'reject with reason).\n'
-                      : '')
-                : '(2) DEFERRED BACKLOG rows anchored in this package (re-verify each {files, claim} on current disk, fix what ' +
-                  'holds, reject what disk already resolved): ' +
-                  JSON.stringify(backlog) +
-                  '.\n' +
-                  '(2b) ORPHANED FIXLOGS of this package (implement/critique fixlogs whose redteam never landed — read each IN ' +
-                  'FULL from disk, drain the seam/deferred/index rows under the same law, fold surviving harvest rows into your ' +
-                  '`harvest` return): ' +
-                  JSON.stringify(orphans) +
-                  '.\n' +
-                  (censusPaths && censusPaths.length
-                      ? '(2c) CORRECTIONS CENSUS shards — `' +
-                        censusPaths.join('`, `') +
-                        '` (read each IN FULL; every row NOT already resolved on current disk is yours: land it at its root or ' +
-                        'reject with reason).\n'
-                      : '')) +
+                  '.\n'
+                : '') +
+            (censusPaths && censusPaths.length
+                ? '(2c) CORRECTIONS CENSUS shards — `' +
+                  censusPaths.join('`, `') +
+                  '` (read each IN FULL; every row over YOUR PAGES not already resolved on current disk is yours: land it ' +
+                  'at its root or reject with reason).\n'
+                : '') +
             '(3) FINDER REPORTS — products ON DISK as JSON report files; the ROSTER receipts are navigation, never the ' +
-            'product. Read every ok report IN FULL from disk, governance finders first; drain the findings whose files sit ' +
-            'under `' +
-            pkg +
-            '` — a foreign finding is not yours. ' +
+            'product. Read every ok report IN FULL from disk, governance finders first; drain the findings whose files ' +
+            'sit in YOUR PAGES — a finding over a sibling slice is not yours. ' +
             FINDING_CONSUMPTION +
-            " A failed finder's territory intersecting this package gets your own cold read. UNMAPPED: " +
+            " A failed finder's territory intersecting your pages gets your own cold read. UNMAPPED: " +
             JSON.stringify(unmapped) +
             ' ROSTER: ' +
             JSON.stringify(roster) +
             '.\n' +
-            '(4) OWN HUNT: hunt PAST the signal list — the hunt classes over this package\'s landed pages — and fix what the ' +
-            'finders missed; `beyond` enumerates those fixes, and an empty `beyond` attests the hunt found nothing, never that ' +
-            'it did not run.\n' +
-            'Every in-bound ripple an edit exposes is YOURS in the same pass — seam counterparts both ends, consumer sites, ' +
-            'package index docs, .api anchors; wire-canonical names stay frozen. FAILED PAGES (reported, not landed — never ' +
-            'author them here; correct any claim that pretends they landed): ' +
+            '(4) OWN HUNT: hunt PAST the signal list — the hunt classes over YOUR PAGES — and fix what the finders ' +
+            'missed; `beyond` enumerates those fixes, and an empty `beyond` attests the hunt found nothing, never that it ' +
+            'did not run.\n' +
+            'Wire-canonical names stay frozen. FAILED PAGES (reported, not landed — never author them here; correct any ' +
+            'claim that pretends they landed): ' +
             JSON.stringify(failed) +
-            '. Return the fixlog — `remaining` carries ONLY rows verified still-open that are blocked or outside your ' +
-            'territory bound, each naming its blocker (`sweeper` for out-of-bound rows) and owner; a row disk already resolved ' +
-            'is culled with proof in `rejected`. ' +
+            '. Return the fixlog — `indexRows` carries every index/IDEAS row your work demands, `remaining` ONLY rows ' +
+            'verified still-open that are blocked or outside your territory bound, each naming its blocker and owner; a ' +
+            'row disk already resolved is culled with proof in `rejected`. ' +
             HARVEST_LAW,
     ].join('\n\n');
 
@@ -2249,9 +2240,10 @@ const ideasImplementPrompt = (L, pkg, ledgerPath, ideaFiles, pack) =>
             HARVEST_LAW,
     ].join('\n\n');
 
-// The terminal sweeper — ONE scoped pass, the run's last corpus writer before the disposition/doctrine pair: per-fixer
-// remainders, dead-fixer territories, cross-package rows, and the central manifests no package fixer may touch.
-const sweeperPrompt = (langs, fixerReports, deadPkgs, work, rowsGlobal, backlogGlobal, orphansGlobal, censusGlobal, roster, unmapped, failed, pages) =>
+// The terminal sweeper — ONE scoped pass, the run's last corpus writer before the disposition/doctrine pair: slice
+// remainders, dead-slice pages, cross-package rows, the central manifests no slice may touch, and EVERY index row —
+// the slice fan emits index rows and applies none, so this lane is the single writer that lands them.
+const sweeperPrompt = (langs, fixerReports, deadPages, work, indexRows, backlogGlobal, orphansGlobal, censusGlobal, roster, unmapped, failed, pages) =>
     [
         ROOT_LAW,
         BAR_LINES(langs),
@@ -2268,21 +2260,25 @@ const sweeperPrompt = (langs, fixerReports, deadPkgs, work, rowsGlobal, backlogG
             'scoped pass — drain the named sets below, nothing else re-litigates. Landed pages: ' +
             JSON.stringify(pages) +
             '.\n' +
-            '(1) PACKAGE-FIXER FIXLOGS — ON DISK: ' +
+            '(1) SLICE FIXLOGS — ON DISK: ' +
             JSON.stringify(fixerReports) +
-            ': read each IN FULL; every `remaining` row was verified still-open by its fixer — fix each at its root now ' +
-            '(rows tagged `sweeper` are exactly the out-of-bound work reserved for you); fold each fixlog\'s harvest rows ' +
-            'into your `harvest` return, re-verified and deduped.\n' +
-            (deadPkgs.length
-                ? '(2) DEAD TERRITORIES — these packages\' fixers never landed, so their whole close-out is yours: ' +
-                  JSON.stringify(deadPkgs) +
-                  ' — their work-dossier rows (matching pkg), census rows, orphaned fixlogs, and finder findings drain under ' +
-                  'the same law as (1).\n'
+            ': read each IN FULL. Every `remaining` row was verified still-open by its slice — fix each at its root now ' +
+            '(rows tagged `sweeper` are exactly the out-of-bound work reserved for you). Every `indexRows` row a slice ' +
+            'emitted is YOURS to apply: the slices deliberately wrote no index doc, so these rows exist nowhere else and ' +
+            'are lost if you skip them. Fold each fixlog\'s harvest rows into your `harvest` return, re-verified and deduped.\n' +
+            (deadPages.length
+                ? '(2) DEAD SLICE PAGES — these pages\' slice fixer never landed, so their whole drain is yours: ' +
+                  JSON.stringify(deadPages) +
+                  ' — the work-dossier rows, census rows, orphaned fixlogs, and finder findings over them drain under the ' +
+                  'same law as (1), and their index rows were never emitted, so derive them yourself.\n'
                 : '') +
-            '(3) GLOBAL INDEX ROWS — rows owned by no single package (central manifests, branch-level docs): apply each to ' +
-            'its owning doc exactly once; a central-manifest row hand-edits the grouped manifest at the SYMBOL anchor (never ' +
-            'a line number), preserving label-group order: ' +
-            JSON.stringify(rowsGlobal) +
+            '(3) INDEX ROWS — the run\'s complete pending set, package and global alike; you are their SOLE writer. Apply ' +
+            'each to its owning doc exactly once (the package ARCHITECTURE.md + README.md + IDEAS.md at the path before ' +
+            '`/.planning/`, the branch-level docs, the central manifests), dedupe semantically identical rows across ' +
+            'slices, keep each doc\'s section grammar, and verify every landed page is truthfully reflected; a ' +
+            'central-manifest row hand-edits the grouped manifest at the SYMBOL anchor (never a line number), preserving ' +
+            'label-group order: ' +
+            JSON.stringify(indexRows) +
             '.\n' +
             (work
                 ? '(4) CROSS-PACKAGE WORK — the verified work dossier ON DISK at ' +
@@ -2949,61 +2945,96 @@ const backlogPkgOf = (row) => {
     const ps = [...new Set((row.files || []).map(rowPkgOf))];
     return ps.length === 1 && ps[0] ? ps[0] : '';
 };
-const ROWS_GLOBAL = ROWS.filter((r) => !rowPkgOf(r.doc));
-const pkgClose = await Promise.all(
-    FIXED_PKGS.map(async (pkg) => {
-        const L = Lof(pkg);
-        const tag = pkg.split('/').pop();
-        const pkgPages = LANDED_ALL.filter((p) => pkgOf(p) === pkg);
-        const pkgRows = ROWS.filter((r) => rowPkgOf(r.doc) === pkg);
-        const fx = await slot(() =>
+// SLICE-FANNED DRAIN — the partition is LOC-balanced PAGE slices, never packages: every work row arrives typed and
+// naming its files, so a package grain discards that resolution and degenerates to ONE writer on a single-package run.
+// Slices are computed from the page list the orchestrator holds; each lane filters its own rows off disk, because the
+// work dossier and finder products are files whose contents never cross the wire. Concurrency law is Build's — sibling
+// scopes declared, seam ledger, expand-form bound, `deferred` for a live sibling's pages. Index docs belong to none of
+// them: rows accumulate and the sweeper applies them once.
+const CLOSE_LOC = 2600; // page tonnage per slice — a drain lane reads AND edits, so it holds less than a review lane
+const locChunk = (rows, cap) => {
+    const out = [];
+    let cur = [];
+    let acc = 0;
+    for (const r of rows) {
+        if (cur.length && acc + r.lines > cap) {
+            out.push(cur);
+            cur = [];
+            acc = 0;
+        }
+        cur.push(r);
+        acc += r.lines;
+    }
+    if (cur.length) out.push(cur);
+    return out;
+};
+const pageLines = Object.fromEntries(PAGES.map((p) => [p.page, p.lines]));
+// Slices never straddle a package: one language bar, one charter, one `.api` tier per lane, and a package's index rows
+// stay attributable. Within a package the split is pure tonnage.
+const SLICES = FIXED_PKGS.flatMap((pkg) =>
+    locChunk(
+        LANDED_ALL.filter((p) => pkgOf(p) === pkg).map((p) => ({ page: p, lines: pageLines[p] || 500 })),
+        CLOSE_LOC,
+    ).map((set, i) => ({ pkg, i, tag: pkgTag(pkg) + ':s' + i, pages: set.map((r) => r.page) })),
+);
+const SLICE_SCOPES = SLICES.map((s) => ({ slice: s.tag, pages: s.pages }));
+log('Close drain: ' + SLICES.length + ' slice(s) across ' + FIXED_PKGS.length + ' package(s), all concurrent');
+const sliceRuns = await Promise.all(
+    SLICES.map((s) =>
+        slot(() =>
             recon(
                 () =>
-                    pkgFixerPrompt(
-                        L,
-                        pkg,
-                        pkgPages,
+                    sliceFixerPrompt(
+                        Lof(s.pkg),
+                        s.tag,
+                        s.pages,
+                        SLICE_SCOPES.filter((r) => r.slice !== s.tag),
                         found,
                         UNMAPPED,
-                        pkgRows,
                         WORK,
-                        BACKLOG.filter((row) => backlogPkgOf(row) === pkg),
-                        ORPHANS_BY_PKG[pkg] || [],
-                        CENSUS_BY_PKG[pkg] || [],
+                        BACKLOG.filter((row) => (row.files || []).some((f) => s.pages.includes(f))),
+                        ORPHANS_BY_PKG[s.pkg] || [],
+                        CENSUS_BY_PKG[s.pkg] || [],
                         FAILED,
+                        scratchBase(s.pkg, 'close' + s.i),
                     ),
-                ropts('fixer:' + tag, 'Close', FIXER_SCHEMA, [pkg], { arr: 'remaining' }, { writes: true, fix: true, calls: 400 }),
+                ropts('fixer:' + s.tag, 'Close', FIXER_SCHEMA, s.pages, { arr: 'remaining' }, { writes: true, fix: true, calls: 260 }),
             ),
-        ).catch(() => null);
-        // Ideas implementer chains after the fixer (same-package writers never overlap); realization is independent of
-        // the defect drain, so it runs even when the fixer died.
+        ).catch(() => null),
+    ),
+);
+const FIXER_REPORTS = sliceRuns.map((r) => r && r.ok && r.report).filter(Boolean);
+// A slice whose lane died leaves its pages undrained; the sweeper owns them, keyed by page rather than by package.
+const DEAD_SLICES = SLICES.filter((s, i) => !(sliceRuns[i] && sliceRuns[i].ok));
+const DEAD_PKGS = [...new Set(DEAD_SLICES.map((s) => s.pkg))];
+const DEAD_PAGES = DEAD_SLICES.flatMap((s) => s.pages);
+// Ideas implementers run AFTER the whole fan, one per package and concurrent among themselves: they are path-disjoint
+// by package, and running them behind the barrier keeps them off pages a live slice still owns.
+const ideasRuns = await Promise.all(
+    FIXED_PKGS.map(async (pkg) => {
+        const L = Lof(pkg);
         const ideateP = pkgIdeate[pkg] || { ideaBySub: {}, ideaWide: '' };
         const ideaFiles = Object.values(ideateP.ideaBySub || {}).concat(ideateP.ideaWide ? [ideateP.ideaWide] : []);
+        if (!ideaFiles.length && !IDEAS_LEDGER) return null;
         const pkR = LAWPACK[L.key] ? await LAWPACK[L.key] : null;
-        const ideasImpl =
-            ideaFiles.length || IDEAS_LEDGER
-                ? await slot(() =>
-                      recon(
-                          () => ideasImplementPrompt(L, pkg, IDEAS_LEDGER, ideaFiles, pkR && pkR.ok ? lawPackPath(L.key) : ''),
-                          ropts('ideas-impl:' + tag, 'Close', FIXLOG_SCHEMA, [pkg], { arr: 'files' }, { writes: true, fix: true }),
-                      ),
-                  ).catch(() => null)
-                : null;
-        return { pkg, fx, ideasImpl };
+        return slot(() =>
+            recon(
+                () => ideasImplementPrompt(L, pkg, IDEAS_LEDGER, ideaFiles, pkR && pkR.ok ? lawPackPath(L.key) : ''),
+                ropts('ideas-impl:' + pkgTag(pkg), 'Close', FIXLOG_SCHEMA, [pkg], { arr: 'files' }, { writes: true, fix: true }),
+            ),
+        ).catch(() => null);
     }),
 );
-const FIXER_REPORTS = pkgClose.map((r) => r.fx && r.fx.ok && r.fx.report).filter(Boolean);
-const IDEAS_IMPL_REPORTS = pkgClose.map((r) => r.ideasImpl && r.ideasImpl.ok && r.ideasImpl.report).filter(Boolean);
-const DEAD_PKGS = pkgClose.filter((r) => !(r.fx && r.fx.ok)).map((r) => r.pkg);
+const IDEAS_IMPL_REPORTS = ideasRuns.map((r) => r && r.ok && r.report).filter(Boolean);
 log(
     'Close drain: ' +
         FIXER_REPORTS.length +
         '/' +
-        FIXED_PKGS.length +
-        ' package fixer(s) + ' +
+        SLICES.length +
+        ' slice fixer(s) + ' +
         IDEAS_IMPL_REPORTS.length +
         ' ideas implementer(s) landed' +
-        (DEAD_PKGS.length ? ' — dead fixer territory: ' + DEAD_PKGS.join(', ') : ''),
+        (DEAD_SLICES.length ? ' — dead slice territory: ' + DEAD_SLICES.map((s) => s.tag).join(', ') : ''),
 );
 const sweep = await slot(() =>
     recon(
@@ -3013,9 +3044,11 @@ const sweep = await slot(() =>
                 // Ideas-implementer fixlogs ride the same set: that lane is instructed to emit `deferred` rows for ripples
                 // OUTSIDE its package, and the sweeper is the run's only writer authorized to land them.
                 FIXER_REPORTS.concat(IDEAS_IMPL_REPORTS),
-                DEAD_PKGS,
+                DEAD_PAGES,
                 WORK,
-                ROWS_GLOBAL,
+                // ALL index rows, not the global remainder: the slice fan applies none, so package-scoped rows reach
+                // their doc only here. Slice-emitted rows ride the fixlogs the sweeper reads in (1).
+                ROWS,
                 BACKLOG.filter((row) => !backlogPkgOf(row)),
                 DEAD_PKGS.flatMap((p) => ORPHANS_BY_PKG[p] || []),
                 DEAD_PKGS.flatMap((p) => CENSUS_BY_PKG[p] || []),
@@ -3105,8 +3138,9 @@ return {
     failedFinders: found.filter((f) => !f.ok).map((f) => f.lane),
     residuals: openCount, // count of still-open rows; the rows themselves live in the sweeper report on disk
     close: {
-        packageFixers: FIXER_REPORTS.length,
-        deadTerritories: DEAD_PKGS,
+        slices: SLICES.length,
+        sliceFixers: FIXER_REPORTS.length,
+        deadSlices: DEAD_SLICES.map((s) => s.tag),
         ideasImplementers: IDEAS_IMPL_REPORTS.length,
         reports: fixerReports,
         remaining: openCount,
