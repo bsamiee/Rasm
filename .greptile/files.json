@@ -15,7 +15,22 @@
         {
             "path": "libs/.planning/campaign-method.md",
             "description": "The review standard for design-corpus work: fence-as-product law, the decision-complete bar, universal principles, workflow roles",
-            "scope": ["libs/**"]
+            "scope": ["libs/**", "libs/.planning/**", "libs/**/.planning/**"]
+        },
+        {
+            "path": ".claude/skills/skill-writer/SKILL.md",
+            "description": "Bundle-craft standard for skill and agent estate work: trigger-description construction, root-as-router disclosure, frontmatter policy, bundle defect classes",
+            "scope": [".claude/skills/**", ".claude/agents/**"]
+        },
+        {
+            "path": ".claude/skills/skill-writer/references/defects.md",
+            "description": "Authoring defect catalog for skill and agent bundles: trigger, disclosure, body, and artifact defect classes, each with its detection test and copyable repair",
+            "scope": [".claude/skills/**", ".claude/agents/**"]
+        },
+        {
+            "path": ".claude/skills/docgen/references/defects.md",
+            "description": "Named prose defect catalog for durable markdown: per-class detection tests, true-positive discriminators, and reframe rules",
+            "scope": ["**/*.md", ".claude/**", "docs/**"]
         }
     ]
 }

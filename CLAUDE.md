@@ -84,7 +84,7 @@ Use the route-owned standard for the file being edited:
 
 ## [05]-[FILE_ORGANIZATION]
 
-Section separators: language comment marker + space + `---` + bracketed UPPERCASE snake label with no internal spaces + dash fill to the established language width.
+Section separators: language comment marker + space + `---` + bracketed UPPERCASE snake label with no internal spaces + dash fill.
 
 ```typescript conceptual
 // --- [TYPES] ---------------------------------------------------------------------------

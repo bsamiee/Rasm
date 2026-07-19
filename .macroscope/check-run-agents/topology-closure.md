@@ -9,6 +9,8 @@ include:
   - "libs/.planning/architecture.md"
   - "tests/csharp/_architecture/**"
   - ".claude/skills/**"
+  - ".claude/agents/**"
+  - ".claude/commands/**"
   - "CLAUDE.md"
   - "AGENTS.md"
   - ".config/dotnet-tools.json"
@@ -24,7 +26,7 @@ Cross-surface closure is this pass's one question: whether every surface `docs/l
 Hunt these classes, each finding naming the edited surface and the missing counterpart:
 - Reviewer-config drift: a `docs/stacks/<language>/` doctrine page edited without its derived reviewer rule updated across all three configs — `.coderabbit.yaml`, `.greptile/`, and `.macroscope/` move together; one updated and two stale is the finding.
 - Strata-spec drift: a `libs/.planning/architecture.md` strata edge edited without the `tests/csharp/_architecture` boundary specs that land the strata law at both ends.
-- Skill propagation: a `.claude/skills/` master tree edited where the sibling-repo copies are byte-identical propagation targets; when the copies lie outside the diff, record an explicit unreachable naming them rather than a silent pass.
+- Estate propagation: a `.claude/` steering surface — skills, agents, commands — edited where the sibling-repo copies are byte-identical propagation targets; when the copies lie outside the diff, record an explicit unreachable naming them rather than a silent pass. Workflow scripts stay repo-owned and never propagate.
 - Constitution split: a `CLAUDE.md` fact landed without its `AGENTS.md` cross-reference, or a fact duplicated into both where one acting reader owns it.
 - Tool-runtime coupling: a `.config/dotnet-tools.json` tool row edited without the `tools/assay` decompile rails that depend on it.
 - Admission-ladder breach: a new `docs/laws/` page without its pages-index row in the same change, a fact copied into the laws corpus that an existing owner already carries, or a scar or pattern row that no longer binds and demotes to its surviving owner. Flag the miss as hard as the spam: an addition without recurrence evidence or branch-spanning blast radius, and equally the neighboring clause that owed the collapse and was left untouched.

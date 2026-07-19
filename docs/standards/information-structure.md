@@ -49,7 +49,7 @@ Tables enumerate, cards legislate. A table is a lookup grid, not a prose contain
 [CELL_BUDGET]:
 - Each cell is one atomic unit: a value, marker, token, code span, proper noun, path, or a phrase of at most six words carrying no internal comma, semicolon, or clause-joining conjunction.
 - A cell that wants a comma wants to be a card; a cell packing parallel values behind slashes wants one row per value. A cell that wraps to a second rendered line is over budget.
-- The stub column is a short unique key — identifier, token, command, proper noun — never a sentence.
+- A stub column is a short unique key — identifier, token, command, proper noun — never a sentence.
 - A binary field carries one fixed pair of one-word semantic values, the same pair in every row; a column whose cells all hold one value is tautological — extract it to a `[VALUE]:` card beside the table and delete the column.
 
 [HEADER_COMPRESSION]:
@@ -71,7 +71,7 @@ Tables enumerate, cards legislate. A table is a lookup grid, not a prose contain
 - Enumerable tables open with a centered `[INDEX]` column numbered `[01]` through `[NN]`; non-enumerable matrices use a bracketed stub rubric instead. Every header is a bracketed uppercase rubric.
 - Left-align text, paths, code, enums, and identifiers; right-align numeric and date columns; center only `[INDEX]`, compact markers, and values three characters or fewer.
 - Keep tables under 15 columns and 20 rows with at most one trailing prose column that still obeys the cell budget; escape literal pipes; keep every row's cell count equal; decompose over-bound tables on the dominant axis. A registry table — a closed roster of atomic rows in four columns or fewer whose payload is the roster itself — is legal past the row ceiling.
-- The first word after a label colon in a cell capitalizes as a sentence start; an identifier, path, or code span is verbatim.
+- A label colon in a cell capitalizes its first following word as a sentence start; an identifier, path, or code span is verbatim.
 
 [CONVERSION]:
 
@@ -100,7 +100,7 @@ Records carry independently scanned items; lists carry peer facts or true sequen
 - `OrderedStep`: a numbered task step carrying fields such as `Action`, `Command`, `Expected signal`, `Recovery`, or `Result`.
 - `row-owned record`: a record after a table that carries one row's independent status, detail, omission, update, or retention.
 
-[INDEXED_LIST] — The indexed list is the three-field alternative to a table: `- [NN]-[LABEL]: Prose.` carries an index for stable reference, a bracketed label for scanning, and one prose clause for the payload. It is not a heading tier and never joins the `#` hierarchy.
+[INDEXED_LIST] — An indexed list is the three-field alternative to a table: `- [NN]-[LABEL]: Prose.` carries an index for stable reference, a bracketed label for scanning, and one prose clause for the payload. It is not a heading tier and never joins the `#` hierarchy.
 
 - Reach for it when the information is index, label, and prose — and the prose outgrows a cell budget; a genuine fourth field promotes the set to a table, and entries nobody references by position demote to plain bullets.
 - Entries number `[01]` onward in document order; the label is a bracketed uppercase rubric; the prose obeys the register and stays one clause to one short sentence.
@@ -163,8 +163,8 @@ A section exists only where it owns a decision cluster; the section set is engin
 - Section count follows concern count: a document with more sections than owned concerns is over-sectioned, and two sections answering one reader question merge. Splitting a section is earned by a reader who arrives needing only one half.
 - A short section is one lead and one container; a medium section is a lead, one primary container, and its relief prose; a long section is a lead, a labeled block per sub-concern, and one container per block. Depth grows by labeled blocks inside the section before it grows by new sections.
 - Mixed paradigms inside one section are legal when each carrier owns a distinct reader job — a lead that legislates, a table that enumerates, a record that details one row — and illegal when two carriers repeat one fact in two shapes.
-- The first container after the lead carries the section's primary payload; supporting carriers follow it, never precede it.
-- An intro section earns its slot by changing the reader's next action: charter and boundary consequence, nothing else. Scene-setting, tour narration, and importance claims are deleted on sight.
+- A section's first container after the lead carries its primary payload; supporting carriers follow it, never precede it.
+- A header absorbs what its entries repeat: entries that each begin with the same word belong under a header carrying that word once.
 
 ## [05]-[VISUAL_TOPOLOGY]
 

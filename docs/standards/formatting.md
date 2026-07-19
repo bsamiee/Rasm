@@ -82,7 +82,7 @@ Progress: [██████░░░░░░░░░░░░░░] 33%
 Progress: [############--------] 60%
 ```
 
-The bar carries no appended count, unit, phase name, date, ETA, or basis text; those fields sit in the adjacent record. Omit the bar when the document cannot define the numerator, denominator, closure rule, and basis surface, or when a checklist already carries the same completion state.
+A bar carries no appended count, unit, phase name, date, ETA, or basis text; those fields sit in the adjacent record. Omit the bar when the document cannot define the numerator, denominator, closure rule, and basis surface, or when a checklist already carries the same completion state.
 
 [GLYPH_RULES]:
 - Allowed jobs: state, progress, hierarchy, alignment, or comparison the surrounding container needs.
@@ -94,6 +94,7 @@ The bar carries no appended count, unit, phase name, date, ETA, or basis text; t
 - Reserve invocation markers (`[IMPORTANT]`, `[CRITICAL]`, `[ALWAYS]`, `[NEVER]`) for instruction and prompt files where an agent weights a constraint above surrounding text; use them only for invariants that change behavior.
 - `CRITICAL` and `NEVER` mark hard boundaries; `IMPORTANT` and `ALWAYS` mark load-bearing defaults.
 - Ordinary documentation carries requirement strength through the prose modals `must`, `should`, and `may`; one concept never carries both an invocation marker and a prose modal.
+- Weight is rationed: a page that marks every rule critical re-flattens the hierarchy the markers exist to create.
 
 [GITHUB_ALERTS] — ordinary rendered documentation uses this grammar; the container chooser owns when an alert is the right carrier:
 - `> [!NOTE]`: neutral context.
@@ -105,11 +106,11 @@ The bar carries no appended count, unit, phase name, date, ETA, or basis text; t
 
 ## [02]-[CAPITALIZATION]
 
-Capitalization follows the surface, not the position. The first word after a `[LABEL] —` lead or a label colon capitalizes as a sentence start; a code-span lead keeps its literal casing (`` `keyof typeof` selects the member `` stays lowercase). A bracketed rubric is uppercase with underscores. A named surface — identifier, path, command, code span — is verbatim, and a prose fragment capitalizes only its first word. Domain status vocabularies keep their declared casing as field values, while a bracketed inline lifecycle marker uppercases the canonical token and hyphenates spaces.
+Capitalization follows the surface, not the position. A `[LABEL] —` lead or a label colon capitalizes its first word as a sentence start; a code-span lead keeps its literal casing (`` `keyof typeof` selects the member `` stays lowercase). A bracketed rubric is uppercase with underscores. A named surface — identifier, path, command, code span — is verbatim, and a prose fragment capitalizes only its first word. Domain status vocabularies keep their declared casing as field values, while a bracketed inline lifecycle marker uppercases the canonical token and hyphenates spaces.
 
 ## [03]-[PAGE_SHAPE]
 
-A standard file carries one H1, a dense law lead, a container chooser or use-when, and rule sections named by the concern they own, with examples only where a common mistake needs a guard; it opens on its operating law rather than self-description and ends at the last load-bearing section with no closing checklist. Cross-reference and boundaries sections are banned: each standard owns its domain, and the instruction chain routes readers.
+A standard file carries one H1, a dense law lead, a container chooser or use-when, and rule sections named by the concern they own, with examples only where a common mistake needs a guard; it opens on its operating law rather than self-description and ends at the last load-bearing section with no closing checklist.
 
 ```markdown template
 # [TITLE]
@@ -122,7 +123,7 @@ A standard file carries one H1, a dense law lead, a container chooser or use-whe
 ```
 
 [SECTION_CARDINALITY]:
-- The lead and the first rule section are required.
+- A lead and one rule section are required.
 - Rule sections are required and named by the concern they own.
 - Examples appear only where a common mistake needs a guard; conditional sections appear only when their condition holds.
 
@@ -137,7 +138,7 @@ A surface a parser, generator, gate, or ledger reads keeps its exact shape. Ever
 [FENCE_RULES]:
 - A code fence carries a language tag plus one intent label; renderer-local fences use the exact renderer tag, and Mermaid fences are `mermaid`.
 - Intent labels: `copy-safe` runs as written, `template` for neutral placeholders, `conceptual` for illustration, `generated` for generated output, `test-only` for test source, `output-only` for observed output, `signature` for a transcription-complete owner declaration an implementer copies verbatim, `accepted` and `rejected` for a worked contrast pair, and `codemap`/`seams` for width-capped topology fences.
-- The body honors its label: a `copy-safe` body carries no placeholder slots or shell prompts, and an `output-only` body carries no prompt-led run command — either mismatch retags the fence.
+- A body honors its label: a `copy-safe` body carries no placeholder slots or shell prompts, and an `output-only` body carries no prompt-led run command — either mismatch retags the fence.
 
 [COMMAND_OUTPUT]:
 - A copy-safe command is an instruction to run; an expected signal is the short output or state change to compare.
@@ -167,9 +168,8 @@ project/
 - Before publication every row has an equal cell count after escaped pipes, literal pipes inside cells are escaped, and a table over the row or column ceiling decomposes by the dominant violation.
 
 [ENFORCEMENT]:
-- `prose_gate.py` compiles the hedge ban, the meta-frame ban, the self-count and list-entry budgets, and the fence-geometry cap into a fail-on-hit gate.
-- `prose_gate.py fix` mechanically repairs header rubrics, `[INDEX]` columns and `[NN]` entries, alignment colons, heading numbering, loose list leaders, and padding — dry-run by default, `--write` applies; padding and marker mechanics are never review-tier.
-- Table cell-count equality, pipe escaping, and the 150-column rendered width cap are mechanically checked; header compression and carrier choice stay review-tier until a checker owns them.
+- `prose_gate.py` is the deterministic gate: its `Check` vocabulary owns the mechanical census, and a class it does not carry — header compression, carrier choice — is review work.
+- `prose_gate.py fix` applies the repairs its `Repair` vocabulary owns — dry-run by default, `--write` applies; padding and marker mechanics are never review-tier.
 
 [COMMAND_ROUTING]:
 - A tool document states its contract and routes verbs and flags to live `--help`; it never mirrors help output, which stales on the next release.
