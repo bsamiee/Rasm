@@ -1538,7 +1538,7 @@ RULES: tuple[Rule, ...] = (
         "req-css-contains",
         FAIL,
         Surface.CSS,
-        "the contains plus-circle start marker scales onto the ladder",
+        "the contains crossed-circle start marker scales onto the ladder",
         CANON_MARKER,
         f"{REF_STYLING} [06]",
         fams=(Fam.REQUIREMENT,),

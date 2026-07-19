@@ -36,7 +36,7 @@ Routing is the one job that licenses linking and naming siblings; every other pa
 
 First lines are the highest-value signal an agent loads; a lead is engineered, never accumulated.
 
-- A lead is one charter sentence plus at most one boundary-consequence sentence, opening with the document's own law — never the doc-set, the siblings, the audience, or the process.
+- A lead is one charter sentence and at most one boundary-consequence sentence, opening with the document's own law — never the doc-set, the siblings, the audience, or the process.
 - A lead needing semicolons or parenthetical inventories is carrying a lower tier's payload; intro material earns its slot by changing the reader's next action.
 
 ```markdown rejected
@@ -66,7 +66,7 @@ A recurring file kind carries one declared schema — section set, marker vocabu
 
 ## [07]-[MARKER_SYSTEMS]
 
-A closed marker vocabulary plus a templated entry shape is the device that keeps many agents consistent inside one file class: the marker carries state, the schema carries structure, and prose carries only law.
+A closed marker vocabulary riding a templated entry shape is the device that keeps many agents consistent inside one file class: the marker carries state, the schema carries structure, and prose carries only law.
 
 - Design: a closed token set declared once by the schema owner, one meaning per token, uppercase bracketed form, machine-greppable — an agent filters the corpus on the exact string.
 - Entry leaders compose identity and state (`[<ID>]-[<STATUS>]:`), so an entry's lifecycle is readable and greppable without parsing its body; status transitions are edits to the leader, never narrated in prose.

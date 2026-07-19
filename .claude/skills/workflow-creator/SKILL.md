@@ -26,20 +26,32 @@ A workflow is a runnable JavaScript orchestrator for Claude Code's `Workflow` to
 - [03]-[THROUGHPUT](references/throughput.md): concurrency economics and cross-run law.
 - [04]-[RECOVERY](references/recovery.md): resume, transplant, and reconstruction.
 - [05]-[EXTERNAL_LANES](references/codex-lanes.md): codex (gpt-5.6) work lanes, the agy (Gemini) read-only review lane.
-- [06]-[EXECUTION_STANDARD](references/execution-standard.md): stage-prompt demand bar — hostile stance with the floor and exemplar-seed laws, the writer's ground-up/absorption law, reviewers as rebuilders, the mapping-lane burden-reduction contract with unit-granularity mapping, the two-lane ideation split, the own-pass-first consumption ladder.
+- [06]-[EXECUTION_STANDARD](references/execution-standard.md): stage-prompt demand bar — hostile floor, writer and reviewer law, consumption ladder.
 
 [TEMPLATES]:
-- [01]-[SKELETONS](assets/templates/): starter skeletons — fan-out, loop, pipeline, and `run-ledger.template.md`.
+- [01]-[FAN_OUT](assets/templates/fan-out.template.js): known-list fan-out with a barrier before synthesis.
+- [02]-[LOOP](assets/templates/loop.template.js): unknown-count loop accumulating to a target or budget floor.
+- [03]-[PIPELINE](assets/templates/pipeline.template.js): ordered stages with no barrier — the default multi-stage shape.
+- [04]-[RUN_LEDGER](assets/templates/run-ledger.template.md): per-run resume record — run ID, scriptPath, args, resume command.
 
 [EXAMPLES]:
-- [01]-[RUNNABLE](assets/examples/): complete runnable examples, each self-described by its header comment.
+- [01]-[API_CONTRACT_DRIFT_DETECTOR](assets/examples/api-contract-drift-detector.js): correct barrier — per-wire-type checkers, one consolidated PR.
+- [02]-[CODEX_LANE_BATCH](assets/examples/codex-lane-batch.js): codex lane composition — blocking wrapper lanes, batched probes, full report reads.
+- [03]-[DEAD_CODE_SWEEP](assets/examples/dead-code-sweep.js): loop-until-dry with a seen-set, worktree isolation, and a dry-streak stop.
+- [04]-[IMPLEMENT_AND_REVIEW](assets/examples/implement-and-review.js): evaluator-optimizer — a fresh-context evaluator, typed issues fed back.
+- [05]-[ORCHESTRATE_WORKERS](assets/examples/orchestrate-workers.js): orchestrator-workers with full typed re-plans built from receipts.
+- [06]-[PLANNING_CARD_TRIAGE](assets/examples/planning-card-triage.js): plain-JS control between stages — filter, then realize and verify.
+- [07]-[REBUILD_AND_RECONCILE](assets/examples/rebuild-and-reconcile.js): reconcile shape — deferrals cluster by shared file, fixed once per cluster.
+- [08]-[REVIEW_BRANCH](assets/examples/review-branch.js): no-barrier verification with model and effort as independent axes.
+- [09]-[ROUTE_AND_REFACTOR](assets/examples/route-and-refactor.js): dispatch-table fan-out — one route row per class, an unroutable file falls out.
 
 [SCRIPTS]:
-- [01]-[GATES](scripts/): deterministic validate and dry-run gates.
+- [01]-[VALIDATE](scripts/validate-workflow.mjs): parser-rule linter — errors exit 1, warnings are real defects.
+- [02]-[DRY_RUN](scripts/dry-run.mjs): zero-token simulation under mocked globals with per-phase agent counts.
 
 ## [02]-[FIT]
 
-Placement across execution surfaces — main turn, fork, subagent, team, workflow — is the agent-dispatch skill's law. One line matters here: a workflow earns its cost when the work is parallel or multi-stage, the orchestration must be deterministic and resumable, and fresh-context isolation per step is an advantage. One subagent doing one task is the plain `Agent` tool; a procedure where Claude picks the steps each run is a skill; a fixed shape worth rerunning and resuming is a workflow. A single-agent run is the baseline every workflow must beat: multi-agent decomposition pays only where the units are genuinely separable — dependency-chained work camouflaged as a fan-out costs the orchestration overhead and returns serial wall-clock anyway. When the fit is doubtful, say so and offer the lighter option.
+Placement across execution surfaces is agent-dispatch law. A workflow earns its cost when the work is parallel or multi-stage, orchestration must be deterministic and resumable, and per-step fresh context pays. One subagent, one task: the plain `Agent` tool; a procedure where Claude picks the steps each run is a skill; a fixed shape worth rerunning and resuming is a workflow. A single-agent run is the baseline to beat: decomposition pays only for genuinely separable units; a camouflaged dependency chain buys overhead and serial wall-clock. Doubtful fit is stated, the lighter option offered.
 
 ## [03]-[SHAPE]
 
@@ -83,7 +95,7 @@ Rules that break runs, each carried in depth by its owning reference:
 - [22]-[FRAGILE_PROSE]: No prose mirrors what the code owns: a constant's value lives ONLY on its declaration, naming the concept, never the number.
 - [23]-[CLAIM_VERIFIED]: A roster, model, or path claim is verified against the code or deleted.
 - [24]-[LIVE_CONSTANT]: A prompt needing a tunable interpolates its constant live (`' + CAP + '`).
-- [25]-[EXACTNESS_KEPT]: Exactness that GOVERNS the acting agent stays exact — schema bounds, protocol facts, thresholds, derivation notes beside their own constant, counts bound to an adjacent named enumeration.
+- [25]-[EXACTNESS_KEPT]: Exactness that governs the actor stays exact — schema bounds, protocol facts, thresholds, notes and counts at their owner.
 - [26]-[PRECISION_KEPT]: Hardening removes fragility, never precision.
 
 ## [05]-[FILE]
@@ -99,7 +111,11 @@ export const meta = {
 };
 ```
 
-`meta.phases[].model` is a dialog label only — the model is set per `agent()` call; a re-tiered phase sets both or the dialog lies. META DISCIPLINE: meta is a selection and dialog surface, not a second copy of the prompts — `description` states what the run produces, the args shape, and the phase spine; `whenToUse` is one selection clause; `phases[].detail` names each phase's concept. Law text, consumption protocols, and derived agent tallies live in the prompts and the code — a meta that re-serializes them drifts on every stage edit and buries the contract the dialog exists to show ([22]-[FRAGILE_PROSE]). Size is never the metric, in meta or in prompts: prose optimizes by DENSITY — wording refined per the docgen register and the `docs/standards/` prose owners until fewer words carry the same guidance — and never by dropping guidance the acting agent needs; no gate or script imposes a length cap. Lean-prompt shaping that trims intensifiers and hostile register is codex-lane law (external-lanes reference), never a general bar. Then the body: async JavaScript with injected globals — `agent(prompt, opts?)`, `pipeline(items, …stages)`, `parallel(thunks)`, `phase(title)`, `log(msg)`, `console`, `setTimeout`, `budget`, `args`, `workflow(name, args?)` — and the body's `return` becomes the tool result. Full signatures, the `args` shape map, and every cap: api reference.
+`meta.phases[].model` is a dialog label only — the model is set per `agent()` call; a re-tiered phase sets both or the dialog lies. Meta is a selection surface, never a second copy of the prompts: `description` states what the run produces, the args shape, and the phase spine; `whenToUse` is one selection clause; `phases[].detail` names each phase's concept. Law text, consumption protocols, and derived agent tallies live in the prompts and the code — a meta that re-serializes them drifts on every stage edit and buries the contract the dialog exists to show ([22]-[FRAGILE_PROSE]).
+
+Size is never the metric, in meta or in prompts: prose optimizes by density — wording refined per the docgen register until fewer words carry the same guidance — never by dropping guidance the acting agent needs; no gate or script imposes a length cap. Lean-prompt shaping that trims intensifiers and hostile register is codex-lane law (external-lanes reference), never a general bar.
+
+Then the body: async JavaScript with injected globals — `agent(prompt, opts?)`, `pipeline(items, …stages)`, `parallel(thunks)`, `phase(title)`, `log(msg)`, `console`, `setTimeout`, `budget`, `args`, `workflow(name, args?)` — and the body's `return` becomes the tool result. Full signatures, the `args` shape map, and every cap: api reference.
 
 Three `agent()` options tuned most, independent axes:
 
@@ -128,4 +144,4 @@ Launch with `Workflow({ name })` or `Workflow({ scriptPath })`; the run goes to 
 
 Iterate by editing the saved file and resuming — every `agent()` call before the first edit replays from cache, only the changed call onward re-runs. Never re-paste a script after the first run, and never edit a launched script while its run is meant to stay resumable. Saving a good run is `s` in `/workflows`, which makes it a `/<name>` command.
 
-A weak lane repairs itself faster than hand-tuning: dispatch one agent holding the lane's PROMPT plus its FAILURE TRANSCRIPT to diagnose why the lane failed and rewrite the prompt or schema, then resume — a model reading its own failure mode finds the fix a cold author misses.
+A weak lane repairs itself faster than hand-tuning: dispatch one agent holding the lane's PROMPT and its FAILURE TRANSCRIPT to diagnose why the lane failed and rewrite the prompt or schema, then resume — a model reading its own failure mode finds the fix a cold author misses.

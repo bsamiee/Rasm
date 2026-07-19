@@ -10,7 +10,7 @@ description: >-
 
 # [RHINO_MCP]
 
-Drives McNeel `Rhino-MCP-Platform` through the `mcp__rhino-mcp-platform__*` tool surface. `rhino-mcp-platform`, a USER-scope stdio server in `~/.claude.json` running the `rhino-mcp-router` binary, proxies each call to a per-document loopback HTTP listener inside the targeted Rhino "slot". Every document-touching tool is bound to that slot's `RhinoDoc`, never `RhinoDoc.ActiveDoc`. All outputs are JSON strings (viewport adds a JPEG block). The `rhino-mcp-router` wrapper gates the vendor router behind a live Rhino session: with Rhino down the server serves only a `rhino_status` tool and sweeps stray routers, and a host watchdog reaps the router generation the moment Rhino closes.
+`rhino-mcp-platform`, a USER-scope stdio server in `~/.claude.json` running the `rhino-mcp-router` binary, proxies each `mcp__rhino-mcp-platform__*` call to a per-document loopback HTTP listener inside the targeted Rhino "slot". Every document-touching tool binds to that slot's `RhinoDoc`, never `RhinoDoc.ActiveDoc`. All outputs are JSON strings (viewport adds a JPEG block). Its wrapper gates the vendor router behind a live Rhino session: with Rhino down the server serves only `rhino_status` and sweeps stray routers, and a host watchdog reaps the router generation the moment Rhino closes.
 
 Step 1 of any Rhino MCP work is `forge-rhino-up` — idempotent, splash-free — then reconnect the `rhino-mcp-platform` server (`/mcp` -> reconnect, or a fresh session) to load the full toolset; a stdio MCP connection never re-spawns on its own.
 
@@ -83,7 +83,7 @@ Headless, no dialogs. All bound to the slot's doc.
 [VIEWPORT_CAPTURE_SHAPE]:
 - Size: `width=480` up to `1280`, `height=270` up to `720`.
 - Frame inputs: `view?`, `displayMode?`, `cameraLocation?`, `target?`, `boxMin?`/`boxMax?`, `zoom?`.
-- Output: JSON metadata plus JPEG when the scene is renderable; metadata-only diagnostic when empty or off-screen.
+- Output: JSON metadata and JPEG when the scene is renderable; metadata-only diagnostic when empty or off-screen.
 - Camera write: `location?`, `target?`, `up?`, `lensLength?`, `projection?`, and `boxMin?`/`boxMax?`; bbox framing applies last.
 
 [IMPORTANT] On an empty/off-screen capture, read `scene.boundingBox` and object counts before re-framing with `boxMin`/`boxMax` or `view`. Every JPEG block costs context tokens: capture at the minimum resolution sufficient to diagnose, keep the `480x270` default first, and escalate toward the `1280x720` ceiling only after a metadata-only pass.

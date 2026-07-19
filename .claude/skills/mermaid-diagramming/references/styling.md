@@ -201,7 +201,9 @@ Containers style through the id, never the title, and each type admits a bounded
 
 A subgraph names its id and title as `subgraph id [Title]`, nests, and takes an inner `direction`; that inner direction is dropped and inherited from the parent the moment any member node links outside the block. `style id` on the subgraph beats `clusterBkg`, and a class on the subgraph id colors the title text over `titleColor`.
 
-An edge endpoint may name a subgraph id: under ELK the arrowhead lands on the cluster boundary, so one labeled edge onto a layer stands where per-member edges would fan. Fan-to-foundation recipe — N upper tiers composing one shared base — resolves by the edge's truth class: a permission or law diagram consolidates the fan into one demonstrative dashed rail onto the base's boundary, while an import-truth diagram draws every real import as a solid edge carrying its one sourced-type label targeted at the named member, falling to the cluster boundary only where the sourcing names no specific member — a dashed edge standing for several imports fabricates. `mergeEdges` never substitutes for either move — it fuses routing corridors, not semantics, and railed edges lose their colors and end markers under it.
+An edge endpoint may name a subgraph id: under ELK the arrowhead lands on the cluster boundary, so one labeled edge onto a layer stands where per-member edges would fan.
+
+A fan-to-foundation shape — N upper tiers composing one shared base — resolves by edge truth class: a permission or law diagram consolidates the fan into one demonstrative dashed rail onto the base boundary; an import-truth diagram draws every real import as a solid edge carrying its sourced-type label at the named member, falling to the cluster boundary only where sourcing names no member. A dashed edge standing for several imports fabricates, and `mergeEdges` never substitutes for either move — it fuses routing corridors, not semantics, and railed edges lose colors and end markers under it.
 
 ## [04]-[PRECEDENCE]
 
@@ -314,7 +316,13 @@ Each diagram type accepts a bounded set of styling statements; `yes` is verified
 |  [12]   | Journey      | `fillType0`–`fillType7` vars      |
 |  [13]   | C4           | `Update*Style` calls              |
 
-Silent traps live where syntax parses but styling does not apply or applies destructively: mindmap `:::` classes must be supplied by the host, so in-diagram `classDef` never defines them; block `:::` has no verified route; state styling reaches plain states while a composite class parses and lands in the DOM with its fill and stroke non-portable and `[*]` markers unstyleable; treemap `classDef` emits inline `!important` fills that lock out every stylesheet correction, so a themed treemap carries no classes and rides its ordinal range plus section stamps; and the nested packet theme-variable block half-applies, so packet styling rides its `themeCSS` classes.
+Silent traps live where syntax parses but styling does not apply or applies destructively:
+
+- Mindmap `:::` classes must be supplied by the host; in-diagram `classDef` never defines them.
+- Block `:::` has no verified route.
+- State styling reaches plain states; a composite class parses and lands in the DOM with fill and stroke non-portable, and `[*]` markers stay unstyleable.
+- Treemap `classDef` emits inline `!important` fills that lock out every stylesheet correction; a themed treemap carries no classes and rides its ordinal range and section stamps.
+- Nested packet theme-variable block half-applies; packet styling rides its `themeCSS` classes.
 
 ## [06]-[FLOORS]
 

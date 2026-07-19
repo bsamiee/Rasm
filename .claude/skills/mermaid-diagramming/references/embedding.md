@@ -19,7 +19,7 @@ Render lane binds on self-containment and CSP, never on the host being HTML: a s
 uv run scripts/validate_mermaid.py --export <dir> <file.md ...>
 ```
 
-Export row is the contract: each passing fence lands as an SVG whose root id is unique per fence (multi-diagram pages never collide on ids, selectors, or aria references), whose `accTitle`/`accDescr` ride as `<title>`/`<desc>` with the aria wiring intact, whose `width="100%"` plus `viewBox` scale to any container, and whose Dracula canvas is baked so the diagram self-carries on light and dark hosts alike.
+Export row is the contract: each passing fence lands as an SVG whose root id is unique per fence (multi-diagram pages never collide on ids, selectors, or aria references), whose `accTitle`/`accDescr` ride as `<title>`/`<desc>` with the aria wiring intact, whose `width="100%"` and `viewBox` scale to any container, and whose Dracula canvas is baked so the diagram self-carries on light and dark hosts alike.
 
 - SVG sits inside a container with `overflow-x: auto`; a wide diagram scrolls in its own box and never forces page-level horizontal scroll.
 - On a dark host the baked `#282A36` canvas reads as a raised panel; the container steps its own surface down a level or frames the SVG with a visible border — the elevation rule the theming reference states for inline placement.

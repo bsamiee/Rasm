@@ -1,6 +1,6 @@
 # [MEMORY]
 
-Memory is the always-loaded instruction layer: operator-authored files plus model-authored auto memory, delivered as context after the system prompt. It shapes behavior without enforcing it — a rule that must hold under pressure moves to permissions or a hook.
+Memory is the always-loaded instruction layer: operator-authored files and model-authored auto memory, delivered as context after the system prompt. It shapes behavior without enforcing it — a rule that must hold under pressure moves to permissions or a hook.
 
 ## [01]-[HIERARCHY]
 
@@ -11,15 +11,21 @@ Memory is the always-loaded instruction layer: operator-authored files plus mode
 |  [03]   | Project | `CLAUDE.md` or `.claude/CLAUDE.md` | Everyone who clones the repository |
 |  [04]   | Local   | `CLAUDE.local.md`                  | Gitignored to this checkout        |
 
-Memory loads upward from the working directory, orders discovered files root to working directory, and appends `CLAUDE.local.md` after its sibling `CLAUDE.md` at each level. Subdirectory memory files lazy-load when work touches files beneath them, so folder conventions live beside the folders they govern instead of bloating the root. Target under 200 lines per file — adherence degrades as memory grows, and overflow moves to path-scoped rules. `claudeMdExcludes` skips matching memory files by glob at any settings scope and merges across scopes; managed files are non-excludable, and the managed `claudeMd` settings key carries organization memory inline without deploying a file. Block-level HTML comments are stripped before injection — free maintainer notes — while comments inside fenced blocks survive. After `/compact` the project-root `CLAUDE.md` re-reads from disk and re-injects; nested memory files reload only when work next touches their subtree, so an instruction that must survive compaction lives at the root.
+Memory loads upward from the working directory, orders discovered files root to working directory, and appends `CLAUDE.local.md` after its sibling `CLAUDE.md` at each level. Subdirectory memory files lazy-load when work touches files beneath them, so folder conventions live beside the folders they govern instead of bloating the root. Target under 200 lines per file — adherence degrades as memory grows, and overflow moves to path-scoped rules.
+
+`claudeMdExcludes` skips matching memory files by glob at any settings scope and merges across scopes; managed files are non-excludable, and the managed `claudeMd` key carries organization memory inline without deploying a file. Block-level HTML comments strip before injection — free maintainer notes — while comments inside fenced blocks survive. After `/compact` the project-root `CLAUDE.md` re-reads from disk and re-injects; nested files reload only when work next touches their subtree, so an instruction that must survive compaction lives at the root.
 
 ## [02]-[IMPORTS]
 
-`@path/to/file` inside a memory file expands the target into context at launch; relative paths resolve against the importing file, imports recurse to a depth of four hops, and code spans plus fenced blocks are skipped — backticks around a path keep it literal. Imports organize, never economize: an imported file loads at launch and costs its full weight, so splitting a fat memory file into imports changes nothing the size law cares about. A repository standardized on `AGENTS.md` bridges with a one-line `CLAUDE.md` containing `@AGENTS.md`. Imports pointing outside the project trigger a one-time approval dialog; a declined import stays dormant. A gitignored local file shared across worktrees is an import of an absolute path, since `CLAUDE.local.md` exists only in the worktree that created it. `--add-dir` directories contribute no memory by default; `CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD=1` loads their `CLAUDE.md`, rules, and `CLAUDE.local.md` too.
+`@path/to/file` inside a memory file expands the target into context at launch; relative paths resolve against the importing file, imports recurse to a depth of four hops, and code spans and fenced blocks are skipped — backticks around a path keep it literal. Imports organize, never economize: an imported file costs its full weight at launch, so splitting a fat memory file into imports changes nothing the size law cares about.
+
+A repository standardized on `AGENTS.md` bridges with a one-line `CLAUDE.md` containing `@AGENTS.md`. Imports pointing outside the project trigger a one-time approval dialog; a declined import stays dormant. A gitignored local file shared across worktrees is an import of an absolute path, since `CLAUDE.local.md` exists only in the worktree that created it. `--add-dir` directories contribute no memory by default; `CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD=1` loads their `CLAUDE.md`, rules, and `CLAUDE.local.md` too.
 
 ## [03]-[RULES]
 
-`.claude/rules/**/*.md` and `~/.claude/rules/**/*.md` modularize instructions one topic per file. A rule without `paths` frontmatter loads at launch with project-memory priority; a rule with `paths` globs loads only when work reads a matching file — the trigger is the path predicate, no description competes and no session pays for an unused convention. Globs take brace expansion (`src/**/*.{ts,tsx}`) and multiple patterns per rule; a rule entry resolves through symlinks, so a shared rule set links into many repos from one master, and circular links are handled. User rules load before project rules. Rules split from skills as convention versus procedure: a rule states what is always true of a subtree, a skill packages how a task is done.
+`.claude/rules/**/*.md` and `~/.claude/rules/**/*.md` modularize instructions one topic per file. A rule without `paths` frontmatter loads at launch with project-memory priority; a rule with `paths` globs loads only when work reads a matching file — the trigger is the path predicate, so no session pays for an unused convention.
+
+Globs take brace expansion (`src/**/*.{ts,tsx}`) and multiple patterns per rule; rule entries resolve through symlinks, so one master set links into many repos, and circular links are handled. User rules load before project rules. Rules split from skills as convention versus procedure: a rule states what is always true of a subtree, a skill packages how a task is done.
 
 ## [04]-[CONTENT]
 
@@ -28,7 +34,7 @@ A memory file carries only what a fresh session cannot derive and otherwise gets
 - [ADMISSION]: Recurrence is the trigger — a second identical correction, a repeated review comment, a question the file exists to answer. An entry authored for an imagined future need is deleted, not improved.
 - [MINING]: A session or research source is swept at closure through four hunts — a correction issued twice, an assumption empirically refuted, a process law proven by an observed failure with its rate, and a verdict that settles a question future sessions otherwise re-litigate. Only adjudicated rows enter — proven on disk or by execution; an unverified finding stays in its dossier or scratch, and a fact the session already landed on a repo surface is owned there — a memory copy is a fork.
 - [CONSOLIDATION]: A candidate hunts its owner across the corpus before minting — a new instance of an owned law lands as a generalization clause or `[[link]]` on the owning file, and a new file is earned only by a distinct retrieval occasion. Two files splitting one concern halve each other's recall odds, so near-similar files merge into the stronger one with description and index line rewritten in the same pass.
-- [SETTLEMENT]: A settled refusal — do-not-re-add, do-not-re-reject, a ruled-out approach with its refuting evidence — is the highest-value class: it blocks a future session from re-running adjudicated work. It carries the ruling plus at most one calibration number, never the history that produced it.
+- [SETTLEMENT]: A settled refusal — do-not-re-add, do-not-re-reject, a ruled-out approach with its refuting evidence — is the highest-value class: it blocks a future session from re-running adjudicated work. It carries the ruling and at most one calibration number, never the history that produced it.
 - [REMOVAL_TEST]: Every line must fail deletion — removing it causes a future session to err. A line that survives deletion in imagination is deleted in fact.
 - [SPECIFICITY]: Entries are concrete enough to verify — the command, the path, the exact value — never an adjective; vague phrasing reads as ambiguous under pressure and loses to specific siblings.
 - [SHAPES]: Two body templates carry the lesson classes prose flattens — a failure lesson as symptom, cause, fix; a preference lesson as the user's phrasing and the behavior it selects.
@@ -53,7 +59,7 @@ Consistency runs across the whole loaded hierarchy, not per file — a user-leve
 
 ## [06]-[RECALL]
 
-Auto-memory recall runs on two surfaces, and authoring optimizes both. At session start the first 200 lines or 25KB of `MEMORY.md` — whichever cap hits first — load as the always-on index; nothing below the boundary exists at startup, and the index re-enters from disk after `/compact`. Per turn, a harness selector scores each memory file's `metadata.type`, filename, and `description` frontmatter against the live task and injects the few winners as recalled context; the file body is invisible to selection, `MEMORY.md` itself is never a candidate, and a file already surfaced stops re-firing that session.
+Auto-memory recall runs on two surfaces, and authoring optimizes both. At session start the first 200 lines or 25KB of `MEMORY.md` — whichever cap hits first — load as the always-on index; nothing below the boundary exists at startup, and the index re-enters from disk after `/compact`. Per turn, a harness selector scores each file's `metadata.type`, filename, and `description` against the live task and injects the few winners as recalled context; the body is invisible to selection, `MEMORY.md` itself is never a candidate, and a file already surfaced stops re-firing that session.
 
 - [HOOK]: Index line and `description` are retrieval triggers, never summaries — each leads with the exact backticked symbols, commands, and paths a future task will type, since lexical overlap with the live prompt decides the firing.
 - [FILENAME]: `<type>_<topic>.md` is itself a scored relevance signal — semantic names, never chronological ones.
@@ -65,7 +71,9 @@ Auto-memory recall runs on two surfaces, and authoring optimizes both. At sessio
 
 ## [07]-[AUTO_MEMORY]
 
-Auto memory is model-authored learning, on by default, stored per project at `~/.claude/projects/<project>/memory/` — derived from the git repository, so every worktree shares one store. `MEMORY.md` is the index, loading at session start under the recall cap; topic files load on demand when referenced. Toggle through `/memory`, `autoMemoryEnabled`, or `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1`; relocate with `autoMemoryDirectory` — an absolute or `~/` path, honored from a project settings file only after the workspace trust dialog, the same gate that governs hooks. This store is machine-local. Curation is real work: stale notes mislead future sessions with the same authority as fresh ones, and a hardened lesson graduates from auto memory into an operator-authored file or skill. `CLAUDE_MEMORY_STORES` mounts additional shared stores beside the project one.
+Auto memory is model-authored learning, on by default, stored per project at `~/.claude/projects/<project>/memory/` — derived from the git repository, so every worktree shares one machine-local store. `MEMORY.md` is the index, loading at session start under the recall cap; topic files load on demand.
+
+Toggle through `/memory`, `autoMemoryEnabled`, or `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1`; relocate with `autoMemoryDirectory` — absolute or `~/`, honored from project settings only after the workspace trust dialog that also governs hooks. `CLAUDE_MEMORY_STORES` mounts additional shared stores beside the project one. Curation is real work: stale notes mislead with the same authority as fresh ones, and a hardened lesson graduates into an operator-authored file or skill.
 
 ## [08]-[BOUNDARY]
 

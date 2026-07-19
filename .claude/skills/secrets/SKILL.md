@@ -70,7 +70,7 @@ SessionStart hook `.claude/hooks/setup-env.sh` is the only consumption rail, can
 
 ## [06]-[CUSTODY]
 
-Local custody is `op`, never the OS keychain: every service, IaC, and MCP token plus the SSH key lives in a `Tokens` or `Personal` vault item. A personal `doppler login` is the one credential Doppler keeps in the keychain, used for the operator's ad-hoc interactive work alone — no rail depends on it.
+Local custody is `op`, never the OS keychain: every service, IaC, and MCP token and the SSH key live in a `Tokens` or `Personal` vault item. A personal `doppler login` is the one credential Doppler keeps in the keychain, used for the operator's ad-hoc interactive work alone — no rail depends on it.
 
 | [INDEX] | [CLASS]                          | [CUSTODY]                                    | [USE]                           |
 | :-----: | :------------------------------- | :------------------------------------------- | :------------------------------ |
@@ -89,5 +89,5 @@ Local custody is `op`, never the OS keychain: every service, IaC, and MCP token 
 
 - One item, one official name: an item carries the credential's real published name, never a handrolled synonym; a consumer needing a different env-var name renames the item at the source and repoints every reader, never adds a second item or a duplicate export aliasing the same secret. A naming mistake is fixed by renaming in `op` and Doppler, never papered over.
 - A new project lands as project/config rows in `Parametric_Forge/services/topology.ts` and a directory scope row, then `pulumi up`; retiring it deletes its rows.
-- A repo carries zero Doppler files; its agents resolve through scope plus hook automatically.
+- A repo carries zero Doppler files; its agents resolve through scope and hook automatically.
 - Rendered secret material is ephemeral: `--mount`/`--mount-template` over durable renders; plaintext binds only where the target owner requires it.

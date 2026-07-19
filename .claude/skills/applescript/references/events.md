@@ -143,7 +143,9 @@ Each `access` row keys on `(service, client, client_type, indirect_object_identi
 |  [04]   |      `6`      | MDM policy     |
 |  [05]   |     `11`      | entitled       |
 
-Columns `pid_version`, `boot_uuid`, `last_modified`, and `last_reminded` bind the grant to one process generation and reminder cadence. `tccutil reset AppleEvents [bundle-id]` is the sanctioned reset path — it clears the client-to-target relationship rows and forces re-consent. Resetting a sender, moving a path-identified binary, or changing receiver identity invalidates an existing approval. `csreq` is a code-requirement predicate, not a fixed hash, so a stable Team-ID-plus-bundle-ID designated requirement carries the grant across rebuilds and re-signs, while an ad-hoc or cdhash-pinned identity mints a fresh code identity on every rebuild, stops satisfying the stored requirement, and silently fails the next send with `errAEEventNotPermitted` (`-1743`); an agent that rebuilds an applet signs it under a stable designated requirement or re-earns consent every build. Enterprise pre-grants flow through PPPC, never through direct `TCC.db` edits.
+Columns `pid_version`, `boot_uuid`, `last_modified`, and `last_reminded` bind the grant to one process generation and reminder cadence. `tccutil reset AppleEvents [bundle-id]` is the sanctioned reset path — it clears the client-to-target relationship rows and forces re-consent. Resetting a sender, moving a path-identified binary, or changing receiver identity invalidates an existing approval. Enterprise pre-grants flow through PPPC, never through direct `TCC.db` edits.
+
+`csreq` is a code-requirement predicate, not a fixed hash: a designated requirement pinned to Team ID and bundle ID carries the grant across rebuilds and re-signs, while an ad-hoc or cdhash-pinned identity mints a fresh code identity every rebuild, stops satisfying the stored requirement, and silently fails the next send with `errAEEventNotPermitted` (`-1743`) — an agent rebuilding an applet signs under a stable designated requirement or re-earns consent every build.
 
 ## [07]-[AUDIT_TOKEN_ATTRIBUTION]
 
@@ -153,7 +155,9 @@ Columns `pid_version`, `boot_uuid`, `last_modified`, and `last_reminded` bind th
 
 ## [08]-[PREFLIGHT_AND_ERROR_TRIAD]
 
-`AEDeterminePermissionToAutomateTarget` owns explicit preflight and takes four positional arguments in order — target address descriptor, event class, event ID, ask-user flag. Its target `AEAddressDesc` must identify a running application; `theAEEventClass` and `theAEEventID` bind a specific command, while `typeWildCard` tests broad target automation. Its ask-user flag selects a visible-prompt path or a silent-status path, and the call is thread-safe and UI-blocking. Preflight runs from an explicit permission lane. `descriptorWithBundleIdentifier:` yields a `typeApplicationBundleID` descriptor for any string, installed or not, so an absent or stopped receiver surfaces as `procNotFound` (`-600`) from the call itself, never as a nil descriptor.
+`AEDeterminePermissionToAutomateTarget` owns explicit preflight — four positional arguments in order: target address descriptor, event class, event ID, ask-user flag. Its target `AEAddressDesc` must identify a running application; `theAEEventClass` and `theAEEventID` bind a specific command, `typeWildCard` tests broad target automation. Its ask-user flag selects a visible-prompt or silent-status path; the call is thread-safe, UI-blocking, and runs from an explicit permission lane.
+
+`descriptorWithBundleIdentifier:` yields a `typeApplicationBundleID` descriptor for any string, installed or not, so an absent or stopped receiver surfaces as `procNotFound` (`-600`) from the call itself, never as a nil descriptor.
 
 ```objc conceptual
 typedef NS_ENUM(NSInteger, AutomationConsent) {
@@ -258,7 +262,9 @@ PPPC merging is restrictive: multiple payloads can land on one Mac, and conflict
 
 TCC diagnostics start at attribution. `log stream --debug --predicate 'subsystem == "com.apple.TCC" AND eventMessage BEGINSWITH "AttributionChain"'` names the binary actually charged for a request, and that binary is the one that owns the entitlement, the usage string, the PPPC sender identity, and the user-facing remediation copy. That unified-log format is private.
 
-`ES_EVENT_TYPE_NOTIFY_TCC_MODIFY` is the EndpointSecurity primitive an automation observer binds, firing on any TCC grant or revoke including `kTCCServiceAppleEvents`. Its `es_event_tcc_modify_t` exposes `service`, `identity`, `identity_type` (`es_tcc_identity_type_t`: bundle ID, executable path, file-provider domain, policy ID), `update_type` (`es_tcc_event_type_t`), `instigator_token` (an `audit_token_t` by value), `instigator` (`es_process_t *`), a nullable `responsible_token`/`responsible` pair, and one `right`/`reason` field. That struct carries no prior-versus-current value pair — it observes a decision change, not per-event access, and a CLI-initiated grant attributes to the parent process. Continuous automation monitoring composes `ES_EVENT_TYPE_NOTIFY_TCC_MODIFY` for policy transitions, the `com.apple.TCC` unified-log rail for attribution chains, and EndpointSecurity process events carrying `audit_token`/`responsible_audit_token` for the acting identity.
+`ES_EVENT_TYPE_NOTIFY_TCC_MODIFY` is the EndpointSecurity primitive an automation observer binds, firing on any TCC grant or revoke including `kTCCServiceAppleEvents`. Its `es_event_tcc_modify_t` exposes `service`, `identity`, `identity_type` (`es_tcc_identity_type_t`: bundle ID, executable path, file-provider domain, policy ID), `update_type` (`es_tcc_event_type_t`), `instigator_token` (an `audit_token_t` by value), `instigator` (`es_process_t *`), a nullable `responsible_token`/`responsible` pair, and one `right`/`reason` field.
+
+That struct carries no prior-versus-current value pair — it observes a decision change, not per-event access, and a CLI-initiated grant attributes to the parent process. Continuous monitoring composes `ES_EVENT_TYPE_NOTIFY_TCC_MODIFY` for policy transitions, the `com.apple.TCC` unified-log rail for attribution chains, and EndpointSecurity process events carrying `audit_token`/`responsible_audit_token` for the acting identity.
 
 ## [11]-[HOST_SURFACE_AND_PLATFORM_POSTURE]
 

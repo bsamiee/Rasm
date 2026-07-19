@@ -35,7 +35,7 @@ Four channels, routed by durability and origin:
 - `reviews.pre_merge_checks`: per-check `off`/`warning`/`error`; `error` blocks the PR under `reviews.request_changes_workflow: true`.
 - `reviews.tools.<tool>.enabled`: per-tool static-analysis gates over the schema's tool catalog (`ruff`, `biome`, `shellcheck`, `gitleaks`, and peers); `ast-grep` alone takes `essential_rules` instead of `enabled`.
 - `reviews.finishing_touches` / `reviews.slop_detection.enabled` / `reviews.enable_prompt_for_ai_agents`: post-review recipes, slop screening, inline AI-fix prompts.
-- `knowledge_base.mcp.usage`: `auto`/`enabled`/`disabled` plus `disabled_servers[]`.
+- `knowledge_base.mcp.usage`: `auto`/`enabled`/`disabled` and `disabled_servers[]`.
 - `knowledge_base.linked_repositories[]`: `{repository, instructions}` cross-repo context rows.
 
 ## [04]-[RUN_AND_BASE]
@@ -48,7 +48,7 @@ Four channels, routed by durability and origin:
 
 - `--agent` emits NDJSON on stdout, line types `review_context` (first: reviewType, current and base branch, workingDirectory), `status`, `heartbeat` (the only keep-alive through the long analysis gap), `finding`, `complete` (terminal: status, finding count, reviewed files), and `error` — the failure channel, since errors ride it at exit 0. A streamed `finding` carries only `{severity, fileName, codegenInstructions, suggestions}` — liveness-only, so the stream never yields title, comment, or line range.
 - Rich per-finding records live at `~/.coderabbit/reviews/<repoHash>/<subHash>/reviews/<epochMs>/<uuid>.json`, one file per finding: `title`, `comment` (markdown carrying the proposed-fix diff), `lineRange`, `commentCategory`, `severity` ranking `critical` > `major` > `minor` > `trivial` > `info`, `codegenInstructions` (consume first, `comment` the fallback), `fingerprint` (CodeRabbit's own dedup key, `phantom:<codename>:<codename>` form), and `id`, the store back-link uuid.
-- Sibling `git.json` carries `workingDirectory` plus `timestamp` in epoch SECONDS (review start) — the run-to-store correlation key; the epoch directory name and per-finding `timestamp` are epoch MILLISECONDS (write time). `internalState.json` carries the walkthrough summary in `rawSummaryMap`; `diff.json` and `incrementalDiff.json` are diff payloads, never findings.
+- Sibling `git.json` carries `workingDirectory` and `timestamp` in epoch SECONDS (review start) — the run-to-store correlation key; the epoch directory name and per-finding `timestamp` are epoch MILLISECONDS (write time). `internalState.json` carries the walkthrough summary in `rawSummaryMap`; `diff.json` and `incrementalDiff.json` are diff payloads, never findings.
 - Store reads are the only recovery for a finished review: `coderabbit review findings` reprints human text only (it drops `--agent` silently) and can replay a previous unrelated review — never a harvest source, and a finished review is never re-run to recover its findings.
 
 ## [06]-[DISTILL_SURFACE]

@@ -1,6 +1,6 @@
 # [THEMING]
 
-Dracula is the skill's theme system — every committed diagram opens `theme: base` with `look: classic` and draws its colors from the Dracula token table below; ad-hoc hexes outside the table are a defect, and a translucent fill carries a table hex plus its ruled alpha suffix.
+Dracula is the skill's theme system — every committed diagram opens `theme: base` with `look: classic` and draws its colors from the Dracula token table below; ad-hoc hexes outside the table are a defect, and a translucent fill carries a table hex with its ruled alpha suffix.
 
 ## [01]-[PALETTE]
 
@@ -28,7 +28,7 @@ Yellow sits at OKLCH `0.89 0.139 90` — true gold, clear of the green-adjacent 
 
 ## [02]-[ROLE_MAP]
 
-Every token carries its role on two surfaces at once: the `themeVariables` that spend it diagram-wide and the `classDef` or `linkStyle` rail that spends it per node and per edge. A token holding a role with no rail is unspendable, so every token names both surfaces. Same meaning, same token, across every diagram in a corpus; a role outside this set composes from the nearest listed role, never a new hex. Rank, tier, and altitude are not color roles: a stacked or tiered structure encodes rank by Y-position and subgraph membership, never by spending accents as tier ordinals, and the ordinal-palette families — `pie*`, `cScale*`, `fillType*`, `git*` — sequence hues as arbitrary category identity only.
+Every token carries its role on two surfaces: the `themeVariables` that spend it diagram-wide and the `classDef` or `linkStyle` rail that spends it per node and per edge — a token with no rail is unspendable, so every token names both. Same meaning, same token, corpus-wide; a role outside this set composes from the nearest listed role, never a new hex. Rank, tier, and altitude are not color roles: a tiered structure encodes rank by Y-position and subgraph membership, and the ordinal-palette families — `pie*`, `cScale*`, `fillType*`, `git*` — sequence hues as arbitrary category identity only.
 
 [BACKGROUND]:
 - Role: canvas + bright-fill text
@@ -305,7 +305,7 @@ config:
 - Bright translucent fills take `#282A36` text on the dark-ink tier and `#F8F8F2` text on the light-ink tier — the two-tier table in [04] is the owner. Journey's `fillType` set, the gitgraph tag, and the face chip ship in light-ink form here.
 - Ordinal families run their full engine range here — `pie1`–`pie12`, `cScale0`–`cScale11` with `cScaleLabel0`–`cScaleLabel11`, `fillType0`–`fillType7`, `git0`–`git7` — so no band derives to `primaryColor` mud. `cScaleLabel` dark ink serves opaque ordinal fills; a family compositing translucent or recessed ordinal surfaces — timeline, treemap, kanban — overrides its `cScaleLabel` range to Foreground or Lavender in its own fence. Theme resolution converts ordinal color variables through hsl and strips 8-digit alpha, so `cScale` and `git` translucency rides `fill-opacity` stamps while `fillType`, quadrant fills, and tag backgrounds pass alpha hexes intact.
 - Per-type nested objects `xyChart` and `radar` nest inside `themeVariables`, alongside any other type that admits a nested block.
-- Partial-consumers: C4 reads `personBorder`/`personBkg` from this block and themes element surfaces through `c4:` config color keys plus `UpdateRelStyle`; packet themes through its `themeCSS` class stamp because the nested `themeVariables.packet` block half-applies; sankey and ishikawa take global vars only; wardley emits no stylesheet, so only its nested `wardley:` colors land.
+- Partial-consumers: C4 reads `personBorder`/`personBkg` from this block and themes element surfaces through `c4:` config color keys and `UpdateRelStyle`; packet themes through its `themeCSS` class stamp because the nested `themeVariables.packet` block half-applies; sankey and ishikawa take global vars only; wardley emits no stylesheet, so only its nested `wardley:` colors land.
 - This block is the single home for every corpus-wide token: an extended fence demonstrates the keys it consumes and never privately defines a role — `architecture`, `journey`, and C4 tokens live here, not in their fences.
 
 ## [04]-[CLASSDEF_LINKSTYLE]
@@ -320,7 +320,9 @@ Each surface owns one color job; ceding it to another is the defect, and every `
 |  [04]   | inline `style`   | one-off node exception                     |
 |  [05]   | `themeCSS`       | renderer escape hatch                      |
 
-Every accent-colored shape fills translucent: the fill carries its palette hex with an alpha suffix while the border holds the same hue at 100% opacity and a slightly thinner weight, so the canvas tone breathes through the fill and depth reads without any shadow. Alpha per hue derives from one law — the composited fill must hold at least 4.5:1 against its declared ink — and resolves into two tiers. Dark-ink tier runs the high-luminance accents at 75% under `#282A36` ink; the light-ink tier drops each hue until `#F8F8F2` ink measures, which is where Yellow always lives — white ink on gold is the yellow law, so a gold chip is a low-alpha wash under a full gold border, never a bright pill with dark ink — and where Pink, Purple, and Red live at every alpha, since no alpha lets them carry dark ink:
+Every accent-colored shape fills translucent: the fill carries its palette hex with an alpha suffix while the border holds the same hue at 100% opacity and a slightly thinner weight, so the canvas tone breathes through the fill and depth reads without any shadow.
+
+Alpha per hue derives from one law — the composited fill must hold at least 4.5:1 against its declared ink — and resolves into two tiers. Dark-ink tier runs the high-luminance accents at 75% under `#282A36` ink; light-ink tier drops each hue until `#F8F8F2` ink measures — where Yellow always lives (white ink on gold is the yellow law: a gold chip is a low-alpha wash under a full gold border, never a bright pill with dark ink) and where Pink, Purple, and Red live at every alpha, since no alpha lets them carry dark ink:
 
 | [INDEX] | [TIER]    | [ACCENT] | [FILL]      | [ALPHA] | [INK]     | [COMPOSITE_CONTRAST] |
 | :-----: | :-------- | :------- | :---------- | :-----: | :-------- | :------------------: |
@@ -335,7 +337,7 @@ Every accent-colored shape fills translucent: the fill carries its palette hex w
 |  [09]   | light-ink | Orange   | `#FFB86C66` |   40%   | `#F8F8F2` |        `5.2`         |
 |  [10]   | light-ink | Yellow   | `#FFD86654` |   33%   | `#F8F8F2` |        `5.5`         |
 
-A node-scale chip takes the dark-ink tier for maximum punch; a family whose engine fixes one ink for every colored surface — journey, pie, timeline, treemap, packet — takes the light-ink tier throughout so Foreground serves everything. Below both tiers sits the wash tier, 10–30% alphas (`1A`–`4D`) for large-area tints that carry no ink of their own: lane emphasis, cynefin domain fields, the treeview highlight band, packet field blocks. Neutral surfaces — Selection, Darker, Background — stay opaque; translucency marks accent semantics, never structure. Canonical Dracula node classes, one per role the role map binds:
+A node-scale chip takes the dark-ink tier; a family whose engine fixes one ink for every colored surface — journey, pie, timeline, treemap, packet — takes the light-ink tier throughout so Foreground serves everything. Below both sits the wash tier, 10–30% alphas (`1A`–`4D`) for large-area tints carrying no ink of their own: lane emphasis, cynefin domain fields, the treeview highlight band, packet field blocks. Neutral surfaces — Selection, Darker, Background — stay opaque; translucency marks accent semantics, never structure. Canonical Dracula node classes, one per role the role map binds:
 
 ```text
 classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
@@ -361,7 +363,9 @@ classDef calloutExternal fill:#282A36,stroke:#8BE9FD,stroke-width:2px,color:#F8F
 
 A callout node reads against the standing role fills because its recessed surface and heavier stroke set it apart; one or two per diagram hold, a wall of callouts erases the emphasis. Each called-out node pairs with an animated hot edge feeding it, so the focus and the flow reaching it read as one gesture.
 
-`recessed` fills a dormant, done, or terminal-adjacent node; `annotation` shares its surface with a Comment stroke and carries side commentary, never flow. On an ER entity a bright class fill floods the attribute rows and collides with the banding, so ER role classes stroke-encode instead — an external registry rides `fill:#21222C,stroke:#8BE9FD,color:#8BE9FD`, the role carried by stroke and title ink on a recessed surface. Only the class-diagram note takes the payload chip — `noteBkgColor: "#FFD86654"`, `noteBorderColor: "#FFD866"`, `noteTextColor: "#F8F8F2"` — because a class note tags an invariant, while sequence and state notes stay neutral Selection captions. Gitgraph tag, treeview highlight, and railroad terminal spend the same yellow-law chip: translucent gold, full gold border, Foreground ink.
+`recessed` fills a dormant, done, or terminal-adjacent node; `annotation` shares its surface with a Comment stroke and carries side commentary, never flow. On an ER entity a bright class fill floods the attribute rows and collides with the banding, so ER role classes stroke-encode instead — an external registry rides `fill:#21222C,stroke:#8BE9FD,color:#8BE9FD`, the role carried by stroke and title ink on a recessed surface.
+
+Only the class-diagram note takes the payload chip — `noteBkgColor: "#FFD86654"`, `noteBorderColor: "#FFD866"`, `noteTextColor: "#F8F8F2"` — because a class note tags an invariant; sequence and state notes stay neutral Selection captions. Gitgraph tag, treeview highlight, and railroad terminal spend the same yellow-law chip: translucent gold, full gold border, Foreground ink.
 
 Edge rails bind explicitly — every semantic edge takes its rail, and only a plain forward hop rides the default:
 
@@ -374,7 +378,9 @@ linkStyle 4 stroke:#FFB86C,color:#F8F8F2
 linkStyle 5 stroke:#6272A4,color:#F8F8F2,stroke-width:1.5px,stroke-dasharray:4 6
 ```
 
-Rail semantics: Pink primary, Green success, Red error — mandatory on every fault edge — Cyan external, Orange data-carrying, Comment-dashed trace and secondary. Every rail declares `color:#F8F8F2` so its label never falls to a derived color; a rail without an explicit width rides the standing `2px` the micro-scale stamps, the fault rail carries the `3px` emphasis weight, and the trace rail carries the `1.5px` dashed weight — the one ladder in [05]. Every styled edge's arrowhead colors from its resolved stroke, so a Red rail terminates in a Red head with no extra key, and `arrowheadColor` governs only unstyled edges. A rail binds two ways with identical semantics: positionally through `linkStyle N` — indices are 0-based parse positions, so every edge insertion or deletion recounts every positional index before the diagram ships — or insertion-stably through an edge id, `A e1@--> B` then `class e1 edgeError`, where the id form survives the insertions that renumber every positional index; a fence under ongoing edits binds through the id form. Canonical edge classes mirror the non-default rails:
+Rail semantics: Pink primary, Green success, Red error — mandatory on every fault edge — Cyan external, Orange data-carrying, Comment-dashed trace and secondary. Every rail declares `color:#F8F8F2` so its label never falls to a derived color; a rail without an explicit width rides the standing `2px` the micro-scale stamps, the fault rail the `3px` emphasis weight, the trace rail the `1.5px` dashed weight — the one ladder in [05]. Every styled edge's arrowhead colors from its resolved stroke — a Red rail ends in a Red head with no extra key — and `arrowheadColor` governs only unstyled edges.
+
+A rail binds two ways with identical semantics: positionally through `linkStyle N` — indices are 0-based parse positions, so every edge insertion or deletion recounts every positional index before the diagram ships — or insertion-stably through an edge id, `A e1@--> B` then `class e1 edgeError`. Id-form binding survives the insertions that renumber every positional index; a fence under ongoing edits binds through it. Canonical edge classes mirror the non-default rails:
 
 ```text
 classDef edgeControl stroke:#FF79C6,color:#F8F8F2
@@ -389,7 +395,7 @@ classDef edgeTrace stroke:#6272A4,color:#F8F8F2,stroke-width:1.5px,stroke-dashar
 
 ## [05]-[MICRO_SCALE]
 
-Per-element sizing rides `themeCSS`, never `themeVariables.fontSize`. Every value is an exact stamp over the SVG-px scale on a three-step type ramp — 13.5 bold container title, 13 primary, 12 tertiary — and nothing on a mermaid canvas renders below the 12px floor, since SVG text carries no hinting and sits below a hinted HTML equivalent at equal size. Container title sits above the node label deliberately: containment names the largest scope on the canvas, so its title carries the heaviest type, and the 13.5px/700 stamp stays under the engine's 16px measurement box, so no titled container clips.
+Per-element sizing rides `themeCSS`, never `themeVariables.fontSize`. Every value is an exact stamp over the SVG-px scale on a three-step type ramp — 13.5 bold container title, 13 primary, 12 tertiary — and nothing renders below the 12px floor, since SVG text carries no hinting and sits below a hinted HTML equivalent at equal size. Container title sits above the node label deliberately: containment names the largest scope on the canvas, and the 13.5px/700 stamp stays under the engine's 16px measurement box, so no titled container clips.
 
 | [INDEX] | [CLASS]                     | [SELECTOR]                               | [PX]  | [WEIGHT]               |
 | :-----: | :-------------------------- | :--------------------------------------- | :---: | :--------------------- |
@@ -419,7 +425,9 @@ Line-weight ladder — one scale, every stroke on the canvas, stated here once a
 
 A dotted fault hop keeps the `3px` fault weight — dash rhythm marks the hop's modality, weight marks the fault.
 
-Marker and circle scale tie to one factor: every arrowhead across every family scales `.8` linear, and every terminal circle scales `.48` — the `.8` squared area factor cut a further 25%, radius `3.4px` on the state start disc — because a filled disc reads by area while a head reads by length, and a circle at the old `.64` still shouldered its label. Circle factor binds every terminal and endpoint disc: state start and terminal ring, flowchart `--o` endpoints, gitgraph commit dots (`.75` transform on the engine radii, preserving merge-ring ratios), journey actor dots (`r:5.25px`), quadrant points (`radius: 4`), railroad start and end (`markerRadius: 4`). ER cardinality rings stay at the `.8` marker scale — they pair with crow's-foot paths as one glyph, never as terminal dots.
+Marker and circle scale tie to one factor: every arrowhead across every family scales `.8` linear, every terminal circle `.48` — `.8` squared, since a filled disc reads by area where a head reads by length; radius `3.4px` on the state start disc.
+
+Circle factor binds every terminal and endpoint disc — state start and terminal ring, flowchart `--o` endpoints, gitgraph commit dots (`.75` transform on the engine radii, preserving merge-ring ratios), journey actor dots (`r:5.25px`), quadrant points (`radius: 4`), railroad start and end (`markerRadius: 4`). ER cardinality rings stay at the `.8` marker scale, pairing with crow's-foot paths as one glyph, never as terminal dots.
 
 Canonical `themeCSS` strings — one per family, copied verbatim into the fence frontmatter. Every node-bearing string carries `filter:none!important` across the node shapes and cluster rects: the belt that outranks any host-injected halo even when a host forces the neo look, since `themeCSS` lands after the engine's look rules and `!important` wins there. Attribute selectors inside a `themeCSS` string quote with single quotes — a double quote closes the YAML string — and no string uses the `>` combinator, which the sanitizer rejects by dropping the whole block.
 
@@ -453,7 +461,7 @@ One border system for both skills — every stroke around a shape resolves here,
 
 ## [07]-[DUAL_HOST]
 
-Node fills and their text travel inside the SVG, so Selection-filled nodes with Foreground text hold on any host. What breaks on a white host is ink drawn over the page — edge strokes, edge labels without a background, transparent-canvas text. Each token carries its WCAG contrast ratio against each host canvas and the duty that ratio clears: `text` at 4.5 and up, `large` from 3.0 to 4.5 (large text plus non-text ink), `fail` below 3.0.
+Node fills and their text travel inside the SVG, so Selection-filled nodes with Foreground text hold on any host. What breaks on a white host is ink drawn over the page — edge strokes, edge labels without a background, transparent-canvas text. Each token carries its WCAG contrast ratio against each host canvas and the duty that ratio clears: `text` at 4.5 and up, `large` from 3.0 to 4.5 (large text and non-text ink), `fail` below 3.0.
 
 | [INDEX] | [TOKEN]  | [DARK_RATIO] | [DARK_DUTY] | [WHITE_RATIO] | [WHITE_DUTY] |
 | :-----: | :------- | :----------: | :---------- | :-----------: | :----------- |

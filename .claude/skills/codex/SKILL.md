@@ -32,7 +32,7 @@ Role envelope ranks the two dispatch channels (system > developer > user), so wh
 |  [03]   | `<context_gathering>`  | read ladder, total tool-call budget, uncertainty escape hatch                               |
 |  [04]   | `<decision_procedure>` | refute-first adjudication — verdict lanes                                                   |
 |  [05]   | `<capability_mandate>` | surface-raising stated as measurable conditions — campaign lanes                            |
-|  [06]   | `<verification>`       | post-edit re-read plus batched command checks; cite-check on recon, rubric walk on judgment |
+|  [06]   | `<verification>`       | post-edit re-read and batched command checks; cite-check on recon, rubric walk on judgment |
 |  [07]   | `<output_contract>`    | JSON-only shape, null-for-missing — always LAST                                             |
 
 [DEVELOPER]: Durable lane law as named XML blocks — MCP `developer-instructions` / CLI `-c developer_instructions="…"`:
@@ -71,7 +71,7 @@ JSON only — no prose outside it, no code fences; every key shown is required; 
 </output_contract>
 ```
 
-[USER]: Task instance plus any imperative spawn step — MCP `prompt` / the CLI positional argument; the spawn step appears only on a fan-out lane:
+[USER]: Task instance and any imperative spawn step — MCP `prompt` / the CLI positional argument; the spawn step appears only on a fan-out lane:
 
 ```text template
 Goal: <outcome>.
@@ -82,7 +82,7 @@ Done when: <deliverables>.
 Before <anchor>, spawn exactly <N> parallel sub-agents with collaboration.spawn_agent, one per <split>; collect every one with collaboration.wait_agent before <synthesis>. Each spawn task is self-contained — absolute paths, <mandate>, return shape <shape>. Sub-agents read and report only; their returns are candidate data you judge under your own law.
 ```
 
-[CALIBRATION]: When a lane misbehaves, repair the contract surgically; reproduce with the failing developer message plus a small batch of failure examples, then make small explicit edits — clarify conflicting rules, remove redundant lines — one change at a time:
+[CALIBRATION]: When a lane misbehaves, repair the contract surgically; reproduce with the failing developer message and a small batch of failure examples, then make small explicit edits — clarify conflicting rules, remove redundant lines — one change at a time:
 - Budget caps TOTAL tool calls, never per-file reads; per-file causes the lane to aggregate the territory into one truncating command and completeness collapses.
 - Ambiguity resolves by instruction, never by inviting questions — a headless lane has nobody to ask.
 - Autonomy states ONCE, naming safe actions — repeated "ask first" or "do not mutate" phrasing causes spurious approval pauses.
@@ -127,7 +127,7 @@ codex exec [-m <model>] [-c 'model_reasoning_effort="<tier>"'] [-c developer_ins
 - `-c developer_instructions="<lane law>"` lands the developer-role message — `-c` is the only CLI path, no flag exists.
 - Final message prints to stdout; banner and reasoning print to stderr, which every invocation routes to a per-run log — a failed or killed lane's only diagnostics live there.
 - Synchronous stdout capture is default — `out=$(codex exec … "<prompt>" </dev/null 2><stderr-log>)` — inside the 10-minute Bash ceiling; `-o` when backgrounding. `-o` materializes the final message at completion and overwrites its path, so it never points at a file the lane itself writes — the capture IS the report, or the lane's own write is and `-o` aims elsewhere; an empty `-o` file means the process was killed before completion.
-- Task and schema files land through a real file-write at ABSOLUTE paths, never a shell heredoc — cwd drift plus heredoc quoting results in lost files.
+- Task and schema files land through a real file-write at ABSOLUTE paths, never a shell heredoc — cwd drift and heredoc quoting result in lost files.
 
 | [INDEX] | [NEED]                                    | [FLAGS]                                                                        |
 | :-----: | :---------------------------------------- | :----------------------------------------------------------------------------- |
@@ -169,7 +169,7 @@ codex exec --json -o <report> \
 - A detached leg owns one ephemeral folder: `task.md`, `schema.json`, `report.json` (`-o`), `stderr.log`, `events.jsonl` (`--json`).
 - Purge stale report and stderr before launch, leftover reports read as instant completion carrying last run's data.
 - A bare `&` survives the launching shell; never prepend `nohup`.
-- One estate sink appends `"$@"` plus a timestamp to one fleet `events.log` — one ledger line per completion.
+- One estate sink appends `"$@"` and a timestamp to one fleet `events.log` — one ledger line per completion.
 - `turn.completed.usage` carries `input_tokens`, `cached_input_tokens`, `output_tokens`, `reasoning_output_tokens`, summed across lanes' events files.
 - Liveness is `pgrep -f "<report-basename>"`; health is not liveness, a quiet process with no report and near-zero CPU (`ps -p <pid> -o time=`) is WEDGED.
 - `notify` runs the sink at turn end with one JSON argument: `{"type":"agent-turn-complete","thread-id":…,"turn-id":…,"cwd":…,"client":"codex_exec","input-messages":[…],"last-assistant-message":…}`.
@@ -194,7 +194,7 @@ Inside ONE lane, `collaboration.*` is the subagent tool family — `spawn_agent`
 
 ## [07]-[SESSIONS]
 
-`codex archive <id>` / `unarchive <id>` is the reversible lifecycle; `codex delete` removes one session, its `--force` unreliable across spawned children — bulk cleanup is a date-scoped sqlite prune plus matching rollout deletions plus `VACUUM`. `[features] memories`/`chronicle` rows gate those features independently of corpus deletion.
+`codex archive <id>` / `unarchive <id>` is the reversible lifecycle; `codex delete` removes one session, its `--force` unreliable across spawned children — bulk cleanup is a date-scoped sqlite prune, matching rollout deletions, and `VACUUM`. `[features] memories`/`chronicle` rows gate those features independently of corpus deletion.
 
 [STORE]: one rollout per session at `~/.codex/sessions/<YYYY>/<MM>/<DD>/rollout-<ts>-<uuidv7>.jsonl`:
 - Filename timestamp is LOCAL time, the payload's is UTC.
@@ -208,4 +208,4 @@ Inside ONE lane, `collaboration.*` is the subagent tool family — `spawn_agent`
 
 ## [08]-[REVIEW]
 
-`codex review` runs an independent non-interactive review. Scope flags — `--uncommitted`, `--base <branch>`, `--commit <sha>` — are mutually exclusive with each other AND with a focus prompt: a prompt is valid only on bare `codex review`, and every focused scoped review routes through `codex exec` with an explicit diff task. A fleet-grade review lane runs `codex exec review` — the same scope flags plus `--json`, `-o`, and `--output-schema` typed findings, composing with the background keeper like any lane.
+`codex review` runs an independent non-interactive review. Scope flags — `--uncommitted`, `--base <branch>`, `--commit <sha>` — are mutually exclusive with each other AND with a focus prompt: a prompt is valid only on bare `codex review`, and every focused scoped review routes through `codex exec` with an explicit diff task. A fleet-grade review lane runs `codex exec review` — the same scope flags with `--json`, `-o`, and `--output-schema` typed findings, composing with the background keeper like any lane.

@@ -1,6 +1,8 @@
 # [SETTINGS]
 
-Settings are the enforcement and defaults layer: they bind regardless of what the model believes. Scope precedence runs managed, command line, local (`.claude/settings.local.json`), project (`.claude/settings.json`), user (`~/.claude/settings.json`). Merge law follows the value shape: a scalar key takes the narrowest scope's value wholesale, array-valued keys — `permissions.allow`, `sandbox.filesystem.allowWrite`, `claudeMdExcludes` — concatenate and deduplicate across scopes, and per-key maps such as `enabledPlugins` consult each key independently. Two arrays break the merge rule: `fallbackModel` takes the highest-precedence file whole, and `availableModels` replaces only when a managed source defines it. Managed rows are immovable; files hot-reload except `model` and `outputStyle`.
+Settings are the enforcement and defaults layer: they bind regardless of what the model believes. Scope precedence runs managed, command line, local (`.claude/settings.local.json`), project (`.claude/settings.json`), user (`~/.claude/settings.json`).
+
+Merge law follows the value shape: a scalar key takes the narrowest scope's value wholesale, array-valued keys — `permissions.allow`, `sandbox.filesystem.allowWrite`, `claudeMdExcludes` — concatenate and deduplicate across scopes, and per-key maps such as `enabledPlugins` consult each key independently. Two arrays break the rule: `fallbackModel` takes the highest-precedence file whole, and `availableModels` replaces only when a managed source defines it. Managed rows are immovable; files hot-reload except `model` and `outputStyle`.
 
 ## [01]-[PERMISSIONS]
 
@@ -20,11 +22,13 @@ Rules are `Tool` or `Tool(specifier)` strings evaluated deny, then ask, then all
 
 ## [02]-[MODEL_ROUTING]
 
-`/model` switches mid-session; `--model` and `ANTHROPIC_MODEL` bind one launch; the `model` setting persists. Aliases track the current provider-selected version — a full model name pins one, `ANTHROPIC_DEFAULT_OPUS_MODEL` and its per-alias siblings re-point what an alias resolves to, and `modelOverrides` adds or replaces picker rows. `opusplan` runs `opus` during plan mode and drops to `sonnet` for execution; `default` clears overrides. `availableModels` plus `enforceAvailableModels` allowlist what any surface resolves to, and `fallbackModel` catches overload. Two adjacent routing rows: `advisorModel` arms a second-model consult at key task moments (`/advisor`, `--advisor`; subagents inherit it), and `fastMode` trades cost for Opus speed (`/fast`), with `fastModePerSessionOptIn` resetting the choice each session from managed scope. Subagent resolution — `CLAUDE_CODE_SUBAGENT_MODEL`, per-invocation, frontmatter, inherited — lives with agent-dispatch.
+`/model` switches mid-session; `--model` and `ANTHROPIC_MODEL` bind one launch; the `model` setting persists. Aliases track the current provider-selected version — a full model name pins one, `ANTHROPIC_DEFAULT_OPUS_MODEL` and its per-alias siblings re-point what an alias resolves to, and `modelOverrides` adds or replaces picker rows. `opusplan` runs `opus` during plan mode and drops to `sonnet` for execution; `default` clears overrides. `availableModels` with `enforceAvailableModels` allowlists what any surface resolves to, and `fallbackModel` catches overload.
+
+Two adjacent routing rows: `advisorModel` arms a second-model consult at key task moments (`/advisor`, `--advisor`; subagents inherit it), and `fastMode` trades cost for Opus speed (`/fast`), with `fastModePerSessionOptIn` resetting the choice each session from managed scope. Subagent resolution — `CLAUDE_CODE_SUBAGENT_MODEL`, per-invocation, frontmatter, inherited — lives with agent-dispatch.
 
 ## [03]-[EFFORT]
 
-Effort binds adaptive reasoning per session: `low`, `medium`, `high`, `xhigh`, `max`, with availability model-dependent and an unsupported level falling to the highest supported one at or below it. Each model calibrates the scale, so a level name is not comparable across models. Set through `/effort`, `--effort`, the persisted `effortLevel` setting, or `CLAUDE_CODE_EFFORT_LEVEL`. `ultracode` is a harness mode, not a model level: it sends `xhigh` and plans a dynamic workflow for every substantive task, reachable through `/effort ultracode` or `--effort ultracode` but never through the persisted setting or environment variable.
+Effort binds adaptive reasoning per session: `low`, `medium`, `high`, `xhigh`, `max` — availability model-dependent, an unsupported level falling to the highest supported one below it, and each model calibrating the scale so a level name is not comparable across models. Set through `/effort`, `--effort`, the persisted `effortLevel` setting, or `CLAUDE_CODE_EFFORT_LEVEL`. `ultracode` is a harness mode, not a model level: it sends `xhigh` and plans a dynamic workflow for every substantive task, reachable only through `/effort ultracode` or `--effort ultracode`.
 
 ## [04]-[POWER_ROWS]
 
@@ -53,7 +57,9 @@ Effort binds adaptive reasoning per session: `low`, `medium`, `high`, `xhigh`, `
 
 ## [05]-[PLUGINS_AND_MCP]
 
-`enabledPlugins` keys as `plugin@marketplace`; `extraKnownMarketplaces` admits GitHub, git, and directory sources; `strictKnownMarketplaces` and `strictPluginOnlyCustomization` lock fleets to vetted sources. Registration scope law, the plugin cache, and LSP plugin anatomy are `plugins.md`'s. Project MCP servers declare in `.mcp.json` with approval governed by `enableAllProjectMcpServers`, `enabledMcpjsonServers`, and `disabledMcpjsonServers`; managed allow and deny lists (`allowedMcpServers`, `deniedMcpServers`) bind every scope including subagent frontmatter. User and local MCP state lives in `~/.claude.json`, outside the settings files. Two env rows are the context levers for MCP-heavy estates: `ENABLE_TOOL_SEARCH` defers tool schemas behind ToolSearch instead of loading them all at startup, and `MAX_MCP_OUTPUT_TOKENS` caps a single tool result.
+`enabledPlugins` keys as `plugin@marketplace`; `extraKnownMarketplaces` admits GitHub, git, and directory sources; `strictKnownMarketplaces` and `strictPluginOnlyCustomization` lock fleets to vetted sources. Registration scope law, the plugin cache, and LSP plugin anatomy are `plugins.md`'s.
+
+Project MCP servers declare in `.mcp.json` with approval governed by `enableAllProjectMcpServers`, `enabledMcpjsonServers`, and `disabledMcpjsonServers`; managed `allowedMcpServers` and `deniedMcpServers` bind every scope including subagent frontmatter, and user and local MCP state lives in `~/.claude.json`, outside the settings files. Two env rows are the context levers for MCP-heavy estates: `ENABLE_TOOL_SEARCH` defers tool schemas behind ToolSearch, and `MAX_MCP_OUTPUT_TOKENS` caps a single tool result.
 
 ## [06]-[INTERFACE]
 

@@ -10,7 +10,9 @@ A question earns its round only when all three hold:
 - Consequential: At least two options lead to materially different work. A question with one sane answer is a statement wearing a question mark — state it and move on.
 - Ranked: Among the undetermined and consequential, the question whose answer invalidates the most downstream decisions leads. Architecture outranks interface outranks wording, and the load-bearing question is asked first even when it is uncomfortable.
 
-Judgment classes rank the spend, highest blast first: an architecture fork (which stratum owns the capability, which owner splits or folds), a seam ruling (which side owns a cross-owner contract and what crosses it), a capability-bar ruling (which of a concept's arms are refused by design and which are gaps — absent consumers never lower the bar), an identity or data-shape ruling (key regime, schema, persistence semantics), then interface, then wording. Mechanical work — renames, moves, one-sane-form refactors — never spends a question unless it encodes one of these classes; it collapses below the decision surface as trusted execution.
+Judgment classes rank the spend, highest blast first: an architecture fork (which stratum owns the capability, which owner splits or folds), a seam ruling (which side owns a cross-owner contract and what crosses it), a capability-bar ruling (which arms are refused by design and which are gaps — absent consumers never lower the bar), an identity or data-shape ruling (key regime, schema, persistence semantics), then interface, then wording.
+
+Mechanical work — renames, moves, one-sane-form refactors — spends a question only when it encodes one of these classes; otherwise it collapses below the decision surface as trusted execution.
 
 Open on low-burden ground the user knows well, then lead with each thread's root before any question inside its branches.
 

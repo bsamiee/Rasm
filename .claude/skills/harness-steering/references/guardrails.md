@@ -4,7 +4,7 @@ Guardrails bind beneath permissions: the sandbox isolates Bash at the OS level, 
 
 ## [01]-[SANDBOX]
 
-`sandbox.enabled` wraps Bash in OS isolation — Seatbelt on macOS, bubblewrap plus socat on Linux (`sandbox.bwrapPath`, `sandbox.socatPath` when off the default PATH), no native Windows lane — and `/sandbox` inspects the live state. `sandbox.failIfUnavailable` hard-fails where the OS lane is missing instead of silently degrading. Sandbox schema binds three reaches:
+`sandbox.enabled` wraps Bash in OS isolation — Seatbelt on macOS, bubblewrap with socat on Linux (`sandbox.bwrapPath`, `sandbox.socatPath` when off the default PATH), no native Windows lane — and `/sandbox` inspects the live state. `sandbox.failIfUnavailable` hard-fails where the OS lane is missing instead of silently degrading. Sandbox schema binds three reaches:
 
 - [FILESYSTEM]: `sandbox.filesystem.allowRead`, `allowWrite`, `denyRead`, `denyWrite` take path rows whose `/`, `~/`, and `./` prefixes resolve as sandbox paths, not `Read`/`Edit` permission specifiers — the two grammars look alike and differ; `allowManagedReadPathsOnly` hands the read roster to managed scope.
 - [NETWORK]: `sandbox.network.allowedDomains` and `deniedDomains` gate egress, `tlsTerminate` inspects HTTPS at the proxy, `httpProxyPort` and `socksProxyPort` route through local proxies, and `allowManagedDomainsOnly` locks the domain list to managed scope.
@@ -14,7 +14,9 @@ Escape rows price every exception: `excludedCommands` runs named commands unsand
 
 ## [02]-[AUTO_MODE]
 
-`defaultMode: "auto"` routes unadjudicated commands through a background classifier; the `autoMode` block tunes it with prose rules, not specifiers. `allow`, `soft_deny`, and `hard_deny` arrays carry natural-language rules with `"$defaults"` splicing the shipped set into a custom list; `autoMode.environment` describes the machine so the classifier judges in context; `autoMode.classifyAllShell: true` routes every shell command through the classifier, including commands permission rules already allow. `autoMode` reads from user, local, and managed scopes and never from shared project settings — a repository cannot loosen its contributors' classifier. `claude auto-mode defaults`, `config`, and `critique` print the shipped rules, the effective merge, and a review of a candidate config; `permissions.disableAutoMode` removes the mode at managed scope.
+`defaultMode: "auto"` routes unadjudicated commands through a background classifier; the `autoMode` block tunes it with prose rules, not specifiers. `allow`, `soft_deny`, and `hard_deny` arrays carry natural-language rules with `"$defaults"` splicing the shipped set into a custom list; `autoMode.environment` describes the machine so the classifier judges in context; `autoMode.classifyAllShell: true` routes every shell command through the classifier, including commands permission rules already allow.
+
+`autoMode` reads from user, local, and managed scopes, never from shared project settings — a repository cannot loosen its contributors' classifier. `claude auto-mode defaults`, `config`, and `critique` print the shipped rules, the effective merge, and a review of a candidate config; `permissions.disableAutoMode` removes the mode at managed scope.
 
 ## [03]-[LOCKDOWN]
 

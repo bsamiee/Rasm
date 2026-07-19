@@ -6,7 +6,7 @@ Advanced grammar for flowchart, sequence, state, class, and ER; baseline node, e
 
 `@{ shape: name }` form and aliases resolve to canonical names (`database` = `cyl`). Complete shape registry with its aliases is the styling reference's property.
 
-An edge ID names one edge for animation and curve, never stroke: `A e1@--> B` then `e1@{ animate: true }` or `e1@{ animation: fast }`; per-edge curves through `e1@{ curve: linear }`. An edge ID is also a `classDef` target — `classDef pulse stroke:#FF79C6,stroke-dasharray:4 6` then `class e1 pulse` styles the edge stroke through the class system. Curve roster, the `linkStyle` dash-animation mechanics, fan-out, invisible links, and rank-span dashes are the styling reference's property. `datastore` (alias `data-store`) joins the shape registry from mermaid 11.15 as its own persistence shape beside `cyl`.
+An edge ID names one edge for animation and curve, never stroke: `A e1@--> B` then `e1@{ animate: true }` or `e1@{ animation: fast }`; per-edge curves through `e1@{ curve: linear }`. An edge ID is also a `classDef` target — `classDef pulse stroke:#FF79C6,stroke-dasharray:4 6` then `class e1 pulse` styles the stroke through the class system. Curve roster, `linkStyle` dash-animation mechanics, fan-out, invisible links, and rank-span dashes are the styling reference's property. `datastore` (alias `data-store`) rides the shape registry as its own persistence shape beside `cyl`.
 
 Icon and image shapes: `A@{ icon: "fa:user", form: "square", label: "User", pos: "t", h: 60 }` and `B@{ img: "<url>", w: 80, h: 60, constraint: "on" }`; `form` is `square`, `circle`, or `rounded` and `pos` is `t` or `b`; `constraint: on` locks aspect ratio, and an image shape distorts its node box without it. An icon resolves only against a pack registered at the renderer, never in frontmatter. Markdown strings and KaTeX (flowchart and sequence only) compose on the same node:
 
@@ -145,7 +145,9 @@ sequenceDiagram
     API-xCache: evict
 ```
 
-Lifecycle uses `create participant X`, the aliased variant `create actor D as Donald`, and `destroy X` mid-diagram. Grouping boxes wrap participants: `box rgb(33, 34, 44) Name ... end`, or `box transparent Name`, and `rect` background blocks nest. Async `-)`/`--)` sends terminate in the `-filled-head` marker, which the engine leaves unstyled — the family `themeCSS` stamps it onto the signal hue. Parallel and conditional blocks are `par ... and ... end`, `critical ... option ... end`, and `break ... end`. `autonumber` accepts a start and increment, decimal from mermaid 11.15: `autonumber 10.5 0.25`; `autonumber off` halts numbering, and a bare `autonumber` resumes it. A note takes a `:wrap:` or `:nowrap:` modifier as `Note over X:wrap: text`. Actor menus attach interactive links, live in interactive renderers only: `link Alice: Dashboard @ <url>` and `links Alice: {"Dashboard": "<url>"}`. KaTeX renders in participant names and messages.
+Lifecycle uses `create participant X`, the aliased `create actor D as Donald`, and `destroy X` mid-diagram. Grouping boxes wrap participants — `box rgb(33, 34, 44) Name ... end`, `box transparent Name` — and `rect` background blocks nest. Async `-)`/`--)` sends terminate in the `-filled-head` marker the engine leaves unstyled; the family `themeCSS` stamps it onto the signal hue. Parallel and conditional blocks are `par ... and ... end`, `critical ... option ... end`, and `break ... end`.
+
+`autonumber` accepts a start and increment, decimal included: `autonumber 10.5 0.25`; `autonumber off` halts numbering, a bare `autonumber` resumes. A note takes `:wrap:`/`:nowrap:` as `Note over X:wrap: text`. Actor menus attach interactive links, live in interactive renderers only: `link Alice: Dashboard @ <url>` and `links Alice: {"Dashboard": "<url>"}`. KaTeX renders in participant names and messages.
 
 [GOTCHAS]:
 - Balance every `+` activation with a `-` deactivation.

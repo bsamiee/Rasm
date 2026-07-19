@@ -41,6 +41,7 @@ class Check(StrEnum):
     FENCE_INTENT = "fence-intent"
     FENCE_LANGUAGE = "fence-language"
     FENCE_UNCLOSED = "fence-unclosed"
+    FILLER_WORD = "filler-word"
     GLYPH_BAN = "glyph-ban"
     GROUP_LABEL = "group-label"
     HEADING_ANCHOR = "heading-anchor"
@@ -55,8 +56,10 @@ class Check(StrEnum):
     LIST_WRAP = "list-wrap"
     META_PHRASE = "meta-phrase"
     NO_OP_WORD = "no-op-word"
+    PROSE_BLOAT = "prose-bloat"
     PROSE_WRAP = "prose-wrap"
     READ = "read"
+    ROUTER_WIDTH = "router-width"
     SECTION_DIVIDER = "section-divider"
     SECTION_WIDTH = "section-width"
     SELF_COUNT = "self-count"
@@ -98,6 +101,8 @@ COMMENT_STACK_CAP = 4
 COMMENT_WIDTH_CAP = 165
 LIST_CHAR_CAP = 500
 LIST_SENTENCE_CAP = 3
+PROSE_CHAR_CAP = 600
+PROSE_SENTENCE_CAP = 6
 ROSTER_SPAN_SHARE = 0.6
 SKILL_DESCRIPTION_CAP = 1024
 SKILL_DESCRIPTION_CEILING = 1536
@@ -271,9 +276,9 @@ NO_OP_WORD = re.compile(
     r"|state-of-the-art|best-in-class|world-class|powerful|utiliz(?:e|es|ed|ing)|comprehensive)\b",
     re.IGNORECASE,
 )
-# AI-register lexemes warn: puffery, significance theater, transition filler, and summary tails carry zero domain load; each hit
-# is delete-or-reframe, never synonym-swap. `leverage` names the estate's stacking hunt axis and `overall` legally grades shape
-# and structure — both stay off the roster.
+# AI-register lexemes warn: puffery, significance theater, transition filler, and summary tails carry zero domain load; each
+# hit is delete-or-reframe, never synonym-swap. `leverage` names the estate's stacking hunt axis and `overall` legally grades
+# shape and structure, and both stay off the roster.
 AI_LEXICON = re.compile(
     r"\b(?:delv(?:e|es|ed|ing)|tapestry|testament|pivotal|meticulous(?:ly)?|showcas(?:e|es|ed|ing)|multifaceted"
     r"|myriad|plethora|holistic|intricate|nuanced|vibrant|additionally|moreover|furthermore"
@@ -282,6 +287,12 @@ AI_LEXICON = re.compile(
 )
 # Copula avoidance warns: an identity claim states is/are/has; a serves-as apposition re-labels the surface without owning its concern.
 COPULA_AVOIDANCE = re.compile(r"\b(?:serves|stands|functions|operates)\s+as\b|\bboasts\b", re.IGNORECASE)
+# Additive filler fails: `plus` pads a clause it never joins. Cure is removal — delete the word with its comma, folding
+# its tail into the clause or a sibling entry; a swap to another additive connector re-lands the same defect. Hyphen
+# lookarounds spare compound tokens (`delete-plus-create`), which read as names, never connectors.
+FILLER_WORD = re.compile(r"(?<![\w-])plus(?![\w-])", re.IGNORECASE)
+# A label-led paragraph — `[LABEL] — prose` or `[LABEL]: prose` — is measured prose mass, never structure.
+LABELED_PARAGRAPH = re.compile(r"^\[[A-Z][A-Z0-9_]*\](?:-\[[A-Z][A-Z0-9_]*\])*(?: [–—] |: )\S")
 PATTERNS: tuple[tuple[Check, re.Pattern[str], Status], ...] = (
     (Check.HEDGE, HEDGE_WORDS, "fail"),
     (Check.HEDGE, MARKER_WORDS, "fail"),
@@ -298,6 +309,7 @@ PATTERNS: tuple[tuple[Check, re.Pattern[str], Status], ...] = (
     (Check.NO_OP_WORD, NO_OP_WORD, "warn"),
     (Check.AI_LEXICON, AI_LEXICON, "warn"),
     (Check.WEAK_VERB, COPULA_AVOIDANCE, "warn"),
+    (Check.FILLER_WORD, FILLER_WORD, "fail"),
 )
 
 
@@ -599,6 +611,10 @@ def lex(path: Path, text: str, cap: int) -> tuple[Document, tuple[Row, ...]]:
             continue
         if path.name == "README.md" and CARD_ROW.match(line) and len(line) > cap:
             rows.append(row(path, number, Check.FENCE_GEOMETRY, "fail", f"card row {len(line)} > cap {cap}"))
+        if not template and ROUTER_CARD.match(line) and len(line) > cap:
+            rows.append(
+                row(path, number, Check.ROUTER_WIDTH, "fail", f"router card {len(line)} cols > cap {cap}; one owner, one charter phrase — demote the tail")
+            )
         if heading := HEADING.match(line):
             headings.append(Heading(number, len(heading.group("level")), heading.group("title")))
             rubrics = re.findall(r"\[([A-Z][A-Z0-9_]*)\]", heading.group("title"))
@@ -685,6 +701,19 @@ def lex(path: Path, text: str, cap: int) -> tuple[Document, tuple[Row, ...]]:
         )
         if plain and plain_run:
             rows.append(row(path, number, Check.PROSE_WRAP, "warn", "hard-wrapped paragraph; write the paragraph as one logical line"))
+        if not template and (plain or LABELED_PARAGRAPH.match(stripped)):
+            sentence_count = len(SENTENCE_END.findall(" ".join(span.text for span in prose_spans(stripped, number))))
+            if len(stripped) > PROSE_CHAR_CAP or sentence_count > PROSE_SENTENCE_CAP:
+                rows.append(
+                    row(
+                        path,
+                        number,
+                        Check.PROSE_BLOAT,
+                        "warn",
+                        f"paragraph {len(stripped)} chars / {sentence_count} sentences past caps {PROSE_CHAR_CAP}/{PROSE_SENTENCE_CAP};"
+                        " cut 20-30% — kill sediment, tighten phrasing, split only where two concerns separate",
+                    )
+                )
         plain_run = plain
         n += 1
     if fence is not None:

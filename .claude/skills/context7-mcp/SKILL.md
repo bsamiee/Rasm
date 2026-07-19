@@ -15,7 +15,7 @@ Library questions resolve against live indexed documentation, never training dat
 
 ## [01]-[FLOW]
 
-- [RESOLVE]: `resolve-library-id` takes `libraryName` plus the full question as `query` for relevance ranking.
+- [RESOLVE]: `resolve-library-id` takes `libraryName` and the full question as `query` for relevance ranking.
 - [SELECT]: Selection ranks by closest name match, higher benchmark score, official over forks, and a version-specific ID when the task names one.
 - [QUERY]: `query-docs` takes the chosen `libraryId` and one single-concept question; a multi-concept question splits per concept, capped at three.
 - [APPLY]: Fetched signatures and examples land in the answer as verified fact; the library version rides along only when it changes the guidance.

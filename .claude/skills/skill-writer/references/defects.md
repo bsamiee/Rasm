@@ -226,7 +226,7 @@ A closing checklist of reminders stands where a machine gate belongs, so complet
 - Reason: A reminder is skipped or paraphrased under pressure; a gate command with an exit code is executed or visibly failed.
 - Reframe: Replace the tail with the concrete gate invocation, or delete it.
 
-Boundary: a checklist the body directs the model to copy into its response and tick as it advances is a PINNED-band progress tracker for a fragile multi-step workflow, not this defect — it is worked visibly during the run and gates each next step, where CHECKLIST_TAIL is a closing recital with no command, no exit code, and nothing copied forward. It is likewise not [03.6]-[LIFECYCLE_SCRIPT], which bans the generic think-plan-implement loop every task already runs; the tracker enumerates the one fragile domain sequence a generic agent drops mid-run. Price the three by use: recited at the end is the defect, the model's native loop restated is LIFECYCLE_SCRIPT, and the domain-fragile sequence carried live is the sanctioned tracker.
+Boundary: a checklist the body directs the model to copy into its response and tick as it advances is a PINNED-band progress tracker for a fragile multi-step workflow, not this defect — the tracker is worked visibly during the run and gates each next step, where CHECKLIST_TAIL is a closing recital with no command, no exit code, and nothing copied forward. Nor is it [03.6]-[LIFECYCLE_SCRIPT], which bans the generic think-plan-implement loop every task already runs; the tracker enumerates the one fragile domain sequence a generic agent drops mid-run.
 
 ### [03.8]-[SCRIPT_AS_PROSE]
 

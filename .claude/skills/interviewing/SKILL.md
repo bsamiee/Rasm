@@ -87,7 +87,7 @@ Every mode obeys the operating loop and differs in what it extracts and lands; s
 |  [06]   | `teach-me`       | user cannot evaluate or phrase     | vocabulary map        |
 |  [07]   | `notes`          | mid-build discovery strikes a plan | deviation ledger      |
 
-Each row's landing column is the default; the altitude law owns kind selection. Roadmap-altitude rulings compose a `roadmap-brief` from any mode, and a finding stating a standing capability fact lands as a `capability-entry` row from any pass. A trigger word never overrides the entry test: a mode invoked while its entry condition fails re-routes to the mode whose condition holds — a wargame call with no direction fan enters `brainstorm` to generate one, a quiz call on unsealed work returns to the build, a brainstorm call against a committed direction interrogates the commitment as an `interview` thread instead of refanning it.
+Each row's landing column is the default; the altitude law owns kind selection. Roadmap-altitude rulings compose a `roadmap-brief` from any mode; a standing capability fact lands as a `capability-entry` row from any pass. A trigger word never overrides the entry test: a mode invoked while its entry condition fails re-routes to the mode whose condition holds — a wargame call with no direction fan enters `brainstorm`, a quiz call on unsealed work returns to the build, a brainstorm call against a committed direction interrogates the commitment as an `interview` thread.
 
 ## [06]-[QUESTION_LAW]
 

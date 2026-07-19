@@ -162,7 +162,7 @@ _build_key() {
 }
 ```
 
-`printf -v` writes to the variable in the CURRENT scope — not a subshell. This means `local -n` namerefs compose with `printf -v` for zero-allocation output. `${var@Q}` is the PE equivalent of `printf '%q'` — use PE form in expansion contexts, `printf -v` form when building into a separate variable. Bash `5.3+` `${ cmd; }` is the third fork-free capture mechanism — use when the producer is a function (not a format string), since `printf -v` cannot capture another function's stdout. `printf -v TRACE_ID '%08x%08x%08x%08x' "${SRANDOM}" "${SRANDOM}" "${SRANDOM}" "${SRANDOM}"` generates 128-bit hex identifiers from CSPRNG without forking `uuidgen` or reading `/dev/urandom`.
+`printf -v` writes into the CURRENT scope, never a subshell. `local -n` namerefs compose with `printf -v` for zero-allocation output. `${var@Q}` is the PE equivalent of `printf '%q'` — use PE form in expansion contexts, `printf -v` form when building into a separate variable. Bash `5.3+` `${ cmd; }` is the third fork-free capture — for function producers, since `printf -v` cannot capture another function's stdout. `printf -v TRACE_ID '%08x%08x%08x%08x' "${SRANDOM}" "${SRANDOM}" "${SRANDOM}" "${SRANDOM}"` mints 128-bit hex ids from CSPRNG without forking `uuidgen` or reading `/dev/urandom`.
 
 ## [04]-[CODEC_PATTERNS]
 

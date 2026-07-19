@@ -15,12 +15,12 @@ description: >-
 
 # [SKILL_WRITER]
 
-A skill is deployed law plus packaged capability: the description competes for selection in every session, the body competes with the task's own context once loaded, and every bundled file is either routed capability or dead weight.
+A skill is deployed law and packaged capability: the description competes for selection in every session, the body competes with the task's own context once loaded, and every bundled file is either routed capability or dead weight.
 
 ## [01]-[ROUTING]
 
 [REFERENCES]:
-- [01]-[ANATOMY](references/anatomy.md): bundle anatomy — tiers, file kinds, template and example doctrine, root schema, frontmatter policy, freedom calibration
+- [01]-[ANATOMY](references/anatomy.md): bundle anatomy — tiers, file kinds, templates, root schema, frontmatter policy, freedom calibration
 - [02]-[TRIGGERS](references/triggers.md): trigger science, listing economics, invocation modes, description tuning
 - [03]-[DEFECTS](references/defects.md): authoring defect catalog, each class with its copyable repair
 
@@ -41,7 +41,7 @@ A skill is deployed law plus packaged capability: the description competes for s
 
 ## [03]-[EVALS]
 
-A skill is proven, never assumed, and the eval precedes the body: a baseline run without the skill demonstrates the gap the body exists to close before extensive law is authored. Trigger evals show it fires on the tasks it owns and stays silent on its neighbors; adherence evals show the loaded body changes output against the baseline; a body rule that never changes an output across the suite is dead weight and is deleted. Self-preference bias is empirical, so the generator never judges its own bundle: grading runs in a fresh context or a second lens against transcripts, never the author's read of its own artifact. Evals ride the estate's ruled model alone; the estate model law overrides the multi-model sweep.
+A skill is proven, never assumed: a baseline run without the skill proves the gap the body closes before law is authored. Trigger evals show it fires on the tasks it owns and stays silent on its neighbors; adherence evals show the loaded body changes output, and a rule that never changes an output across the suite is dead weight, deleted. Self-preference bias is empirical: grading runs in a fresh context or a second lens against transcripts, never the author's read of its own artifact. Evals ride the estate's ruled model alone, overriding the multi-model sweep.
 
 ## [04]-[GATE]
 

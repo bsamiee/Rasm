@@ -1,11 +1,11 @@
 # [MODES]
 
-Each mode is the operating loop specialized to one extraction; the card carries entry, grounding scope, named stages, and what lands. Stages chain by input: every stage names the prior stage's product as its declared input and carries the exit test that gates the next, so a card reads as a conveyor from grounding to landing. A stage whose input cannot reach its exit diverges by the branch the card names, never an unbounded retry of the same stage. Ephemeral working forms are declared inline; durable kinds carry their contracts in the skill entry's kinds table and compose as their html-studio types.
+Each mode is the operating loop specialized to one extraction; the card carries entry, grounding scope, named stages, and what lands. Stages chain by input: every stage names the prior stage's product as its declared input and carries the exit test that gates the next. A stage whose input cannot reach its exit diverges by the branch the card names, never an unbounded retry. Ephemeral working forms are declared inline; durable kinds carry their contracts in the skill entry's kinds table and compose as their html-studio types.
 
 ## [01]-[INTERVIEW]
 
 - Enter: Requirements ambiguous, contradictory, or living in the user's head; a brief, spec, or roadmap about to be authored from a thin prompt.
-- Ground: Axes the request touches, plus the user's starting position — what they explored, tried, and rejected; the product is the confrontation set of verified anchors.
+- Ground: Axes the request touches and the user's starting position — what they explored, tried, and rejected; the product is the confrontation set of verified anchors.
 - Start: Establish the user's position from the confrontation set, drawing out what they built, tried, and already rejected (exit: the dump repeats known facts and surfaces no new constraint, option, or position).
 - Frame: Route every unknown the dump named to its bucket, running blindspot or brainstorm first where their signals dominate (exit: each bucket with signal is covered and the interview retains only residual known unknowns).
 - Thread: Per residual learning target, plan the branch tree — the load-bearing question anchored in the confrontation set, and for each anticipated answer the follow-on it opens down to the terminal ruling (exit: three targets each carry a tree whose root question is undetermined, consequential, and ranked).

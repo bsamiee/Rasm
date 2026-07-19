@@ -55,7 +55,7 @@ A mega bullet is a compressed section wearing a hyphen: a law, its mechanism, tw
 A rewrite is done only when it survives every test; failing any one means the frame leaked through.
 
 - [COLD_READ]: A fresh agent reading only the result cannot reconstruct the source's structure, emphasis, or history — no seam shows where the old frame was.
-- [REGENERATION]: Every surviving sentence is law an agent cannot regenerate from disk plus stated invariants; everything regenerable is fenced or gone.
+- [REGENERATION]: Every surviving sentence is law an agent cannot regenerate from disk and stated invariants; everything regenerable is fenced or gone.
 - [REGISTER]: Every law sentence has an owning subject and owning verb; no sentence's subject is a forbidden alternative, a consumer count, a process artifact, or the document itself, and no sentence freezes, seals, or legislates a count against rebuild.
 - [VOLUME]: A finished rewrite carries fewer lines than the source with zero payload lost — the demotion count proves the payload moved. A rewrite that grew re-imported frame; a rewrite that shrank by dropping mechanism destroyed capability.
 

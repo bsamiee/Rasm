@@ -5,7 +5,7 @@ Fixer-lane dispatch form: one detached codex CLI process per lane, lane law on t
 On a prose corpus the lane-law `<corpus-idiom>` slot fills with the register projection embedded whole — a codex lane loads no skills, so a docgen pointer is inert; docgen stays the register owner and this is its task-scoped projection: every law sentence seats the owning subject with an ownership verb (mints, owns, folds, binds, admits, rejects) — supports/offers/provides rewrites to total ownership; no hedge, future-gate, narration, or process reference; one owner per fact — a second prose copy collapses to a pointer naming the owner and one consumed symbol; a nameable surface is a code span in its exact verified spelling; a frozen roster, count, or corpse litany cures to the extension rule stated where the anchor stood; every word load-bearing — identical law in a third fewer tokens, zero capability lost.
 
 Every judgment a Claude lane reaches by loaded doctrine fills for codex as an explicit decision rule; two fill rules are round-proven:
-- `<verification>` fills with the territory's exact suffix-to-check table — the batched prose gate for `.md`, `uv run ruff check` plus `uv run ty check` for `.py`, `shellcheck` for `.sh`, `swiftc -typecheck` for `.swift`, the bundle's own `scripts/` validator where one ships — one batched run after the final edit, and a suffix absent from the table gets no invented check.
+- `<verification>` fills with the territory's exact suffix-to-check table — the batched prose gate for `.md`, `uv run ruff check` and `uv run ty check` for `.py`, `shellcheck` for `.sh`, `swiftc -typecheck` for `.swift`, the bundle's own `scripts/` validator where one ships — one batched run after the final edit, and a suffix absent from the table gets no invented check.
 - Verdict evidence names itself per ledger row: `already_resolved` cites the current-disk content that resolves it; `pushed-back` carries its refuting citation; a version or payload currency claim lands only after its live oracle confirms the value, an unconfirmed one riding the `uncertain` row instead of a guessed edit; a finding carrying two independent claims adjudicates each, the note naming both verdicts.
 - A collapse or densification proves winner-completeness in its note: every decision, path, and precedence rule the collapsed copy carried is named with its surviving line, and a fact with no surviving line blocks the collapse — round-proven: a codex lane claimed "mechanics remain on the owners" while three custody facts survived nowhere.
 
@@ -29,7 +29,7 @@ codex exec [-m <model>] [-c 'model_reasoning_effort="<tier>"'] \
 
 ## [02]-[TASK_MESSAGE]
 
-Every task message carries the instance plus the imperative miner-spawn step on the user prompt, because the injected spawn gate hears ONLY that channel: permissive wording ("you may spawn") fails it, and imperative wording naming the exact tools — `collaboration.spawn_agent`, `collaboration.wait_agent` — passes it. Spawn tasks spell the lane-law mining charges whole, since a spawned miner never sees the lane law.
+Every task message carries the instance and the imperative miner-spawn step on the user prompt, because the injected spawn gate hears ONLY that channel: permissive wording ("you may spawn") fails it, and imperative wording naming the exact tools — `collaboration.spawn_agent`, `collaboration.wait_agent` — passes it. Spawn tasks spell the lane-law mining charges whole, since a spawned miner never sees the lane law.
 
 ```markdown template
 <task>

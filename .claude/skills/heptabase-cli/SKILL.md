@@ -12,7 +12,7 @@ Manage Heptabase knowledge base content through the local CLI; every read and wr
 
 ## [01]-[ROUTING]
 
-- [01]-[CARD_CONTENT_SCHEMA](references/card-content-schema.md): mandatory read before any ProseMirror save payload or extension-bearing Markdown; mentions, dates, videos, math
+- [01]-[CARD_CONTENT_SCHEMA](references/card-content-schema.md): mandatory read before any ProseMirror save payload or extension-bearing Markdown.
 - [02]-[PROPERTY_VALUES](references/property-values.md): mandatory read before any property write; value formats by type, relation write semantics
 - [03]-[FILE_READING](references/file-reading.md): file listing and export from PDF and media cards
 - [04]-[PDF_READING](references/pdf-reading.md): parsed PDF page metadata and page-range reads
@@ -37,7 +37,7 @@ heptabase note create --help
 
 - [DESKTOP_APP_MUST_BE_RUNNING]: Every command reaches a local server in the app, so a closed app fails all; `heptabase start` launches to readiness.
 - [MUTATIONS_ARE_SERIALIZED]: Every mutating command serializes server-side to prevent conflicts; reads run concurrent.
-- [REQUEST_BOUNDS]: Oversized request bodies reject and stalled sends time out server-side, so bulk content lands as multiple `append` passes, never one giant body.
+- [REQUEST_BOUNDS]: Oversized request bodies reject and stalled sends time out server-side, bulk content lands as multiple `append` passes, never one giant body.
 
 ## [05]-[BOUNDARIES]
 

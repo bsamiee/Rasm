@@ -154,7 +154,7 @@ Law stated as an inventory of forbidden alternatives with the positive rule buri
 
 ## [16]-[IMPORTED_POSTURE]
 
-A corpus adopting a foreign authority's posture toward its own ruled standard: an upstream maturity label (`experimental`, `beta`) on a capability the corpus rules standard, the ecosystem's default presented as the default here, a fallback or safe alternative named beside the ruling, probationary ceremony on the ruled path, setup caveats the operating environment already resolves, and defect facts arranged as an indictment of the ruling. Authority inversion is the driver: the source's register survives into law, so the document serves the upstream's risk posture instead of the ruling it exists to state.
+A corpus adopting a foreign authority's posture toward its own ruled standard: an upstream maturity label (`experimental`, `beta`) on a ruled capability, the ecosystem's default presented as the default here, a fallback or safe alternative named beside the ruling, probationary ceremony on the ruled path, setup caveats the environment already resolves, defect facts arranged as an indictment of the ruling. Authority inversion drives it: the source's register survives into law, and the document serves the upstream's risk posture instead of the ruling it exists to state.
 
 - Detection: A register the ruling never produced — a maturity label, a named alternative, selective ceremony, or a foreign-environment caveat attached to a ruled standard; the generalized tell is any sentence whose deference points outside the corpus.
 - Rejected: The engine stays experimental — a diagram ships only after its render is inspected, and the shared renderer is the fallback when a defect bites.

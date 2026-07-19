@@ -111,7 +111,7 @@ flowchart TD
 ```
 
 - A flowchart takes ELK through `layout: elk` or `flowchart.defaultRenderer: elk`; swimlane consumes only the `flowchart.defaultRenderer: elk` route into its own layout.
-- Dagre is the engine's unset-layout behavior, never this corpus's declaration; `flowchart TD` with `dagre-d3` is rejected by the detector, and legacy `graph TD` plus `dagre-d3` exists only as an engine boundary fact.
+- Dagre is the engine's unset-layout behavior, never this corpus's declaration; `flowchart TD` with `dagre-d3` is rejected by the detector, and legacy `graph TD` under `dagre-d3` exists only as an engine boundary fact.
 - ELK routes orthogonally on its own and overrides the curve selector with a fixed rounded joint over its bend points, so `flowchart.curve` never shapes an ELK route; the corpus still declares `flowchart.curve: linear` because it holds the elbow posture wherever a host lacks the ELK loader and falls back to dagre.
 - Unified state, class, and ER renderers pass `layout: elk` through when a host registers the loader, but only flowchart falls back to dagre when the loader is missing — the other families hard-require it, so only flowchart fences declare `layout: elk` and every other family stays on its own engine for portability.
 
@@ -130,7 +130,7 @@ ELK engine facts, each carrying its authoring rule:
 - `mergeEdges: true` fuses edges sharing a routing corridor into a common trunk — railed edges into one target can lose their own colors and their `--x`/`--o` end markers, so only a mono-rail diagram may declare it.
 - `nodeSpacing` and `rankSpacing` are inert under ELK — density tunes through `nodePlacementStrategy` and the split move, never those keys.
 - An edge may target a subgraph id, landing its arrowhead on the cluster boundary — the styling reference owns the fan-to-foundation recipe built on it.
-- A cluster-target skip edge can make ELK's cycle breaking re-rank the top stratum to the bottom, and `cycleBreakingStrategy: MODEL_ORDER` never rescues a cluster-edge cycle — the repair is declaration order plus an invisible `~~~` rank pin between a top-stratum member and a lower-stratum member.
+- A cluster-target skip edge can make ELK's cycle breaking re-rank the top stratum to the bottom, and `cycleBreakingStrategy: MODEL_ORDER` never rescues a cluster-edge cycle — the repair is declaration order and an invisible `~~~` rank pin between a top-stratum member and a lower-stratum member.
 - A nested subgraph title wider than its content overflows the parent — a subgraph title stays shorter than its member row.
 - `subGraphTitleMargin` displaces edge labels — the key stays out of ELK diagrams.
 - An inner subgraph `direction` holds while the block is closed and drops the moment any member links outside it — the containers rule owned by the styling reference.
@@ -142,7 +142,9 @@ Architecture layout is fcose, tuned under `architecture:` — `nodeSeparation`, 
 
 ## [03]-[LOOK]
 
-`look` selects `classic`, `handDrawn`, or `neo`, and `handDrawnSeed` pins hand-drawn jitter. Every themed fence declares `look: classic` explicitly: the neo look stamps `data-look="neo"` on nodes and clusters and styles them with a gradient-URL stroke and a full-opacity light-gray drop shadow through the theme's `useGradient` and `dropShadow` variables — the gradient border and white halo a neo-default host paints onto an undeclared fence. Frontmatter `look` outranks any host `initialize` look, `useGradient: false` and `dropShadow: "none"` disarm the two variables under any look, and the `filter:none!important` belt in the family `themeCSS` strings closes the cascade; the border canon in the theming reference owns this four-layer lock. Schema themes are `default`, `base`, `dark`, `forest`, `neutral`, `neo`, `neo-dark`, `redux`, `redux-dark`, `redux-color`, and `redux-dark-color`. Theme selection and `themeVariables` palette work ride the same frontmatter `config:` block, owned by the theming reference — only `base` accepts `themeVariables`.
+`look` selects `classic`, `handDrawn`, or `neo`; `handDrawnSeed` pins hand-drawn jitter. Every themed fence declares `look: classic`: neo stamps `data-look="neo"` on nodes and clusters with a gradient-URL stroke and full-opacity drop shadow via `useGradient` and `dropShadow` — the halo a neo-default host paints onto an undeclared fence. Frontmatter `look` outranks any host `initialize` look, `useGradient: false` and `dropShadow: "none"` disarm both under any look, and the family `themeCSS` `filter:none!important` belt closes the cascade; the theming border canon owns the four-layer lock.
+
+Schema themes are `default`, `base`, `dark`, `forest`, `neutral`, `neo`, `neo-dark`, `redux`, `redux-dark`, `redux-color`, and `redux-dark-color`; theme selection and `themeVariables` palette work ride the same frontmatter `config:` block, owned by the theming reference — only `base` accepts `themeVariables`.
 
 ## [04]-[ACCESSIBILITY]
 
@@ -160,7 +162,7 @@ mmdc -i - -o - -e svg
 ```
 
 - Format derives from the output extension (`.svg`, `.png`, `.pdf`); `-b` sets background, `-s` a fractional raster scale, `-w`/`-H` the viewport, `-j` parallel jobs in markdown mode.
-- `--theme` exposes only `default`, `forest`, `dark`, and `neutral`; `base` plus `themeVariables` and every schema theme require `--configFile` JSON.
+- `--theme` exposes only `default`, `forest`, `dark`, and `neutral`; `base` with `themeVariables` and every schema theme require `--configFile` JSON.
 - `--iconPacks @iconify-json/<pack>` fetches over the network; `iconPacksNamesAndUrls` in the CLI config maps pack names to `file://` or internal URLs, so a deterministic render never touches unpkg.
 - CLI loads KaTeX and FontAwesome CSS, registers ELK and zenuml, and waits on `document.fonts` before render.
 

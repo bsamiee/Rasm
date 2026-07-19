@@ -2,7 +2,7 @@
 
 Each interrogation axis names where an unknown-unknown hides and how it is hunted. Every grounding pass selects the axes the request touches, runs each axis's probe, verifies every candidate on disk, and records survivors as confrontation-set entries. An axis that comes back clean is recorded clean; absence of findings is a finding.
 
-Each axis carries one card: Definition (the pathology), Probe (what to read or sweep, phrased as a leg a delegation runs over a subtree or a seam spine), Question (the shape that confronts the user with a named anchor), Evidence (what confirms a hit before it enters a question). Each section label is the axis token — it names the axis in confrontation-set entries and in blindspot-ledger leaders, and the token is the axis identity every confrontation row and ledger leader binds; the two-digit ordinal orders the reading families alone, so a new axis joins its family, takes an ordinal, and reorders the tail without drifting a single reference.
+Each axis carries one card: Definition (the pathology), Probe (what to read or sweep, phrased as a leg a delegation runs over a subtree or a seam spine), Question (the shape that confronts the user with a named anchor), Evidence (what confirms a hit before it enters a question). Each section label is the axis token — the identity every confrontation row and ledger leader binds; the two-digit ordinal orders the reading families alone, so a new axis joins its family, takes an ordinal, and reorders the tail without drifting a single reference.
 
 Axes read in families — ownership; identity, inverse, and seam; topology and grain; time and growth; custody and proof; premise and omission — and a selection pass touches the family before the axis; the cards run in that order. A cross-cutting set hunts across owners rather than inside one — CONSERVATION, IDENTITY, ROUNDTRIP, TOUCH_POINT, TEMPORAL, and LAYERING — so a single-subtree probe records them clean while a split-brain hides across the seam; the scaling law carries them on seam-spine legs.
 
@@ -13,7 +13,9 @@ Axes read in families — ownership; identity, inverse, and seam; topology and g
 - [<AXIS>]: <path>:<line> ⇄ <path>:<line> — <the-fact-and-how-the-two-ends-diverge>
 ```
 
-[SCALING] — A corpus past one reading budget partitions on two dimensions at once. Subtree legs at unit grain carry the local axes over one folder subtree; seam-spine legs carry the cross-cutting axes along one identity, wire, persistence, runtime, or host spine end to end, because a split-brain only shows where the probe crosses owners. Each leg reads its slice's index docs in full, samples implementation pages, and returns confrontation rows — with the mirror anchor where its axis is cross-cutting — plus its clean-axis list. Interviewer merges, dedupes by anchor pair, and re-verifies any row it embeds in a question. A cross-cutting axis assigned only to subtree legs is a partition defect: it reports clean while the seam it never traversed hides the finding.
+[SCALING] — A corpus past one reading budget partitions two ways: subtree legs carry the local axes over one folder subtree; seam-spine legs carry the cross-cutting axes along one identity, wire, persistence, runtime, or host spine. Each leg reads its slice's index docs in full, samples implementation pages, and returns confrontation rows — mirror anchor on cross-cutting axes — and its clean-axis list. Interviewer merges, dedupes by anchor pair, and re-verifies any row it embeds in a question.
+
+A cross-cutting axis assigned only to subtree legs is a partition defect: it reports clean while the seam it never traversed hides the finding.
 
 ## [01]-[STRUCTURE]
 

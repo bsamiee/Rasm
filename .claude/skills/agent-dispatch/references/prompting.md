@@ -45,7 +45,7 @@ Every dispatcher rewrites rough intent into the scoped task before spawning: a r
 
 ## [05]-[META_DELEGATION]
 
-A worker delegates further only when its own task splits and the intermediate noise has no value upstream. Its dispatcher authorizes this explicitly: grant `Agent` in the worker's tools, then write the split policy into its prompt — the decomposition axis, what each child owns, each child's return contract, and the depth budget remaining under the five-level ceiling. A worker left to improvise delegation either never spawns (losing the isolation win) or spawns ungoverned children whose reports it cannot consolidate. Throwaway grandchildren absorb search noise and return verdicts; the specialist parent keeps its window for synthesis.
+A worker delegates further only when its own task splits and the intermediate noise has no value upstream. Its dispatcher authorizes this explicitly: grant `Agent` in the worker's tools, then write the split policy into its prompt — the decomposition axis, what each child owns, each child's return contract, and the remaining depth budget. A worker left to improvise either never spawns, losing the isolation win, or spawns ungoverned children it cannot consolidate; throwaway grandchildren absorb search noise and return verdicts while the specialist parent keeps its window for synthesis.
 
 ## [06]-[TEAMMATES]
 

@@ -37,5 +37,5 @@ Plugins form one global registry per user with per-scope enablement flags: marke
 ## [05]-[ESTATE]
 
 - `forge-lsp` is the estate's directory marketplace, mastered at Forge `.claude/lsp-marketplace/` — one catalog of single-server plugins, commands as bare PATH names riding the Home Manager profile. Sibling repos declare no marketplace and no enablement rows; the user scope owns both.
-- User-scope `forge-lsp` registration carries `autoUpdate: true`, so session starts refresh the catalog; a master edit still lands in running state only after `claude plugin update <plugin>@forge-lsp` (or the next session start) plus `/reload-plugins`.
+- User-scope `forge-lsp` registration carries `autoUpdate: true`, so session starts refresh the catalog; a master edit still lands in running state only after `claude plugin update <plugin>@forge-lsp` (or the next session start) and `/reload-plugins`.
 - `nixd-lsp` is the one machine-coupled plugin: its flake evals route through the `git+file://` scheme against the Forge checkout. Every other plugin is path-portable.

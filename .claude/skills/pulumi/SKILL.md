@@ -24,7 +24,7 @@ Pulumi creates and manages cloud infrastructure — virtual machines, storage, K
 |  [02]   | L2      | Pulumi project in a host language | Multiple related resources                    |
 |  [03]   | L3      | Pulumi Cloud governance layer     | Governance and hosted runs                    |
 
-A single-bucket request in a directory with no Pulumi project is an L1 task — no project scaffolding. A VPC with subnets and a cluster is L2 from the start. Nightly drift detection on an existing stack is L3. Converting Terraform, CloudFormation, CDK, ARM, or Bicep code is `pulumi convert` plus the docs at https://www.pulumi.com/docs/iac/adopting-pulumi/, independent of the level model.
+A single-bucket request in a directory with no Pulumi project is an L1 task — no project scaffolding. A VPC with subnets and a cluster is L2 from the start. Nightly drift detection on an existing stack is L3. Converting Terraform, CloudFormation, CDK, ARM, or Bicep code is `pulumi convert` guided by https://www.pulumi.com/docs/iac/adopting-pulumi/, independent of the level model.
 
 Level choice requires knowing what is already on disk: inspect the filesystem first, and in a restricted context ask before any Pulumi command runs — a command that requires a login silently provisions a new agent account parallel to one the operator already owns.
 
@@ -53,7 +53,7 @@ pulumi do <pkg:mod:type> list [flags]
 - `delete <id>` is irreversible — explicit operator confirmation of the specific resource precedes `--yes`, never a non-interactive default.
 - `list` enumerates existing instances where the resource type implements listing.
 
-First invocation in an agent context without saved credentials may provision an ephemeral agent account and print a claim banner to stderr. Surface the claim URL to the operator immediately and again in the final response — a session ending without it strands resources. On authentication failure, ask the operator to run `pulumi login`; never fall back to `pulumi login --local` or set `PULUMI_CONFIG_PASSPHRASE`. Provider credentials are separate and arrive through the provider's native environment variables (`AWS_PROFILE`, `CLOUDFLARE_API_TOKEN`, `GOOGLE_APPLICATION_CREDENTIALS`); when absent, ask before any command that calls out to the cloud.
+First invocation without saved credentials provisions an ephemeral agent account and prints a claim banner to stderr; surface the claim URL to the operator immediately and again in the final response — a session ending without it strands resources. On authentication failure, ask the operator to run `pulumi login`; never fall back to `pulumi login --local` or set `PULUMI_CONFIG_PASSPHRASE`. Provider credentials arrive separately through the provider's native environment variables (`AWS_PROFILE`, `CLOUDFLARE_API_TOKEN`); when absent, ask before any command that calls out to the cloud.
 
 When a `Pulumi.yaml` project already manages a resource, changes go through the program — never `pulumi do`.
 

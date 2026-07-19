@@ -80,7 +80,7 @@ A massive subject grows under hierarchy — composites, subgraphs, summarizing n
 
 Every visual channel is spent deliberately; a channel spent twice on one meaning, or once on two meanings, is a defect.
 
-- Shape carries kind, color carries category or status, stroke carries state, edge style carries relation modality, text carries exact semantics — and critical meaning lands twice, text plus one visual form.
+- Shape carries kind, color carries category or status, stroke carries state, edge style carries relation modality, text carries exact semantics — and critical meaning lands twice: text and one visual form.
 - A `subgraph` asserts membership; a color class asserts a distributed category; both together assert two real memberships, never reinforcement. A node enclosed for visual neatness reads as a member — the enclosure is the claim.
 - Six categorical classes bound a diagram; past six the category moves to labels, groups, or a split. Every color-coded meaning carries a redundant encoding, so the diagram survives grayscale and color-blind readers.
 - Node labels are noun phrases with the discriminating word first; edge labels are verb phrases; direct labels beat legends — a legend is a lookup jump forced on every read.

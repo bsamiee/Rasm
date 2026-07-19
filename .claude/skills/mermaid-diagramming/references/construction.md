@@ -37,7 +37,7 @@ Each diagram type answers one question with a bounded mark vocabulary. Per type:
 - Message: one protocol step its sender can actually initiate.
 - Signal: causality and ownership — every request visibly paired with its return, and the activation bars showing exactly who holds the work at every instant.
 - Method:
-    1. Pick one scenario, happy path plus at most one fault split.
+    1. Pick one scenario: happy path and at most one fault split.
     2. Order participants left-to-right by first touch.
     3. Write messages as verb phrases carrying the payload name.
     4. Add activation only where lifetime matters.
@@ -63,7 +63,7 @@ Each diagram type answers one question with a bounded mark vocabulary. Per type:
 [STATE]:
 - Question: which modes an entity occupies and which events move it.
 - State: a mode the system rests in, observable between events.
-- Transition: an event plus optional guard; guards leaving one state stay disjoint.
+- Transition: an event with an optional guard; guards leaving one state stay disjoint.
 - Signal: the guard vocabulary — which event moves which mode and what makes every exit deterministic; the states are the given, the guards are the knowledge.
 - Method:
     1. Enumerate resting modes first, rejecting any activity.

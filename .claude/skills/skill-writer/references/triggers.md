@@ -6,7 +6,7 @@ Selection is a one-shot classification over name and description alone, run agai
 
 Description construction runs in fixed order because truncation eats from the tail:
 - [DELIVERABLE]: First clause names what the skill produces or owns, as a total claim — the one fact that survives every truncation. It names the deliverable, never the procedure: the method lives in the body alone.
-- [DISCRIMINANTS]: Concrete objects and verbs that select the skill — file kinds, fence kinds, commands, artifact names, verb-plus-object trigger contexts. Precision comes from discriminating nouns, never from breadth or synonym volume.
+- [DISCRIMINANTS]: Concrete objects and verbs that select the skill — file kinds, fence kinds, commands, artifact names, verb-object trigger contexts. Precision comes from discriminating nouns, never from breadth or synonym volume.
 - [UTTERANCES]: Quoted user phrasings that select the skill even when the domain noun is absent — the phrases a task actually arrives wearing.
 - [BOUNDARY]: Adjacent deliverable the skill refuses, named last, naming the owning sibling where one exists.
 

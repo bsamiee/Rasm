@@ -8,7 +8,7 @@ description: >-
 
 # [<SKILL_TOKEN>]
 
-<charter-lead: the deployed law plus packaged capability in one or two dense sentences, no routing links, a cross-skill pointer naming the sibling in prose only>
+<charter-lead: the deployed law and packaged capability in one or two dense sentences, no routing links, a cross-skill pointer naming the sibling in prose only>
 
 ## [01]-[ROUTING]
 

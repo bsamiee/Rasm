@@ -28,7 +28,9 @@ end run
 
 ## [02]-[OUTPUT_AND_ENVELOPE]
 
-Serialization mode follows the payload's shape. An OSA structure — an AppleScript list, record, or nested value — binds `-s s`, which prints recompilable source-like values, because the default `-s h` display form collapses distinct list and record shapes into identical text. A JXA `JSON.stringify` envelope is already text, so its transport rides the default serialization, which passes the returned string to stdout verbatim; `-s s` on that path re-quotes the envelope into a source literal and breaks the caller's parse. `-s e` keeps script errors on stderr; `-s o` routes them to stdout, so a golden test asserts the serialized OSA error text as the primary value and never a specific exit code. Shell quoting stays inside the wrapper and never enters the script body — untrusted data crosses through argv. A JXA `run` handler's return value is the sole stdout payload; every diagnostic routes to stderr through `console.log`, so a caller parses one envelope without logging interleaved into the parse target.
+Serialization mode follows the payload's shape. An OSA structure — an AppleScript list, record, or nested value — binds `-s s`, which prints recompilable source-like values; the default `-s h` display form collapses distinct list and record shapes into identical text. A JXA `JSON.stringify` envelope is already text, so its transport rides the default serialization, passing the returned string to stdout verbatim — `-s s` on that path re-quotes the envelope into a source literal and breaks the caller's parse.
+
+`-s e` keeps script errors on stderr; `-s o` routes them to stdout, so a golden test asserts the serialized OSA error text as the primary value, never a specific exit code. Shell quoting stays inside the wrapper and never enters the script body — untrusted data crosses through argv. A JXA `run` handler's return value is the sole stdout payload; every diagnostic routes to stderr through `console.log`, so a caller parses one envelope without interleaved logging.
 
 ```bash copy-safe
 osascript -s s -e 'return {{"foo", "bar"}, {"foo", {"bar"}}}'
@@ -66,7 +68,9 @@ osalang -L
 
 ## [05]-[SPECIFIER_AND_WHOSE]
 
-A JXA property addressing an application object model returns an object specifier until evaluation forces it: parentheses call `get` for a scalar or array value, and assignment sends a `set` Apple event. Specifier chains stay lazy across element traversal, so a pipeline sends one event at the terminal property call. `whose` compiles a specifier into an Apple event test descriptor over the comparison-and-logic key vocabulary — `_beginsWith`, `_and`, and their peers — that the target evaluates server-side, and a target omitting logical-descriptor support rejects a compound test outright rather than degrading to a partial match, so a production filter reduces the single field on the target and falls back to JavaScript filtering for the rest.
+A JXA property addressing an application object model returns an object specifier until evaluation forces it: parentheses call `get`, assignment sends a `set` Apple event. Specifier chains stay lazy across element traversal — a pipeline sends one event at the terminal property call.
+
+`whose` compiles a specifier into an Apple event test descriptor over the comparison-and-logic keys — `_beginsWith`, `_and`, and peers — evaluated server-side; a target omitting logical-descriptor support rejects a compound test outright rather than degrading to a partial match, so a production filter reduces one field on the target and JavaScript-filters the rest.
 
 ```javascript copy-safe
 const Finder = Application('Finder');
@@ -134,7 +138,9 @@ function run() {
 
 ## [09]-[PROCESS_KERNEL]
 
-JXA shells out through `NSTask` when a caller needs exact argv, separated stdout and stderr streams, and a termination contract; `do shell script` remains an AppleScript Standard Addition with shell-string semantics rather than an argv contract. File-backed standard handles carry no pipe backpressure, so a single-threaded host reads both streams after `waitUntilExit` and stays deadlock-free by construction — an `NSPipe` read ordered after the wait wedges the host once a chatty child fills the pipe buffer. `terminationStatus` alone conflates two distinct outcomes — a normal exit carrying a nonzero code, or death by an uncaught signal — so a caller reads `terminationReason` (`.exit` vs `.uncaughtSignal`) beside the status to know which meaning the numeric value carries.
+JXA shells out through `NSTask` when a caller needs exact argv, separated stdout and stderr, and a termination contract; `do shell script` remains a Standard Addition with shell-string semantics, not an argv contract. File-backed standard handles carry no pipe backpressure, so a single-threaded host reads both streams after `waitUntilExit` and stays deadlock-free by construction — an `NSPipe` read ordered after the wait wedges the host once a chatty child fills the pipe buffer.
+
+`terminationStatus` conflates a normal nonzero exit with death by an uncaught signal, so a caller reads `terminationReason` (`.exit` vs `.uncaughtSignal`) beside the status.
 
 ```javascript copy-safe
 ObjC.import('Foundation');

@@ -15,7 +15,9 @@ description: >-
 
 # [AGY]
 
-Antigravity is an external Gemini call admitted only where it adds capability beyond the local toolchain. Print-only mode runs the wrapper — one bounded prompt in, one JSON receipt out — but it executes tools and lands file writes without any permission flag, so safety is prompt discipline: a review or judgment prompt names no save path and directs inspect-only work, and a generation prompt binds every save path to a throwaway scratch root, never a repo path or `$HOME`. `--dangerously-skip-permissions` stays unused; it buys nothing print mode lacks. Antigravity output is advisory until local source, official docs, MCP output, or user intent confirms it.
+Antigravity is an external Gemini call admitted only where it adds capability beyond the local toolchain. Print mode runs the wrapper — one bounded prompt in, one JSON receipt out — yet executes tools and lands file writes without any permission flag, so safety is prompt discipline: a review or judgment prompt names no save path and directs inspect-only work; a generation prompt binds every save path to a throwaway scratch root, never a repo path or `$HOME`.
+
+`--dangerously-skip-permissions` buys nothing print mode lacks and stays unused. Output is advisory until local source, official docs, MCP output, or user intent confirms it.
 
 ## [01]-[ROUTING]
 
@@ -60,7 +62,7 @@ Each `prompt` run returns one JSON receipt:
 {"op":"prompt","fault":"auth_required","detail":"..."}
 ```
 
-`scripts/agy.py` owns the fault vocabulary the receipt's `fault` field carries: a new failure class is one `_Fault` row plus its classifier tokens, and an unmatched failure classifies as `process_error`. `auth_required` resolves through interactive `agy` in a real TTY with Google OAuth as the account holding the Antigravity subscription.
+`scripts/agy.py` owns the fault vocabulary the receipt's `fault` field carries: a new failure class is one `_Fault` row with its classifier tokens, and an unmatched failure classifies as `process_error`. `auth_required` resolves through interactive `agy` in a real TTY with Google OAuth as the account holding the Antigravity subscription.
 
 ## [05]-[PROMPT_CONTRACT]
 
@@ -92,9 +94,11 @@ Image generation is the default agent's built-in `generate_image` tool, fired fr
 uv run scripts/agy.py prompt "Use your generate_image tool (never code-drawing) to generate: <visual spec>, aspect ratio 16:9. Save to /abs/scratch/name.png." --add-dir /abs/scratch --timeout 5m
 ```
 
-Everything routes through prompt prose; the agent maps it onto the tool's parameters: `Prompt`, `AspectRatio` (`1:1` default at 1024x1024, plus `2:3`, `3:2`, `3:4`, `4:3`, `9:16`, `16:9` — `16:9` renders 1376x768), `ImagePaths` (up to 3 absolute paths to edit, combine, or reference — the edit modality: name the source image by absolute path and state the change), and `ImageName`. No tier selector exists at any surface — not in the tool schema, the CLI flags, or the model catalog; the backend serves Nano Banana Pro where the account has access and the original Nano Banana otherwise, and `--model` picks only the reasoning agent driving the tool.
+Prompt prose carries everything; the agent maps it onto tool parameters: `Prompt`, `AspectRatio` (`1:1` default at 1024x1024; `2:3`, `3:2`, `3:4`, `4:3`, `9:16`, `16:9` — `16:9` renders 1376x768), `ImagePaths` (up to 3 absolute paths to edit, combine, or reference — the edit modality: name the source by absolute path, state the change), and `ImageName`.
 
-Every render passes two gates before use. `magick identify` proves a real raster at the expected dimensions — the payload is JPEG regardless of the requested extension unless the agent converts, so the filename is never format proof — and a multimodal read-back through this wrapper describes the artifact against the visual contract. A file around 1KB is the failure signature: the backend returned no image (`CORTEX_STEP_TYPE_GENERATE_IMAGE: no image generated in response` in the `--log-file`) and the agent code-drew a placeholder; the never-code-drawing clause plus the size gate catches it, and one re-run resolves a transient backend miss.
+No tier selector exists in tool schema, CLI flags, or model catalog: the backend serves Nano Banana Pro where the account has access, Nano Banana otherwise; `--model` picks only the reasoning agent driving the tool.
+
+Every render passes two gates. `magick identify` proves a real raster at the expected dimensions — the payload is JPEG whatever the extension unless the agent converts, so the filename is never format proof — and a wrapper read-back describes the artifact against the visual contract. A ~1KB file is the failure signature: the backend returned no image (`CORTEX_STEP_TYPE_GENERATE_IMAGE: no image generated in response` in the `--log-file`) and the agent code-drew a placeholder; the never-code-drawing clause and the size gate catch it, and one re-run resolves a transient backend miss.
 
 Generated mockups and diagrams are inputs to the realizing skill, never deliverables: agy drafts the spec, renders, and read-back-critiques, then html-studio realizes the page and mermaid-diagramming realizes the fence. A closed loop is the strongest pattern — visual contract, render, read-back critique against the contract, targeted correction — never a single "make it pretty" round.
 
@@ -105,4 +109,6 @@ Generated mockups and diagrams are inputs to the realizing skill, never delivera
 - [ROUTINE]: Edits, formatting, git operations, package upgrades, and checks the local toolchain owns stay local.
 - [SCOPE]: `prompt` and `models` are the wrapper's only surface; agent selection, background tasks, and shell-login subcommands stay outside it.
 
-Interactive `agy` in a real TTY owns those outside surfaces — ongoing conversations, workspace tool permissions, resume, plugin management, and sandboxed project work; `agy --help` is the flag and subcommand contract. `gsd-*` personas are interactive-runtime composition only: they hang under plain print mode and emit process narration rather than bounded answers under `--mode plan`, so a bounded one-shot review or judgment call always runs the default agent with a strong prompt, never a gsd persona. GSD's artifact pipeline — mapper, researcher, planner, checker, executor, verifier — composes inside a live Antigravity session where each role consumes only the prior role's artifact.
+Interactive `agy` in a real TTY owns the outside surfaces — ongoing conversations, workspace tool permissions, resume, plugin management, sandboxed project work; `agy --help` is the flag and subcommand contract. `gsd-*` personas are interactive-runtime composition only: they hang under plain print mode and emit process narration rather than bounded answers under `--mode plan`, so a bounded one-shot runs the default agent with a strong prompt, never a gsd persona.
+
+GSD's artifact pipeline — mapper, researcher, planner, checker, executor, verifier — composes inside a live session where each role consumes only the prior role's artifact.

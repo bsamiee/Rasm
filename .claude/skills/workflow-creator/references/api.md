@@ -88,7 +88,7 @@ const PROMPT =
 
 ### [03.4]-[FILE_ORGANIZATION]
 
-A workflow reads top-to-bottom as the `meta` manifest, then the body in this fixed section order (omit any a file does not need). Mark each with a divider `// --- [LABEL]` plus dash-fill:
+A workflow reads top-to-bottom as the `meta` manifest, then the body in this fixed section order (omit any a file does not need). Mark each with a divider `// --- [LABEL]` and dash-fill:
 
 ```js conceptual
 // --- [CONSTANTS] ---------------------------------------------------------------------
@@ -138,7 +138,7 @@ Inside a long `[COMPOSITION]`, mark each phase with a bare subsection divider wh
 
 ### [04.1]-[READING_ARGS]
 
-`args` arrives as structured data, exactly as the caller supplied it — no serialization to undo. `Workflow({ args: { minUsers: 5 } })` yields the object; an array stays an array; a string stays a string; nothing passed yields `undefined`. A script needs only a default for the omitted case plus a shape check when one workflow accepts both a config object and a free-text task:
+`args` arrives as structured data, exactly as the caller supplied it — no serialization to undo. `Workflow({ args: { minUsers: 5 } })` yields the object; an array stays an array; a string stays a string; nothing passed yields `undefined`. A script needs only a default for the omitted case and a shape check when one workflow accepts both a config object and a free-text task:
 
 ```js conceptual
 const threshold = args?.minUsers ?? 20; // object input
@@ -146,7 +146,7 @@ const scope = Array.isArray(args) ? args : []; // array input
 const task = typeof args === 'string' ? args : 'the change described in TASK.md';
 ```
 
-Never `JSON.parse(args)` — it is already a live value, and parsing an object throws. Default the no-args run to a safe no-op, never a silent full-corpus sweep. ONE narrow carve-out exists for saved-command invocations that hand a JSON-looking string — a single guarded normalizer at `[INPUTS]` only: `(typeof args === 'string' && /^\s*[\[{]/.test(args)) ? JSON.parse(args) : args`. A bare `JSON.parse(args)` anywhere else stays forbidden. A saved workflow receives `args` via `Workflow({ scriptPath, args })`; if a harness build ever drops it for a `scriptPath` launch, relaunch with an inline `script` or encode the scope in the file.
+Never `JSON.parse(args)` — it is already a live value, and parsing an object throws; default the no-args run to a safe no-op, never a full-corpus sweep. ONE carve-out: a saved-command invocation handing a JSON-looking string takes a single guarded normalizer at `[INPUTS]` — `(typeof args === 'string' && /^\s*[\[{]/.test(args)) ? JSON.parse(args) : args`. A saved workflow receives `args` via `Workflow({ scriptPath, args })`; a launch that drops it relaunches with an inline `script` or encodes the scope in the file.
 
 ## [05]-[AGENT]
 
@@ -195,7 +195,7 @@ Rules for computing data properly: use `schema` for anything a later line reads 
 
 ### [05.3]-[CUSTOM_AGENT_TYPES]
 
-`agentType` runs the call as a registered subagent type — the built-ins `'workflow-subagent'` and `'workflow-remote-agent'`, plus anything from `.claude/agents/` or a plugin (e.g. `'Explore'`). An unknown `agentType` throws with the list of available agents. It composes with `schema`. A workflow subagent is told its final text IS the return value — prompt for the data wanted, not a human-facing message.
+`agentType` runs the call as a registered subagent type — the built-ins `'workflow-subagent'` and `'workflow-remote-agent'`, or any registered type from `.claude/agents/` or a plugin (e.g. `'Explore'`). An unknown `agentType` throws with the list of available agents. It composes with `schema`. A workflow subagent is told its final text IS the return value — prompt for the data wanted, not a human-facing message.
 
 ## [06]-[FLOW]
 
@@ -278,4 +278,6 @@ It re-hosts the unmodified file inside the same `new Function`-wrapped, injected
 
 Fixtures are MINIMAL by design (non-empty strings, one-element arrays), so counts are REPRESENTATIVE, not exact production. Exercise every loop down BOTH a converging and a permanently-stuck input, so the hard stop and the fixpoint break both fire.
 
-A green simulation validates the machine, not the meaning — it is blind to prompt quality, to whether a schema's `required` set matches what the model produces, and to effort-tier fit. Close that gap with a narrow real run: execute the UNMODIFIED file on one tiny scope, `Workflow({ scriptPath, args: '<one small unit>' })`, scoped by `args` and never by rewriting calls — `dry-run.mjs --mode real --scope <path>` prints that exact invocation plus the projected count and spawns nothing; the operator authorizes the spend. A narrow real run is the only check that surfaces structured-output conformance, a permission-prompt stall, host-singleton serialization, and stall-timeout adequacy, and it legitimately seeds the resume cache for the full run. For a cheaper real run, set `CLAUDE_CODE_SUBAGENT_MODEL` in the environment — it overrides every per-call `model` with no source edit; forcing a cheap model from inside the script is a dead end, because `model` is a cache-key field and a rewritten run seeds nothing.
+A green simulation validates the machine, not the meaning — blind to prompt quality, schema `required` fit, and effort-tier fit. Close the gap with a narrow real run on the UNMODIFIED file at one tiny scope, scoped by `args`, never by rewriting calls; `dry-run.mjs --mode real --scope <path>` prints that exact invocation and the projected count, spawning nothing — the operator authorizes the spend. Only a narrow real run surfaces structured-output conformance, permission-prompt stalls, host-singleton serialization, and stall-timeout adequacy, and it seeds the resume cache for the full run.
+
+For a cheaper real run, set `CLAUDE_CODE_SUBAGENT_MODEL` in the environment — it overrides every per-call `model` with no source edit; forcing a cheap model from inside the script is a dead end, because `model` is a cache-key field and a rewritten run seeds nothing.

@@ -1,6 +1,6 @@
 # [PATTERNS]
 
-Consumption shapes for secret material that is not process-env shaped, plus the plan envelope that bounds design.
+Consumption shapes for secret material that is not process-env shaped, and the plan envelope that bounds design.
 
 ## [01]-[TEMPLATES]
 

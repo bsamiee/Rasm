@@ -7,7 +7,7 @@ Fixer-lane dispatch form for Claude lanes: one Agent-tool call per lane, the who
 - One `Agent` call per lane, concurrent lanes launched in a single message. No channel split exists to manage and no spawn gate to arm.
 - Skill loads ride the lane: the task block names the territory's required skills, composed whole — no register projection fills for a Claude lane.
 - A fable lane self-mines: both lane-law mining charges run as the lane's own read pass before its first edit, because a lane under a running workflow launches no nested subagents; the rosters stay candidate data under the lane law's capability mandate.
-- Report custody: the lane writes `<round-dir>/lane-<letter>-report.json` itself as its final act and returns only the path plus one status line — report bodies never ride the return.
+- Report custody: the lane writes `<round-dir>/lane-<letter>-report.json` itself as its final act and returns only the path and one status line — report bodies never ride the return.
 - Health is the Agent tool's own return: no stderr banner, no liveness probe, no rollout audit. A lane returning prose instead of the path, or returning with no report file on disk, is the failure — relaunch once fresh; a second failure routes to a closer.
 
 ## [02]-[TASK_MESSAGE]

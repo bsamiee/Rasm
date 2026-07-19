@@ -1,6 +1,8 @@
 # [ARTIFACT_CRAFT]
 
-A durable artifact seals a ruling for a future session to consult as law; an instance that hedges its ruling, seals a decision no thread forced, drops a reopen condition, collides two entries on one id, fakes a multi-tier fan, strands a finding with no landing surface, leaks a plan into a horizon, asserts a gap by assumption, or lets its projection fence drift from its rows fails the cold-read seal — now or a year later. Each entry names one content defect across the five durable kinds under the fixed Detection / Rejected / Accepted / Reason / Reframe card, grouped by the kind it strikes; the Rejected and Accepted bodies are conformant fragments in each kind's leader and field grammar, the content the rendered page carries whatever its form.
+A durable artifact seals a ruling for a future session to consult as law; an instance that hedges its ruling, seals a decision no thread forced, drops a reopen condition, collides two entries on one id, fakes a multi-tier fan, strands a finding with no landing surface, leaks a plan into a horizon, asserts a gap by assumption, or lets its projection fence drift from its rows fails the cold-read seal.
+
+Each entry names one content defect across the five durable kinds under the fixed Detection / Rejected / Accepted / Reason / Reframe card, grouped by the kind it strikes; the Rejected and Accepted bodies are conformant fragments in each kind's leader and field grammar, the content the rendered page carries in any form.
 
 ## [01]-[HEDGED_RULING]
 

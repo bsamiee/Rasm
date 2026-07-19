@@ -14,7 +14,7 @@ Keyed by GitHub identity. Each row registers a reviewer's completion signal, fal
 ## [02]-[GREPTILE]
 
 - Logins: `greptile-apps[bot]` (staging `greptile-apps-staging[bot]`). `@greptileai`/`@greptile` are trigger keywords, never author matches.
-- Completes when: the `Greptile Review` check-run (app `greptile-apps`) reaches `COMPLETED`, OR the summary issue comment's footer `Last reviewed commit: .../commit/<sha>` matches the current head. Greptile posts the summary as an issue comment plus the check-run — no PR review object; the review-object surface stays empty by design.
+- Completes when: the `Greptile Review` check-run (app `greptile-apps`) reaches `COMPLETED`, OR the summary issue comment's footer `Last reviewed commit: .../commit/<sha>` matches the current head. Greptile posts the summary as an issue comment beside the check-run — no PR review object; the review-object surface stays empty by design.
 - Ignore: summary `updated_at` churn; `<!-- greptile-status -->` skip/excluded-author comments; Greptile's internal "addressed" flag (never a GitHub thread resolve).
 - Re-trigger: push (auto; `triggerOnUpdates: true`, drafts included via `triggerOnDrafts: true`) or comment `@greptileai`. Footer's Re-trigger link is web-only — unusable from `gh`.
 - Severity: inline bold category prefix — `**logic:**`=3, `**syntax:**`=2, `**style:**`=1; legacy P1/P2/P3 badges map 3/2/1. `Confidence Score: N/5` lives in the summary body; convergence demands `5/5` at the current head — a completion signal never gates on it.
