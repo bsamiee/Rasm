@@ -2616,10 +2616,13 @@ const lawPackPrompt = (L, pack) =>
 const LAWPACK = {};
 for (const k of LANGS_IN) {
     LAWPACK[k] = slot(() =>
+        // Native: the pack REPLACES the doctrine atlas for every implement, critique, redteam, and density fixer in the
+        // run, so a section it silently truncates or paraphrases is law the whole run never sees — verbatim relocation
+        // reads cheap and fails invisibly, which is exactly the shape that earns the stronger reader, not a cheaper one.
         recon(() => lawPackPrompt(LANG[k], lawPackPath(k)), ropts('lawpack:' + k, 'Map', PACK_SCHEMA, [], { arr: 'sections' }, {
             writes: true,
-            codexEffort: 'low',
-            model: 'gpt-5.6-terra',
+            native: true,
+            calls: 60,
         })),
     ).catch(() => null);
 }
