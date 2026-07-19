@@ -41,7 +41,7 @@ heptabase note create --help
 
 - [DESKTOP_APP_MUST_BE_RUNNING]: Every command reaches a local server in the app, so a closed app fails all; `heptabase start` launches to readiness.
 - [MUTATIONS_ARE_SERIALIZED]: Every mutating command serializes server-side to prevent conflicts; reads run concurrent.
-- [REQUEST_BOUNDS]: Oversized request bodies reject and stalled sends time out server-side, bulk content lands as multiple `append` passes, never one giant body.
+- [REQUEST_BOUNDS]: Oversized request bodies reject, bulk content lands as multiple `append` passes, never one giant body.
 
 ## [05]-[BOUNDARIES]
 

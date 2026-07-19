@@ -1,5 +1,5 @@
 /**
- * codex-lane-batch — audit heavy scopes on codex (gpt-5.6-terra) through blocking MCP
+ * codex-lane-batch — audit heavy scopes on codex through blocking MCP
  * wrapper lanes, batch the short probes into ONE wrapper, then read every report file.
  *
  * Demonstrates codex lane composition: each heavy scope gets one call-write-receipt
@@ -7,7 +7,7 @@
  * lane law rides developer-instructions (role split) with a task-only prompt; the short
  * probes share a single wrapper making sequential codex calls and returning one combined
  * receipt (every wrapper costs a full context spin-up, so short legs batch); a quota-dead
- * lane re-dispatches natively at the role's Claude twin; the terminal reader consumes
+ * lane re-dispatches natively at the role's native twin; the terminal reader consumes
  * every ok report IN FULL from disk while only thin receipts cross the wire, and a
  * failed lane's scope becomes its direct-hunt queue.
  *
@@ -18,10 +18,10 @@
 
 export const meta = {
     name: 'codex-lane-batch',
-    description: 'Audit each heavy scope on a codex terra lane, batch the short probes into one wrapper, consolidate from the report files',
-    whenToUse: 'Transcript-heavy audit legs that should burn codex tokens, not Claude context',
+    description: 'Audit each heavy scope on a codex lane, batch the short probes into one wrapper, consolidate from the report files',
+    whenToUse: 'Transcript-heavy audit legs that should burn codex tokens, not session context',
     phases: [
-        { title: 'Audit', detail: 'one terra wrapper per heavy scope + one batched wrapper for the probes', model: 'sonnet' },
+        { title: 'Audit', detail: 'one wrapper per heavy scope + one batched wrapper for the probes', model: 'sonnet' },
         { title: 'Resolve' },
     ],
 };
@@ -93,7 +93,7 @@ const auditTask = (scope) =>
 // One wrapper, one blocking codex call, envelope CONTENT written unmodified, thin receipt back — never
 // re-judging the work. Effort inherits the operator default; no config clause without a real deviation.
 const lanePrompt = (label, task) =>
-    'DISPATCH ROLE: gpt-5.6-terra performs the complete TASK below through one blocking codex MCP call; never perform, edit, judge, or relay ' +
+    'DISPATCH ROLE: codex performs the complete TASK below through one blocking codex MCP call; never perform, edit, judge, or relay ' +
     'the work yourself. (1) ToolSearch "select:mcp__codex__codex". (2) Call mcp__codex__codex ONCE with ' +
     'model="gpt-5.6-terra", cwd set to the repo root, "developer-instructions" = the LANE LAW block below VERBATIM, ' +
     'prompt = the TASK block below VERBATIM. On a tool error retry the identical call ONCE. (3) The tool result is a JSON envelope ' +
@@ -131,7 +131,7 @@ const batchPrompt = (label, files) =>
 
 // Orchestrator-owned scope rides the receipt so a lane that dies before writing still names its territory.
 // QUOTA FALLBACK: usage exhaustion fails the call loudly; the CALLER re-dispatches the same task natively at
-// the role's Claude twin (terra->opus) — the sonnet wrapper never becomes the implicit executor. A silent
+// the role's native twin — the wrapper never becomes the implicit executor. A silent
 // live MCP call is legal waiting.
 const shape = (label, scope) => (r) => ({
     lane: label,

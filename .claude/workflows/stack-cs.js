@@ -2,7 +2,7 @@ export const meta = {
     name: 'stack-cs',
     whenToUse: 'Harden the docs/stacks/csharp code doctrine in place to the dense per-file bar.',
     description:
-        "Focused full HARDENING of the docs/stacks/csharp code doctrine — every core page AND every domain/ shard, improved in place to the same 13/10, ultra-dense, page-craft-conformant bar the python doctrine holds. The csharp set is the historical FLOOR/reference; this pass pulls it UP to that rigor: page-craft grammar (narrow index table -> deep family cards -> one agnostic snippet per region, zero duplicated demonstrations), the soft LOC density signal, extreme ADT collapse ([Union]/[SmartEnum<TKey>]/[ValueObject<T>]/[ComplexValueObject] + source-generated case families), two-weave AOP (definition-time source-gen aspects + composition-time effect transformers), LanguageExt Fin/Validation/Option/Eff rails, full parameterization/polymorphism, C# 14 on net10 to the metal. Carries the bounded interface/graph/mapping LAW extension (cross-stratum seam, graph-as-closed-family, generated mapping/equality aspects, QuikGraph/Riok.Mapperly/Generator.Equals as admitted core substrate) hardened into existing owners, plus a default-off gated new-core-page valve; restructure-free at heart — a hostile per-file harden. Inventory rules the ordered file set and the Gate rules the page roster BEFORE per-file work — true data dependence, kept. Then each FILE runs its own initial -> critique -> redteam pipeline, ALL files concurrent under one pool cap — the chain is the file's own stage dependence, never a corpus barrier. Critique and redteam read the LIVE corpus — the current on-disk state of every page, landed sibling hardening composed as found, a conflict resolved to the stronger form, never a revert — and edit ONLY their own file (the anti-collision rule among concurrent pipelines), reporting cross-file residuals. ONE terminal fable corpus agent then aligns cross-file seams, closes gaps, enforces the computation-law bodies, resolves every reported residual, and finalizes cold in one sweep. Every per-file stage and the corpus sweep carry a required-but-usually-empty harvest attestation RESTRICTED to reviewer/laws/constitution altitudes (the run authors docs/stacks/csharp, so a stacks lesson is already owned and never nominated); when the pooled nominations are non-empty, ONE terminal fable doctrine lander adjudicates them against docs/laws (refutation-first, land-nothing legal, never re-editing a docs/stacks/csharp page). Snippets agnostic (neutral names, no project anchor); every host/NuGet member verified via assay api with the .api-catalog/nuget-MCP/Context7/exa fallback; every edit scoped to docs/stacks/csharp (NEVER edit a python/typescript file). Takes no args.",
+        "Focused full HARDENING of the docs/stacks/csharp code doctrine — every core page AND every domain/ shard, improved in place to the same 13/10, ultra-dense, page-craft-conformant bar the python doctrine holds. The csharp set is the historical FLOOR/reference; this pass pulls it UP to that rigor: page-craft grammar (narrow index table -> deep family cards -> one agnostic snippet per region, zero duplicated demonstrations), the soft LOC density signal, extreme ADT collapse ([Union]/[SmartEnum<TKey>]/[ValueObject<T>]/[ComplexValueObject] + source-generated case families), two-weave AOP (definition-time source-gen aspects + composition-time effect transformers), LanguageExt Fin/Validation/Option/Eff rails, full parameterization/polymorphism, C# 14 on net10 to the metal. Carries the bounded interface/graph/mapping LAW extension (cross-stratum seam, graph-as-closed-family, generated mapping/equality aspects, QuikGraph/Riok.Mapperly/Generator.Equals as admitted core substrate) hardened into existing owners and a default-off gated new-core-page valve; restructure-free at heart — a hostile per-file harden. Inventory rules the ordered file set and the Gate rules the page roster BEFORE per-file work — true data dependence, kept. Then each FILE runs its own initial -> critique -> redteam pipeline, ALL files concurrent under one pool cap — the chain is the file's own stage dependence, never a corpus barrier. Critique and redteam read the LIVE corpus — the current on-disk state of every page, landed sibling hardening composed as found, a conflict resolved to the stronger form, never a revert — and edit ONLY their own file (the anti-collision rule among concurrent pipelines), reporting cross-file residuals. ONE terminal corpus agent then aligns cross-file seams, closes gaps, enforces the computation-law bodies, resolves every reported residual, and finalizes cold in one sweep. Every per-file stage and the corpus sweep carry a required-but-usually-empty harvest attestation RESTRICTED to reviewer/laws/constitution altitudes (the run authors docs/stacks/csharp, so a stacks lesson is already owned and never nominated); when the pooled nominations are non-empty, ONE terminal doctrine lander adjudicates them against docs/laws (refutation-first, land-nothing legal, never re-editing a docs/stacks/csharp page). Snippets agnostic (neutral names, no project anchor); every host/NuGet member verified via assay api with the .api-catalog/nuget-MCP/Context7/exa fallback; every edit scoped to docs/stacks/csharp (NEVER edit a python/typescript file). Takes no args.",
     phases: [
         {
             title: 'Inventory',
@@ -18,11 +18,11 @@ export const meta = {
         },
         {
             title: 'Corpus',
-            detail: 'ONE terminal fable agent: align seams, close gaps, computation-law bodies, resolve every reported residual, finalize cold',
+            detail: 'ONE terminal agent: align seams, close gaps, computation-law bodies, resolve every reported residual, finalize cold',
         },
         {
             title: 'Doctrine',
-            detail: 'terminal doctrine lander (fable), fires only on non-empty pooled harvest RESTRICTED to reviewer/laws/constitution (the run owns docs/stacks/csharp); refutation-first, land-nothing legal',
+            detail: 'terminal doctrine lander, fires only on non-empty pooled harvest RESTRICTED to reviewer/laws/constitution (the run owns docs/stacks/csharp); refutation-first, land-nothing legal',
         },
     ],
 };
@@ -262,7 +262,7 @@ const CS_INTERFACE = [
         'factory + ONE polymorphic operation over the floor (consumers hold the floor; the concrete is `internal` + swappable).',
     'CROSS-STRATUM SEAM ALIGNMENT: when N sibling owners on the SAME stratum must align WITHOUT referencing one another, the floor is hosted by ONE ' +
         'type on the LOWEST shared stratum (the seam owner every sibling already depends upon), exposing a single INSTANCE-interface FLOOR (an ' +
-        '`IProjection<TIn,TOut>`-shaped strategy each sibling family IMPLEMENTS, never a marker) plus the minting/dispatch operation over the floor. ' +
+        '`IProjection<TIn,TOut>`-shaped strategy each sibling family IMPLEMENTS, never a marker) and the minting/dispatch operation over the floor. ' +
         'Siblings align by CONTRACT — each implements the floor against its own shapes — so the seam type is the ONLY shared symbol and peers stay ' +
         'swappable with zero peer references. This is the INTERFACE_SEAM publishes-across-a-boundary vehicle turned HORIZONTAL: the floor lives below, ' +
         'the conformances live in each sibling, alignment is structural, never coupling.',
@@ -322,7 +322,7 @@ const CS_CORE_LOGIC = [
 const CS_GRAPH = [
     'GRAPH-AS-CLOSED-FAMILY (the domain-graph law, DISTRIBUTED across shapes.md / algorithms.md / boundaries.md, never a standalone page, never ' +
         're-taught): a domain graph is a PROPERTY GRAPH whose every edge kind is ONE neutral edge-algebra `[Union]` over a small closed verb set ' +
-        '(compose / assign / associate / connect / void-shaped, each carrying a typed payload) PLUS ONE `Generic(wireName, relating, related, attrs)` ' +
+        '(compose / assign / associate / connect / void-shaped, each carrying a typed payload) AND ONE `Generic(wireName, relating, related, attrs)` ' +
         'passthrough case for the open tail, so no foreign relation is dropped and the foreign relationship TAXONOMY never leaks into the neutral ' +
         'owner; the node is ONE `[Union]` over the entity family keyed in a map, and the consumer-facing aggregate is a DERIVED FOLD over the reachable ' +
         'subgraph, NEVER a second stored record. N typed per-relation classes mirroring a foreign schema is the rejected form (a `[03]-[COLLAPSE_SCAN]` ' +
@@ -363,7 +363,7 @@ const CS14 = [
 const CS_SUBSTRATE = [
     'STACK CAPABILITY, ULTRA-STACKED: enumerate BOTH `.api` tiers with a REAL ls/fd listing from disk, never memory — the central `libs/csharp/.api/` ' +
         'substrate catalogs (api-thinktecture-runtime-extensions, api-quikgraph, api-mapperly, api-generator-equals, api-mathnet-numerics, api-csparse, ' +
-        'plus every sibling catalog the page concern touches) and, for a domain shard, the per-folder `libs/csharp/<Package>/.api/` host/NuGet catalogs ' +
+        'every sibling catalog the page concern touches) and, for a domain shard, the per-folder `libs/csharp/<Package>/.api/` host/NuGet catalogs ' +
         'its concern composes — and MINE them to OPERATOR DEPTH (read-only material; edits stay scoped to docs/stacks/csharp). The universals are ' +
         'Thinktecture.Runtime.Extensions (generated domain shape) + LanguageExt.Core ' +
         '(rails, effects, schedules, immutable collections; catalog-less — assay api is its evidence, and when assay is blocked or unavailable the ' +
@@ -421,7 +421,7 @@ const OPINIONATED = [
         'new-page verdict with a target atlas position. Rising card/snippet/page COUNT is a defect signal absent a cited omitted capability — the bar is ' +
         'density per card, not cards per page.',
     'ALREADY-OWNED, DO NOT RE-AUTHOR (the top spam traps): CONTENT-ADDRESSING / byte-identity is TRIPLE-OWNED by boundaries.md BYTE_IDENTITY + ' +
-        'system-apis.md INTEGRITY + system-apis.md IDENTITY_POLICY (plus the durability/data-interchange domain shards for persisted artifacts) — the ' +
+        'system-apis.md INTEGRITY + system-apis.md IDENTITY_POLICY (and the durability/data-interchange domain shards for persisted artifacts) — the ' +
         'graph/content-key law COMPOSES these owners and ROUTES to them, NEVER re-teaches a canonical-byte/hash/quantization card. The INTERFACE-SEAM ' +
         'form is fully owned by README INTERFACE_SEAM + shapes.md OWNER_CHOOSER + surfaces-and-dispatch.md type-level dispatch + boundaries.md the ' +
         'floor; the cross-stratum delta is at most ONE appended consequence clause, not a restated seam card. The accumulating-`Validation` constraint ' +
@@ -458,7 +458,7 @@ const HARVEST_LAW =
     '(a cross-surface coupling or cross-branch pattern discovered the hard way). Each row: altitude (reviewer|constitution|laws), lang, claim ' +
     '(the generalized law, one sentence, SYMBOL-FREE — every concrete spelling lives in anchors, so the lander adjudicates the law without ' +
     're-deriving its locality), anchors (file:line evidence), existingClause (the exact reviewer/laws/constitution clause it would ' +
-    'harden, quoted with its path — or "absent" plus the surfaces searched). A page-local fix never nominates; an empty array is the normal ' +
+    'harden, quoted with its path — or "absent" with the surfaces searched). A page-local fix never nominates; an empty array is the normal ' +
     'verdict — the terminal doctrine lander refutes weak rows, so nominate substance, never volume.';
 
 const DOCTRINE = [
@@ -664,7 +664,7 @@ const gatePrompt = (ordered) =>
             'mandate, or substrate elevation this doctrine legislates that the README has NOT yet landed is a live DELTA — the known candidates are (1) the ' +
             'CROSS-STRATUM interface seam + foreign-constraint-vs-internal-switch forms in the interface law, (2) GRAPH-AS-CLOSED-FAMILY (node/edge ' +
             'neutral-algebra union + derived-fold aggregate + phase split + ALREADY-OWNED content addressing), (3) the mapping/equality generated-aspect ' +
-            'clause in the two-weave AOP law plus the QuikGraph/Riok.Mapperly/Generator.Equals substrate elevation — and each counts ONLY to the extent ' +
+            'clause in the two-weave AOP law and the QuikGraph/Riok.Mapperly/Generator.Equals substrate elevation — and each counts ONLY to the extent ' +
             'the README has not landed it (a landed delta is settled, never re-adjudicated). For EACH live delta decide its owner. DEFAULT and TIE go to ' +
             'harden_in_place: a delta lands as IN-PLACE hardening of an EXISTING owner page — the interface + graph facets DISTRIBUTE across shapes.md ' +
             '(node/edge union, OWNER_CHOOSER), surfaces-and-dispatch.md (dispatch over the seam), boundaries.md (the floor + content key), algorithms.md ' +
@@ -729,7 +729,7 @@ const inv = await agent(
         'still returns, ordered after its section). Return every CONCEPT page that exists on disk as {path (repo-relative), order (global integer: ' +
         'core pages first in atlas order, then the domain/ shards in the domain router order)}, EXCLUDING every README.md and the entire .reports/ ' +
         'workspace. Enumerate and order — nothing else: no page reading, no capability maps, no verdicts (every downstream stage re-reads the full ' +
-        'pages from disk). Use find/ls plus reading ONLY the README routers; do not cd; do not edit anything.',
+        'pages from disk). Use find/ls and reading ONLY the README routers; do not cd; do not edit anything.',
     { label: 'inventory', phase: 'Inventory', schema: INVENTORY_SCHEMA, model: 'sonnet', effort: 'low', stallMs: STALL },
 );
 const ordered = ((inv && inv.files) || [])

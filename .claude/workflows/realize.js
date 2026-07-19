@@ -1,24 +1,24 @@
 export const meta = {
     name: 'realize',
     whenToUse:
-        'Execute a root campaign DECISION/brief into its target planning folder. args = {doc, root} or an array of such pairs; campaigns run as parallel lanes. Wide gpt-5.6-terra (codex) reconnaissance hands one fable executor everything on a golden platter — the doc, exact disk locations, ripple endpoints across every libs/ folder, and the full two-tier .api stacking inventory — and the executor implements the whole campaign under the language doctrine with libs-wide ripple authority. Run cold-verify after.',
+        'Execute a root campaign DECISION/brief into its target planning folder. args = {doc, root} or an array of such pairs; campaigns run as parallel lanes. Wide reconnaissance hands one terminal writer everything on a golden platter — the doc, exact disk locations, ripple endpoints across every libs/ folder, and the full two-tier .api stacking inventory — and the executor implements the whole campaign under the language doctrine with libs-wide ripple authority. Run cold-verify after.',
     description:
-        'Campaign realization in two moves. RECON: gpt-5.6-terra (codex) mapper lanes fan out through sonnet dispatch wrappers — page-slice mappers (root doc IN FULL + slice pages IN FULL + sibling context), one governance mapper (manifests, csproj/README registries, .api anchors, index docs), two stacking mappers (one per .api tier: the shared libs/<lang>/.api substrate and the folder <root>/.api tier, full inventory mined to operator depth against the doc page set — doc-demanded AND beyond-doc underutilized capability, exact verified members), and ONE BRANCH RIPPLE MAPPER PER language lib (libs/csharp, libs/python, libs/typescript — each sweeping its branch package folders except the target, skipping the branch .planning core; seam ledgers, consumer anchors, counterpart obligations, frozen wire names the campaign touches). Every mapper runs a mandatory second-pass self-verify: each entry re-derived from disk, anchors re-opened, spellings re-checked; a guess, a skim, or a vague entry is deleted before return. Mappers provide information — locations, anchors, ripples, inventory — never prescriptions. EXECUTE: one fable per campaign takes the root doc plus every map and implements everything in place at the docs/stacks/<language>/ bar: the full page set, registry and index closure, every ripple in the same pass with LIBS-WIDE ripple authority (sibling counterparts repaired in place both ends, except where the doc rules a counterpart recorded-only), the two-tier stacking woven in, its own hunt past the maps. The executor carries a required-but-usually-empty harvest attestation; when any campaign pools a non-empty nomination, ONE terminal fable doctrine lander adjudicates them against docs/laws (refutation-first, land-nothing legal). Otherwise no stage after the executor; cold-verify is the separate closure gate.',
+        'Campaign realization in two moves. RECON: dispatched mapper lanes fan out — page-slice mappers (root doc IN FULL + slice pages IN FULL + sibling context), one governance mapper (manifests, csproj/README registries, .api anchors, index docs), two stacking mappers (one per .api tier: the shared libs/<lang>/.api substrate and the folder <root>/.api tier, full inventory mined to operator depth against the doc page set — doc-demanded AND beyond-doc underutilized capability, exact verified members), and ONE BRANCH RIPPLE MAPPER PER language lib (libs/csharp, libs/python, libs/typescript — each sweeping its branch package folders except the target, skipping the branch .planning core; seam ledgers, consumer anchors, counterpart obligations, frozen wire names the campaign touches). Every mapper runs a mandatory second-pass self-verify: each entry re-derived from disk, anchors re-opened, spellings re-checked; a guess, a skim, or a vague entry is deleted before return. Mappers provide information — locations, anchors, ripples, inventory — never prescriptions. EXECUTE: one write lane per campaign takes the root doc and every map and implements everything in place at the docs/stacks/<language>/ bar: the full page set, registry and index closure, every ripple in the same pass with LIBS-WIDE ripple authority (sibling counterparts repaired in place both ends, except where the doc rules a counterpart recorded-only), the two-tier stacking woven in, its own hunt past the maps. The executor carries a required-but-usually-empty harvest attestation; when any campaign pools a non-empty nomination, ONE terminal doctrine lander adjudicates them against docs/laws (refutation-first, land-nothing legal). Otherwise no stage after the executor; cold-verify is the separate closure gate.',
     phases: [
         { title: 'Plan', detail: 'per campaign: enumerate the page set (disk + doc-ruled new pages), partition into mapper slices', model: 'opus' },
         {
             title: 'Recon',
-            detail: 'per campaign: page-slice + governance + two-tier stacking + per-branch ripple mappers on gpt-5.6-terra via codex wrappers (sonnet shells), self-verified information not prescriptions',
+            detail: 'per campaign: page-slice + governance + two-tier stacking + per-branch ripple mappers as dispatched lanes, self-verified information not prescriptions',
             model: 'sonnet',
         },
         {
             title: 'Execute',
-            detail: 'per campaign: one fable implements the whole campaign — doc + maps + doctrine, every ripple in-pass, libs-wide',
+            detail: 'per campaign: the write lane implements the whole campaign — doc + maps + doctrine, every ripple in-pass, libs-wide',
             model: 'fable',
         },
         {
             title: 'Doctrine',
-            detail: 'terminal doctrine lander (fable), fires only on non-empty pooled harvest: adjudicates executor nominations against docs/laws, refutation-first, land-nothing legal',
+            detail: 'terminal doctrine lander, fires only on non-empty pooled harvest: adjudicates executor nominations against docs/laws, refutation-first, land-nothing legal',
             model: 'fable',
         },
     ],
@@ -47,7 +47,7 @@ const chunk = (a, n) => {
     return o;
 };
 // Per-instance scratch dir holding the per-lane MCP reports — minted deterministically from the normalized campaign set (clock/randomness
-// would break resume): one FLAT dir under .claude/scratch/, a root-basename slug plus an FNV-1a tail so distinct campaign sets never collide.
+// would break resume): one FLAT dir under .claude/scratch/, a root-basename slug and an FNV-1a tail so distinct campaign sets never collide.
 const fnv1a = (s) => {
     let h = 0x811c9dc5;
     for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193);
@@ -242,7 +242,7 @@ const INFO_LAW =
     'product: `requested` = your assigned scope, `read` = what you actually full-read, `skipped`/`unverified` = what you did ' +
     'not reach — an honest skip beats a silent one.';
 
-// Codex mapper self-verify (+ native quota twin): neutral register — the second-pass duty carries, the hostile intensifiers do not.
+// Mapper self-verify (+ native quota twin): neutral register — the second-pass duty carries, the hostile intensifiers do not.
 const SELF_CHECK =
     'SELF-VERIFY (second pass, before returning): re-derive every entry from disk — ' +
     're-open each cited anchor and confirm it states what the entry claims, re-verify each member spelling against its ' +
@@ -274,7 +274,7 @@ const HARVEST_LAW =
     'reusable across folders, a naivety class no doctrine clause names, a review rule that would have caught a defect BEFORE ' +
     'review, a cross-surface coupling discovered the hard way. Each row: altitude (stacks|reviewer|constitution|planning|readme|' +
     'laws), lang, claim (the generalized law, one sentence), anchors (file:line evidence), existingClause (the exact doctrine or ' +
-    'reviewer clause it would harden, quoted with its path — or "absent" plus the surfaces searched). A campaign-local fix never ' +
+    'reviewer clause it would harden, quoted with its path — or "absent" and the surfaces searched). A campaign-local fix never ' +
     'nominates; an empty array is the normal verdict — the terminal doctrine lander refutes weak rows, so nominate substance, never volume.';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -293,11 +293,11 @@ const retryLane = async (fn) => {
     return null;
 };
 
-// Codex dispatch: the sonnet wrapper makes one blocking Codex MCP call, writes the envelope's content
+// Codex dispatch: the shell lane makes one blocking Codex MCP call, writes the envelope's content
 // to the lane report, and returns mechanical orchestration data. Lane law rides developer-instructions
 // (role split, battery-validated); the prompt carries only the task; the output contract sits LAST.
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-');
-// Every realize codex lane is recon investigation (the executor is a native fable writer), so the lane law is the
+// Every realize codex lane is recon investigation (the executor is the native author), so the lane law is the
 // context-gathering budget + stop rule alone — no write-lane persistence arm the shape never dispatches.
 const laneLaw = (schema, o) =>
     '<context_gathering>\nTerritory: the exact files and directories the task names. Do not open files outside it, ' +
@@ -353,8 +353,8 @@ const codexPrompt = (label, task, schema, o) => {
     ].join('\n\n');
 };
 // Every heavy read/investigate lane routes here as the quota twin. QUOTA FALLBACK: a codex receipt whose
-// failure matches usage/quota/limit re-dispatches the SAME task natively at the role's Claude twin (terra->opus, sol->fable, luna->sonnet) — the
-// caller owns the re-dispatch, the sonnet wrapper never executes work itself.
+// failure matches usage/quota/limit re-dispatches the SAME task natively at the role's native twin — the
+// caller owns the re-dispatch, the shell lane never executes work itself.
 const twinOf = (m) => (/-sol/.test(m || '') ? 'fable' : /-luna/.test(m || '') ? 'sonnet' : 'opus');
 const nativeLane = (task, o) =>
     agent(
@@ -404,7 +404,7 @@ const lanes = await parallel(
                 'the union as one dependency-ordered list (foundations before consumers, per the doc where it rules an order).',
             { label: 'plan:' + tag, phase: 'Plan', model: 'opus', effort: 'high', schema: PLAN, stallMs: STALL },
         );
-        // Guard the opus-emitted page roster: drop non-string, empty, and out-of-root paths (a hallucinated or mis-scoped page
+        // Guard the plan lane's page roster: drop non-string, empty, and out-of-root paths (a hallucinated or mis-scoped page
         // would mis-slice a mapper), dedupe first-wins — every downstream slice and stacking map dispatches on this set.
         const pages = [...new Set(((plan && plan.pages) || []).filter((p) => typeof p === 'string' && p && p.indexOf(c.root) === 0))];
         const slices = chunk(pages, Math.max(SLICE_SIZE, Math.ceil(pages.length / MAX_SLICES)));
@@ -421,7 +421,7 @@ const lanes = await parallel(
                         ' (read-only). Read ' +
                         c.doc +
                         ' IN FULL, then each of these pages IN FULL (a doc-ruled page absent on disk maps its ' +
-                        'ruling plus the nearest sibling context instead): ' +
+                        'ruling and the nearest sibling context instead): ' +
                         JSON.stringify(s) +
                         '. For each page return: its current state ' +
                         'against every doc ruling that touches it (exact anchors), every seam/consumer ripple endpoint on both sides, every ' +

@@ -1,7 +1,7 @@
 export const meta = {
     name: 'brief',
     description:
-        'Durable polyglot campaign-brief author over libs/{python,csharp,typescript} planning corpora. args = {targets, upstream, deep, mandate, review, gold} — targets a folder path or an ORDERED array (a waterfall: each later brief consumes every earlier one as finalized law with surgical ripple authority back); upstream = pre-existing finalized brief paths (any language) joining the corpus; deep = true or a target-path subset gaining 2 OSS-ecosystem research lanes; mandate = a scope-expansion law string for all targets or a {targetPath: text} map; review = extra brief paths for the terminal cross-corpus review, or false to skip it; gold = the exemplar brief (default RASM-PY-ARTIFACTS-BRIEF.md). Per target: 5 surveyors (corpus halves + api/manifest tiers + seam/consumer census + cross-folder strata census; +2 deep lanes) all on gpt-5.6-terra via codex dispatch wrappers (sonnet shells; surveyors write dossiers, deep lanes add live web search; every lane leaves its dossier + typed report on disk and returns a thin receipt) -> 1 author (a single-phase decision-complete brief that never requires a second document, carrying the bidirectional CROSS_FOLDER enablement section, the section-utility anti-chaff law, and the header campaign law) -> 4 sequential adversarial passes (architecture, capability incl. the cross-folder audit, roster under the integration-first/seal-challenge/package-waterfall laws, cold-read + hedge-kill + chaff-sweep + RIPPLE AUDIT re-verifying every claimed upstream edit on disk). Terminal: when 1+ briefs were produced, 3 sequential review passes (initial/critique/redteam) cross-align the WHOLE corpus in place. Every adversarial refine + review pass carries a required-but-usually-empty harvest attestation; when the pooled nominations are non-empty, ONE terminal fable doctrine lander adjudicates them against docs/laws (refutation-first, land-nothing legal). Output naming RASM-<PY|CS|TS>-<NAME>-BRIEF.md.',
+        'Durable polyglot campaign-brief author over libs/{python,csharp,typescript} planning corpora. args = {targets, upstream, deep, mandate, review, gold} — targets a folder path or an ORDERED array (a waterfall: each later brief consumes every earlier one as finalized law with surgical ripple authority back); upstream = pre-existing finalized brief paths (any language) joining the corpus; deep = true or a target-path subset gaining 2 OSS-ecosystem research lanes; mandate = a scope-expansion law string for all targets or a {targetPath: text} map; review = extra brief paths for the terminal cross-corpus review, or false to skip it; gold = the exemplar brief (default RASM-PY-ARTIFACTS-BRIEF.md). Per target: 5 surveyors (corpus halves + api/manifest tiers + seam/consumer census + cross-folder strata census; +2 deep lanes) all dispatched lanes (surveyors write dossiers, deep lanes add live web search; every lane leaves its dossier + typed report on disk and returns a thin receipt) -> 1 author (a single-phase decision-complete brief that never requires a second document, carrying the bidirectional CROSS_FOLDER enablement section, the section-utility anti-chaff law, and the header campaign law) -> 4 sequential adversarial passes (architecture, capability incl. the cross-folder audit, roster under the integration-first/seal-challenge/package-waterfall laws, cold-read + hedge-kill + chaff-sweep + RIPPLE AUDIT re-verifying every claimed upstream edit on disk). Terminal: when 1+ briefs were produced, 3 sequential review passes (initial/critique/redteam) cross-align the WHOLE corpus in place. Every adversarial refine + review pass carries a required-but-usually-empty harvest attestation; when the pooled nominations are non-empty, ONE terminal doctrine lander adjudicates them against docs/laws (refutation-first, land-nothing legal). Output naming RASM-<PY|CS|TS>-<NAME>-BRIEF.md.',
     whenToUse:
         'The standing brief engine: author one brief, or a dependency-ordered waterfall of them, in any language mix, with the cross-corpus review built in. Empty args = no-op.',
 };
@@ -26,7 +26,7 @@ const LANG = {
     },
     csharp: {
         tag: 'CS',
-        doctrine: 'docs/stacks/csharp/ plus the docs/stacks/csharp/domain/ shards',
+        doctrine: 'docs/stacks/csharp/ and the docs/stacks/csharp/domain/ shards',
         tiers: 'libs/csharp/.api/ (shared substrate) + the package .api/ (domain)',
         manifest: 'Directory.Packages.props (hand-edited, label-grouped; never dotnet add) + the target .csproj',
         verify:
@@ -80,7 +80,7 @@ const mandateFor = (t) =>
     typeof MANDATE === 'string' ? MANDATE.trim() : MANDATE && typeof MANDATE === 'object' && typeof MANDATE[t] === 'string' ? MANDATE[t].trim() : '';
 
 // Per-instance scratch dir — per-lane MCP reports and dossiers. Minted deterministically from the normalized target set
-// (clock/randomness would break resume): one FLAT dir per instance, a human-readable basename slug plus an FNV-1a tail.
+// (clock/randomness would break resume): one FLAT dir per instance, a human-readable basename slug and an FNV-1a tail.
 const fnv1a = (s) => {
     let h = 0x811c9dc5;
     for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193);
@@ -123,7 +123,7 @@ const SURVEY_SCHEMA = {
                     target: { type: 'string' }, // page, seam, catalog, or package the entry grounds
                     kind: { type: 'string', enum: ['state', 'defect', 'pressure', 'seam', 'stacking', 'candidate', 'roster'] },
                     files: { type: 'array', items: { type: 'string' } }, // files the author must open for this entry
-                    info: { type: 'string' }, // the evidence as prose fact; a candidate states the ruling it argues plus its fatal proofs
+                    info: { type: 'string' }, // the evidence as prose fact; a candidate states the ruling it argues and its fatal proofs
                     anchors: { type: 'array', items: ANCHOR }, // exact coordinates backing the entry
                     members: { type: 'array', items: { type: 'string' } },
                 },
@@ -333,7 +333,7 @@ const CHAFF_LAW =
     'SECTION UTILITY LAW: the brief is LAW the rebuild engine executes directly — it never requires a second document, a follow-up ' +
     "design pass, or a DECISION file. Every section, verdict clause, evidence row, and table row must change the executing agent's behavior; " +
     'boilerplate framing, restated doctrine, generic methodology, empty filler sections, and prose that describes rather than rules are deleted on ' +
-    'sight. A genuine evidence-gated hinge is DECIDED in the brief — a ruled default plus the deciding criteria that would flip it — never deferred.';
+    'sight. A genuine evidence-gated hinge is DECIDED in the brief — a ruled default and the deciding criteria that would flip it — never deferred.';
 
 const RIPPLE_LAW =
     'CORPUS + WATERFALL LAW: the finalized briefs listed as CORPUS are law for this target — read each FULLY; this target is their ' +
@@ -347,7 +347,7 @@ const RIPPLE_LAW =
 const ENTRY_LAW =
     'REPORT FORM — the JSON report is the wire product the author consumes; the dossier carries the full prose. `entries` carry ' +
     'one fact, defect, pressure, seam, stacking gap, or verdict candidate each: `info` is prose evidence (a candidate states the ruling it argues ' +
-    'plus its independently-fatal proofs — the AUTHOR owns the decision; a candidate is pressure with evidence, never settled law); `files` lists ' +
+    'and its independently-fatal proofs — the AUTHOR owns the decision; a candidate is pressure with evidence, never settled law); `files` lists ' +
     'what the author must open for the entry; `anchors` carry one coordinate per row (role names what it proves; `note` is the shortest literal ' +
     'witness under 20 words, or empty when path+line suffice; an `absence` anchor names where the expected thing was searched and not found); ' +
     '`members` = verified member/package spellings backing a stacking or roster entry. COVERAGE is part of the product: `requested` = your ' +
@@ -362,10 +362,10 @@ const HARVEST_LAW =
     'across folders, a naivety class no doctrine clause names, a review rule that would have caught a defect BEFORE review, a ' +
     'cross-surface coupling discovered the hard way. Each row: altitude (stacks|reviewer|constitution|planning|readme|laws), lang, ' +
     'claim (the generalized law, one sentence), anchors (file:line evidence), existingClause (the exact doctrine or reviewer clause it ' +
-    'would harden, quoted with its path — or "absent" plus the surfaces searched). A brief-local fix never nominates; an empty array is ' +
+    'would harden, quoted with its path — or "absent" and the surfaces searched). A brief-local fix never nominates; an empty array is ' +
     'the normal verdict — the terminal doctrine lander refutes weak rows, so nominate substance, never volume.';
 
-// Stance opener forks by executing model: the fable author/passes (and the native survey twin) read the estate hostile
+// Stance opener forks by dispatch register: the native author/passes (and the native survey twin) read the estate hostile
 // register as calibration; the codex-primary survey/deep lanes take the neutral form (a hostile stance makes a codex lane
 // over-probe). Both keep identical substance — the two naivety axes and the full defect-hunt list follow verbatim.
 const STANCE = {
@@ -421,7 +421,7 @@ const retryLane = async (fn) => {
     return null;
 };
 
-// Codex dispatch: the sonnet wrapper makes one blocking Codex MCP call, writes the envelope's content
+// Codex dispatch: the shell lane makes one blocking Codex MCP call, writes the envelope's content
 // to the lane report, and returns mechanical orchestration data. Lane law rides developer-instructions
 // (role split, battery-validated); the prompt carries only the task; the output contract sits LAST.
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-');
@@ -500,9 +500,9 @@ const codexPrompt = (label, task, schema, o) => {
             'report and headline empty, and failure equal to the error text VERBATIM.',
     ].join('\n\n');
 };
-// Every survey/research lane routes here on terra. QUOTA FALLBACK: a codex receipt whose failure
-// matches usage/quota/limit re-dispatches the SAME task natively at the role's Claude twin (terra->opus, sol->fable, luna->sonnet) — the caller owns
-// the re-dispatch, the sonnet wrapper never executes work itself. The roster row carries `scope` from the ORCHESTRATOR (never the lane's
+// Every survey/research lane routes here. QUOTA FALLBACK: a codex receipt whose failure
+// matches usage/quota/limit re-dispatches the SAME task natively at the role's native twin — the caller owns
+// the re-dispatch, the shell lane never executes work itself. The roster row carries `scope` from the ORCHESTRATOR (never the lane's
 // self-report) so a failed lane's unmapped territory is exact even when it died before writing anything.
 const twinOf = (m) => (/-sol/.test(m || '') ? 'fable' : /-luna/.test(m || '') ? 'sonnet' : 'opus');
 const nativeLane = (task, o) =>
@@ -600,7 +600,7 @@ const authorPrompt = (pre, t, out, roster, unmapped) =>
             '[06] CROSS_FOLDER (the bidirectional enablement rows per the cross-folder law — each row {folder, direction, capability, seam}, fully ' +
             'specified from the strata dossier and re-verified on disk; base-extension rows land as fully-specified IDEAS-row obligations the campaign ' +
             'applies), [07] OUT_OF_SCOPE. The brief is SINGLE-PHASE and decision-complete per the section utility law: the rebuild engine consumes it ' +
-            'directly, no second document ever follows it, and every structural hinge is DECIDED — a ruled default plus the deciding criteria that would ' +
+            'directly, no second document ever follows it, and every structural hinge is DECIDED — a ruled default and the deciding criteria that would ' +
             'flip it. HEADER LAW: line 3 of the brief is the campaign line, 1-3 lines: its track order relative to the corpus, the Workflow invocation ' +
             '(rebuild.js args), and its one sequencing constraint. SOURCES — CONSUMPTION PROTOCOL, in order: (a) OWN PASS FIRST — cold-read the target ' +
             '`.planning` design pages from CURRENT disk and WRITE your own structural verdict-candidate + defect list to ' +
@@ -616,7 +616,7 @@ const authorPrompt = (pre, t, out, roster, unmapped) =>
             "lanes (api-tiers, census, strata, ecosystem) before the corpus halves, and read each report's `dossier` markdown IN FULL alongside it; " +
             'entries overlap across lanes — cluster by target as you read; (d) entries are EVIDENCE with jump-coordinate anchors, never settled law: ' +
             're-verify on disk every anchor behind a claim the brief makes (MANDATORY); navigation-only entries re-verify only when touched; a verdict ' +
-            'candidate is pressure you adopt, strengthen, or reject on your own authority. Plus the corpus as law. Every ROSTER candidate resolves ' +
+            'candidate is pressure you adopt, strengthen, or reject on your own authority, with the corpus as law. Every ROSTER candidate resolves ' +
             'EXPLICITLY in [04]: landed as a mine-to-depth or ADD/INTEGRATE/REPLACE row, or a one-line `declinedCandidates` entry naming the forbidding ' +
             'disk fact or law (license, proven redundancy on a named stronger owner, feed-verified currency failure) — a candidate neither landed nor ' +
             'justified-declined is a silent loss the passes and review charge back. ' +
@@ -758,7 +758,7 @@ for (let ti = 0; ti < TARGETS.length; ti++) {
     const name = nameOf(t);
     const out = outOf(t);
     const preCodex = preOf(t, corpus, 'codex'); // survey/deep lanes (codex-primary)
-    const preClaude = preOf(t, corpus, 'claude'); // native fable author + adversarial passes
+    const preClaude = preOf(t, corpus, 'claude'); // native author + adversarial passes
     const P = L.tag + ':' + name.toLowerCase();
     const laneLabel = (lane) => 'survey:' + L.tag.toLowerCase() + '-' + name.toLowerCase() + ':' + lane;
 
@@ -766,11 +766,11 @@ for (let ti = 0; ti < TARGETS.length; ti++) {
     const surveyLanes = [
         {
             lane: 'corpus-a',
-            scope: 'the FIRST half of the target .planning pages (alphabetical by path) FULLY, plus the folder README/ARCHITECTURE/TASKLOG/IDEAS where present',
+            scope: 'the FIRST half of the target .planning pages (alphabetical by path) FULLY, and the folder README/ARCHITECTURE/TASKLOG/IDEAS where present',
         },
         {
             lane: 'corpus-b',
-            scope: 'the SECOND half of the target .planning pages FULLY, plus every page the first half seams to at the depth fit requires',
+            scope: 'the SECOND half of the target .planning pages FULLY, and every page the first half seams to at the depth fit requires',
         },
         {
             lane: 'api-tiers',
@@ -809,7 +809,7 @@ for (let ti = 0; ti < TARGETS.length; ti++) {
                   lane: 'ecosystem-b',
                   focus:
                       'Sweep the ADJACENT/emerging lanes: bleeding-edge or cross-domain packages that could raise the capability ' +
-                      'ceiling, plus supersession candidates for weak admitted owners.',
+                      'ceiling, and supersession candidates for weak admitted owners.',
               },
           ]
         : [];

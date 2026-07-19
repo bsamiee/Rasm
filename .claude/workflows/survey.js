@@ -3,15 +3,15 @@ export const meta = {
     whenToUse:
         'Deep-research the modern external packages a target planning folder is missing — packages that REPLACE hand-rolled design-page capability or ADD genuine domain capability — then execute end to end in one run: central admission with gates, full-depth .api catalogs, registry closure, and immediate holistic integration into the design pages. args = a planning folder path, an array of paths, or {targets}; target lanes run CONCURRENTLY — only the Admit stage (the central-manifest writer) serializes across targets.',
     description:
-        'Package survey-and-integrate over one target planning folder per lane. Scout (recon, on gpt-5.6-terra dispatched through a sonnet codex wrapper) maps the folder — admitted packages, hand-rolled capability an ecosystem package owns, domain gaps against the bleeding-edge state of the art — and emits bounded research facets. Research fan (gpt-5.6-terra codex wrappers with live web search enabled, parallel) hunts the best-in-class modern package per facet, self-validating the admission gate (best-of, platform, newest stable, license, modern packaging, no-dup) with verified versions and members, writing its full candidate dossier to a per-lane report file and returning a thin receipt. ONE admission writer (fable) reads every research report IN FULL from disk, consolidates adversarially, hand-edits the central manifest + owning project registry + folder README bidirectionally (adds, and ripple-removes superseded packages), runs the restore/lock gate with the toolchain fallback, self-heals, and reverts what cannot resolve. Catalog writers (fable, parallel) author the .api catalogs at FULL depth — decompile/feed-verified members, [STACKING], homed to the owning tier (folder or language root). Mapper fan (gpt-5.6-terra codex wrappers, recon) then reads ALL planning-folder pages plus the landed catalogs (new first) and the language-root tier, writing information maps to report files — locations, verified members, integration shapes as fact, never prescriptions — and returning thin receipts. ONE fable executor reads the map reports from disk and implements the whole integration: new pages/sub-folders where the capability demands an owner, existing pages improved and extended in place, holistic composition never tacked-on rows, index-doc closure, every ripple in the same pass. All target lanes run CONCURRENTLY under one agent-level slot cap; the Admit stage alone serializes across targets, and shared-tier catalogs of one language route through one serialized writer so concurrent lanes never collide on the language-root .api files. The scout hand-roll census feeds every Research facet and the Integrate executor; Scout, Admit, and Integrate each carry one bounded re-attempt. The admit and integrate writers carry a required-but-usually-empty harvest attestation; when any lane pools a non-empty nomination, ONE terminal fable doctrine lander adjudicates them against docs/laws (refutation-first, land-nothing legal) and nothing follows it. Otherwise nothing follows the executor; cold-verify runs separately when wanted.',
+        'Package survey-and-integrate over one target planning folder per lane. Scout (the recon lane) maps the folder — admitted packages, hand-rolled capability an ecosystem package owns, domain gaps against the bleeding-edge state of the art — and emits bounded research facets. Research fan (facet lanes with live web search enabled, parallel) hunts the best-in-class modern package per facet, self-validating the admission gate (best-of, platform, newest stable, license, modern packaging, no-dup) with verified versions and members, writing its full candidate dossier to a per-lane report file and returning a thin receipt. ONE admission writer reads every research report IN FULL from disk, consolidates adversarially, hand-edits the central manifest + owning project registry + folder README bidirectionally (adds, and ripple-removes superseded packages), runs the restore/lock gate with the toolchain fallback, self-heals, and reverts what cannot resolve. Catalog writers (parallel) author the .api catalogs at FULL depth — decompile/feed-verified members, [STACKING], homed to the owning tier (folder or language root). Mapper fan (recon lanes) then reads ALL planning-folder pages, the landed catalogs (new first), and the language-root tier, writing information maps to report files — locations, verified members, integration shapes as fact, never prescriptions — and returning thin receipts. ONE terminal executor reads the map reports from disk and implements the whole integration: new pages/sub-folders where the capability demands an owner, existing pages improved and extended in place, holistic composition never tacked-on rows, index-doc closure, every ripple in the same pass. All target lanes run CONCURRENTLY under one agent-level slot cap; the Admit stage alone serializes across targets, and shared-tier catalogs of one language route through one serialized writer so concurrent lanes never collide on the language-root .api files. The scout hand-roll census feeds every Research facet and the Integrate executor; Scout, Admit, and Integrate each carry one bounded re-attempt. The admit and integrate writers carry a required-but-usually-empty harvest attestation; when any lane pools a non-empty nomination, ONE terminal doctrine lander adjudicates them against docs/laws (refutation-first, land-nothing legal) and nothing follows it. Otherwise nothing follows the executor; cold-verify runs separately when wanted.',
     phases: [
         {
             title: 'Scout',
-            detail: 'one recon gpt-5.6-terra lane per target (codex wrapper): folder map, hand-roll census, domain gaps, bounded research facets',
+            detail: 'one recon lane per target: folder map, hand-roll census, domain gaps, bounded research facets',
         },
         {
             title: 'Research',
-            detail: 'one gpt-5.6-terra lane per facet (codex wrapper with live web search), parallel under the pool cap: best-in-class modern candidates, gate self-validated, versions/licenses/members verified, dossier to disk + thin receipt',
+            detail: 'one facet lane with live web search, parallel under the pool cap: best-in-class modern candidates, gate self-validated, versions/licenses/members verified, dossier to disk + thin receipt',
         },
         {
             title: 'Admit',
@@ -25,7 +25,7 @@ export const meta = {
         },
         {
             title: 'Map',
-            detail: 'recon gpt-5.6-terra mappers (codex wrappers) over all planning pages + both .api tiers, new catalogs first: information maps to disk + thin receipts, never prescriptions',
+            detail: 'recon mappers over all planning pages + both .api tiers, new catalogs first: information maps to disk + thin receipts, never prescriptions',
         },
         {
             title: 'Integrate',
@@ -34,7 +34,7 @@ export const meta = {
         },
         {
             title: 'Doctrine',
-            detail: 'terminal doctrine lander (fable), fires only on non-empty pooled harvest: adjudicates admit/integrate nominations against docs/laws, refutation-first, land-nothing legal',
+            detail: 'terminal doctrine lander, fires only on non-empty pooled harvest: adjudicates admit/integrate nominations against docs/laws, refutation-first, land-nothing legal',
             model: 'fable',
         },
     ],
@@ -70,7 +70,7 @@ const rawTargets = Array.isArray(argsIn)
 const TARGETS = [...new Set(rawTargets.filter(Boolean).map(normTarget))];
 
 // Per-instance scratch dir — per-lane report files, one FLAT dir per instance. Minted deterministically from the normalized target set
-// (clock/randomness would break resume): a human-readable basename slug plus an FNV-1a tail so distinct target sets never share a directory.
+// (clock/randomness would break resume): a human-readable basename slug with an FNV-1a tail so distinct target sets never share a directory.
 const fnv1a = (s) => {
     let h = 0x811c9dc5;
     for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193);
@@ -487,7 +487,7 @@ const chunk = (arr, n) => {
     return o;
 };
 
-// gpt-5.6-terra dispatch: the sonnet wrapper makes one blocking Codex MCP call, writes the envelope's content
+// Dispatch: the wrapper makes one blocking Codex MCP call, writes the envelope's content
 // verbatim to the lane report, and returns mechanical orchestration data. Lane law rides developer-instructions
 // (role split); the prompt carries only the task; the output contract sits LAST. A web-research lane (o.web)
 // takes a territory clause that admits its web tools and the named packages' official sources over repo files.
@@ -498,7 +498,7 @@ const laneLaw = (schema, o) =>
     '<context_gathering>\nTerritory: ' +
     (o.web
         ? 'the official sources of the packages the task names — the package registry (PyPI/NuGet/npm), the package docs, ' +
-          'and the source repository — for landscape, newest version, license, and maintenance, PLUS the exact repo files the ' +
+          'and the source repository — for landscape, newest version, license, and maintenance, AND the exact repo files the ' +
           'task cites for cross-check. Use web search and fetch freely over those sources; do not open repo files beyond the ' +
           'ones the task names, and never open skill or instruction files (.claude/, CLAUDE.md, AGENTS.md).'
         : 'the exact files and directories the task names. Do not open files outside it, including skill or instruction ' +
@@ -523,7 +523,7 @@ const codexSteps = (label, task, schema, o, step4) => {
     const root = '/Users/bardiasamiee/Documents/99.Github/Rasm';
     const report = root + '/' + base + '-report.json';
     return [
-        'DISPATCH ROLE: gpt-5.6-terra performs the complete TASK below through one blocking Codex MCP call. Follow exactly four ' +
+        'DISPATCH ROLE: the complete TASK below is performed through one blocking Codex MCP call. Follow exactly four ' +
             'steps; never perform, edit, judge, soften, summarize, or relay the task yourself.',
         '(1) Call ToolSearch with query "select:mcp__codex__codex".',
         '(2) Call the loaded mcp__codex__codex tool ONCE with model="gpt-5.6-terra", cwd=' +
@@ -577,7 +577,7 @@ const HEAD = {
     map: { arr: '.entries', kind: '[.entries[].kind]', unit: 'entries' },
 };
 
-// Native re-dispatch target for a codex lane: terra->opus (survey is terra-only; the sol/luna arms carry for parity).
+// Native re-dispatch target for a dispatched lane; survey uses one arm, the others carry for parity.
 const twinOf = (m) => (/-sol/.test(m || '') ? 'fable' : /-luna/.test(m || '') ? 'sonnet' : 'opus');
 const nativeLane = (task, o) =>
     agent(
@@ -592,8 +592,8 @@ const nativeLane = (task, o) =>
         { label: o.label, phase: o.phase, model: o.nativeModel || twinOf(o.model), effort: 'high', schema: RECEIPT, stallMs: o.stallMs || STALL },
     );
 
-// Every heavy read/investigate lane routes through the gpt-5.6-terra codex wrapper. QUOTA FALLBACK: a codex receipt whose
-// failure matches usage/quota/limit re-dispatches the SAME task natively at the role's Claude twin; the caller owns the re-dispatch, the sonnet
+// Every heavy read/investigate lane routes through the codex wrapper. QUOTA FALLBACK: a receipt whose
+// failure matches usage/quota/limit re-dispatches the SAME task at the role's native twin; the caller owns the re-dispatch, and the
 // wrapper never executes work itself. The roster row carries `scope` from the ORCHESTRATOR (never the lane's self-report) so a failed lane's
 // uncovered territory is exact even when the lane died before writing anything.
 const recon = (task, o) =>
@@ -615,7 +615,7 @@ const recon = (task, o) =>
         failure: (r && r.failure) || (r ? '' : 'lane died'),
     }));
 // Scout is the run's one inline codex lane: the wrapper relays the SCOUT_SCHEMA product verbatim (ok/failure carried in-shape). Quota failure
-// re-dispatches the same task at native opus; a non-quota codex failure is final.
+// re-dispatches the same task on a native lane; a non-quota failure is final.
 const scoutLane = (task, o) => {
     const native = () => agent(task, { label: o.label, phase: o.phase, model: 'opus', effort: 'high', schema: o.schema, stallMs: STALL });
     return agent(codexInline(o.label, task, o.schema, o), {
@@ -722,7 +722,7 @@ const HARVEST_LAW =
     'cross-surface coupling discovered the hard way. Each row: altitude (stacks|reviewer|constitution|planning|readme|laws), lang, ' +
     'claim (the generalized law, one sentence, SYMBOL-FREE — every concrete spelling lives in anchors, so the lander adjudicates ' +
     'the law without re-deriving its locality), anchors (file:line evidence), existingClause (the exact doctrine or reviewer clause ' +
-    'it would harden, quoted with its path — or "absent" plus the surfaces searched). A target-local fix never nominates; an empty ' +
+    'it would harden, quoted with its path — or "absent" with the surfaces searched). A target-local fix never nominates; an empty ' +
     'array is the normal verdict — the terminal doctrine lander refutes weak rows, so nominate substance, never volume.';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -755,8 +755,8 @@ const lane = async (t) => {
     const tag = t.split('/').pop();
 
     // --- [SCOUT]
-    // Scout/research/map are codex-primary lanes: their task text is neutral-register (a hostile stance makes codex
-    // over-probe); the native fable admit/catalog/integrate builders keep the estate register — same substance.
+    // Scout/research/map are codex-primary lanes: their task text is neutral-register (a hostile stance makes them
+    // over-probe); the native admit/catalog/integrate builders keep the estate register — same substance.
     const scoutPrompt = [
         CTX(t, L),
         MEMBER_TRUTH(L),

@@ -22,7 +22,7 @@ Keyed by GitHub identity. Each row registers a reviewer's completion signal, fal
 ## [03]-[MACROSCOPE]
 
 - Login: `macroscopeapp[bot]`; GitHub App id `900172` — key every check read on `checkSuite.app.databaseId`, never a check-name roster (custom rules add named checks beside `Macroscope - Correctness Check` and `Macroscope - Approvability Check`).
-- Completes when: at least one app-900172 check-run exists at head and ALL of them read `status == COMPLETED`. Conclusions are `neutral` by design — a gate treating non-`success` as failure wedges forever; `neutral` is done, and approvability lives in the comment verdict, not the conclusion.
+- Completes when: at least one app-900172 check-run exists at head and ALL of them read `status == COMPLETED`. Conclusions are `neutral` by design — `neutral` is done, and approvability lives in the comment verdict, not the conclusion.
 - Surfaces: a review object, inline comments, an issue-comment summary, and a PR-body block between `<!-- Macroscope's pull request summary starts here -->` markers.
 - Re-trigger: push (auto). Explicit: `POST repos/{o}/{r}/check-runs/{id}/rerequest` on an app-900172 run is the primary route — best-effort, a user token rerequesting another app's run may 403, falling back to the next push; the `@macroscope-app review` mention is vendor-documented but unverified live.
 - Severity: first line `<emoji> **<word>**` — Critical=4, High=3, Medium=2, Low=1. Approvability blocks on unresolved comments at or above its Minimum Blocking Severity (default Medium).

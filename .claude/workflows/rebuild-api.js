@@ -2,16 +2,16 @@ export const meta = {
     name: 'rebuild-api',
     whenToUse: 'Rebuild every .api catalog under a target root to full integration-shaped capability.',
     description:
-        'Rebuild every .api catalog under a target root to FULL first-class, integration-shaped capability — document each package full advanced surface AND how packages STACK into single dense rails, verified against real members. Substrate-first PER LANGUAGE: each language runs as an independent concurrent lane in which the shared tier (libs/<lang>/.api/) is rebuilt before that language folder tiers — the barrier is language-local, so a python folder catalog never waits on csharp substrate; a failed substrate batch flags that language folder batches in the log and return instead of silently stacking onto stub hubs. Folder batches keep one folder per batch, pack small sibling-folder tails of the same language up to the batch size, and co-batch sibling families as the WORK PARTITION, never a write fence: every batch fixes any catalog its work exposes — either tier, in or out of its batch — in the same pass under the current-state law, so the run ends closed in one pass. Every catalog rebuild batch (substrate and folder tier alike) runs on gpt-5.6-terra dispatched through a sonnet codex wrapper — batches are path-disjoint by construction; the discover stage stays sonnet. Language-agnostic: members verified via assay api over host DLLs / NuGet / Python distributions / node_modules, falling back to the nuget MCP / Context7 / source tier when reflection is blocked. args = optional scope (string, array of scopes, or {target|targets} — e.g. "libs/python" or "libs/csharp/Rasm.Bim"); empty = all of libs.',
+        'Rebuild every .api catalog under a target root to FULL first-class, integration-shaped capability — document each package full advanced surface AND how packages STACK into single dense rails, verified against real members. Substrate-first PER LANGUAGE: each language runs as an independent concurrent lane in which the shared tier (libs/<lang>/.api/) is rebuilt before that language folder tiers — the barrier is language-local, so a python folder catalog never waits on csharp substrate; a failed substrate batch flags that language folder batches in the log and return instead of silently stacking onto stub hubs. Folder batches keep one folder per batch, pack small sibling-folder tails of the same language up to the batch size, and co-batch sibling families as the WORK PARTITION, never a write fence: every batch fixes any catalog its work exposes — either tier, in or out of its batch — in the same pass under the current-state law, so the run ends closed in one pass. Every catalog rebuild batch (substrate and folder tier alike) runs as a dispatched write lane — batches are path-disjoint by construction; the discover stage runs native. Language-agnostic: members verified via assay api over host DLLs / NuGet / Python distributions / node_modules, falling back to the nuget MCP / Context7 / source tier when reflection is blocked. args = optional scope (string, array of scopes, or {target|targets} — e.g. "libs/python" or "libs/csharp/Rasm.Bim"); empty = all of libs.',
     phases: [
         { title: 'API-Discover', detail: 'list every .api catalog under the target from disk; _tmp/archives excluded' },
         {
             title: 'API-Substrate',
-            detail: 'per-language lanes on gpt-5.6-terra (codex wrappers): each language shared tier (libs/<lang>/.api/) rebuilt first inside its own lane — the hub rails that language folder tier stacks onto; a failed hub batch flags the lane',
+            detail: 'per-language dispatched write lanes: each language shared tier (libs/<lang>/.api/) rebuilt first inside its own lane — the hub rails that language folder tier stacks onto; a failed hub batch flags the lane',
         },
         {
             title: 'API-Rebuild',
-            detail: 'folder-tier batches per language lane on gpt-5.6-terra (codex wrappers): one folder per batch, small sibling-folder tails packed up to the batch size; all lanes concurrent under the run-wide slot cap; every cross-catalog defect fixed in-pass',
+            detail: 'folder-tier dispatched write batches per language lane: one folder per batch, small sibling-folder tails packed up to the batch size; all lanes concurrent under the run-wide slot cap; every cross-catalog defect fixed in-pass',
         },
     ],
 };
@@ -37,7 +37,7 @@ const scopeRows = Array.isArray(args)
 const scopes = scopeRows.map((s) => String(s).trim()).filter((s) => s && s !== 'ALL');
 const SWEEP = scopes.length ? scopes.join(', ') : 'libs';
 // Per-instance scratch dir for the per-lane report files — minted deterministically from the normalized scope set (clock/randomness
-// would break resume): one FLAT dir under .claude/scratch/, a basename slug plus an FNV-1a tail so distinct scopes never collide.
+// would break resume): one FLAT dir under .claude/scratch/, a basename slug and an FNV-1a tail so distinct scopes never collide.
 const fnv1a = (s) => {
     let h = 0x811c9dc5;
     for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193);
@@ -71,7 +71,7 @@ const FIXLOG_SCHEMA = {
     },
 };
 
-// Thin wire receipt: the batch PRODUCT is the edited catalogs on disk plus the fix-log at `report`; only status + count + headline travel inline.
+// Thin wire receipt: the batch PRODUCT is the edited catalogs on disk and the fix-log at `report`; only status + count + headline travel inline.
 const RECEIPT = {
     type: 'object',
     additionalProperties: false,
@@ -166,7 +166,7 @@ const chunk = (arr, n) => {
     return o;
 };
 
-// Codex dispatch: the sonnet wrapper makes one blocking Codex MCP call, writes the envelope's content
+// Codex dispatch: the wrapper makes one blocking Codex MCP call, writes the envelope's content
 // to the lane report, and returns mechanical orchestration data. Lane law rides developer-instructions
 // (role split); the prompt carries only the task; the output contract sits LAST. Every batch EDITS .api
 // files in place, so every lane is a write lane.
@@ -223,8 +223,8 @@ const codexPrompt = (label, task, schema, o) => {
             'tool error return ok=false, entries=0, report and headline empty, and failure equal to the error text VERBATIM.',
     ].join('\n\n');
 };
-// Every catalog rebuild batch routes here on terra via the codex wrapper. QUOTA FALLBACK: a codex receipt whose failure matches
-// usage/quota/limit re-dispatches the SAME task natively at the role's Claude twin (terra->opus) — the caller owns the re-dispatch, the sonnet
+// Every catalog rebuild batch routes here through the codex wrapper. QUOTA FALLBACK: a codex receipt whose failure matches
+// usage/quota/limit re-dispatches the SAME task natively at the role's native twin — the caller owns the re-dispatch, the
 // wrapper never executes work itself. The roster row carries `scope` from the ORCHESTRATOR (the batch's assigned files) so
 // a failed lane's territory is exact even when it died.
 const twinOf = (m) => (/-sol/.test(m || '') ? 'fable' : /-luna/.test(m || '') ? 'sonnet' : 'opus');

@@ -5,10 +5,10 @@ description: >-
     subagent, agent team, workflow, or machine automation — and the decision-complete worker
     contract (territory, exclusions, return shape, acceptance, and root discipline),
     result-flow topology, depth and fan-out budgeting, worker model tiering, and `SendMessage`
-    resume. Use when "parallelize this" , "delegate this", "subagent or workflow?", "run it in the
-    background", or when a delegation stalls, over-prompts for permission, or returns weak
-    results. Every operation on a chosen workflow belongs to workflow-creator; gpt-5.6 offload
-    to codex and Gemini to agy; settings, memory, and model defaults to harness-steering.
+    resume. Use when "orchestrate", "parallelize this" , "delegate this", "subagent or workflow?",
+    "run it in the background", or when a delegation over-prompts for permission or returns weak results.
+    Every operation on a chosen workflow belongs to workflow-creator; offload to codex and Gemini to
+    agy; settings, memory, and model defaults to harness-steering.
 ---
 
 # [AGENT_DISPATCH]
@@ -56,18 +56,20 @@ Result flow is chosen before the first spawn — the shape decides who consolida
 
 ## [05]-[DEPTH]
 
-Subagents spawn subagents to a fixed ceiling of five levels below the main conversation; at the floor the Agent tool is withheld, and a background worker's depth is pinned at spawn — resuming it from a shallower context restores no headroom. Depth is spent to shed noise, never for parallelism theater: a worker earns the Agent tool only when its own task splits, and its prompt then carries an explicit split policy — what each child owns, what returns, and the remaining depth budget. A fork spawns named subagents but never another fork.
+Subagents spawn subagents to a fixed ceiling of five levels below the main conversation; at the floor the Agent tool is withheld, and a worker's depth is pinned at spawn — resuming it from a shallower context restores no headroom. Depth is spent to shed noise, never for parallelism theater: a worker earns the Agent tool only when its own task splits, and its prompt then carries an explicit split policy — what each child owns, what returns, and the remaining depth budget. A fork spawns named subagents but never another fork.
 
 Depth ledgers are per-lineage: the five-level ceiling meters Claude spawning Claude only — an offload to the other lineage spends no Claude depth, and that lineage's own spawn bound is its skill's law (codex).
 
 ## [06]-[RUNTIME]
 
-Workers run in the background by default and drop to the foreground only when the result gates the next step. Background permission prompts surface in the main session named by requester; approval releases one call, Esc denies that call without killing the worker. Stopped workers resume through `SendMessage` with full history intact; an API-error death returns the worker's last output rather than losing the run.
+Every dispatch runs in the background, and this governs every tool that offers the choice — workers, shell commands, watches, builds, long reads. A holding pattern is the defect: blocking on work already running spends the turn on nothing, and polling for a result the harness announces on its own spends it twice. One exception, taken deliberately: riding along to WATCH a process — debugging a live failure, following a build for the moment it breaks, running a validation to see it stay clean — where the output as it streams is the product.
+
+Background permission prompts surface in the main session named by requester; approval releases one call, Esc denies that call without killing the worker. Stopped workers resume through `SendMessage` with full history intact; an API-error death returns the worker's last output rather than losing the run.
 
 ## [07]-[COMPOSITION]
 
 - Runnable workflow scripts — `meta`, `agent()`, `pipeline()`, schemas — belong to workflow-creator; this skill decides fit and agent prompting.
-- Offload to gpt-5.6 (terra workhorse, sol flagship) via `codex` MCP or `codex exec` belongs to codex; the placement table names the trigger.
+- Offload to codex belongs to the codex skill, which owns its models, tiers, and dispatch surfaces; the placement table names the trigger.
 - Hook construction for `SubagentStart`, `SubagentStop`, `TeammateIdle`, and task gates belongs to hooks-builder; this skill names where a gate pays.
 - Recurring machine work — launchd rows, the signed webhook inbox — belongs to the estate machine owner; the table names when work leaves agents.
 - Memory files, rules, settings, model and effort defaults, and headless lanes belong to harness-steering; a subagent's frontmatter stays here.

@@ -1,9 +1,9 @@
 export const meta = {
     name: 'finalize',
     whenToUse:
-        'The finalization engine — the complement to rebuild: where rebuild improves and extends, finalize corrects and closes. Run it over a package (or folder subset) whose build passes have landed: deep per-file mapping of misalignments, broken or partial logic threads, split-brain, unnecessary differentiation, entry-point sprawl, and unleveraged libs-wide seams; one consolidated work dossier; per-unit sol implement writers under seam-ledger coordination; a sol critique fan piped into per-unit opus red-teams; one sol terminal sweeper; an opus doctrine lander. Fable-free roster.',
+        'The finalization engine — the complement to rebuild: where rebuild improves and extends, finalize corrects and closes. Run it over a package (or folder subset) whose build passes have landed: deep per-file mapping of misalignments, broken or partial logic threads, split-brain, unnecessary differentiation, entry-point sprawl, and unleveraged libs-wide seams; one consolidated work dossier; per-unit implement writers under seam-ledger coordination; a critique fan piped into per-unit red-teams; one terminal sweeper; a doctrine lander.',
     description:
-        'Language-agnostic finalization pass over one libs/{csharp,python,typescript} package planning corpus. args = a package root, an array of planning sub-folders, or {targets} — {root} retargets an isolated checkout, empty = no-op; the language derives from the root and selects the doctrine root pages, both .api tiers, the manifest, and the member-verification rail. Scope resolves targets to the owning package root and its per-sub-folder page units in dependency order, each page carrying its real line count; an oversize sub-folder splits under a dual ceiling — page count AND page tonnage — so no unit alone overflows a lane. Map fans two read-only sol lenses per unit — an interior FLOW lens (per-file logic threads end to end, partial or naive features, split-brain, differentiation, entry-point sprawl, dead ends) and an exterior SEAM lens (libs-wide boundary and wire alignment, unleveraged upstream capability, hand-rolled reimplementation, manifest and .api drift) — each writing a typed findings report; one MERGE lane consolidates every report into a single deduped, thread-joined, owner-ordered work dossier, each cross-unit thread assigned a LEAD unit so exactly one writer owns it. Implement fans ONE sol writer per unit under seam-ledger coordination: own blind pass first as a disk artifact, the dossier as grounding to verify and exceed, in-unit findings and first-order ripples drained in the same pass, foreign edits additive-only with the remainder deferred as typed rows; index docs and central manifests are single-writer surfaces reported as rows, never raced. Review runs per unit as a chain: a sol read-only critique over the implemented unit, then an opus red-team WRITER folding the unit implement and critique products forward — counterfactual, long-tail, next-feature diff, full cold re-review — under the same ledger law. ONE sol terminal sweeper then drains every deferred row, cross-unit remainder, index and manifest row, and its own governance hunt in one scoped pass. Close: an opus doctrine lander adjudicates pooled harvest nominations swept from wire rows, every report harvest array, and the harvest files. Stage law lives in the prompt blocks; codex lanes quota-fall to opus, never fable.',
+        'Language-agnostic finalization pass over one libs/{csharp,python,typescript} package planning corpus. args = a package root, an array of planning sub-folders, or {targets} — {root} retargets an isolated checkout, empty = no-op; the language derives from the root and selects the doctrine root pages, both .api tiers, the manifest, and the member-verification rail. Scope resolves targets to the owning package root and its per-sub-folder page units in dependency order, each page carrying its real line count; an oversize sub-folder splits under a dual ceiling — page count AND page tonnage — so no unit alone overflows a lane. Map fans two read-only lenses per unit — an interior FLOW lens (per-file logic threads end to end, partial or naive features, split-brain, differentiation, entry-point sprawl, dead ends) and an exterior SEAM lens (libs-wide boundary and wire alignment, unleveraged upstream capability, hand-rolled reimplementation, manifest and .api drift) — each writing a typed findings report; one MERGE lane consolidates every report into a single deduped, thread-joined, owner-ordered work dossier, each cross-unit thread assigned a LEAD unit so exactly one writer owns it. Implement fans ONE writer per unit under seam-ledger coordination: own blind pass first as a disk artifact, the dossier as grounding to verify and exceed, in-unit findings and first-order ripples drained in the same pass, foreign edits additive-only with the remainder deferred as typed rows; index docs and central manifests are single-writer surfaces reported as rows, never raced. Review runs per unit as a chain: a read-only critique over the implemented unit, then a red-team WRITER folding the unit implement and critique products forward — counterfactual, long-tail, next-feature diff, full cold re-review — under the same ledger law. ONE terminal sweeper then drains every deferred row, cross-unit remainder, index and manifest row, and its own governance hunt in one scoped pass. Close: a doctrine lander adjudicates pooled harvest nominations swept from wire rows, every report harvest array, and the harvest files. Stage law lives in the prompt blocks; codex lanes quota-fall to a native twin.',
     phases: [
         {
             title: 'Scope',
@@ -11,19 +11,19 @@ export const meta = {
         },
         {
             title: 'Map',
-            detail: 'two read-only sol lenses per unit segment — interior logic flow, exterior seam integration — each writing a typed findings report; one sol merge lane consolidates every report into the single deduped, thread-joined work dossier, each cross-unit thread assigned its LEAD unit',
+            detail: 'two read-only lenses per unit segment — interior logic flow, exterior seam integration — each writing a typed findings report; one merge lane consolidates every report into the single deduped, thread-joined work dossier, each cross-unit thread assigned its LEAD unit',
         },
         {
             title: 'Implement',
-            detail: 'one sol writer per unit under seam-ledger coordination: own blind pass first as a disk artifact, the dossier sections it owns (its unit plus its lead cross-unit threads) as grounding to verify and exceed, in-unit work and first-order ripples drained in the same pass, foreign edits additive-only with typed deferred rows for the sweeper',
+            detail: 'one writer per unit under seam-ledger coordination: own blind pass first as a disk artifact, the dossier sections it owns (its unit and its lead cross-unit threads) as grounding to verify and exceed, in-unit work and first-order ripples drained in the same pass, foreign edits additive-only with typed deferred rows for the sweeper',
         },
         {
             title: 'Review',
-            detail: 'per unit, pipelined the moment its implement lands: a sol read-only critique over the implemented unit, then an opus red-team writer folding the unit implement and critique products forward — counterfactual, long-tail, next-feature diff, full cold re-review — under the ledger law; then ONE sol terminal sweeper drains every deferred row, cross-unit remainder, and index/manifest row in one scoped pass',
+            detail: 'per unit, pipelined the moment its implement lands: a read-only critique over the implemented unit, then a red-team writer folding the unit implement and critique products forward — counterfactual, long-tail, next-feature diff, full cold re-review — under the ledger law; then ONE terminal sweeper drains every deferred row, cross-unit remainder, and index/manifest row in one scoped pass',
         },
         {
             title: 'Close',
-            detail: 'an opus doctrine lander adjudicates pooled harvest nominations swept from wire rows, every report harvest array, and the harvest files; landing nothing is a first-class verdict',
+            detail: 'a doctrine lander adjudicates pooled harvest nominations swept from wire rows, every report harvest array, and the harvest files; landing nothing is a first-class verdict',
         },
     ],
 };
@@ -226,7 +226,7 @@ const FINDINGS_SCHEMA = {
     },
 };
 
-// The merge lane authors ONE content artifact — the work dossier — and returns only this thin receipt: the per-unit jump index plus coverage.
+// The merge lane authors ONE content artifact — the work dossier — and returns only this thin receipt: the per-unit jump index and coverage.
 const MERGE_SCHEMA = {
     type: 'object',
     additionalProperties: false,
@@ -423,8 +423,8 @@ const SELF_CHECK =
     'vague/hedged entry. Completeness is part of correctness: after the re-read, hunt once more for what the first pass missed ' +
     '— an omitted load-bearing fact is as wrong as a false one.';
 
-// Register fork — substance identical (burden of proof on the work, both naivety axes, no-churn); phrasing per executing model:
-// the hostile register measurably makes a codex lane over-read and probe out of territory, so codex rows stay de-conflicted.
+// Register fork — substance identical (burden of proof on the work, both naivety axes, no-churn); the hostile register
+// measurably makes a dispatched lane over-read and probe out of territory, so the `codex` rows stay de-conflicted.
 const REG = {
     claude: {
         stance:
@@ -494,7 +494,7 @@ const HARVEST_LAW =
     'hard-won cross-surface coupling. Each row: altitude (stacks|reviewer|constitution|planning|readme|laws), lang, claim (the ' +
     'generalized law, one sentence, SYMBOL-FREE — every concrete spelling lives in anchors, so the lander adjudicates the law ' +
     'without re-deriving its locality), anchors (file:line evidence), existingClause (the exact clause it hardens, quoted with ' +
-    'its path — or "absent" plus the surfaces searched). A run-local fix never nominates; an empty array is the normal verdict ' +
+    'its path — or "absent" with the surfaces searched). A run-local fix never nominates; an empty array is the normal verdict ' +
     '— the doctrine lander refutes weak rows, so nominate substance, never volume.';
 
 const OWN_PASS = (artifact) =>
@@ -585,7 +585,7 @@ const laneLaw = (schema, o) =>
 
 const codexPrompt = (label, task, schema, o) => {
     const report = ROOT_DIR + '/' + reportOf(label);
-    const model = o.model; // config owns the default model; only a deviation (terra) is named on the call
+    const model = o.model; // config owns the default; only a deviation is named on the call
     return [
         'DISPATCH ROLE: ' +
             (model || 'codex') +
@@ -631,10 +631,10 @@ const codexPrompt = (label, task, schema, o) => {
     ].join('\n\n');
 };
 
-// QUOTA FALLBACK: a codex receipt whose failure matches usage/quota/limit re-dispatches the SAME task natively at the role's
-// Claude twin (luna->sonnet, all else->opus); the caller owns the re-dispatch, the sonnet wrapper never executes work.
+// QUOTA FALLBACK: a codex receipt whose failure matches usage/quota/limit re-dispatches the SAME task at the role's native
+// twin; the caller owns the re-dispatch.
 // The roster row carries `scope` from the ORCHESTRATOR so a lane that died before writing still names its territory exactly.
-const twinOf = (m) => (/-luna/.test(m || '') ? 'sonnet' : 'opus'); // fable-free: every codex death quota-falls to opus
+const twinOf = (m) => (/-luna/.test(m || '') ? 'sonnet' : 'opus');
 const nativeLane = (task, o) =>
     agent(
         task +
@@ -731,7 +731,7 @@ const flowLensPrompt = (u, reg) =>
             u.tag +
             ' — the pages: ' +
             u.pages.join(', ') +
-            ' (investigate, do NOT edit). Read EVERY page IN FULL, top to bottom, plus every sibling page each composes or is ' +
+            ' (investigate, do NOT edit). Read EVERY page IN FULL, top to bottom, and every sibling page each composes or is ' +
             'composed by (seam partners both directions, entry owners, vocabulary sources — full reads, never skims), and the ' +
             'package README.md + ARCHITECTURE.md at ' +
             u.root +
@@ -830,7 +830,7 @@ const implementPrompt = (u, dossier, mergeOk, unitReports, isUnmapped, reg) =>
             (mergeOk
                 ? 'the WORK DOSSIER at `' +
                   dossier +
-                  '` is the consolidated recon — read YOUR unit section IN FULL plus every CROSS-UNIT THREAD whose LEAD is ' +
+                  '` is the consolidated recon — read YOUR unit section IN FULL and every CROSS-UNIT THREAD whose LEAD is ' +
                   'your unit (you implement the whole thread, every end); a thread led elsewhere is not yours — compose its ' +
                   'landed ends per the ledger law, never re-derive it. Spot-verify every anchor an edit builds on ' +
                   '(re-open MANDATORY — a finding already corrected on disk or whose anchors do not re-confirm is dropped with ' +
@@ -1121,7 +1121,7 @@ log(
 
 phase('Implement');
 phase('Review');
-// PER-UNIT PIPELINED CHAINS — implement (sol write lane) -> critique (sol read lane) -> red-team (opus writer), each unit
+// PER-UNIT PIPELINED CHAINS — implement (write lane) -> critique (read lane) -> red-team (writer), each unit
 // advancing the moment its own prior stage lands; the slot scheduler is the only cross-unit governor, the seam ledgers own
 // coordination, and failure isolates per unit (a dead implement still gets its critique and red-team against current disk).
 const unitReportsOf = (u) => [reportOf('map:flow:' + u.tag), reportOf('map:seam:' + u.tag)];

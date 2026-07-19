@@ -3,7 +3,7 @@ export const meta = {
     whenToUse:
         'The standing RESEARCH-row resolution pass for any libs/ planning corpus: pass folder targets (sub-folder / package root, any number, any language mix); it censuses every research row as an epistemic-debt entry, clusters the debts by verification route, verifies each at its route, then bakes confirmed spellings and DELETES resolved rows, sharpens the unresolvable, and closes with a critique/red-team chain, a deferred drain, and one doctrine landing.',
     description:
-        'RESEARCH-row resolution engine over libs/{csharp,python,typescript} planning corpora. args = a folder target, an array of folder paths, or a targets object; empty = no-op. A research row is a writer epistemic debt — an exact question plus its verification route, recorded instead of a guessed member spelling. Census (terra codex, read lane) reads every page under the targets and extracts each research row (the C# [NN]-[RESEARCH] section entries, the inline RESEARCH re-verify rows, and the version-blocked capability rows) as an anchored {page, anchor, question, route, routeFamily, routeKey, symbols} entry with coverage; one lane per folder, large folders split by page count. Cluster (plain orchestrator code, no agent) groups the entries by verification route family — same host DLL, package, .api catalog, or doc source. Verify runs one lane per cluster, the route deciding the lane: assay-decompile clusters run NATIVE (they need tools.assay over host DLLs); .api catalog and doc-file clusters ride terra codex lanes reading the catalogs; external-doc clusters run a native Context7 lane; each writes {question, page, anchor, verdict, evidence, spelling} verdicts to disk. Apply (one fable writer per folder, pipelined) reads the folder verdicts plus the pages, bakes each confirmed spelling into its fence, corrects each refuted assumption at its root, DELETES each resolved research row entirely (no tombstones, no resolved notes), and SHARPENS each unresolvable row in place with a better question and route; docgen loads before durable prose edits, the prose gate returns zero FAILs, and the fixlog carries harvest. A codex critique (fix, fable twin) then a fable red-team fold-forward per the chain law attack a baked spelling not actually verified, a deleted row whose fact never landed in the fence, and a surviving row that verification already answered. Close: a drain loop over the pooled deferred backlog and orphaned critique fixlogs, then one doctrine lander over the pooled harvest.',
+        'RESEARCH-row resolution engine over libs/{csharp,python,typescript} planning corpora. args = a folder target, an array of folder paths, or a targets object; empty = no-op. A research row is a writer epistemic debt — an exact question with its verification route, recorded instead of a guessed member spelling. Census (codex read lane) reads every page under the targets and extracts each research row (the C# [NN]-[RESEARCH] section entries, the inline RESEARCH re-verify rows, and the version-blocked capability rows) as an anchored {page, anchor, question, route, routeFamily, routeKey, symbols} entry with coverage; one lane per folder, large folders split by page count. Cluster (plain orchestrator code, no agent) groups the entries by verification route family — same host DLL, package, .api catalog, or doc source. Verify runs one lane per cluster, the route deciding the lane: assay-decompile clusters run NATIVE (they need tools.assay over host DLLs); .api catalog and doc-file clusters ride codex lanes reading the catalogs; external-doc clusters run a native Context7 lane; each writes {question, page, anchor, verdict, evidence, spelling} verdicts to disk. Apply (one resolver writer per folder, pipelined) reads the folder verdicts and the pages, bakes each confirmed spelling into its fence, corrects each refuted assumption at its root, DELETES each resolved research row entirely (no tombstones, no resolved notes), and SHARPENS each unresolvable row in place with a better question and route; docgen loads before durable prose edits, the prose gate returns zero FAILs, and the fixlog carries harvest. A codex critique (fix lane) then a red-team fold-forward per the chain law attack a baked spelling not actually verified, a deleted row whose fact never landed in the fence, and a surviving row that verification already answered. Close: a drain loop over the pooled deferred backlog and orphaned critique fixlogs, then one doctrine lander over the pooled harvest.',
     phases: [
         {
             title: 'Discover',
@@ -12,19 +12,19 @@ export const meta = {
         },
         {
             title: 'Census',
-            detail: 'one terra codex lane per folder (large folders split by page count) reads every page and extracts each research row as an anchored epistemic-debt entry with its route family; entries return on the wire for clustering, the full product to disk',
+            detail: 'one codex lane per folder (large folders split by page count) reads every page and extracts each research row as an anchored epistemic-debt entry with its route family; entries return on the wire for clustering, the full product to disk',
         },
         {
             title: 'Verify',
-            detail: 'plain orchestrator code clusters the entries by verification route family, then one lane per cluster verifies at its route — assay-decompile and external-doc NATIVE, catalog and doc-file terra codex — writing verdicts to disk',
+            detail: 'plain orchestrator code clusters the entries by verification route family, then one lane per cluster verifies at its route — assay-decompile and external-doc NATIVE, catalog and doc-file codex — writing verdicts to disk',
         },
         {
             title: 'Apply',
-            detail: 'per folder pipelined: fable bakes confirmed spellings, corrects refuted assumptions, DELETES resolved rows, sharpens the unresolvable; then a codex critique and a fable red-team fold-forward per the chain law',
+            detail: 'per folder pipelined: the resolver lane bakes confirmed spellings, corrects refuted assumptions, DELETES resolved rows, sharpens the unresolvable; then a codex critique and a red-team fold-forward per the chain law',
         },
         {
             title: 'Close',
-            detail: 'a drain loop over the pooled deferred backlog and orphaned critique fixlogs, then one fable doctrine lander over the pooled harvest',
+            detail: 'a drain loop over the pooled deferred backlog and orphaned critique fixlogs, then one doctrine lander over the pooled harvest',
         },
     ],
 };
@@ -118,7 +118,7 @@ const CENSUS_ENTRY = {
     required: ['page', 'anchor', 'question', 'route', 'routeFamily', 'routeKey', 'symbols'],
     properties: {
         page: { type: 'string' },
-        anchor: { type: 'string' }, // the bracketed marker label or the `[NN]-[RESEARCH]` section id plus a short locator
+        anchor: { type: 'string' }, // the bracketed marker label or the `[NN]-[RESEARCH]` section id with a short locator
         question: { type: 'string' }, // the exact unresolved debt: which member/spelling/capability is unverified or must re-verify
         route: { type: 'string' }, // the verification route as the row states it, verbatim enough to re-derive
         routeFamily: { type: 'string', enum: ['assay', 'catalog', 'docfile', 'extdoc', 'build'] },
@@ -463,7 +463,7 @@ const retryLane = async (fn) => {
     return null;
 };
 
-// Codex dispatch: the sonnet wrapper makes one blocking Codex MCP call, writes the envelope content to the lane report, and returns mechanical
+// Codex dispatch: the wrapper makes one blocking Codex MCP call, writes the envelope content to the lane report, and returns mechanical
 // orchestration data. Lane law rides developer-instructions; the prompt carries only the task; the output contract sits LAST.
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-');
 const laneLaw = (schema, o) =>
@@ -538,9 +538,9 @@ const codexPrompt = (label, task, schema, o) => {
             'report and headline empty, and failure equal to the error text VERBATIM.',
     ].join('\n\n');
 };
-// Every codex-dispatched receipt lane routes here: terra where o.model names it, the config default unflagged otherwise.
+// Every codex-dispatched receipt lane routes here: the model `o.model` names, the config default unflagged otherwise.
 // QUOTA FALLBACK: a codex receipt whose failure matches usage/quota/limit re-dispatches the SAME task natively at the
-// role Claude twin (terra->opus, unflagged default->fable, luna->sonnet). The roster row carries `scope` from the ORCHESTRATOR so a failed lane
+// role twin. The roster row carries `scope` from the ORCHESTRATOR so a failed lane
 // unmapped territory is exact even when the lane died before writing anything.
 const twinOf = (m) => (/-sol/.test(m || '') ? 'fable' : /-luna/.test(m || '') ? 'sonnet' : 'opus');
 const nativeLane = (task, o) =>
@@ -593,7 +593,7 @@ const asLane = (label, scope, p) =>
         failure: (r && r.failure) || (r ? '' : 'lane died'),
     }));
 
-// Census dispatch: the sonnet wrapper makes one Codex call, writes the product to disk, AND relays the
+// Census dispatch: the wrapper makes one Codex call, writes the product to disk, AND relays the
 // entries themselves on the wire — the orchestrator clusters on them, so a receipt count alone would not do. Bounded
 // per lane by CENSUS_PAGES so the relayed entry set stays small.
 const censusCodexPrompt = (label, task, o) => {
@@ -662,7 +662,7 @@ const evenChunk = (arr, max) => chunk(arr, Math.ceil(arr.length / (Math.ceil(arr
 const pkgOf = (p) => p.split('/.planning/')[0]; // package = the folder write-partition key (index docs live at its root)
 const Lof = (pkg) => LANG[langOf(pkg)] || LANG.cs;
 const scratchBase = (folder, i) => SCRATCH + '/' + fileTag(folder.split('/').pop() + ':f' + i);
-// Assay/external-doc clusters run NATIVE; catalog/doc-file clusters ride codex terra reading the repo.
+// Assay/external-doc clusters run NATIVE; catalog/doc-file clusters ride codex lanes reading the repo.
 const NATIVE_FAMILY = { assay: true, build: true, extdoc: true, catalog: false, docfile: false };
 
 // Navigation handoff: FACTS ONLY — files, symbol deltas, seam rows, backlog. Never verdicts, summaries, or adjectives.
@@ -782,7 +782,7 @@ const HARVEST_LAW =
     'reusable across folders, a research-debt class no doctrine clause names, a review rule that would have caught a defect ' +
     'BEFORE review, a cross-surface coupling discovered the hard way. Each row: altitude (stacks|reviewer|constitution|planning|' +
     'readme|laws), lang, claim (the generalized law, one sentence), anchors (file:line evidence), existingClause (the exact ' +
-    'doctrine or reviewer clause it would harden, quoted with its path — or "absent" plus the surfaces searched). A folder-local ' +
+    'doctrine or reviewer clause it would harden, quoted with its path — or "absent" with the surfaces searched). A folder-local ' +
     'fix never nominates; an empty array is the normal verdict — the doctrine lander refutes weak rows, so nominate substance, ' +
     'never volume.';
 
@@ -861,7 +861,7 @@ const censusPrompt = (L, pages) =>
             pages.length +
             ' pages (investigate, do NOT edit): ' +
             JSON.stringify(pages) +
-            '. Read each page IN FULL and extract EVERY research row — a writer epistemic debt: an exact question plus its ' +
+            '. Read each page IN FULL and extract EVERY research row — a writer epistemic debt: an exact question with its ' +
             'verification route, recorded instead of a guessed member spelling. The convention on disk takes THREE forms, all in ' +
             'scope:\n' +
             '(A) SECTION ROWS — a numbered `## [NN]-[RESEARCH]` section (usually near the page bottom) whose bullet entries read ' +
@@ -873,7 +873,7 @@ const censusPrompt = (L, pages) =>
             'catalog-unverified — <what lands when the decompile/catalogue confirms it>; <the settled fallback> until then`, or ' +
             'the `... re-verify at decompile` / `... re-verify at the same pass` phrasing. These are the purest debts: an exact ' +
             'unverified spelling, its route, and the interim fence. The `anchor` is the leading symbol or the `RESEARCH:` marker ' +
-            'plus a short locator.\n' +
+            'with a short locator.\n' +
             '(C) CROSS-REFERENCE MARKERS — `(RESEARCH)`, `see [NN]-[RESEARCH]`, `see RESEARCH`, or an inline note inside a fence ' +
             'comment POINTING at a row. A pointer is NOT itself a debt; record it only as an extra `symbols`/route note on the ' +
             'entry it points to, never as a standalone entry.\n' +
@@ -899,7 +899,7 @@ const censusPrompt = (L, pages) =>
     ].join('\n\n');
 
 // reg = the EXECUTING branch: 'claude' for the native assay/build/extdoc clusters, 'codex' for the catalog/doc-file
-// codex terra lanes; the stance, self-verify intensifier, and TASK header fork, the route substance is identical.
+// codex lanes; the stance, self-verify intensifier, and TASK header fork, the route substance is identical.
 const verifyPrompt = (L, cluster, reg) =>
     [
         CONTEXT(L),
@@ -936,7 +936,7 @@ const verifyPrompt = (L, cluster, reg) =>
             'confirmed without the route output in `evidence`; an unrun route is `unresolvable`, never an optimistic confirm.',
     ].join('\n\n');
 
-// reg selects STANCE by the EXECUTING model: apply + red-team run native fable ('claude'), the critique runs codex ('codex').
+// reg selects STANCE by the EXECUTING branch: apply + red-team run native ('claude'), the critique runs codex ('codex').
 const applyPreamble = (L, folder, scopes, reg) => [
     CONTEXT(L),
     STANCE(L, reg),
@@ -1211,7 +1211,7 @@ const CLUSTERS = Object.values(
 );
 log('Verify: ' + CLUSTERS.length + ' cluster(s) by route family');
 // The route decides the lane: assay/build/extdoc run NATIVE (tools.assay over host DLLs, a native Context7 lane for
-// extdoc); catalog/docfile ride codex terra reading the repo.
+// extdoc); catalog/docfile ride codex lanes reading the repo.
 const verified = (
     await Promise.all(
         CLUSTERS.map((c) => {
@@ -1358,7 +1358,7 @@ if (!RESOLVED.length) {
 
 phase('Close');
 const RESOLVED_LANGS = [...new Set(RESOLVED.map((f) => langOf(f)).filter(Boolean))];
-// Terminal DRAIN LOOP: one serial fable closer per round verifies every row against live disk, fixes at root, loops until
+// Terminal DRAIN LOOP: one serial closer per round verifies every row against live disk, fixes at root, loops until
 // empty; a round without shrinkage stops with the blocked set final. Every round re-receives the FULL tranche set — index
 // rows, orphan fixlogs, and the residual backlog — because the checkpoint ledger receipts consumption, so a dead or partial
 // round loses nothing and a live one skips what it already landed; only the backlog narrows round over round.

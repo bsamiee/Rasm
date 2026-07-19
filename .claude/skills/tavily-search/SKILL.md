@@ -15,7 +15,7 @@ description: >-
 
 Relevance resolves server-side, never a local post-filter: `--include-answer` on `search`, `--query` with `--chunks-per-source` on `extract`, `--instructions` with `--chunks-per-source` on `crawl`. Triage on the score and snippet every `search` result carries and pull full content only for the URLs that earn it — or skip the round-trip with `--include-raw-content` when the whole top set is wanted. Bulk output routes to disk, `-o` for the JSON envelope and `--output-dir` for one markdown file per crawled page, never into the window.
 
-`crawl` starts shallow — `--max-depth 1`, a tight `--limit` — and widens once the site's shape is known; `--instructions` focuses it semantically and collapses a `map`-then-`extract` round-trip into one call, leaving `map` for cheap URL recon alone. `research` is the loose heavy lane, a cited report over 30-120 seconds: run it detached when it outlives the turn, take `--output-schema` for a structured result, and never spend it on a fact one `search` settles.
+`crawl` starts shallow — `--max-depth 1`, a tight `--limit` — and widens once the site's shape is known; `--instructions` focuses it semantically and collapses a `map`-then-`extract` round-trip into one call, leaving `map` for cheap URL recon alone. `research` is the loose heavy lane, a cited report over 30-120 seconds: take `--output-schema` for a structured result, and never spend it on a fact one `search` settles.
 
 ## [01]-[USAGE]
 

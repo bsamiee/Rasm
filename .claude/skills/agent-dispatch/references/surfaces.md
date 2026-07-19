@@ -13,12 +13,12 @@ A custom subagent is a Markdown file with YAML frontmatter whose body becomes th
 |  [03]   | `model`           | `sonnet`, `opus`, `haiku`, `fable`, a full model ID, or `inherit` (the default)                   |
 |  [04]   | `effort`          | Overrides session effort while the worker is active: `low` through `max`, model-dependent         |
 |  [05]   | `permissionMode`  | `default`, `acceptEdits`, `auto`, `dontAsk`, `bypassPermissions`, `plan`                          |
-|  [06]   | `maxTurns`        | Hard turn ceiling — the stall guard for unattended workers                                        |
+|  [06]   | `maxTurns`        | Hard turn ceiling for unattended workers                                                          |
 |  [07]   | `skills`          | Full skill content injected at startup; unlisted skills stay invocable through the Skill tool     |
 |  [08]   | `mcpServers`      | Inline server definitions scoped to this worker, or name references sharing the parent connection |
 |  [09]   | `hooks`           | Lifecycle hooks active only while this worker runs; `Stop` converts to `SubagentStop`             |
 |  [10]   | `memory`          | `user`, `project`, or `local` — a persistent directory surviving across sessions                  |
-|  [11]   | `background`      | `true` forces background even when the parent wants the result immediately                        |
+|  [11]   | `background`      | `true` pins the worker to background                                                              |
 |  [12]   | `isolation`       | `worktree` runs the worker in a temporary git worktree branched from the default branch           |
 |  [13]   | `initialPrompt`   | Auto-submitted first turn when the definition runs as the main session via `--agent`              |
 |  [14]   | `color`           | Progress-label tint: `red` `blue` `green` `yellow` `purple` `orange` `pink` `cyan`                |
@@ -47,7 +47,7 @@ A fork inherits the entire conversation — history, system prompt, tools, model
 
 ## [06]-[BACKGROUND_RUNTIME]
 
-Workers default to background; the foreground fires only when the result gates the parent's next step, and `background: true` pins a definition there. Ctrl+B backgrounds a running task; `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` forces everything synchronous and outranks fork mode. Permission prompts surface in the main session, named by requester — approve releases one call, Esc denies it while the worker lives on. An API error ends a background worker failed, last output attached; a foreground worker cut mid-output returns the partial flagged unfinished — retry or resume once the error clears.
+Ctrl+B backgrounds a running task; `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` forces everything synchronous and outranks fork mode. Permission prompts surface in the main session, named by requester — approve releases one call, Esc denies it while the worker lives on. An API error ends a worker failed, last output attached — retry or resume once the error clears.
 
 ## [07]-[RESUME]
 

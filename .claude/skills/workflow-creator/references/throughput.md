@@ -154,4 +154,4 @@ That budget also rules POOL-per-cluster shapes (one agent per atomic cluster und
 - A sibling's territory breach observed mid-flight is adjudicated at its receipt, never by intervening in a live run.
 - Grant permissions before a long parallel run. Subagents run in `acceptEdits` mode and inherit the session tool allowlist; a non-allowlisted shell, web, or MCP call surfaces a mid-run permission prompt and stalls the run until answered.
 - Host singletons serialize. Agents sharing one external mutable resource — a live app instance, a database, a port — contend invisibly; a narrow real run (api reference) is what surfaces the serialization before the full fan does.
-- `budget.spent()` pools across the main loop and every workflow in the turn — parallel runs drain one shared target. Codex lanes are invisible to it; budget-gated loops meter only their Claude lanes.
+- `budget.spent()` pools across the main loop and every workflow in the turn — parallel runs drain one shared target. Codex lanes are invisible to it; budget-gated loops meter only their native lanes.

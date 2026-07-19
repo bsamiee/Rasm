@@ -2,7 +2,7 @@ export const meta = {
     name: 'stack-py',
     whenToUse: 'Harden the docs/stacks/python code doctrine in place across the whole settled corpus.',
     description:
-        "Full-stack hardening of the docs/stacks/python CODE DOCTRINE — the standing python-stack harden engine (peer to stack-cs and stack-ts), run whenever to push the whole settled corpus (the core concept pages plus any sub-folder shard set present on disk) to the 13/10 ultra-dense bar. NOT a from-scratch build and NOT a restructure: the file set is settled and admits no new-page valve here — a structure decision routes through a rebuild campaign, never this harden (hence no Gate phase). Each FILE runs its own initial -> critique -> redteam pipeline; ALL files run concurrently under one pool cap — the chain is the file's own stage dependence, never a corpus barrier. Every stage is HOSTILE: the page is naive/shallow/illusory until it survives an aggressive attack, the burden of proof on the page. CRITIQUE is the mechanical line-by-line doctrinal-conformance audit (COLLAPSE_SCAN, OWNER_CHOOSER, KNOB_TEST, AOP, rails, py3.15/payloads, citation tier, agnostic snippet law, page-craft, altitude, zero-meta, capability-completeness) fixed in place; REDTEAM is critique AND MORE — counterfactual on the core teaching shape, anticipatory-collapse of the next case, corpus-wide duplication, AOP + shape-budget maximization, substrate-depth + phantoms, plus a full cold adversarial re-review. Critique and redteam read the LIVE corpus — the current on-disk state of every page, landed sibling hardening composed as found, a conflict resolved to the stronger form, never a revert — and edit ONLY their own file (the anti-collision rule among concurrent pipelines), reporting cross-file residuals. ONE terminal fable corpus agent then aligns cross-file seams, closes gaps, enforces the computation-law bodies, resolves every reported residual, and finalizes cold in one sweep. Every per-file stage and the corpus sweep carry a required-but-usually-empty harvest attestation RESTRICTED to reviewer/laws/constitution altitudes (the run authors docs/stacks/python, so a stacks lesson is already owned and never nominated); when the pooled nominations are non-empty, ONE terminal fable doctrine lander adjudicates them against docs/laws (refutation-first, land-nothing legal, never re-editing a docs/stacks/python page). The csharp doc set is the read-only FLOOR/reference; snippets agnostic; every cited member verified against the .api catalogs (novel members via assay api with its Context7/exa fallback); every edit scoped to docs/stacks/python. Takes no args.",
+        "Full-stack hardening of the docs/stacks/python CODE DOCTRINE — the standing python-stack harden engine (peer to stack-cs and stack-ts), run whenever to push the whole settled corpus (the core concept pages and any sub-folder shard set present on disk) to the 13/10 ultra-dense bar. NOT a from-scratch build and NOT a restructure: the file set is settled and admits no new-page valve here — a structure decision routes through a rebuild campaign, never this harden (hence no Gate phase). Each FILE runs its own initial -> critique -> redteam pipeline; ALL files run concurrently under one pool cap — the chain is the file's own stage dependence, never a corpus barrier. Every stage is HOSTILE: the page is naive/shallow/illusory until it survives an aggressive attack, the burden of proof on the page. CRITIQUE is the mechanical line-by-line doctrinal-conformance audit (COLLAPSE_SCAN, OWNER_CHOOSER, KNOB_TEST, AOP, rails, py3.15/payloads, citation tier, agnostic snippet law, page-craft, altitude, zero-meta, capability-completeness) fixed in place; REDTEAM is critique AND MORE — counterfactual on the core teaching shape, anticipatory-collapse of the next case, corpus-wide duplication, AOP + shape-budget maximization, substrate-depth + phantoms, a full cold adversarial re-review. Critique and redteam read the LIVE corpus — the current on-disk state of every page, landed sibling hardening composed as found, a conflict resolved to the stronger form, never a revert — and edit ONLY their own file (the anti-collision rule among concurrent pipelines), reporting cross-file residuals. ONE terminal corpus agent then aligns cross-file seams, closes gaps, enforces the computation-law bodies, resolves every reported residual, and finalizes cold in one sweep. Every per-file stage and the corpus sweep carry a required-but-usually-empty harvest attestation RESTRICTED to reviewer/laws/constitution altitudes (the run authors docs/stacks/python, so a stacks lesson is already owned and never nominated); when the pooled nominations are non-empty, ONE terminal doctrine lander adjudicates them against docs/laws (refutation-first, land-nothing legal, never re-editing a docs/stacks/python page). The csharp doc set is the read-only FLOOR/reference; snippets agnostic; every cited member verified against the .api catalogs (novel members via assay api with its Context7/exa fallback); every edit scoped to docs/stacks/python. Takes no args.",
     phases: [
         {
             title: 'Inventory',
@@ -14,11 +14,11 @@ export const meta = {
         },
         {
             title: 'Corpus',
-            detail: 'ONE terminal fable agent: align seams, close gaps, computation-law bodies, resolve every reported residual, finalize cold',
+            detail: 'ONE terminal corpus agent: align seams, close gaps, computation-law bodies, resolve every reported residual, finalize cold',
         },
         {
             title: 'Doctrine',
-            detail: 'terminal doctrine lander (fable), fires only on non-empty pooled harvest RESTRICTED to reviewer/laws/constitution (the run owns docs/stacks/python); refutation-first, land-nothing legal',
+            detail: 'terminal doctrine lander fires only on non-empty pooled harvest RESTRICTED to reviewer/laws/constitution (the run owns docs/stacks/python); refutation-first, land-nothing legal',
         },
     ],
 };
@@ -152,7 +152,7 @@ const CORPUS_SCHEMA = {
 // --- [DOCTRINE] ------------------------------------------------------------------------
 
 const LAW = [
-    'TARGET: docs/stacks/python/ is the route-owned Python CODE DOCTRINE — a doc set of AGNOSTIC teaching pages (the core concept pages plus any ' +
+    'TARGET: docs/stacks/python/ is the route-owned Python CODE DOCTRINE — a doc set of AGNOSTIC teaching pages (the core concept pages and any ' +
         'sub-folder shard set present on disk) that legislate how all project Python is written. It is NOT a libs/python/.planning design corpus: a page ' +
         'teaches a coding LAW with one exemplary agnostic snippet, never a concrete module. The README owns routing + the 17 doctrine laws + the ' +
         'COLLAPSE_SCAN + page-craft; a sub-folder README, where one exists on disk, is a one-table router whose shards compose the core laws and never ' +
@@ -300,7 +300,7 @@ const APISTACK_SUBSTRATE = [
         '`msgspec`, `anyio`, `structlog`, `stamina`, `numpy`, `psutil`, `opentelemetry-*`, `protobuf`, `grpcio` — are cited by EVERY page. ENUMERATE ' +
         'the catalog set IN FULL with a real `ls`/`fd` listing at every stage — the catalog root is docs/stacks/python/.api/ when present, else the ' +
         'language-wide libs/python/.api/ — never a memory-recalled roster. A CORE page cites ONLY this shared substrate. A sub-folder SHARD (a domain/ ' +
-        'or numerics/ page, where such a router exists on disk) cites the shared substrate PLUS the package-cluster tier (the `.api/` catalogs for ' +
+        'or numerics/ page, where such a router exists on disk) cites the shared substrate AND the package-cluster tier (the `.api/` catalogs for ' +
         'the packages its concept composes) — a numerics shard ' +
         'additionally STACKS its scientific cluster at the deepest dense/sparse/iterative/structured primitives its concern reaches — and NOTHING ' +
         'outside its declared cluster. Mine BOTH tiers to their FULL advanced surface and STACK them as ONE dense rail — `expression` rails + ' +
@@ -385,7 +385,7 @@ const HARVEST_LAW =
     '(a cross-surface coupling or cross-branch pattern discovered the hard way). Each row: altitude (reviewer|constitution|laws), lang, claim ' +
     '(the generalized law, one sentence, SYMBOL-FREE — every concrete spelling lives in anchors, so the lander adjudicates the law without ' +
     're-deriving its locality), anchors (file:line evidence), existingClause (the exact reviewer/laws/constitution clause it would ' +
-    'harden, quoted with its path — or "absent" plus the surfaces searched). A page-local fix never nominates; an empty array is the normal ' +
+    'harden, quoted with its path — or "absent" and the surfaces searched). A page-local fix never nominates; an empty array is the normal ' +
     'verdict — the terminal doctrine lander refutes weak rows, so nominate substance, never volume.';
 
 const DOCTRINE = [
@@ -460,7 +460,7 @@ const authorPrompt = (page) =>
             'assume every fence is naive, junior, or illusory until proven 13/10, and treat dense confident-looking content as a prime suspect for ' +
             'hollow/decorative complexity. Read the page, the README atlas + doctrine sections + any sub-folder routers on disk, ' +
             'the csharp density FLOOR (READ-ONLY), the style-guide, and the .api catalogs it composes — enumerate BOTH tiers per ' +
-            'the CITATION TIER law (a core page mines the SHARED substrate; a domain/numerics shard mines the substrate PLUS its declared package cluster ' +
+            'the CITATION TIER law (a core page mines the SHARED substrate; a domain/numerics shard mines the substrate AND its declared package cluster ' +
             '— STACK them; VERIFY every cited member, delete phantoms). Construct in BOUNDARY_ADMISSION lifecycle order; collapse parallel shapes into ONE ' +
             'dense closed-family ADT chosen by OWNER_CHOOSER; express every cross-cutting concern as a stacked signature+rail-preserving decorator over a ' +
             'thin pure core (FULL AOP); parameterize fully, one polymorphic entrypoint per modality; py3.15-modern only. Make the exemplary snippet AGNOSTIC ' +
@@ -514,7 +514,7 @@ const critiquePrompt = (page) =>
         '(6) PY315 / PAYLOADS / FROZENDICT / PEP — closed `TypedDict` via module-level `TypeAdapter` with `Unpack` at root entrypoints; `frozendict` ' +
             'owns tables/evidence (no `MappingProxyType`/dict-table/tuple-pairs/`dict[str,Any]`); PEP 585/604/695 only, no `from __future__`, no legacy ' +
             'typing; total `match` + `assert_never`. (7) CITATION TIER — a CORE page cites ONLY the shared substrate; a DOMAIN/numerics shard cites the ' +
-            'substrate PLUS its declared package cluster; EVERY cited member verified against the actual catalog (delete phantoms); the full advanced ' +
+            'substrate AND its declared package cluster; EVERY cited member verified against the actual catalog (delete phantoms); the full advanced ' +
             'surface is STACKED, not a thin subset.',
         '(8) AGNOSTIC SNIPPET LAW — every snippet compiles, uses neutral structural names, placeholders only inside literals, NO domain/repo/host noun; ' +
             'the snippet shows the form at large-system scale with the growth axis visible. (9) PAGE GRAMMAR + CARD ECONOMY — narrow index table -> deep ' +
@@ -630,7 +630,7 @@ const inv = await agent(
         ROOT +
         '/shapes.md), order (global integer: core pages first in atlas order, then each sub-folder`s pages in its router order)}, EXCLUDING ' +
         'every README.md and the entire .reports/ workspace. Enumerate and order — nothing else: no page reading, no capability maps, no verdicts ' +
-        '(every downstream stage re-reads the full pages from disk). Use fd/ls plus reading ONLY the README routers; do not cd; do not edit ' +
+        '(every downstream stage re-reads the full pages from disk). Use fd/ls, reading ONLY the README routers; do not cd; do not edit ' +
         'anything.',
     { label: 'inventory', phase: 'Inventory', schema: INVENTORY_SCHEMA, model: 'sonnet', effort: 'low', stallMs: STALL },
 );

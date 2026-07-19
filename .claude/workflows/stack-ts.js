@@ -2,7 +2,7 @@ export const meta = {
     name: 'stack-ts',
     whenToUse: 'Iterative adversarial hardening of the docs/stacks/typescript code doctrine; re-run until cold passes find nothing.',
     description:
-        "Adversarial HARDEN engine for the docs/stacks/typescript code doctrine. Every page is SUSPECT until it survives attack — naive, shallow, or illusory by default, rebuilt ground-up wherever the attack finds weakness — but the settled atlas roster is challenged with disqualifying evidence, never re-decided from zero. Inventory rules the real disk state and the Gate rules the file set BEFORE per-file work (structure challenge: merge/split/kill/rename only on disqualifying evidence, applies structure only) — true data dependence, kept. Then each FILE runs its own initial -> critique -> redteam pipeline, ALL files concurrent under one pool cap — the chain is the file's own stage dependence, never a corpus barrier. Critique and redteam read the LIVE corpus — the current on-disk state of every page, landed sibling hardening composed as found, a conflict resolved to the stronger form, never a revert — and edit ONLY their own file (the anti-collision rule among concurrent pipelines), reporting cross-file residuals. ONE terminal fable corpus agent then aligns cross-file seams, closes gaps, enforces the computation-law bodies, resolves every reported residual, and finalizes cold in one sweep. Every per-file stage and the corpus sweep carry a required-but-usually-empty harvest attestation RESTRICTED to reviewer/laws/constitution altitudes (the run authors docs/stacks/typescript, so a stacks lesson is already owned and never nominated); when the pooled nominations are non-empty, ONE terminal fable doctrine lander adjudicates them against docs/laws (refutation-first, land-nothing legal, never re-editing a docs/stacks/typescript page). SUPREMACY LAW: python and csharp stacks are BOTH the floor, never the ceiling. Every edit is scoped to docs/stacks/typescript. Takes no args.",
+        "Adversarial HARDEN engine for the docs/stacks/typescript code doctrine. Every page is SUSPECT until it survives attack — naive, shallow, or illusory by default, rebuilt ground-up wherever the attack finds weakness — but the settled atlas roster is challenged with disqualifying evidence, never re-decided from zero. Inventory rules the real disk state and the Gate rules the file set BEFORE per-file work (structure challenge: merge/split/kill/rename only on disqualifying evidence, applies structure only) — true data dependence, kept. Then each FILE runs its own initial -> critique -> redteam pipeline, ALL files concurrent under one pool cap — the chain is the file's own stage dependence, never a corpus barrier. Critique and redteam read the LIVE corpus — the current on-disk state of every page, landed sibling hardening composed as found, a conflict resolved to the stronger form, never a revert — and edit ONLY their own file (the anti-collision rule among concurrent pipelines), reporting cross-file residuals. ONE terminal corpus agent then aligns cross-file seams, closes gaps, enforces the computation-law bodies, resolves every reported residual, and finalizes cold in one sweep. Every per-file stage and the corpus sweep carry a required-but-usually-empty harvest attestation RESTRICTED to reviewer/laws/constitution altitudes (the run authors docs/stacks/typescript, so a stacks lesson is already owned and never nominated); when the pooled nominations are non-empty, ONE terminal doctrine lander adjudicates them against docs/laws (refutation-first, land-nothing legal, never re-editing a docs/stacks/typescript page). SUPREMACY LAW: python and csharp stacks are BOTH the floor, never the ceiling. Every edit is scoped to docs/stacks/typescript. Takes no args.",
     phases: [
         {
             title: 'Inventory',
@@ -19,11 +19,11 @@ export const meta = {
         },
         {
             title: 'Corpus',
-            detail: 'ONE terminal fable agent: align seams, close gaps, computation-law bodies, resolve every reported residual, finalize cold',
+            detail: 'ONE terminal writer: align seams, close gaps, computation-law bodies, resolve every reported residual, finalize cold',
         },
         {
             title: 'Doctrine',
-            detail: 'terminal doctrine lander (fable), fires only on non-empty pooled harvest RESTRICTED to reviewer/laws/constitution (the run owns docs/stacks/typescript); refutation-first, land-nothing legal',
+            detail: 'terminal doctrine lander, fires only on non-empty pooled harvest RESTRICTED to reviewer/laws/constitution (the run owns docs/stacks/typescript); refutation-first, land-nothing legal',
         },
     ],
 };
@@ -316,7 +316,7 @@ const TS_LANG = [
 ].join('\n');
 
 const TS_CITATION = [
-    'CITATION / LIBRARY DEPTH: the TS substrate is the Effect ecosystem (`effect` — Schema/Match/Data/Stream/Layer included — plus `@effect/platform` ' +
+    'CITATION / LIBRARY DEPTH: the TS substrate is the Effect ecosystem (`effect` — Schema/Match/Data/Stream/Layer included — `@effect/platform`, ' +
         'and the admitted Effect packages) — mine each to its FULL advanced surface (the deep ' +
         'combinator/Schema/Layer/Stream/Schedule operators) and STACK them as ONE dense rail, never a flat one-shot per-API use or a `Promise`/' +
         'BCL-first reflex. Layer the Schema boundary + the Effect rail + the service `Layer`s together.',
@@ -427,7 +427,7 @@ const HARVEST_LAW =
     'rule that would have caught a defect BEFORE review), constitution (a most-sessions CLAUDE.md/AGENTS.md behavioral fact), or laws (a ' +
     'cross-surface coupling or cross-branch pattern discovered the hard way). Each row: altitude (reviewer|constitution|laws), lang, claim (the ' +
     'generalized law, one sentence), anchors (file:line evidence), existingClause (the exact reviewer/laws/constitution clause it would harden, ' +
-    'quoted with its path — or "absent" plus the surfaces searched). A page-local fix never nominates; an empty array is the normal verdict — ' +
+    'quoted with its path — or "absent" and the surfaces searched). A page-local fix never nominates; an empty array is the normal verdict — ' +
     'the terminal doctrine lander refutes weak rows, so nominate substance, never volume.';
 
 const DOCTRINE = [
@@ -664,7 +664,7 @@ const inv = await agent(
         ' and BOTH .api tiers (libs/typescript/.api/ and ' +
         'every libs/typescript/<folder>/.api/), and parse ' +
         ROOT +
-        '/README.md [01]-[ATLAS]. Read every existing page IN FULL plus the README at ' +
+        '/README.md [01]-[ATLAS]. Read every existing page IN FULL and the README at ' +
         'large; resolve scope against real disk state. Return every CONCEPT page as a row {path (repo-relative, e.g. ' +
         ROOT +
         '/shapes.md), order ' +

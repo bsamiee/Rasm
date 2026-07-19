@@ -6,7 +6,7 @@ Claude Code's `Workflow` tool runs one author-written JavaScript file that deter
 
 A workflow is a JavaScript program that orchestrates subagents. Its author writes one file; the `Workflow` tool runs it in a sandbox.
 
-One word matters: deterministic. In a normal session, Claude decides the next step — reads a result, thinks, picks a tool — and that control flow varies run to run. A workflow inverts it: the loops, the conditionals, the fan-out, the retries are plain JavaScript. A model does only the leaf work inside each `agent()` call. Orchestration spends zero tokens and behaves identically every run.
+One word matters: deterministic. In a normal session, the model decides the next step — reads a result, thinks, picks a tool — and that control flow varies run to run. A workflow inverts it: the loops, the conditionals, the fan-out, the retries are plain JavaScript. A model does only the leaf work inside each `agent()` call. Orchestration spends zero tokens and behaves identically every run.
 
 One-sentence model: a script runs in a sandbox → every `agent()` call spawns a fresh subagent with its own clean context window → the script collects results with ordinary JavaScript → the return value comes back as the tool result.
 
@@ -32,11 +32,11 @@ Placement and precedence:
 - In a monorepo, project workflows load from every `.claude/workflows/` between the working directory and the repo root; the closest definition of a name wins, and a save lands in the closest existing `.claude/workflows/` directory.
 - `name` inside `meta` — not the filename — is the workflow's name.
 
-User-side entry points: a saved or bundled command (`/deep-research …`); the `ultracode` keyword in a prompt (a plain-words "use a workflow" works identically); or `/effort ultracode`, which makes Claude plan a workflow for every substantive task in the session. Saving a good run is `s` in `/workflows`.
+User-side entry points: a saved or bundled command (`/deep-research …`); the `ultracode` keyword in a prompt (a plain-words "use a workflow" works identically); or `/effort ultracode`, which plans a workflow for every substantive task in the session. Saving a good run is `s` in `/workflows`.
 
 Runtime posture knobs, all advisory or off-switches — none change script semantics:
 
-- Workflow-size setting (`/config` → Dynamic workflow size) sends Claude an agent-count aim per script it writes: `unrestricted` (default), `small` under 5, `medium` under 15, `large` under 50. Guidance only; the runtime caps still govern.
+- Workflow-size setting (`/config` → Dynamic workflow size) sends an agent-count aim per script written: `unrestricted` (default), `small` under 5, `medium` under 15, `large` under 50. Guidance only; the runtime caps still govern.
 - A run that schedules more than 25 agents or projects past 1.5 million tokens raises an advisory large-workflow warning in the task panel; a set size guideline replaces the 25-agent threshold, and ultracode sessions suppress the warning.
 - Off switches: the `/config` toggle, `"disableWorkflows": true` in settings, or `CLAUDE_CODE_DISABLE_WORKFLOWS=1` at startup. Disabling removes bundled commands, the keyword trigger, and the ultracode effort tier.
 - Launch prompt shows the planned phases with run / remember-approval / view-raw-script / cancel; in auto permission mode consent is recorded on first launch. Bypass-permissions and headless runs start without prompting.
@@ -170,6 +170,8 @@ Without `schema`, `agent()` returns the subagent's final text verbatim. With `sc
 
 `schema`, `model`, `isolation`, and `agentType` are the four options baked into the resume cache key, and the prompt text is hashed into it too — change any and that call re-runs. `label`, `phase`, `effort`, and `stallMs` never invalidate a cached result.
 
+Editing a script's prose turns on one distinction, because a wrong cut fails silently on the wrong model rather than erroring. WIRE, never edited as text: every `model`/`effort`/`agentType` argument and any `twinOf`-style map; a `label` and its prefix, which name the report file on disk and survive into the journal; a `reg`-style register value routing stance or self-check branches; a dispatch instruction naming the MCP tool, its select string, or a `model="…"` step; a role line INTERPOLATING a variable; and any clause that is an argument spec a delegating agent passes onward, since removing it changes what spawns. PROSE, freely edited: `meta` narration, comments, and the narrative frame of prompt strings. One word carries both senses — a dispatch shell versus a thin-wrapper code defect — so read the sentence, never the token.
+
 ### [05.1]-[MODEL_SETTING]
 
 | [INDEX] | [PASSED]        | [RESOLVES_TO]                                    |
@@ -181,7 +183,7 @@ Without `schema`, `agent()` returns the subagent's final text verbatim. With `sc
 |  [05]   | a full model ID | passed through unchanged                         |
 |  [06]   | omitted         | the session's main-loop model                    |
 
-There is no validation: a typo like `'sonet'` passes through verbatim and the agent fails later at the API call. Spell the alias exactly. Omit `model` for judgment-heavy work so it inherits the capable session model; drop cheap, high-volume, mechanical leaf work to `'sonnet'`, or route a self-contained lane to codex (terra default, sol for the hardest legs) through the codex-lanes reference. `effort` is the orthogonal axis — a cheap model still reasons hard at `'high'`; match `'max'`/`'xhigh'` to synthesis and adversarial judgment, `'low'` to mechanical leaf work.
+There is no validation: a typo like `'sonet'` passes through verbatim and the agent fails later at the API call. Spell the alias exactly. Omit `model` for judgment-heavy work so it inherits the capable session model; drop cheap, high-volume, mechanical leaf work a tier, or route a self-contained lane to codex through the codex-lanes reference. `effort` is the orthogonal axis — a cheap model still reasons hard at `'high'`; match `'max'`/`'xhigh'` to synthesis and adversarial judgment, `'low'` to mechanical leaf work.
 
 Not how the model gets set: `meta.phases[].model` (display-only), and the `CLAUDE_CODE_SUBAGENT_MODEL` env var — when set it silently overrides every per-call `model` for the whole session (a user/CI knob the validation section exploits).
 
@@ -215,7 +217,7 @@ One rule: default to `pipeline()`. Reach for `parallel()` only when a stage genu
 |  [02]   | `budget.spent()`     | Output tokens spent this turn — main loop and all workflows share one pool |
 |  [03]   | `budget.remaining()` | `max(0, total − spent())`, or `Infinity` with no target                    |
 
-That target is a hard ceiling: once `spent()` reaches `total`, further `agent()` calls throw; in-flight agents finish and their results are kept. Guard budget loops on `budget.total` — with no target, `remaining()` is `Infinity` and the loop runs to the agent cap. Codex tokens are invisible to `budget.spent()`; budget-gated loops meter only their Claude lanes.
+That target is a hard ceiling: once `spent()` reaches `total`, further `agent()` calls throw; in-flight agents finish and their results are kept. Guard budget loops on `budget.total` — with no target, `remaining()` is `Infinity` and the loop runs to the agent cap. Codex tokens are invisible to `budget.spent()`; budget-gated loops meter only their native lanes.
 
 ## [08]-[NESTING]
 

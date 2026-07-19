@@ -1,20 +1,20 @@
 export const meta = {
     name: 'estate',
     description:
-        'Per-language estate tracks - two gpt-5.6-terra recon lanes per track (codex wrappers, split charges: the estate-scope dossier and the libs-complexity dossier, both written to scratch) then initial/critique/redteam fable passes - closing with a monorepo final track. The T-passes are fable write lanes; their acceptance gates run network-bound toolchains (dotnet restore, uv sync, pnpm install). Every pass nominates generalizable findings and reports deliberately-left residuals; a terminal doctrine lander pools both across all tracks and adjudicates the nominations into docs/laws, the constitution, the test/tool READMEs, and the reviewer rules, while the pooled residuals ride the run return untouched - estate residuals are deliberate deferrals, not a drain backlog.',
+        'Per-language estate tracks - two dispatched recon lanes per track (split charges: the estate-scope dossier and the libs-complexity dossier, both written to scratch) then initial/critique/redteam passes - closing with a monorepo final track. The T-passes are write lanes; their acceptance gates run network-bound toolchains (dotnet restore, uv sync, pnpm install). Every pass nominates generalizable findings and reports deliberately-left residuals; a terminal doctrine lander pools both across all tracks and adjudicates the nominations into docs/laws, the constitution, the test/tool READMEs, and the reviewer rules, while the pooled residuals ride the run return untouched - estate residuals are deliberate deferrals, not a drain backlog.',
     whenToUse:
-        'Full estate improvement over tests/tools/root configs per language, then polyglot alignment; passes run on fable, then a terminal doctrine lander lands generalizable findings.',
+        'Full estate improvement over tests/tools/root configs per language, then polyglot alignment; a terminal doctrine lander lands generalizable findings.',
     phases: [
         {
             title: 'Recon',
-            detail: 'per track: two recon gpt-5.6-terra lanes via codex wrappers (sonnet shells) with split charges - estate-scope facts and the libs-complexity map - each writing its dossier to scratch',
+            detail: 'per track: two dispatched recon lanes with split charges - estate-scope facts and the libs-complexity map - each writing its dossier to scratch',
             model: 'sonnet',
         },
         { title: 'Estate' },
         { title: 'Final' },
         {
             title: 'Doctrine',
-            detail: 'one fable lander pools harvest nominations and deliberately-left residuals across every track pass plus the final track, then adjudicates the nominations against the live doctrine surfaces; residuals ride the return untouched; fires only when a nomination exists',
+            detail: 'one lander pools harvest nominations and deliberately-left residuals across every track pass and the final track, then adjudicates the nominations against the live doctrine surfaces; residuals ride the return untouched; fires only when a nomination exists',
             model: 'fable',
         },
     ],
@@ -37,7 +37,7 @@ const TRACKS = {
             'relocates to the folder registry + folder .api tier, both ends). tests/csharp shared infrastructure: _testkit, _scenariokit, _architecture, ' +
             '_benchmarks, scenarios, tools, README — world-class, discovery-driven, zero hardcoded package lists; tests/csharp/.api is a first-class test-stack ' +
             'catalog tier (mirror tests/python/.api and tests/typescript/.api) with a member-verified catalog per testing package. tools/rhino-bridge scenarios ' +
-            'and universal scenario kits; tools/cs-analyzer; .config C# tooling plus NuGet.config and global.json where improvement is justified; ' +
+            'and universal scenario kits; tools/cs-analyzer; .config C# tooling, NuGet.config, and global.json where improvement is justified; ' +
             'Directory.Build.props/targets and Workspace.slnx coherence chasing every csproj ' +
             'in the monorepo. LAW, not drift: Rasm.Rhino and Rasm.Grasshopper stay OUT of Workspace.slnx under the HOST_BOUNDARY_REENTRY gate in ' +
             'tests/csharp/_architecture/AssemblyBoundaries.spec.cs.',
@@ -106,7 +106,7 @@ const WANT_FINAL = args?.final !== false;
 const ACTIVE = LANGS.filter((l) => TRACKS[l]);
 
 // Per-instance scratch dir — recon dossiers + pass report files. Minted deterministically from the normalized active-track set
-// (clock/randomness would break resume): one FLAT dir under .claude/scratch/, a human-readable basename slug plus an FNV-1a tail
+// (clock/randomness would break resume): one FLAT dir under .claude/scratch/, a human-readable basename slug and an FNV-1a tail
 // so distinct track sets never share a directory and a resume of the same run rehydrates the same one.
 const fnv1a = (s) => {
     let h = 0x811c9dc5;
@@ -191,9 +191,9 @@ const MODEL_LAW =
     'MODEL LAW: you execute every file write and every judgment yourself. Delegate read-only reconnaissance roughly 50/50 between codex ' +
     '(Bash: codex exec -m gpt-5.6-terra ' +
     '"<self-contained scoped question>" </dev/null 2>/dev/null — synchronous, ' +
-    'one bounded question per leg) and opus subagents (Agent tool, model opus, explicit READ-ONLY mandate). ' +
+    'one bounded question per leg) and native subagents (Agent tool, model opus, explicit READ-ONLY mandate). ' +
     'Recon returns facts, locations, inventories, and verified member lists — never instructions, prescriptions, or edits. Tooling routes each leg: ' +
-    'codex legs own repo-local facts (fd/rg/loc/tree, file reads); opus legs own exa/tavily, the nuget MCP, Context7, and uv run python -m tools.assay' +
+    'codex legs own repo-local facts (fd/rg/loc/tree, file reads); native legs own exa/tavily, the nuget MCP, Context7, and uv run python -m tools.assay' +
     '. When the Agent tool is unavailable, codex absorbs the ' +
     'repo-local legs and you gather the uv/MCP evidence in your own shell.';
 
@@ -207,7 +207,7 @@ const ADMISSION =
     'ADMISSION PROCEDURE (any new tool/package you add): the admission lands COMPLETE in this pass — central manifest row hand-edited ' +
     '(Directory.Packages.props / pyproject.toml / pnpm-workspace.yaml catalog + package.json), consumer wiring (csproj row for C#), a folder README ' +
     'registry row, and a full .api catalog at the correct tier (language-shared tier only for 2+ consumers, folder tier otherwise, tests/<lang>/.api for ' +
-    'test-stack tooling). Gather the catalog facts through ONE delegated read-only opus recon subagent mining verified members (assay api, installed ' +
+    'test-stack tooling). Gather the catalog facts through ONE delegated read-only recon subagent mining verified members (assay api, installed ' +
     'distributions, nuget MCP, type declarations); author the file yourself per the docgen api-catalog template ' +
     '(.claude/skills/docgen/templates/api-catalog.template.md); the restore/lock gate proves the admission. Surgical prose updates only — touch the rows ' +
     'the admission changes, nothing else.';
@@ -221,12 +221,12 @@ const REVIEWER_LAW =
     'Admission bar: consistent across the estate, doctrine-derived (docs/stacks/<language>, docs/standards), and invisible to the machine gates — never ' +
     'restate what formatters/gates/analyzers enforce, never duplicate an existing line, never add speculative or one-off rules. Write the guidance as ' +
     'durable law over the finished system: never couched in the planning phase, campaign state, or session narration. yamllint proves .coderabbit.yaml, jq ' +
-    'proves the .greptile JSON files, and rules.md plus every .macroscope/ page ride the prose gate like any touched .md.';
+    'proves the .greptile JSON files, and rules.md and every .macroscope/ page ride the prose gate like any touched .md.';
 
 const INFRA_LAW =
     'SHARED-INFRA PRIMACY: the shared test infrastructure is the estate CENTER, never a side item — csharp: tests/csharp/_testkit, _scenariokit, ' +
     '_architecture, _benchmarks, scenarios; python: tests/python/_testkit + the conftest topology; typescript: tests/typescript/_testkit, _architecture, ' +
-    'and e2e PLUS nx.json, biome.json, tools/biome, playwright.config.ts, vite.factory.ts, and vitest.config.ts as one system. FIRST explore your ' +
+    'e2e, nx.json, biome.json, tools/biome, playwright.config.ts, vite.factory.ts, and vitest.config.ts as one system. FIRST explore your ' +
     'language libs/ planning corpus in depth — every package folder: domains, owners, seams, receipt families, wire shapes — to understand the extreme ' +
     'complexity arriving when every folder goes live; the infra must anticipate ALL of it NOW. Build intelligent, universal, polymorphic foundations that ' +
     'make future tests near-trivial to write and REDUCE total test code — declarative gauges, law tables, fixture algebras, discovery-driven ' +
@@ -249,7 +249,7 @@ const TIER_LAW = {
         'with the central assumption removed (name the assumption the current shape stands on, derive the form without it, build the stronger ' +
         'form in place — "the current shape also works" is never a refutation), diff-of-the-next-feature ' +
         '(the next case, project, or package lands as one row with consumers untouched or loudly broken), long-tail and failure-mode attack, boundary and ' +
-        'strata integrity, surface sprawl and phantom members, domain completeness — plus a full cold re-review of every dimension. The estate ends ' +
+        'strata integrity, surface sprawl and phantom members, domain completeness — and a full cold re-review of every dimension. The estate ends ' +
         'objectively denser and more capable than the prior pass left it.',
 };
 
@@ -261,7 +261,7 @@ const HARVEST_LAW =
     'HARVEST (required key, usually empty): nominate ONLY findings that generalize beyond this pass — a construction law reusable across the estate, a ' +
     'testkit/infra pattern no doctrine clause names, a review rule that would have caught a defect BEFORE review, a cross-surface coupling discovered the ' +
     'hard way. Each row: altitude (stacks|reviewer|constitution|planning|readme|laws), lang, claim (the generalized law, one sentence), anchors (file:line ' +
-    'evidence), existingClause (the exact doctrine or reviewer clause it would harden, quoted with its path — or "absent" plus the surfaces searched). A ' +
+    'evidence), existingClause (the exact doctrine or reviewer clause it would harden, quoted with its path — or "absent" and the surfaces searched). A ' +
     'pass-local fix never nominates; an empty array is the normal verdict — the terminal doctrine lander refutes weak rows, so nominate substance, never volume.';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -323,11 +323,11 @@ const reconPrompt = (t, name, lane) =>
     'SCOPE: ' +
     t.scope;
 
-// Codex dispatch: the sonnet wrapper makes one blocking Codex MCP call; the recon lane itself writes its
+// Codex dispatch: the wrapper makes one blocking Codex MCP call; the recon lane itself writes its
 // dossier (that one file) and returns the receipt as its final message — the wrapper relays
 // that receipt, no product write, no relay hop. Lane law rides developer-instructions; the prompt carries only the task.
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-');
-// Codex lanes in this workflow are recon-only — the write passes run on fable — so the lane law is the investigation
+// Codex lanes in this workflow are recon-only, so the lane law is the investigation
 // contract; no write/fix branch exists to fork.
 const laneLaw = (schema, o) =>
     '<context_gathering>\nTerritory: the exact files and directories the task names. Do not open files outside it, ' +
@@ -375,7 +375,7 @@ const codexRecon = (task, o) => {
     ].join('\n\n');
 };
 // QUOTA FALLBACK: a codex receipt whose failure matches usage/quota/limit re-dispatches the SAME task natively at the
-// role's Claude twin (terra->opus); the caller owns the re-dispatch, the sonnet wrapper never executes work itself. The
+// role's native twin; the caller owns the re-dispatch, the wrapper never executes work itself. The
 // recon task already writes its own dossier and returns the receipt, so the native lane runs it verbatim.
 const twinOf = (m) => (/-sol/.test(m || '') ? 'fable' : /-luna/.test(m || '') ? 'sonnet' : 'opus');
 const nativeLane = (task, o) =>
@@ -389,7 +389,7 @@ const nativeLane = (task, o) =>
     });
 const reconLane = (t, name, lane, ph) => {
     const task = reconPrompt(t, name, lane);
-    // The estate sweep spans whole test/tool/config trees plus the libs planning corpus — a wider call budget than a bounded page batch.
+    // The estate sweep spans whole test/tool/config trees and the libs planning corpus — a wider call budget than a bounded page batch.
     const o = {
         label: 'recon-' + lane + ':' + name,
         phase: ph,
@@ -445,7 +445,7 @@ const passPrompt = (t, name, tier, reconRows) =>
     'reasons), harvest (per the harvest law below). ' +
     HARVEST_LAW;
 
-// A T-pass is the run's critical WRITE lane: fable, high effort, network-bound gates — the most usage-limit-exposed lane in the
+// A T-pass is the run's critical WRITE lane: high effort, network-bound gates — the most usage-limit-exposed lane in the
 // run. It rides the attempt-counted retryLane with a suffixed retry label; a final death returns null and the chain continues,
 // because every later pass and the final track derive their own findings from disk (a dead predecessor removes grounding, never a stage).
 const passOpts = (label, phase) => ({ model: 'fable', effort: 'high', phase, label, schema: PASS_RECEIPT });
@@ -458,7 +458,7 @@ const runPass = (t, name, tier, reconRows, label, phase) =>
 // infrastructure and monorepo alignment, so its routing weighs toward the constitution, the test/tool READMEs, and the reviewer rules.
 const doctrinePrompt = (rows, residuals) =>
     'TASK: DOCTRINE LANDER — the durable-learning terminal of an estate run over tests/tools/root config across every ' +
-    'language plus the monorepo final track. Read `docs/laws/README.md` FIRST — it owns the corpus admission and page-shape ' +
+    'language and the monorepo final track. Read `docs/laws/README.md` FIRST — it owns the corpus admission and page-shape ' +
     'law; obey it over any restatement. ROUTING EMPHASIS (orders where you look first, never overrides the ' +
     'admission bar): an estate run owns test/tool/config infrastructure and monorepo alignment, so its lessons weigh toward ' +
     'the constitution at the acting reader, the tests/tools/root READMEs, and the reviewer rules first. Load the `docgen` ' +
@@ -505,7 +505,7 @@ if (WANT_FINAL && ACTIVE.length) {
 }
 
 // --- [DOCTRINE]
-// Pool harvest nominations and deliberately-left residuals across every track pass plus the final track. RULING: estate
+// Pool harvest nominations and deliberately-left residuals across every track pass and the final track. RULING: estate
 // residuals are string-shaped DELIBERATE deferrals with reasons, not a mechanical {files, claim} backlog, and each T-pass
 // already holds full write authority behind network-bound gates a fresh drain pass cannot re-run — so NO drain loop fits;
 // the pooled residuals ride the run return untouched and feed the lander only as recurrence signal.

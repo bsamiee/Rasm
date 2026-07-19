@@ -2,15 +2,15 @@ export const meta = {
     name: 'implement-ts',
     whenToUse: 'Realize open cards into design-page code fences across the TypeScript target folders.',
     description:
-        "Realize every open IDEAS/TASKLOG card across the libs/typescript capability folders (core, security, data, runtime, ui, iac) into deep design-page code FENCES at the docs/stacks/typescript bar (Effect-TS rails, Schema-first boundaries, one canonical owner per concept, exhaustive discriminated unions, zero any/throw/enum), repair every ripple in-pass, and truthfully close the cards. Each target folder runs its OWN discover -> implement -> critique -> redteam chain, ALL chains concurrent under one pooled cap: a folder starts the moment its own discovery lands, a folder with no open cards no-ops after its own discovery, and a failed chain isolates without rejecting the pool. Discovery hands downstream stages navigation FACTS (paths, verified members, seam targets) and never verdicts; it runs as a recon lane on gpt-5.6-terra dispatched through a sonnet codex wrapper, lands its full product on disk under .claude/scratch/implement-ts, and returns a thin receipt plus a jq-extracted structural skeleton on the wire; the implement stage reads the report IN FULL from disk, and when the skeleton proves page-disjoint card groups it fans over them. Every stage WRITES and repairs the page-level ripples its own work exposes in the same pass — in-scope seams aligned against current disk, 1-hop out-of-scope same-language counterpart fences realized directly — with BLOCKED probes and folder-local package admission inline. The redteam is each folder chain's terminal stage and sole card-status owner: it final-remediates weak realizations in place and closes only cards whose realization it verified strong on disk. Two handoffs route to the run's terminal single-writer, the central pnpm-workspace.yaml catalog pin (+ its catalog: manifest row) and the area ARCHITECTURE.md [02]-[SEAMS] row: folder agents report exact rows, one terminal opus writer applies them serially. Every writing stage also nominates generalizable lessons into a required-usually-empty harvest — each stage's rows ride its own return, the critique lane's swept from its fixlog on disk by the doctrine lander (nomination transport never rides a living fold); the terminal stage is a DRAIN LOOP over the pooled deferred backlog plus every critique fixlog that also applies the central pins and ARCHITECTURE seam rows and re-feeds the still-open remainder under a round cap + no-shrinkage progress gate, then one fable doctrine lander adjudicates the pooled harvest plus every critique fixlog harvest array from disk against the docs/laws admission bar (land-nothing legal) before the run closes. Card-driven (it implements ideas/tasks), NOT the in-isolation api-stacking of rebuild-api. TypeScript-only. args = a target path string, an array of paths, or empty for all capability folders. The language-wide libs/typescript/.planning is out of scope.",
+        "Realize every open IDEAS/TASKLOG card across the libs/typescript capability folders (core, security, data, runtime, ui, iac) into deep design-page code FENCES at the docs/stacks/typescript bar (Effect-TS rails, Schema-first boundaries, one canonical owner per concept, exhaustive discriminated unions, zero any/throw/enum), repair every ripple in-pass, and truthfully close the cards. Each target folder runs its OWN discover -> implement -> critique -> redteam chain, ALL chains concurrent under one pooled cap: a folder starts the moment its own discovery lands, a folder with no open cards no-ops after its own discovery, and a failed chain isolates without rejecting the pool. Discovery hands downstream stages navigation FACTS (paths, verified members, seam targets) and never verdicts; it runs as a recon lane, lands its full product on disk under .claude/scratch/implement-ts, and returns a thin receipt with a jq-extracted structural skeleton on the wire; the implement stage reads the report IN FULL from disk, and when the skeleton proves page-disjoint card groups it fans over them. Every stage WRITES and repairs the page-level ripples its own work exposes in the same pass — in-scope seams aligned against current disk, 1-hop out-of-scope same-language counterpart fences realized directly — with BLOCKED probes and folder-local package admission inline. The redteam is each folder chain's terminal stage and sole card-status owner: it final-remediates weak realizations in place and closes only cards whose realization it verified strong on disk. Two handoffs route to the run's terminal single-writer, the central pnpm-workspace.yaml catalog pin (+ its catalog: manifest row) and the area ARCHITECTURE.md [02]-[SEAMS] row: folder agents report exact rows, one terminal writer applies them serially. Every writing stage also nominates generalizable lessons into a required-usually-empty harvest — each stage's rows ride its own return, the critique lane's swept from its fixlog on disk by the doctrine lander (nomination transport never rides a living fold); the terminal stage is a DRAIN LOOP over the pooled deferred backlog and every critique fixlog that also applies the central pins and ARCHITECTURE seam rows and re-feeds the still-open remainder under a round cap + no-shrinkage progress gate, then one doctrine lander adjudicates the pooled harvest and every critique fixlog harvest array from disk against the docs/laws admission bar (land-nothing legal) before the run closes. Card-driven (it implements ideas/tasks), NOT the in-isolation api-stacking of rebuild-api. TypeScript-only. args = a target path string, an array of paths, or empty for all capability folders. The language-wide libs/typescript/.planning is out of scope.",
     phases: [
         {
             title: 'Realize',
-            detail: 'all folder chains concurrent under one pooled cap: discover(gpt-5.6-terra via codex wrapper, recon; full product to disk, thin receipt + structural skeleton on the wire) -> implement(fable; reads the discovery report from disk, fans over discovery-proven page-disjoint card groups) -> critique(ONE codex lane, write; fixlog to disk, receipt on the wire) -> redteam(fable, terminal close; reads the critique fixlog from disk as refutation targets and folds its surviving ripples/pins/seams/deferred rows into its own return); a folder with no open cards no-ops after its own discovery; every writing stage re-reads current disk, repairs page-level ripples in-pass, and reports central pin rows + ARCHITECTURE.md [02]-[SEAMS] rows for the terminal single-writer instead of editing those surfaces',
+            detail: 'all folder chains concurrent under one pooled cap: discover(recon; full product to disk, thin receipt + structural skeleton on the wire) -> implement(reads the discovery report from disk, fans over discovery-proven page-disjoint card groups) -> critique(ONE lane, write; fixlog to disk, receipt on the wire) -> redteam(terminal close; reads the critique fixlog from disk as refutation targets and folds its surviving ripples/pins/seams/deferred rows into its own return); a folder with no open cards no-ops after its own discovery; every writing stage re-reads current disk, repairs page-level ripples in-pass, and reports central pin rows + ARCHITECTURE.md [02]-[SEAMS] rows for the terminal single-writer instead of editing those surfaces',
         },
         {
             title: 'Pins',
-            detail: 'a terminal DRAIN LOOP: one serial opus single-writer per round applies every reported pnpm-workspace.yaml catalog pin + its catalog: row in the owning package.json and every reported ARCHITECTURE.md [02]-[SEAMS] row, sweeps every critique fixlog (folded-forward or orphaned) and drains the pooled deferred backlog against live disk, and re-feeds the still-open remainder under a round cap + no-shrinkage progress gate; then one fable doctrine lander adjudicates the pooled harvest nominations against the docs/laws admission bar (land-nothing legal). Runs only when pins, seams, orphans, backlog, or harvest exist',
+            detail: 'a terminal DRAIN LOOP: one serial single-writer per round applies every reported pnpm-workspace.yaml catalog pin + its catalog: row in the owning package.json and every reported ARCHITECTURE.md [02]-[SEAMS] row, sweeps every critique fixlog (folded-forward or orphaned) and drains the pooled deferred backlog against live disk, and re-feeds the still-open remainder under a round cap + no-shrinkage progress gate; then one doctrine lander adjudicates the pooled harvest nominations against the docs/laws admission bar (land-nothing legal). Runs only when pins, seams, orphans, backlog, or harvest exist',
             model: 'opus',
         },
     ],
@@ -54,7 +54,7 @@ const REQUESTED = Array.isArray(args)
 const TARGETS = REQUESTED.filter(routed);
 const REJECTED = REQUESTED.filter((t) => !routed(t));
 // Per-instance scratch dir — per-lane report files + grounding dossiers + per-batch seam-ledger files. Minted deterministically from the
-// resolved TARGETS (clock/randomness would break resume): one FLAT dir per instance, a basename slug plus an FNV-1a tail so distinct
+// resolved TARGETS (clock/randomness would break resume): one FLAT dir per instance, a basename slug with an FNV-1a tail so distinct
 // target sets never share a directory and a resume rehydrates the same one; an empty/defaulted scope hashes over the resolved defaults.
 const fnv1a = (s) => {
     let h = 0x811c9dc5;
@@ -186,7 +186,7 @@ const DISCOVERY_SCHEMA = {
     },
 };
 
-// One strict-object composer: a shared field core plus a stage's earned extra keys. Twin literals drift on the next edit; one composer never does.
+// One strict-object composer: a shared field core with a stage's earned extra keys. Twin literals drift on the next edit; one composer never does.
 const strictObj = (core, extra) => ({
     type: 'object',
     additionalProperties: false,
@@ -201,7 +201,7 @@ const RECEIPT_CORE = {
     headline: { type: 'string' },
     failure: { type: 'string' },
 };
-// Discovery receipt = the core plus the structural skeleton the orchestrator fans and seams over (order/cards/gates/ripples/malformed); the discovery
+// Discovery receipt = the core with the structural skeleton the orchestrator fans and seams over (order/cards/gates/ripples/malformed); the discovery
 // PRODUCT (statuses, theses, coverage, the full navigation dossier) stays on disk. `cards` = {slug, pages} per open card — the page-disjointness proof,
 // nothing more. The critique lane returns the bare core — its FIXLOG product stays on disk at `report`.
 const RECEIPT = strictObj(RECEIPT_CORE, {
@@ -377,7 +377,7 @@ const LAW = [
         '`<area>/.planning/<subdomain>/*.md`, and an area-specific `.api/*.md` catalog. The language-wide `libs/typescript/.planning` is OUT of scope ' +
         'this run. Read the area-root `ARCHITECTURE.md` (sub-domain map + `[02]-[SEAMS]`) and `README.md` (admitted-package roster) as governing ' +
         'context. Cross-folder repair lands at seams, counterpart cards, and consumer sites — never by rebuilding a sibling owner interior.',
-    'STANDARD: docs/stacks/typescript/ is the route-owned law, composed IN FULL — README plus language, derivation, values, computation, ' +
+    'STANDARD: docs/stacks/typescript/ is the route-owned law, composed IN FULL — README, language, derivation, values, computation, ' +
         'shapes, surfaces-and-dispatch, rails-and-effects, services-and-layers, concurrency, streams, boundaries — author TypeScript as dense, ' +
         'type-safe, and rich as that bar admits; the doctrine is the FLOOR the work pushes past, never the ceiling. READ every page and conform exactly. ' +
         'Cite ONLY real members of admitted ' +
@@ -432,7 +432,7 @@ const CARD = [
         'sibling-area contract resolves at the seam); a blocker is genuinely legitimate ONLY when it depends on work outside this run.',
     'PACKAGE ADMISSION (only when a card genuinely needs a not-yet-admitted package): do the folder-local parts NOW — add the package to the ' +
         'correct group in the target `README.md` and author the target `.api/<package>.md` from the published types via `UV_CACHE_DIR=.cache/uv ' +
-        'uv run python -m tools.assay api` (or the package `.d.ts` in node_modules plus Context7/exa/tavily docs when assay is unavailable). The central ' +
+        'uv run python -m tools.assay api` (or the package `.d.ts` in node_modules with Context7/exa/tavily docs when assay is unavailable). The central ' +
         '`' +
         CENTRAL +
         "` catalog and the owning manifest's `catalog:` row (`libs/typescript/package.json` or the root `package.json`) have exactly " +
@@ -558,7 +558,7 @@ const HARVEST_LAW =
     'folders, a naivety class no doctrine clause names, a review rule that would have caught a defect BEFORE review, a cross-surface coupling ' +
     'discovered the hard way. Each row: altitude (stacks|reviewer|constitution|planning|readme|laws), lang, claim (the generalized law, one ' +
     'sentence), anchors (file:line evidence), existingClause (the exact doctrine or reviewer clause it would harden, quoted with its path — or ' +
-    '"absent" plus the surfaces searched). A card-local fix never nominates; an empty array is the normal verdict — the terminal doctrine ' +
+    '"absent" with the surfaces searched). A card-local fix never nominates; an empty array is the normal verdict — the terminal doctrine ' +
     'lander refutes weak rows, so nominate substance, never volume.';
 
 // OWN PASS FIRST — the binding input ladder: rung 1 is a DISK ARTIFACT written before the discovery report opens, never a
@@ -625,8 +625,7 @@ const pool = async (items, cap, worker) => {
     return out;
 };
 
-// Codex dispatch: the sonnet wrapper makes one blocking Codex MCP call, writes the envelope's content
-// to the lane report, and returns mechanical orchestration data. Lane law rides developer-instructions
+// Lane law rides developer-instructions
 // (role split, battery-validated); the prompt carries only the task; the output contract sits LAST.
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-');
 const ownpassPath = (label) => SCRATCH + '/' + fileTag(label) + '-ownpass.md';
@@ -657,7 +656,7 @@ const codexPrompt = (label, task, schema, o) => {
     const base = SCRATCH + '/' + fileTag(label);
     const root = '/Users/bardiasamiee/Documents/99.Github/Rasm';
     const report = root + '/' + base + '-report.json';
-    const model = o.model; // set ONLY to deviate from the config-owned default (sol); unset runs the call unflagged
+    const model = o.model; // set ONLY to deviate from the config-owned default; unset runs the call unflagged
     return [
         'DISPATCH ROLE: ' +
             (model || 'codex') +
@@ -706,7 +705,7 @@ const nativeLane = (task, o) =>
         schema: o.wire,
         stallMs: o.stallMs || STALL,
     });
-// The discovery lane runs the gpt-5.6-terra wrapper (a recon mapping lane, never fix), with the
+// The discovery lane is a recon mapping lane, never fix, with the
 // native twin as the quota fallback. The row carries `scope` from the ORCHESTRATOR (never the lane's
 // self-report) so a failed lane's territory is exact even when the lane died before writing anything.
 const discoveryReceipt = (base) =>
@@ -722,7 +721,7 @@ const discoveryTail = (report) =>
     ' (Write tool, absolute path under the repo root): ' +
     JSON.stringify(DISCOVERY_SCHEMA) +
     ' — then return ONLY the receipt: ok, report path, entries = open tasks + ideas count, ' +
-    'one-line mechanical headline (card count + status counts), failure empty, plus order, cards ({slug, pages} per open ' +
+    'one-line mechanical headline (card count + status counts), failure empty, order, cards ({slug, pages} per open ' +
     'card), gates, ripples, and malformed (= malformed_ripples) transcribed exactly from the product.';
 const recon = (task, o) => {
     const opts = { ...o, model: 'gpt-5.6-terra', writes: !!o.writes, receipt: discoveryReceipt, nativeTail: discoveryTail, wire: RECEIPT };
@@ -754,7 +753,7 @@ const folderName = (p) => p.split('/').filter(Boolean).pop() || p;
 
 // Critique lane: one blocking Codex MCP call at the config-owned default — a FIX lane
 // (persistence + post-edit verification law), FIXLOG product to disk, thin receipt on the wire; a quota fallback
-// restores the native fable twin writing the same product to the same path.
+// restores the native twin writing the same product to the same path.
 const critiqueReceipt = (base) =>
     '(4) Parse the tool result text only for mechanical orchestration data. Return ok=true, report=' +
     base +
@@ -875,7 +874,7 @@ const discoverPrompt = (folder) =>
             '3, the ones whose Anchors are most settled and whose ripples land on in-scope targets), HARD CAP 3; on EVERY task/idea row also return ' +
             'pages — the repo-relative design pages under `' +
             folder +
-            "/.planning/**` the card's `Anchors:` bullet names, PLUS one row per ripple-counterpart page (the design page a `Ripple:` row's " +
+            "/.planning/**` the card's `Anchors:` bullet names, AND one row per ripple-counterpart page (the design page a `Ripple:` row's " +
             'counterpart card names in its own folder — read it and anchor its seam surface, so the writers reach every counterpart hot instead of ' +
             'cold-hunting it), each VERIFIED to exist on ' +
             'disk with a listing (existence only — the pages stay downstream reading scope; empty when none verify): these rows prove page-disjoint card ' +
@@ -884,7 +883,7 @@ const discoverPrompt = (folder) =>
             '`oos_samelang` if it is another libs/typescript area, `cross_lang` if it points at `libs/csharp` / `libs/python` / ' +
             '`libs/typescript/.planning` / `libs/.planning`; confirm every counterpart ON DISK — open the named pkg card file and locate the mirror ' +
             'slug, never assert it from memory; (6) gates — for any [BLOCKED] card, {blocked_slug, gated_by_slug, in_scope} where in_scope is true iff ' +
-            'the gating work is itself an open card in one of the session targets; (7) map — one row per design page the open cards target, PLUS one ' +
+            'the gating work is itself an open card in one of the session targets; (7) map — one row per design page the open cards target, AND one ' +
             "row per ripple-counterpart page (the design page a `Ripple:` row's counterpart card names in its own folder — read it and anchor its " +
             'seam surface, so the writers reach every counterpart hot instead of cold-hunting it): {page, files: every file (the page, its cited ' +
             "catalogs, its seam counterparts) the implementer must open for this row, anchors: exact coordinates backing the row's facts per the ROW " +
@@ -896,7 +895,7 @@ const discoverPrompt = (folder) =>
             'cross-area seams the page meets, stacking: how the catalog capability stacks into the realization}. ' +
             'Return malformed_ripples for any `Ripple:` line you cannot parse ' +
             'into a pkg+slug, or whose counterpart slug you cannot locate on disk — an unverified ripple row is a phantom that belongs in ' +
-            'malformed_ripples, never in ripples; (8) coverage — part of the product: `requested` = your assigned scope (the two card files plus every ' +
+            'malformed_ripples, never in ripples; (8) coverage — part of the product: `requested` = your assigned scope (the two card files and every ' +
             'counterpart card file the ripples point at), `read` = what you actually full-read, `skipped`/`unverified` = what you did not reach or ' +
             'could not confirm — an honest skip beats a silent one. Read the FULL card body (every bullet) to classify — never guess from the thesis. ' +
             'Your map carries NAVIGATION FACTS — paths, verified counterpart locations, seam targets — never verdicts, and it is an initial pointer, ' +
@@ -965,7 +964,7 @@ const implementPrompt = (folder, rpt, seq, note, ownpass) =>
             (note ? '\n' + note : ''),
     ].join('\n');
 
-// critiquePrompt feeds the codex lane (+ native fable twin): neutral stance — hostile register degrades
+// critiquePrompt feeds the codex lane (+ native twin): neutral stance — hostile register degrades
 // codex, safe for the twin; the hostile pass is redteam (native).
 const critiquePrompt = (folder, seq, report, ownpass) =>
     [
@@ -1369,9 +1368,9 @@ log(
 const ORPHANS = done.map((r) => r.critReport || '').filter(Boolean);
 // The deferred cards a folder chain could not realize become the drain backlog in {files, claim} form.
 const BACKLOG = deferred.map((d) => ({ files: [], claim: d.folder + ' [' + d.slug + ']: ' + d.reason }));
-// Terminal DRAIN LOOP: one serial opus single-writer per round. EVERY round re-receives the FULL tranche set (pins, seams, orphans, backlog); the
+// Terminal DRAIN LOOP: one serial single-writer per round. EVERY round re-receives the FULL tranche set (pins, seams, orphans, backlog); the
 // disk checkpoint ledger is the consumption truth, so a receipted tranche skips and a dead-or-partial round loses nothing — only `residuals` narrows
-// via `remaining`. The round itself gets attempt-counted re-dispatch; a round cap plus a no-shrinkage progress gate bound the loop, and the genuinely
+// via `remaining`. The round itself gets attempt-counted re-dispatch; a round cap and a no-shrinkage progress gate bound the loop, and the genuinely
 // blocked remainder rides the run return.
 const pinsRan = !!(pinsReported.length || seamsReported.length || ORPHANS.length || BACKLOG.length);
 let pinlog = null;

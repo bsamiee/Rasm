@@ -3,20 +3,20 @@ export const meta = {
     whenToUse:
         'The standing hostile PROSE + STRUCTURE rebuild for any libs/ planning corpus: pass target folders (a package folder, a branch, several, any language mix); it censuses each folder .planning pages + README/ARCHITECTURE, then per folder runs frame-recon -> reframe-writer -> critique -> red-team CONCURRENTLY, destroying imported frames and rebuilding every page template-true at the docgen bar while conserving ALL semantic content, then one terminal drain loop and a doctrine lander close the run.',
     description:
-        'The hostile prose/structure rebuild of planning corpora — the ANTI-ANCHORING engine, sibling to the rebuild engine on the prose dimension and sharing its substrate verbatim. Fence CODE bodies (signatures, types, cases, fields, bodies, design decisions) are UNTOUCHED surfaces; fence comments, section-divider grammar, page structure, README/ARCHITECTURE shape, seam representations, and every durable prose line are the territory. The prime mandate: an IMPORTED FRAME is the prime contaminant — a page wearing another corpus styling (a libs/ spec wearing docs/stacks card framing, a doc predating the docgen templates) poisons every future rebuild that reads it as context and inherits its shape; reframe destroys the frame, rebuilds the page template-true to its own file kind, and conserves ALL semantic content and law (capability conservation is absolute — it deletes noise and frames, never meaning). args = a target folder, an array of folders, or a targets object; empty = no-op; targets may MIX languages, each deriving its file-kind templates and casing from its own branch. Plan (1 sonnet) censuses the target folders into per-folder units with page counts. Per unit, a pipelined chain: (a) FRAME RECON — one gpt-5.6-terra codex recon lane maps frame defects as FINDINGS never prescriptions — imported/cross-corpus frame poison, drift from the docgen README/ARCHITECTURE/spec templates, text seam-maps that should be mermaid, dead/no-op prose, comment-discipline violations inside fences, section-grammar violations (CLAUDE.md section 09), and the docgen defect classes (STALE_MIRROR, TWIN_TRUTH, META_FRAME, ENUMERATION_ANCHOR, REPORT_FRAME, hedges) — anchored, with coverage; (b) REFRAME WRITER — fable, ordered to load the docgen, skill-writer, and mermaid-diagramming skills BEFORE any edit, reading docs/standards/ (all four pages), the docgen templates, and docs/laws/ at source, then rebuilding README.md + ARCHITECTURE.md template-true (they predate the templates — full re-frame per docgen rewriting.md, never inheriting the source frame), converting text seam maps to one clean mermaid diagram, re-framing poisoned pages, culling dead prose, and repairing comment discipline inside fences WITHOUT touching fence code, running the docgen prose gate to zero FAILs; (c) CRITIQUE — a codex write lane (native-twin fable), predicate-positive conformance audit against the docgen register/templates/section grammar, fixing in place, fixlog to disk; (d) FABLE RED-TEAM — predicate-negative with fold-forward duty, hunting RESIDUAL ANCHORING (any page still carrying the old frame, poisoned styling, a stale mirror, twin truth) under the counterfactual: would a cold agent rebuilding from this page inherit poison? Close: pooled deferred rows drain through the terminal fable DRAIN LOOP; pooled harvest nominations route through the doctrine lander; orphaned critique fixlogs drain with the backlog. Nothing follows the drain.',
+        'The hostile prose/structure rebuild of planning corpora — the ANTI-ANCHORING engine, sibling to the rebuild engine on the prose dimension and sharing its substrate verbatim. Fence CODE bodies (signatures, types, cases, fields, bodies, design decisions) are UNTOUCHED surfaces; fence comments, section-divider grammar, page structure, README/ARCHITECTURE shape, seam representations, and every durable prose line are the territory. The prime mandate: an IMPORTED FRAME is the prime contaminant — a page wearing another corpus styling (a libs/ spec wearing docs/stacks card framing, a doc predating the docgen templates) poisons every future rebuild that reads it as context and inherits its shape; reframe destroys the frame, rebuilds the page template-true to its own file kind, and conserves ALL semantic content and law (capability conservation is absolute — it deletes noise and frames, never meaning). args = a target folder, an array of folders, or a targets object; empty = no-op; targets may MIX languages, each deriving its file-kind templates and casing from its own branch. Plan censuses the target folders into per-folder units with page counts. Per unit, a pipelined chain: (a) FRAME RECON — one codex recon lane maps frame defects as FINDINGS never prescriptions — imported/cross-corpus frame poison, drift from the docgen README/ARCHITECTURE/spec templates, text seam-maps that should be mermaid, dead/no-op prose, comment-discipline violations inside fences, section-grammar violations (CLAUDE.md section 09), and the docgen defect classes (STALE_MIRROR, TWIN_TRUTH, META_FRAME, ENUMERATION_ANCHOR, REPORT_FRAME, hedges) — anchored, with coverage; (b) REFRAME WRITER — the native writer lane, ordered to load the docgen, skill-writer, and mermaid-diagramming skills BEFORE any edit, reading docs/standards/ (all four pages), the docgen templates, and docs/laws/ at source, then rebuilding README.md + ARCHITECTURE.md template-true (they predate the templates — full re-frame per docgen rewriting.md, never inheriting the source frame), converting text seam maps to one clean mermaid diagram, re-framing poisoned pages, culling dead prose, and repairing comment discipline inside fences WITHOUT touching fence code, running the docgen prose gate to zero FAILs; (c) CRITIQUE — a codex write lane, predicate-positive conformance audit against the docgen register/templates/section grammar, fixing in place, fixlog to disk; (d) RED-TEAM — predicate-negative with fold-forward duty, hunting RESIDUAL ANCHORING (any page still carrying the old frame, poisoned styling, a stale mirror, twin truth) under the counterfactual: would a cold agent rebuilding from this page inherit poison? Close: pooled deferred rows drain through the terminal DRAIN LOOP; pooled harvest nominations route through the doctrine lander; orphaned critique fixlogs drain with the backlog. Nothing follows the drain.',
     phases: [
         {
             title: 'Plan',
-            detail: 'one thin agent censuses the target folders into per-folder reframe units — the .planning page set plus the README/ARCHITECTURE governing docs, with page counts',
+            detail: 'one thin agent censuses the target folders into per-folder reframe units — the .planning page set and the README/ARCHITECTURE governing docs, with page counts',
             model: 'sonnet',
         },
         {
             title: 'Reframe',
-            detail: 'all folder units concurrent under the agent-level slot cap: per unit a gpt-5.6-terra frame-recon lane (recon) then reframe-writer (fable), critique (codex lane, fixlog to disk), red-team (fable, folding the critique rows forward) chained behind their own unit; navigation-fact handoffs, libs-wide bounded ripple authority',
+            detail: 'all folder units concurrent under the agent-level slot cap: per unit a frame-recon lane (recon) then reframe-writer, critique (codex lane, fixlog to disk), red-team (folding the critique rows forward) chained behind their own unit; navigation-fact handoffs, libs-wide bounded ripple authority',
         },
         {
             title: 'Close',
-            detail: 'ONE terminal fable drain loop reads the pooled deferred backlog + index rows + orphaned critique fixlogs, applies every row, drains the backlog, hunts past it; then the doctrine lander adjudicates the pooled harvest nominations against the live doctrine surfaces',
+            detail: 'ONE terminal drain loop reads the pooled deferred backlog + index rows + orphaned critique fixlogs, applies every row, drains the backlog, hunts past it; then the doctrine lander adjudicates the pooled harvest nominations against the live doctrine surfaces',
         },
     ],
 };
@@ -51,7 +51,7 @@ const langOf = (t) =>
 const TARGETS = [...new Set(rawTargets.filter(Boolean).map(normTarget))].filter((t) => langOf(t));
 const REJECTED = [...new Set(rawTargets.filter(Boolean).map(normTarget))].filter((t) => !langOf(t));
 // Per-instance scratch dir — frame-recon report files + critique fixlogs. Minted deterministically from the normalized target set
-// (clock/randomness would break resume): one FLAT dir under .claude/scratch/, a basename slug plus an FNV-1a tail so distinct sets never collide.
+// (clock/randomness would break resume): one FLAT dir under .claude/scratch/, a basename slug with an FNV-1a tail so distinct sets never collide.
 const fnv1a = (s) => {
     let h = 0x811c9dc5;
     for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193);
@@ -232,7 +232,7 @@ const HARVEST = {
 
 // Writer and review fixlogs share one field core; only the verdict vocabulary forks by stage. Required-but-empty arrays are
 // attestations: forced seamsTouched/deltas/deferred/indexRows make "repair both ends / record the backlog / route decisions
-// single-writer" structurally checkable, never wishful prose. `logSchema(extra)` composes the core plus the stage's verdict key.
+// single-writer" structurally checkable, never wishful prose. `logSchema(extra)` composes the core with the stage's verdict key.
 const LOG_CORE = {
     files: { type: 'array', items: { type: 'string' } },
     summary: { type: 'string' },
@@ -511,7 +511,7 @@ const HARVEST_LAW =
     'defect BEFORE review. Each row: altitude (stacks|reviewer|constitution|planning|readme|laws), lang, claim (the generalized ' +
     'law, one sentence, SYMBOL-FREE — every concrete spelling lives in anchors, so the lander adjudicates the law without ' +
     're-deriving its locality), anchors (file:line evidence), existingClause (the exact doctrine or template clause it would harden, ' +
-    'quoted with its path — or "absent" plus the surfaces searched). A unit-local fix never nominates; an empty array is the ' +
+    'quoted with its path — or "absent" with the surfaces searched). A unit-local fix never nominates; an empty array is the ' +
     'normal verdict — the doctrine lander refutes weak rows, so nominate substance, never volume.';
 
 const GIT_GROUND =
@@ -594,7 +594,7 @@ const retryLane = async (fn) => {
     return null;
 };
 
-// Codex dispatch: the sonnet wrapper makes one blocking Codex MCP call, writes the envelope's content
+// Codex dispatch: the wrapper makes one blocking Codex MCP call, writes the envelope's content
 // to the lane report, and returns mechanical orchestration data. Lane law rides developer-instructions;
 // the prompt carries only the task; the output contract sits LAST.
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-');
@@ -628,7 +628,7 @@ const codexPrompt = (label, task, schema, o) => {
     const base = SCRATCH + '/' + fileTag(label);
     const root = ROOT_DIR;
     const report = root + '/' + base + '-report.json';
-    const model = o.model; // config owns the default (sol); an explicit value flags the deviation and is passed, otherwise the call runs unflagged
+    const model = o.model; // config owns the default; an explicit value flags the deviation and is passed, otherwise the call runs unflagged
     return [
         'DISPATCH ROLE: ' +
             (model || 'codex') +
@@ -674,9 +674,9 @@ const codexPrompt = (label, task, schema, o) => {
             'report and headline empty, and failure equal to the error text VERBATIM.',
     ].join('\n\n');
 };
-// Every codex-dispatched lane routes here: sol by default (config-owned), terra where o.model flags the deviation. QUOTA FALLBACK: a codex
-// receipt whose failure matches usage/quota/limit re-dispatches the SAME task natively at the role's Claude twin (terra->opus, sol->fable,
-// luna->sonnet); the caller owns re-dispatch, the sonnet wrapper never executes work itself. The roster row carries `scope` from the ORCHESTRATOR so
+// Every codex-dispatched lane routes here: config owns the default, o.model flags the deviation. QUOTA FALLBACK: a codex
+// receipt whose failure matches usage/quota/limit re-dispatches the SAME task natively at the role's native twin;
+// the caller owns re-dispatch, the wrapper never executes work itself. The roster row carries `scope` from the ORCHESTRATOR so
 // a failed lane's unmapped territory is exact even when the lane died before writing anything.
 const twinOf = (m) => (/-sol/.test(m || '') ? 'fable' : /-luna/.test(m || '') ? 'sonnet' : 'opus');
 const nativeLane = (task, o) =>
@@ -767,7 +767,7 @@ const framePrompt = (L, u) =>
         READ_FIRST(L, u),
         'TASK: READ-ONLY FRAME RECON over EVERY design page under `' +
             u.planning +
-            '` plus the owning-package `' +
+            '` with the owning-package `' +
             u.context_root +
             '/README.md` and `' +
             u.context_root +
@@ -779,7 +779,7 @@ const framePrompt = (L, u) =>
             'carrying no load; (comment-discipline) a fence comment restating code, narrating, or carrying process framing, or a ' +
             'stack past the width/runt law; (section-grammar) a malformed/invented/mis-converted `' +
             L.marker +
-            ' --- [SECTION]` divider or a drift label; plus the docgen defect classes STALE_MIRROR, TWIN_TRUTH, META_FRAME, ' +
+            ' --- [SECTION]` divider or a drift label; and the docgen defect classes STALE_MIRROR, TWIN_TRUTH, META_FRAME, ' +
             'ENUMERATION_ANCHOR, REPORT_FRAME, HEDGE, and COUPLING read at their catalog source. For each finding set `owner` to ' +
             'the file kind / template / register clause whose application resolves it, `reject` to the forms the repair must not ' +
             'take, `acceptance` to the signals proving the frame is gone. Findings NAME the defect and the violated law, NEVER the ' +
@@ -805,7 +805,7 @@ const writerPrompt = (L, u, framed, unmapped) =>
             u.folder +
             '` IN PLACE — every design page under `' +
             u.planning +
-            '` plus the owning-package README.md + ARCHITECTURE.md. Destroy every imported frame and rebuild each page ' +
+            '` with the owning-package README.md + ARCHITECTURE.md. Destroy every imported frame and rebuild each page ' +
             'TEMPLATE-TRUE to its own file kind: README.md and ARCHITECTURE.md PREDATE the templates — re-frame them GROUND-UP per ' +
             'the docgen `references/rewriting.md` procedure, heading census matching the template, never inheriting the source ' +
             'frame; convert every text seam map to ONE clean mermaid diagram carrying every edge; re-frame poisoned pages to the ' +
@@ -841,7 +841,7 @@ const critiquePrompt = (L, u, framed, unmapped, nav) =>
         GIT_GROUND,
         'TASK: PREDICATE-POSITIVE CONFORMANCE AUDIT; fix EACH page in place across `' +
             u.planning +
-            '` plus the README.md + ARCHITECTURE.md. Your own-pass artifact (OWN PASS FIRST above) precedes NAVIGATION — derive ' +
+            '` with the README.md + ARCHITECTURE.md. Your own-pass artifact (OWN PASS FIRST above) precedes NAVIGATION — derive ' +
             'your findings there before consulting it. Verify each required law HOLDS and cite the clause; every miss is ' +
             'repaired NOW, a fix never a ledger note; a cross-file hit is yours per RIPPLE LAW:\n' +
             '- TEMPLATE CONFORMANCE: every README/ARCHITECTURE/spec/api-catalog/ideas/tasklog page matches its docgen template — ' +
@@ -890,7 +890,7 @@ const redteamPrompt = (L, u, framed, unmapped, nav, crit, critReport) =>
         GIT_GROUND,
         'TASK: ADVERSARIAL PREDICATE-NEGATIVE RED-TEAM; fix EACH page in place across `' +
             u.planning +
-            '` plus the README.md + ARCHITECTURE.md — the LAST and MOST AGGRESSIVE pass. Assume the writer and critique missed ' +
+            '` with the README.md + ARCHITECTURE.md — the LAST and MOST AGGRESSIVE pass. Assume the writer and critique missed ' +
             'things and their claims above are wrong until disk proves them. Your own-pass attack artifact (OWN PASS FIRST above) ' +
             'precedes the claims. Hunt RESIDUAL ANCHORING, the pre-mortem:\n' +
             '(A) COUNTERFACTUAL — a counterfactual REBUILDS the page`s framing with its central assumption removed, never merely ' +
@@ -1023,7 +1023,7 @@ const doctrinePrompt = (rows, orphans) =>
 const processUnit = async (u) => {
     const L = Lof(u.folder);
     const tag = fileTag(u.folder.split('/').pop());
-    // (a) frame recon: one gpt-5.6-terra codex recon lane maps the frame defects; product to disk, receipt on the wire.
+    // (a) frame recon: one codex recon lane maps the frame defects; product to disk, receipt on the wire.
     const frame = await slot(() =>
         recon(framePrompt(L, u), {
             label: 'frame:' + tag,
@@ -1037,7 +1037,7 @@ const processUnit = async (u) => {
     const framed = frame && frame.ok ? frame : null;
     const unmapped = framed ? [] : [{ lane: 'frame:' + tag, scope: u.folder }];
     if (!framed) log(tag + ' — frame recon did not land; writer cold-reads the frame');
-    // (b) reframe writer: fable authors the ground-up template-true rebuild in place; a dead critical writer earns bounded re-dispatch.
+    // (b) reframe writer: the native writer authors the ground-up template-true rebuild in place; a dead critical writer earns bounded re-dispatch.
     const wopt = (label) => ({ label, phase: 'Reframe', model: 'fable', effort: 'high', schema: REFRAME_LOG, stallMs: STALL });
     const fix =
         (await slot(() => agent(writerPrompt(L, u, framed, unmapped), wopt('reframe:' + tag)))) ||
@@ -1062,7 +1062,7 @@ const processUnit = async (u) => {
         }),
     );
     const critR = crit && crit.ok ? crit : null;
-    // (d) fable red-team: predicate-negative, folds the critique fixlog`s operational rows forward; terminal stage of the unit chain.
+    // (d) red-team: predicate-negative, folds the critique fixlog`s operational rows forward; terminal stage of the unit chain.
     const ropt = (label) => ({ label, phase: 'Reframe', model: 'fable', effort: 'high', schema: REVIEW_LOG, stallMs: STALL });
     const rt =
         (await slot(() => agent(redteamPrompt(L, u, framed, unmapped, nav, critR, critReport), ropt('rt:' + tag)))) ||
@@ -1133,7 +1133,7 @@ if (!LANDED.length) {
 
 phase('Close');
 const LANDED_LANGS = [...new Set(LANDED.map((f) => langOf(f)).filter(Boolean))];
-// Terminal DRAIN LOOP: one serial fable closer per round takes the residual set, verifies every row against live disk (freshness is
+// Terminal DRAIN LOOP: one serial closer per round takes the residual set, verifies every row against live disk (freshness is
 // its duty — no concurrent writers, no collisions), fixes at root, and loops until empty; a round without shrinkage stops with the
 // blocked set final. Every round re-receives the FULL tranche set (index rows, orphan fixlogs, backlog): the checkpoint ledger is the
 // consumption truth, so a dead or partial round loses nothing and a live one skips what it already receipted — only the backlog narrows.
@@ -1162,7 +1162,7 @@ for (let round = 0; round < DRAIN_ROUNDS; round++) {
     lastOpen = open.length;
 }
 const POOLED_HARVEST = HARVEST_ROWS.concat(fixerHarvest);
-// DOCTRINE LANDER: the run's durable-learning terminal — wire nominations plus the critique fixlog harvest arrays and the fixer
+// DOCTRINE LANDER: the run's durable-learning terminal — wire nominations with the critique fixlog harvest arrays and the fixer
 // harvest jsonl, adjudicated against the live doctrine surfaces; refutation-first, land-nothing legal, admission law owned by
 // docs/laws. A dead fixer still fires it (its nominations survive in the jsonl), and critique fixlogs on disk fire it too — the
 // lander is those arrays' ONLY transport.

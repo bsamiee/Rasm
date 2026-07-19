@@ -23,7 +23,7 @@ A workflow is a runnable JavaScript orchestrator for Claude Code's `Workflow` to
 - [02]-[PATTERNS](references/patterns.md): orchestration catalog.
 - [03]-[THROUGHPUT](references/throughput.md): concurrency economics and cross-run law.
 - [04]-[RECOVERY](references/recovery.md): resume, transplant, and reconstruction.
-- [05]-[EXTERNAL_LANES](references/codex-lanes.md): codex (gpt-5.6) work lanes, the agy (Gemini) read-only review lane.
+- [05]-[EXTERNAL_LANES](references/codex-lanes.md): codex work lanes, the agy (Gemini) read-only review lane.
 - [06]-[EXECUTION_STANDARD](references/execution-standard.md): stage-prompt demand bar — hostile floor, writer and reviewer law, consumption ladder.
 
 [TEMPLATES]:
@@ -49,7 +49,7 @@ A workflow is a runnable JavaScript orchestrator for Claude Code's `Workflow` to
 
 ## [02]-[FIT]
 
-Placement across execution surfaces is agent-dispatch law. A workflow earns its cost when the work is parallel or multi-stage, orchestration must be deterministic and resumable, and per-step fresh context pays. One subagent, one task: the plain `Agent` tool; a procedure where Claude picks the steps each run is a skill; a fixed shape worth rerunning and resuming is a workflow. A single-agent run is the baseline to beat: decomposition pays only for genuinely separable units; a camouflaged dependency chain buys overhead and serial wall-clock. Doubtful fit is stated, the lighter option offered.
+Placement across execution surfaces is agent-dispatch law. A workflow earns its cost when the work is parallel or multi-stage, orchestration must be deterministic and resumable, and per-step fresh context pays. One subagent, one task: the plain `Agent` tool; a procedure where the model picks the steps each run is a skill; a fixed shape worth rerunning and resuming is a workflow. A single-agent run is the baseline to beat: decomposition pays only for genuinely separable units; a camouflaged dependency chain buys overhead and serial wall-clock. Doubtful fit is stated, the lighter option offered.
 
 ## [03]-[SHAPE]
 
@@ -117,7 +117,7 @@ Then the body: async JavaScript with injected globals — `agent(prompt, opts?)`
 
 Three `agent()` options tuned most, independent axes:
 
-- `model` — `'sonnet'`/`'opus'`/`'fable'`/`'inherit'` or a full ID, `'sonnet'` the floor: mechanical leaf work drops to `'sonnet'`, a self-contained lane routes to codex (terra default, sol for the hardest legs), judgment-heavy work inherits the session model.
+- `model` — `'sonnet'`/`'opus'`/`'fable'`/`'inherit'` or a full ID: mechanical leaf work drops a tier, a self-contained lane routes to an external wrapper lane, judgment-heavy work inherits the session model.
 - `effort` — `'low'`…`'max'`, independent of `model`. Synthesis and adversarial judgment run high; mechanical leaf work runs `'low'`.
 - `schema` — a strict JSON Schema (`additionalProperties: false`, everything required, conditional fields required-but-empty) returning a validated object; one shape serves native lanes and codex `--output-schema` alike.
 

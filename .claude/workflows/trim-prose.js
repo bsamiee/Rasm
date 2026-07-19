@@ -3,7 +3,7 @@ export const meta = {
     whenToUse:
         'Prose-density pass over one or more .planning folders: every page rebuilt to the docgen register at 40-50% of its prose volume, two-lead intro enforced, terminal [RESEARCH] marker section landed, fence code bodies untouched.',
     description:
-        'Focused prose refactor over libs/ planning pages. args = a .planning folder path, an array of paths, or {targets} — a package root resolves to its .planning; empty = no-op. One discovery agent censuses every page per target with a shared prose-line measurement; then one opus rewriter per file (pooled cap) reads the full docgen skill, the docs/standards prose owners, and the spec template, then rebuilds ALL prose and fence comments in place: telos + composition leads, [01]-[INDEX], terminal [RESEARCH] marker section, 50-60% prose reduction by defect-kill and density with zero capability loss, fence code bodies and section dividers untouched, prose gate run as the mechanical floor. Returns per-file receipts with honest before/after counts.',
+        'Focused prose refactor over libs/ planning pages. args = a .planning folder path, an array of paths, or {targets} — a package root resolves to its .planning; empty = no-op. One discovery agent censuses every page per target with a shared prose-line measurement; then one rewriter per file (pooled cap) reads the full docgen skill, the docs/standards prose owners, and the spec template, then rebuilds ALL prose and fence comments in place: telos + composition leads, [01]-[INDEX], terminal [RESEARCH] marker section, 50-60% prose reduction by defect-kill and density with zero capability loss, fence code bodies and section dividers untouched, prose gate run as the mechanical floor. Returns per-file receipts with honest before/after counts.',
     phases: [
         {
             title: 'Discover',
@@ -11,7 +11,7 @@ export const meta = {
         },
         {
             title: 'Rewrite',
-            detail: 'one opus agent per file under the pooled cap: docgen law read in full, target read in full, all prose and fence comments rebuilt in place to the register at 40-50% volume, research section landed, gate run, typed receipt returned',
+            detail: 'one agent per file under the pooled cap: docgen law read in full, target read in full, all prose and fence comments rebuilt in place to the register at 40-50% volume, research section landed, gate run, typed receipt returned',
         },
     ],
 };
@@ -150,7 +150,7 @@ const rewriteMandate = (file, prose) =>
     '\n1. H1, then EXACTLY two STRONG lead paragraphs at the README exemplar bar — the telos lead (the capability this page owns, its piece in the folder system, ' +
     'the boundary it holds — an agent reads it and knows exactly what this owner is FOR) and the composition lead (the settled core facts an agent needs before ' +
     'editing: reused axes, seam obligations, wire names, rails, policy rows — the working-context paragraph that spares the reader a corpus crawl). ' +
-    'Fold any third-plus intro paragraph into these two or demote its content to the owning cluster.' +
+    'Fold any further intro paragraph into these two or demote its content to the owning cluster.' +
     '\n2. `## [01]-[INDEX]` — one line per cluster, `- [NN]-[TOKEN]: <hook>`, never a card restatement. Build it when absent, rebuild it when stale.' +
     '\n3. The existing cluster sections, renumbered contiguously when your edits shift positions.' +
     '\n4. Terminal `## [NN]-[RESEARCH]` — every row `- [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>`, `(none)` when empty. ' +

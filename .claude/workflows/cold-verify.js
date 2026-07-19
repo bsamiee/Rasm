@@ -3,22 +3,22 @@ export const meta = {
     whenToUse:
         'Campaign closure gate: after a rebuild campaign lands, verify the whole target corpus against its root DECISION/brief and fix every miss in place. args = {doc, root} or an array of such pairs; campaigns verify in parallel lanes. The resolver finalizes each campaign in-run — findings resolve as edits, never as a report; a doctrine lander closes the run only when a pass pools a durable nomination.',
     description:
-        'Cold-verify pass over one or more landed campaigns. Per campaign: one sonnet plan partitions the target folder into balanced verification slices; gpt-5.6-terra (codex) verifiers fan out through sonnet dispatch wrappers, each reading the root doc IN FULL plus its slice pages IN FULL, hunting missing/wrong/faked/naive work with typed anchored findings (one verifier owns the governance lane: index docs, manifest rows, csproj/README registries, .api anchors, acceptance traces, rider receipts; a per-language-branch verifier owns the cross-libs ripple lane: every sibling seam ledger, consumer anchor, counterpart obligation, and frozen wire name the campaign touches outside the target root). Every verifier runs a mandatory second-pass self-verify: each finding adversarially re-derived from disk before return, vague or unconfirmed findings deleted, and a clean verdict asserted only after the second hostile pass returns empty. ONE terminal fable resolver then finalizes the campaign with LIBS-WIDE ripple authority — verifier findings are SIGNALS, not law: it re-verifies each on disk, implements the strongest fix where a suggestion was weak or short-sighted, hunts and fixes what the verifiers missed on its own authority, resolves every ripple its edits expose anywhere under libs/ (sibling counterparts repaired in place both ends, except where the doc rules a counterpart recorded-only), and pushes touched pages past the ruling per the floor law. The resolver is retry-guarded and appends each harvest nomination to a deterministic .jsonl as it is minted; when any campaign pools a non-empty nomination OR its resolver dies, ONE terminal fable doctrine lander adjudicates against docs/laws (refutation-first, land-nothing legal), sweeping the disk harvest files so a dead finalize loses none. Otherwise no phase follows the resolver.',
+        'Cold-verify pass over one or more landed campaigns. Per campaign: one plan lane partitions the target folder into balanced verification slices; verifiers fan out as dispatched lanes, each reading the root doc and its slice pages IN FULL, hunting missing/wrong/faked/naive work with typed anchored findings (one verifier owns the governance lane: index docs, manifest rows, csproj/README registries, .api anchors, acceptance traces, rider receipts; a per-language-branch verifier owns the cross-libs ripple lane: every sibling seam ledger, consumer anchor, counterpart obligation, and frozen wire name the campaign touches outside the target root). Every verifier runs a mandatory second-pass self-verify: each finding adversarially re-derived from disk before return, vague or unconfirmed findings deleted, and a clean verdict asserted only after the second hostile pass returns empty. ONE terminal resolver then finalizes the campaign with LIBS-WIDE ripple authority — verifier findings are SIGNALS, not law: it re-verifies each on disk, implements the strongest fix where a suggestion was weak or short-sighted, hunts and fixes what the verifiers missed on its own authority, resolves every ripple its edits expose anywhere under libs/ (sibling counterparts repaired in place both ends, except where the doc rules a counterpart recorded-only), and pushes touched pages past the ruling per the floor law. The resolver is retry-guarded and appends each harvest nomination to a deterministic .jsonl as it is minted; when any campaign pools a non-empty nomination OR its resolver dies, ONE terminal doctrine lander adjudicates against docs/laws (refutation-first, land-nothing legal), sweeping the disk harvest files so a dead finalize loses none. Otherwise no phase follows the resolver.',
     phases: [
         { title: 'Plan', detail: 'per campaign: enumerate pages, partition into balanced slices', model: 'sonnet' },
         {
             title: 'Verify',
-            detail: 'per campaign: slice verifiers + one governance verifier + per-branch cross-libs ripple verifiers on gpt-5.6-terra via codex wrappers (sonnet shells), read-only, self-verified typed anchored findings',
+            detail: 'per campaign: slice verifiers + one governance verifier + per-branch cross-libs ripple verifiers as dispatched lanes, read-only, self-verified typed anchored findings',
             model: 'sonnet',
         },
         {
             title: 'Resolve',
-            detail: 'per campaign: one terminal fable finalizer — findings as signals, own hunt beyond them, every ripple resolved in-run, libs-wide',
+            detail: 'per campaign: one terminal finalizer — findings as signals, own hunt beyond them, every ripple resolved in-run, libs-wide',
             model: 'fable',
         },
         {
             title: 'Doctrine',
-            detail: 'terminal doctrine lander (fable), fires on pooled harvest or a dead resolver: sweeps each resolver harvest .jsonl from disk, adjudicates nominations against docs/laws, refutation-first, land-nothing legal',
+            detail: 'terminal doctrine lander fires on pooled harvest or a dead resolver: sweeps each resolver harvest .jsonl from disk, adjudicates nominations against docs/laws, refutation-first, land-nothing legal',
             model: 'fable',
         },
     ],
@@ -41,7 +41,7 @@ if (!CAMPS.length) {
     return { campaigns: 0 };
 }
 // Per-instance scratch dir holding the lanes' MCP report files, minted deterministically from the normalized campaign set (a clock or
-// randomness would break resume): one FLAT dir per instance, a root-basename slug plus an FNV-1a tail so distinct sets never collide.
+// randomness would break resume): one FLAT dir per instance, a root-basename slug and an FNV-1a tail so distinct sets never collide.
 const fnv1a = (s) => {
     let h = 0x811c9dc5;
     for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193);
@@ -286,7 +286,7 @@ const HARVEST_LAW =
     'review, a cross-surface coupling discovered the hard way. Each row: altitude (stacks|reviewer|constitution|planning|readme|' +
     'laws), lang, claim (the generalized law, one sentence, SYMBOL-FREE — every concrete spelling lives in anchors, so the ' +
     'lander adjudicates the law without re-deriving its locality), anchors (file:line evidence), existingClause (the exact doctrine or ' +
-    'reviewer clause it would harden, quoted with its path — or "absent" plus the surfaces searched). A campaign-local fix never ' +
+    'reviewer clause it would harden, quoted with its path — or "absent" and the surfaces searched). A campaign-local fix never ' +
     'nominates; an empty array is the normal verdict — the terminal doctrine lander refutes weak rows, so nominate substance, never volume.';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -303,7 +303,7 @@ const retryLane = async (fn) => {
     return null;
 };
 
-// Codex dispatch: the sonnet wrapper makes one blocking Codex MCP call, writes the envelope's content
+// Codex dispatch: the shell lane makes one blocking Codex MCP call, writes the envelope's content
 // to the lane report, and returns mechanical orchestration data. Lane law rides developer-instructions
 // (role split); the prompt carries only the task; the output contract sits LAST.
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-');
@@ -362,8 +362,8 @@ const codexPrompt = (label, task, schema, o) => {
             'report and headline empty, and failure equal to the error text VERBATIM.',
     ].join('\n\n');
 };
-// QUOTA FALLBACK: a codex receipt whose failure matches usage/quota/limit re-dispatches the SAME task natively at the role's Claude twin
-// (terra->opus) — the caller owns the re-dispatch, the sonnet wrapper never executes work itself. The roster row carries `scope` from the
+// QUOTA FALLBACK: a codex receipt whose failure matches usage/quota/limit re-dispatches the SAME task natively at the role's
+// native twin — the caller owns the re-dispatch, the shell lane never executes work itself. The roster row carries `scope` from the
 // ORCHESTRATOR (never the lane's self-report) so a failed lane's unmapped territory is exact even when the lane died before writing anything.
 const twinOf = (m) => (/-sol/.test(m || '') ? 'fable' : /-luna/.test(m || '') ? 'sonnet' : 'opus');
 const nativeLane = (task, o) =>
@@ -446,7 +446,7 @@ const lanes = await parallel(
                         '. Read ' +
                         c.doc +
                         ' IN FULL — every ruling, page row, band, seam, rider, and acceptance trace that ' +
-                        'touches your pages. Then read each of these pages IN FULL plus every .api catalog its fences cite: ' +
+                        'touches your pages. Then read each of these pages IN FULL and every .api catalog its fences cite: ' +
                         JSON.stringify(pages) +
                         '. Verify each ruling landed PROPERLY — integrated as if always designed that way, at the ' +
                         'ruled band/signature/charter, frozen names byte-identical — and verify past the ruling: the floor law means a ' +
