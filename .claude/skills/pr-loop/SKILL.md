@@ -41,7 +41,7 @@ Declared once at entry; holds for the whole run without per-fix prompts.
 
 ## [03]-[SPINE]
 
-Seven phases, top to bottom. Every phase re-pins `HEAD` first (toolkit S0); a review, thread, or check is current only at the pinned head.
+Phases run top to bottom. Every phase re-pins `HEAD` first (toolkit S0); a review, thread, or check is current only at the pinned head.
 
 ### [03.1]-[PHASE_0_PRECONDITIONS]
 
@@ -123,7 +123,3 @@ Distill the run's two streams before the report: pushed-back rows harden the rep
 ## [05]-[REPORT]
 
 Every run ends — merged or bounded — with a structured report and one PR comment written from the loop's own state (no raw reviewer prompts, no secret-bearing output): PR number and title, iterations run, final state; fixes applied grouped by file with the reviewers each addressed and `upgraded` forms named; findings left, by reviewer and disposition (pushed-back, deferred, dropped-reviewer), each with its reason; distillation landed — reviewer-surface edits and any law-corpus entry, each named; the merge outcome (merged SHA, branch deleted local and remote, base clean) or the exact bounded-stop reason. Silent give-up is worse than no automation.
-
-## [06]-[MAINTENANCE]
-
-Every bundle file propagates byte-identical across the estate repos, the skill additionally to `~/.codex/skills/pr-loop/`; `cmp` proves each copy after any edit. `references/fixer-contract.md` owns the fix law and the per-round wiring whole. A completion-predicate change lands in `scripts/watch-reviewers.sh` and its registry prose in the same pass.

@@ -13,6 +13,8 @@ import itertools
 import json
 from pathlib import Path
 import re
+import shutil
+import subprocess
 import sys
 from typing import Literal
 
@@ -25,7 +27,7 @@ class Check(StrEnum):
     INTRA_FORK = "intra-fork"
     LISTING_SUM = "listing-sum"
     MISSING_FIELD = "missing-field"
-    NO_VALIDATOR = "no-validator"
+    ARTIFACT_PROOF = "artifact-proof"
     OVERLAP = "overlap"
     SHADOW = "shadow"
     STARVED = "starved"
@@ -33,7 +35,17 @@ class Check(StrEnum):
 
 
 DF_CEILING = 0.5  # document-frequency cut: a token in more than half the fleet discriminates nothing
-ESTATE_GATED_SUFFIXES = frozenset((".md",))  # markdown proof is the estate prose gate; every other shipped suffix needs a bundled validator naming it
+# Markdown proof is the estate prose gate; domain suffixes (OSA, Swift) belong to a bundle's own validator, which the audit runs when shipped.
+PROOF_TABLE: dict[str, tuple[str, ...]] = {
+    ".sh": ("bash", "-n"),
+    ".py": (sys.executable, "-m", "py_compile"),
+    ".js": ("node", "--check"),
+    ".yml": ("yq", "."),
+    ".yaml": ("yq", "."),
+    ".json": ("jq", "."),
+    ".plist": ("plutil", "-lint"),
+    ".sdef": ("xmllint", "--noout"),
+}
 FORK_MIN_CHARS = 60  # normalized-line floor: shorter lines are idiom, not a teachable fact
 LISTING_BUDGET = 8000  # fleet description spend proxied against the default 1% listing budget
 MIN_DISCRIMINANTS = 2  # mechanical-discriminant floor a description needs to win selection
@@ -289,19 +301,20 @@ def fork_rows(bundles: tuple[Bundle, ...]) -> tuple[Row, ...]:
 def artifact_rows(bundle: Bundle) -> tuple[Row, ...]:
     root = bundle.path.parent
     rows: list[Row] = []
-    shipped = frozenset(
-        artifact.suffix
-        for tier in ("templates", "examples")
-        for artifact in (root / tier).glob("**/*")
-        if artifact.is_file() and artifact.suffix
-    )
-    sources = tuple(text for entry in sorted((root / "scripts").glob("**/*")) if entry.is_file() and (text := sourced(entry)) is not None)
-    # Coverage needs the suffix as a terminal extension token — ".js" inside ".json" or a word is no mention.
-    named = {suffix for suffix in shipped if any(re.search(rf"{re.escape(suffix)}(?![\w.])", text) for text in sources)}
-    if shipped and not sources:
-        rows.append(Row(str(root), 0, Check.NO_VALIDATOR, "warn", "templates/examples shipped with no scripts/ validator"))
-    elif uncovered := sorted(shipped - ESTATE_GATED_SUFFIXES - named):
-        rows.append(Row(str(root), 0, Check.NO_VALIDATOR, "warn", f"no bundled script names shipped suffix {', '.join(uncovered)}"))
+    for artifact in sorted(itertools.chain.from_iterable((root / tier).glob("**/*") for tier in ("templates", "examples"))):
+        argv = PROOF_TABLE.get(artifact.suffix) if artifact.is_file() else None
+        if argv is None or shutil.which(argv[0]) is None:
+            continue
+        proof = subprocess.run((*argv, str(artifact)), capture_output=True, text=True, timeout=60, check=False)
+        if proof.returncode != 0:
+            reason = next((line for line in (proof.stderr or proof.stdout).splitlines() if line.strip()), "nonzero exit")
+            rows.append(Row(str(artifact), 0, Check.ARTIFACT_PROOF, "fail", f"{argv[0]} refused: {reason[:140]}"))
+    domain = root / "scripts" / "validate_bundle.py"
+    if domain.is_file():
+        ran = subprocess.run(("uv", "run", str(domain)), capture_output=True, text=True, timeout=300, cwd=root, check=False)
+        if ran.returncode != 0:
+            tail = next((line for line in reversed((ran.stdout + ran.stderr).splitlines()) if line.strip()), "nonzero exit")
+            rows.append(Row(str(domain), 0, Check.ARTIFACT_PROOF, "fail", f"domain validator refused: {tail[:140]}"))
     for artifact in sorted((root / "templates").glob("**/*")):
         if not artifact.is_file():
             continue

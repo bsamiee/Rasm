@@ -115,7 +115,7 @@ Provider matrix, detection rules, and OIDC errors live in `supply_chain.md` [02]
 |  [03]   | Team       |        60         |    5    |
 |  [04]   | Enterprise |        500        |   50    |
 
-Larger runners (Team/Enterprise): up to 1,000 concurrent jobs; 100 GPU max.
+Plan tier bounds concurrent runner capacity.
 
 ### [03.2]-[RUNNERS]
 

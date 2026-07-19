@@ -78,7 +78,7 @@ Every generated workflow enforces defense-in-depth: supply chain integrity preve
 
 [IMPORTANT]:
 - [ALWAYS]: OIDC federation (`id-token: write`) for cloud auth — eliminates static credentials entirely.
-- [ALWAYS]: `actions/create-github-app-token` for cross-repo ops — scoped, 1-hour expiry, survives offboarding.
+- [ALWAYS]: `actions/create-github-app-token` owns cross-repo operations.
 - [ALWAYS]: `>> $GITHUB_OUTPUT` for step outputs; `>> $GITHUB_STEP_SUMMARY` for job summaries.
 - [NEVER]: Direct `${{ }}` interpolation of untrusted input in `run:` blocks — route through `env:` indirection.
 

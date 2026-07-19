@@ -28,7 +28,7 @@ Admission test per kind; a fact failing its kind's test moves down a tier or out
 
 [FLAT_BUNDLE]: A bundle carries mechanism in-root only while every line is single-surface truth no branch skips; the first mutually exclusive or rare branch moves one hop down. Skippability decides the shape, never line count.
 
-[TIER_CONTRACT]: References teach mechanism through minimal conceptual fences, templates carry skeletons, examples carry composition — a technique lives in exactly one tier. A merge that finds copies compares content before deleting: the strongest body wins whatever tier holds it, and every nuance of a losing copy lands in the winner first.
+[TIER_CONTRACT]: References teach mechanism through minimal conceptual fences, templates carry skeletons, examples carry composition. A merge that finds copies compares content before deleting: the strongest body wins whatever tier holds it, and every nuance of a losing copy lands in the winner first.
 
 [VALIDATION]: Toolchain proof — compile, lint, schema check, live run where cheap — covers every artifact suffix the bundle ships before landing.
 

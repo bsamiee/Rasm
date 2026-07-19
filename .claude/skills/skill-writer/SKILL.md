@@ -36,7 +36,7 @@ A skill is deployed law plus packaged capability: the description competes for s
 - A fact lives once in a bundle — the root or exactly one reference owns it, the root's route row is the only pointer, and when copies are found the strongest body wins with every nuance absorbed before the twin goes silent.
 - A quality pass is net-negative: near-similar rules accumulated across root and references restructure into one higher-resolution law at the ruled owner under the docgen SAME_DECISION_SPREAD reframe, so resolution rises while line count falls, and a bundle that grew under review is the prime suspect.
 - A member, flag, signature, or constant asserted in bundle prose is verified against its live surface before authoring; an unverifiable claim lands as a research row carrying its verification route, never settled prose.
-- One technique lives in one tier — reference fence, template slot, or example body — and every shipped template and example passes the bundle's own `scripts/` validator before landing; the estate audit's `NO_VALIDATOR` check owns the coverage census.
+- One technique lives in exactly one tier, and every shipped template and example passes the estate audit's artifact proofs before landing — the audit runs the generic suffix toolchain table itself, and a bundle ships its own `scripts/` validator only for domain proofs the table cannot own.
 - A mixed task routes by deliverable, never by topic: prose to the prose owner, fences to the fence owner, bundles to this skill, in sequence.
 
 ## [03]-[EVALS]

@@ -354,11 +354,11 @@ A `templates/` file carrying finished domain logic with zero fill slots — a wo
 
 ### [04.3]-[UNVALIDATED_ARTIFACT]
 
-- Detection: A shipped `templates/` or `examples/` suffix no toolchain proof binds — no bundled `scripts/` validator naming the suffix and no gate the estate already binds over that suffix; the estate audit's suffix census is the mechanical floor.
+- Detection: A shipped `templates/` or `examples/` suffix no toolchain proof binds — outside the estate audit's proof table and outside any domain validator the bundle ships; the audit's suffix census is the mechanical floor.
 - Rejected: A bundle shipping Python templates and shell examples where ship is a read-through.
-- Accepted: Every shipped suffix resolves to its proof — the bundle validator's clean exit, or the estate gate that already owns the suffix — and ship binds on that exit.
+- Accepted: Every shipped suffix resolves to its proof — the estate audit's toolchain row, or a bundle domain validator's clean exit — and ship binds on that exit.
 - Reason: Running the artifact finds the wrong spellings a read-through misses; an unvalidated artifact ships its author's fluency, not its toolchain's verdict.
-- Reframe: Land the validator with the artifacts and cover every suffix the bundle ships; a suffix an estate gate owns needs no bundle copy of that gate.
+- Reframe: Extend the estate audit's suffix table; a bundle ships its own validator only for a domain proof the table cannot own, and a suffix an estate surface already proves needs no bundle copy of that proof.
 
 ### [04.4]-[NAME_CONTENT_MISMATCH]
 

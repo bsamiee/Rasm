@@ -9,7 +9,7 @@ description: >-
     budgeting, and the runtime mechanics of background permission surfacing, `SendMessage`
     resume, and worker memory. Use when parallelizing work,
     delegating a task to a subagent or teammate, choosing between a subagent, fork, team, or
-    workflow, writing a `.claude/agents/` definition, designing a fan-out or review pipeline,
+    workflow, writing a `.claude/agents/` definition,
     or when a delegation stalls, over-prompts for permission, or returns weak results.
     Authoring runnable workflow scripts belongs to workflow-creator; gpt-5.6 offload belongs
     to the codex skill and Gemini offload to agy; harness configuration belongs to harness-steering.
@@ -56,7 +56,7 @@ ROOT DISCIPLINE is a contract field beside commit discipline: a worker resolves 
 
 ## [04]-[TOPOLOGY]
 
-Result flow is chosen before the first spawn — the shape decides who consolidates, what each worker returns, and when the run stops. The shape table in the topologies reference owns the roster and its selection criteria.
+Result flow is chosen before the first spawn — the shape decides who consolidates, what each worker returns, and when the run stops. Topology table owns the roster and its selection criteria.
 
 ## [05]-[DEPTH]
 
