@@ -41,6 +41,7 @@ Cross-folder substrate every C# package composes; each folder README names the r
 
 [NUMERIC_SUBSTRATE]:
 - `CommunityToolkit.HighPerformance` — 2D span grids and high-performance buffers.
+- `CSparse` — direct sparse Cholesky, LDL', LU, and QR factorization with pattern-reusing refactorization and rank-1 update.
 - `MathNet.Numerics` — distribution-fit, regression, and Monte-Carlo folds.
 - `System.Numerics.Tensors` — SIMD-lowered tensor folds.
 - `UnitsNet` — typed quantity boundary.
@@ -58,12 +59,19 @@ Cross-folder substrate every C# package composes; each folder README names the r
 [RECENCY_CACHE]:
 - `Microsoft.Extensions.Caching.Hybrid` — tagged L1/L2 recency substrate behind application and host-session caches.
 
+[DATA_CLASSIFICATION]:
+- `Microsoft.Extensions.Compliance.Redaction` — classified-data redaction at the logging and persistence boundary.
+
+[AI_CONTRACTS]:
+- `Microsoft.Extensions.AI` — provider-neutral chat, embedding, and tool-call contracts; runtime `Microsoft.Extensions.AI.Abstractions`.
+
 [WIRE_CODEGEN]:
 - `Generator.Equals` — source-generated structural equality and member-level diff; runtime `Generator.Equals.Runtime`.
 - `Google.Protobuf` — carries the `rasm.element.v1` graph wire messages.
 - `Grpc.AspNetCore` — gRPC server hosting for measured-execution endpoints.
 - `Grpc.Net.Client` — outbound gRPC channels with retry and hedging.
 - `Grpc.Tools` — message-only codegen (`GrpcServices=None`).
+- `Microsoft.AspNetCore.JsonPatch.SystemTextJson` — RFC 6902 document mutation over the STJ wire.
 - `Riok.Mapperly` — compile-time graph↔DTO/proto/record mapping; runtime `Riok.Mapperly.Abstractions`.
 
 [TEST_SUBSTRATE]:

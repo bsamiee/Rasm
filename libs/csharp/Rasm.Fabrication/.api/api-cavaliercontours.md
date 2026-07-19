@@ -37,12 +37,12 @@
 - rail: fabrication
 - note: the offset/Boolean engines are static slice-pipeline facades, not instance methods on `Polyline<T>`; they consume an `IPlineSource<T>` plus an options record and emit `Polyline<T>`/slice lists. `BooleanOp` selects the set operation.
 - `PlineOffset` composes `ParallelOffset<O,T>` from `CreateRawOffsetPolyline` and `SlicesFromRawOffset`; `PlineBoolean` composes `PolylineBoolean<O,T>` from `ProcessForBoolean`, `PruneSlices`, `StitchSlicesIntoClosedPolylines`, and `FindIntersects`.
-- `PlineContains` returns pairwise `PlineContainsResult`; `PlineIntersects` exposes `VisitLocalSelfIntersects` and `VisitGlobalSelfIntersects`.
+- `PlineContains` returns pairwise `PlineContainsResult`; `PlineIntersects` exposes `VisitLocalSelfIntersects`, `VisitGlobalSelfIntersects`, and `AllSelfIntersectsAsBasic<T>`.
 - `PlineOffsetOptions<T>` carries `HandleSelfIntersects`, `PosEqualEps`, `SliceJoinEps`, `OffsetDistEps`, and `AabbIndex`; `PlineBooleanOptions<T>` carries `PosEqualEps`, `CollapsedAreaEps`, and `Pline1AabbIndex`.
 - `PlineContainsOptions<T>`, `FindIntersectsOptions<T>`, and `PlineSelfIntersectOptions<T>` inject per-facade epsilon and index policy.
 - `BooleanResult<O,T>` exposes `PosPlines`, `NegPlines`, and `ResultInfo`; each `BooleanResultPline<O,T>` exposes `Pline` and `Subslices` provenance.
 
-`BooleanOp` carries `Or`, `And`, `Not`, and `Xor`; `PlineContainsResult` carries `InvalidInput`, `Pline1InsidePline2`, `Pline2InsidePline1`, `Disjoint`, and `Intersected`.
+`BooleanOp` carries `Or`, `And`, `Not`, and `Xor`; `BooleanResultInfo` carries `InvalidInput`, `Pline1InsidePline2`, `Pline2InsidePline1`, `Disjoint`, `Overlapping`, and `Intersected`; `PlineContainsResult` carries `InvalidInput`, `Pline1InsidePline2`, `Pline2InsidePline1`, `Disjoint`, and `Intersected`.
 
 | [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]  | [CAPABILITY]        |
 | :-----: | :----------------------------- | :------------- | :------------------ |
@@ -52,14 +52,15 @@
 |  [04]   | `PlineIntersects`              | static facade  | intersection visits |
 |  [05]   | `BooleanOp`                    | enum           | set operation       |
 |  [06]   | `PlineContainsResult`          | enum           | containment verdict |
-|  [07]   | `PlineOffsetOptions<T>`        | options record | offset policy       |
-|  [08]   | `PlineBooleanOptions<T>`       | options record | Boolean policy      |
-|  [09]   | `PlineContainsOptions<T>`      | options record | containment policy  |
-|  [10]   | `FindIntersectsOptions<T>`     | options record | intersection policy |
-|  [11]   | `PlineSelfIntersectOptions<T>` | options record | self-scan policy    |
-|  [12]   | `BooleanResult<O,T>`           | result carrier | Boolean result      |
-|  [13]   | `BooleanResultPline<O,T>`      | result carrier | result loop         |
-|  [14]   | `ClosestPointResult<T>`        | result struct  | closest projection  |
+|  [07]   | `BooleanResultInfo`            | enum           | Boolean relation    |
+|  [08]   | `PlineOffsetOptions<T>`        | options record | offset policy       |
+|  [09]   | `PlineBooleanOptions<T>`       | options record | Boolean policy      |
+|  [10]   | `PlineContainsOptions<T>`      | options record | containment policy  |
+|  [11]   | `FindIntersectsOptions<T>`     | options record | intersection policy |
+|  [12]   | `PlineSelfIntersectOptions<T>` | options record | self-scan policy    |
+|  [13]   | `BooleanResult<O,T>`           | result carrier | Boolean result      |
+|  [14]   | `BooleanResultPline<O,T>`      | result carrier | result loop         |
+|  [15]   | `ClosestPointResult<T>`        | result struct  | closest projection  |
 
 [PUBLIC_TYPE_SCOPE]: spatial index and geometry primitives (`CavalierContours.Spatial`, `.Core`)
 - rail: fabrication
@@ -124,11 +125,15 @@
 |  [18]   | `ExtendRemoveRepeat(self, other, eps)`          | edit           | deduplicated merge           |
 |  [19]   | `CreateFrom<O,T>(source)`                       | factory        | source materialization       |
 |  [20]   | `CreateFromRemoveRepeat<O,T>(source, eps)`      | factory        | deduplicated materialization |
+|  [21]   | `PlineSeg.SegMidpoint(v1, v2)`                  | segment query  | exact arc midpoint           |
+|  [22]   | `PlineSeg.SegTangentVector(v1, v2, point)`      | segment query  | exact arc tangent            |
+|  [23]   | `PlineSeg.SegArcRadiusAndCenter(v1, v2)`        | segment query  | exact arc frame              |
 
 [ENTRYPOINT_SCOPE]: measure, query, and arc handling — `PlineSourceExtensions` (extension methods on `IPlineSource<T>`)
 - rail: fabrication
 - note: this is the bulk of the consumer surface — every measurement, containment, index build, and arc densification is an extension on the read interface, so they apply uniformly to `Polyline<T>`, `PlineView<T>`, and any custom `IPlineSource<T>`.
 - `ClosestPoint(Vector2<T>, T)` returns `ClosestPointResult<T>?`; `Extents()` returns `AABB<T>?`; `FindPointAtPathLength(T)` returns `(bool, int SegIndex, Vector2<T>, T AccLength)`.
+- `ClosestPointResult<T>` is a `readonly struct` in `CavalierContours.Polyline` exposing three readonly fields — `int SegStartIndex`, `Vector2<T> SegPoint`, `T Distance` — and carries no member named `Point` or `SegIndex`; a multi-loop nearest fold compares `Distance` and keeps the owning loop ordinal beside the result.
 - `CreateAabbIndex()` and `CreateApproxAabbIndex()` return `StaticAABB2DIndex<T>`; `ArcsToApproxLines(T)` returns a tolerance-bounded `Polyline<T>` chord projection.
 
 | [INDEX] | [SURFACE]                             | [ENTRY_FAMILY] | [CAPABILITY]          |
@@ -180,6 +185,7 @@
 - `FindIntersects<T>(pline1, pline2, options)` returns `PlineIntersectsCollection<T>`; `ProcessForBoolean<T>(pline1, pline2, pline1AabbIndex, posEqualEps)` returns `ProcessForBooleanResult<T>`.
 - `SliceAtIntersects<T>(...)` and `PruneSlices<T>(p1, p2, info, BooleanOp, eps)` produce `PrunedSlices<T>`; `StitchSlicesIntoClosedPolylines<O,T>(slices, src1, src2, IStitchSelector, eps, collapsedAreaEps?)` returns `List<BooleanResultPline<O,T>>`.
 - `PolylineContains<T>(pline1, pline2, options)` returns `PlineContainsResult`; the self-intersection visitors scan locally or globally through the supplied index.
+- `AllSelfIntersectsAsBasic<T>(pline, aabbIndex, includeOverlapping, posEqualEps)` returns `List<PlineBasicIntersect<T>>` and materializes overlap endpoints when `includeOverlapping` is `true`.
 
 | [INDEX] | [SURFACE]                              | [ENTRY_FAMILY] | [CAPABILITY]          |
 | :-----: | :------------------------------------- | :------------- | :-------------------- |
@@ -192,6 +198,7 @@
 |  [07]   | `PolylineContains<T>`                  | containment    | containment verdict   |
 |  [08]   | `VisitLocalSelfIntersects<T>`          | self-intersect | local scan            |
 |  [09]   | `VisitGlobalSelfIntersects<T>`         | self-intersect | indexed global scan   |
+|  [10]   | `AllSelfIntersectsAsBasic<T>`          | self-intersect | materialized scan     |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

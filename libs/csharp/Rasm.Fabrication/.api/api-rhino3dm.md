@@ -73,6 +73,17 @@
 |  [06]   | `AddBrep(Brep)`                                          | table add    | add a BRep                       |
 |  [07]   | `AddLine(Point3d, Point3d)`                              | table add    | add a line                       |
 
+[ENTRYPOINT_SCOPE]: solid-ingress projection
+- rail: fabrication-3dm
+
+| [INDEX] | [SURFACE]                                  | [CALL_SHAPE] | [CAPABILITY]                        |
+| :-----: | :----------------------------------------- | :----------- | :---------------------------------- |
+|  [01]   | `File3dm.Settings.ModelUnitSystem`         | unit read    | declared model-unit evidence        |
+|  [02]   | `BrepFace.GetMesh(MeshType.Any)`           | mesh read    | stored face-mesh retrieval          |
+|  [03]   | `Mesh.Vertices.ToPoint3dArray()`           | detach       | copy vertices out of native carrier |
+|  [04]   | `Mesh.Faces.ToIntArray(asTriangles: true)` | detach       | copy triangulated face indices      |
+|  [05]   | `MeshType.Any`                             | policy       | accept any stored face-mesh purpose |
+
 ## [04]-[IMPLEMENTATION_LAW]
 
 [ALIAS_BOUNDARY]:
@@ -82,6 +93,7 @@
 
 [LOCAL_ADMISSION]:
 - `.3dm` import reads `File3dm` and lowers object-table geometry into Fabrication-owned carriers.
+- Solid admission reads `File3dm.Settings.ModelUnitSystem`; native `Mesh` vertices/faces detach through `ToPoint3dArray` and `ToIntArray(true)`; a `Brep` admits only stored face meshes returned by `BrepFace.GetMesh(MeshType.Any)`.
 - `.3dm` export builds a `File3dm`, adds `GeometryBase` instances through `File3dmObjectTable`, and writes through `File3dm.Write`.
 - Host-bound RhinoCommon objects never leak through this catalog; the alias boundary keeps the two type identities explicit.
 

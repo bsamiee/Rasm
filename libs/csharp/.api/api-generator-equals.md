@@ -8,7 +8,7 @@
 - package: `Generator.Equals`
 - asset: analyzer-only package at `analyzers/dotnet/cs/Generator.Equals.dll`; Assay resolves zero public runtime types for this package key
 - runtime surface: transitive `Generator.Equals.Runtime`, assembly `Generator.Equals.Runtime`, namespace `Generator.Equals`
-- owners: `Rasm.Element`, `Rasm.Bim`, `Rasm.Persistence`
+- owners: `Rasm.Element`, `Rasm.Bim`, `Rasm.Persistence`, `Rasm.Fabrication`
 - requirement: .NET Standard 2.0-compatible target and C# `LangVersion` 9.0 or higher
 - rail: equality
 

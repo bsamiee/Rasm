@@ -135,6 +135,33 @@ Each root-finding method owns one static class. Iterative classes expose `TryFin
 |  [08]   | `Cubic.RealRoots(a0, a1, a2)`                                                                     | `(double, double, double)`    |
 |  [09]   | `Cubic.Roots(d, c, b, a)`                                                                         | `(Complex, Complex, Complex)` |
 
+[ENTRYPOINT_SCOPE]: nonlinear least squares via `MathNet.Numerics.Optimization`
+
+`Broyden.FindRoot` solves only a SQUARE system — residual count must equal parameter count, and it carries no bounds. A rectangular residual (an over- or under-determined fit, a task-space pose against a chain of any joint count) is a least-squares minimization, not a root find; truncating the residual to the parameter count to force squareness selects an arbitrary basis-dependent subset and is the rejected form. `LevenbergMarquardtMinimizer` takes the full residual and per-parameter bound vectors natively.
+
+| [INDEX] | [SURFACE]                                     | [RETURNS]                     |
+| :-----: | :-------------------------------------------- | :---------------------------- |
+|  [01]   | `new LevenbergMarquardtMinimizer`             | `LevenbergMarquardtMinimizer` |
+|  [02]   | `LevenbergMarquardtMinimizer.FindMinimum`     | `NonlinearMinimizationResult` |
+|  [03]   | `ObjectiveFunction.NonlinearModel`            | `IObjectiveModel`             |
+|  [04]   | `NonlinearMinimizationResult.MinimizingPoint` | `Vector<double>`              |
+|  [05]   | `NonlinearMinimizationResult.ReasonForExit`   | `ExitCondition`               |
+|  [06]   | `NonlinearMinimizationResult.Iterations`      | `int`                         |
+|  [07]   | `CreateVector.Dense<double>`                  | `Vector<double>`              |
+|  [08]   | `CreateVector.DenseOfArray<double>`           | `Vector<double>`              |
+
+[CALL_SIGNATURES]:
+- `new LevenbergMarquardtMinimizer(initialMu = 1e-3, gradientTolerance = 1e-15, stepTolerance = 1e-15, functionTolerance = 1e-15, maximumIterations = -1)`
+- `LevenbergMarquardtMinimizer.FindMinimum(IObjectiveModel objective, double[] initialGuess, double[]? lowerBound, double[]? upperBound, double[]? scales, bool[]? isFixed)`
+- `ObjectiveFunction.NonlinearModel(Func<Vector<double>, Vector<double>, Vector<double>> model, Vector<double> observedX, Vector<double> observedY, Vector<double>? weight, int accuracyOrder = 2)`
+- `CreateVector.Dense<double>(int length)`
+- `CreateVector.DenseOfArray<double>(double[] values)`
+
+[MODEL_LAW]:
+- The model is `f(parameters, observedX) -> predicted` fitted against `observedY`; a pure residual formulation passes a zero `observedY` of the residual's rank and returns the residual itself, so `MinimizingPoint` minimizes `||residual||²`.
+- `lowerBound`/`upperBound` are per-parameter and admitted directly, so a physical travel limit is a solver bound rather than a post-filter.
+- `ReasonForExit` reports the stop condition but never proves accuracy; a converged fit re-evaluates its own residual against the caller's tolerance before the point is trusted.
+
 [ENTRYPOINT_SCOPE]: interpolation via `Interpolate`
 
 Every factory returns an `IInterpolation` with `Interpolate(x)`, `Differentiate(x)`, and `Integrate(a, b)`. Cubic variants cover natural, robust, monotone, and prescribed-derivative schemes, while Floater-Hormann rational handles unsorted data without poles.

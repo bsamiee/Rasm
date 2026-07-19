@@ -188,7 +188,7 @@
 
 | [INDEX] | [SURFACE]                                                 | [ENTRY_FAMILY] | [CAPABILITY]                  |
 | :-----: | :-------------------------------------------------------- | :------------- | :---------------------------- |
-|  [01]   | `ClipperD(roundingDecimalPrecision = 2)`                  | constructor    | precision 1–8 decimal places  |
+|  [01]   | `ClipperD(roundingDecimalPrecision = 2)`                  | constructor    | precision −8–8 decimal places |
 |  [02]   | `AddSubject(PathD)` / `AddSubject(PathsD)`                | input          | closed subject paths (double) |
 |  [03]   | `AddOpenSubject(PathD)` / `AddOpenSubject(PathsD)`        | input          | open subject paths (double)   |
 |  [04]   | `AddClip(PathD)` / `AddClip(PathsD)`                      | input          | clip paths (double)           |
@@ -196,6 +196,16 @@
 |  [06]   | `Execute(ClipType, FillRule, PathsD closed, PathsD open)` | operation      | closed + open double result   |
 |  [07]   | `Execute(ClipType, FillRule, PolyTreeD)`                  | operation      | tree-structured double result |
 |  [08]   | `Execute(ClipType, FillRule, PolyTreeD, PathsD open)`     | operation      | tree + open double result     |
+
+[ENTRYPOINT_SCOPE]: poly-tree topology — `PolyPathD` and `PolyPathBase`
+- rail: geometry
+
+| [INDEX] | [SURFACE]                              | [ENTRY_FAMILY] | [CAPABILITY]                     |
+| :-----: | :------------------------------------- | :------------- | :------------------------------- |
+|  [01]   | `PolyPathD.Polygon`                    | payload        | current node path                |
+|  [02]   | `PolyPathBase.Level`                   | topology       | root-relative node depth         |
+|  [03]   | `PolyPathBase.IsHole`                  | topology       | outer-or-hole classification     |
+|  [04]   | `PolyPathBase.Count` / `GetEnumerator` | traversal      | ordered direct-child enumeration |
 
 [ENTRYPOINT_SCOPE]: reusable subject/clip precompute — `ReuseableDataContainer64`
 - rail: geometry

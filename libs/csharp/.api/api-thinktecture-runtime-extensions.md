@@ -111,6 +111,7 @@
 |  [13]   | `ToValue`                  | projection   | extracts generated keys     |
 |  [14]   | `Switch`                   | dispatch     | exhausts generated cases    |
 |  [15]   | `Map`                      | dispatch     | projects generated cases    |
+|  [16]   | `Create`                   | factory seam | constructs; invalid throws  |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

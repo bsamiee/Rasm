@@ -10,7 +10,7 @@
 - namespace: `CSparse`, `CSparse.Double`, `CSparse.Double.Factorization`, `CSparse.Factorization`, `CSparse.Ordering`, `CSparse.Storage`
 - asset: runtime library (pure managed, no native dependency; license LGPL-2.1-only)
 - floor: net10.0 (multi-target net10.0/net8.0/netstandard2.0; the net10 consumer binds `lib/net10.0`)
-- owners: `Rasm`, `Rasm.Compute`
+- owners: `Rasm`, `Rasm.Compute`, `Rasm.Fabrication`
 - rail: numeric
 
 ## [02]-[PUBLIC_TYPES]

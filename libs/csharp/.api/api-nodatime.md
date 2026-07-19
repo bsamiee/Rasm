@@ -112,10 +112,13 @@
 |  [13]   | `LocalDateTime.InZone(resolver)`             | resolver mapping   | explicit mapping policy             |
 |  [14]   | `Duration.From*`                             | duration factory   | elapsed span construction           |
 |  [15]   | `Duration.Zero`                              | duration anchor    | empty elapsed span (`default`)      |
-|  [16]   | `Period.From*`                               | period factory     | calendar span construction          |
-|  [17]   | `Period.Between`                             | period calculation | calendar span difference            |
-|  [18]   | `PeriodBuilder.Build`                        | period builder     | mutable span finalization           |
-|  [19]   | `Interval.Contains`                          | interval predicate | receipt-window membership           |
+|  [16]   | `Duration.TotalSeconds`                      | elapsed projection | complete elapsed seconds            |
+|  [17]   | `Period.From*`                               | period factory     | calendar span construction          |
+|  [18]   | `Period.Between`                             | period calculation | calendar span difference            |
+|  [19]   | `PeriodBuilder.Build`                        | period builder     | mutable span finalization           |
+|  [20]   | `Interval.Contains`                          | interval predicate | receipt-window membership           |
+|  [21]   | `Interval.HasStart` / `HasEnd`               | boundedness gate   | guards the throwing endpoint reads  |
+|  [22]   | `Interval.Start` / `End`                     | endpoint read      | throws when the side is unbounded   |
 
 [ENTRYPOINT_SCOPE]: zone calendar and resolver operations
 - rail: time

@@ -1,6 +1,6 @@
 # [RASM_FABRICATION_API_LIB3MF]
 
-`lib3mf` is the official 3MF Consortium reference implementation — the 3MF core/production/beam-lattice reader and WRITER driving the `Additive/production` build-hand-off egress. The managed surface is the ACT-generated C# binding (interface version `2.5.0`): a `Lib3MF.Wrapper` static factory mints a `CModel`, resources attach through `AddMeshObject`/`AddComponentsObject`/`AddBaseMaterialGroup`/`AddSliceStack`, a mesh grows beam-lattice geometry through `CMeshObject.BeamLattice()`, the build tree assembles through `AddBuildItem`, and `QueryWriter("3mf")`/`QueryReader("3mf")` serialize the OPC package. The binding P/Invokes the native `lib3mf` shared library through the `Internal.Lib3MFWrapper` layer, so every managed call is a thin marshalling shell over the native core; there is no NuGet package (feed-verified; `IxMilia.ThreeMf` dominated) — the binding source + the RID-keyed native asset vendor into the folder.
+`lib3mf` supplies the 3MF Consortium reference reader and writer for core, production, beam-lattice, and slice documents. ACT-generated C# bindings expose `Lib3MF.Wrapper`, `CModel`, mesh/component/material/slice resources, `CMeshObject.BeamLattice()`, `AddBuildItem`, and `QueryWriter("3mf")`/`QueryReader("3mf")`. `Internal.Lib3MFWrapper` P/Invokes the native core; vendored binding source and RID-keyed native assets own the package because no official NuGet artifact exists.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -51,7 +51,7 @@
 |  [04]   | `sTriangle`             | mesh struct     | triangle `uint[3]` marshalling               |
 |  [05]   | `sBeam`                 | lattice struct  | index pair, radii, and cap modes             |
 |  [06]   | `sBall`                 | lattice struct  | index and radius                             |
-|  [07]   | `sTransform`            | geometry struct | 4×3 build/component transform                |
+|  [07]   | `sTransform`            | geometry struct | `Fields : Single[][]` 4×3 affine transform   |
 |  [08]   | `sBox`                  | geometry struct | axis-aligned outbox                          |
 |  [09]   | `eModelUnit`            | enum            | unit discriminant                            |
 |  [10]   | `eObjectType`           | enum            | object-kind discriminant                     |
@@ -83,6 +83,19 @@
 |  [16]   | `model.SetBuildUUID(uuid)` / `GetBuildUUID(out hasUuid)`   | production     | production-extension build identity                    |
 |  [17]   | `object.SetUUID(uuid)` / `GetUUID(out hasUuid)`            | production     | production-extension object identity                   |
 |  [18]   | `buildItem.SetUUID(uuid)` / `GetUUID(out hasUuid)`         | production     | production-extension placement identity                |
+|  [19]   | `buildItem.GetObjectResource()` / `GetObjectTransform()`   | build query    | placed object plus affine transform                     |
+|  [20]   | `component.GetObjectResource()` / `GetTransform()`         | assembly query | nested object plus affine transform                     |
+|  [21]   | `components.GetComponentCount()` / `GetComponent(index)`   | assembly query | component-tree traversal                                |
+|  [22]   | `object.GetUniqueResourceID()`                              | identity       | component-cycle guard key                               |
+|  [23]   | `resource.GetResourceID()` / `GetUniqueResourceID()`        | identity       | resource and property attribution keys                  |
+|  [24]   | `components.AddComponent(object, transform)`                | assembly       | add a transformed child resource                        |
+|  [25]   | `materialGroup.AddMaterial(name, color)`                    | property       | add a base-material property row                        |
+|  [26]   | `model.AddMultiPropertyGroup()`                             | property       | add a layered property group                            |
+|  [27]   | `multiProperty.AddMultiProperty(ids)`                       | property       | compose layered property identifiers                    |
+|  [28]   | `attachment.ReadFromBuffer(byte[])`                         | attachment     | populate a package relationship payload                 |
+|  [29]   | `multiProperty.AddLayer(sMultiPropertyLayer)`                | property       | declare a blended property-resource layer               |
+|  [30]   | `model.AddLevelSet()` / `AddVolumeData()`                    | resource       | add implicit and field-backed volume resources          |
+|  [31]   | `levelSet.SetMinFeatureSize(double)`                         | policy         | declare the minimum realizable implicit feature         |
 
 [ENTRYPOINT_SCOPE]: mesh + beam-lattice authoring — `CMeshObject` / `CBeamLattice`
 - rail: fabrication
@@ -102,6 +115,9 @@
 |  [11]   | `lattice.AddBeam(sBeam)` / `SetBeams(sBeam[])`          | input          | beam geometry (PicoGK `Lattice` beams map here) |
 |  [12]   | `lattice.AddBall(sBall)` / `SetBalls(sBall[])`          | input          | ball geometry (node spheres)                    |
 |  [13]   | `lattice.AddBeamSet()` / `GetBeamSet(i)`                | grouping       | named beam subsets                              |
+|  [14]   | `mesh.GetVertices(out sPosition[])`                     | read           | bulk vertex detachment                          |
+|  [15]   | `mesh.GetTriangleIndices(out sTriangle[])`              | read           | bulk triangle detachment                        |
+|  [16]   | `beamSet.SetReferences(uint[])` / `SetBallReferences`    | grouping       | bind beam and ball indices to a named subset    |
 
 [ENTRYPOINT_SCOPE]: serialization — `CWriter` / `CReader` / `CSliceStack`
 - rail: fabrication
@@ -115,19 +131,21 @@
 |  [05]   | `reader.ReadFromFile(path)` / `ReadFromBuffer(byte[])`          | read           | parse a package into the model                      |
 |  [06]   | `reader.AddRelationToRead(relType)` / `SetStrictModeActive`     | policy         | selective-relation + strict parse                   |
 |  [07]   | `sliceStack.AddSlice(topZ)` / `GetSlice(i)` / `GetSliceCount()` | slice          | build/read planar layer stacks                      |
+|  [08]   | `reader.GetWarning(i, out code)` / `GetWarningCount()`           | diagnostic     | non-fatal read warning evidence                    |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [NATIVE_TOPOLOGY]:
 - every `C…` handle wraps an `IntPtr` over the native `lib3mf` core; the binding marshals through `Internal.Lib3MFWrapper` and lifts native error codes via `CheckError` into `Lib3MFException` — the boundary owner catches that binding exception ONCE and lowers it to the `Additive` `ThreeMfWriteRejected` 2747 `(EgressKind target, string native)` arm on the `Fin` rail; a CLR defect propagates
-- the native shared library is RID-keyed and ALC-firebreaks: keep it sidecar/host-side, never referenced from a type that must load in an in-Rhino plugin ALC
+- Native shared libraries are RID-keyed and ALC-firebreaked: keep them sidecar/host-side, never referenced from a type that loads in an in-Rhino plugin ALC
 - extension support is capability-probed through `Wrapper.GetSpecificationVersion` (production `.../production/2015/06`, beam-lattice `.../beamlattice/2017/02`, slice `.../slice/2015/07`); a required-but-unsupported extension raises `Additive` `Unsupported3mfExtension` 2725 `(ThreeMfExtension extension, EgressKind target)` at the boundary
 
 [LOCAL_ADMISSION]:
+- Solid ingress traverses `GetBuildItems`, composes nested component transforms, and detaches resources through `GetVertices`/`GetTriangleIndices` before canonical mesh admission.
 - `Additive/production#Production.Plan` owns the 3MF egress: the oriented `MeshSpace` result marshals to `mesh.SetGeometry`, machine profiles set `model.SetUnit`/base-material rows, `AddBuildItem` places the oriented part with its build transform, and `QueryWriter("3mf").WriteToBuffer` produces the content-keyed package — the STL-implied hand-off dies for the typed 3MF writer
-- the PicoGK `Lattice` beam/node set maps DIRECTLY onto `CBeamLattice`: `Additive/implicit` beam-support and scaffold geometry lowers to `lattice.SetBeams(sBeam[])` + `lattice.SetBalls(sBall[])` on the build mesh's `BeamLattice()`, never an STL tessellation of the lattice — the beam-lattice extension is the native carrier
+- PicoGK `Lattice` beam/node sets map directly onto `CBeamLattice`: `Additive/implicit` beam-support and scaffold geometry lowers to `lattice.SetBeams(sBeam[])` + `lattice.SetBalls(sBall[])` on the build mesh's `BeamLattice()`, never an STL tessellation of the lattice — the beam-lattice extension is the native carrier
 - resin/powder planar layer stacks route through `CSliceStack.AddSlice` when the 3MF slice extension is the hand-off target; the PicoGK `.cli`/grayscale vector path stays `Additive/implicit`'s and is orthogonal to this writer
-- the 3MF content key mints through `ContentHash.Of` over `writer.WriteToBuffer` (the ONE mint site, K9); NEVER a second hasher over the native stream
+- 3MF content keys mint through `ContentKey.Of(EgressKind.ThreeMf, bytes)` over `writer.WriteToBuffer` (the ONE mint site, K9); NEVER a second hasher over the native stream
 - golden-fixture gated: the writer admits only against a committed round-trip 3MF golden fixture (write → `CReader.ReadFromFile` → structural compare) per RID
 
 [RAIL_LAW]:

@@ -188,7 +188,7 @@
 [ENTRYPOINT_SCOPE]: VDB field I/O and the runtime library
 - rail: fabrication
 
-`new Library(float fVoxelSizeMM)` binds the native core to one voxel resolution, while the nested `IDisposable` `new Library.GlobalInstance(fVoxelSizeMM, ...)` binds the ambient library that parameterless field constructors resolve through `Library.oLibrary()`; disposing the instance releases the ambient binding, so a resolution change is a lease swap. `OpenVdbFile` reads and writes multiple named fields through `nAdd(field, name)`, `voxGet`, `oGetScalarField`, `oGetVectorField`, and `SaveToFile(path)`. `OpenVdbFile.libCreateCompatibleLibraryFor(vdbPath)`, `bIsPicoGKCompatible`, and `fPicoGKVoxelSizeMM` preserve a foreign VDB's native voxel size. `Voxels.voxFromVdbFile(path)` loads one field directly. `FieldMetadata.SetValue` and `bGetValueAt` carry `string`, `float`, and `Vector3` values through VDB.
+`new Library(float fVoxelSizeMM)` binds the native core to one voxel resolution, while the nested `IDisposable` `new Library.GlobalInstance(fVoxelSizeMM, ...)` binds the ambient library that parameterless field constructors resolve through `Library.oLibrary()`; disposing the instance releases the ambient binding, so a resolution change is a lease swap. `OpenVdbFile` reads and writes multiple named fields through `nAdd(field, name)`, `voxGet`, `oGetScalarField`, `oGetVectorField`, and `SaveToFile(path)`; the parameterless `new OpenVdbFile()` opens the empty write container `nAdd` populates before `SaveToFile`, and `IFieldWithMetadata.oMetaData()` plus `FieldMetadata.SetValue` stamp the provenance a later `bGetValueAt` gate compares. `OpenVdbFile.libCreateCompatibleLibraryFor(vdbPath)`, `bIsPicoGKCompatible`, and `fPicoGKVoxelSizeMM` preserve a foreign VDB's native voxel size. `Voxels.voxFromVdbFile(path)` loads one field directly. `FieldMetadata.SetValue` and `bGetValueAt` carry `string`, `float`, and `Vector3` values through VDB.
 
 | [INDEX] | [SURFACE]                                   | [ENTRY_FAMILY] | [CAPABILITY]        |
 | :-----: | :------------------------------------------ | :------------- | :------------------ |
@@ -206,6 +206,7 @@
 |  [12]   | `Voxels.voxFromVdbFile`                     | VDB load       | direct field load   |
 |  [13]   | `FieldMetadata.SetValue`                    | metadata       | typed value write   |
 |  [14]   | `bGetValueAt`                               | metadata       | typed value read    |
+|  [15]   | `new OpenVdbFile()`                         | VDB I/O        | write container     |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

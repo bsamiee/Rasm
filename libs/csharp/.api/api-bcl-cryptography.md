@@ -1,6 +1,6 @@
 # [RASM_API_BCL_CRYPTOGRAPHY]
 
-`System.Security.Cryptography` (+`.X509Certificates`) BCL inbox — no package pin, shared-framework surface (`System.Security.Cryptography.dll`, net10.0). The RFC-7468 PEM armor, X.509 round-trip, and zeroization primitives bind the AppHost secret lease and credential wire plus the Persistence KMS-unwrapped data-encryption key custody. Snapshot and rotation identity use the non-cryptographic `ContentHash.Of` digest, so only `ZeroMemory` and PEM/X.509 armor cross into live consumers here.
+`System.Security.Cryptography` (+`.X509Certificates`) BCL inbox — no package pin, shared-framework surface (`System.Security.Cryptography.dll`, net10.0). RFC-7468 PEM armor, X.509 round-trip, ECDSA attestation, and zeroization primitives bind credential wires, signed receipts, and unwrapped-key custody. Snapshot and rotation identity use the non-cryptographic `ContentHash.Of` digest; cryptographic signatures remain a separate authenticity claim.
 
 ## [01]-[PEM_ENCODING]
 
@@ -44,3 +44,15 @@
 ## [05]-[STACK]
 
 The AppHost credential lifecycle composes `[01]`/`[02]` for the RFC-7468 bundle wire (`CredentialPem.Encode`/`Decode`/`Carrier`, `CredentialBundle.Cert(X509Certificate2)`) and `[03]` for zeroize — the `SecretLease` holds the live rented `byte[]` and owns the in-memory lifecycle, while `CredentialPem` owns the at-rest/on-wire armor, so material never carries two encodings. `PemBlock.Der` binds `X509Certificate2.RawDataMemory` alloc-free; the `Decode` fold reads `PemFields.DecodedDataLength`/`Base64Data` on the `TryFind` rail so an absent element folds to `PemFault.EmptyBundle` on `Fin`, never an exception, and an unknown armor label folds to `PemFault.LabelUnknown` against the closed `PemLabel` `[SmartEnum<string>]` vocabulary. Secret material carries `DataClassification.Secret` so `api-redaction` erases it at every egress; the redacted `CredentialPemWire` crosses the label set, per-block `ContentHash.Of` digests, and the `Redactor`-redacted key-id — never a private-key byte. The KMS-unwrapped data-encryption key zeroizes through the same `ZeroMemory` path the lease owns. The armored bundle text crosses to TS through `jose` `importPKCS8`/`importSPKI`/`importX509` and to Python through `cryptography` `load_pem_*`, both parsing the identical BCL-written armor; the RFC-7468 `-----END-----`/`-----BEGIN-----` boundary joined by `\n` IS the self-delimiting separator, so no `--SEP--` token is minted. The non-crypto identity boundary is load-bearing: `api-hashing` owns snapshot/rotation identity, this catalog owns armor + zeroization, and the crypto hash/compare family stays RECORDED NON-USE until a real security claim admits it.
+
+## [06]-[ECDSA_ATTESTATION]
+
+`ECDsaCertificateExtensions` binds an `X509Certificate2` credential to the `ECDsa` signing surface, and `ECDsa` signs or verifies the exact caller-owned preimage without introducing a second digest or identity rail.
+
+- `X509Certificate2.GetECDsaPrivateKey() -> ECDsa?` obtains the private signing key or returns `null` when the certificate carries no ECDSA private key.
+- `X509Certificate2.GetECDsaPublicKey() -> ECDsa?` obtains the public verification key or returns `null` when the certificate carries no ECDSA public key.
+- `ECDsa.SignData(ReadOnlySpan<byte> data, HashAlgorithmName hashAlgorithm, DSASignatureFormat signatureFormat) -> byte[]` hashes and signs the supplied preimage under the selected algorithm and explicit signature framing.
+- `ECDsa.VerifyData(ReadOnlySpan<byte> data, ReadOnlySpan<byte> signature, HashAlgorithmName hashAlgorithm, DSASignatureFormat signatureFormat) -> bool` verifies the same preimage, algorithm, and framing without allocating a second data buffer.
+- `DSASignatureFormat.Rfc3279DerSequence` fixes the ECDSA signature wire to the ASN.1 DER sequence form shared by sign and verify.
+
+Attestation receipts bind signer identity and role into the signed preimage, export only `X509Certificate2.ExportCertificatePem()`, and verify through `X509Certificate2.CreateFromPem(...)` plus the public-key path. Private-key custody never enters a receipt, content identity remains `ContentHash.Of`, and signature validity remains a separate cryptographic claim.

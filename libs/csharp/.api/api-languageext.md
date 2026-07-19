@@ -27,8 +27,9 @@
 |  [06]   | `Eff<A>` / `Eff<RT, A>`        | effect monad                    | runtime-free or reader-runtime deferred effect |
 |  [07]   | `IO<A>`                        | terminal effect                 | run, fork, timeout, repeat, and retry          |
 |  [08]   | `Error` (`LanguageExt.Common`) | abstract `Monoid<Error>` record | composable typed-failure vocabulary            |
-|  [09]   | `Guard<E, A>`                  | readonly predicate gate         | lazy refusal lifted through `ToFin`            |
-|  [10]   | `Pure<A>` / `Fail<E>`          | polymorphic lift carriers       | rail-agnostic success and failure literals     |
+|  [09]   | `Expected`                     | `Error` record                  | typed expected failure via `(Message, Code)`   |
+|  [10]   | `Guard<E, A>`                  | readonly predicate gate         | lazy refusal lifted through `ToFin`            |
+|  [11]   | `Pure<A>` / `Fail<E>`          | polymorphic lift carriers       | rail-agnostic success and failure literals     |
 
 [PUBLIC_TYPE_SCOPE]: collections and state
 - rail: functional substrate
@@ -83,9 +84,10 @@
 |  [04]   | `Validation.Success` / `Validation.Fail`              | factory    | monoidal validation creation |
 |  [05]   | `Validation.Map` / `MapFail` / `Bind` / `operator \|` | instance   | projection and accumulation  |
 |  [06]   | `Validation.ToEither` / `ToOption` / `ToFin`          | conversion | short-circuit egress         |
-|  [07]   | `Error.New` overload family                           | factory    | typed-failure construction   |
+|  [07]   | `Error.New` overload family / `Error.Many`            | factory    | typed-failure construction   |
 |  [08]   | `Error.Combine` / `+` / `Head` / `Tail` / `Count`     | instance   | accumulation and enumeration |
 |  [09]   | `Error.Is` / `IsType` / `HasCode` / `Filter`          | instance   | classification and egress    |
+|  [10]   | `Error.Exception`                                     | instance   | exceptional payload option   |
 
 [ENTRYPOINT_SCOPE]: `Try`, `Eff`, `IO` — the deferred tiers
 - rail: functional substrate
@@ -128,11 +130,13 @@ The instance and module indexed maps take their lambda arguments in OPPOSITE ord
 |  [01]   | `Arr.create` / `createRange` / `empty` / `singleton` | factory   | immutable-array construction     |
 |  [02]   | `HashMap.Find`                                       | instance  | optional lookup                  |
 |  [03]   | `HashMap.Add` / `AddOrUpdate` / `SetItem` / `Remove` | instance  | persistent map edits             |
-|  [04]   | `Prelude.Atom` / `Atom.Swap` / `SwapIO`              | instance  | lock-free shared state           |
-|  [05]   | `AsIterable`                                         | extension | lazy sync or async lift          |
-|  [06]   | `Prelude.guard` / `Guard.ToFin`                      | prelude   | predicate admission              |
-|  [07]   | tuple `Apply`                                        | extension | applicative fan-in, arities 2–10 |
-|  [08]   | `Some` / `None` / `unit` / `identity`                | prelude   | literal vocabulary               |
+|  [04]   | `HashMap.ContainsKey`                                | instance  | total key membership             |
+|  [05]   | `Set.Add`                                            | instance  | persistent set insertion         |
+|  [06]   | `Prelude.Atom` / `Atom.Swap` / `SwapIO`              | instance  | lock-free shared state           |
+|  [07]   | `AsIterable`                                         | extension | lazy sync or async lift          |
+|  [08]   | `Prelude.guard` / `Guard.ToFin`                      | prelude   | predicate admission              |
+|  [09]   | tuple `Apply`                                        | extension | applicative fan-in, arities 2–10 |
+|  [10]   | `Some` / `None` / `unit` / `identity`                | prelude   | literal vocabulary               |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
