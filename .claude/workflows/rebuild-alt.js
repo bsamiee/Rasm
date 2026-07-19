@@ -40,6 +40,7 @@ const STALL = 300000;
 const BATCH_MAX = 8; // unit-segment + batch-packing ceiling; per-segment maps + census legwork carry the navigation, so a writer holds a full dense batch
 const BATCH_LOC = 3400; // size ceiling beside the count ceiling: a batch's pages must also fit one review context window with room to edit — page tonnage, not page count, is what overflows a lane
 const FINDER_PAGES = 8; // landed pages per close-phase finder
+const CENSUS_SUBS = 4; // sub-folders per corrections-census shard; one opus lane each keeps row verification deep
 const DENSITY_MAP_LOC = 3400; // page tonnage per opus density mapper — the map set a single mapper holds with full-context care
 
 // --- [INPUTS] --------------------------------------------------------------------------
@@ -1150,11 +1151,11 @@ const OWN_PASS =
     'substitute for, or cap it. TRIPWIRE: a pass whose diff maps one-to-one onto the recon rows has failed — the recon covers a ' +
     'MINORITY of what the rebuild demands, and the majority of your edits must come from your own attack.';
 
-const CORRECTIONS = (path) =>
-    path
-        ? 'CORRECTIONS CENSUS (ladder rung 3) — `' +
-          path +
-          '` carries the folder-wide fix census consolidated from the map lanes, sectioned per sub-folder: drift, phantoms, ' +
+const CORRECTIONS = (paths) =>
+    paths && paths.length
+        ? 'CORRECTIONS CENSUS (ladder rung 3) — the census dossiers covering your pages: `' +
+          paths.join('`, `') +
+          '` — the fix census consolidated from the map lanes, sectioned per sub-folder: drift, phantoms, ' +
           'catalog-true spelling repairs, seam and wire mismatches, wiring gaps. ADDITIONAL, never the plan: after your own pass, ' +
           'land every row that intersects your pages (re-verified on disk — a row disk already resolves is dropped) and leave ' +
           'foreign rows alone; the terminal fixer drains the remainder. A pass that only lands census rows has failed OWN PASS FIRST.'
@@ -1264,7 +1265,7 @@ const preamble = (L, batch, dossiers, ideate, scopes, roster, unmapped, reg, lba
             LEDGER(lbase || scratchBase(pkgOf(batch[0].page), batch[0].i || 0), scopes),
             reconBlock(roster, unmapped),
         ])
-        .concat(ideate && ideate.fix ? [CORRECTIONS(ideate.fix)] : [])
+        .concat(ideate ? [CORRECTIONS(ideate.fixFiles || [])].filter(Boolean) : [])
         .concat(ideate ? [IDEAS(ideate.ideaSubFiles || [], ideate.ideaWide || '')].filter(Boolean) : []);
 
 // Prompt builders — each task states only its own action; shared checks are referenced by name.
@@ -1304,13 +1305,16 @@ const planPrompt = () =>
             'env stall or misreads it as a broken rail.',
     ].join('\n\n');
 
-const correctionsPrompt = (L, pkg, mapIndex, dossier) =>
+const correctionsPrompt = (L, pkg, mapIndex, dossier, subs) =>
     [
         ROOT_LAW,
         CONTEXT(L),
         'TASK: CORRECTIONS CENSUS AUTHOR for `' +
             pkg +
-            '` — read-only over the corpus; you WRITE exactly one file, the census dossier. The Map phase produced per-SUB-FOLDER ' +
+            '`, sub-folder territory ' +
+            JSON.stringify(subs) +
+            ' — read-only over the corpus; you WRITE exactly one file, the census dossier for YOUR territory (sibling census ' +
+            'lanes own the other sub-folders; never census a foreign folder). The Map phase produced per-SUB-FOLDER ' +
             'deep-map and two-tier .api inventory dossiers; read EVERY dossier listed here IN FULL: ' +
             JSON.stringify(mapIndex),
         'AUTHOR `' +
@@ -1416,20 +1420,33 @@ const apiLensPrompt = (L, batch, dossier, reg) =>
             '/.api/` — read every catalog relevant to these pages and DIFF the complete admitted inventory against the whole folder: ' +
             REG[reg].apiVerify +
             ' — a capability no page exploits is a named integration gap ROUTED to EVERY page whose concept admits it, never ' +
-            'one "best" owner alone. SINGLE-CONSUMER EXPANSION: a package with a catalog at ANY tier consumed by only ONE page ' +
-            'is expansion pressure on its siblings — name the package, its unexploited members in exact spellings, and each ' +
-            'candidate page. Discovery has ZERO removal authority: an underutilized catalog is always a buildout target, never ' +
-            'removal evidence. DEPTH GRADING: a composed member counts as underutilized when the usage is shallow — one call ' +
+            'one "best" owner alone. FULL-TIER TRIAGE: you hold the complete two-tier `ls` inventory — every catalog in it ' +
+            'gets a verdict: COMPOSED (a page uses it), EXPANSION (the folder\'s concepts admit it but no fence exploits it — ' +
+            'lands as {catalog, capability} rows routed to the admitting pages), or FOREIGN (one word, no elaboration); a ' +
+            'catalog without a verdict is a skipped read your coverage must report. The famous rails are never the ceiling — ' +
+            'the long tail of both tiers is where unexploited packages hide, and a domain-adjacent folder catalog with zero ' +
+            'fence use is the highest-value row this lens produces. SINGLE-CONSUMER EXPANSION: a package with a catalog at ' +
+            'ANY tier consumed by only ONE page is expansion pressure on its siblings — name the package, its unexploited ' +
+            'members in exact spellings, and each candidate page. Discovery has ZERO removal authority: an underutilized ' +
+            'catalog is always a buildout target, never removal evidence. DEPTH GRADING: a composed member counts as underutilized when the usage is shallow — one call ' +
             'where the surface carries a family, a default-arg call where the policy axis matters, a scalar use of a ' +
             'batch/stream-capable member; grade used-but-shallow with the same {catalog, capability} rows as unused. For EACH ' +
-            'page return `apiUsed`, `apiUnderutilized` ({catalog, capability}: exact catalog-anchored spelling + integration ' +
-            "shape as fact), `stackingInventory` (capability names + the doctrine patterns the page's concept admits, as " +
-            'inventory fact — never a prescribed design), plus `files` and typed `anchors` per the entry form. Verify every cited member via ' +
+            'page return `apiUsed`, `apiUnderutilized` ({catalog, capability}), `stackingInventory` (capability names + the ' +
+            "doctrine patterns the page's concept admits, as inventory fact — never a prescribed design), plus `files` and " +
+            'typed `anchors` per the entry form. ROW CONTENT LAW — signal density over row count: each `capability` string ' +
+            'carries (1) the exact member spellings at operator depth — the specific overloads, combinators, generated ' +
+            'surfaces, and parameter axes the catalog holds, never a bare package name; (2) the page fact proving the gap — ' +
+            'what the fence does today at its anchor; (3) the admitting concept — WHY this page\'s domain demands the ' +
+            'capability. What to compose is stated as available fact; HOW to compose it is the implement agent\'s ruling — a ' +
+            'code sketch, signature proposal, or prescribed shape is a defect. Three deep rows a writer can act on outrank ' +
+            'ten thin package mentions. Verify every cited member via ' +
             L.verify +
             '; never list a phantom. GROUNDING DOSSIER: write `' +
             dossier +
             '` — Tier-1: quoted `.api` member blocks with `file:line` anchors for every cited member plus the real `ls` ' +
-            'inventories of both tiers; Tier-2: pointer rows (catalog path + one-line scope) for the remainder. FORBIDDEN: ' +
+            'inventories of both tiers; NEGATIVE_SPACE: one row per EXPANSION-verdict catalog — the catalog, the admitting ' +
+            'folder concept, and the zero-use evidence — so the unexploited-package sweep is auditable, never implied; ' +
+            'Tier-2: pointer rows (catalog path + one-line scope) for the FOREIGN remainder. FORBIDDEN: ' +
             'doctrine digests, unanchored claims, prescriptive designs. Return worklist + coverage.',
     ].join('\n\n');
 
@@ -1571,7 +1588,7 @@ const implementPrompt = (L, batch, dossiers, ideate, scopes, roster, unmapped, p
             LEDGER(lbase || scratchBase(pkgOf(batch[0].page), batch[0].i || 0), scopes),
             reconBlock(roster, unmapped),
         ])
-        .concat(ideate && ideate.fix ? [CORRECTIONS(ideate.fix)] : [])
+        .concat(ideate ? [CORRECTIONS(ideate.fixFiles || [])].filter(Boolean) : [])
         .concat(ideate ? [IDEAS(ideate.ideaSubFiles || [], ideate.ideaWide || '')].filter(Boolean) : [])
         .concat([
             'TASK: ' +
@@ -1646,7 +1663,7 @@ const critiquePrompt = (L, batch, dossiers, ideate, scopes, roster, unmapped, im
             CRIT_READ(L, pkgOf(batch[0].page), dossiers, roster, unmapped, pack),
             LEDGER(lbase || scratchBase(pkgOf(batch[0].page), batch[0].i || 0), scopes),
         ])
-        .concat(ideate && ideate.fix ? [CORRECTIONS(ideate.fix)] : [])
+        .concat(ideate ? [CORRECTIONS(ideate.fixFiles || [])].filter(Boolean) : [])
         .concat([
             implReport
                 ? 'NAVIGATION — the implement fixlog is ON DISK at ' +
@@ -1913,7 +1930,7 @@ const FINDING_CONSUMPTION =
 
 // One fixer per package: its territory is exact — its package's rows, findings, and index docs; everything foreign
 // lands in `remaining` for the sweeper, never edited. The fan is path-disjoint by construction.
-const pkgFixerPrompt = (L, pkg, pages, roster, unmapped, rows, work, backlog, orphans, censusPath, failed) =>
+const pkgFixerPrompt = (L, pkg, pages, roster, unmapped, rows, work, backlog, orphans, censusPaths, failed) =>
     [
         ROOT_LAW,
         BAR_LINES([L.key]),
@@ -1954,11 +1971,11 @@ const pkgFixerPrompt = (L, pkg, pages, roster, unmapped, rows, work, backlog, or
                   '`harvest` return): ' +
                   JSON.stringify(orphans) +
                   '.\n' +
-                  (censusPath
-                      ? '(2c) CORRECTIONS CENSUS — `' +
-                        censusPath +
-                        '` (read IN FULL; every row NOT already resolved on current disk is yours: land it at its root or reject ' +
-                        'with reason).\n'
+                  (censusPaths && censusPaths.length
+                      ? '(2c) CORRECTIONS CENSUS shards — `' +
+                        censusPaths.join('`, `') +
+                        '` (read each IN FULL; every row NOT already resolved on current disk is yours: land it at its root or ' +
+                        'reject with reason).\n'
                       : '')) +
             '(3) FINDER REPORTS — products ON DISK as JSON report files; the ROSTER receipts are navigation, never the ' +
             'product. Read every ok report IN FULL from disk, governance finders first; drain the findings whose files sit ' +
@@ -2392,7 +2409,9 @@ const mapUnit = async (u) => {
         slot(() =>
             recon(
                 (reg) => apiLensPrompt(L, unitPages, apiDossier, reg),
-                ropts('map:api:' + tag, 'Map', API_SCHEMA, scope, { arr: 'worklist' }, { writes: true, model: 'gpt-5.6-terra' }),
+                // Sol, not terra: the two-tier diff, depth grading, and full-tier triage are judgment work, not navigation;
+                // medium effort — the products are typed rows. The ctx lane stays terra (seams/ownership are navigation).
+                ropts('map:api:' + tag, 'Map', API_SCHEMA, scope, { arr: 'worklist' }, { writes: true, codexEffort: 'medium', calls: 80 }),
             ),
         ),
     ]);
@@ -2409,25 +2428,43 @@ const ideatePkg = async (pkg) => {
     const subs = [...new Set(PAGES.filter((p) => pkgOf(p.page) === pkg).map((p) => subOf(p.page)))];
     const subRows = subs.map((sub) => ({ sub, path: dossierPath('ideate:idea:' + tag + ':' + sub) }));
     const widePath = dossierPath('ideate:idea:' + tag + ':_wide');
-    const mapIndex = UNITS.filter((u) => u.pkg === pkg)
-        .map((u) => ({
-            sub: u.name,
-            deepMap: (unitMap[u.key].ctx?.ok && unitMap[u.key].ctxDossier) || null,
-            inventory: (unitMap[u.key].api?.ok && unitMap[u.key].apiDossier) || null,
-        }))
-        .filter((r) => r.deepMap || r.inventory);
+    const mapIndexOf = (group) =>
+        UNITS.filter((u) => u.pkg === pkg && group.includes(u.sub))
+            .map((u) => ({
+                sub: u.name,
+                deepMap: (unitMap[u.key].ctx?.ok && unitMap[u.key].ctxDossier) || null,
+                inventory: (unitMap[u.key].api?.ok && unitMap[u.key].apiDossier) || null,
+            }))
+            .filter((r) => r.deepMap || r.inventory);
+    const mapIndex = mapIndexOf(subs);
     if (!mapIndex.length) {
-        pkgIdeate[pkg] = { fix: '', ideaBySub: {}, ideaWide: '' };
+        pkgIdeate[pkg] = { fixBySub: {}, ideaBySub: {}, ideaWide: '' };
         return;
     }
-    const fixDossier = dossierPath('ideate:fix:' + tag);
-    const [fix, idea] = await Promise.all([
-        slot(() => agent(correctionsPrompt(L, pkg, mapIndex, fixDossier), wopts('ideate:fix:' + tag, 'Ideate', 'opus', RECEIPT))),
-        slot(() => agent(ideasPrompt(L, pkg, mapIndex, subRows, widePath), wopts('ideate:idea:' + tag, 'Ideate', 'fable', RECEIPT))),
-    ]);
+    // Census shards by unit count — one opus lane per CENSUS_SUBS sub-folders, disjoint territories: a single census
+    // over a large package verifies shallowly at the tail; per-shard depth keeps every row disk-verified. Cross-shard
+    // dupes are rare (corrections are folder-local) and the Close backlog verifier merges them anyway.
+    const shards = chunk(subs, CENSUS_SUBS).map((group, i, all) => ({
+        group,
+        path: dossierPath('ideate:fix:' + tag + (all.length > 1 ? ':s' + (i + 1) : '')),
+        label: 'ideate:fix:' + tag + (all.length > 1 ? ':s' + (i + 1) : ''),
+    }));
+    const [idea, ...fixes] = await Promise.all(
+        [slot(() => agent(ideasPrompt(L, pkg, mapIndex, subRows, widePath), wopts('ideate:idea:' + tag, 'Ideate', 'fable', RECEIPT)))].concat(
+            shards.map((s) =>
+                slot(() =>
+                    agent(correctionsPrompt(L, pkg, mapIndexOf(s.group), s.path, s.group), wopts(s.label, 'Ideate', 'opus', RECEIPT)),
+                ).catch(() => null),
+            ),
+        ),
+    );
     const ideaOk = !!(idea && idea.ok);
+    const fixBySub = {};
+    shards.forEach((s, i) => {
+        if (fixes[i] && fixes[i].ok) for (const sub of s.group) fixBySub[sub] = s.path;
+    });
     pkgIdeate[pkg] = {
-        fix: (fix && fix.ok && fixDossier) || '',
+        fixBySub,
         ideaBySub: ideaOk ? Object.fromEntries(subRows.map((r) => [r.sub, r.path])) : {},
         ideaWide: (ideaOk && widePath) || '',
     };
@@ -2435,8 +2472,12 @@ const ideatePkg = async (pkg) => {
         'Ideate ' +
             tag +
             ': ' +
-            (pkgIdeate[pkg].fix ? (fix.entries || 0) + ' correction(s)' : 'no census') +
-            ' + ' +
+            fixes.filter((f) => f && f.ok).length +
+            '/' +
+            shards.length +
+            ' census shard(s), ' +
+            fixes.reduce((a, f) => a + ((f && f.ok && f.entries) || 0), 0) +
+            ' correction(s) + ' +
             (ideaOk ? (idea.entries || 0) + ' idea(s) across ' + (subRows.length + 1) + ' dossier(s)' : 'no ideas'),
     );
 };
@@ -2480,7 +2521,7 @@ const runBatch = async (b) => {
                     .map((r) => r.lane)
                     .join(', '),
         );
-    const ideateP = pkgIdeate[b.pkg] || { fix: '', ideaBySub: {}, ideaWide: '' };
+    const ideateP = pkgIdeate[b.pkg] || { fixBySub: {}, ideaBySub: {}, ideaWide: '' };
     const halves = halve(batch);
     const halfRecords = await Promise.all(
         halves.map(async (half, hi) => {
@@ -2498,7 +2539,7 @@ const runBatch = async (b) => {
                 .filter(Boolean)
                 .join('`, `');
             const ideate = {
-                fix: ideateP.fix,
+                fixFiles: [...new Set(halfSubs.map((s) => (ideateP.fixBySub || {})[s]).filter(Boolean))],
                 ideaSubFiles: halfSubs.map((s) => ideateP.ideaBySub[s]).filter(Boolean),
                 ideaWide: ideateP.ideaWide,
             };
@@ -2523,7 +2564,7 @@ const runBatch = async (b) => {
                             L,
                             half,
                             dossiers,
-                            { fix: ideateP.fix, ideaSubFiles: [], ideaWide: '' },
+                            { fixFiles: ideate.fixFiles, ideaSubFiles: [], ideaWide: '' },
                             SCOPES,
                             roster,
                             halfUnmapped,
@@ -2597,8 +2638,10 @@ const built = (
         }),
     )
 ).flat();
-const CENSUS_BY_PKG = Object.fromEntries(PKGS.map((pkg) => [pkg, (pkgIdeate[pkg] && pkgIdeate[pkg].fix) || '']).filter((r) => r[1]));
-const CENSUS_PATHS = Object.values(CENSUS_BY_PKG);
+const CENSUS_BY_PKG = Object.fromEntries(
+    PKGS.map((pkg) => [pkg, [...new Set(Object.values((pkgIdeate[pkg] && pkgIdeate[pkg].fixBySub) || {}))]]).filter((r) => r[1].length),
+);
+const CENSUS_PATHS = Object.values(CENSUS_BY_PKG).flat();
 const LANDED = built.filter((d) => d.fix && d.fix.ok).flatMap((d) => d.pages.map((p) => p.page));
 // FAILED covers both a dead implement half (a record whose receipt is not ok) and a dead package chain (pages in no record).
 const FAILED = PAGES.map((p) => p.page).filter((pg) => !LANDED.includes(pg));
@@ -2748,7 +2791,7 @@ const pkgClose = await Promise.all(
                         WORK,
                         WORK ? [] : BACKLOG.filter((row) => backlogPkgOf(row) === pkg),
                         WORK ? [] : ORPHANS_BY_PKG[pkg] || [],
-                        WORK ? '' : CENSUS_BY_PKG[pkg] || '',
+                        WORK ? [] : CENSUS_BY_PKG[pkg] || [],
                         FAILED,
                     ),
                 ropts('fixer:' + tag, 'Close', FIXER_SCHEMA, [pkg], { arr: 'remaining' }, { writes: true, fix: true, calls: 400 }),
@@ -2795,7 +2838,7 @@ const sweep = await slot(() =>
                 ROWS_GLOBAL,
                 WORK ? [] : BACKLOG.filter((row) => !backlogPkgOf(row)),
                 WORK ? [] : DEAD_PKGS.flatMap((p) => ORPHANS_BY_PKG[p] || []),
-                WORK ? [] : DEAD_PKGS.map((p) => CENSUS_BY_PKG[p] || '').filter(Boolean),
+                WORK ? [] : DEAD_PKGS.flatMap((p) => CENSUS_BY_PKG[p] || []),
                 found,
                 UNMAPPED,
                 FAILED,

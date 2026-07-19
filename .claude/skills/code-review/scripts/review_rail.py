@@ -84,6 +84,11 @@ type FaultCode = Literal[
     "unreadable",
     "unwritable",
     "malformed",
+    "bad-matcher",
+    "empty-class",
+    "no-matchers",
+    "unknown-key",
+    "duplicate-class",
     "dedup-collapse",
     "no-findings",
     "no-lanes",
@@ -608,6 +613,26 @@ class RoundReceipt(msgspec.Struct, frozen=True):
     delta: Delta | None
 
 
+class RowVerdict(msgspec.Struct, frozen=True):
+    at: int
+    class_id: str
+    faults: tuple["Fault", ...] = ()
+
+
+class RegistryCheckReceipt(msgspec.Struct, frozen=True):
+    path: str
+    standing: int
+    rows: int
+    clean: int
+    faulted: tuple[RowVerdict, ...]
+
+
+class RegistryApplyReceipt(msgspec.Struct, frozen=True):
+    path: str
+    appended: tuple[str, ...]
+    standing: int
+
+
 class VerifyReceipt(msgspec.Struct, frozen=True):
     rule: str
     path: str
@@ -635,13 +660,16 @@ class Fault(msgspec.Struct, frozen=True):
 APP: Final = App(
     help=(
         "One verb rail over CodeRabbit, Greptile, and Macroscope: launch, status, kill, findings, slice, reconcile, harvest, gather, round,"
-        " verify, selftest."
+        " registry, verify, selftest."
     )
 )
 ENCODER: Final = msgspec.json.Encoder()
 RAW_JSON: Final = json.JSONDecoder()
 YAML_SAFE: Final = YAML(typ="safe")
-YAML_RT: Final = YAML(typ="rt")
+YAML_RT: Final = YAML(typ="rt")  # round-trip policy pinned to the registry file's own layout, so an apply rewrites only what it appends
+YAML_RT.preserve_quotes = True
+YAML_RT.width = 4096
+YAML_RT.indent(mapping=2, sequence=4, offset=2)
 
 # --- [BOUNDARIES] -----------------------------------------------------------------------
 
@@ -728,9 +756,9 @@ def report_shaped(path: Path, /) -> Result[LaneReport, Fault]:
     return read_bytes(path).bind(lambda payload: report_decoded(payload, str(path)))
 
 
-def yaml_loaded(path: Path, /) -> Result[object, Fault]:
+def yaml_loaded(path: Path, /, *, codec: YAML = YAML_SAFE) -> Result[object, Fault]:
     try:
-        parsed: object = YAML_SAFE.load(path.read_text(encoding="utf-8"))
+        parsed: object = codec.load(path.read_text(encoding="utf-8"))
     except OSError as unreachable_file:
         return Error(Fault(code="unreadable", detail=f"{path}: {unreachable_file}"))
     except YAMLError as garbled:
@@ -1257,12 +1285,16 @@ def claim_scope(row: Finding, /) -> str:
     return f"{row.claim}\n{row.fix_instructions}"
 
 
+def finding_order(row: Finding, /) -> tuple[int, str, int]:
+    return (RANK[row.severity], row.file, row.range.start)
+
+
 def normalized(rows: tuple[Finding, ...], registry: Registry, /) -> tuple[Finding, ...]:
     matchers = compiled(registry)
     stamped = tuple(replace(row, class_match=classified(matchers, claim_scope(row))) for row in rows)
     ordered = sorted(stamped, key=lambda row: (row.fingerprint, RANK[row.severity]))
     survivors = tuple(next(iter(bunch)) for _, bunch in groupby(ordered, key=lambda row: row.fingerprint))
-    return tuple(sorted(survivors, key=lambda row: (RANK[row.severity], row.file, row.range.start)))
+    return tuple(sorted(survivors, key=finding_order))
 
 
 def unioned(pools: tuple[tuple[Finding, ...], ...], registry: Registry, /) -> tuple[Finding, ...]:
@@ -1277,7 +1309,7 @@ def unioned(pools: tuple[tuple[Finding, ...], ...], registry: Registry, /) -> tu
         return replace(primary, corroborators=tuple(dict.fromkeys((*primary.corroborators, *others))))
 
     survivors = tuple(collapsed(tuple(bunch)) for _, bunch in groupby(ordered, key=lambda row: row.fingerprint))
-    return tuple(sorted(survivors, key=lambda row: (RANK[row.severity], row.file, row.range.start)))
+    return tuple(sorted(survivors, key=finding_order))
 
 
 def pruned_against(prior: tuple[Finding, ...], rows: tuple[Finding, ...], /) -> tuple[tuple[Finding, ...], int]:
@@ -1640,7 +1672,7 @@ def sliced(rows: tuple[Finding, ...], lanes: int, balance: Balance, repo: Path, 
     def lane_carved(at: int, pack: tuple[Bundle, ...], /) -> LaneSlice:
         letter = LANE_ALPHABET[at]
         labels = tuple(sorted(dict.fromkeys(held.label for held in pack)))
-        picked_rows = sorted((row for held in pack for row in held.rows), key=lambda row: (RANK[row.severity], row.file, row.range.start))
+        picked_rows = sorted((row for held in pack for row in held.rows), key=finding_order)
         stamped = tuple(replace(row, id=f"r{round_no}{letter}-{index + 1:02d}") for index, row in enumerate(picked_rows))
         criticals = sum(1 for row in stamped if row.severity == "critical")
         files = tuple(sorted({row.file for row in stamped}))
@@ -1715,7 +1747,7 @@ def digest_built(context: Context, rows: tuple[Finding, ...], top_n: int, /) -> 
         if (held := tuple(bunch))
     )
     cuts = sorted(partitioned(rows, DIGEST_FOLDS, row_weigher("count", context.repo, rows)), key=lambda held: len(held.rows), reverse=True)
-    ranked_rows = sorted(rows, key=lambda row: (RANK[row.severity], row.file, row.range.start))
+    ranked_rows = sorted(rows, key=finding_order)
     top = {
         str(level): tuple(lined(row) for row in islice((row for row in ranked_rows if row.severity == level), top_n))
         for level in SEVERITIES
@@ -2167,11 +2199,149 @@ def round_verified(context: Context, /) -> Result[tuple[VerifyReceipt, ...], Fau
     )
 
 
+# --- [REGISTRY_GUARD]
+
+ROW_FIELDS: Final[frozenset[str]] = frozenset(RefutedClass.__struct_fields__)
+
+
+def class_entries(parsed: object, origin: str, /) -> Result[tuple[object, ...], Fault]:
+    match parsed:
+        case {"classes": list() as items}:
+            return Ok(tuple(items))
+        case list() as items:
+            return Ok(tuple(items))
+        case None:
+            return Ok(())
+        case _:
+            return Error(Fault(code="malformed", detail=f"{origin}: expected a top-level classes: row list (or a bare row list)"))
+
+
+def matcher_faults(row: RefutedClass, /) -> tuple[Fault, ...]:
+    # Loud complement of lenient_pattern: classification degrades an invalid matcher to a literal, so this gate is where a broken regex surfaces.
+    return tuple(
+        Block.of_seq(row.matchers).choose(
+            lambda matcher: catch(exception=re.PatternError)(re.compile)(matcher, re.IGNORECASE)
+            .swap()
+            .to_option()
+            .map(lambda broken: Fault(code="bad-matcher", detail=f"{matcher!r}: {broken}"))
+        )
+    )
+
+
+def row_checked(at: int, entry: object, taken: frozenset[str], /) -> RowVerdict:
+    if not isinstance(entry, dict):
+        return RowVerdict(at=at, class_id="", faults=(Fault(code="malformed", detail=f"row {at}: not a class mapping"),))
+    try:
+        row = msgspec.convert(entry, type=RefutedClass, strict=True)
+    except msgspec.ValidationError as drift:
+        return RowVerdict(at=at, class_id=str(entry.get("class_id", "")), faults=(Fault(code="malformed", detail=f"row {at}: {drift}"),))
+    alien = frozenset(str(key) for key in entry) - ROW_FIELDS  # convert ignores unknown keys, so the field-set difference is the loud check
+    return RowVerdict(
+        at=at,
+        class_id=row.class_id,
+        faults=(
+            *((Fault(code="unknown-key", detail=", ".join(sorted(alien))),) if alien else ()),
+            *((Fault(code="empty-class", detail=f"row {at}: class_id is empty"),) if not row.class_id else ()),
+            *((Fault(code="no-matchers", detail=f"{row.class_id}: a row with no matchers never fires"),) if not row.matchers else ()),
+            *matcher_faults(row),
+            *(
+                (Fault(code="duplicate-class", detail=f"{row.class_id}: already registered — a matcher merge is a human edit"),)
+                if row.class_id and row.class_id in taken
+                else ()
+            ),
+        ),
+    )
+
+
+def rows_checked(entries: tuple[object, ...], standing: frozenset[str], /) -> tuple[RowVerdict, ...]:
+    def stepped(acc: tuple[frozenset[str], tuple[RowVerdict, ...]], pair: tuple[int, object], /) -> tuple[frozenset[str], tuple[RowVerdict, ...]]:
+        taken, verdicts = acc
+        verdict = row_checked(pair[0], pair[1], taken)
+        return taken | ({verdict.class_id} if verdict.class_id else set()), (*verdicts, verdict)
+
+    seed: tuple[frozenset[str], tuple[RowVerdict, ...]] = (standing, ())
+    return reduce(stepped, tuple(enumerate(entries, start=1)), seed)[1]
+
+
+def check_built(path: Path, standing: frozenset[str], entries: tuple[object, ...], /) -> RegistryCheckReceipt:
+    verdicts = rows_checked(entries, standing)
+    faulted = tuple(verdict for verdict in verdicts if verdict.faults)
+    return RegistryCheckReceipt(path=str(path), standing=len(standing), rows=len(entries), clean=len(verdicts) - len(faulted), faulted=faulted)
+
+
+def registry_checked(rows_spec: str, /) -> Result[RegistryCheckReceipt, Fault]:
+    if not rows_spec:
+        if not REGISTRY_PATH.is_file():
+            return Ok(check_built(REGISTRY_PATH, frozenset(), ()))
+        return (
+            yaml_loaded(REGISTRY_PATH)
+            .bind(lambda parsed: class_entries(parsed, str(REGISTRY_PATH)))
+            .map(lambda entries: check_built(REGISTRY_PATH, frozenset(), entries))
+        )
+    path = Path(rows_spec)
+    return registry_loaded().bind(
+        lambda registry: yaml_loaded(path)
+        .bind(lambda parsed: class_entries(parsed, str(path)))
+        .bind(
+            lambda entries: (
+                Ok(check_built(path, frozenset(row.class_id for row in registry.classes), entries))
+                if entries
+                else Error(Fault(code="no-payload", detail=f"{path}: zero proposed rows under classes:"))
+            )
+        )
+    )
+
+
+def registry_applied(rows_path: Path, /) -> Result[RegistryApplyReceipt, Fault]:
+    def admitted(entries: tuple[object, ...], registry: Registry, /) -> Result[tuple[RefutedClass, ...], Fault]:
+        verdicts = rows_checked(entries, frozenset(row.class_id for row in registry.classes))
+        faulted = tuple(verdict for verdict in verdicts if verdict.faults)
+        if faulted:
+            roster = "; ".join(f"row {held.at} ({held.class_id or '<unnamed>'}): {', '.join(fault.code for fault in held.faults)}" for held in faulted)
+            return Error(
+                Fault(
+                    code="malformed",
+                    detail=f"{rows_path}: {len(faulted)}/{len(verdicts)} rows refused — {roster}; `registry --check --rows` details each fault",
+                )
+            )
+        return Ok(tuple(msgspec.convert(entry, type=RefutedClass, strict=True) for entry in entries))
+
+    def landed(rows: tuple[RefutedClass, ...], /) -> Result[RegistryApplyReceipt, Fault]:
+        held: Result[object, Fault] = yaml_loaded(REGISTRY_PATH, codec=YAML_RT) if REGISTRY_PATH.is_file() else Ok({"classes": []})
+
+        def grown(doc: object, /) -> Result[RegistryApplyReceipt, Fault]:
+            match doc:
+                case {"classes": list() as standing}:
+                    standing.extend(msgspec.to_builtins(row) for row in rows)  # in-place append on the round-trip tree keeps comments and quotes
+                    sink = io.StringIO()
+                    YAML_RT.dump(doc, sink)
+                    return written(REGISTRY_PATH, sink.getvalue().encode()).map(
+                        lambda _path: RegistryApplyReceipt(
+                            path=str(REGISTRY_PATH), appended=tuple(row.class_id for row in rows), standing=len(standing)
+                        )
+                    )
+                case _:
+                    return Error(Fault(code="malformed", detail=f"{REGISTRY_PATH}: expected a top-level classes: list"))
+
+        return held.bind(grown)
+
+    return registry_loaded().bind(
+        lambda registry: yaml_loaded(rows_path)
+        .bind(lambda parsed: class_entries(parsed, str(rows_path)))
+        .bind(
+            lambda entries: (
+                admitted(entries, registry) if entries else Error(Fault(code="no-payload", detail=f"{rows_path}: zero proposed rows under classes:"))
+            )
+        )
+        .bind(landed)
+    )
+
+
 # --- [SELFTEST]
 
 
 def selftest_fixture() -> tuple[bytes, bytes]:
-    # Maximal-shape lane report: every field populated at the richest spelling the lane-law contract admits, the null variant derived from it —
+    # Maximal-shape lane report: every field populated at the richest spelling the templates/fix.md output contract admits, the null variant derived from it —
     # one primary, so a contract change edits one site and both variants follow.
     primary: dict[str, object] = {
         "ledger": [
@@ -2197,6 +2367,34 @@ def selftest_fixture() -> tuple[bytes, bytes]:
     }
     nulled = {**primary, **dict.fromkeys(("ledger", "improvements", "refuted", "capability", "routing", "uncertain", "gate_clean"))}
     return ENCODER.encode(primary), ENCODER.encode(nulled)
+
+
+def registry_proofs() -> tuple[tuple[str, bool], ...]:
+    template: dict[str, object] = {
+        "class_id": "<class-a>",
+        "corpus": "code",
+        "matchers": [r"claim.{0,20}pattern"],
+        "refuting_citation": "<citation-a>",
+        "landed_surfaces": [".coderabbit.yaml"],
+        "rounds_seen": [9],
+    }
+    entries: tuple[object, ...] = (
+        template,
+        {**template, "class_id": "<class-b>", "matchers": ["broken[("]},
+        {**template},
+        {**template, "class_id": "<class-c>", "surface": "<alien>"},
+        {**template, "class_id": "<standing-a>"},
+        "<not-a-mapping>",
+    )
+    fired = tuple(tuple(fault.code for fault in verdict.faults) for verdict in rows_checked(entries, frozenset({"<standing-a>"})))
+    return (
+        ("registry-clean-row-passes", fired[0] == ()),
+        ("registry-bad-matcher-loud", fired[1] == ("bad-matcher",)),
+        ("registry-intra-duplicate-loud", fired[2] == ("duplicate-class",)),
+        ("registry-unknown-key-loud", fired[3] == ("unknown-key",)),
+        ("registry-standing-duplicate-loud", fired[4] == ("duplicate-class",)),
+        ("registry-shape-drift-loud", fired[5] == ("malformed",)),
+    )
 
 
 def selftest_proofs() -> tuple[tuple[str, bool], ...]:
@@ -2235,6 +2433,7 @@ def selftest_proofs() -> tuple[tuple[str, bool], ...]:
         ("malformed-faults-loud", broken.swap().to_option().map(lambda fault: fault.code == "malformed").default_value(value=False)),
         *full.map(full_proofs).default_value(()),
         *empty.map(empty_proofs).default_value(()),
+        *registry_proofs(),
     )
 
 
@@ -3116,6 +3315,26 @@ def round_cmd(*, round_no: _RoundNo = None, directory: _Dir = None) -> int:
         )
 
     return delivered(context_resolved(directory, round_no).bind(closed))
+
+
+@APP.command
+def registry(*, check: bool = False, apply: bool = False, rows: str = "") -> int:
+    match check, apply, bool(rows):
+        case (True, False, _):
+            match registry_checked(rows):
+                case Result(tag="ok", ok=receipt):
+                    emitted(receipt)
+                    return 0 if not receipt.faulted else 1
+                case Result(tag="error", error=fault):
+                    return refused(fault)
+                case _:
+                    return 1
+        case (False, True, True):
+            return delivered(registry_applied(Path(rows)))
+        case (False, True, False):
+            return refused(Fault(code="bad-flag", detail="--apply requires --rows <path> naming the proposed classes: rows"))
+        case _:
+            return refused(Fault(code="bad-flag", detail="pass exactly one of --check [--rows <path>] or --apply --rows <path>"))
 
 
 @APP.command

@@ -4,9 +4,9 @@ description: >-
     Local code review through three engines — CodeRabbit (working tree), Greptile (committed
     commits vs base), Macroscope (in-place AST correctness) — driven by one verb rail
     (`launch`, `status --follow`, `kill`, `findings --normalize`, `slice`, `reconcile`,
-    `harvest`, `gather`, `round`, `verify`, `selftest`) through the COLLECT -> FIX -> DISPOSITION ->
+    `harvest`, `gather`, `round`, `verify`, `registry`, `selftest`) through the COLLECT -> FIX -> DISPOSITION ->
     DISTILL cycle, with per-reviewer concurrent rounds, cross-engine `gather` union, per-round
-    `--focus` aiming, fixer-lane dispatch under the shipped lane-law template, and distillation
+    `--focus` aiming, fixer-lane dispatch under the shipped universal fixer template, and distillation
     through the reviewer-harvest agent into the `.coderabbit.yaml`, `.greptile/`, and
     `.macroscope/` reviewer-config surfaces. Trigger on any explicit review request,
     autonomously when a review is warranted (code, quality, security), on "run coderabbit",
@@ -16,7 +16,7 @@ description: >-
 
 # [CODE_REVIEW]
 
-One rail folds CodeRabbit, Greptile, and Macroscope into a single improvement machine: it launches, watches, and harvests each into one normalized finding schema, fixer lanes drain the findings under the shipped lane-law template, and each round distills refuted classes and lessons into the reviewer configs so the next round runs harder.
+One rail folds CodeRabbit, Greptile, and Macroscope into a single improvement machine: it launches, watches, and harvests each into one normalized finding schema, fixer lanes drain the findings under the shipped universal fixer template, and each round distills refuted classes and lessons into the reviewer configs so the next round runs harder.
 
 ## [01]-[ROUTING]
 
@@ -26,12 +26,10 @@ One rail folds CodeRabbit, Greptile, and Macroscope into a single improvement ma
 - [03]-[MACROSCOPE](references/macroscope.md): `.macroscope/` concern files, the stream grammar, and worktree custody
 
 [TEMPLATES]: the prompt templates are disjoint; a fact appearing in two of them is a defect.
-- [01]-[LANE_LAW](templates/lane-law.md): fixer conduct law the dispatch owner carries verbatim
-- [02]-[CODEX_LANE](templates/codex-lane.md): channel-split codex dispatch form — launch, task message, spawn health and audit
-- [03]-[FABLE_LANE](templates/fable-lane.md): single-prompt Agent-tool dispatch form — self-mined census, report custody, return shape
-- [04]-[HARVEST_DISPATCH](templates/harvest-dispatch.md): per-round reviewer-harvest prompt — round-instance slots alone
-- [05]-[CLOSER_DISPATCH](templates/closer-dispatch.md): routed-row closer prompt — sizing, arming, land-or-refute stance
-- [06]-[REFUTED_CLASSES](templates/refuted-classes.yaml): refuted-class registry compiled into classifier, recurrence detector, and rulings roster
+- [01]-[FIX](templates/fix.md): universal fixer template — conduct law, corpus fills, and both dispatch lanes
+- [02]-[CLOSE](templates/close.md): universal closer template — weight-sized arming, land-or-refute stance
+- [03]-[HARVEST](templates/harvest.md): per-round reviewer-harvest dispatch — round-instance slots and both transports
+- [04]-[REFUTED_CLASSES](templates/refuted-classes.yaml): refuted-class registry compiled into classifier, recurrence detector, and rulings roster
 
 [SCRIPTS]:
 - [01]-[REVIEW_RAIL](scripts/review_rail.py): verb rail printing one JSON receipt per verb
@@ -46,11 +44,11 @@ Every round runs COLLECT -> FIX -> DISPOSITION -> DISTILL on two custody lanes t
 1. [CUSTODY]: commit non-review surfaces first — reviewer configs, `docs/`, `tools/`, `.claude/` infra — so the review scope holds exactly the work under review. WATCH: a reviewed-work file in the custody commit shrinks the next round's scope silently. KNOB: the commit-scope roster.
 2. [LAUNCH]: `launch` per engine at its canonical scope ([03]), then run the receipt's `watch_cmd` through Bash `run_in_background`. Every diff-scoped engine shares one blind spot — an untouched file never enters review — so an estate round also runs the fleet-scope collectors beside the engines: `estate_audit.py` over the full skill and agent roots, its rows joining the round's finding pool as orchestrator-seeded lane rows. WATCH: the liveness line — `alive=yes` with a counting-down budget is healthy on blind engines. KNOB: engine choice and `--focus`.
 3. [NORMALIZE]: `findings --normalize` per completed round; `gather` unions concurrent engines; `findings --digest` is the post-normalize read and the query filters answer targeted inspections — never hand-jq over findings.json. WATCH: the provenance histogram before any count judgment — a flat total decomposes into `relitigation|refuted_remint|new_work|late_discovery` before any config takes blame, and rising new-work beside falling relitigation is convergence. KNOB: `--dedup-against`.
-4. [SLICE]: `slice --lanes N` into balanced per-lane manifests, each with its dispatch-ready `lane-<letter>-brief.md`. WATCH: severity and folder balance across lanes. KNOB: lane count — small slices direct freed capacity into capability depth, never early finish.
-5. [FIX]: one keeper per lane under the model's dispatch form — `templates/codex-lane.md` for codex, `templates/fable-lane.md` for fable; the lane brief arms the prompt, and each lane returns only its report path, so report bodies never enter the orchestrator's context. WATCH: codex — stderr banner within a minute, spawn audit against the parent rollout per the dispatch form; fable — the report on disk at return. KNOB: model tier and lane-law wording — sharpen by replacement, never accumulate.
-6. [RECONCILE]: `reconcile` proves per-lane id bijection and emits the verdict histogram. WATCH: verdict-mix honesty — fixed-versus-upgraded inflation, citation-backed push-back share. KNOB: a dropped finding closes through one focused opus closer armed with the slice's stack doctrine, never a session resume.
-7. [CLOSERS]: routing rows drain concurrently over disjoint territories under `templates/closer-dispatch.md` — opus for small single-file work, one fable with stacks arming for family or design work. WATCH: honest land-versus-refute — a mined candidate that cannot ground is refuted with its citation, never forced. KNOB: closer sizing.
-8. [DISTILL]: `harvest` assembles the feed and memory proposals; dispatch the reviewer-harvest agent under `templates/harvest-dispatch.md`. WATCH: diff-sample the touched blocks — density rose (fewer words, same law), integrations weave rather than append, additions passed the earn test; the ledger's `trimmed` self-report verifies against the actual diff, never trusted alone. KNOB: the agent file — the single versioned tuning surface.
+4. [SLICE]: `slice --lanes N` into balanced per-lane manifests, each with its dispatch-ready `lane-<letter>-brief.md`. WATCH: severity and folder balance across lanes. KNOB: lane count, up to 12 sliced by folder ownership — small slices direct freed capacity into capability depth, never early finish.
+5. [FIX]: one keeper per lane under `templates/fix.md` — the identical filled law block on every lane; a codex lane takes it as developer instructions with the filled task as the user prompt, a claude lane takes both in one Agent call, and transport mechanics beyond these facts are the codex skill's, never restated. Per-lane files under `<round-dir>`: `lane-<letter>-brief.md`, `lane-<letter>.json`, `task-<letter>.md`, `lane-<letter>-report.json`, `lane-<letter>-stderr.log` (codex). Codex lanes run the config-default model and effort unflagged under the full user config (miner spawns need the multi-agent depth row; deviate only for purely mechanical slices); a codex task never names the report file — the captured final message IS the report, a violation recovering via `codex exec resume <session-id>` re-emitting with no `-o` — and the report's self-stated `model` re-stamps from the stderr banner at reconcile. A claude lane writes its report itself and returns only the path. Each lane returns only its report path, so report bodies never enter the orchestrator's context. Lane mix follows the graduation law: a corpus NEW to the machine runs its first fix wave on claude lanes to mint the quality baseline; the first codex wave on that corpus runs mixed — one claude lane beside codex lanes on comparable slices — and grades codex against the baseline on the standing [GRADING] axes; an observed shortfall hardens the universal template as an explicit decision rule, never a retreat to claude-only; at parity the next wave runs 100% codex, and the intermediate ratio widens only while shortfalls persist. WATCH: codex — stderr banner within a minute, spawn audit, an absent report under a live process is normal (never relaunch a live run; a wedged lane relaunches once, a second wedge closes its rows under `templates/close.md`); claude — the report on disk at return (prose instead of the path relaunches once fresh; a second failure routes to a closer). KNOB: lane mix and template wording — sharpen by replacement, never accumulate.
+6. [RECONCILE]: `reconcile` proves per-lane id bijection and emits the verdict histogram. WATCH: verdict-mix honesty — fixed-versus-upgraded inflation, citation-backed push-back share. KNOB: a dropped finding closes through one small closer armed with the slice's stack doctrine, never a session resume.
+7. [CLOSERS]: routing rows drain concurrently over disjoint territories under `templates/close.md` — a small closer for single-file mechanical rows, a full-arming closer for family, design, or capability work, sized by row weight. WATCH: honest land-versus-refute — a mined candidate that cannot ground is refuted with its citation, never forced. KNOB: closer sizing.
+8. [DISTILL]: `harvest` assembles the feed and memory proposals; dispatch under `templates/harvest.md` — claude rides `Agent(subagent_type: "reviewer-harvest")` with the filled round slots, codex rides the template's law block with the slots as the user prompt. WATCH: diff-sample the touched blocks — density rose (fewer words, same law), integrations weave rather than append, additions passed the earn test; the ledger's `trimmed` self-report verifies against the actual diff, never trusted alone. KNOB: the agent file — the single versioned tuning surface.
 9. [VERIFY]: project the agent's ledger into `<round-dir>/surface-ledger.json` ([05]), then `verify --round N` proves each guard in its surface's own oracle. WATCH: an ineffective row marks failed wording — harden the owner, never re-skip. KNOB: `templates/refuted-classes.yaml` rows.
 10. [CLOSE]: commit and push the distillation lane, then `round` appends the `rounds.jsonl` row and prints the round-over-round delta; a zero-findings round arrives here straight from normalize and closes clean, and round grades, engine verdicts, and refuted-class calibrations land on the campaign memory (`project_cr_review_cycle_machine`) — orchestrator-curated under the harness-steering mining law, adjudicated rows merged into the owning verdict, never per-round narration. A campaign close curates the memory itself: accumulated round entries collapse to universal law carrying at most one calibration each (per-round numbers stay in `rounds.jsonl`), chaff and superseded guidance delete with their index lines, and near-similar entries restructure at the owning bullet under the harness-steering consolidation law, never appended siblings. WATCH: findings trending down while capability rows rise is the goal line. KNOB: none — the ledger is the sole progress instrument.
 11. [NEXT]: grade the round on the [GRADING] axes, then pick the next engine — recurrence judges per engine, counts flattening under one engine rotate the next round to another, and `--focus` aims a round within one: greptile rides early rounds while the accumulated diff fits its size caps, coderabbit carries breadth at any diff size, macroscope joins whenever its lane is open. WATCH: plateau under a hardened config. KNOB: rotation and focus.
@@ -58,7 +56,7 @@ Every round runs COLLECT -> FIX -> DISPOSITION -> DISTILL on two custody lanes t
 - [FRAMING]: both framings ride every surface — negative framing kills false-positive classes through do-not-flag guards citing the refuting ruling, positive framing steers toward house demands through hunt axes and hit-shape rosters. Hit-shape rosters land on every surface regardless of what an engine emits, because fixer miners execute them — the flywheel: fixer discoveries become next-round hit-shapes.
 - [GRADING]: REVIEW-THE-REVIEWER grades every round on the round row's typed axis fields — `fp_share`, `relitigation_share`, `novel_quality` (accepted-verdict share over novel-provenance rows), `hunt_axis_fire` (per-axis fire counts) — ledger-recorded so config changes read before-and-after mechanically. Standing verdict: CodeRabbit emits no missing-capability findings under any `path_instructions` wording — capability-direction rides Macroscope check-run agents and Greptile structured rules.
     - Finding strength scores a per-round sample 0-4: anchored (file and non-zero range, rail-stamped), actionable (repair direction, rail-stamped), discriminating (the claim states why the shape is wrong), novel (no adjudicated-class relitigation); a sub-2 mean marks a noise lane.
-    - Fixer lanes grade on five axes per model from the round row's `by_model` rollup — depth-of-fix (`upgraded` over `fixed` + `upgraded`), scope discipline (phantom-clean, routing-honest), refute quality (citation-backed push-backs), gate cleanliness (`gate_clean`), verdict-mix honesty (id bijection, upgraded claims surviving diff re-read) — so the fable-versus-sol comparison is one jq group.
+    - Fixer lanes grade on five axes per model from the round row's `by_model` rollup — depth-of-fix (`upgraded` over `fixed` + `upgraded`), scope discipline (phantom-clean, routing-honest), refute quality (citation-backed push-backs), gate cleanliness (`gate_clean`), verdict-mix honesty (id bijection, upgraded claims surviving diff re-read) — so the claude-versus-codex comparison is one jq group.
     - Grades drive the tuning loop: a template, profile, or config edit lands between rounds and logs against the round it precedes, so the next round's delta reads as prompt-change to behavior-change mechanically. Grades stay truthful — an inflated grade poisons the attribution, and a competent-but-unremarkable lane grades exactly that; a depth shortfall tunes the dispatch template's mandate, never the grade.
     - Prose FP classes live as `corpus: prose` registry rows citing the docgen defect catalog, graded by the same recurrence machinery.
 
@@ -77,6 +75,8 @@ $RAIL slice --lanes 3 --round <N>
 $RAIL reconcile --round <N>
 $RAIL harvest --round <N>
 # dispatch the reviewer-harvest agent on the feed; persist its ledger as <round-dir>/surface-ledger.json
+$RAIL registry --check --rows <path>   # validate the agent's proposed registry rows against the standing yaml
+$RAIL registry --apply --rows <path>   # append-only land of fully-clean rows; any fault refuses whole
 $RAIL verify --round <N>
 $RAIL round --round <N>
 ```
@@ -115,11 +115,9 @@ Bare `findings` reprints the summary receipt from disk; `--digest [--top N]` pri
 
 `reconcile` covers all lanes bare (`--all` is the explicit synonym; a named lane with `--all` refuses). `round` refuses a duplicate close, fails loud on findings without lane reports, and closes a zero-findings round clean. `verify` takes exactly one of `--rule <text> [--path <file>]` (greptile cascade check) or `--round N` (all-surface ledger check). `selftest` proves the lane-report decode contract against the rail's shipped maximal-shape fixture and exits nonzero naming each failed proof.
 
-- [KEEPERS]: fix waves ride the model's dispatch form up to 12 lanes sliced by folder ownership, one keeper each; fable runs the distill and opus the focused closers.
-
 ## [04]-[LANE_CONTRACT]
 
-Fixer-lane doctrine lives in `templates/lane-law.md`; each lane's report is the machine intake `reconcile`, `harvest`, and the reviewer-harvest agent parse, written to `<round-dir>/lane-<letter>-report.json` as the lane's final act:
+Fixer-lane doctrine lives in `templates/fix.md`; each lane's report is the machine intake `reconcile`, `harvest`, and the reviewer-harvest agent parse, written to `<round-dir>/lane-<letter>-report.json` as the lane's final act:
 
 ```json signature
 {
@@ -139,9 +137,9 @@ Fixer-lane doctrine lives in `templates/lane-law.md`; each lane's report is the 
 
 ## [05]-[DISTILL]
 
-Reviewer-harvest owns the distill leg: dispatch via `Agent(subagent_type: "reviewer-harvest")` under `templates/harvest-dispatch.md`; it returns a typed surface ledger. Round dirs sit outside the agent's write territory, so project its landed guards into `<round-dir>/surface-ledger.json` yourself as `[{surface, text, path}]` rows — `surface` an engine name or alias, `text` the guard substring, `path` blank defaulting per engine (`.coderabbit.yaml`; the greptile repo-wide cascade; a macroscope topic file under `.macroscope/`) — then `verify --round N` proves each row in its surface's oracle.
+Reviewer-harvest owns the distill leg: dispatch on either transport under `templates/harvest.md`; it returns a typed surface ledger. Round dirs sit outside the agent's write territory, so project its landed guards into `<round-dir>/surface-ledger.json` yourself as `[{surface, text, path}]` rows — `surface` an engine name or alias, `text` the guard substring, `path` blank defaulting per engine (`.coderabbit.yaml`; the greptile repo-wide cascade; a macroscope topic file under `.macroscope/`) — then `verify --round N` proves each row in its surface's oracle.
 
-- [REGISTRY]: `templates/refuted-classes.yaml` rows compile into the claim classifier, the recurrence detector, and the settled-rulings roster sliced into lane manifests by `corpus` tag; `harvest` proposes new rows in the feed, and a landed row is edited in the yaml, never in the script.
+- [REGISTRY]: `templates/refuted-classes.yaml` rows compile into the claim classifier, the recurrence detector, and the settled-rulings roster sliced into lane manifests by `corpus` tag; `harvest` proposes new rows in the feed, `registry --check --rows` proves them (matcher compile, schema, dedup — the loud complement to the classifier's lenient runtime matching), and `registry --apply` lands the clean set append-only; a judgment-bearing merge into an existing row stays a hand edit in the yaml, never in the script.
 - [RAIL_GAPS]: a rail gap a round exposes lands on the rail's own script and data surfaces.
 - [VERIFY]: `verify --round` re-proves each landed guard — a `.coderabbit.yaml` `path_instructions` clause by text, a greptile rule by substring over the resolved `greptile config` output (never by id — org rules re-key to server UUIDs) falling back to full-text over `.greptile/config.json` and `.greptile/rules.md` when the cascade truncates or a scoped rule never resolves at the probe path, the receipt `source` naming the oracle that matched, a macroscope topic file by presence and content.
 - [FEED_OUTPUTS]: provenance and corroboration histograms feed review-the-reviewer — a class one engine raises and rounds keep refuting marks that engine's false-positive tendency, and multi-engine corroboration marks high-confidence work.

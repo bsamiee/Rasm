@@ -17,10 +17,10 @@ Each fact kind below routes to its owner; a fact earns a row in this corpus only
 | [INDEX] | [FACT_KIND]                  | [OWNER]                                            |
 | :-----: | :--------------------------- | :------------------------------------------------- |
 |  [01]   | Language implementation law  | `docs/stacks/<language>/`                          |
-|  [02]   | Design and documentation law | `docs/standards/`                                  |
+|  [02]   | Documentation law            | `docs/standards/`                                  |
 |  [03]   | Design-phase campaign method | `libs/.planning/campaign-method.md`                |
 |  [04]   | Folder-scoped operation      | the folder's `README.md`                           |
-|  [05]   | Agent constitution           | `CLAUDE.md` / `AGENTS.md`                           |
+|  [05]   | Agent constitution           | `CLAUDE.md` / `AGENTS.md`                          |
 |  [06]   | Reviewer behavior            | `.coderabbit.yaml` + `.greptile/` + `.macroscope/` |
 |  [07]   | Cross-surface edit coupling  | `topology.md`                                      |
 |  [08]   | Cross-branch pattern law     | `patterns.md`                                      |

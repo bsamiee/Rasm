@@ -429,7 +429,7 @@ const FRAME_LAW =
 const DOCGEN_LAW =
     'DOCGEN — this run`s doctrine is docgen, not the code stacks. Load the `docgen` skill AND the `skill-writer` skill via the ' +
     'Skill tool BEFORE any edit; load `mermaid-diagramming` before authoring any diagram. Read AT SOURCE, in full: ' +
-    '`docs/standards/` — `design-doctrine.md`, `information-structure.md`, `style-guide.md`, `formatting.md`; the docgen ' +
+    '`docs/standards/` — `information-structure.md`, `style-guide.md`, `formatting.md`; the docgen ' +
     'templates (`readme`, `architecture`, `spec`, `api-catalog`, `ideas`, `tasklog`) for the file kind of each page you touch; ' +
     'and `docs/laws/` (README + topology + patterns + scars). Hold the docgen register (OWNING_SUBJECT, DECISION_PER_LINE, ' +
     'NAMED_SURFACE, CAPABILITY, the FACT_LAW classes), the named defect catalog (STALE_MIRROR, TWIN_TRUTH, META_FRAME, ' +

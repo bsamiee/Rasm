@@ -20,7 +20,7 @@ classes:
       - 're-?valid(at|ity)'
       - 'valid(at|ity)\w*.{0,60}(smart ?enum|value ?(object|struct)|generated (enum|case)|already (validated|admitted|constructed))'
       - '(null|none|invalid|bounds|range).{0,20}(check|guard).{0,60}(smart ?enum|value ?(object|struct)|generated (enum|case)|by construction)'
-    refuting_citation: 'templates/lane-law.md trichotomy — generated-enum instances and value-struct payloads are valid by construction; interior re-validation of admitted values is pushed back'
+    refuting_citation: 'templates/fix.md trichotomy — generated-enum instances and value-struct payloads are valid by construction; interior re-validation of admitted values is pushed back'
     landed_surfaces:
       - '.coderabbit.yaml'
       - '.greptile/rules.md'
@@ -327,7 +327,7 @@ classes:
       - 'remove e\d+'
       - 'fold the codec into prose'
       - 'remove.{0,50}(edge|demonstration).{0,40}(fold|delete)'
-    refuting_citation: 'lane-law zero-functionality-removal — a rehome to an unused pair preserves the demonstration the deletion drops (r4e-09)'
+    refuting_citation: 'templates/fix.md zero-functionality-removal — a rehome to an unused pair preserves the demonstration the deletion drops (r4e-09)'
     landed_surfaces:
       - '.coderabbit.yaml'
       - '.greptile/rules.md'
@@ -392,7 +392,7 @@ classes:
     matchers:
       - '(keeper|orchestrator|dispatcher).{0,40}(must )?(stamp|write|record).{0,40}(report|telemetry|model|wall)'
       - 'lane (report )?cannot (prove|verify|attest).{0,40}(model|wall|telemetry)'
-    refuting_citation: 'fable-lane.md report custody — the lane writes its own report as its final act, the harness states the exact model ID in the lane''s own system prompt, and no rail verb mutates a lane report (r5b-01)'
+    refuting_citation: 'templates/fix.md [DISPATCH] claude-lane report custody — the lane writes its own report as its final act, the harness states the exact model ID in the lane''s own system prompt, and no rail verb mutates a lane report (r5b-01)'
     landed_surfaces:
       - '.greptile/rules.md'
     rounds_seen: [5]

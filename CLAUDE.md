@@ -8,27 +8,19 @@ Rasm is in a long-term planning phase, working strictly within design/spec-sheet
 
 Use the route-owned standard for the file being edited:
 
-| [INDEX] | [FILE_TYPE]                | [ROUTE]                  |
-| :-----: | :------------------------- | :----------------------- |
-|  [01]   | TypeScript (`.ts`, `.tsx`) | `docs/stacks/typescript` |
-|  [02]   | C# production (`.cs`)      | `docs/stacks/csharp`     |
-|  [03]   | Python (`.py`)             | `docs/stacks/python`     |
-|  [04]   | Bash/sh (`.sh`, `.bash`)   | `coding-bash`            |
-|  [05]   | SQL (`.sql`)               | `coding-pg`              |
-|  [06]   | Durable markdown (`.md`)   | `docgen`                 |
-|  [07]   | Mermaid fences             | `mermaid-diagramming`    |
-|  [08]   | HTML artifacts (`.html`)   | `html-studio`            |
+| [INDEX] | [FILE_TYPE]                | [ROUTE]                        | [LOCATION_TO_USE]                              | [NAMING_SCHEMA]                |
+| :-----: | :------------------------- | :----------------------------- | :--------------------------------------------- | :----------------------------- |
+|  [01]   | C# production (`.cs`)      | Docs: `docs/stacks/csharp`     | `libs/csharp`                                  | `PascalCase`                   |
+|  [02]   | Python (`.py`)             | Docs: `docs/stacks/python`     | `libs/python`                                  | `snake_case`                   |
+|  [03]   | TypeScript (`.ts`, `.tsx`) | Docs: `docs/stacks/typescript` | `libs/typescript`                              | `camelCase`                    |
+|  [04]   | Bash/sh (`.sh`, `.bash`)   | Skill: `coding-bash`           | [ANY]                                          | `kebab-case`                   |
+|  [05]   | SQL (`.sql`)               | Skill: `coding-pg`             | [ANY]                                          | `snake_case`                   |
+|  [06]   | Durable markdown (`.md`)   | Skill: `docgen`                | [ANY]                                          | `kebab-case`                   |
+|  [07]   | Mermaid fences             | Skill: `mermaid-diagramming`   | Inside `.md` and `.html` pages                 | [N/A]                          |
+|  [08]   | HTML artifacts (`.html`)   | Skill: `html-studio`           | Durable: `docs/atlas/` Temp: `.claude/scratch` | `<kind>.<scope>[.<slug>].html` |
 
 - Work in `libs/<language>/` requires a FULL reading of ALL files in the root of `docs/stacks/<language>/`, for csharp, the `domain/` folder is case by case.
 - `docs/laws/` is the repo-wide maintenance-law corpus, durable lessons land ONLY at the end of a session of large work when justified.
-
-[NAMING_SCHEMA]:
-
-| [INDEX] | [BRANCH]          | [FOLDER_AND_SOURCE] |
-| :-----: | :---------------- | :------------------ |
-|  [01]   | `libs/csharp`     | `PascalCase`        |
-|  [02]   | `libs/python`     | `snake_case`        |
-|  [03]   | `libs/typescript` | `camelCase`         |
 
 ## [02]-[IMPLEMENTATION_STANDARDS]
 
