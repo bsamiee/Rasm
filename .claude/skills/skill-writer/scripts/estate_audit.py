@@ -21,23 +21,25 @@ type Status = Literal["warn", "fail"]
 
 
 class Check(StrEnum):
-    DESC_BUDGET = "desc-budget"
     FORK = "fork"
+    INTRA_FORK = "intra-fork"
     LISTING_SUM = "listing-sum"
     MISSING_FIELD = "missing-field"
+    NO_VALIDATOR = "no-validator"
     OVERLAP = "overlap"
     SHADOW = "shadow"
     STARVED = "starved"
+    TEMPLATE_SLOTLESS = "template-slotless"
 
 
-DESC_CAP = 1024
-DESC_CEILING = 1536
-DF_CEILING = 0.5
-FORK_MIN_CHARS = 60
-LISTING_BUDGET = 8000
-MIN_DISCRIMINANTS = 2
-OVERLAP_THRESHOLD = 0.35
+DF_CEILING = 0.5  # document-frequency cut: a token in more than half the fleet discriminates nothing
+ESTATE_GATED_SUFFIXES = frozenset((".md",))  # markdown proof is the estate prose gate; every other shipped suffix needs a bundled validator naming it
+FORK_MIN_CHARS = 60  # normalized-line floor: shorter lines are idiom, not a teachable fact
+LISTING_BUDGET = 8000  # fleet description spend proxied against the default 1% listing budget
+MIN_DISCRIMINANTS = 2  # mechanical-discriminant floor a description needs to win selection
+OVERLAP_THRESHOLD = 0.35  # pairwise Jaccard floor that flags a collision candidate
 
+ANGLE_SLOT = re.compile(r"<[A-Za-z][A-Za-z0-9_-]*[>:]")
 CODE_SPAN = re.compile(r"`[^`]+`")
 EXTENSION_TOKEN = re.compile(r"\S*\.\w{2,4}\b")
 FENCE = re.compile(r"^ {0,3}(?:`{3,}|~{3,})")
@@ -134,7 +136,7 @@ class Bundle:
     name_line: int
     description: str
     desc_line: int
-    prose: tuple[tuple[int, str], ...]
+    prose: tuple[tuple[str, int, str], ...]
 
 
 def frontmatter_fields(lines: tuple[str, ...]) -> tuple[int, dict[str, tuple[int, str]]]:
@@ -170,6 +172,13 @@ def body_prose(lines: tuple[str, ...], start: int) -> tuple[tuple[int, str], ...
     return tuple(prose)
 
 
+def sourced(path: Path) -> str | None:
+    try:
+        return path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return None  # a binary or unreadable artifact carries no text to census
+
+
 def load(scan_root: Path, path: Path) -> tuple[Bundle | None, tuple[Row, ...]]:
     try:
         lines = tuple(path.read_text(encoding="utf-8").splitlines())
@@ -185,7 +194,16 @@ def load(scan_root: Path, path: Path) -> tuple[Bundle | None, tuple[Row, ...]]:
         return None, rows
     name_line, name = fields["name"]
     desc_line, description = fields["description"]
-    return Bundle(str(scan_root), path, name, name_line, description, desc_line, body_prose(lines, end)), ()
+    prose: list[tuple[str, int, str]] = [(str(path), number, text) for number, text in body_prose(lines, end)]
+    faults: list[Row] = []
+    for reference in sorted((path.parent / "references").glob("*.md")):
+        try:
+            reference_lines = tuple(reference.read_text(encoding="utf-8").splitlines())
+        except (OSError, UnicodeDecodeError) as exc:
+            faults.append(Row(str(reference), 0, Check.MISSING_FIELD, "warn", f"unreadable reference: {type(exc).__name__}"))
+            continue
+        prose.extend((str(reference), number, text) for number, text in body_prose(reference_lines, 0))
+    return Bundle(str(scan_root), path, name, name_line, description, desc_line, tuple(prose)), tuple(faults)
 
 
 def discriminants(description: str) -> frozenset[str]:
@@ -206,15 +224,6 @@ def token_sets(bundles: tuple[Bundle, ...]) -> dict[str, frozenset[str]]:
         token for token in frozenset().union(*raw.values() or [frozenset()]) if sum(token in words for words in raw.values()) > ceiling
     )
     return {name: words - common for name, words in raw.items()}
-
-
-def budget_rows(bundle: Bundle) -> tuple[Row, ...]:
-    size = len(bundle.description)
-    if size > DESC_CEILING:
-        return (Row(str(bundle.path), bundle.desc_line, Check.DESC_BUDGET, "fail", f"{size} chars > listing ceiling {DESC_CEILING}"),)
-    if size > DESC_CAP:
-        return (Row(str(bundle.path), bundle.desc_line, Check.DESC_BUDGET, "warn", f"{size} chars > portability budget {DESC_CAP}"),)
-    return ()
 
 
 def starved_rows(bundle: Bundle) -> tuple[Row, ...]:
@@ -258,16 +267,48 @@ def shadow_rows(bundles: tuple[Bundle, ...]) -> tuple[Row, ...]:
 
 
 def fork_rows(bundles: tuple[Bundle, ...]) -> tuple[Row, ...]:
-    owners: dict[str, list[tuple[Bundle, int]]] = {}
+    owners: dict[str, list[tuple[Bundle, str, int]]] = {}
     for bundle in bundles:
-        for number, line in bundle.prose:
-            owners.setdefault(line, []).append((bundle, number))
-    return tuple(
-        Row(str(bundle.path), number, Check.FORK, "warn", f"line shared with {', '.join(sorted({peer.name for peer, _ in group} - {bundle.name}))}")
-        for group in owners.values()
-        if len({peer.name for peer, _ in group}) > 1
-        for bundle, number in group
+        for file, number, line in bundle.prose:
+            owners.setdefault(line, []).append((bundle, file, number))
+    rows: list[Row] = []
+    for group in owners.values():
+        if len({file for _, file, _ in group}) < 2:
+            continue
+        check = Check.FORK if len({peer.path for peer, _, _ in group}) > 1 else Check.INTRA_FORK
+        for bundle, file, number in group:
+            peers = sorted({
+                Path(peer_file).name if peer.path == bundle.path else (peer.name if peer.name != bundle.name else str(peer.path.parent))
+                for peer, peer_file, _ in group
+                if peer_file != file
+            })
+            rows.append(Row(file, number, check, "warn", f"line shared with {', '.join(peers)}"))
+    return tuple(rows)
+
+
+def artifact_rows(bundle: Bundle) -> tuple[Row, ...]:
+    root = bundle.path.parent
+    rows: list[Row] = []
+    shipped = frozenset(
+        artifact.suffix
+        for tier in ("templates", "examples")
+        for artifact in (root / tier).glob("**/*")
+        if artifact.is_file() and artifact.suffix
     )
+    sources = tuple(text for entry in sorted((root / "scripts").glob("**/*")) if entry.is_file() and (text := sourced(entry)) is not None)
+    # Coverage needs the suffix as a terminal extension token — ".js" inside ".json" or a word is no mention.
+    named = {suffix for suffix in shipped if any(re.search(rf"{re.escape(suffix)}(?![\w.])", text) for text in sources)}
+    if shipped and not sources:
+        rows.append(Row(str(root), 0, Check.NO_VALIDATOR, "warn", "templates/examples shipped with no scripts/ validator"))
+    elif uncovered := sorted(shipped - ESTATE_GATED_SUFFIXES - named):
+        rows.append(Row(str(root), 0, Check.NO_VALIDATOR, "warn", f"no bundled script names shipped suffix {', '.join(uncovered)}"))
+    for artifact in sorted((root / "templates").glob("**/*")):
+        if not artifact.is_file():
+            continue
+        text = sourced(artifact)
+        if text is not None and not (ANGLE_SLOT.search(text) or SCREAMING_TOKEN.search(text)):
+            rows.append(Row(str(artifact), 0, Check.TEMPLATE_SLOTLESS, "warn", "zero fill slots; a worked instance belongs to examples/"))
+    return tuple(rows)
 
 
 def listing_rows(bundles: tuple[Bundle, ...], budget: int) -> tuple[Row, ...]:
@@ -303,14 +344,14 @@ def run(roots: tuple[Path, ...], threshold: float, budget: int, json_mode: bool)
             if bundle:
                 bundles.append(bundle)
     fleet = tuple(bundles)
-    rows.extend(itertools.chain.from_iterable(budget_rows(bundle) + starved_rows(bundle) for bundle in fleet))
+    rows.extend(itertools.chain.from_iterable(starved_rows(bundle) + artifact_rows(bundle) for bundle in fleet))
     rows.extend(overlap_rows(fleet, threshold) + shadow_rows(fleet) + fork_rows(fleet) + listing_rows(fleet, budget))
     emit(rows, json_mode)
     return 1 if any(finding.status == "fail" for finding in rows) else 0
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Audit a skill estate: budgets, starved triggers, overlap, forks, shadows, listing spend.")
+    parser = argparse.ArgumentParser(description="Audit a skill estate: starved triggers, overlap, forks, shadows, artifact tiers, listing spend.")
     parser.add_argument("roots", nargs="+", type=Path, help="skill roots to sweep for SKILL.md bundles")
     parser.add_argument("--json", action="store_true", help="emit JSON rows")
     parser.add_argument("--overlap-threshold", type=float, default=OVERLAP_THRESHOLD, help="pairwise Jaccard floor that flags a collision candidate")

@@ -11,7 +11,7 @@ This ledger is NOT the journal. That journal (`journal.jsonl`, in the transcript
 - Run ID: <wf\_...>
 - Launched scriptPath: <abs-path-to-the-.js-that-was-launched>
 - Transcript dir: <~/.claude/projects/.../subagents/workflows/wf\_<id>/ — holds journal.jsonl>
-- Run scratch: <.claude/scratch/<workflow-name>/ — lane report files; a continuation script rebuilds completed stages from these plus the journal's `result` records>
+- Run scratch: <.claude/scratch/<workflow-name>-<slug>-<hash>/ — the per-instance dir minted from normalized args; lane report files; a continuation script rebuilds completed stages from these plus the journal's `result` records>
 
 ## Resume / restart (same session only)
 

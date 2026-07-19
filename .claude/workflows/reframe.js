@@ -438,17 +438,14 @@ const DOCGEN_LAW =
     're-framed GROUND-UP per the docgen `references/rewriting.md` procedure — never inherit the source frame.';
 
 const DIVIDERS = (L) =>
-    'DIVIDER GRAMMAR (CLAUDE.md [09]): a CANONICAL top-level section divider is `' +
+    'DIVIDER GRAMMAR — a CANONICAL top-level section divider is `' +
     L.marker +
-    ' --- [LABEL]` + dash-fill to the language width, using a canonical label ' +
-    '(`TYPES`/`CONSTANTS`/`MODELS`/`ERRORS`/`SERVICES`/`OPERATIONS`/`COMPOSITION`/`EXPORTS`) or a precise domain extension ' +
-    '(`[TABLES]`/`[BOUNDARIES]`/`[REPOSITORIES]`/`[POLICIES]`/`[INDEXES]`/`[MIDDLEWARE]`/`[ENTRY]`). A SUB-SECTION divider uses ' +
-    'the LOOSER `' +
+    ' --- [LABEL]` dash-filled to the width its sibling dividers use; a LOOSE sub-section divider is bare `' +
     L.marker +
-    ' --- [LABEL]` form with NO dash-fill. KEEP every divider; repair a malformed one to its correct form; a phantom or ' +
-    'mislabeled divider is corrected only after reading the enclosing section structure; NEVER invent a divider, convert a loose ' +
-    'sub-section into a dash-filled canonical one or vice versa, or relabel a canonical section to a drift label ' +
-    '(`SCHEMA`/`FUNCTIONS`/`HELPERS`/`UTILS`/`MISC`). Dividers are STRUCTURE, exempt from the comment-trim mandate.';
+    ' --- [LABEL]` with no fill; every label is a bracketed UPPERCASE snake token with no internal spaces. KEEP every divider; ' +
+    'repair a malformed one to this grammar, correcting a phantom or mislabeled one only after reading the enclosing section ' +
+    'structure. NEVER invent a divider, or convert a loose sub-section into a dash-filled canonical one or vice versa. Dividers ' +
+    'are STRUCTURE, exempt from the comment-trim mandate.';
 
 const COMMENT_LAW = (L) =>
     'FENCE COMMENTS — every comment inside a code fence is agent-facing framing for the future rebuild agent: one in-situ ' +

@@ -1,6 +1,6 @@
 # [LIST_CRAFT]
 
-List repair is symptom-indexed: each entry names one defect an agent already sees in a bullet run, carries the fixed Detection / Rejected / Accepted / Reason / Reframe card, and shows both list shapes as tiny fences. A mega bullet is a compressed section wearing a hyphen — repair classifies its fragments and routes each to its container; a closed roster whose payload is the enumeration is a registry entry, legal at length, and a `- Field: value` record field answers to the card economy — its defect class is fragment fusion, never length.
+List repair classifies fragments before cutting: a fragment's class, never its length, selects the container it routes to.
 
 ## [01]-[MEGA_BULLET]
 
@@ -198,3 +198,23 @@ Child entries nested under a parent that is not their governing rule are peers m
 
 - Reason: The children are codec and protocol records owning a concern the boundary rule does not govern, so they belong in a registry table; nested under the boundary bullet they read as subordinate details and the parent overstuffs to hold them.
 - Reframe: Keep the boundary law as one line and lift the mis-nested children to the registry table or record set that owns them.
+
+## [09]-[SAME_DECISION_SIBLINGS]
+
+Sibling entries each re-carrying one decision in different words are sediment wearing a list — the merge-inverse of the shredded split: restatements collapse into one denser entry while every distinct clause survives intact.
+
+- Detection: Delete all but the strongest sibling; no law lost proves the run was restatements. An entry carrying a genuinely distinct decision — a boundary, an exception, a failure law — stays a sibling.
+- Rejected:
+    ```markdown rejected
+    - `Compose` folds every row through one dispatch table, never a call-site branch.
+    - Dispatch rides the table; a call-site branch is the deleted form.
+    - Every row resolves through the one table — branching at the call site defeats it.
+    - A row missing its table entry fails loudly at registration, never silently at dispatch.
+    ```
+- Accepted:
+    ```markdown accepted
+    - `Compose` folds every row through one dispatch table, never a call-site branch.
+    - A row missing its table entry fails loudly at registration, never silently at dispatch.
+    ```
+- Reason: Entries one through three re-spell one decision — table-owned dispatch — while the fourth carries a distinct failure law; the merge keeps the strongest spelling with its call-site clause intact and the failure entry whole, so resolution rises as the run shrinks.
+- Reframe: Classify each sibling against the strongest one before deleting: a restatement merges into it, a distinct decision survives as its own entry with its clause intact — never a concatenated mega-entry, never a paragraph flood.

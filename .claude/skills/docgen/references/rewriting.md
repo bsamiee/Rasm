@@ -34,7 +34,7 @@ A correct rewrite is shorter, carries more capability, and leaves nothing to re-
 
 ## [04]-[TABLE_REPAIR]
 
-A broken table is rebuilt through the structural moves, never flattened: teardown into mega-prose lines or a bare unlabeled list destroys the structure the fix was meant to save, and is the same hamfisted inheritance as softening. Split, extract, hoist, relieve — the moves themselves are the structure reference's table-refactor law; this procedure owns only their order:
+A broken table is rebuilt through the structural moves, never flattened: teardown into mega-prose lines or a bare unlabeled list destroys the structure the fix was meant to save, and is the same hamfisted inheritance as softening. Each move is the table law's, composed as given; this procedure owns only the order:
 
 1. [ELIGIBILITY_FIRST] — Test the table against the eligibility triple before touching cells; a failed test converts the whole container to a record set, indexed list, or cards, and a passed test repairs in place.
 2. [MOVES] — Run the refactor moves in place; the cell keeps its atomic value and the index column re-numbers.

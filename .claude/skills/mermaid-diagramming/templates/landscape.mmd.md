@@ -46,29 +46,29 @@ config:
   themeCSS: "rect[stroke='#444444']{stroke:#D6BCFA;stroke-dasharray:5 4}text[fill='#444444']{fill:#D6BCFA}[id$='-arrowhead'] path{fill:#FF79C6;transform:scale(.8);transform-origin:9px 5px}[id$='-arrowend'] path{fill:#FF79C6;transform:scale(.8);transform-origin:1px 5px}image{display:none}"
 ---
 C4Context
-  accTitle: Rasm platform landscape
-  accDescr: An author driving the app platform that solves through the compute kernel into an artifact store, serving a Rhino host operator through the host boundary.
-  title Rasm Platform Landscape
+  accTitle: Platform landscape
+  accDescr: An author driving the app platform that solves through the compute kernel into an artifact store, serving a host operator through the host boundary.
+  title Platform Landscape
   Person(author, "Author", "Plans and lands fences")
-  Person_Ext(operator, "Host Operator", "Drives Rhino")
+  Person_Ext(operator, "Host Operator", "Drives the host app")
   Boundary(platform, "App Platform", "platform") {
-    System(apphost, "Rasm.AppHost", "Composition and ports")
-    System(compute, "Rasm.Compute", "Solver kernel")
-    SystemDb(store, "Rasm.Persistence", "Artifact index")
+    System(apphost, "AppHost", "Composition and ports")
+    System(compute, "Compute", "Solver kernel")
+    SystemDb(store, "Persistence", "Artifact index")
   }
   Boundary(hostzone, "Host Boundary", "host") {
-    System_Ext(rhino, "Rasm.Rhino", "Host adapter")
+    System_Ext(hostapp, "HostApp", "Host adapter")
   }
   Rel(author, apphost, "Plans with")
   Rel(apphost, compute, "Solves through")
   Rel(compute, store, "Writes receipts")
-  Rel(rhino, store, "Reads artifacts")
-  Rel(operator, rhino, "Operates")
+  Rel(hostapp, store, "Reads artifacts")
+  Rel(operator, hostapp, "Operates")
   UpdateRelStyle(author, apphost, $textColor="#F8F8F2", $lineColor="#FF79C6", $offsetY="-30")
   UpdateRelStyle(apphost, compute, $textColor="#F8F8F2", $lineColor="#FF79C6", $offsetY="-14")
   UpdateRelStyle(compute, store, $textColor="#F8F8F2", $lineColor="#FFB86C")
-  UpdateRelStyle(rhino, store, $textColor="#F8F8F2", $lineColor="#FFB86C", $offsetY="-30")
-  UpdateRelStyle(operator, rhino, $textColor="#F8F8F2", $lineColor="#8BE9FD", $offsetY="-14")
+  UpdateRelStyle(hostapp, store, $textColor="#F8F8F2", $lineColor="#FFB86C", $offsetY="-30")
+  UpdateRelStyle(operator, hostapp, $textColor="#F8F8F2", $lineColor="#8BE9FD", $offsetY="-14")
 ```
 
 Refill by renaming boundaries to the real ownership domains — each with its ownership word in the `$type` slot — and elements to the real systems at ONE zoom. Every relation keeps its verb, kind color, and a label offset that clears the packed rows. Lavender boundary hooks, pink scaled markers, per-family mono pairs, and retired sprites are fixed law — a refill renames the landscape, never strips the fidelity surface.

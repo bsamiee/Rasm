@@ -9,7 +9,7 @@
 # Emits one JSON receipt: {replied,resolved,kept_open,gate_failures[],skipped_no_write[]}
 set -euo pipefail
 
-# --- [ARGS] -------------------------------------------------------------------------------------------------------------------
+# --- [ARGS] -----------------------------------------------------------------------------
 DISP=""; HEAD=""
 while [ "$#" -gt 0 ]; do case "$1" in
     --disposition) DISP=$2; shift 2 ;;
@@ -23,7 +23,8 @@ RESOLVE_IDS=()
 GATE_FAILS=()
 NO_WRITE=()
 
-# --- [ROWS] gate, reply, and collect the resolve set --------------------------------------------------------------------------
+# --- [ROWS] -----------------------------------------------------------------------------
+# Gate, reply, and collect the resolve set.
 while IFS= read -r row; do
     tid=$(jq -r '.thread_node_id // ""' <<<"$row")
     verdict=$(jq -r '.verdict // ""' <<<"$row")
@@ -55,7 +56,8 @@ while IFS= read -r row; do
     if [ "$resolve" -eq 1 ]; then RESOLVE_IDS+=("$tid"); else KEPT=$((KEPT + 1)); fi
 done < <(jq -c '.[]' "$DISP")
 
-# --- [BATCH_RESOLVE] one aliased mutation; resolving an already-resolved thread is a no-op -------------------------------------
+# --- [BATCH_RESOLVE] --------------------------------------------------------------------
+# One aliased mutation; resolving an already-resolved thread is a no-op.
 RESOLVED=0
 if [ "${#RESOLVE_IDS[@]}" -gt 0 ]; then
     M=$(printf '%s\n' "${RESOLVE_IDS[@]}" \

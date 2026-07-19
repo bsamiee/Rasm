@@ -8,7 +8,7 @@
 # Emits one JSON line: {met:bool, missing:[...]} ; exit 0 met, 1 not met, 2 usage, 4 error.
 set -uo pipefail
 
-# --- [ARGS] -------------------------------------------------------------------------------------------------------------------
+# --- [ARGS] -----------------------------------------------------------------------------
 PR=${1:?usage: converge.sh <PR> --head <SHA> --reviewers <csv> [--repo <owner/repo>]}; shift
 HEAD=""; REVIEWERS=""; REPO=""
 while [ "$#" -gt 0 ]; do case "$1" in
@@ -31,7 +31,8 @@ query($owner:String!,$repo:String!,$pr:Int!){repository(owner:$owner,name:$repo)
             __typename ... on CheckRun{name status conclusion checkSuite{app{slug databaseId}}}
             ... on StatusContext{context state}}}}}}} } } }' 2>/dev/null) || { echo "converge: snapshot failed" >&2; exit 4; }
 
-# --- [SCORE] jq owns the whole gate; the exit code mirrors .met -----------------------------------------------------------------
+# --- [SCORE] ----------------------------------------------------------------------------
+# Jq owns the whole gate; the exit code mirrors .met.
 OUT=$(printf '%s' "$SNAP" | jq -c --arg H "$HEAD" --arg set "$REVIEWERS" '
     .data.repository.pullRequest
     | .reviews.nodes as $rv | .comments.nodes as $cv

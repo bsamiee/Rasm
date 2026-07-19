@@ -5,14 +5,14 @@ Selection is a one-shot classification over name and description alone, run agai
 ## [01]-[CONSTRUCTION]
 
 Description construction runs in fixed order because truncation eats from the tail:
-- [DELIVERABLE]: First clause names what the skill produces or owns, as a total claim — the one fact that survives every truncation. It names the deliverable, never the procedure that makes it: a description enumerating the skill's internal steps invites the model to obey the description and skip the loaded body, collapsing a multi-step method to a single pass; the method lives in the body, the description carries the produced artifact and the triggers that select it.
+- [DELIVERABLE]: First clause names what the skill produces or owns, as a total claim — the one fact that survives every truncation. It names the deliverable, never the procedure: the method lives in the body alone.
 - [DISCRIMINANTS]: Concrete objects and verbs that select the skill — file kinds, fence kinds, commands, artifact names, verb-plus-object trigger contexts. Precision comes from discriminating nouns, never from breadth or synonym volume.
 - [UTTERANCES]: Quoted user phrasings that select the skill even when the domain noun is absent — the phrases a task actually arrives wearing.
 - [BOUNDARY]: Adjacent deliverable the skill refuses, named last, naming the owning sibling where one exists.
 
 Loader admits a `when_to_use` field appended to the description under one shared cap; the utterance and boundary clauses fold into the single description instead, so one budgeted surface carries the whole trigger and the tail-truncation law governs it undivided.
 
-Third person throughout; a voiced description breaks the selection register beside its siblings. A skill's name is its directory name: a lowercase hyphenated noun or gerund phrase of at most 64 characters naming the deliverable, never a vague stem such as helper, utils, or tools, and never a loader's reserved words.
+Third person throughout; a voiced description breaks the selection register beside its siblings, and a description never enumerates the bundle's internal files or section labels. A skill's name is its directory name: a lowercase hyphenated noun or gerund phrase of at most 64 characters naming the deliverable, never a vague stem such as helper, utils, or tools, and never a loader's reserved words.
 
 Selection gates on task substance as well as description quality: the model consults a skill only for work it cannot readily complete unaided, so a trivial one-step request bypasses even a perfectly discriminated skill. A non-fire on a thin query is task triviality, never a starved trigger; the discriminant is repaired only when a substantive multi-step task inside the skill's own domain misses.
 

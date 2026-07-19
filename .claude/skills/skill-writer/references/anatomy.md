@@ -17,12 +17,20 @@ A bundle is a directory whose every file sits at the lowest tier that owns it: t
 Admission test per kind; a fact failing its kind's test moves down a tier or out of the bundle. Kinds are closed and `SKILL.md` is the only routing surface — a `README.md` or secondary router at any depth is a defect.
 
 - [DESCRIPTION]: Owned deliverable, the concrete objects and verbs that select the skill, and the negative boundary — third person, nothing else. Admission: the sentence changes selection.
-- [ROOT]: Common-path workflow, hard law every activation needs, budget contracts, and one labeled route per branch. Admission: every activation reads it, or it is a route row.
+- [ROOT]: Rulings every activation needs, plus one labeled route per branch. Mechanism grain — exact members, flags, signatures, error numbers, per-parameter behavior — is reference material even when the root has headroom: a compressed root copy accretes errors nobody re-verifies.
 - [REFERENCES]: Deep doctrine one hop from the root, each file whole on its subject and each route labeled by the task that opens it; a reference past 100 lines carries navigational structure — family sections or a leading index. Admission: one branch needs it, the common path does not, and the hop repays its route row with doctrine the root cannot hold and that branch cannot skip. A reference failing the bet folds into the root or dies — existence admits nothing.
-- [EXAMPLES]: Pressure cases at real composed scale, symptom-indexed, each demonstrating its fix. Admission: agents copy the rule incorrectly without the worked pair, and the accepted half drops into a template or live bundle unchanged — every example is an executable seed, never an illustration.
+- [TEMPLATES]: Universal fillable skeleton of one artifact kind — one slot per fill region, zero finished domain logic, a header naming the purpose and the fill roster; a finished instance carries zero residual slot tokens. Admission: kind coverage — the roster enumerates the artifact kinds the domain produces and argues every admission and rejection, so a snippet, generated code, or runtime data file is a rejected category, never a template.
+- [EXAMPLES]: Advanced composed logic demonstrating one concern — its admission, dispatch, and policy moves composing in a single body, growth axis visible — named for what the body actually demonstrates, never a reference fence restated and never an isolated minimum. Admission: agents copy the technique incorrectly without it, and the body drops into live work unchanged — every example is an executable seed, never an illustration.
 - [SCRIPTS]: Deterministic checks, conversions, extractions, renders. Admission: the mechanics are deterministic, repeated, drift-prone, or token-heavy as prose. Root carries only the invocation contract and the receipt shape it returns.
-- [TEMPLATES]: File-kind instances copied verbatim with slot fills, each distilled from a proven example; a finished instance carries zero residual slot tokens.
 - [ASSETS]: Binary and data material scripts consume — fonts, schemas, corpora — never read into context.
+
+[SLOT_GRAMMAR]: Slot shape follows the format — `<UPPER_SNAKE>` in code artifacts, a format-legal bare token where a grammar forbids angle brackets, the corpus hint-phrase slot in markdown file kinds.
+
+[FLAT_BUNDLE]: A bundle carries mechanism in-root only while every line is single-surface truth no branch skips; the first mutually exclusive or rare branch moves one hop down. Skippability decides the shape, never line count.
+
+[TIER_CONTRACT]: References teach mechanism through minimal conceptual fences, templates carry skeletons, examples carry composition — a technique lives in exactly one tier. A merge that finds copies compares content before deleting: the strongest body wins whatever tier holds it, and every nuance of a losing copy lands in the winner first.
+
+[VALIDATION]: Toolchain proof — compile, lint, schema check, live run where cheap — covers every artifact suffix the bundle ships before landing.
 
 ## [03]-[ROOT_SCHEMA]
 
@@ -47,7 +55,7 @@ Every root conforms to one structural schema, so an agent predicts any SKILL.md'
 - [FORK]: `context: fork` runs the body in a forked subagent context, with `agent` choosing the subagent type — the skill becomes a dispatch instead of an in-context load. Fork demands an actionable task in the body; a guidelines-only body forked receives its guidelines with no prompt and returns nothing.
 - [ARGUMENTS]: `arguments` names positional slots and `argument-hint` supplies their autocomplete; `$ARGUMENTS`, `$ARGUMENTS[N]`, and `$N` substitute them into the body, and absent placeholders append the raw arguments after the body.
 - [SHELL]: `shell` selects the interpreter for `` !`command` `` pre-injection lines — `bash` by default, `powershell` under `CLAUDE_CODE_USE_POWERSHELL_TOOL=1`. An injection line runs before the body reaches the model and replaces itself with the command's output.
-- [SUBSTRATE]: Body addresses bundled files and scripts by `${CLAUDE_SKILL_DIR}/...`, which expands to the bundle directory; a bare relative path resolves against the session working directory, not the bundle, and breaks whenever the skill fires from elsewhere.
+- [SUBSTRATE]: Body addresses bundled files and scripts by `${CLAUDE_SKILL_DIR}/...`, which expands to the bundle directory; a bare relative path resolves against the session working directory, not the bundle, and breaks whenever the skill fires from elsewhere. Paths spell forward slashes, an MCP tool spells its qualified `server:tool` name, and every invoked dependency is declared where its interpreter reads it — the skill fires from any host, cwd, and session.
 
 Invocation policy resolves to one of three modes: model-invoked (listed description, autonomous selection), operator-invoked (`disable-model-invocation: true`, zero listing cost), or ambient (`user-invocable: false`, listed but never a command).
 
@@ -65,7 +73,7 @@ Both inversions are the `DEGREES_OF_FREEDOM` defect: a fragile sequence left as 
 
 ## [06]-[SCRIPT_THRESHOLD]
 
-Prose mechanics cross into a bundled script at the first of: the procedure is deterministic end to end; the same steps recur across activations; the prose and an existing tool drift independently; or the narration outweighs its own invocation line. A bundled script is self-contained — pinned interpreter contract, declared dependencies, no network fetch, no global install, no credential read.
+Prose mechanics cross into a bundled script at the first of: the procedure is deterministic end to end; the same steps recur across activations; the prose and an existing tool drift independently; or the narration outweighs its own invocation line. A bundled script is self-contained — pinned interpreter contract, declared dependencies, no network fetch, no global install, no credential read; a punt to the model or an unexplained literal is the `OPAQUE_SCRIPT` defect.
 
 ## [07]-[DIAGRAMS]
 

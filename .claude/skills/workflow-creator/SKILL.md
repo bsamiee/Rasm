@@ -1,6 +1,6 @@
 ---
 name: workflow-creator
-allowed-tools: Bash(node ${CLAUDE_SKILL_DIR}/scripts/*)
+allowed-tools: Bash(node ${CLAUDE_PROJECT_DIR}/.claude/skills/workflow-creator/scripts/*)
 description: >-
     Author runnable workflow scripts for Claude Code's Workflow tool — deterministic
     multi-agent orchestration files under `.claude/workflows/` that fan out fresh-context

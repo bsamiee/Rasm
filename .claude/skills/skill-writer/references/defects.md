@@ -73,13 +73,31 @@ Two precise sibling descriptions both match one prompt, so selection is a coin f
 - Reason: Symmetric refusal makes the prompt's own noun decide the winner instead of chance; each description names the neighbor's deliverable as its own boundary.
 - Reframe: Repair both descriptions, never a body; add the colliding phrasing to both permanent must-not-fire sets. The collision procedure and the neighbor-proof re-run are triggers.md.
 
+### [01.6]-[WORKFLOW_SUMMARY]
+
+A description summarizing the skill's workflow, so the model obeys the description instead of the loaded body and collapses a multi-step method into one pass.
+
+- Detection: A step count, sequence word, or chained method clause in the description — then, first, next, N passes, verb-comma-verb chains — readable as an instruction rather than a trigger; the deliverable's own noun (a review cycle, a migration) is trigger material, never narration.
+- Rejected: Runs code review between tasks, then fixes findings and re-reviews before returning.
+- Accepted: Owns the review cycle for landed diffs. Use when a diff, branch, or PR needs review — "review this", "run the reviewers", "check my changes".
+- Reason: Selection metadata is always resident while the body loads late, so a description carrying the method IS the method to a model that never opens the body; a description states when the skill fires, never how the work runs.
+- Reframe: Strip every process clause to the deliverable and its triggers; the method lives in the body alone.
+
+### [01.7]-[STRUCTURE_ENUMERATION]
+
+- Detection: A description naming the bundle's internal files, reference names, or section labels.
+- Rejected: Covers language.md, runtime.md, and the six root sections from consent through distribution.
+- Accepted: (the deliverable, discriminants, and boundary — internal structure stays invisible to selection.)
+- Reason: No task arrives wearing a filename, so the roster adds zero trigger power and dies on the first rename.
+- Reframe: Delete the enumeration; spend the freed budget on discriminating objects and utterances.
+
 ## [02]-[DISCLOSURE_CLASSES]
 
 ### [02.1]-[MONOLITH_ROOT]
 
-Root inlines reference banks and example floods, so every activation pays for branches the task never takes.
+Root carries mechanism that belongs one hop down, so every activation pays for branches the task never takes — and the line ceiling is not the test: a root far under it still fails when byte-truth rides it.
 
-- Detection: A root past the platform line ceiling, or root sections named after an API reference, a troubleshooting ledger, or an example inventory every activation loads.
+- Detection: Exact members, flags, signatures, error numbers, or per-parameter behavior in root prose, or root sections named after an API reference, a troubleshooting ledger, or an example inventory every activation loads; the flat-bundle exemption rides anatomy's skippability rule.
 - Rejected:
     ```markdown rejected
     ## API Reference
@@ -114,9 +132,19 @@ Root inlines reference banks and example floods, so every activation pays for br
 - Reason: Every reference bets a permanent route row against depth paid on one branch; a file that loses the bet taxes routing while teaching nothing.
 - Reframe: Fold the content into the root or delete the file; a reference is admitted by the branch that needs it, never by the material's existence.
 
+### [02.4]-[INTRA_BUNDLE_FORK]
+
+One fact taught in two files of one bundle — the root digesting a reference, two references sharing a mechanism sentence, or one concern wearing two names across the bundle. Each copy is independently mutable, and the compressed copy is where the errors live.
+
+- Detection: A mechanism sentence at teaching grain in more than one bundle file, or two terms for one concern; the estate audit's fork census is the mechanical floor.
+- Rejected: Root — Selection runs on name and description alone; the body is invisible until the choice is made. Reference — Selection is a one-shot classification over name and description alone; the body never influences the choice.
+- Accepted: Root routes `[02]-[TRIGGERS](references/triggers.md): trigger science and listing economics`; the reference alone teaches selection.
+- Reason: The root states rulings and routes while one reference owns each mechanism — a digest re-verifies nothing and drifts first. When copies differ, the difference is part of the finding.
+- Reframe: Rule the owner by charter — the root for a ruling, one reference for a mechanism — absorb every nuance of the losing copy at the owner, then silence the twin; the root's route row is the only pointer.
+
 ## [03]-[BODY_CLASSES]
 
-A body line earns its place by changing trigger selection, routing, execution, or validation; intensity, ceremony, and restated harness obligations change nothing and are deleted. Form each line takes follows the failure it guards, and that mapping is [03.17]-[FORM_MISMATCH].
+A body line earns its place by changing trigger selection, routing, execution, or validation; intensity, ceremony, and restated harness obligations change nothing and are deleted. Form each line takes follows the failure it guards, and that mapping is [03.16]-[FORM_MISMATCH].
 
 ### [03.1]-[NO_OP_INTENSIFIER]
 
@@ -266,7 +294,7 @@ Body accretes one guard per past incident until dead threats outweigh live law.
 - Rejected: Do not use vague trigger descriptions. Never put examples in the root.
 - Accepted: The description names the owned deliverable and its discriminating nouns; examples ride one hop down, symptom-indexed.
 - Reason: A bare negation defines a hole, not a target — the agent knows one rejected point in an unbounded space and guesses the rest.
-- Reframe: State the positive form that forecloses the prohibited one; keep the negation only where it guards a rule violated under pressure and carries its enforcing mechanism, and pick the instruction's form by its failure per [03.17]-[FORM_MISMATCH].
+- Reframe: State the positive form that forecloses the prohibited one; keep the negation only where it guards a rule violated under pressure and carries its enforcing mechanism, and pick the instruction's form by its failure per [03.16]-[FORM_MISMATCH].
 
 ### [03.14]-[SUPPLY_CHAIN]
 
@@ -293,3 +321,57 @@ A well-founded instruction wears the wrong form for its failure, so it misfires 
 - Accepted: The analysis names the mechanism, the failure mode, and the observed evidence for each finding. (a positive recipe shapes the output the prohibition could not)
 - Reason: The form the instruction takes is a lever, and each failure mode answers to one lever — a prohibition shapes a rule violated under pressure, a positive recipe shapes output form, a required slot forecloses omission, and a predicate scopes conditional behavior; a form mismatched to its failure produces the very output it guards against.
 - Reframe: Classify the failure, then pick the form — prohibition with a rationalization guard for pressure violations, positive recipe for output shape, a required structural slot for omission, a rule conditioned on an observable predicate for conditional behavior.
+
+### [03.17]-[PORTABILITY_BREAK]
+
+A bundle line that resolves only in one environment: a backslash path separator, an MCP tool named without its server, a tool or package assumed installed with no declaration.
+
+- Detection: `\` as a path separator anywhere in the bundle, a bare MCP tool name where `server:tool` resolves it, or an invocation whose dependency no script header or named manifest declares.
+- Rejected: Run scripts\extract.py, then call query-docs for the library reference.
+- Accepted: Run `${CLAUDE_SKILL_DIR}/scripts/extract.py`; library lookups ride `context7:query-docs`.
+- Reason: A skill fires from any host, cwd, and session, so every unresolved surface is a run that breaks somewhere the author never tested.
+- Reframe: Forward slashes, `${CLAUDE_SKILL_DIR}` anchoring, qualified `server:tool` names, and dependencies declared where the interpreter reads them.
+
+## [04]-[ARTIFACT_CLASSES]
+
+### [04.1]-[WORKED_INSTANCE_AS_TEMPLATE]
+
+A `templates/` file carrying finished domain logic with zero fill slots — a worked example wearing a template coat, so every fill inherits the decisions it froze.
+
+- Detection: Zero slot tokens in a template whose body defines complete branch logic.
+- Rejected: A complete gate under `templates/` whose only fill is editing a policy dict in place.
+- Accepted: A skeleton whose every fill region is one slot, constraints as comments, zero finished branches.
+- Reason: A template is the universal skeleton of a kind; finished logic belongs to an example, and a filler editing a worked instance forks its baked-in policy instead of instantiating the kind.
+- Reframe: Split the file — slots and constraints stay the template; the finished logic moves to `examples/` under the name of what it demonstrates.
+
+### [04.2]-[CROSS_TIER_DUPLICATION]
+
+- Detection: A function, handler, or distinctive literal — an error number, a regex, a source string — resolving in more than one tier of one bundle.
+- Rejected: A shell-decompose classifier taught in a reference fence, shipped in a template, and re-demonstrated in an example.
+- Accepted: The reference teaches the hinge in a conceptual fence, one example owns the composed body, the template carries a slot where the classifier plugs in.
+- Reason: One technique lives in one tier; copies drift independently, and the weaker one survives edits the owner never sees.
+- Reframe: Rule the owning tier by the technique's nature — mechanism to the reference, skeleton to the template, composition to the example — and collapse the rest, strongest body winning.
+
+### [04.3]-[UNVALIDATED_ARTIFACT]
+
+- Detection: A shipped `templates/` or `examples/` suffix no toolchain proof binds — no bundled `scripts/` validator naming the suffix and no gate the estate already binds over that suffix; the estate audit's suffix census is the mechanical floor.
+- Rejected: A bundle shipping Python templates and shell examples where ship is a read-through.
+- Accepted: Every shipped suffix resolves to its proof — the bundle validator's clean exit, or the estate gate that already owns the suffix — and ship binds on that exit.
+- Reason: Running the artifact finds the wrong spellings a read-through misses; an unvalidated artifact ships its author's fluency, not its toolchain's verdict.
+- Reframe: Land the validator with the artifacts and cover every suffix the bundle ships; a suffix an estate gate owns needs no bundle copy of that gate.
+
+### [04.4]-[NAME_CONTENT_MISMATCH]
+
+- Detection: A file or routing-row name whose key token is absent from the body it names, or a routed path resolving to no file, or a disk artifact absent from the routing roster.
+- Rejected: `examples/chevron-read.applescript` whose body contains zero chevron literals.
+- Accepted: The file renamed to the concern its body demonstrates, every routing row following disk in the same pass, and a grep for the old name returning nothing.
+- Reason: Names are charters — agents select files by name and load the wrong doctrine when the name lies; a stale roster is the same lie at the routing tier.
+- Reframe: Rename to the demonstrated concern or rebuild the body to the name; the routing roster follows disk in the same pass.
+
+### [04.5]-[OPAQUE_SCRIPT]
+
+- Detection: An error branch that punts to the model — a bare failure left for the agent to figure out — or a numeric config literal with no stated reason.
+- Rejected: `TIMEOUT = 47` above a bare `except` that exits 1, leaving the agent to rerun and guess.
+- Accepted: `TIMEOUT = 47  # p99 render latency plus one retry`, and a receipt naming the failing path, the cause, and the fix surface.
+- Reason: A script's whole value is executing without entering context; an opaque failure drags the implementation back into the window, and an unexplained constant is untunable law.
+- Reframe: Every failure lands a precise receipt; every constant carries its reason where it is declared.

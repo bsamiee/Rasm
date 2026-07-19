@@ -20,9 +20,9 @@ Each price carries `currency`, `price`, `first_period_price` (the promotional fi
 
 A payment method is created only in hPanel (`hpanel.hostinger.com/billing/payment-methods`); the API lists, sets the default, and deletes, never creates. An omitted `payment_method_id` on a purchase falls to the account default.
 
-```bash copy-safe
+```bash template
 curl -X GET  "https://developers.hostinger.com/api/billing/v1/payment-methods" -H "Authorization: Bearer $HOSTINGER_API_TOKEN"
-curl -X POST "https://developers.hostinger.com/api/billing/v1/payment-methods/517244" -H "Authorization: Bearer $HOSTINGER_API_TOKEN"   # set default
+curl -X POST "https://developers.hostinger.com/api/billing/v1/payment-methods/<payment-method-id>" -H "Authorization: Bearer $HOSTINGER_API_TOKEN"   # set default
 ```
 
 A `credit_card` method can demand extra verification that leaves an order unprocessed; a non-card default clears that path. `paymentMethodId` is an integer.

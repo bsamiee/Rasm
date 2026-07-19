@@ -6,7 +6,7 @@
 # Writes: reviews.json inline.json issue.json threads.json head.txt ; prints one receipt line with per-surface counts.
 set -euo pipefail
 
-# --- [ARGS] -------------------------------------------------------------------------------------------------------------------
+# --- [ARGS] -----------------------------------------------------------------------------
 PR=${1:?usage: pull-comments.sh <PR> --dir <workdir> [--repo <owner/repo>]}; shift
 DIR=""; REPO=""
 while [ "$#" -gt 0 ]; do case "$1" in
@@ -19,7 +19,7 @@ esac; done
 [ -n "$REPO" ] || REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
 mkdir -p "$DIR"
 
-# --- [PULL] -------------------------------------------------------------------------------------------------------------------
+# --- [PULL] -----------------------------------------------------------------------------
 HEAD=$(gh api "repos/$REPO/pulls/$PR" --jq .head.sha)
 printf '%s\n' "$HEAD" >"$DIR/head.txt"
 gh api "repos/$REPO/pulls/$PR/reviews?per_page=100" --paginate | jq -s 'flatten' >"$DIR/reviews.json"

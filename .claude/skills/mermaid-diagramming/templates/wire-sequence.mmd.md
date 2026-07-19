@@ -35,13 +35,13 @@ config:
 ---
 sequenceDiagram
     accTitle: Bridge wire exchange
-    accDescr: The app host dispatching a certified frame through the bridge wire to the Rhino host, with a timeout break, a bounded reply-stream loop, a mandatory trailer drain with its fault option, a rejected alternative, an async telemetry send, and the frame shape noted over the wire.
+    accDescr: The app host dispatching a certified frame through the bridge wire to the host app, with a timeout break, a bounded reply-stream loop, a mandatory trailer drain with its fault option, a rejected alternative, an async telemetry send, and the frame shape noted over the wire.
     autonumber
     box rgb(33, 34, 44) APP PROCESS
         participant C as AppHost composer
         participant W as Bridge wire
     end
-    participant R as Rhino host
+    participant R as Host app
     Note over C,W: Frame { contentKey, payload }
     C->>W: Request(Frame)
     break wire timeout

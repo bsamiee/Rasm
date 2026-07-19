@@ -20,42 +20,33 @@ A skill is deployed law plus packaged capability: the description competes for s
 ## [01]-[ROUTING]
 
 [REFERENCES]:
-- [01]-[ANATOMY](references/anatomy.md): bundle anatomy, budgets, frontmatter policy, the root schema, freedom calibration
-- [02]-[TRIGGERS](references/triggers.md): trigger science and listing economics
-- [03]-[DEFECTS](references/defects.md): catalogs each authoring defect class with its copyable repair
+- [01]-[ANATOMY](references/anatomy.md): bundle anatomy — tiers, file kinds, template and example doctrine, root schema, frontmatter policy, freedom calibration
+- [02]-[TRIGGERS](references/triggers.md): trigger science, listing economics, invocation modes, description tuning
+- [03]-[DEFECTS](references/defects.md): authoring defect catalog, each class with its copyable repair
 
 [TEMPLATES]:
-- [01]-[SKILL](templates/skill.template.md): carries the root schema as a copyable skeleton; fill the slots, leave zero residual tokens
+- [01]-[SKILL](templates/skill.template.md): root schema as a copyable skeleton; fill the slots, leave zero residual tokens
 
 [SCRIPTS]:
 - [01]-[ESTATE_AUDIT](scripts/estate_audit.py): one-pass fleet sweep; invocation in the estate section
 
-## [02]-[BUDGETS]
+## [02]-[BUNDLE_LAW]
 
-- [ROOT]: `SKILL.md` holds at most 500 lines and is the bundle's only router; a `README.md` or secondary index at any depth is a defect.
-- [DEPTH]: References carry depth one hop down, and a route's target never routes onward.
-- [DESCRIPTION]: At most 1024 characters, third person, deliverable and primary triggers first — listings truncate, and the tail dies first.
-- [BODY]: A loaded body persists across turns and lands late where attention is dense — its law binds, and every dead line taxes the whole session.
-- [SCRIPTS]: Execute without entering context; their cost is invocation and receipt, never implementation.
-
-## [03]-[TRIGGERS]
-
-Selection runs on name and description alone — the body is invisible until after the choice is made. Each description names the owned deliverable, the discriminating objects and verbs that select it, and the adjacent deliverable it refuses; under-triggering is the dominant field failure, so descriptions lean assertive.
-
-## [04]-[EVALS]
-
-A skill is proven, never assumed: trigger evals show it fires on the tasks it owns and stays silent on its neighbors; adherence evals show the loaded body changes output against a baseline run. A body rule that never changes an output across the suite is dead weight and is deleted.
-
-## [05]-[GATE]
-
-Every bundle file passes the docgen skill's prose gate before return — it mechanically binds frontmatter shape, name and directory identity, description voice and budgets, the root line ceiling, orphan bundle files, and nested reference hops, beside the full prose floor. Register inside every bundle file answers to the docgen catalog; this skill owns what the bundle is, docgen owns how its prose speaks.
-
-## [06]-[COMPOSITION]
-
-- Each skill owns one deliverable kind and names the adjacent one it refuses; two skills matching one prompt is a defect on both descriptions.
-- Shared doctrine has one owning skill every sibling composes silently; a policy sentence or marker vocabulary spelled in two bundles is a fork.
+- Byte-truth and mechanism live one hop down when reference lanes are situational — a typical invocation consuming a proper subset; a bundle whose every invocation consumes the whole set stays flat, since splitting always-co-loaded mechanism buys no context and arms the partial-load mis-steer. In a split bundle a root sentence survives only when deleting it loses a ruling needed before any reference opens, and the universal layer is a handful of rulings, never a file.
+- A fact lives once in a bundle — the root or exactly one reference owns it, the root's route row is the only pointer, and when copies are found the strongest body wins with every nuance absorbed before the twin goes silent.
+- A quality pass is net-negative: near-similar rules accumulated across root and references restructure into one higher-resolution law at the ruled owner under the docgen SAME_DECISION_SPREAD reframe, so resolution rises while line count falls, and a bundle that grew under review is the prime suspect.
+- A member, flag, signature, or constant asserted in bundle prose is verified against its live surface before authoring; an unverifiable claim lands as a research row carrying its verification route, never settled prose.
+- One technique lives in one tier — reference fence, template slot, or example body — and every shipped template and example passes the bundle's own `scripts/` validator before landing; the estate audit's `NO_VALIDATOR` check owns the coverage census.
 - A mixed task routes by deliverable, never by topic: prose to the prose owner, fences to the fence owner, bundles to this skill, in sequence.
 
-## [07]-[ESTATE]
+## [03]-[EVALS]
 
-An installed fleet is one selection system: descriptions compete in a shared listing, the budget is common property, and a defect in one bundle degrades its neighbors' selection. `${CLAUDE_SKILL_DIR}/scripts/estate_audit.py <roots...>` sweeps every bundle beneath the given roots in one pass and receipts description budgets, starved triggers, pairwise trigger overlap, cross-bundle prose forks, shadowed names, and the listing spend — text rows by default, `--json` for machine consumers, nonzero exit on hard failures.
+A skill is proven, never assumed, and the eval precedes the body: a baseline run without the skill demonstrates the gap the body exists to close before extensive law is authored. Trigger evals show it fires on the tasks it owns and stays silent on its neighbors; adherence evals show the loaded body changes output against the baseline; a body rule that never changes an output across the suite is dead weight and is deleted. Self-preference bias is empirical, so the generator never judges its own bundle: grading runs in a fresh context or a second lens against transcripts, never the author's read of its own artifact. Evals ride the estate's ruled model alone; the estate model law overrides the multi-model sweep.
+
+## [04]-[GATE]
+
+Every bundle file passes the docgen skill's prose gate before return, and register inside every bundle file answers to the docgen catalog: this skill owns what the bundle is, docgen owns how its prose speaks.
+
+## [05]-[ESTATE]
+
+An installed fleet is one selection system: descriptions compete in a shared listing, the budget is common property, and a defect in one bundle degrades its neighbors' selection. Shared doctrine has one owning skill every sibling composes silently. `${CLAUDE_SKILL_DIR}/scripts/estate_audit.py <roots...>` sweeps every bundle beneath the given roots in one pass — text rows by default, `--json` for machine consumers, nonzero exit on hard failures; the script's `Check` vocabulary owns the census.

@@ -5,7 +5,7 @@ description: >-
     turn, `/btw`, fork, subagent, background task, nested subagent, agent team, dynamic
     workflow — with the selection economics that pick one, the delegation contract that makes
     a worker prompt self-contained (objective, territory, output contract, receipt), the
-    communication topologies (star, pipeline, panel, tournament, loop), depth and fan-out
+    communication topologies (star, pipeline, panel, tournament, generate-filter, loop), depth and fan-out
     budgeting, and the runtime mechanics of background permission surfacing, `SendMessage`
     resume, and worker memory. Use when parallelizing work,
     delegating a task to a subagent or teammate, choosing between a subagent, fork, team, or
@@ -56,7 +56,7 @@ ROOT DISCIPLINE is a contract field beside commit discipline: a worker resolves 
 
 ## [04]-[TOPOLOGY]
 
-Result flow is chosen before the first spawn: star for independent fan-out with one consolidator, pipeline for staged transforms with artifact contracts, panel for adversarial judgment, tournament for best-of-N with blind comparison, loop for repeat-until-verified.
+Result flow is chosen before the first spawn — the shape decides who consolidates, what each worker returns, and when the run stops. The shape table in the topologies reference owns the roster and its selection criteria.
 
 ## [05]-[DEPTH]
 
@@ -75,6 +75,4 @@ Workers run in the background by default and drop to the foreground only when th
 - Hook construction for `SubagentStart`, `SubagentStop`, `TeammateIdle`, and task gates belongs to hooks-builder; this skill names where a gate pays.
 - Recurring machine work — launchd rows, the signed webhook inbox — belongs to the estate machine owner; the table names when work leaves agents.
 - Memory files, rules, settings, model and effort defaults, and headless lanes belong to harness-steering; a subagent's frontmatter stays here.
-- A delegation smell, orchestration error, or superior pattern is codified into its owning skill that session; session-only knowledge is a regression.
 - [ROUTING]: codex owns offload mechanics, workflow-creator script shapes, this skill placement and contract law, harness-steering settings and hooks.
-- [PROPAGATION]: A codified lesson lands byte-identical in every project, reviewer configs included.

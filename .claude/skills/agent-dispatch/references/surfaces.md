@@ -25,7 +25,7 @@ A custom subagent is a Markdown file with YAML frontmatter whose body becomes th
 
 ## [02]-[MODEL_RESOLUTION]
 
-Worker model resolves in fixed order: the `CLAUDE_CODE_SUBAGENT_MODEL` environment variable, the per-invocation `model` parameter, the frontmatter `model`, then the main conversation's model. Values excluded by an `availableModels` allowlist are skipped and the inherited model runs instead. Extended thinking follows the main conversation with no per-worker override.
+Worker model resolves in fixed order; the `CLAUDE_CODE_SUBAGENT_MODEL` environment variable, the per-invocation `model` parameter, the frontmatter `model`, then the main conversation's model. Values excluded by an `availableModels` allowlist are skipped and the inherited model runs instead. Extended thinking follows the main conversation with no per-worker override.
 
 ## [03]-[TOOL_CONTROL]
 

@@ -100,24 +100,26 @@ rg --json 'ERROR' logs/ \
 
 ## [04]-[AWK]
 
-Prefer `choose` for simple field selection. Prefer `mlr` for CSV/TSV (header-aware, typed). awk for: aggregation, state machines, multi-field formatting on unstructured text. Use gawk `5.3+` `--csv` for CSV with quoted fields — eliminates `-F','` breakage on embedded commas.
+Prefer `choose` for simple field selection. Route ALL CSV/TSV through `mlr` or `qsv` — both parse quoted fields and embedded commas, which awk `-F','` splits wrong. Reserve awk for aggregation, state machines, and multi-field formatting on unstructured text.
+
+`/usr/bin/awk` on macOS owns a permissive `--csv` miss: it ignores the flag and exits `0`. Portability probes bind the exact binary and required flag before dispatch.
 
 ```bash copy-safe
 # Frequency table — single program, no pipe chain
 awk '{ip[$1]++} END {for (i in ip) printf "%6d %s\n", ip[i], i}' access.log | sort -rn
 # Multi-counter in single pass
 awk '/ERROR/{e++} /WARN/{w++} /FATAL/{f++} END {printf "E=%d W=%d F=%d\n",e,w,f}' app.log
-# Native CSV parsing (gawk 5.3+) — handles quoted fields, embedded commas
-gawk --csv '{revenue[$1] += $3} END {for (k in revenue) printf "%s: %.2f\n", k, revenue[k]}' sales.csv
+# mlr owns grouped revenue aggregation over quoted CSV.
+mlr --icsv --opprint stats1 -a sum -f revenue -g region sales.csv
+# qsv owns global revenue-column statistics over large or indexed CSV.
+qsv stats --select revenue sales.csv
 # State machine: extract blocks between markers
 awk '/^BEGIN/{capture=1; next} /^END/{capture=0} capture{print}' structured.log
 # Dedup preserving order
 awk '!seen[$0]++' file.txt
-# JSON-aware boolean output (gawk 5.2+)
-gawk 'BEGIN {print mkbool(1), mkbool(0)}' # true false (typed, not 1/0)
 ```
 
-Builtins: `NF` (fields), `NR` (line#), `FNR` (file-line#), `FS`/`OFS` (separators), `FILENAME`. gawk 5.4: MinRX engine (POSIX-compliant default), `\uHHHH` Unicode escapes, `@nsinclude` for namespace-preserving includes.
+Builtins: `NF` (fields), `NR` (line#), `FNR` (file-line#), `FS`/`OFS` (separators), `FILENAME` — POSIX, present in every awk.
 
 [ZERO_FORK_ALTERNATIVE]: When extracting/transforming bash variables, prefer `local -n` nameref + `printf -v` over spawning awk/sed subshells. Reserve awk for multi-line aggregation and state machines where bash builtins cannot compete.
 

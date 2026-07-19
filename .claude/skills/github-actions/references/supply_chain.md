@@ -50,6 +50,8 @@ Org-level SHA-pin enforcement is the supply-chain control; OCI immutable action 
 
 ### [02.2]-[PROVIDER_MATRIX]
 
+This matrix is the OIDC provider owner; `best-practices.md` routes here.
+
 | [INDEX] | [PROVIDER] | [ACTION]                                | [CURRENT_MAJOR] | [KEY_INPUTS]                                    |
 | :-----: | :--------- | :-------------------------------------- | :-------------: | :---------------------------------------------- |
 |  [01]   | AWS        | `aws-actions/configure-aws-credentials` |       v6        | `role-to-assume`, `aws-region`                  |
@@ -138,6 +140,8 @@ harden-runner is an EDR-class agent for GitHub Actions runners.
 
 ### [05.1]-[TOKEN_SELECTION]
 
+This table is the token-selection owner; `best-practices.md` routes here. Prefer App tokens over PATs — scoped, auditable, account-independent.
+
 | [INDEX] | [TYPE]           | [SCOPE]            | [LIFETIME]   | [CROSS_REPO] | [USE_CASE]           |
 | :-----: | :--------------- | :----------------- | :----------- | :----------: | :------------------- |
 |  [01]   | `GITHUB_TOKEN`   | Current repo       | Job duration |      No      | Standard in-repo CI. |
@@ -172,14 +176,8 @@ harden-runner is an EDR-class agent for GitHub Actions runners.
 
 ## [07]-[NODE_RUNTIME]
 
-| [INDEX] | [RUNTIME] | [STATUS]                                  | [DEADLINE]        |
-| :-----: | :-------- | :---------------------------------------- | :---------------- |
-|  [01]   | node16    | Removed.                                  | Already enforced. |
-|  [02]   | node20    | Deprecated — forced migration to node24.  | March 4, 2026.    |
-|  [03]   | node22    | Skipped — GitHub jumped node20 -> node24. | N/A.              |
-|  [04]   | node24    | Current default.                          | Active.           |
+Runtime status and migration history live in `modern_features.md` [08]-[NODE_RUNTIME]. Supply-chain flags:
 
-[IMPORTANT]:
-- [ALWAYS]: Flag actions still bundled with node20 runtime — will break after March 4, 2026.
+- [ALWAYS]: Flag actions still bundled with node20 runtime — they break on current runners.
 - [ALWAYS]: Flag `actions/cache@v3` or `@v4` — requires v5 for node24 compatibility.
-- [ALWAYS]: Flag `actions/checkout@v4` or earlier — v6 is current stable with node22+ runtime.
+- [ALWAYS]: Flag `actions/checkout@v4` or earlier — v6 is current stable on the node24 runtime.

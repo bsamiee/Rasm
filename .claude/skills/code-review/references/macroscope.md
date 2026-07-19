@@ -49,7 +49,7 @@ Each check-run agent is one cross-cutting lens over the whole diff — boundary 
 
 ## [07]-[LANGUAGES]
 
-Native AST-level, per-language-tuned review covers Go, Python, TypeScript, JavaScript, Vue, Java, Rust, Kotlin, Swift, and Ruby; every other language rides the agentic cross-file engine — C# included, so C# doctrine reaches the reviewer only through `correctness/csharp/*` instructions. Config files, documentation, and scripts review as non-code, which is how markdown planning corpora enter scope.
+Two engines split the roster: mainstream application languages get native AST-level, per-language-tuned review, and every language outside that set rides the agentic cross-file engine. `macroscope --help` and the vendor release notes carry the current native set. C# rides the agentic engine, so C# doctrine reaches the reviewer only through `correctness/csharp/*` instructions. Config files, documentation, and scripts review as non-code, which is how markdown planning corpora enter scope.
 
 ## [08]-[DISTILL_SURFACE]
 

@@ -33,14 +33,14 @@ flowchart TB
     accTitle: Package stratum law
     accDescr: Four stacked strata from app through host boundary and domain onto a member-resolved kernel, downward-only import edges naming one sourced type each, cluster-target edges landing on layer boundaries, and one forbidden upward edge styled red.
     subgraph L4[APP]
-        App[Rasm.AppUi]
+        App[AppUi]
     end
     subgraph L3[HOST BOUNDARY]
-        Host[Rasm.Rhino]
+        Host[HostApp]
     end
-    subgraph L2[AEC DOMAIN]
-        Bim[Rasm.Bim]
-        Compute[Rasm.Compute]
+    subgraph L2[DOMAIN]
+        Core[Core]
+        Compute[Compute]
     end
     subgraph L1[KERNEL]
         Frames[Frames]
@@ -50,7 +50,7 @@ flowchart TB
     App e1@-->|"[IMPORT]: HostFrame"| Host
     Host e2@--> L2
     App e3@--> L2
-    Bim e4@-->|"[IMPORT]: FrameShape"| Frames
+    Core e4@-->|"[IMPORT]: FrameShape"| Frames
     Compute e5@-->|"[IMPORT]: SolveReceipt"| Receipts
     Frames r1@--> Identity
     Receipts r2@--> Identity
@@ -61,7 +61,7 @@ flowchart TB
     classDef recessed fill:#21222C,stroke:#6272A4,color:#F8F8F2
     classDef edgeControl stroke:#FF79C6,color:#F8F8F2
     classDef edgeError stroke:#FF5555,stroke-width:3px,color:#F8F8F2
-    class App,Host,Bim,Compute primary
+    class App,Host,Core,Compute primary
     class Frames,Identity,Receipts recessed
 ```
 

@@ -318,7 +318,7 @@ Silent traps live where syntax parses but styling does not apply or applies dest
 
 ## [06]-[FLOORS]
 
-Every family ships at or above its render floor — `theme: base`, `look: classic`, the mono stack, the flat locks, palette closure, label backing, and the micro-scale stamp — with each family's floor keys demonstrated in its syntax section. Ten families carry a bound the floor works around:
+Every family ships at or above its render floor — `theme: base`, `look: classic`, the mono stack, the flat locks, palette closure, label backing, and the micro-scale stamp — with each family's floor keys demonstrated in its syntax section. These families carry a bound the floor works around:
 
 | [INDEX] | [FAMILY]      | [BOUND]                                                                               |
 | :-----: | :------------ | :------------------------------------------------------------------------------------ |

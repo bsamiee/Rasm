@@ -31,7 +31,7 @@ A report argues a verdict from evidence; the verdict leads and the evidence desc
 
 A dashboard answers its headline question in the default state with zero interaction; every control past that point is a lens, never a gate.
 
-- [SPINE]: the stat row (headline numerals with trend deltas) above the fold; the primary chart region; the breakdown tables; the anomaly or exception list last — a healthy dashboard's exception list renders its authored empty state.
+- [SPINE]: a stat row (headline numerals with trend deltas) above the fold; the primary chart region; the breakdown tables; the anomaly or exception list last — a healthy dashboard's exception list renders its authored empty state.
 - [MARKS]: chart form, palette, and mark law defer to the dataviz owner; the page contributes the shell, the `--series-*` bindings, and the zero-baseline hairline order.
 - [TABLES]: every table carries `<tfoot>` aggregates recomputed from visible rows; numeric columns bind `td.num`; the widest table scrolls inside its own wrapper.
 - [FILTERS]: filter clusters live in `<search>`; an active filter is always visible with its match count; scope filters hide, attention filters dim — and every visible aggregate recomputes under both.
@@ -58,7 +58,7 @@ A plan orders its sections by tweak pressure, never by execution order: the deci
 - [SPINE]: header triad with the plan's one-line thesis; the decision sections first — data shapes, interfaces, user-facing flows, each stating its chosen form and the live alternative it beat; the stage sequence; the risk table; mechanical work last, inside `<details>` per stage.
 - [DECISIONS]: each leading decision renders the chosen shape as real material — a schema block, a signature, a rendered flow — never prose describing an unbuilt surface; the alternative it beat carries its one-line cost so a reviewer can reopen it deliberately.
 - [STAGES]: stage cards carry `data-id`, an owner and gate kv ledger, and the stage's exit test as its closing line; a data-flow or sequence figure earns its place when three or more stages hand material to each other.
-- [RISK]: the risk table crosses risk by trigger by mitigation; a risk without a named observable trigger is a mood, and the table refuses it.
+- [RISK]: risk tables cross risk by trigger by mitigation; a risk without a named observable trigger is a mood, and the table refuses it.
 - [CAPTURE]: per-stage verdicts (`approve`, `defer`, `reject`) plus the global decision; annotations anchor to stage ids; the fold-back copy control emits the approved plan in execution order — capture order and emission order deliberately invert, because the reviewer reads by tweak pressure and the executor reads by sequence.
 - [ANTI]: a linear narrative that buries the reversible decision under stage seven; ASCII or prose diagrams where one SVG figure carries the flow; a mock described instead of rendered.
 
@@ -67,9 +67,9 @@ A plan orders its sections by tweak pressure, never by execution order: the deci
 A decision doc confronts the reader with rendered rivals and returns a ruling; it is the one type whose body is the option set itself.
 
 - [SPINE]: header triad stating the question as the deck line; the constraint frame (what any option must survive) as a keyline rail; the option grid; the scoring matrix where the choice is weighed; the ruling section; rejected options with their reopen conditions.
-- [OPTIONS]: the option grid renders two to four `article.option` cards, each carrying its thesis, its cost in the same units as its rivals, a one-line tradeoff, and its evidence anchors; a visual or structural choice renders live variants — real code, real layout, judged under both themes — because taste reacts to the thing, never to its description.
+- [OPTIONS]: an option grid renders two to four `article.option` cards, each carrying its thesis, its cost in the same units as its rivals, a one-line tradeoff, and its evidence anchors; a visual or structural choice renders live variants — real code, real layout, judged under both themes — because taste reacts to the thing, never to its description.
 - [SCORING]: criteria and weights render before any score — a matrix whose weights arrive after the scores is retrofit advocacy; heat cells cap their fill so text holds contrast at full score, and the winner signals through its `--ok` rail, never fill alone.
-- [RULING]: the ruling is one indicative sentence naming the owning form, followed by its consequence; each rejected option carries the argument that lost it and the observable condition that reopens it — a rejection without a reopen condition reads as dogma.
+- [RULING]: a ruling is one indicative sentence naming the owning form, followed by its consequence; each rejected option carries the argument that lost it and the observable condition that reopens it — a rejection without a reopen condition reads as dogma.
 - [CAPTURE]: per-option verdicts, the pick, per-criterion score edits, and steal-selections — the chips marking fragments of a losing option that fold into the winner; the envelope's `decision.status` carries the pick and the markdown form leads with the ruling.
 - [ANTI]: a single proposition offered for ratification — agree-or-disagree harvests acquiescence; a recommendation with no rendered rival; options whose costs are stated in different units so nothing compares.
 

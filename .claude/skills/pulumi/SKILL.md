@@ -39,7 +39,7 @@ An uncertain CLI flag, command shape, or resource property is looked up, never g
 
 ## [02]-[ONE_SHOT_OPERATIONS]
 
-`pulumi do` runs one-shot, stateless resource operations against any provider — no project files, no `${...}` wiring, no Pulumi state. `npx pulumi <command>` is the canonical invocation; `npx pulumi version` confirms availability without touching Pulumi Cloud, and the resource verbs require CLI `v3.243.0` or newer.
+`pulumi do` runs one-shot, stateless resource operations against any provider — no project files, no `${...}` wiring, no Pulumi state. `npx pulumi <command>` is the canonical invocation — the PATH `pulumi` lacks the resource verbs. `npx pulumi version` confirms availability without touching Pulumi Cloud.
 
 ```text
 pulumi do <pkg:mod:type> create [flags]

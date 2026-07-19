@@ -26,6 +26,7 @@ type Align = Literal["center", "left", "right", "none"]
 
 
 class Check(StrEnum):
+    AI_LEXICON = "ai-lexicon"
     ARTICLE_OPENER = "article-opener"
     BOLD_EMPHASIS = "bold-emphasis"
     COLLECT = "collect"
@@ -150,8 +151,7 @@ CARD_ROW = re.compile(r"^\s*-\s+`[^`]+`\s+-\s+")
 ARTICLE_ANNOTATION = re.compile(
     r"^\s*(?:(?:[-+*]|\d+[.)])\s+)?(?:\[[^\]]*\][-\u2013\u2014]?\s*)*(?:`[^`]+`|\[[^\]]+\]\([^)\s]+\))\s*(?:[\u2013\u2014:]|-)\s+[Tt]he\s"
 )
-# A list-entry body never opens on the definite article in either case, behind a marker label or bare; an entry leads
-# with its owner's name or verb.
+# A list-entry body never opens on the definite article in either case, behind a marker label or bare; an entry leads with its owner's name or verb.
 ARTICLE_FRAGMENT = re.compile(r"^\s*(?:[-+*]|\d+[.)])\s+(?:\[[A-Z][A-Z0-9_]*\](?:-\[[A-Z][A-Z0-9_]*\])*:\s+)?[Tt]he\s")
 # A sentence never opens on the definite article, which buries the owning subject one word deep. Boundary strength picks
 # its case: a line start and a true sentence end admit neither `The` nor the lowercase dodge that clears the check while
@@ -271,6 +271,17 @@ NO_OP_WORD = re.compile(
     r"|state-of-the-art|best-in-class|world-class|powerful|utiliz(?:e|es|ed|ing)|comprehensive)\b",
     re.IGNORECASE,
 )
+# AI-register lexemes warn: puffery, significance theater, transition filler, and summary tails carry zero domain load; each hit
+# is delete-or-reframe, never synonym-swap. `leverage` names the estate's stacking hunt axis and `overall` legally grades shape
+# and structure — both stay off the roster.
+AI_LEXICON = re.compile(
+    r"\b(?:delv(?:e|es|ed|ing)|tapestry|testament|pivotal|meticulous(?:ly)?|showcas(?:e|es|ed|ing)|multifaceted"
+    r"|myriad|plethora|holistic|intricate|nuanced|vibrant|additionally|moreover|furthermore"
+    r"|in conclusion|in summary|to summarize)\b",
+    re.IGNORECASE,
+)
+# Copula avoidance warns: an identity claim states is/are/has; a serves-as apposition re-labels the surface without owning its concern.
+COPULA_AVOIDANCE = re.compile(r"\b(?:serves|stands|functions|operates)\s+as\b|\bboasts\b", re.IGNORECASE)
 PATTERNS: tuple[tuple[Check, re.Pattern[str], Status], ...] = (
     (Check.HEDGE, HEDGE_WORDS, "fail"),
     (Check.HEDGE, MARKER_WORDS, "fail"),
@@ -285,6 +296,8 @@ PATTERNS: tuple[tuple[Check, re.Pattern[str], Status], ...] = (
     (Check.EM_DASH, EM_DASH_ASCII, "fail"),
     (Check.ARTICLE_OPENER, SENTENCE_ARTICLE, "fail"),
     (Check.NO_OP_WORD, NO_OP_WORD, "warn"),
+    (Check.AI_LEXICON, AI_LEXICON, "warn"),
+    (Check.WEAK_VERB, COPULA_AVOIDANCE, "warn"),
 )
 
 

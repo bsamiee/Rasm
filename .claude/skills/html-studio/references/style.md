@@ -10,7 +10,7 @@ A stylesheet is an architecture: layers order the cascade once, and every rule l
 @layer reset, tokens, base, components, utilities, print, overrides;
 ```
 
-- [LAYER_HOMES]: the reset, token registry, and element base populate the early layers; artifact components land in `components`, one-off structure in `utilities`, print reflow in `print`, forced-state and preference rewrites in `overrides`. Same-name layers merge, and later source order wins ties inside a layer.
+- [LAYER_HOMES]: reset, token registry, and element base populate the early layers; artifact components land in `components`, one-off structure in `utilities`, print reflow in `print`, forced-state and preference rewrites in `overrides`. Same-name layers merge, and later source order wins ties inside a layer.
 - [NO_UNLAYERED]: one unlayered rule outranks every layer and re-opens the specificity war the architecture closed; every rule is authored inside a named layer.
 - [IMPORTANT_INVERTS]: `!important` flips layer precedence toward the earliest layer; it is legal only inside `print` and `overrides`, for forced-state resets alone.
 - [PRECEDENCE]: resolution runs origin, importance, layer, specificity, then source proximity — layer outranks specificity for normal declarations, and `revert-layer` rolls a property back to earlier layers.
@@ -173,7 +173,7 @@ OKLCH is the only working space, and the channels carry distinct jobs: lightness
 - [ON_ACCENT]: text on a filled accent binds `--on-accent`, an ink derived from the ground rather than white, so the filled control holds contrast in both themes.
 - [CHROMA_DISCIPLINE]: registry chroma stays conservative (≤0.2) so every mix lands in gamut in both themes; high chroma clips to the device gamut and shifts hue at the clip.
 - [CONTRAST_LAW]: body text holds 4.5:1 against its resting surface, and graphical marks and UI edges hold 3:1. A tinted chip is judged after compositing: ink over a 14% status fill over `--surface` is the pair that must clear the floor, not ink over the raw token.
-- [HUE_ANCHORS]: the ground family sits at hue 290 with trace chroma (0.008–0.03) so neutrals stay warm-violet rather than dead gray; accent hue 292 keeps the interactive role inside the ground's family, and copper at 55 opposes it across the wheel. Status hues spread across the green, amber, red, and blue quadrants — far enough apart that no state pair collides under common color-vision deficits once the bracket text is present — and each theme tunes its own exact status lightness for its ground.
+- [HUE_ANCHORS]: ground family sits at hue 290 with trace chroma (0.008–0.03) so neutrals stay warm-violet rather than dead gray; accent hue 292 keeps the interactive role inside the ground's family, and copper at 55 opposes it across the wheel. Status hues spread across the green, amber, red, and blue quadrants — far enough apart that no state pair collides under common color-vision deficits once the bracket text is present — and each theme tunes its own exact status lightness for its ground.
 
 ## [04]-[TYPOGRAPHY]
 
@@ -299,14 +299,14 @@ Entries ride the entry durations and exits ride the shorter `--dur-out-*` set wi
 - [DISCRETE_REVEAL]: `transition-behavior: allow-discrete` with `@starting-style` animates `display`-toggled overlays in and out; opacity and transform carry the visible motion while `display` flips discretely.
 - [NAMED_TRANSITIONS]: a component lists its transitioned properties; `transition: all` hides ownership and animates the unintended.
 - [SPRING_BUDGET]: `--ease-spring` marks one completed action — a check settling, a copy confirming; a spring on hover or layout reads as jitter.
-- [REDUCED_MOTION]: the registry zeroes every duration under `prefers-reduced-motion`, so a transition reading the tokens collapses to instant with no per-rule guard. Focus rings transition nothing — they appear instantly.
+- [REDUCED_MOTION]: registry zeroes every duration under `prefers-reduced-motion`, so a transition reading the tokens collapses to instant with no per-rule guard. Focus rings transition nothing — they appear instantly.
 - [SCROLL_ENHANCE]: `animation-timeline: scroll()` behind `@supports` drives orientation-only progress; comprehension never depends on a scroll animation.
 
 ## [09]-[THEMES_AND_PREFERENCES]
 
 Dark is the base root; light arrives twice — by system preference for the unstamped page, by `data-theme="light"` on the root when a choice is stamped — and `color-scheme` follows the palette so native controls match. A preference rewrites token values, never a parallel component.
 
-- [PRINT_FLIP]: the print layer flips the registry to the light palette on white, drops shadows, hides screen chrome (`.toolbar`, `.export-bar`, `.drawer-tab`, `.toc`, buttons), expands disclosure, and holds `break-inside: avoid` on cards, rows, figures, and code with `break-after: avoid` on headings; `print-color-adjust: exact` keeps the tokened tints. `break-inside: avoid` is a request an oversized box overrides — a unit that must stay whole is sized to a sheet.
+- [PRINT_FLIP]: print layer flips the registry to the light palette on white, drops shadows, hides screen chrome (`.toolbar`, `.export-bar`, `.drawer-tab`, `.toc`, buttons), expands disclosure, and holds `break-inside: avoid` on cards, rows, figures, and code with `break-after: avoid` on headings; `print-color-adjust: exact` keeps the tokened tints. `break-inside: avoid` is a request an oversized box overrides — a unit that must stay whole is sized to a sheet.
 - [FORCED_COLORS]: `forced-colors: active` hands the palette to system keywords — `Canvas`, `CanvasText`, `Highlight` — and zeroes shadows; borders and outlines carry the semantics color drops.
 - [CONTRAST_MORE]: `prefers-contrast: more` promotes `--line` to `--line-strong` and widens the focus ring; no preference branch removes a focus ring.
 

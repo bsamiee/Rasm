@@ -20,17 +20,17 @@ Escape rows price every exception: `excludedCommands` runs named commands unsand
 
 Managed-scope rows freeze customization classes fleet-wide; each is a one-way door user and project scopes cannot re-open.
 
-| [INDEX] | [ROW]                                | [FREEZES]                                                |
-| :-----: | :----------------------------------- | :-------------------------------------------------------- |
-|  [01]   | `disableAllHooks`                    | Every hook at every scope                                 |
-|  [02]   | `allowManagedHooksOnly`              | Hooks outside managed settings                            |
-|  [03]   | `allowedHttpHookUrls`                | HTTP hook endpoints off the allowlist                     |
-|  [04]   | `allowManagedPermissionRulesOnly`    | Permission rules outside managed settings                 |
-|  [05]   | `allowManagedMcpServersOnly`         | MCP servers outside the managed allowlist                 |
-|  [06]   | `disableSkillShellExecution`         | Shell pre-injection lines inside skills                   |
-|  [07]   | `disableBundledSkills`               | The skills shipped inside Claude Code                     |
-|  [08]   | `disableSideloadFlags`               | `--plugin-dir`, `--agents`, and kin at launch             |
-|  [09]   | `skipDangerousModePermissionPrompt`  | The interactive confirm before dangerous modes            |
-|  [10]   | `disableBypassPermissionsMode`       | `bypassPermissions` as a reachable mode                   |
+| [INDEX] | [ROW]                               | [FREEZES]                                      |
+| :-----: | :---------------------------------- | :--------------------------------------------- |
+|  [01]   | `disableAllHooks`                   | Every hook at every scope                      |
+|  [02]   | `allowManagedHooksOnly`             | Hooks outside managed settings                 |
+|  [03]   | `allowedHttpHookUrls`               | HTTP hook endpoints off the allowlist          |
+|  [04]   | `allowManagedPermissionRulesOnly`   | Permission rules outside managed settings      |
+|  [05]   | `allowManagedMcpServersOnly`        | MCP servers outside the managed allowlist      |
+|  [06]   | `disableSkillShellExecution`        | Shell pre-injection lines inside skills        |
+|  [07]   | `disableBundledSkills`              | The skills shipped inside Claude Code          |
+|  [08]   | `disableSideloadFlags`              | Sideload launch flags — `--plugin-dir` and kin |
+|  [09]   | `skipDangerousModePermissionPrompt` | The interactive confirm before dangerous modes |
+|  [10]   | `disableBypassPermissionsMode`      | `bypassPermissions` as a reachable mode        |
 
 Marketplace lockdown — `strictKnownMarketplaces`, `blockedMarketplaces`, managed `extraKnownMarketplaces` — rides `plugins.md`.

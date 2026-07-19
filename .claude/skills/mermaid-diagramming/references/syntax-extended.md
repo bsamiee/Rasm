@@ -8,33 +8,33 @@ Pick a type by intent, then its section for the minimal fence and traps; rows ru
 
 | [INDEX] | [TYPE]               | [INTENT]                 |
 | :-----: | :------------------- | :----------------------- |
-|  [02]   | `mindmap`            | radial hierarchy         |
-|  [03]   | `block`              | manual grid layout       |
-|  [04]   | `journey`            | phase sentiment          |
-|  [05]   | `requirementDiagram` | requirement traceability |
-|  [06]   | `pie`                | part-to-whole share      |
-|  [07]   | `quadrantChart`      | two-axis position map    |
-|  [08]   | `sankey`             | weighted directed flow   |
-|  [09]   | `xychart`            | bar or line chart        |
-|  [10]   | `radar-beta`         | multivariate profile     |
-|  [11]   | `gantt`              | dated schedule           |
-|  [12]   | `treemap-beta`       | area-weighted hierarchy  |
-|  [13]   | `C4`                 | system landscape views   |
-|  [14]   | `architecture-beta`  | infrastructure groups    |
-|  [15]   | `packet`             | bit-field layout         |
-|  [16]   | `timeline`           | chronological periods    |
-|  [17]   | `gitGraph`           | branch and merge history |
-|  [18]   | `kanban`             | workflow-stage board     |
-|  [19]   | `treeView-beta`      | file-tree hierarchy      |
-|  [20]   | `cynefin-beta`       | decision-domain sort     |
-|  [21]   | `railroad-*-beta`    | grammar syntax rails     |
-|  [22]   | `swimlane-beta`      | laned process flow       |
-|  [23]   | `eventmodeling`      | command-event timeline   |
-|  [24]   | `venn-beta`          | set-overlap regions      |
-|  [25]   | `wardley-beta`       | value-chain evolution    |
-|  [26]   | `ishikawa-beta`      | cause-effect fishbone    |
+|  [01]   | `mindmap`            | radial hierarchy         |
+|  [02]   | `block`              | manual grid layout       |
+|  [03]   | `journey`            | phase sentiment          |
+|  [04]   | `requirementDiagram` | requirement traceability |
+|  [05]   | `pie`                | part-to-whole share      |
+|  [06]   | `quadrantChart`      | two-axis position map    |
+|  [07]   | `sankey`             | weighted directed flow   |
+|  [08]   | `xychart`            | bar or line chart        |
+|  [09]   | `radar-beta`         | multivariate profile     |
+|  [10]   | `gantt`              | dated schedule           |
+|  [11]   | `treemap-beta`       | area-weighted hierarchy  |
+|  [12]   | `C4`                 | system landscape views   |
+|  [13]   | `architecture-beta`  | infrastructure groups    |
+|  [14]   | `packet`             | bit-field layout         |
+|  [15]   | `timeline`           | chronological periods    |
+|  [16]   | `gitGraph`           | branch and merge history |
+|  [17]   | `kanban`             | workflow-stage board     |
+|  [18]   | `treeView-beta`      | file-tree hierarchy      |
+|  [19]   | `cynefin-beta`       | decision-domain sort     |
+|  [20]   | `railroad-*-beta`    | grammar syntax rails     |
+|  [21]   | `swimlane-beta`      | laned process flow       |
+|  [22]   | `eventmodeling`      | command-event timeline   |
+|  [23]   | `venn-beta`          | set-overlap regions      |
+|  [24]   | `wardley-beta`       | value-chain evolution    |
+|  [25]   | `ishikawa-beta`      | cause-effect fishbone    |
 
-`zenuml` renders sequence exchanges through an external plugin the CLI registers; it carries this registry mention alone. Eight families outrun older hosts — `eventmodeling` parses from mermaid 11.15, `swimlane-beta`, `cynefin-beta`, and the `railroad-*-beta` dialects from 11.16, and `treeView-beta`, `venn-beta`, `wardley-beta`, and `ishikawa-beta` from the post-11.12 line — a host below its floor throws `UnknownDiagramError`.
+`zenuml` renders sequence exchanges through an external plugin the CLI registers; it carries this registry mention alone. `UnknownDiagramError` is a host-version fact, never a fence defect: the host's mermaid predates the family, and the bundled validator against the workspace-pinned renderer is the parse proof for every row above.
 
 ## [02]-[MINDMAP]
 

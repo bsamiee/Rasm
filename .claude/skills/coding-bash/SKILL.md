@@ -182,4 +182,3 @@ All code follows these governing principles:
 |  [09]   | `mlr`        | 6+       | CSV/TSV/JSON format transforms             |
 |  [10]   | `sd`         | 1+       | Stream editing (sed replacement)           |
 |  [11]   | `choose`     | 1.3+     | Column selection (cut replacement)         |
-|  [12]   | `gawk`       | 5.3+     | Text processing, inline programs           |

@@ -26,6 +26,9 @@ Memory loads upward from the working directory, orders discovered files root to 
 A memory file carries only what a fresh session cannot derive and otherwise gets wrong: commands the repo alone knows, conventions that differ from ecosystem defaults, architectural decisions, environment quirks, gotchas that already caused a repeated mistake. Facts the code answers — layout tours, API inventories, standard-language conventions, self-evident practice — are deleted on sight, and a fact that changes frequently lives with its owner, never in memory.
 
 - [ADMISSION]: Recurrence is the trigger — a second identical correction, a repeated review comment, a question the file exists to answer. An entry authored for an imagined future need is deleted, not improved.
+- [MINING]: A session or research source is swept at closure through four hunts — a correction issued twice, an assumption empirically refuted, a process law proven by an observed failure with its rate, and a verdict that settles a question future sessions otherwise re-litigate. Only adjudicated rows enter — proven on disk or by execution; an unverified finding stays in its dossier or scratch, and a fact the session already landed on a repo surface is owned there — a memory copy is a fork.
+- [CONSOLIDATION]: A candidate hunts its owner across the corpus before minting — a new instance of an owned law lands as a generalization clause or `[[link]]` on the owning file, and a new file is earned only by a distinct retrieval occasion. Two files splitting one concern halve each other's recall odds, so near-similar files merge into the stronger one with description and index line rewritten in the same pass.
+- [SETTLEMENT]: A settled refusal — do-not-re-add, do-not-re-reject, a ruled-out approach with its refuting evidence — is the highest-value class: it blocks a future session from re-running adjudicated work. It carries the ruling plus at most one calibration number, never the history that produced it.
 - [REMOVAL_TEST]: Every line must fail deletion — removing it causes a future session to err. A line that survives deletion in imagination is deleted in fact.
 - [SPECIFICITY]: Entries are concrete enough to verify — the command, the path, the exact value — never an adjective; vague phrasing reads as ambiguous under pressure and loses to specific siblings.
 - [SHAPES]: Two body templates carry the lesson classes prose flattens — a failure lesson as symptom, cause, fix; a preference lesson as the user's phrasing and the behavior it selects.
@@ -37,14 +40,14 @@ A memory file carries only what a fresh session cannot derive and otherwise gets
 Audit scores every always-loaded memory file per axis; the file's grade is its weakest axis, so one rotten dimension never averages away. An axis failure names its lines, and each repair routes through the steering table — delete, demote, sharpen, or move.
 
 | [INDEX] | [AXIS]       | [PASS_WHEN]                                                                 |
-| :-----: | :----------- | :--------------------------------------------------------------------------- |
+| :-----: | :----------- | :-------------------------------------------------------------------------- |
 |  [01]   | Derivability | No line states what disk, manifests, or ecosystem defaults already answer   |
-|  [02]   | Specificity  | Every rule names a command, path, value, or exact convention                 |
-|  [03]   | Currency     | Every named command, path, tool, and skill exists today                      |
-|  [04]   | Consistency  | No two lines across the loaded hierarchy conflict; one term per concept      |
-|  [05]   | Placement    | No procedure, subtree-only convention, or enforcement rides the loaded file  |
-|  [06]   | Size         | Under 200 lines with every line passing the removal test                     |
-|  [07]   | Integrity    | Every file has a live index line, every index line a file, links resolve     |
+|  [02]   | Specificity  | Every rule names a command, path, value, or exact convention                |
+|  [03]   | Currency     | Every named command, path, tool, and skill exists today                     |
+|  [04]   | Consistency  | No two lines across the loaded hierarchy conflict; one term per concept     |
+|  [05]   | Placement    | No procedure, subtree-only convention, or enforcement rides the loaded file |
+|  [06]   | Size         | Within the hierarchy's per-file line target                                  |
+|  [07]   | Integrity    | Every file has a live index line, every index line a file, links resolve    |
 
 Consistency runs across the whole loaded hierarchy, not per file — a user-level line contradicting a project line is one arbitrary coin flip per session. docgen's prose gate stays the mechanical floor beneath this audit — register, hedges, anchors, structure — while these axes judge what only a memory file can get wrong.
 
@@ -56,12 +59,13 @@ Auto-memory recall runs on two surfaces, and authoring optimizes both. At sessio
 - [FILENAME]: `<type>_<topic>.md` is itself a scored relevance signal — semantic names, never chronological ones.
 - [ATOMIC]: a memory file and its index line are one write — a file without an index line is dark at startup, an index line without a file is a dead pointer, and the Integrity axis fails both.
 - [BODY_CUE]: recall injects whole files, so the fact leads and its `Why:`/`How to apply:` lines carry the cue for judging whether it still binds; a repo-state snapshot reads stale by construction and never enters.
+- [DRIFT]: a recalled memory verifies against disk before it steers — the named file, flag, or member re-proven live; drift repairs in place in the same turn, a dead fact deletes with its index line, and a fact that gained a repo owner since writing deletes as a fork because the repo copy outranks it.
 - [ENVELOPE]: A store's write path stamps `node_type` and `originSessionId` into `metadata` on every write — harness-owned keys no edit removes; the author owns `name`, `description`, and `metadata.type` alone.
 - [SPLIT]: a file outgrowing one concern splits by retrieval occasion, and a volatile status line sits apart from the durable fact text so updates never rewrite settled law.
 
 ## [07]-[AUTO_MEMORY]
 
-Auto memory is model-authored learning, on by default, stored per project at `~/.claude/projects/<project>/memory/` — derived from the git repository, so every worktree shares one store. `MEMORY.md` is the index, its first 200 lines or 25KB loading at session start; topic files load on demand when referenced. Toggle through `/memory`, `autoMemoryEnabled`, or `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1`; relocate with `autoMemoryDirectory` — an absolute or `~/` path, honored from a project settings file only after the workspace trust dialog, the same gate that governs hooks. This store is machine-local. Curation is real work: stale notes mislead future sessions with the same authority as fresh ones, and a hardened lesson graduates from auto memory into an operator-authored file or skill. `CLAUDE_MEMORY_STORES` mounts additional shared stores beside the project one.
+Auto memory is model-authored learning, on by default, stored per project at `~/.claude/projects/<project>/memory/` — derived from the git repository, so every worktree shares one store. `MEMORY.md` is the index, loading at session start under the recall cap; topic files load on demand when referenced. Toggle through `/memory`, `autoMemoryEnabled`, or `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1`; relocate with `autoMemoryDirectory` — an absolute or `~/` path, honored from a project settings file only after the workspace trust dialog, the same gate that governs hooks. This store is machine-local. Curation is real work: stale notes mislead future sessions with the same authority as fresh ones, and a hardened lesson graduates from auto memory into an operator-authored file or skill. `CLAUDE_MEMORY_STORES` mounts additional shared stores beside the project one.
 
 ## [08]-[BOUNDARY]
 
@@ -77,4 +81,4 @@ NEVER run `terraform destroy` or force-push to main. Always be careful with dest
 
 ## [09]-[SUBAGENT_MEMORY]
 
-Subagents load the full memory hierarchy at spawn (Explore and Plan skip it), and a definition with a `memory` field maintains its own persistent directory under the same 200-line/25KB index law. Worker-side memory mechanics live with agent-dispatch; the placement ruling — which learnings belong to a specialist versus the shared project store — lands here: knowledge only one worker uses stays in that worker's memory, knowledge every session needs rides the project hierarchy.
+Subagents load the full memory hierarchy at spawn (Explore and Plan skip it), and a definition with a `memory` field maintains its own persistent directory under the same index cap. Worker-side memory mechanics live with agent-dispatch; the placement ruling — which learnings belong to a specialist versus the shared project store — lands here: knowledge only one worker uses stays in that worker's memory, knowledge every session needs rides the project hierarchy.

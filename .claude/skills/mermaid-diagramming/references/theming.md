@@ -478,4 +478,4 @@ Alucard carries the same role map on a light surface: Background `#FFFBEB`, Fore
 
 ## [08]-[WHEN_THEMING_DROPS]
 
-Theming is omitted whole, never half-applied. Drop the theme block when the fence targets a host that injects its own mermaid theme, such as a docs site with a site-level `initialize`; when the type ignores `themeVariables`, such as packet; or when a diagram is a throwaway scratch artifact that never ships. A committed diagram in this repo is themed, or it carries the reason in its authoring context, not in the fence.
+Theming is omitted whole, never half-applied. Drop the theme block when the fence targets a host that injects its own mermaid theme, such as a docs site with a site-level `initialize`; when the type ignores `themeVariables`, such as packet; or when a diagram is a throwaway scratch artifact that never ships. A committed diagram is themed, or it carries the reason in its authoring context, not in the fence.

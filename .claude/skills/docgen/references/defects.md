@@ -1,12 +1,12 @@
 # [DEFECTS]
 
-Findings cite class and line. Every entry carries one field set in one order, and every fix is a total reframe of the surrounding passage — kept-but-softened poison is the same defect wearing fewer words.
+Findings cite class and line, and every fix is a total reframe of the surrounding passage — kept-but-softened poison is the same defect wearing fewer words.
 
 ## [01]-[ENUMERATION_ANCHOR]
 
 Prose enumerates the present cases, fields, operations, or files of an owner so exhaustively that today's roster becomes the stated law: list-shaped truth standing in for the owner algebra, so a rebuild reads the count as the contract. Its self-directed form counts or characterizes the document's own content — a member count, a completeness claim, an ordinal self-reference, a size self-description — and the next entry falsifies it.
 
-- Detection: A prose sentence naming more than two sibling members of one owner, or a scalar count of enumerable content whose members live outside the counting clause. A quantity survives only as a rule threshold, a domain value, or a same-clause count.
+- Detection: A prose sentence naming more than two sibling members of one owner, or a scalar count of enumerable content whose members live outside the counting clause. A quantity survives only as a rule threshold, a domain value, or a same-clause count. Boundary reads at the owner: a registry table at its own declaration — minting its members, or the sole repo carrier of an externally-owned key set — is the accepted form, and derivation is owed only where an elsewhere owner exists.
 - Rejected: `Kind` carries `ScaleFit`, `Tile`, `Crop`, `Merge`, `Matte`, `Rotate`, and `Overlay`, the seven composition operations.
 - Accepted: A new composition operation is one `Kind` row on the compose spine; the fence carries the row set.
 - Reason: The accepted form states the extension rule; the fence, table, or catalog owns the roster. Prose names a member only where it forces a design decision, and a domain value is data, not enumeration.
@@ -36,7 +36,7 @@ Index-tier or architecture-tier prose carries implementation-tier mechanism: exa
 
 Prose describes the artifact's own job, its siblings, the doc-set contract, or a reader's tour instead of stating law in the opening signal slot.
 
-- Detection: A sentence whose subject is the document — "this file routes", "the page reads as", "each node is the eventual source file".
+- Detection: A sentence whose subject is the document — "this file routes", "the page reads as", "each node is the eventual source file"; a lead narrating the file's own entry shape, card grammar, or a section's relation to its neighbors is the same class.
 - Rejected: This file routes the spec pages and registers the packages; the architecture doc carries the domain map.
 - Accepted: (nothing — the corpus standard states the doc-set once; each doc opens with its own law.)
 - Reason: N docs restating the doc-set is N forks of one fact plus self-description; routing surfaces alone may name owner relationships, because routing is their job.
@@ -76,7 +76,7 @@ Links, citations, numbered references, or meta-references to files, sources, or 
 
 Non-committal qualifiers, deferred-decision markers, and defensive residue around settled decisions: apology, reassurance tails answering unasked doubts, risk-hedge warnings, litigation against a claim nobody made, ceremonial surfaces minted only to embody a prohibition. Gate constants own the word roster; this class is the framing the roster cannot catch.
 
-- Detection: The clause answers an objection no reader raised, or softens a decision already made.
+- Detection: The clause answers an objection no reader raised, or softens a decision already made; a contract qualifier that scopes behavior — `optional`, `if present`, `only when`, `unless` — scopes, never defers, and stays legal.
 - Rejected: Delivery is exactly-once effective — at-least-once transport plus consumer dedupe by content key (never magic).
 - Accepted: Consumer dedupe by content key makes delivery exactly-once effective.
 - Reason: The guarantee is stated as the mechanism that produces it; the reassurance tail dies, and a hypothetical wrong implementation is never narrated — the correct signature makes it unrepresentable.
@@ -114,13 +114,13 @@ Wording freezes the current shape against ground-up rebuild: sealed, frozen, fin
 
 ## [12]-[WEAK_VERBS]
 
-Permission verbs — `supports`, `allows`, `enables`, `provides`, `offers` — where an owning verb states law. Gate constants own the verb roster; this class is the smuggled form the roster cannot catch, and a surviving instance marks a seam where ownership was never decided. Its zero-verb limit is the article-led annotation — a named surface trailed by a `— the <noun>` apposition acting on nothing — whose mechanical form the gate's `article-opener` check owns.
+Permission verbs — `supports`, `allows`, `enables`, `provides`, `offers` — where an owning verb states law. Gate constants own the verb roster; this class is the smuggled form the roster cannot catch, and a surviving instance marks a seam where ownership was never decided. Its zero-verb limit is the article-led annotation, whose mechanical form the gate's `article-opener` check owns.
 
 - Detection: A law sentence whose operative verb grants permission instead of exercising ownership, including a permission verb smuggled into the object of an owning main verb — owns the option to enable, holds the ability to support — where the owner takes a permission rather than the concern; the zero-verb form is an annotation opening on `the` after a named surface with no operative verb following.
 - Rejected: The package offers an optional self-hosted graph lane.
 - Accepted: The graph lane binds only under the self-hosted profile row.
 - Reason: The package is material the owner consumes, never a benefactor that supplies; the deployment condition is a policy row, not a hedge in the verb.
-- Reframe: Rewrite around an owning subject and owning verb — mints, owns, folds, routes, drives, binds, derives, admits, rejects.
+- Reframe: Rewrite around an owning subject and owning verb — mints, owns, folds, routes, drives, binds, derives, admits, rejects; an opener leads with the owner's name, a quantifier, a possessive, a demonstrative, or a bare noun, and lowercasing `The` to `the` clears nothing.
 
 ## [13]-[PROCESS_LEDGER]
 
@@ -166,8 +166,38 @@ A corpus adopting a foreign authority's posture toward its own ruled standard: a
 
 Durable prose anchored to a release point in time: a version number or pin, a version-conditional behavior band (`at 2.3+`), a date, release narration, or deictic freshness vocabulary — `newest`, `latest`, `modern`, `currently`, `recently`. A corpus assumes the newest stable release of everything it touches, so every such anchor is stale the day after it is written and orders a rebuild agent to honor a dead boundary; the gate constants own the numeric and deictic floors.
 
-- Detection: A version literal, release band, date, or freshness deictic in prose; the manifest, lockfile, or codec owner is the only surface a version legally inhabits. A standards-document clause or table citation (`Table 2.3.2`, `§ 6.3`) is a domain value, never a release pin.
+- Detection: A version literal, release band, date, or freshness deictic in prose; the manifest, lockfile, or codec owner is the only surface a version legally inhabits. A standards-document clause or table citation (`Table 2.3.2`, `§ 6.3`) is a domain value, a capability floor a doctrine page legislates is admission law stated once at its owning page, registry data inside a compatibility matrix is the document's own record, and an ordering selector (`latest` session, `newest` commit) states a cursor, never freshness.
 - Rejected: The neo look lands at 2.14.0+; the curve default moved at 2.13.0 — restore the spline with the prior key.
 - Accepted: The look key accepts `neo`; the curve default is `rounded`, and `basis` restores the spline.
 - Reason: Behavior is stated as the behavior — the newest stable's truth with no band; a genuine wire or persistence version boundary is a positive property stated once at its codec owner.
 - Reframe: State the current truth plain; delete the band, the date, and the freshness word, and route any real pin to the owning manifest.
+
+## [18]-[FABRICATED_SPECIFIC]
+
+A named surface — member, signature, flag, key tuple, constant, package, citation — stated fluently with no verifying source: fluency masks invention, the spelling reads as settled fact, and every downstream consumer anchors to a phantom.
+
+- Detection: An exact spelling in prose that matches no fence, catalog, manifest, or verifying source reachable from the page; precision exceeding evidence is the tell, and self-consistency across restatements proves nothing.
+- Rejected: `Runner.resolve(askUserIfNeeded: false)` skips the consent prompt on relaunch.
+- Accepted: (the verified spelling from the owning catalog, or a tracked research item carrying the exact question plus its verification route.)
+- Reason: Verification precedes authoring; a compressed copy nobody re-verifies is where invention lives, and a fabricated spelling poisons harder than an absent one.
+- Reframe: Verify against the live surface and state the proven spelling, or delete the claim and track the open question — never soften to a hedge.
+
+## [19]-[TOOL_ENFORCED_LEAK]
+
+Prose restating a rule a deterministic tool already enforces — a gate check, linter, formatter, analyzer, or hook — spends the reader's attention on law the tool owns for free, and the prose copy drifts the moment the tool's census changes.
+
+- Detection: A rule sentence whose enforcement lives in a named tool's check vocabulary, config, or fixer; a coverage claim enumerating a tool's checks is the same class read from the claim side.
+- Rejected: Table cell-count equality, pipe escaping, and the rendered width cap are mechanically checked.
+- Accepted: The gate's `Check` vocabulary owns the mechanical census; a class it does not carry is review work.
+- Reason: The tool's vocabulary is the system of record; prose names the authority and states only the judgment no tool carries.
+- Reframe: Defer to the owning tool by name; delete the enumerated coverage and the restated rule.
+
+## [20]-[SAME_DECISION_SPREAD]
+
+One decision spread across a passage as near-similar restatements: N sentences in a paragraph or N sibling entries each re-carrying the same ruling in new words, or concept build-up delaying the operative law behind scene-setting that decides nothing. Accumulation reads as emphasis and rots as sediment — every restatement is independently editable, so no spelling stays the law.
+
+- Detection: Delete all but the strongest sentence or entry; lost law proves distinct decisions, nothing lost proves restatements — a neighbor separating a different failure class or a false-positive discriminator is distinct law, never sediment. TWIN_TRUTH owns the cross-location fork and the register's word economy owns clause-level padding; this class is the intra-passage spread between them.
+- Rejected: Slices stay small so depth beats breadth. A small slice frees capacity for depth. Freed capacity never funds early finish — it deepens the fix. Depth, not breadth, is what a small slice buys.
+- Accepted: Slices stay small so freed capacity deepens the fix, never finishing early.
+- Reason: Four spellings carry two decisions — small slices buy depth, freed capacity never funds early finish; the merge keeps each as its own clause and the two pure restatements die.
+- Reframe: Restructure, never brute-delete: collapse the run into fewer, higher-resolution rulings where every distinct decision survives as its own clause or entry and only restatements merge — a nuance lost in the collapse is the same defect as the accumulation. A merged form is never a concatenated mega-entry and never unstructured prose where a structured container serves; resolution and coherence rise while lines fall.

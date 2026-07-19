@@ -37,6 +37,6 @@ two consecutive rounds without a new fix end the run as stuck, returning the evi
 Loop law:
 - [CAP]: every loop carries a maximum iteration count beside its stop condition; the pair prevents both runaway and premature exit.
 - [PROGRESS]: two consecutive rounds without new findings or fixes end the run as converged-or-stuck; a stuck verdict returns evidence, not retries.
-- [VERIFY]: Checkers stay independent of the producer — a fresh-context reviewer, a deterministic gate, or a stop-hook that blocks completion until validation passes. Self-grading inflates.
+- [VERIFY]: Checkers stay independent of the producer; a fresh-context reviewer, a deterministic gate, or a stop-hook that blocks completion until validation passes. Self-grading inflates.
 - [CHECKPOINT]: long loops externalize state to disk each round so a dead run resumes from its last artifact instead of its first prompt.
 - [TRIGGER]: recurring loops ride `/loop` for interval work and scheduled routines for calendar work; event triggers beat clock polling wherever the source system emits one.

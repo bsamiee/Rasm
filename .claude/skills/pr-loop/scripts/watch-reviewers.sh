@@ -11,7 +11,7 @@
 #       (ONESHOT only) · 2 USAGE · 3 PR_GONE · 4 ERROR
 set -uo pipefail
 
-# --- [ARGS] -------------------------------------------------------------------------------------------------------------------
+# --- [ARGS] -----------------------------------------------------------------------------
 PR=${1:?usage: watch-reviewers.sh <PR> --head <SHA> --reviewers <csv> [--repo <owner/repo>]}; shift
 HEAD=""; REVIEWERS=""; REPO=""
 while [ "$#" -gt 0 ]; do case "$1" in
@@ -37,7 +37,7 @@ ARM_AT=$(date +%s)
 now() { date +%s; }
 iso() { date -u +%FT%TZ; }
 
-# --- [SNAPSHOT] ---------------------------------------------------------------------------------------------------------------
+# --- [SNAPSHOT] -------------------------------------------------------------------------
 # shellcheck disable=SC2016  # $-tokens are GraphQL variables inside a single-quoted document, never shell expansion
 QUERY='query($owner:String!,$repo:String!,$pr:Int!){repository(owner:$owner,name:$repo){
     pullRequest(number:$pr){ number headRefOid state reviewDecision mergeable mergeStateStatus
@@ -60,7 +60,8 @@ snapshot() {
     fi
 }
 
-# --- [CLASSIFY] one reviewer against $SNAP -> "<STATE> <SIG>"; jq owns the predicate, bash routes the csv token ----------------
+# --- [CLASSIFY] -------------------------------------------------------------------------
+# One reviewer against $SNAP -> "<STATE> <SIG>"; jq owns the predicate, bash routes the csv token.
 classify() {
     jq -r --arg who "$1" --arg H "$HEAD" '
         . as $pr | ($pr.reviews.nodes) as $rv
@@ -106,14 +107,16 @@ classify() {
           else "NEVER \($who):unknown" end )' "$SNAP"
 }
 
-# --- [EMIT] the ONLY stdout — one verdict line plus a verdict.jsonl row; Monitor wakes here ------------------------------------
+# --- [EMIT] -----------------------------------------------------------------------------
+# Sole stdout — one verdict line plus a verdict.jsonl row; Monitor wakes here.
 emit() {
     local code=$1 verdict=$2 table=$3
     jq -cn --argjson c "$code" --arg v "$verdict" --arg h "$HEAD" --argjson tbl "$table" --arg ts "$(iso)" \
         '{ts:$ts,exit:$c,verdict:$v,head:$h,reviewers:$tbl}' | tee -a "$VLOG" | sed 's/^/PRLOOP_VERDICT /'
 }
 
-# --- [POLL] one tick: snapshot, head-guard, classify all, update ledger, decide terminal ---------------------------------------
+# --- [POLL] -----------------------------------------------------------------------------
+# One tick: snapshot, head-guard, classify all, update ledger, decide terminal.
 poll() {
     snapshot || return 4
     local pr_state live
@@ -164,7 +167,7 @@ poll() {
     return 100    # not terminal — keep polling (internal, never an exit code)
 }
 
-# --- [ENTRY] ------------------------------------------------------------------------------------------------------------------
+# --- [ENTRY] ----------------------------------------------------------------------------
 TABLE_LAST="[]"
 if [ "$ONESHOT" = "1" ]; then
     poll; rc=$?

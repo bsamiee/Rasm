@@ -146,7 +146,7 @@ Architecture layout is fcose, tuned under `architecture:` — `nodeSeparation`, 
 
 ## [04]-[ACCESSIBILITY]
 
-`accTitle:` (one line) and `accDescr:` (one line, or `accDescr { ... }` for a block) follow the diagram header and generate the SVG `<title>`/`<desc>` with aria attributes. `accDescr` states the relation the diagram encodes, not a roster of its nodes. Eight families mis-serve the directives — `block`, `sankey`, `venn`, and `mindmap` reject them at parse, `kanban` and `ishikawa` mis-handle them as nodes, and `timeline` and `eventmodeling` parse both while emitting neither — so there the relation sentence sits beside the fence.
+`accTitle:` (one line) and `accDescr:` (one line, or `accDescr { ... }` for a block) follow the diagram header and generate the SVG `<title>`/`<desc>` with aria attributes. `accDescr` states the relation the diagram encodes, not a roster of its nodes. Several families mis-serve the directives — `block`, `sankey`, `venn`, and `mindmap` reject them at parse, `kanban` mis-handles them as columns and `ishikawa` as spurious head nodes, and `timeline` and `eventmodeling` parse both while emitting neither — so there the relation sentence sits beside the fence.
 
 ## [05]-[RENDER_ENVIRONMENT]
 
@@ -174,7 +174,7 @@ A schema theme or `themeVariables` reaches the CLI only through `--configFile`, 
 }
 ```
 
-A sandboxed or CI render pins `executablePath` through `--puppeteerConfigFile` to the machine's `PUPPETEER_EXECUTABLE_PATH` (the Nix Chrome-for-Testing). Launch args carry `--use-mock-keychain` and `--password-store=basic` so a throwaway-profile render never reaches the macOS keychain; `--no-sandbox` and `--disable-dev-shm-usage` are the headless-CI defaults. A headless-safe Chromium build is the pin, never the branded `/Applications/Google Chrome.app`, which a sandboxed headless caller aborts at `_RegisterApplication`.
+A sandboxed or CI render pins `executablePath` through `--puppeteerConfigFile` to the machine's `PUPPETEER_EXECUTABLE_PATH`. Launch args carry `--use-mock-keychain` and `--password-store=basic` so a throwaway-profile render never reaches the macOS keychain; `--no-sandbox` and `--disable-dev-shm-usage` are the headless-CI defaults. A headless-safe Chromium build is the pin, never the branded `/Applications/Google Chrome.app`, which a sandboxed headless caller aborts at `_RegisterApplication`.
 
 ```json copy-safe
 {

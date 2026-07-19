@@ -164,23 +164,12 @@ Static SHA catalogs decay — actions release frequently and stale pins miss sec
 
 [TROUBLESHOOTING]:
 
-| [INDEX] | [ISSUE]                 | [SOLUTION]                                      |
-| :-----: | :---------------------- | :---------------------------------------------- |
-|  [01]   | Tools not found         | Install actionlint + act (see act_usage.md).    |
-|  [02]   | Docker not running      | Start the runtime; `gha check` needs no Docker. |
-|  [03]   | act fails, GitHub works | See act_usage.md — Limitations.                 |
-|  [04]   | ARM Mac arch mismatch   | Add `--container-architecture linux/amd64`.     |
-|  [05]   | Custom runner labels    | Declare in `.github/actionlint.yaml`.           |
-
-[VERIFY] Completion:
-
-- [ ] Supply chain: Every `uses:` reference SHA-pinned with `# vX.Y.Z` comment suffix.
-- [ ] Security: Top-level `permissions: {}`, per-job minimal grants, `harden-runner` first step.
-- [ ] Injection: No direct `${{ github.event.* }}` in `run:` blocks — all through `env:` indirection.
-- [ ] Performance: Caching enabled, `concurrency` groups set, `timeout-minutes:` on every job.
-- [ ] Structure: Descriptive `name:` on workflow/jobs/steps, lowercase-hyphen filenames.
-- [ ] Outputs: `>> $GITHUB_OUTPUT` for data, `>> $GITHUB_STEP_SUMMARY` for summaries.
-- [ ] Harden-runner: Workflow jobs include it; action templates note caller responsibility.
-- [ ] All errors resolved with reference-backed fixes; warnings documented.
+| [INDEX] | [ISSUE]                 | [SOLUTION]                                                  |
+| :-----: | :---------------------- | :---------------------------------------------------------- |
+|  [01]   | Tools not found         | `gha` runtimeInputs unresolved — `forge-redeploy --switch`. |
+|  [02]   | Docker not running      | Start the runtime; `gha check` needs no Docker.             |
+|  [03]   | act fails, GitHub works | See act_usage.md — Limitations.                             |
+|  [04]   | ARM Mac arch mismatch   | Add `--container-architecture linux/amd64`.                 |
+|  [05]   | Custom runner labels    | Declare in `.github/actionlint.yaml`.                       |
 
 [REFERENCE] [best-practices.md](./references/best-practices.md) — Anti-patterns with specific remediations.

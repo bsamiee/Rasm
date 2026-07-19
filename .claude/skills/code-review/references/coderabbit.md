@@ -4,7 +4,12 @@
 
 ## [01]-[SCHEMA_AND_LIMITS]
 
-A real JSON Schema validates the file: `https://coderabbit.ai/integrations/schema.v2.json`. Validate with `ajv` against the pinned URL or a `# yaml-language-server: $schema=<url>` modeline, never a vendored copy.
+A real JSON Schema validates the file, fetched fresh from the pinned URL into the gitignored cache — never a vendored copy; a `# yaml-language-server: $schema=<url>` modeline gives editors the same schema live. `ajv-cli` takes only a local schema path, the schema rides draft 2020-12 and carries the non-standard `enumNames`, and no bare `ajv` sits on PATH — so `npx`, the fetch step, `--spec=draft2020`, and `--strict=false` are each load-bearing:
+
+```bash copy-safe
+curl -fsSL https://coderabbit.ai/integrations/schema.v2.json -o .cache/coderabbit-schema.v2.json
+npx ajv-cli validate --spec=draft2020 --strict=false -s .cache/coderabbit-schema.v2.json -d .coderabbit.yaml
+```
 
 | [INDEX] | [FIELD]                                         | [LIMIT]     |
 | :-----: | :---------------------------------------------- | :---------- |
@@ -48,4 +53,4 @@ Four channels, routed by durability and origin:
 
 ## [06]-[DISTILL_SURFACE]
 
-A distill fact lands as a clause inside the owning `reviews.path_instructions` block `{path, instructions}` — never a per-fact block or row; `path` is a minimatch glob and the global home is the `path: "**"` block. Its 20000-char instruction limit is a ceiling, never a target — a touched block obeys the trim law. `path_instructions` outrank server-side learnings, so durable law lands here while learnings stay ephemeral chat-taught facts; `tone_instructions` carries register alone and never policy. Format gate: `ajv` against the pinned schema URL.
+A distill fact lands as a clause inside the owning `reviews.path_instructions` block `{path, instructions}` — never a per-fact block or row; `path` is a minimatch glob and the global home is the `path: "**"` block. Its 20000-char instruction limit is a ceiling, never a target — a touched block obeys the trim law. `path_instructions` outrank server-side learnings, so durable law lands here while learnings stay ephemeral chat-taught facts; `tone_instructions` carries register alone and never policy. Every landed edit re-passes the pinned-schema validation.

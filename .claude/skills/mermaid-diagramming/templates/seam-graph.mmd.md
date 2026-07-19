@@ -36,29 +36,29 @@ config:
   themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart LR
-    accTitle: Bim package seam registry
-    accDescr: Bim sub-domain owners exchanging kinded shapes with persistence, compute, the host boundary, and the app shell, edge rails colored by kind, nodes classed by seam direction, and the live host wire animated.
-    subgraph bim[RASM.BIM]
+    accTitle: Core package seam registry
+    accDescr: Core sub-domain owners exchanging kinded shapes with persistence, compute, the host boundary, and the app shell, edge rails colored by kind, nodes classed by seam direction, and the live host wire animated.
+    subgraph core[CORE]
         Semantic[Semantic model]
         ElementSet[Element set]
-        Wire[Bim wire]
+        Wire[Core wire]
     end
-    Persistence[(Rasm.Persistence)]
-    Compute{{Rasm.Compute}}
+    Persistence[(Persistence)]
+    Compute{{Compute}}
     Host{{Host boundary}}
-    AppUi([Rasm.AppUi])
+    AppUi([AppUi])
     Persistence e1@-->|"[CONTENT_KEY]: XxHash128"| Semantic
-    Wire e2@<-->|"[WIRE]: BimWire"| Host
+    Wire e2@<-->|"[WIRE]: CoreWire"| Host
     Wire e3@-->|"[TESSELLATION]: GlbChunk"| Persistence
     ElementSet e4@<-->|"[GRADUATION]: ElementSnapshot"| Compute
     Compute e5@-->|"[RECEIPT]: SolveReceipt"| Wire
     Wire e6@-->|"[FAULT]: FaultRow"| AppUi
     Semantic e7@-->|"[PROJECTION]: ViewModel"| AppUi
-    Host e8@-->|"[TRANSPORT]: Frame"| AppUi
+    ElementSet e8@-->|"[TRANSPORT]: SelectionFrame"| AppUi
     ElementSet e9@-->|"[PORT]: SelectPort"| Persistence
-    Semantic e10@-->|"[SHAPE]: IfcSemanticModel"| Compute
+    Semantic e10@-->|"[SHAPE]: SemanticModel"| Compute
     ElementSet e11@-->|"[BOUNDARY]: SelectionGate"| Host
-    Host e12@-->|"[IMPORT]: BimWireCodec"| Wire
+    Host e12@-->|"[IMPORT]: SemanticCodec"| Semantic
     e2@{ animate: true }
     classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
     classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36

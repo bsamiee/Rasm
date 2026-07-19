@@ -8,8 +8,7 @@ A non-fork worker's opening context is exactly: its own system prompt (the defin
 
 ## [02]-[CONTRACT]
 
-Every delegation prompt carries five fields; a missing field is filled by the worker's imagination.
-
+Every delegation prompt carries five fields; a missing field is filled by the worker's imagination:
 - [01]-[OBJECTIVE]: One outcome, stated as a verifiable end state, never an activity.
 - [02]-[TERRITORY]: Exact files, directories, symbols, or sources in scope, and the tools or MCP servers the worker leans on where the default set is wrong.
 - [03]-[EXCLUSIONS]: Adjacent surfaces the worker must not touch, and the boundary with sibling workers.

@@ -39,10 +39,10 @@ accTitle: Open planning work decomposition
 accDescr: Open card counts decomposed across the three language branches and the shared planning core, so tile area answers where the remaining work concentrates.
 "Open cards"
     "csharp"
-        "Rasm.Compute": 46
-        "Rasm.Bim": 38
-        "Rasm.AppHost": 27
-        "Rasm.Persistence": 19
+        "solver": 46
+        "domain": 38
+        "apphost": 27
+        "persistence": 19
     "python"
         "geometry": 31
         "compute": 24

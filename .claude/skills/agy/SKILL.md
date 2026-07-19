@@ -60,7 +60,7 @@ Each `prompt` run returns one JSON receipt:
 {"op":"prompt","fault":"auth_required","detail":"..."}
 ```
 
-Faults are `binary_not_found`, `auth_required`, `quota_exceeded`, or `process_error`. `auth_required` resolves through interactive `agy` in a real TTY with Google OAuth as `b.samiee93@gmail.com`.
+`scripts/agy.py` owns the fault vocabulary the receipt's `fault` field carries: a new failure class is one `_Fault` row plus its classifier tokens, and an unmatched failure classifies as `process_error`. `auth_required` resolves through interactive `agy` in a real TTY with Google OAuth as the account holding the Antigravity subscription.
 
 ## [05]-[PROMPT_CONTRACT]
 

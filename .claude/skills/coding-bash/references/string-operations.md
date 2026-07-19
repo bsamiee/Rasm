@@ -246,12 +246,15 @@ printf 'Host: %s\n' "${HOST}"
 printf 'Port: %d\n' "${PORT}"
 EOF
 }
-# envsubst with explicit variable list — without list, ALL env vars expand
+# Explicit selection binds template variables; child scope preserves caller values and export marks.
 _render_from_file() {
     local -r template="$1"; shift
-    local var; for var in "$@"; do export "${var}"; done
-    envsubst "$(printf '${%s} ' "$@")" < "${template}"
-    for var in "$@"; do unset "${var}"; done
+    local envsubst_path
+    envsubst_path="$(type -P envsubst)" || return 127
+    readonly envsubst_path
+    local var; local -a scope=()
+    for var in "$@"; do scope+=("${var}=${!var-}"); done
+    env "${scope[@]}" "${envsubst_path}" "$(printf '${%s} ' "$@")" < "${template}"
 }
 # Printf format strings are injection-safe: %s cannot execute code
 _render_row() {
@@ -259,7 +262,7 @@ _render_row() {
 }
 ```
 
-`envsubst` explicit variable list prevents unintended expansion of `$PATH`, `$HOME`, etc. `_render_from_file` exports then unexports to avoid polluting the environment. `printf` format strings over `eval`-based templates — format specifiers cannot execute code.
+`envsubst` explicit lists bind only requested expansions. `_render_from_file` owns executable resolution before child-scope admission; `${!var-}` preserves caller values and export marks. `printf` format strings reject code execution.
 
 ## [06]-[RULES]
 

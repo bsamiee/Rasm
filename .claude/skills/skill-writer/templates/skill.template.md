@@ -17,18 +17,20 @@ description: >-
 - [01]-[EVENTS](references/events.md): the event census, per-event payload and blockability; open when selecting an event
 
 [TEMPLATES]:
-- [NN]-[<TOKEN>](templates/<file>): <the file-kind structure this template establishes>
-- [01]-[GATE](templates/pretooluse-gate.py): typed validator, per-command dispatch, fail-closed exit-2 block
+- [NN]-[<TOKEN>](templates/<file>): <the artifact kind this skeleton establishes>
+- [01]-[AGENT_MANIFEST](templates/service-agent.plist): scheduled-agent manifest skeleton, format-legal bare slots
 
 [EXAMPLES]:
-- [NN]-[<TOKEN>](examples/<file>): <the ultra-advanced composition it demonstrates, several moves in one artifact>
+- [NN]-[<TOKEN>](examples/<file>): <the one concern the composed body demonstrates>
+- [01]-[PRIORITY_DISPATCH](examples/priority-dispatch.py): priority registry, socket intake, and structured teardown in one body
 
 [SCRIPTS]:
 - [NN]-[<TOKEN>](scripts/<file>): <invocation contract and the receipt shape it returns>
+- [01]-[VALIDATE](scripts/validate_bundle.py): compiles and lints every shipped template and example; nonzero exit on any failure
 
 ## [02]-[<SECTION_TOKEN>]
 
-<common-path law every activation needs; the one branch a generic agent gets wrong, stated as owned fact>
+<rulings every activation needs before any reference opens; the one branch a generic agent gets wrong, stated as owned fact>
 
 - [<GROUP_TOKEN>]: <group-label law, never bold, colon-led>
 

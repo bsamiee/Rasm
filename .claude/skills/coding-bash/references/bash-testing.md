@@ -348,7 +348,7 @@ jobs:
 docker run --rm -v "${PWD}/lib:/code/lib:ro" -v "${PWD}/tests:/code/tests:ro" \
     bats/bats:latest --jobs 4 --timing /code/tests
 
-# Extended image for additional deps (jq, curl, etc.)
+# Extended image for additional deps
 # FROM bats/bats:latest
 # RUN apk --no-cache add jq curl
 ```

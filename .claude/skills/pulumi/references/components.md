@@ -125,9 +125,9 @@ jobs:
     publish:
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@<version>
               with: { fetch-depth: 0 }
-            - uses: pulumi/auth-actions@v1
+            - uses: pulumi/auth-actions@<version>
               with:
                   organization: myorg
                   requested-token-type: urn:pulumi:token-type:access_token:organization

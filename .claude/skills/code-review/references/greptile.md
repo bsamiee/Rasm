@@ -12,8 +12,8 @@ Greptile reviews committed unmerged commits against a base ref — uncommitted e
 
 ## [02]-[ENVELOPE]
 
-- Top-level keys exactly: `summary`, `confidence`, `confidenceReasoning`, `securitySummary`, `instructions`, `comments` — `comments[]` is a flat top-level array, and delivery or render config never changes the key set.
-- Comment keys exactly: `id`, `path`, `startLine`, `endLine`, `side`, `severity`, `securityIssue`, `category`, `body`, `verifiedEvidence`, `suggestion`, `hunk`; `suggestion` and `verifiedEvidence` are `null` when absent, and `securityIssue` is a bool data field — no security mode or flag exists.
+- Top-level keys carry `summary`, `confidence`, `confidenceReasoning`, `securitySummary`, `instructions`, `comments` — `comments[]` is a flat top-level array, and delivery or render config never changes which of these appear.
+- Comment keys carry `id`, `path`, `startLine`, `endLine`, `side`, `severity`, `securityIssue`, `category`, `body`, `verifiedEvidence`, `suggestion`, `hunk`; `suggestion` and `verifiedEvidence` are `null` when absent, and `securityIssue` is a bool data field — no security mode or flag exists.
 - `hunk` is `null` or an object `{header, oldRange, newRange, before, after}` — `header` the `@@`-line, `oldRange`/`newRange` each `{start, lines}`, `before`/`after` the excerpt text or `null` — never a string.
 - `severity` is a per-finding P-scale the model assigns — `P0` critical through `P4` info — a separate scale from rule `severity`, which no config maps onto it.
 
@@ -41,6 +41,8 @@ Generation knobs change the `comments[]` set the CLI surfaces — one cloud engi
 |  [06]   | `ignorePatterns`  | one newline-separated gitignore-syntax string, never an array                         |
 |  [07]   | `fileChangeLimit` | hosted-PR skip gate on changed-file count; never the CLI size preflight               |
 |  [08]   | `context.repos`   | `owner/repo` list, same SCM host and credentials                                      |
+
+`scope` globs never cross dot-directories, so every dot-dir surface — `.claude/**`, `libs/.planning/**`, `**/.api/**` — carries its explicit glob, and a scoped rule proves live only through the `greptile config <path>` oracle probed at a path INSIDE the dot-dir; the oracle truncates each rule's text with an ellipsis, so a deep-clause substring proves against `.greptile/config.json` full text instead.
 
 `rules[].severity` (`low`/`medium`/`high`) is a generation-stage importance hint against the strictness threshold — load-bearing at strictness 3, near-inert at 1 — never a local pass/fail gate and never the emitted P-scale. Every other field is PR-only decoration, absent from `--json`: `statusCheck`, `statusCommentsEnabled`, the four summary-section toggles, `triggerOnUpdates`/`triggerOnDrafts`/`skipReview`, the label/author/branch/keyword PR filters, and `shouldUpdateDescription`/`updateSummaryOnly`/`hideFooter`/`fixWithAI` — GitHub delivery and rendering over the same generated review.
 

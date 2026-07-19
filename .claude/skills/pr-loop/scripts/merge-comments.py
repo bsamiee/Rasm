@@ -21,7 +21,7 @@ import sys
 from typing import Final, Literal
 
 
-# --- [TYPES] ------------------------------------------------------------------------------------------------------------------
+# --- [TYPES] ----------------------------------------------------------------------------
 
 type Json = object  # a foreign GitHub payload node; every field read routes through the typed _leaf reader, never direct indexing
 type Grade = tuple[Severity, str]
@@ -39,7 +39,7 @@ class Severity(IntEnum):
     INFO = 0
 
 
-# --- [CONSTANTS] --------------------------------------------------------------------------------------------------------------
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
 _BODY_CAP: Final = 2000
 _CLASS_WIDTH: Final = 6
@@ -59,7 +59,7 @@ _HEADER: Final = (
     "| :-- | :------- | :-------- | :--- | :---- | :---- | :----- | :---- |",
 )
 
-# --- [MODELS] -----------------------------------------------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -122,7 +122,7 @@ class Row:
     dups: tuple[str, ...] = ()
 
 
-# --- [TABLES] -----------------------------------------------------------------------------------------------------------------
+# --- [TABLES] ---------------------------------------------------------------------------
 
 _P_BADGE: Final[re.Pattern[str]] = re.compile(r"\bP([0-3])\b")
 _CATEGORY: Final[re.Pattern[str]] = re.compile(r"\A\s*\*\*(logic|syntax|style)\b", re.IGNORECASE)
@@ -170,10 +170,9 @@ _GRAMMARS: Final[tuple[_Grammar, ...]] = (
         fallback=(Severity.MINOR, "Macroscope:?"),
     ),
     _Grammar(logins=("chatgpt-codex-connector",), cues=(_badged("Codex", window=120),), fallback=(Severity.MAJOR, "Codex:?")),
-    _Grammar(logins=("cubic-dev-ai",), cues=(_badged("cubic", window=120),), fallback=(Severity.MINOR, "cubic:?")),
 )
 
-# --- [OPERATIONS] -------------------------------------------------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def _leaf[T](node: object, kind: type[T], /, *path: str) -> T | None:
@@ -220,7 +219,7 @@ def _rooted(comment: Json, by_id: Mapping[int, Json], /) -> Json:
 
 
 def _anchored(thread: Json, /) -> int | None:
-    # The GraphQL thread joins to its REST root through the first comment's databaseId.
+    # GraphQL threads join to their REST root through the first comment's databaseId.
     nodes = _leaf(thread, list, "comments", "nodes")
     return _leaf(nodes[0], int, "databaseId") if nodes else None
 
@@ -356,7 +355,7 @@ def _tabled(rows: Iterable[Row], /) -> str:
     return "\n".join((*_HEADER, *map(lined, rows)))
 
 
-# --- [ENTRY] ------------------------------------------------------------------------------------------------------------------
+# --- [ENTRY] ----------------------------------------------------------------------------
 
 
 def _main() -> int:
