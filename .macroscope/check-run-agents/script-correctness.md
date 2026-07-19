@@ -19,4 +19,4 @@ Hunt these classes, each finding naming file, anchor, the naive shape, and the c
 - Shell rails: a bash body without strict mode (`set -euo pipefail`), unquoted expansions over user or path material, or a fork-heavy loop where one built-in owns the transform.
 - Parameterization: a hardcoded absolute path, a repo-specific coupling in a reusable script, or a magic constant with no justifying derivation — paths derive from the script's own location or its arguments, and a constant carries its reason.
 
-Settled corpus law outranks intuition: a shape the owning doctrine rules is never a finding, and finding nothing after a genuine pass is a first-class verdict, stated plainly.
+Settled corpus law outranks intuition: a shape the owning doctrine or the file's own stated charter rules is never a finding — a timeout-bounded one-shot owes no streaming drain, a cheap probe no retry rail — and finding nothing after a genuine pass is a first-class verdict, stated plainly.

@@ -18,6 +18,8 @@ Durable markdown is agent-facing law governed by `docs/standards/style-guide.md`
 - Routing is a file class, not a section: only `README.md`, `SKILL.md`, `CLAUDE.md`/`AGENTS.md`, and `MEMORY.md` carry links, paths, or cross-references; a relative link or sibling reference in any other durable file is a coupled-link finding, and a page never names itself.
 - A nameable surface — member, command, key, flag — is a code span in its exact verified spelling: paraphrased in prose it is a defect, and an exact spelling matching no verifying fence, catalog, or manifest is the fabricated specific — verify or delete, never soften.
 - Permission verbs (`supports`, `allows`, `enables`, `provides`, `offers`) where an owning verb states law are findings, including one smuggled into the object of an owning main verb; a package is material the owner consumes, never a benefactor that supplies.
+- A demanded fix answers to the same defect classes as the prose it edits: a demanded version literal or band, a demanded roster refresh where the extension rule is the cure, a demanded external documentation pointer in place of owned law, or a demanded deletion dropping demonstrated capability a rehome preserves is the defect from the demand side — void, with the catalog-conformant cure as the demanded form.
+- A passage matching the owning defect catalog's Accepted exemplar is the ruled form; a shrink or restructure demand against it re-litigates settled law.
 - Deterministic register classes the docgen prose gate's `Check` vocabulary owns — article openers, puffery and copula lexeme rosters, table geometry — are gate territory, never findings.
 - A comment carries the one in-situ constraint the code cannot show — the why, the invariant, the trap — never the what, never a duplicate of card or index content, never process or session narration; stacked short fragments merge into one dense line.
 
@@ -28,7 +30,7 @@ Durable markdown is agent-facing law governed by `docs/standards/style-guide.md`
 - Carrier follows reader job: a repeated paragraph pattern is a record set, a list item with asserted completion is a checkbox, and a command that has not run is an instruction, never a result.
 - Raw prose is one physical line per paragraph; a manual newline inside a paragraph is a finding.
 - Marker families are closed sets — result, change, lifecycle, state — and invented tokens, emojis, and checkmarks are findings; invocation markers (`[IMPORTANT]`/`[NEVER]`) belong only in instruction and prompt files.
-- Fence intent labels (`copy-safe`, `template`, `conceptual`, `signature`, `accepted`/`rejected`, `codemap`, `seams`) bind the body: a body dishonoring its label retags or repairs.
+- Fence intent labels (`copy-safe`, `template`, `conceptual`, `signature`, `accepted`/`rejected`, `codemap`, `seams`) bind the body and bound the demand: a body dishonoring its label retags or repairs, a `template` body carries neutral placeholder slots by definition, and validity-as-written binds `copy-safe` bodies alone — a valid-as-written demand against a `template` body is void.
 
 ## [03]-[DIAGRAMS]
 
