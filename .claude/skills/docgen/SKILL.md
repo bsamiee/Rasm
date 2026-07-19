@@ -88,7 +88,7 @@ DECISION [V10]: the trust gate binds every identifier crossing into engine SQL �
 Every identifier crossing into engine SQL passes the trust gate.
 ```
 
-[LOAD_BEARING_WORD] — Every word earns its slot or dies, so a finished passage states identical law in a third fewer tokens. Voice is present and active: an owner acts now, never was-acting, will-act, or is-acted-upon. Deleted on sight: an intensifier grading the fact, a lead-in delaying the verb, a coordinator padding one clause into two, a phrase one verb states, a clause restating its neighbour. Economy never costs capability — every decision, condition, and code span survives the cut, and an entry holding two decisions splits into sibling entries, never a longer line.
+[LOAD_BEARING_WORD] — Every word earns its slot or dies, so a finished passage states identical law in a third fewer tokens. Voice is present and active: an owner acts now, never was-acting, will-act, or is-acted-upon. Deleted on sight: an intensifier grading the fact, a lead-in delaying the verb, an additive coordinator padding one clause into two, a phrase one verb states, a clause restating its neighbour. Economy never costs capability — every decision, condition, and code span survives the cut, and an entry holding two decisions splits into sibling entries, never a longer line.
 
 ```markdown rejected
 It is important to note that the resolver is a very robust component which will be responsible for handling the seamless mapping of keys, and it also provides comprehensive support for the batch case.
@@ -96,6 +96,16 @@ It is important to note that the resolver is a very robust component which will 
 
 ```markdown accepted
 `Resolver` maps every key, batch included.
+```
+
+[ADDITIVE_CURE] — Additive filler joins nothing, and its cure runs shortest-first: delete the word with its comma, folding the tail into the clause or a serial list; then `with`, which carries accompaniment; then FANBOYS `and` where a compound subject genuinely needs the conjunction; then a precise shorter word where the coinage admits one. Every longer connector costs more characters than the defect it replaces. Emphasis casing survives the swap, and a quantity phrase keeps the sense the word carries.
+
+```markdown rejected
+Findings return the verdict or "absent", plus the surfaces searched.
+```
+
+```markdown accepted
+Findings return the verdict or "absent" with the surfaces searched.
 ```
 
 [CAPABILITY] — Capability lands as present-tense owned fact with deep foresight, or the sentence does not exist. Consumer count is never a design axis: nothing is deferred until demand, defended against an imagined objection, or preserved for an old reader. A capability that cannot yet be modeled gets silence; genuinely open work is a tracked card, never a soft sentence.

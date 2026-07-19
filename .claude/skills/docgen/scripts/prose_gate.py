@@ -287,9 +287,10 @@ AI_LEXICON = re.compile(
 )
 # Copula avoidance warns: an identity claim states is/are/has; a serves-as apposition re-labels the surface without owning its concern.
 COPULA_AVOIDANCE = re.compile(r"\b(?:serves|stands|functions|operates)\s+as\b|\bboasts\b", re.IGNORECASE)
-# Additive filler fails: `plus` pads a clause it never joins. Cure is removal — delete the word with its comma, folding
-# its tail into the clause or a sibling entry; a swap to another additive connector re-lands the same defect. Hyphen
-# lookarounds spare compound tokens (`delete-plus-create`), which read as names, never connectors.
+# Additive filler fails: `plus` pads a clause it never joins. Cure runs shortest-first — delete the word with its comma, folding the tail
+# into the clause or a serial list; then `with`, which carries accompaniment; then FANBOYS `and` where a compound subject needs the
+# conjunction; then a precise shorter word where the coinage admits one. Every longer connector costs more characters than the defect.
+# Emphasis casing and quantity sense survive the swap. Hyphen lookarounds spare compound tokens (`delete-plus-create`), read as names.
 FILLER_WORD = re.compile(r"(?<![\w-])plus(?![\w-])", re.IGNORECASE)
 # A label-led paragraph — `[LABEL] — prose` or `[LABEL]: prose` — is measured prose mass, never structure.
 LABELED_PARAGRAPH = re.compile(r"^\[[A-Z][A-Z0-9_]*\](?:-\[[A-Z][A-Z0-9_]*\])*(?: [–—] |: )\S")
@@ -311,6 +312,10 @@ PATTERNS: tuple[tuple[Check, re.Pattern[str], Status], ...] = (
     (Check.WEAK_VERB, COPULA_AVOIDANCE, "warn"),
     (Check.FILLER_WORD, FILLER_WORD, "fail"),
 )
+# A cure row rides the finding: the matched span names the defect, and the appended clause names the move that clears it.
+CURES: dict[Check, str] = {
+    Check.FILLER_WORD: "; delete, folding the tail into the clause; else `with`; else FANBOYS `and`; else a shorter word; never a longer connector"
+}
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -902,7 +907,7 @@ def prose_rows(doc: Document) -> tuple[Row, ...]:
         rows.extend(row(doc.path, span.line, Check.GLYPH_BAN, "fail", f"banned glyph {hit.group(0)!r}") for hit in EMOJI.finditer(span.text))
         voiced = QUOTED_SPAN.sub(" ", span.text)
         rows.extend(
-            row(doc.path, span.line, check, status, hit.group(0).lstrip(".!?:; "))
+            row(doc.path, span.line, check, status, f"{hit.group(0).lstrip('.!?:; ')}{CURES.get(check, '')}")
             for check, pattern, status in PATTERNS
             for hit in pattern.finditer(voiced)
             if not (check is Check.VERSION_ANCHOR and CITATION_LEAD.search(voiced[: hit.start()]))
