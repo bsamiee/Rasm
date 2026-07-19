@@ -749,8 +749,11 @@ const wopts = (label, phase, model, schema, over) => Object.assign({ label, phas
 const ropts = (label, phase, schema, scope, hl, over) => Object.assign({ label, phase, schema, scope, hl }, over);
 
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-');
-const laneLaw = (schema, o) =>
-    (o.fix
+// Read/write discipline, split from the output contract so BOTH dispatch paths carry it: a natively executed lane needs
+// the same territory bound, budget, and verification duty as a dispatched one, and inlining it only in the codex prompt
+// left every native lane running unbounded.
+const laneDiscipline = (o) =>
+    o.fix
         ? '<persistence>\nComplete every named move before yielding; do not stop at analysis or a partial edit. If the chosen ' +
           'approach resists, pick the next-best one and proceed. Return without an applied edit only if the territory genuinely ' +
           'admits none.\n</persistence>\n\n<work_cadence>\nRead the stable law corpus once, first; then work ITEM BY ITEM — ' +
@@ -780,7 +783,9 @@ const laneLaw = (schema, o) =>
           'If something is still uncertain at the budget, proceed and record the residue in the product gap/unverified field ' +
           'instead of re-reading.\n</context_gathering>\n\n<verification>\nBefore the final message, confirm every cited ' +
           'spelling appears verbatim in the cited file; anything unconfirmed is recorded as a gap, never asserted.\n' +
-          '</verification>') +
+          '</verification>';
+const laneLaw = (schema, o) =>
+    laneDiscipline(o) +
     '\n\n<output_contract>\nYour final message is a single JSON object with exactly this shape: ' +
     JSON.stringify(schema) +
     '\n- JSON only: no prose before or after it, no code fences, no markdown.\n- Every key shown is required.\n' +
@@ -852,7 +857,9 @@ const twinOf = (m) => (/-luna/.test(m || '') ? 'sonnet' : 'opus');
 const nativeLane = (task, o) => {
     const report = SCRATCH + '/' + fileTag(o.label) + '-report.json';
     return agent(
-        task +
+        laneDiscipline(o) +
+            '\n\n' +
+            task +
             '\n\nPRODUCT TO DISK: write your COMPLETE product as one JSON file matching this schema at ' +
             (ROOT_DIR + '/' + report) +
             ' (Write tool, exactly this absolute path): ' +
@@ -873,8 +880,11 @@ const recon = (taskOf, o) => {
         effort: 'low',
         schema: RECEIPT,
     };
-    return agent(codexPrompt(o.label, task('codex'), o.schema, o), wrapper)
-        .then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task('claude'), o) : r))
+    // `native` runs the lane on the estate model directly — no dispatch wrapper, no MCP hop, the executing agent IS the
+    // reader. Chosen per lane by product weight: an artifact every downstream writer reads in full, or a judgment the run
+    // never re-derives, earns the stronger reader; navigation legwork stays dispatched. Receipt shape is identical either way.
+    return (o.native ? nativeLane(task('claude'), o) : agent(codexPrompt(o.label, task('codex'), o.schema, o), wrapper))
+        .then((r) => (r && !r.ok && !o.native && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task('claude'), o) : r))
         .then((r) => ({
             lane: o.label,
             scope: o.scope || [],
@@ -1494,11 +1504,31 @@ const ctxLensPrompt = (L, batch, dossier, reg) =>
             'what the OTHER packages hold that is relevant to each page — kernel and sibling-package owners it composes or its ' +
             'concept plainly touches, imports, consumer sites, ripple targets both ends — as verified anchors in ' +
             '`seams`/`anchors`, so a writer NAVIGATES (trust, then verify at the anchor) instead of exploring; relevance is ' +
-            'fact, never a suggested change. Each entry also carries `files` and typed `anchors` per the entry form. GROUNDING DOSSIER: write `' +
+            'fact, never a suggested change. Each entry also carries `files` and typed `anchors` per the entry form. ' +
+            'DECLARATION SURFACE — mine what a writer must MATCH to compile against these pages, as fact at its anchor: the ' +
+            'namespace each page\'s owners declare and the exact spelling of every namespace its fences import; which ' +
+            'declarations are visible without an import versus reached through one; the alias, extern-alias, or ' +
+            'static-import a cited surface requires; and the stratum each page sits in per `libs/.planning/architecture.md` ' +
+            'with the DIRECTION its dependencies run — a page importing downward, or reaching a sibling interior where a ' +
+            'recorded seam exists, is a named fact at both anchors. A writer that has to rediscover a namespace spells it ' +
+            'wrong or invents a parallel one.\nGROUNDING DOSSIER: write `' +
             dossier +
-            '` — Tier-1: the branch ARCHITECTURE.md [02]-[SEAMS] rows covering these pages quoted verbatim with `file:line` ' +
-            'anchors, folder-context and charter-intent anchors; Tier-2: pointer rows (path + one line) for every sibling page ' +
-            'composed. FORBIDDEN: doctrine digests, removal framing, unanchored claims, prescriptive designs. Return worklist + coverage.',
+            '` under these five headings verbatim, in this order, no renaming and no additions — downstream lanes reach ' +
+            'your rows by heading, so a renamed section reads as an absent one: `## [01]-[PAGE_OWNERSHIP]` (one row per ' +
+            'page: its ownership boundary, its stratum, and the sibling owners it composes — the anti-collision surface two ' +
+            'concurrent writers read first), `## [02]-[SEAM_LEDGER]` (the branch ARCHITECTURE.md [02]-[SEAMS] rows covering ' +
+            'these pages quoted VERBATIM with `file:line` anchors, each row naming BOTH endpoints and which end each page ' +
+            'owns), `## [03]-[DECLARATION_SURFACE]` (the namespace, import, and visibility rows above, at anchors), ' +
+            '`## [04]-[DOMAIN_GAPS]` (per page, the attributes, sub-kinds, states, relationships, and operations the real ' +
+            'concept demands that the page omits — named as gaps, never as designs), `## [05]-[TIER_2_POINTERS]` (path + ' +
+            'one-line scope for every sibling page composed and every cross-package consumer, the long tail a writer ' +
+            'resolves with a real read when an edit reaches it).\nDEPTH BAR — this dossier is MANDATORY full reading for ' +
+            'every writer that touches these pages, so an omitted seam is a seam nobody repairs and a missing ownership row ' +
+            'is two writers authoring one surface. Every page in scope gets a row under [01] and [04] even when its verdict ' +
+            'is thin; every seam names both ends; a folder-level summary standing where per-page rows belong is an ' +
+            'incomplete pass your `coverage` must report. FORBIDDEN: verified `.api` member catalogs and package-capability ' +
+            'inventory — the two-tier stacking lens owns that surface entirely and a duplicate here forks it; also doctrine ' +
+            'digests, removal framing, unanchored claims, prescriptive designs. Return worklist + coverage.',
     ].join('\n\n');
 
 const apiLensPrompt = (L, batch, dossier, reg) =>
@@ -2617,7 +2647,9 @@ const mapUnit = async (u) => {
         slot(() =>
             recon(
                 (reg) => ctxLensPrompt(L, unitPages, ctxDossier, reg),
-                ropts('map:ctx:' + tag, 'Map', CTX_SCHEMA, scope, { arr: 'worklist', group: 'kind' }, { writes: true, model: 'gpt-5.6-terra' }),
+                // Native: this dossier is MANDATORY full reading for every implement, critique, and redteam lane touching
+                // the unit, so its depth caps what those writers can navigate — the run's highest-leverage read artifact.
+                ropts('map:ctx:' + tag, 'Map', CTX_SCHEMA, scope, { arr: 'worklist', group: 'kind' }, { writes: true, native: true, calls: 110 }),
             ),
         ).catch(() => null),
         slot(() =>
@@ -2945,13 +2977,13 @@ const [found, work, ledger] = await Promise.all([
                     ? recon(
                           (reg) => govFinderPrompt(LANG[t.lang], t.pkgs, t.pages, ROWS, reg),
                           ropts('finder:gov:' + t.lang, 'Close', FINDINGS_SCHEMA, t.pkgs, { arr: 'findings', group: 'class' }, {
-                              codexEffort: 'medium',
+                              native: true,
                           }),
                       )
                     : recon(
                           (reg) => finderPrompt(LANG[t.lang], t.pages, t.i, t.seams, reg),
                           ropts('finder:' + t.lang + ':s' + t.i, 'Close', FINDINGS_SCHEMA, t.pages, { arr: 'findings', group: 'class' }, {
-                              codexEffort: 'medium',
+                              native: true,
                           }),
                       ),
                 // A REJECTED finder degrades to a failed-lane record, never to null: `found` is what mints UNMAPPED, and
@@ -2975,7 +3007,7 @@ const [found, work, ledger] = await Promise.all([
                   // Budget scales with the pool: this lane alone re-verifies every deferred, census, and orphan row in the
                   // run, and the default read budget truncates it into silent loss well before the candidate set is spent.
                   ropts('verify:backlog', 'Close', WORK_SCHEMA, [], { arr: 'live', group: 'source' }, {
-                      codexEffort: 'medium',
+                      native: true,
                       calls: 240,
                   }),
               ),
@@ -2986,7 +3018,8 @@ const [found, work, ledger] = await Promise.all([
               recon(
                   (reg) => ideasCollatorPrompt(IDEA_SETS, IDEAS_WIRE_ROWS, reg),
                   ropts('collate:ideas', 'Close', LEDGER_SCHEMA, [], { arr: 'entries', group: 'status' }, {
-                      codexEffort: 'medium',
+                      native: true,
+                      calls: 120,
                   }),
               ),
           ).catch(() => null)
