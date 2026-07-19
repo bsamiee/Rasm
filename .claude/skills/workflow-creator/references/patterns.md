@@ -810,6 +810,8 @@ Vocabulary, one meaning each: a LANE is one concurrent worker in a fan — its o
 - Inline structured output: the default is plans, slices, verdicts, counts, paths.
 - Scratch product file: heavy product means maps, findings, dossiers, reports; consumers READ THE FILE IN FULL.
 
+TIER IS A ROUTING FACT, never a per-lane preference: a consumer handed a glob over scratch sees the file tier ALONE, blind to every sibling whose product rode the wire. Where one stage family mixes tiers — a dispatched write lane beside a native `agent()` twin — wire rows reach a downstream reader only as script-carried data, so a mixed family's terminal consumer takes BOTH inputs and its prompt names which lanes each covers. That blindness is silent: the reader concludes over the subset it sees. One question per stage closes it — where does this product land.
+
 Scratch convention — one layout, no exceptions:
 
 - Run scratch is `.claude/scratch/<workflow-name>-<slug>-<hash>` (repo-relative, gitignored, ephemeral — deletable once the run's campaign closes): ONE FLAT directory per INSTANCE, never per workflow. A per-workflow constant dir mixes the products of concurrent and successive runs — a sibling run's leftover report reads as THIS run's product to any consumer handed the path, and a second launch clobbers a paused run's dossiers.

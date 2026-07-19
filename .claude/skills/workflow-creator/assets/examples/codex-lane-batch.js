@@ -142,6 +142,9 @@ const shape = (label, scope) => (r) => ({
     headline: (r && r.headline) || '',
     failure: (r && r.failure) || (r ? '' : 'lane died'),
 });
+// The native fallback writes its product to the SAME report path as the dispatched lane, so both tiers land on disk and the
+// terminal reader's roster covers every lane. A fallback returning its product inline instead reaches no disk consumer at
+// all — the reader glob skips it silently and reports over the subset, which reads as a clean partial rather than a gap.
 const lane = (prompt, label, scope, nativeTask) =>
     agent(prompt, { label: 'terra:' + label, phase: 'Audit', model: 'sonnet', effort: 'low', schema: RECEIPT })
         .then((r) =>

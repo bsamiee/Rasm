@@ -953,7 +953,9 @@ const ROOT_LAW =
     'WORKING ROOT: ' +
     ROOT_DIR +
     ' — every relative repo path in this brief resolves against this absolute root; read, write, and edit ONLY under it, never ' +
-    'another checkout of the repository.';
+    'another checkout of the repository. SEARCH FLAGS: `rg` recurses by default, and `-r` is its REPLACE flag — `rg -rn <pat> <dir>` ' +
+    'parses as replacement `n` and prints `n` for every match, so a garbled result is your own flag error and NEVER evidence of ' +
+    'absence; a search returning nothing re-runs in its correct form before any conclusion rests on the emptiness.';
 const CONTEXT = (L) => ROOT_LAW + '\n\nRasm monorepo — ' + L.corpus + '. ' + L.strata + ' ' + L.stackFloor;
 
 // Register table — one row set per EXECUTING model, keyed by recon()'s dispatch branch. Substance is identical across rows (burden of proof on the
@@ -1204,6 +1206,7 @@ const IDEAS = (subFiles, wide) =>
           'it; the package realization writer owns it. An idea disk already realizes, or the doctrine forbids, is dropped; an ' +
           'idea you decline is not a defect. Ambition and information, never a prescription, a design, or a ceiling. ' +
           'LEDGER DUTY: every entry you read gets exactly one `ideasWorked` row — `landed` with the page anchor carrying it, ' +
+          '`deepened` with the anchor when a prior pass left it shallow and you rebuilt it to strength, ' +
           '`declined` with what on disk or in doctrine defeats it, or `unrealized` when it survives but your pass did not ' +
           'reach it. Silence is the one forbidden outcome: an unrecorded entry is indistinguishable downstream from an idea ' +
           'that never existed, and the terminal disposition can only card what a ledger row names.'
@@ -1876,7 +1879,10 @@ const ideasRealizePrompt = (L, pkg, ideaFiles, scopes, pack) =>
             "` — the package's batches have landed; you implement its residual idea pool against the CURRENT corpus. Read " +
             'EVERY idea dossier IN FULL — the per-folder files, then the package-wide file: `' +
             ideaFiles.join('`, `') +
-            '`. Per entry, in dossier order, exactly one outcome: (1) REALIZED-PRIOR — current disk already carries ' +
+            '`. Then group every entry by the OWNER PAGE it grows on and drain PAGE BY PAGE — a page opens once, takes all of ' +
+            'its entries in one composed pass, and closes before the next opens; entry order inside a page is yours. Dossier ' +
+            'order is authoring order, never work order: draining it entry-major re-opens the same page three and four times ' +
+            'and re-buys its context on every return. Per entry, exactly one outcome: (1) REALIZED-PRIOR — current disk already carries ' +
             'the capability fully or in a stronger form: record the landing anchor, never re-build. (2) IMPLEMENTED-NOW — disk ' +
             "admits the entry: build it at the strongest form the doctrine allows, in the owning pages' existing form, growth " +
             'as cases, rows, fields, and operations on existing owners, seams aligned both ends per RIPPLE LAW. You are the ' +
@@ -1887,7 +1893,12 @@ const ideasRealizePrompt = (L, pkg, ideaFiles, scopes, pack) =>
             'gated on a decision, a provenance-bound data source, or a frozen wire: one fully-specified card row via ' +
             '`indexRows` targeting the owning IDEAS.md, naming the gate. (4) DECLINED — the value claim fails re-derivation ' +
             'against current disk: the reason rides `summary`. Ambition is the charter here and truth outranks it: never ' +
-            'fabricate provenance-bound data, never unfreeze a wire, never force a gated ruling. Return the fix-log — ' +
+            'fabricate provenance-bound data, never unfreeze a wire, never force a gated ruling. LEDGER DUTY: every entry ' +
+            'you touch gets exactly one `ideasWorked` row, the outcome above mapped onto the row vocabulary — REALIZED-PRIOR ' +
+            'and IMPLEMENTED-NOW are `landed` (a prior-pass entry you rebuilt from shallow to strength is `deepened`), ' +
+            'CARDED is `unrealized` with `where` naming the card, DECLINED is `declined`. Your ledger is the ONLY record of ' +
+            'this pass: your product returns over the wire, so an entry you leave unrecorded reaches the collator and the ' +
+            'disposition as an idea nobody ever read. Return the fix-log — ' +
             '`deltas` exact, `deferred` for cross-batch ripples, cards via `indexRows`. ' +
             HARVEST_LAW,
     ].join('\n\n');
@@ -1963,7 +1974,7 @@ const backlogVerifierPrompt = (rows, orphans, census, reg) =>
         .filter(Boolean)
         .join('\n\n');
 
-const ideasCollatorPrompt = (sets, reg) =>
+const ideasCollatorPrompt = (sets, wireRows, reg) =>
     [
         ROOT_LAW,
         'Rasm monorepo — the libs/ planning corpora. The Ideate phase authored per-sub-folder and package-wide idea dossiers ' +
@@ -1984,7 +1995,11 @@ const ideasCollatorPrompt = (sets, reg) =>
             SCRATCH +
             "/impl-*-report.json " +
             SCRATCH +
-            '/crit-*-report.json` collates them in one call. A row tells you WHERE to look first and which entries a writer ' +
+            '/crit-*-report.json` collates them in one call. The terminal reviewers and the per-package realization writers ' +
+            'return over the wire and write NO report file, so their rows reach you only here — carrying the deepest ' +
+            'realization work of the run: ' +
+            JSON.stringify(wireRows) +
+            '. A row tells you WHERE to look first and which entries a writer ' +
             'claims to have declined; it never settles status — a `landed` row over a page that does not carry the capability ' +
             'is status `unrealized`, and an entry no row mentions is statused from disk exactly like every other. Absent or ' +
             'malformed ledgers change nothing: disk is the only evidence.',
@@ -2123,11 +2138,17 @@ const ideasImplementPrompt = (L, pkg, ledgerPath, ideaFiles, pack) =>
                   'yourself: `' +
                   ideaFiles.join('`, `') +
                   '`.') +
-            ' Per entry, exactly one outcome: REALIZED-NOW — disk admits it: build the STRONGEST form the doctrine allows, in ' +
+            ' Group your work list by the OWNER PAGE each entry grows on and drain PAGE BY PAGE — a page opens once, takes all ' +
+            'of its entries in one composed pass, and closes before the next opens. Per entry, exactly one outcome: ' +
+            'REALIZED-NOW — disk admits it: build the STRONGEST form the doctrine allows, in ' +
             "the owning pages' existing form, growth as cases, rows, fields, and operations on existing owners, seams aligned " +
             'both ends; DECLINED — gated on a decision, a provenance-bound data source, a frozen wire, or a value claim that ' +
             'fails re-derivation: record the entry and reason in `summary`, edit nothing — the disposition writer cards it. ' +
-            'Never fabricate provenance-bound data, never unfreeze a wire, never force a gated ruling. Return the fixlog — ' +
+            'Never fabricate provenance-bound data, never unfreeze a wire, never force a gated ruling. LEDGER DUTY: every ' +
+            'entry on your work list gets exactly one `ideasWorked` row — REALIZED-NOW is `landed` with the page anchor ' +
+            '(`deepened` where you rebuilt a shallow prior realization), DECLINED is `declined` with the gate or the failed ' +
+            'value claim. You are the LAST realizer before disposition, so a row you omit leaves that entry statused from ' +
+            'stale collation alone. Return the fixlog — ' +
             '`deltas` exact, `deferred` for ripples outside the package. ' +
             HARVEST_LAW,
     ].join('\n\n');
@@ -2195,7 +2216,7 @@ const sweeperPrompt = (langs, fixerReports, deadPkgs, work, rowsGlobal, backlogG
         .filter(Boolean)
         .join('\n\n');
 
-const dispositionPrompt = (sets, pages, ledgerPath) =>
+const dispositionPrompt = (sets, pages, ledgerPath, wireRows, implReports) =>
     [
         ROOT_LAW,
         'Rasm monorepo — the libs/ planning corpora. The run just landed a hostile rebuild over these pages: ' + JSON.stringify(pages) + '.',
@@ -2205,6 +2226,20 @@ const dispositionPrompt = (sets, pages, ledgerPath) =>
               ' statuses every entry as of its pre-fixer collation — the fixer may have realized more since, so it routes your ' +
               'reading order and nothing else; every outcome re-derives from CURRENT disk.'
             : '',
+        'WRITER LEDGERS (navigation, never evidence) — every realizing lane recorded what it met as `ideasWorked` rows. ' +
+            'The wire-only lanes (terminal reviewers, per-package realization writers) carry theirs here: ' +
+            JSON.stringify(wireRows || []) +
+            '. The batch writers left theirs on disk under `' +
+            SCRATCH +
+            "/`: `jq -s '[.[].ideasWorked[]?]' " +
+            SCRATCH +
+            '/impl-*-report.json ' +
+            SCRATCH +
+            '/crit-*-report.json' +
+            (implReports && implReports.length ? ' ' + implReports.join(' ') : '') +
+            '` collates them in one call — the ideas-implementer reports are the LATEST realization pass, later than the ' +
+            'collated ledger. A row routes your reading; it never settles an outcome, and an entry no row mentions is judged ' +
+            'from disk exactly like every other.',
         'TASK: IDEAS DISPOSITION (WRITER — the sole IDEAS.md author at this point of the run). The Ideate phase produced ' +
             'per-sub-folder and package-wide idea dossiers per package — ambition worklists the batch writers, per-package ' +
             'realization writers, and ideas implementers realized at their own discretion. Read every dossier IN FULL, per ' +
@@ -2748,6 +2783,9 @@ const FAILED = PAGES.map((p) => p.page).filter((pg) => !LANDED.includes(pg));
 const ROWS = built.flatMap((d) => (d.rt && d.rt.indexRows) || []);
 const SEAM_ROWS = built.flatMap((d) => (d.rt && d.rt.seamsTouched) || []);
 const BACKLOG = built.flatMap((d) => (d.rt && d.rt.deferred) || []);
+// Ledger rows of the WIRE-ONLY lanes: redteams and per-package realization writers are native agents whose product never
+// lands as a report file, so the collator's on-disk impl/crit scrape cannot see them. Carried inline to both ideas terminals.
+const IDEAS_WIRE_ROWS = built.flatMap((d) => (d.rt && d.rt.ideasWorked) || []);
 const ORPHANS = built
     .filter((d) => d.fix && d.fix.ok && !d.rt)
     .flatMap((d) => [d.fix.report, d.crit && d.crit.report].filter(Boolean));
@@ -2833,7 +2871,7 @@ const [found, work, ledger] = await Promise.all([
     IDEA_SETS.length
         ? slot(() =>
               recon(
-                  (reg) => ideasCollatorPrompt(IDEA_SETS, reg),
+                  (reg) => ideasCollatorPrompt(IDEA_SETS, IDEAS_WIRE_ROWS, reg),
                   ropts('collate:ideas', 'Close', LEDGER_SCHEMA, [], { arr: 'entries', group: 'status' }, {
                       codexEffort: 'medium',
                   }),
@@ -2966,7 +3004,12 @@ const fixerReports = FIXER_REPORTS.concat(IDEAS_IMPL_REPORTS).concat(sweepOk && 
 const HARVEST_ROWS = built.flatMap((d) => (d.rt && d.rt.harvest) || []);
 const [ideas, doctrine] = await Promise.all([
     IDEA_SETS.length
-        ? slot(() => agent(dispositionPrompt(IDEA_SETS, LANDED, IDEAS_LEDGER), wopts('ideas:disposition', 'Close', 'opus', IDEAS_DISP_SCHEMA)))
+        ? slot(() =>
+              agent(
+                  dispositionPrompt(IDEA_SETS, LANDED, IDEAS_LEDGER, IDEAS_WIRE_ROWS, IDEAS_IMPL_REPORTS),
+                  wopts('ideas:disposition', 'Close', 'opus', IDEAS_DISP_SCHEMA),
+              ),
+          )
         : null,
     HARVEST_ROWS.length || fixerReports.length
         ? slot(() =>
