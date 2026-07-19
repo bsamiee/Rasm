@@ -10,7 +10,7 @@
 - bound asset: `lib/net6.0` for `net10.0` consumers
 - namespace: `NodaTime.Serialization.SystemTextJson`
 - dependency: `NodaTime` `[,)`
-- direct owners: `Rasm.AppHost`, `Rasm.Persistence`
+- direct owners: `Rasm.AppHost`, `Rasm.Fabrication`, `Rasm.Persistence`
 - rail: wire-json
 
 ## [02]-[PUBLIC_TYPES]

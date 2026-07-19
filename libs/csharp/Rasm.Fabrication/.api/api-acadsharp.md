@@ -100,6 +100,13 @@ Per-type member spelling is the row-owned axis below: `LwPolyline`/`Polyline2D`/
 |  [24]   | `Hatch.BoundaryPath.Edges`                                         | instance → edge collection       | preserve typed edge leaves |
 |  [25]   | `Hatch.BoundaryPath.GetPoints(int precision = 256)`                | instance → `IEnumerable<XYZ>`    | sample one closed boundary |
 |  [26]   | `Hatch.BoundaryPath.Edge.Type`                                     | instance → `EdgeType`            | discriminate edge leaves |
+|  [27]   | `Hatch.BoundaryPath.Line.Start` / `.End`                           | instance → `XY`                  | exact OCS line endpoints   |
+|  [28]   | `Hatch.BoundaryPath.Arc.Center` / `.Radius`                        | instance → `XY` / `double`       | exact OCS circle           |
+|  [29]   | `Hatch.BoundaryPath.Arc.StartAngle` / `.EndAngle`                  | instance → `double`              | exact angular interval     |
+|  [30]   | `Hatch.BoundaryPath.Arc.CounterClockWise`                          | instance → `bool`                | exact sweep sense          |
+|  [31]   | `Hatch.BoundaryPath.Ellipse.PolygonalVertexes(int)`                | instance → `List<XYZ>`           | provider conic sampling    |
+|  [32]   | `Hatch.BoundaryPath.Polyline.Vertices` / `.Bulges` / `.IsClosed`   | instance collection + flag       | exact bulge path           |
+|  [33]   | `Hatch.BoundaryPath.Spline.PolygonalVertexes(int)`                 | instance → `List<XYZ>`           | provider spline sampling   |
 
 [FRAME_LAW]:
 - OCS coordinates: `LwPolyline.Vertex.Location` (`XY`, documented "in OCS") at `LwPolyline.Elevation`, `Circle.Center`, `Arc.Center`, and `Hatch.BoundaryPath.Arc.Center` are OCS values; `Circle.PolygonalVertexes` and `Arc.PolygonalVertexes` return OCS vertices.
