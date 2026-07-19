@@ -145,7 +145,7 @@
             }
         },
         {
-            "includes": [".claude/skills/applescript/assets/**"],
+            "includes": [".claude/skills/applescript/**/*.js"],
             "linter": {
                 "rules": {
                     "correctness": {
