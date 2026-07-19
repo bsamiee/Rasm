@@ -1,9 +1,9 @@
 export const meta = {
     name: 'rebuild-alt',
     whenToUse:
-        'Hostile rebuild pass for any libs/ planning corpus: pass targets (file / sub-folder / package root, any number, any language mix); it maps every .planning sub-folder, ideates per package on ONE ideas author (per-sub-folder power-idea dossiers and one package-wide dossier), hostile-rebuilds every page batch concurrently through twin half-scope writer chains at the owning-language doctrine bar, closes with a finder fan, package-fanned fixers, per-package ideas-implementers, and one terminal sweeper, then runs an always-on per-file density pass. Roster: recon/deep-map lanes, two-tier .api lanes, twin implement + critique halves, twin redteams, ideas author, census/realize/disposition/doctrine/density-map lanes, per-file density fixers.',
+        'Hostile rebuild pass for any libs/ planning corpus: pass targets (file / sub-folder / package root, any number, any language mix); it maps every .planning sub-folder, ideates per package on ONE ideas author (per-sub-folder power-idea dossiers and one package-wide dossier), hostile-rebuilds every page batch concurrently through twin half-scope writer chains at the owning-language doctrine bar, closes with a finder fan, package-fanned fixers, per-package ideas-implementers, and one terminal sweeper. Roster: recon/deep-map lanes, two-tier .api lanes, twin implement + critique halves, twin redteams, ideas author, census/realize/disposition/doctrine lanes.',
     description:
-        'Language-agnostic hostile-rebuild engine over the libs/{csharp,python,typescript} planning corpora. args = a target path, an array of paths, or {targets} — languages mix freely, {root} retargets an isolated checkout, empty = no-op; every page derives doctrine, both .api tiers, casing, and its member-verification rail from its owning package. Plan expands targets to pages in dependency + seam-cohesion order under the owning-package charter. Map fans one deep-map lane and one two-tier .api inventory lane per .planning sub-folder unit — an oversize sub-folder splits into ceiling-bounded segments, so map and batch seams stay congruent — each writing a per-unit dossier the batches reuse. Ideate runs two lanes per package: a corrections census (the non-binding fix addendum) and ONE ideas author writing one dossier PER .planning sub-folder (folder-grain power ideas — new capability families ultra-stacking both .api tiers) and one package-wide dossier (broader cross-folder ambitions, each naming its owner pages) — one author, internally coherent, zero duplication between grains. Build packs whole sub-folder units into batches under the packing ceiling, all concurrent under one slot scheduler; per batch a doctrine-bar lens, then ONE LOC-balanced half partition drives twin half-scope chains — implement, critique, redteam per half, each chain folding its own on-disk fixlogs forward — every writer under the own-pass-first input ladder with libs-wide ripple authority under the four bounds and seam-ledger coordination; a half consumes its units\' per-folder ideas dossiers with the package-wide entries its pages own. Each package chain closes with one ideas-realization writer implementing the residual idea pool against the landed corpus, gated entries carded via indexRows. The spine is per-package pipelined; Close is a whole-run barrier. Close: a read-only finder fan with one governance finder per language, a backlog verifier consolidating every deferred/census/orphan row into one package-keyed pre-verified work list, and an ideas collator statusing every idea entry against disk — then ONE fixer PER PACKAGE concurrently drains its package\'s work rows, findings, and package-doc index rows, each chaining into a per-package ideas-implementer realizing its unrealized ledger entries; ONE terminal sweeper then drains cross-package rows, central-manifest edits, per-fixer remainders, and failed territories in one scoped pass; two concurrent terminals follow — an ideas-disposition writer giving every idea entry exactly one outcome (realized on disk, carded into the owning IDEAS.md, or rejected with reason) and a doctrine lander adjudicating pooled harvest nominations. Density is the always-on terminal phase over the landed pages: mappers over LOC-bounded file sets write one logic-flow + strata-leverage map per file grounded in the branch and package ARCHITECTURE.md ledgers, then ONE fixer per file executes a single ground-up density pass — shape and entry count down through polymorphic collapse, knobs to policy values, single-caller helpers inlined, flat code rebuilt expression-shaped, hand-rolled capability replaced with strata composition, 10x growth absorbed as rows on existing owners, capability never lost — and one density closer applies pooled card rows and drains cross-file residue. Stage law lives in the prompt blocks.',
+        'Language-agnostic hostile-rebuild engine over the libs/{csharp,python,typescript} planning corpora. args = a target path, an array of paths, or {targets} — languages mix freely, {root} retargets an isolated checkout, empty = no-op; every page derives doctrine, both .api tiers, casing, and its member-verification rail from its owning package. Plan expands targets to pages in dependency + seam-cohesion order under the owning-package charter. Map fans one deep-map lane and one two-tier .api inventory lane per .planning sub-folder unit — an oversize sub-folder splits into ceiling-bounded segments, so map and batch seams stay congruent — each writing a per-unit dossier the batches reuse. Ideate runs two lanes per package: a corrections census (the non-binding fix addendum) and ONE ideas author writing one dossier PER .planning sub-folder (folder-grain power ideas — new capability families ultra-stacking both .api tiers) and one package-wide dossier (broader cross-folder ambitions, each naming its owner pages) — one author, internally coherent, zero duplication between grains. Build packs whole sub-folder units into batches under the packing ceiling, all concurrent under one slot scheduler; per batch a doctrine-bar lens, then ONE LOC-balanced half partition drives twin half-scope chains — implement, critique, redteam per half, each chain folding its own on-disk fixlogs forward — every writer under the own-pass-first input ladder with libs-wide ripple authority under the four bounds and seam-ledger coordination; a half consumes its units\' per-folder ideas dossiers with the package-wide entries its pages own. Each package chain closes with one ideas-realization writer implementing the residual idea pool against the landed corpus, gated entries carded via indexRows. The spine is per-package pipelined; Close is a whole-run barrier. Close: a read-only finder fan with one governance finder per language, a backlog verifier consolidating every deferred/census/orphan row into one package-keyed pre-verified work list, and an ideas collator statusing every idea entry against disk — then ONE fixer PER PACKAGE concurrently drains its package\'s work rows, findings, and package-doc index rows, each chaining into a per-package ideas-implementer realizing its unrealized ledger entries; ONE terminal sweeper then drains cross-package rows, central-manifest edits, per-fixer remainders, and failed territories in one scoped pass; two concurrent terminals follow — an ideas-disposition writer giving every idea entry exactly one outcome (realized on disk, carded into the owning IDEAS.md, or rejected with reason) and a doctrine lander adjudicating pooled harvest nominations. Stage law lives in the prompt blocks.',
     phases: [
         {
             title: 'Plan',
@@ -15,7 +15,7 @@ export const meta = {
         },
         {
             title: 'Ideate',
-            detail: 'per package, fired the moment that package map lanes land: sharded corrections censuses (the deduped disk-verified fix addendum, one lane per few sub-folders) and ONE ideas author writing one per-sub-folder power-idea dossier per .planning folder and one package-wide dossier of broader owner-named ambitions — one author, internally coherent, no entry duplicated across grains; an idea no existing owner can absorb lands as a [NEW_PAGE] entry, and a genuinely new territory as a wide-dossier [NEW_FOLDER] roster (3+ pages at guidance depth), both realization-only — batch writers skip them, the package realization writer implements or the disposition cards them, and run-authored pages join the finder, fixer, and density fans',
+            detail: 'per package, fired the moment that package map lanes land: sharded corrections censuses (the deduped disk-verified fix addendum, one lane per few sub-folders) and ONE ideas author writing one per-sub-folder power-idea dossier per .planning folder and one package-wide dossier of broader owner-named ambitions — one author, internally coherent, no entry duplicated across grains; an idea no existing owner can absorb lands as a [NEW_PAGE] entry, and a genuinely new territory as a wide-dossier [NEW_FOLDER] roster (3+ pages at guidance depth), both realization-only — batch writers skip them, the package realization writer implements or the disposition cards them, and run-authored pages join the finder and fixer fans',
         },
         {
             title: 'Build',
@@ -24,10 +24,6 @@ export const meta = {
         {
             title: 'Close',
             detail: 'a read-only finder fan with one governance finder per language over the landed corpus and seam ledger, with two consolidation lanes riding the fan concurrently — a backlog verifier pre-verifying every deferred/census/orphan row into one package-keyed stale-free work list, and an ideas collator statusing every idea entry against disk into one ledger; then ONE fixer per package concurrently drains its package\'s rows, findings, and package-doc index rows, chaining into a per-package ideas-implementer for the unrealized ledger entries; ONE terminal sweeper drains cross-package rows, central-manifest edits, per-fixer remainders, and failed territories in one scoped pass; then two concurrent terminals — the ideas-disposition writer giving every idea entry one outcome and the doctrine lander adjudicating pooled harvest nominations and the fixer fixlogs\' harvest rows read from disk',
-        },
-        {
-            title: 'Density',
-            detail: 'always-on terminal per-file pass over the landed pages: mappers over LOC-bounded file sets write one map per file — logic threads, shape census with collapse discriminants, entry/knob/helper sprawl, strata leverage, flat code, unexploited api depth, 10x growth stress, exact doctrine shards — grounded in the branch and package ARCHITECTURE.md ledgers; then ONE fixer per file (law pack + its map + its file, nothing more) executes a single ground-up density pass in place — shape count down, one polymorphic entry per modality, knobs to policy values, single-caller helpers inlined, rosters demoted to generators, bodies rebuilt expression-shaped, hand-rolling replaced with strata composition, zero functionality loss; one density closer applies pooled IDEAS card rows and drains cross-file residue',
         },
     ],
 };
@@ -41,7 +37,6 @@ const BATCH_MAX = 8; // unit-segment + batch-packing ceiling; per-segment maps +
 const BATCH_LOC = 3400; // size ceiling beside the count ceiling: a batch's pages must also fit one review context window with room to edit — page tonnage, not page count, is what overflows a lane
 const FINDER_PAGES = 8; // landed pages per close-phase finder
 const CENSUS_SUBS = 4; // sub-folders per corrections-census shard; one lane each keeps row verification deep
-const DENSITY_MAP_LOC = 3400; // page tonnage per density mapper — the map set a single mapper holds with full-context care
 
 // --- [INPUTS] --------------------------------------------------------------------------
 
@@ -2266,9 +2261,8 @@ const sweeperPrompt = (langs, fixerReports, deadPkgs, work, rowsGlobal, backlogG
         PROSE_COMMENTS(langs),
         SCOPE_BOUND,
         GIT_GROUND,
-        "TASK: TERMINAL SWEEPER (WRITER — the run's last CROSS-CUTTING corpus agent; the ideas-disposition and doctrine " +
-            'terminals follow on disjoint surfaces, then the Density phase rebuilds every landed page one file at a time, ' +
-            'so a page-local defect you leave meets one more writer while a cross-package row you leave meets none): ' +
+        "TASK: TERMINAL SWEEPER (WRITER — the run's LAST corpus agent; only the ideas-disposition and doctrine " +
+            'terminals follow, on disjoint surfaces, so any corpus defect you leave meets no further writer this run): ' +
             'full write authority, libs-wide ripple authority with the expand-form bound ' +
             "LIFTED, and the run's SOLE writer for the central manifests and every cross-package or branch-level doc. ONE " +
             'scoped pass — drain the named sets below, nothing else re-litigates. Landed pages: ' +
@@ -2380,132 +2374,6 @@ const dispositionPrompt = (sets, pages, ledgerPath, wireRows, implReports) =>
         .filter(Boolean)
         .join('\n\n');
 
-// Density phase prompts — the terminal per-file pass. The mapper is the fixers' ENTIRE navigation (each fixer reads only
-// the law pack, its map, and its file), so mapper omissions are skipped fixes; the closer is the phase's only cross-file writer.
-const densityMapPrompt = (L, pkg, set) =>
-    [
-        ROOT_LAW,
-        CONTEXT(L),
-        REG.claude.stance(L),
-        INFO_LAW,
-        REG.claude.selfCheck,
-        REG.claude.antiAnchor(L),
-        'TASK: DENSITY MAPPER for `' +
-            pkg +
-            '` — read-only over the corpus; you WRITE one map file per target page, nothing else. The rebuild landed; your ' +
-            'maps arm the terminal per-file density fixers, each of which reads ONLY the audit law pack, its map, and its own ' +
-            "file — your map is that fixer's entire navigation, so an omitted entry is a skipped fix and a wrong anchor a " +
-            'wasted lane. TARGETS (page -> map path): ' +
-            JSON.stringify(set.map((s) => ({ page: s.page, map: s.map }))),
-        'GROUND FIRST, at source: `libs/.planning/architecture.md`; the branch `' +
-            L.root +
-            '/.planning/ARCHITECTURE.md` with its [02]-[SEAMS] ledger; the package ARCHITECTURE.md + README.md at `' +
-            pkg +
-            '`; then BOTH `.api` tiers (`' +
-            L.root +
-            '/.api/`, `' +
-            pkg +
-            '/.api/`) at the catalogs the target pages compose.',
-        'PER PAGE, write its map with exactly these sections: (a) LOGIC_FLOW — every logic thread end to end (ingress -> ' +
-            'transform -> egress) as fact, naming each thread that is partial, dead-ended, split across owners, duplicated, ' +
-            'or a split-brain (one concept modeled twice in parallel shapes). (b) SHAPE_CENSUS — every type, object, shape, ' +
-            'record, and public entry the page declares, each with its true discriminant: parallel shapes sharing an ' +
-            'identity regime, admission path, payload timing, or consumer are COLLAPSE candidates (name the surviving owner ' +
-            'and the discriminant that would justify survival); entry-point sprawl where one polymorphic entry could ' +
-            'discriminate on input shape; knobs whose value reconstructs from the input or belongs as a policy value; ' +
-            'single-caller helpers whose only consumer is one call site; enumerated rosters where a parameterized generator ' +
-            'should generate the space. (c) STRATA_LEVERAGE — capability the page hand-rolls that a lower-stratum owner, ' +
-            'sibling owner, or admitted package already carries: the owning member or page at its verified anchor, the ' +
-            'hand-rolled span at its anchor, both ends named. (d) FLAT_CODE — fences below the admitted combinator surface (' +
-            L.body +
-            '), each with exact anchors and the doctrine law it fails. (e) API_DEPTH — both-tier catalog members the page ' +
-            'concept admits that no fence exploits, exact spellings verified via ' +
-            L.verify +
-            '. (f) GROWTH_STRESS — where the next 10x of cases, fields, modalities, or consumers breaks the page: the owner ' +
-            'whose next case costs a scattered edit instead of one row, the dispatch a new modality cannot enter, the ' +
-            'surface that multiplies instead of absorbing. (g) DOCTRINE_ROUTE — ' +
-            (L.key === 'cs' ? 'the exact `docs/stacks/csharp/domain/` shards this page touches (through `domain/README.md`), and ' : '') +
-            'any doctrine section beyond the audit law pack the fixer must honor, named exactly; empty when the pack suffices. ' +
-            'Information, never prescriptions: anchors, current shapes, discriminants, verified spellings — the fixer rules ' +
-            'every design.',
-        'Return ONLY the receipt: ok, report = the first map path (repo-relative), entries = pages mapped, a one-line ' +
-            'headline, failure empty.',
-    ].join('\n\n');
-
-const densityFixPrompt = (L, page, mapPath, pack, reg) =>
-    [
-        CONTEXT(L),
-        REG[reg].stance(L),
-        BODY(L),
-        VERIFY(L),
-        PROSE_COMMENTS(L),
-        'READ LAW — four named inputs, nothing else. (1) DOCTRINE: ' +
-            (pack
-                ? 'the audit law pack `' +
-                  pack +
-                  '` IN FULL, in large windows, FIRST — it carries every binding checklist section verbatim with source anchors'
-                : 'scoped at-source — `' +
-                  L.stack +
-                  '/README.md` [02]-[DOCTRINE] + [03]-[COLLAPSE_SCAN], OWNER_CHOOSER (`shapes.md` [01]), RAIL_CHOOSER ' +
-                  '(`rails-and-effects.md` [01]), and the file-organization law') +
-            '. (2) YOUR MAP: ' +
-            (mapPath
-                ? '`' +
-                  mapPath +
-                  '` IN FULL — sections (a) LOGIC_FLOW, (b) SHAPE_CENSUS, (c) STRATA_LEVERAGE, (d) FLAT_CODE, ' +
-                  '(e) API_DEPTH, (f) GROWTH_STRESS, (g) DOCTRINE_ROUTE.'
-                : 'absent — derive those seven dimensions yourself from the file and the package ARCHITECTURE.md.') +
-            ' (3) YOUR FILE from CURRENT disk, IN FULL. (4) ONLY the exact anchors the map names — a strata counterpart ' +
-            'span, a catalog member block, a DOCTRINE_ROUTE section. OUT OF SCOPE: everything else — no atlas crawl, no ' +
-            'charter read, no instruction files, no discovery commands beyond the named paths.',
-        'TASK: SINGLE-FILE DENSITY PASS on `' +
-            page +
-            '` — one pass, in place, ground-up where the attack finds bloat; this is your ONLY writable file. ' +
-            '(a) SHAPE COLLAPSE — merge every parallel shape the SHAPE_CENSUS names into ' +
-            L.collapseInto +
-            ': the type/object/shape count goes DOWN with zero functionality loss; a shape survives only on a genuinely ' +
-            'distinct discriminant (COLLAPSE_SCAN + OWNER_CHOOSER in the law pack rule the merge). ' +
-            '(b) SURFACE REDUCTION — collapse entry-point sprawl into one polymorphic entry per modality discriminating on ' +
-            'input shape; collapse each knob into a policy value or input-shape discriminant (KNOB_TEST); inline every ' +
-            'single-caller helper into its caller where the extraction carries no reuse or boundary; demote every enumerated ' +
-            'roster to seed DATA under one parameterized generator over named parameters. ' +
-            '(c) BODY SOPHISTICATION — rebuild every flat-code hit into the admitted combinator surface per the law pack: ' +
-            'dense, expression-shaped, algorithmically driven logic that reads as one algebra, never hand-rolled control ' +
-            'flow. (d) STRATA COMPOSITION — replace hand-rolled capability with composition of the mapped lower-stratum or ' +
-            'package owner: the call site collapses onto the owner and the hand-rolled span deletes; STACK the API_DEPTH ' +
-            'members into existing owners where the fence plainly admits them. (e) THREADS — complete or collapse every ' +
-            'partial, dead, duplicated, or split-brain logic thread the map names. (f) GROWTH — resolve every GROWTH_STRESS ' +
-            'entry so the next 10x of cases, fields, modalities, and consumers lands as rows, cases, and policy values on ' +
-            'existing owners, never as new surfaces beside them. (g) CAPABILITY CONSERVATION is absolute — never delete ' +
-            'functionality, never extract to a new file; LOC and shape count fall only through stronger owners. ' +
-            'The map is SIGNAL, not law: re-verify each entry against the file before acting, hunt past it within your ' +
-            'file, and drop any entry disk already resolves. TERRITORY: edits land in `' +
-            page +
-            '` ONLY — every cross-file need (a seam counterpart end, a `.api` catalog append, an index or IDEAS row) is a ' +
-            '`deferred` {files, claim} or `indexRows` row for the density closer, never an edit. Return the fix-log — ' +
-            '`deltas` exact, `collapsed` naming the shape/entry-count delta, `verdict` clean when a full pass lands nothing. ' +
-            HARVEST_LAW,
-    ].join('\n\n');
-
-const densityCloserPrompt = (langs, reports) =>
-    [
-        ROOT_LAW,
-        BAR_LINES(langs),
-        CATALOG_APPEND,
-        SOLO_LAW,
-        PROSE_COMMENTS(langs),
-        SCOPE_BOUND,
-        "TASK: DENSITY CLOSER (WRITER — the run's final agent). The per-file density fixers were single-file territories; " +
-            'every cross-file need they met is a typed row in their fixlogs, ON DISK: ' +
-            JSON.stringify(reports) +
-            '. Read each IN FULL. (1) Drain every `deferred` row — re-verify on CURRENT disk, repair seam counterparts both ' +
-            'ends, land catalog appends, fix at root; a row disk already resolves is culled with proof in `rejected`. ' +
-            '(2) Apply every `indexRows` row to its owning doc exactly once — you are the sole index/IDEAS.md writer at this ' +
-            'point; an IDEAS row lands as a fully-specified card, deduped against the cards already there. (3) Fold each ' +
-            "fixlog's harvest rows into your `harvest` return, re-verified and deduped. Return the final fixlog — `remaining` " +
-            'carries ONLY rows verified still-open and genuinely blocked, each naming its blocker and owner. ' +
-            HARVEST_LAW,
-    ].join('\n\n');
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -2633,8 +2501,8 @@ const lawPackPrompt = (L, pack) =>
 const LAWPACK = {};
 for (const k of LANGS_IN) {
     LAWPACK[k] = slot(() =>
-        // Native: the pack REPLACES the doctrine atlas for every implement, critique, redteam, and density fixer in the
-        // run, so a section it silently truncates or paraphrases is law the whole run never sees — verbatim relocation
+        // Native: the pack REPLACES the doctrine atlas for every implement, critique, and redteam lane in the run,
+        // so a section it silently truncates or paraphrases is law the whole run never sees — verbatim relocation
         // reads cheap and fails invisibly, which is exactly the shape that earns the stronger reader, not a cheaper one.
         recon(() => lawPackPrompt(LANG[k], lawPackPath(k)), ropts('lawpack:' + k, 'Map', PACK_SCHEMA, [], { arr: 'sections' }, {
             writes: true,
@@ -2937,12 +2805,12 @@ const ORPHANS_BY_PKG = {};
 for (const d of built.filter((x) => x.fix && x.fix.ok && !x.rt))
     ORPHANS_BY_PKG[d.pkg] = (ORPHANS_BY_PKG[d.pkg] || []).concat([d.fix.report, d.crit && d.crit.report].filter(Boolean));
 // Run-authored NEW pages — the realization writer's [NEW_PAGE]/[NEW_FOLDER] output rides its inline rt-record `files` —
-// join the finder fan, the package-fixer territories, and the Density pass, so a fresh page meets the same attack
-// machinery as a rebuilt one; index docs and foreign-package files are excluded.
+// join the finder fan and the package-fixer territories, so a fresh page meets the same attack machinery as a
+// rebuilt one; index docs and foreign-package files are excluded.
 const INDEX_DOC_RE = /(README|ARCHITECTURE|IDEAS|TASKLOG)\.md$/;
 // Source is the REALIZATION records alone (`pages: []` — the rt slot they share with 28 redteams), never every rt record:
 // a redteam's `files` is every page it edited under libs-wide RIPPLE authority, so a rippled sibling would enter here as a
-// run-authored page and take a full density rebuild it was never scoped for. Paths normalize first — a lane may answer
+// run-authored page and take a full fixer pass it was never scoped for. Paths normalize first — a lane may answer
 // absolutely, and every routing predicate below is prefix-anchored, so an un-normalized absolute path drops silently.
 const relPath = (f) => String(f).replace(ROOT_DIR + '/', '').replace(/^\/+/, '');
 const NEW_PAGES = [
@@ -2970,7 +2838,7 @@ if (!LANDED.length) {
 
 phase('Close');
 // Languages derive from LANDED_ALL, matching what the fan actually slices: a page entering only through NEW_PAGES in a
-// language with zero rebuilt pages would otherwise reach the fixer and density fans while no finder ever audits it.
+// language with zero rebuilt pages would otherwise reach the fixer fan while no finder ever audits it.
 const LANDED_LANGS = [...new Set(LANDED_ALL.map((p) => langOf(p)).filter(Boolean))];
 const finderTasks = LANDED_LANGS.flatMap((k) => {
     const langPages = LANDED_ALL.filter((p) => langOf(p) === k);
@@ -3216,92 +3084,6 @@ const [ideas, doctrine] = await Promise.all([
         : null,
 ]);
 
-phase('Density');
-// Terminal per-file pass: mappers over LOC-bounded per-package file sets write one map per page; then ONE fixer
-// per page — law pack + map + file, nothing more, single-file write territory — executes the density pass; one closer
-// drains the pooled cross-file rows. Runs after Close so it works the fully-drained corpus.
-const pageLinesOf = Object.fromEntries(PAGES.map((p) => [p.page, p.lines]));
-const densityMapOf = (page) => SCRATCH + '/' + fileTag('density:' + page) + '-map.md';
-const locChunk = (rows, cap) => {
-    const out = [];
-    let cur = [];
-    let acc = 0;
-    for (const r of rows) {
-        if (cur.length && acc + r.lines > cap) {
-            out.push(cur);
-            cur = [];
-            acc = 0;
-        }
-        cur.push(r);
-        acc += r.lines;
-    }
-    if (cur.length) out.push(cur);
-    return out;
-};
-const DENSITY_SETS = FIXED_PKGS.flatMap((pkg) =>
-    locChunk(
-        LANDED_ALL.filter((p) => pkgOf(p) === pkg).map((p) => ({ page: p, lines: pageLinesOf[p] || 500, map: densityMapOf(p) })),
-        DENSITY_MAP_LOC,
-    ).map((set, i) => ({ pkg, i, set })),
-);
-const mappedPages = new Set();
-await Promise.all(
-    DENSITY_SETS.map((s) =>
-        slot(() =>
-            agent(
-                densityMapPrompt(Lof(s.pkg), s.pkg, s.set),
-                wopts('density:map:' + pkgTag(s.pkg) + ':' + s.i, 'Density', 'opus', RECEIPT),
-            ),
-        )
-            .then((r) => {
-                // `entries` (pages mapped) must cover the whole set: one ok boolean over a multi-page set would mark every
-                // page mapped on a lane that wrote only some, sending the missing pages' fixers to a nonexistent map path
-                // with no fallback — the fixer's absent-map branch fires only on an EMPTY path, never on a dead one.
-                if (r && r.ok && (r.entries || 0) >= s.set.length) for (const row of s.set) mappedPages.add(row.page);
-            })
-            .catch(() => null),
-    ),
-);
-log('Density: ' + mappedPages.size + '/' + LANDED_ALL.length + ' page(s) mapped across ' + DENSITY_SETS.length + ' mapper(s)');
-const densityFixes = (
-    await Promise.all(
-        LANDED_ALL.map((page) => {
-            const L = Lof(pkgOf(page));
-            return slot(async () => {
-                const pkR = LAWPACK[L.key] ? await LAWPACK[L.key] : null;
-                return recon(
-                    (reg) => densityFixPrompt(L, page, mappedPages.has(page) ? densityMapOf(page) : '', pkR && pkR.ok ? lawPackPath(L.key) : '', reg),
-                    // Label carries the full page path — a basename label collides across packages and overwrites reports.
-                    // FIXLOG_SCHEMA (not REVIEW): the pass attests its shape/entry-count delta in `collapsed` and reports
-                    // fake map anchors in `dossierPhantoms`.
-                    ropts('density:' + page.replace(/^libs\//, ''), 'Density', FIXLOG_SCHEMA, [page], { arr: 'files' }, {
-                        writes: true,
-                        fix: true,
-                        calls: 120,
-                    }),
-                );
-            }).catch(() => null);
-        }),
-    )
-).filter(Boolean);
-const DENSITY_REPORTS = densityFixes.filter((f) => f.ok && f.report).map((f) => f.report);
-const densityClose = DENSITY_REPORTS.length
-    ? await slot(() =>
-          recon(
-              () => densityCloserPrompt(LANDED_LANGS, DENSITY_REPORTS),
-              ropts('density:closer', 'Density', FIXER_SCHEMA, [], { arr: 'remaining' }, { writes: true, fix: true, calls: 400 }),
-          ),
-      ).catch(() => null)
-    : null;
-log(
-    'Density: ' +
-        DENSITY_REPORTS.length +
-        '/' +
-        LANDED_ALL.length +
-        ' file pass(es) landed; closer ' +
-        (densityClose && densityClose.ok ? 'landed, ' + (densityClose.entries || 0) + ' row(s) remaining' : 'absent'),
-);
-
 return {
     targets: TARGETS,
     languages: LANDED_LANGS,
@@ -3329,12 +3111,6 @@ return {
         reports: fixerReports,
         remaining: openCount,
         headline: (sweepOk && sweep.headline) || '',
-    },
-    density: {
-        mapped: mappedPages.size,
-        filePasses: DENSITY_REPORTS.length,
-        closer: (densityClose && densityClose.ok && densityClose.report) || '',
-        remaining: (densityClose && densityClose.ok && densityClose.entries) || 0,
     },
     doctrine: doctrine && {
         nominated: HARVEST_ROWS.length,
