@@ -67,8 +67,7 @@ function catalogOf(document) {
 }
 
 // A declared command missing a required parameter label is refused, never sent with the label dropped —
-// the receiver resolves a different operation under the same verb. `*` is the universal access group;
-// anything narrower is the exact string a sandboxed sender names in its scripting-targets entitlement.
+// the receiver resolves a different operation under the same verb. `*` is the universal access group.
 function routeOf(row, catalog) {
     const declared = catalog.commands.get(row.verb);
     if (declared !== undefined) {

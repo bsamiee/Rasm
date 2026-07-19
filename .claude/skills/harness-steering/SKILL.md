@@ -1,19 +1,15 @@
 ---
 name: harness-steering
 description: >-
-    Owns the persistent behavior surfaces of the Claude Code harness and the placement law
-    that picks one: the CLAUDE.md hierarchy, imports, path-scoped rules, the memory
-    content law and scored audit, auto memory, settings scopes and precedence,
-    permission evaluation, sandbox and auto-mode guardrails, model and effort routing
-    (aliases, opusplan, advisor), skill listing budget, statusline, output styles,
-    keybindings, plugin marketplaces, LSP plugins, env, plus the headless lanes — print
-    and bare mode, session continuation, background sessions, the SDK.
-    Use when deciding where an instruction lives (memory file, rule, skill, hook, setting,
-    or subagent), auditing or slimming a CLAUDE.md, tuning model, effort, permission, or
-    sandbox defaults, diagnosing what loaded into context, or scripting noninteractive
-    calls. Mechanical settings.json edits belong to update-config; hook
-    construction to hooks-builder; skill bundle authoring to skill-writer; work placement
-    across subagents, teams, and workflows to agent-dispatch.
+    Owns every persistent Claude Code behavior surface and the placement law picking one: CLAUDE.md
+    hierarchy and imports, `.claude/rules/` path scoping, auto memory, settings precedence,
+    permission rules, `sandbox.*` and auto-mode, model aliases and effort, skill listing budget,
+    statusline, output styles, `.mcp.json` rows, plugin marketplaces, `.lsp.json` LSP servers, and
+    headless `-p`, `--bare`, `--bg`, `--worktree`, SDK. Use for "where does this instruction go",
+    "why isn't my CLAUDE.md loading", "stop asking permission every time", slimming a memory file,
+    tuning model, effort, permission, or sandbox defaults, and reading `/context`, `/doctor`, or
+    `/memory`. settings.json edits belong to update-config, hook bodies to hooks-builder, skill
+    bundles to skill-writer, work placement to agent-dispatch.
 ---
 
 # [HARNESS_STEERING]

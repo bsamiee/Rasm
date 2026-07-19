@@ -1,17 +1,14 @@
 ---
 name: code-review
 description: >-
-    Local code review through three engines — CodeRabbit (working tree), Greptile (committed
-    commits vs base), Macroscope (in-place AST correctness) — driven by one verb rail
-    (`launch`, `status --follow`, `kill`, `findings --normalize`, `slice`, `reconcile`,
-    `harvest`, `gather`, `round`, `verify`, `registry`, `selftest`) through the COLLECT -> FIX -> DISPOSITION ->
-    DISTILL cycle, with per-reviewer concurrent rounds, cross-engine `gather` union, per-round
-    `--focus` aiming, fixer-lane dispatch under the shipped universal fixer template, and distillation
-    through the reviewer-harvest agent into the `.coderabbit.yaml`, `.greptile/`, and
-    `.macroscope/` reviewer-config surfaces. Trigger on any explicit review request,
-    autonomously when a review is warranted (code, quality, security), on "run coderabbit",
-    "run greptile", or "run macroscope", and when tuning any reviewer config. Hosted PR
-    reviewer round-trips belong to pr-loop.
+    Owns the local review cycle over three engines — CodeRabbit, Greptile, Macroscope —
+    across both corpora they review: code diffs and estate prose (skills, agent definitions,
+    docs, CLAUDE.md). Deliverables are normalized findings, drained fixer lanes, and reviewer
+    configs hardened each round — `.coderabbit.yaml`, `.greptile/`, `.macroscope/` — and the
+    standing refuted-class registry. Trigger on any explicit review request, autonomously when
+    landed work warrants review, on "run coderabbit", "run greptile", "run macroscope", "review
+    my changes", "review the skills estate", and on any reviewer-config or refuted-class tuning.
+    Hosted PR reviewer round-trips belong to pr-loop; prose law itself to docgen.
 ---
 
 # [CODE_REVIEW]

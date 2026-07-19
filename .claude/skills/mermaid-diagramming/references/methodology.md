@@ -143,7 +143,7 @@ Question table refines within the selected cluster:
 |  [29]   | plausible causes of one effect        | `ishikawa-beta`      |
 |  [30]   | wire-format bit contract              | `packet`             |
 
-Quantitative rows — pie, xychart, sankey — hold only for a one-off structural illustration inside a doc that must stay a mermaid fence; a reused, interactive, or precision-critical chart routes to the dataviz lane, while a capability profile stays a committed `radar-beta` fence.
+Quantitative rows — pie, xychart, sankey — hold only for a one-off structural illustration inside a doc that must stay a mermaid fence; a reused, interactive, or precision-critical chart leaves the fence entirely, while a capability profile stays a committed `radar-beta` fence.
 
 [CONTRAST]: classic mismatches, each repaired by payload alignment:
 - lifecycle drawn as flowchart -> `stateDiagram-v2`

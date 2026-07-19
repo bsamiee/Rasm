@@ -1,18 +1,14 @@
 ---
 name: agent-dispatch
 description: >-
-    Owns work placement and delegation craft across Claude Code's execution surfaces — main
-    turn, `/btw`, fork, subagent, background task, nested subagent, agent team, dynamic
-    workflow — with the selection economics that pick one, the delegation contract that makes
-    a worker prompt self-contained (objective, territory, output contract, receipt), the
-    communication topologies (star, pipeline, panel, tournament, generate-filter, loop), depth and fan-out
-    budgeting, and the runtime mechanics of background permission surfacing, `SendMessage`
-    resume, and worker memory. Use when parallelizing work,
-    delegating a task to a subagent or teammate, choosing between a subagent, fork, team, or
-    workflow, writing a `.claude/agents/` definition,
-    or when a delegation stalls, over-prompts for permission, or returns weak results.
-    Authoring runnable workflow scripts belongs to workflow-creator; gpt-5.6 offload belongs
-    to the codex skill and Gemini offload to agy; harness configuration belongs to harness-steering.
+    Owns work placement and delegation craft: which surface holds the work — main turn, fork,
+    subagent, agent team, workflow, or machine automation — and the decision-complete worker
+    contract (territory, exclusions, return shape, acceptance, and root discipline),
+    result-flow topology, depth and fan-out budgeting, worker model tiering, and `SendMessage`
+    resume. Use when "parallelize this" , "delegate this", "subagent or workflow?", "run it in the
+    background", or when a delegation stalls, over-prompts for permission, or returns weak
+    results. Every operation on a chosen workflow belongs to workflow-creator; gpt-5.6 offload
+    to codex and Gemini to agy; settings, memory, and model defaults to harness-steering.
 ---
 
 # [AGENT_DISPATCH]

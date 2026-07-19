@@ -167,7 +167,7 @@ Every axis and micro mark declares its domain law: ticks land on the 1–2–5�
 
 ## [10]-[CHARTS]
 
-A quantitative figure is hand-authored from the same kernels as every diagram — scales, ticks, and axes are generated geometry, never a runtime charting library. Chart-form selection and palette law ride the `dataviz` skill; this section owns the SVG realization once the form is chosen, and the domain law above binds every scale it builds.
+A quantitative figure is hand-authored from the same kernels as every diagram — scales, ticks, and axes are generated geometry, never a runtime charting library. This section owns the SVG realization once the chart form is chosen, and the domain law above binds every scale it builds.
 
 ```js copy-safe
 const linear = (d0, d1, r0, r1) => (v) => r0 + (d1 - d0 < 1e-9 ? 0.5 : (v - d0) / (d1 - d0)) * (r1 - r0);

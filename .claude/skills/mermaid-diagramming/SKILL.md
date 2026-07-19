@@ -1,17 +1,15 @@
 ---
 name: mermaid-diagramming
 description: >-
-    Generates and validates Mermaid diagrams with YAML frontmatter, ELK layout, Dracula theme
-    tokens, and a bundled render, graph-logic, and SVG-geometry validator. Owns diagram methodology — when to
-    diagram, node and edge selection, per-type construction, logical soundness — the archetype
-    template catalog from architecture spine to weighted decomposition, the concept-to-diagram
-    map that turns state machines, dispatch topologies, dependency graphs, protocol seams, and
-    chronologies into the right fence, and the embedding contract for diagrams inside markdown
-    docs and single-file HTML artifacts. Use when authoring, editing, or fixing any mermaid
-    fence, choosing a diagram type, embedding a rendered diagram in a page, or whenever a task
-    asks to draw, diagram, map, or visualize a system, flow, state machine, sequence exchange,
-    schema, dependency structure, schedule, hierarchy, or workflow board — even when mermaid is
-    never named — distinct from quantitative dataviz marks and interactive HTML pages.
+    Authors, validates, and repairs Mermaid diagrams: type selection, graph logic, Dracula
+    theming, frontmatter and layout-engine config, an archetype template per diagram kind, and a
+    bundled validator proving each fence renders, reads legibly, and holds canon. Use when
+    writing, fixing, or embedding a mermaid fence in markdown or a single-file HTML page,
+    exporting one to SVG or PNG, or when a fence will not render, overlaps nodes, or crosses
+    edges — and whenever a task asks to draw, map, or visualize a system, flow, state machine,
+    sequence, schema, dependency graph, protocol seam, chronology, schedule, hierarchy, or
+    workflow board, even when mermaid is never named. A precision-critical quantitative chart is
+    not a fence; the surrounding interactive page belongs to html-studio.
 ---
 
 # [MERMAID_DIAGRAMMING]

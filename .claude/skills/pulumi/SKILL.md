@@ -1,17 +1,15 @@
 ---
 name: pulumi
 description: >-
-    Use this skill for any task that creates, modifies, inspects, or destroys cloud infrastructure
-    or SaaS configuration, from one-off CLI operations to full multi-resource projects, across
-    providers in the Pulumi ecosystem — AWS, Azure, GCP, Kubernetes, Cloudflare, Hostinger, Auth0,
-    Datadog, Vercel, and others — driven through one CLI, one state model, and one credential layer.
-    Trigger even when the task does not name Pulumi; phrasings like "deploy this app," "provision a
-    database," "stand up a VPC," "configure Auth0," or "tear down staging" qualify, as do tasks that
-    migrate Terraform, CloudFormation, CDK, Bicep, or ARM code to Pulumi, Automation API embedding,
-    ComponentResource authoring, Output/apply questions, and failed pulumi up or preview debugging.
-    Do not trigger for application runtime code that reads or writes data via cloud SDKs; that is
-    application code, not infrastructure. Interactive Hostinger domain, DNS, and VPS operations
-    belong to the hostinger skill.
+    Owns Pulumi infrastructure-as-code: creating, inspecting, and destroying cloud and SaaS
+    resources on any Pulumi-registry provider — `pulumi do` one-offs, projects and stacks,
+    ComponentResource design and packaging, Automation API, ESC environments, policy packs, drift
+    schedules. Use when reviewing or refactoring Pulumi code, debugging a failed `up` or `preview`,
+    chasing an unexpected replace or delete in a preview, adopting resources via `pulumi import`,
+    converting Terraform, CloudFormation, CDK, Bicep, or ARM code, and on tasks that never name
+    Pulumi — "deploy this app", "provision a database", "stand up a VPC", "tear down staging". App
+    code reading or writing data via cloud SDKs is not infrastructure; interactive Hostinger domain,
+    DNS, and VPS work belongs to hostinger.
 ---
 
 # [PULUMI]

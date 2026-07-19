@@ -1,9 +1,13 @@
 ---
 name: heptabase-cli
-description: Interact with Heptabase using the CLI to manage knowledge base content, search cards, edit properties, read parsed PDF and media transcript content, export local files, manage whiteboard cards, and browse AI Tutor goals, courses, and lessons.
-allowed-tools: Bash(heptabase *), Bash(jq *), Bash(mktemp *), Bash(date *), Bash(rm *), Read
-metadata:
-    heptabase-cli-version-range: '0.4.x'
+description: >-
+    Reads and writes Heptabase through the local `heptabase` CLI: note, journal, and card
+    content as Markdown or ProseMirror JSON under contentMd5 concurrency, typed tag property
+    writes including relations, whiteboard card add/remove, parsed PDF pages, audio and video
+    transcript ranges, local raw file export, and AI Tutor goals, courses, lessons. Use when a
+    task saves, appends, or edits Heptabase content, sets a card property, or pulls a PDF or
+    transcript — "add this to my Heptabase", "update that card's status", "get the transcript".
+    No file upload or media processing.
 ---
 
 # [HEPTABASE_CLI]
@@ -21,7 +25,7 @@ Manage Heptabase knowledge base content through the local CLI; every read and wr
 ## [02]-[PREREQUISITES]
 
 - Desktop app installs the CLI: `heptabase` on macOS/Linux, `heptabase.cmd` on Windows for cmd/PowerShell beside a `heptabase` POSIX shim.
-- `heptabase --version` gates use: a version outside this skill's declared range halts work — ask the user to update the desktop app or skill package.
+- `heptabase --version` proves the CLI is reachable; a command this skill names but `heptabase help` does not list halts work rather than being guessed — ask the user to update the desktop app.
 
 ## [03]-[COMMAND_DISCOVERY]
 

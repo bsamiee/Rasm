@@ -1,6 +1,16 @@
 ---
 name: codex
-description: Dispatch self-contained work to Codex (gpt-5.6 Sol/Terra) through the `codex` MCP tool or the `codex` CLI — an isolated agent returning one report; writes, design, hard reviews, fleet fix waves, research, and volume extraction all ride it. Trigger on repo sweeps, audits, investigation, log or dataset distillation, live web research, implementation from spec, migrations, a second perspective on any plan or diff, any mention of codex, gpt-5.6, Sol, Terra, or OpenAI models, and any request to offload work or conserve usage. Claude-surface delegation belongs to agent-dispatch; Gemini calls belong to agy.
+description: >-
+    Owns gpt-5.6 (Sol/Terra) lanes end to end — dispatch via the `codex` MCP tool or `codex
+    exec`, the developer/user prompt contract, model and effort choice, background keepers,
+    session resume, and `collaboration.*` fan-out. Isolated write-capable lanes returning one
+    report carry repo sweeps, audits, spec implementation, migrations, fleet fix and critique
+    waves, `codex review`, live web research, log or dataset distillation, volume extraction,
+    and a second perspective on any plan or diff. Use when writing or repairing a lane prompt,
+    picking a model or effort tier, or when a lane stalls, wedges, spawns nothing, or loses its
+    thread — and on "offload this", "save my usage", or any mention of codex, gpt-5.6, Sol,
+    Terra, or OpenAI. Gemini and read-only multimodal judgment belong to agy; placement across
+    Claude's own surfaces to agent-dispatch.
 ---
 
 # [CODEX]

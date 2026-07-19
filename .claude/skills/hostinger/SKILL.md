@@ -1,15 +1,14 @@
 ---
 name: hostinger
 description: >-
-    Hostinger estate operations across the whole account API: the domain portfolio (registration,
-    DNS zone records, nameservers, forwarding, WHOIS, lock and privacy), the VPS fleet (lifecycle,
-    Docker Compose projects, firewalls, SSH keys, snapshots, recovery, PTR, metrics), shared hosting
-    and WordPress (websites, installs, plugins, themes, databases, Node.js apps, cache, cron, PHP),
-    ecommerce stores and products, Reach email marketing, and billing catalog, payment methods, and
-    subscriptions. Use when registering or transferring domains, editing DNS, deploying or
-    troubleshooting a VPS or its Docker projects, managing a website, WordPress install, or database,
-    standing up a store, running email campaigns, or resolving a Hostinger catalog, payment, or
-    subscription. Declarative IaC provisioning through the Pulumi Hostinger provider belongs to pulumi.
+    Owns Hostinger account work and the lane that carries it — `hostinger` MCP tools, REST under
+    `HOSTINGER_API_TOKEN`, or SSH on the box — with the safety law over irreversible acts: snapshot
+    first, firewall sync, async polling, hPanel-only escapes. Reaches domains, DNS zones, WHOIS; VPS
+    lifecycle, firewalls, SSH keys, recovery; Docker Compose deploy and rollback; shared hosting,
+    WordPress, databases; ecommerce stores; Reach deliverability and segments; the billing catalog
+    `item_id` every purchase consumes. Use for "deploy to the VPS", "point the domain at", "roll back
+    the deploy", "the site is unreachable", or scripting the Hostinger API. Pulumi-provider IaC
+    belongs to pulumi.
 ---
 
 # [HOSTINGER]

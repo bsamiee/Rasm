@@ -1,17 +1,15 @@
 ---
 name: docgen
 description: >-
-    Doc-gen foundation for durable agent-facing documents: the owning-voice register, altitude
-    control, file-kind consistency and marker systems, the anti-anchoring law against enumerating
-    or freezing facts prose cannot keep true, the named defect catalog (capability-gating,
-    legacy-compat, imported upstream posture, process-ledger, deleted-form litanies, coupling),
-    and a deterministic prose gate. Use when authoring, editing, reviewing, or rewriting any durable markdown — README,
-    ARCHITECTURE, specs, standards, prompts, tool docs, the prose inside skill files — when
-    designing a document schema or marker vocabulary, or when hunting noise, fragility,
-    staleness, poison framing, or context anchoring. Skill bundle design — triggers, disclosure,
-    bundled scripts, evals — belongs to the skill-writer skill; Mermaid fences to
-    mermaid-diagramming; interactive HTML artifacts to html-studio. Do not trigger for transient
-    chat replies, code-only edits, or research whose deliverable is not durable markdown.
+    Owns durable agent-facing prose wherever it lives — markdown files and the comments inside
+    source files and fences — through one register, altitude and one-owner-per-fact law, an
+    anti-anchoring rule against rosters, counts, and freezes, a named defect catalog, file-kind
+    templates, and a deterministic gate and fixer. Use when authoring, editing, reviewing, or
+    rebuilding a README, ARCHITECTURE, spec, standard, card ledger, API catalog, prompt, tool
+    doc, or the prose inside a skill; when designing a document schema or marker vocabulary;
+    when pruning code comments; or on "clean up this doc", "tighten the prose", "this doc is
+    stale". Bundle design — triggers, disclosure, evals — belongs to skill-writer. Silent where
+    the deliverable is not a durable doc.
 ---
 
 # [DOCGEN]
@@ -123,7 +121,7 @@ Layout blocks carry `mergeEdges: true` and `nodePlacementStrategy: NETWORK_SIMPL
 [PROSE_CODE_BOUNDARY] — Prose names owners; code carries mechanism. A prose line names at most the owning symbol as a code span and states its law; signatures, parameter lists, member chains, option rosters, and per-member behavior live in the fence, catalog, or table that tooling keeps true — carried in prose they are drift debt the next code edit falsifies. A list entry is one focused decision: one owner, one charter phrase; an enumeration tail, a second clause, or a package-mechanism aside demotes to the owning surface or splits into a sibling entry, never a longer line.
 
 ```markdown rejected
-- [03]-[LENS](lens.md): `DocumentLens` recover-to inverse over PDF, raster, or workbook, plus the examination ops — glyphs, layout metrics, OCG layers, separation inks, page labels, FDF/XFDF form data.
+- [03]-[LENS](lens.md): `DocumentLens` recover-to inverse over PDF, raster, or workbook, and the examination ops — glyphs, layout metrics, OCG layers, separation inks, page labels, FDF/XFDF form data.
 ```
 
 ```markdown accepted

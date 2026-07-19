@@ -12,8 +12,7 @@ Replace  : LABEL, the ProgramArguments vector, the trigger region, the log paths
 <dict>
 
   <!-- Label is the job's identity across bootstrap, kickstart, and unload, and it matches the
-       file name. TCC charges every Apple event this job sends against the signed executable
-       launchd starts here, never against the script file that executable reads. -->
+       file name. -->
   <key>Label</key>
   <string>LABEL</string>
 

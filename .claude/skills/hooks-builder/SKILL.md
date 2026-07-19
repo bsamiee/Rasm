@@ -1,13 +1,12 @@
 ---
 name: hooks-builder
 description: >-
-    Builds Claude Code and Codex hooks as one discipline — command, HTTP, MCP-tool, prompt, and
-    agent handlers across the full event surface. Use when building PreToolUse validation,
-    PostToolUse formatting or redaction, PermissionRequest auto-approval, SessionStart context
-    injection, Stop or SubagentStop continuation, PreCompact extraction, async guardrails,
-    telemetry transmitters, a Codex hooks.json or config.toml adapter, or any deterministic
-    blocking and non-blocking agent control — and when porting one canonical hook body across both
-    providers. Where an instruction lives — memory, rule, setting, or hook — belongs to harness-steering.
+    Builds Claude Code and Codex hooks — enforcement, where a rule the model keeps ignoring
+    becomes a deterministic exit-2 block, one body serving both providers. Use for PreToolUse
+    gates, PostToolUse formatting/redaction, PermissionRequest auto-approval, SessionStart
+    injection, Stop/SubagentStop continuation, PreCompact extraction, async guardrails, and
+    Codex hooks.json/config.toml adapters — "always run X first", "it keeps ignoring my
+    instruction". Where a rule should live is harness-steering.
 ---
 
 # [HOOKS_BUILDER]

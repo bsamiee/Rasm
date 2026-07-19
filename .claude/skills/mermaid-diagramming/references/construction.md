@@ -332,7 +332,7 @@ Each diagram type answers one question with a bounded mark vocabulary. Per type:
 
 [QUANTITATIVE]:
 - Question: pie — part-to-whole share in one fence; sankey — conserved flow splitting across stages; xychart — a measure against ordered categories.
-- Boundary: a standing, interactive, or precision-critical chart is the dataviz skill's; these hold only as a one-off structural illustration that must stay a mermaid fence.
+- Boundary: these hold only as a one-off structural illustration that must stay a mermaid fence; a standing, interactive, or precision-critical chart is not a mermaid deliverable.
 - Signal: pie — the dominant wedge; sankey — where volume concentrates and splits; xychart — the trend line or the outlier bar.
 - Failure modes: a pie past six slices or whose shares miss the whole, a sankey flow exceeding its source, or an xychart axis hiding the zero baseline.
 - Logic checks: pie shares sum to the whole; a conservation sankey balances every interior node's inflow against its outflow, and a budget or leakage sankey names its loss as an explicit sink; xychart categories share one measure and unit.

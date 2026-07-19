@@ -1,12 +1,11 @@
 ---
 name: context7-mcp
 description: >-
-    Current library, framework, and API documentation through the Context7 MCP tools
-    `resolve-library-id` and `query-docs` — signatures, configuration, setup, and code
-    examples from live indexed docs instead of training-data recall. Use for setup or
-    configuration questions, code generation involving a library, API references, or any
-    mention of a specific framework — React, Vue, Next.js, Prisma, Supabase, and peers.
-    General web research beyond indexed library docs belongs to tavily-search.
+    Repairs Context7 lookups that miss: rival `/org/project` IDs and versions ranked, a
+    multi-concept question split into scoped queries, an un-indexed library routed to its own
+    repository. Use when a docs lookup returns the wrong library, competing ID candidates, or
+    thin results — "it pulled the wrong docs", "Context7 has nothing for this". General web
+    research belongs to tavily-search.
 ---
 
 # [CONTEXT7_MCP]

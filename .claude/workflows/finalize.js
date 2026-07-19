@@ -1,29 +1,29 @@
 export const meta = {
     name: 'finalize',
     whenToUse:
-        'The finalization engine — the complement to rebuild: where rebuild improves and extends, finalize corrects and closes. Run it over a package (or folder subset) whose build passes have landed: deep per-file mapping of misalignments, broken or partial logic threads, split-brain, unnecessary differentiation, entry-point sprawl, and unleveraged libs-wide seams; one consolidated work dossier; one implementor with full project authority that fully drains; a read-only critique fan piped into one terminal red-team; a doctrine lander closing the loop.',
+        'The finalization engine — the complement to rebuild: where rebuild improves and extends, finalize corrects and closes. Run it over a package (or folder subset) whose build passes have landed: deep per-file mapping of misalignments, broken or partial logic threads, split-brain, unnecessary differentiation, entry-point sprawl, and unleveraged libs-wide seams; one consolidated work dossier; per-unit sol implement writers under seam-ledger coordination; a sol critique fan piped into per-unit opus red-teams; one sol terminal sweeper; an opus doctrine lander. Fable-free roster.',
     description:
-        'Language-agnostic finalization pass over one libs/{csharp,python,typescript} package planning corpus. args = a package root, an array of planning sub-folders, or {targets} — {root} retargets an isolated checkout, empty = no-op; the language derives from the root and selects the doctrine root pages, both .api tiers, the manifest, and the member-verification rail. Scope resolves targets to the owning package root and its per-sub-folder page units in dependency order (an oversize sub-folder splits into ceiling-bounded segments). Map fans two read-only lenses per unit — an interior FLOW lens (per-file logic threads end to end, partial or naive features, split-brain, differentiation, entry-point sprawl, dead ends) and an exterior SEAM lens (libs-wide boundary and wire alignment, unleveraged upstream capability, hand-rolled reimplementation, manifest and .api drift) — each writing a typed findings report; one MERGE lane then consolidates every report into a single deduped, thread-joined, owner-ordered work dossier, the one artifact the implementor consumes. Implement is ONE writer over the whole target with full project write authority: own blind pass first, then the dossier as grounding to verify and exceed; every finding and every ripple drains in the same pass, index docs and manifests are its own to apply, and the deferred backlog carries only rows a named blocker genuinely forbids. Review fans one read-only critique per unit over the implemented corpus — own verdict first, navigation facts second — piped by deterministic report path into ONE terminal red-team that drains every critique row, the implementor backlog, and its own hunt to a fixpoint under a checkpoint ledger. Close adjudicates pooled harvest nominations — wire rows, every critique report harvest array, and the red-team harvest file, all swept from disk — into docs/laws and the reviewer surfaces. Stage law lives in the prompt blocks.',
+        'Language-agnostic finalization pass over one libs/{csharp,python,typescript} package planning corpus. args = a package root, an array of planning sub-folders, or {targets} — {root} retargets an isolated checkout, empty = no-op; the language derives from the root and selects the doctrine root pages, both .api tiers, the manifest, and the member-verification rail. Scope resolves targets to the owning package root and its per-sub-folder page units in dependency order, each page carrying its real line count; an oversize sub-folder splits under a dual ceiling — page count AND page tonnage — so no unit alone overflows a lane. Map fans two read-only sol lenses per unit — an interior FLOW lens (per-file logic threads end to end, partial or naive features, split-brain, differentiation, entry-point sprawl, dead ends) and an exterior SEAM lens (libs-wide boundary and wire alignment, unleveraged upstream capability, hand-rolled reimplementation, manifest and .api drift) — each writing a typed findings report; one MERGE lane consolidates every report into a single deduped, thread-joined, owner-ordered work dossier, each cross-unit thread assigned a LEAD unit so exactly one writer owns it. Implement fans ONE sol writer per unit under seam-ledger coordination: own blind pass first as a disk artifact, the dossier as grounding to verify and exceed, in-unit findings and first-order ripples drained in the same pass, foreign edits additive-only with the remainder deferred as typed rows; index docs and central manifests are single-writer surfaces reported as rows, never raced. Review runs per unit as a chain: a sol read-only critique over the implemented unit, then an opus red-team WRITER folding the unit implement and critique products forward — counterfactual, long-tail, next-feature diff, full cold re-review — under the same ledger law. ONE sol terminal sweeper then drains every deferred row, cross-unit remainder, index and manifest row, and its own governance hunt in one scoped pass. Close: an opus doctrine lander adjudicates pooled harvest nominations swept from wire rows, every report harvest array, and the harvest files. Stage law lives in the prompt blocks; codex lanes quota-fall to opus, never fable.',
     phases: [
         {
             title: 'Scope',
-            detail: 'targets resolve to the owning package root and its per-sub-folder page units, emitted in dependency order — foundations first, a launch bias only',
+            detail: 'targets resolve to the owning package root and its per-sub-folder page units with real line counts, emitted in dependency order — foundations first, a launch bias only; oversize folders split under the page-count AND tonnage ceilings',
         },
         {
             title: 'Map',
-            detail: 'two read-only lenses per unit segment — interior logic flow, exterior seam integration — each writing a typed findings report; one merge lane consolidates every report into the single deduped, thread-joined work dossier the implementor consumes',
+            detail: 'two read-only sol lenses per unit segment — interior logic flow, exterior seam integration — each writing a typed findings report; one sol merge lane consolidates every report into the single deduped, thread-joined work dossier, each cross-unit thread assigned its LEAD unit',
         },
         {
             title: 'Implement',
-            detail: 'ONE writer over the whole target with full project authority: own blind pass first, the work dossier as grounding to verify and exceed, every finding and ripple drained in the same pass, index and manifest rows applied directly',
+            detail: 'one sol writer per unit under seam-ledger coordination: own blind pass first as a disk artifact, the dossier sections it owns (its unit plus its lead cross-unit threads) as grounding to verify and exceed, in-unit work and first-order ripples drained in the same pass, foreign edits additive-only with typed deferred rows for the sweeper',
         },
         {
             title: 'Review',
-            detail: 'one read-only critique per unit over the implemented corpus — own verdict first, navigation second — piped by deterministic report path into ONE terminal red-team that drains every row to a fixpoint under a checkpoint ledger',
+            detail: 'per unit, pipelined the moment its implement lands: a sol read-only critique over the implemented unit, then an opus red-team writer folding the unit implement and critique products forward — counterfactual, long-tail, next-feature diff, full cold re-review — under the ledger law; then ONE sol terminal sweeper drains every deferred row, cross-unit remainder, and index/manifest row in one scoped pass',
         },
         {
             title: 'Close',
-            detail: 'a doctrine lander adjudicates pooled harvest nominations swept from wire rows, every critique report, and the red-team harvest file; landing nothing is a first-class verdict',
+            detail: 'an opus doctrine lander adjudicates pooled harvest nominations swept from wire rows, every report harvest array, and the harvest files; landing nothing is a first-class verdict',
         },
     ],
 };
@@ -33,9 +33,10 @@ export const meta = {
 const CAP = 14;
 const STAGGER_MS = 1500;
 const STALL = 480000;
-const UNIT_MAX = 8; // unit segmentation ceiling — map and critique lanes stay page-congruent on any folder size
-const RETRY_ATTEMPTS = 2; // re-dispatches per dead critical lane; the count bounds spend, the backoff buys recovery time
-const RETRY_BACKOFF = 1800000; // usage-limit deaths clear on reset or an operator credit top-up; each attempt waits the window out first
+const UNIT_MAX = 8; // unit segmentation ceiling beside the tonnage ceiling — map, implement, and review lanes stay page-congruent
+const UNIT_LOC = 3400; // page tonnage per unit — what actually overflows a lane's context; the dual ceiling splits on either bound
+const RETRY_ATTEMPTS = 2; // re-dispatches per dead critical lane; the count bounds spend
+const RETRY_BACKOFF = 1800000; // usage-limit deaths wait the window out; a transport death retries immediately once first
 
 // --- [INPUTS] --------------------------------------------------------------------------
 
@@ -88,11 +89,22 @@ const PLAN_SCHEMA = {
                 type: 'object',
                 additionalProperties: false,
                 required: ['folder', 'pages'],
-                properties: { folder: S, pages: { type: 'array', items: S } },
+                properties: {
+                    folder: S,
+                    pages: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            additionalProperties: false,
+                            required: ['page', 'lines'],
+                            properties: { page: S, lines: { type: 'integer' } },
+                        },
+                    },
+                },
             },
         },
     },
-}; // ARRAY ORDER IS DEPENDENCY ORDER — launch bias only, nothing serializes on it
+}; // ARRAY ORDER IS DEPENDENCY ORDER — launch bias only, nothing serializes on it; `lines` feeds the tonnage-aware unit split
 
 const ANCHOR = {
     // One anchor = one fact at one coordinate; interpretation never lives in an anchor row.
@@ -242,32 +254,35 @@ const RECEIPT = {
     properties: { ok: { type: 'boolean' }, report: S, entries: { type: 'integer' }, headline: S, failure: S },
 };
 
+const INDEXROWS = {
+    // doc = package index doc, central manifest, or IDEAS.md; row = the exact row text — the sweeper applies each once
+    type: 'array',
+    items: { type: 'object', additionalProperties: false, required: ['doc', 'row'], properties: { doc: S, row: S } },
+};
+
 const IMPL_SCHEMA = {
-    // Required-but-possibly-empty deferred/harvest are attestations: nothing blocked, nothing generalizable.
+    // Required-but-possibly-empty deferred/indexRows/harvest are attestations: nothing blocked, nothing owed, nothing generalizable.
     type: 'object',
     additionalProperties: false,
-    required: ['files', 'verdict', 'collapsed', 'realized', 'deltas', 'indexApplied', 'deferred', 'harvest', 'summary'],
+    required: ['files', 'verdict', 'collapsed', 'realized', 'deltas', 'indexRows', 'deferred', 'harvest', 'summary'],
     properties: {
         files: { type: 'array', items: S },
         verdict: { type: 'string', enum: ['fixed', 'clean'] },
         collapsed: S,
         realized: S,
         deltas: DELTAS,
-        indexApplied: {
-            type: 'array',
-            items: { type: 'object', additionalProperties: false, required: ['doc', 'action'], properties: { doc: S, action: S } },
-        },
-        deferred: DEFERRED, // named-blocker rows only — the red-team drains them; anything else is a failed drain
+        indexRows: INDEXROWS,
+        deferred: DEFERRED, // out-of-bound and named-blocker rows — the unit red-team re-judges, the sweeper drains
         harvest: HARVEST,
         summary: S,
     },
 };
 
 const RT_SCHEMA = {
-    // `tranches` receipts every fed tranche; `beyond` attests the own hunt ran; `remaining` carries named-blocker rows only.
+    // `tranches` receipts every fed product; `beyond` attests the own hunt ran; `remaining` carries out-of-bound and named-blocker rows.
     type: 'object',
     additionalProperties: false,
-    required: ['files', 'resolved', 'rejected', 'beyond', 'remaining', 'tranches', 'harvest', 'summary'],
+    required: ['files', 'resolved', 'rejected', 'beyond', 'remaining', 'indexRows', 'tranches', 'harvest', 'summary'],
     properties: {
         files: { type: 'array', items: S },
         resolved: {
@@ -283,7 +298,8 @@ const RT_SCHEMA = {
             items: { type: 'object', additionalProperties: false, required: ['target', 'action'], properties: { target: S, action: S } },
         },
         remaining: DEFERRED,
-        tranches: { type: 'array', items: S }, // one checkpoint receipt line per tranche fed — a fed tranche absent here is unconsumed
+        indexRows: INDEXROWS,
+        tranches: { type: 'array', items: S }, // one receipt line per product fed — a fed product absent here is unconsumed
         harvest: HARVEST,
         summary: S,
     },
@@ -318,8 +334,10 @@ const LANG = {
             '`UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api` (assay blocked or unavailable: the `.api` catalogs + the nuget MCP for feed truth + ' +
             'Context7/exa/tavily own the fallback)',
         stackLaw:
-            'the docs/stacks/csharp ROOT pages ONLY — enumerate the root with a real ls and read EVERY root `.md` in full; the ' +
-            'domain/ sub-folder enters only for the shards your pages touch, chosen from its router README',
+            'read these `docs/stacks/csharp/` pages IN FULL, in this exact order: `README.md`, `language.md`, `shapes.md`, ' +
+            '`surfaces-and-dispatch.md`, `rails-and-effects.md`, `boundaries.md`, `algorithms.md`, `system-apis.md` — the ' +
+            'complete root set, no discovery pass; the domain/ sub-folder enters only for the shards your pages touch, chosen ' +
+            'through `domain/README.md`',
     },
     py: {
         name: 'Python',
@@ -330,8 +348,10 @@ const LANG = {
             '`UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api resolve <pkg>` (blocked or gated: the `.api` catalogs + PyPI feed truth + ' +
             'Context7/exa/tavily own the fallback)',
         stackLaw:
-            'the docs/stacks/python ROOT pages ONLY — enumerate the root with a real ls and read EVERY root `.md` in full in the ' +
-            'README [01]-[ATLAS] order; the domain/ and numerics/ sub-folders enter only where a page concern touches them',
+            'read these `docs/stacks/python/` pages IN FULL, in this exact order: `README.md`, `language.md`, `shapes.md`, ' +
+            '`surfaces-and-dispatch.md`, `iteration.md`, `rails-and-effects.md`, `concurrency.md`, `boundaries.md`, ' +
+            '`algorithms.md`, `system-apis.md`, `runtime.md` — the complete root set, no discovery pass; sub-folders enter ' +
+            'only where a page concern touches them',
     },
     ts: {
         name: 'TypeScript',
@@ -341,7 +361,10 @@ const LANG = {
         verify:
             'the published types in node_modules (`UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api` over node_modules declarations where ' +
             'a member is novel)',
-        stackLaw: 'the docs/stacks/typescript ROOT pages ONLY — enumerate the root with a real ls and read EVERY root `.md` in full',
+        stackLaw:
+            'read these `docs/stacks/typescript/` pages IN FULL, in this exact order: `README.md`, `language.md`, ' +
+            '`derivation.md`, `values.md`, `computation.md`, `shapes.md`, `surfaces-and-dispatch.md`, `rails-and-effects.md`, ' +
+            '`services-and-layers.md`, `concurrency.md`, `streams.md`, `boundaries.md` — the complete root set, no discovery pass',
     },
 };
 const L = LANG[LANG_KEY] || LANG.cs; // inert fallback: composition no-ops before any agent call when LANG_KEY is null
@@ -436,6 +459,35 @@ const BOUNDARY =
     'rename the wire. Strata hold: no downward dependency, no host-type leak into a host-neutral owner. A foreign-language ' +
     "repair holds that branch's doctrine bar (read that branch stack README before a non-trivial foreign edit).";
 
+const PROSE =
+    'PROSE + COMMENTS — apply docs/standards/style-guide.md, information-structure.md, and formatting.md; these pages and ' +
+    'this block are the COMPLETE prose law for this lane. Your project instructions (AGENTS.md/CLAUDE.md) route durable ' +
+    'markdown to the `docgen` skill — that route serves interactive agents and does NOT apply here: never read, load, or open ' +
+    'the docgen bundle from any root. Fences comment for the next agent only: keep the canonical section-divider headers; ' +
+    'beyond them zero comments, 1-2 lines only for a truly subtle invariant or boundary; no restating the code, no doc bloat.';
+
+const RIPPLE =
+    'RIPPLE BOUNDS — sibling unit writers run concurrently. Your unit pages take full rebuild authority; a first-order ripple ' +
+    'OUTSIDE your unit (a seam counterpart your edit breaks or opens directly) is repaired both ends when the edit is ' +
+    'ADDITIVE (add the case, row, field, operation, or counterpart) and recorded in your seam ledger; renaming, removing, or ' +
+    "collapsing a foreign surface — or any edit inside another live unit's pages — is recorded in `deferred` as {files, " +
+    'claim} for the terminal sweeper, never raced. Decision-carrying shared surfaces are single-writer: the package index ' +
+    'docs (README.md + ARCHITECTURE.md), IDEAS.md, and the central manifests take exact rows via `indexRows` for the sweeper ' +
+    'to apply once.';
+
+const LEDGER = (tag, scopes) =>
+    'SEAM LEDGER — cross-unit coordination is typed fact rows on disk, never prose. Your ledger is `' +
+    SCRATCH +
+    '/' +
+    tag +
+    '-seams.md`: append one row per cross-file event as you work — `SEAM_CHANGED | <files> | <symbol/wire fact, old -> new>`, ' +
+    '`RIPPLE_REPAIRED | <files> | <fact>` (so no sibling redoes it), `SEAM_CONFLICT | <files> | <both values>` on collision ' +
+    'with a landed sibling row (resolve to the stronger form; a landed sibling counterpart is COMPOSED, never re-derived or ' +
+    'reverted). Before ANY edit outside your unit pages, `ls` `' +
+    SCRATCH +
+    '/` and read every sibling `*-seams.md` row whose files intersect yours. CONCURRENT UNIT SCOPES: ' +
+    scopes;
+
 const HARVEST_LAW =
     'HARVEST (required key, usually empty): nominate ONLY findings that generalize beyond this run — a collapse pattern ' +
     'reusable across folders, a naivety class no doctrine clause names, a review rule that catches the defect BEFORE review, a ' +
@@ -490,7 +542,7 @@ const slot = makeSlots(CAP);
 // the final death isolates the lane but NEVER the chain — every downstream stage still runs against current disk.
 const retryLane = async (fn) => {
     for (let a = 0; a < RETRY_ATTEMPTS; a++) {
-        await sleep(RETRY_BACKOFF);
+        if (a > 0) await sleep(RETRY_BACKOFF); // transport blips retry immediately; only a second death waits the usage window out
         const r = await fn();
         if (r) return r;
     }
@@ -504,11 +556,22 @@ const laneLaw = (schema, o) =>
         ? '<completion_bar>\nDone is every item in your named scope worked to its full depth with its product entry written — proof-complete, ' +
           'never effort-spent, never early. Complete every named move before yielding; do not stop at analysis or a partial edit. If the ' +
           'chosen approach resists, pick the next-best one and proceed. Re-verifying unchanged work or re-reading covered territory adds no ' +
-          'evidence; move to the next deliverable instead.\n</completion_bar>\n\n<verification>\nAfter editing, re-read each changed file and ' +
+          'evidence; move to the next deliverable instead.\n</completion_bar>\n\n<work_cadence>\nRead the stable law corpus once, first; ' +
+          "then work ITEM BY ITEM — derive one item's resolution, land its edits, advance. Edits land as derived and never pool toward " +
+          'the end: a scope fully materialized before its first edit forfeits its earliest findings to context compaction.\n' +
+          '</work_cadence>\n\n<read_discipline>\nA stable input — a doctrine page, dossier, report, catalog — is read ONCE: extract what ' +
+          'you need into your plan notes and re-open only the exact line span behind an edit, never the whole file again. Read in large ' +
+          'windows (400+ lines per command), never 200-line paging. Skill bundles under any root (.claude/skills/, ~/.codex/skills/) are ' +
+          'out of scope — the law in this brief is complete. Budget: at most ' +
+          (o.calls || 300) +
+          ' tool calls total; at the budget, land what is derived and record every remaining row in the product `deferred` field — an ' +
+          'honest remainder beats a thrashing overrun.\n</read_discipline>\n\n<verification>\nAfter editing, re-read each changed file and ' +
           'confirm it is coherent and nothing it carried was lost. Fix what fails before yielding; a check you did not run is never claimed ' +
-          'as run.\n</verification>'
+          'as run. Verification is READING: the corpus is markdown design pages — never compile, build, or run test gates against it; ' +
+          'member truth rides the task-named catalog/assay rail only.\n</verification>'
         : '<context_gathering>\nTerritory: the exact files and directories the task names. Do not open files outside it; ' +
-          'instruction files (.claude/, CLAUDE.md, AGENTS.md) are always out of scope.\nBudget: at most ' +
+          'instruction files (.claude/, CLAUDE.md, AGENTS.md) and skill bundles under any root (.claude/skills/, ~/.codex/skills/) are ' +
+          'always out of scope, and discovery commands stay scoped to the territory.\nBudget: at most ' +
           (o.calls || 60) +
           ' tool calls total. Read in small batches (a handful of files per command, line-capped); never concatenate the whole ' +
           'territory into one command - tool output truncates and the data is lost.\nStop as soon as the product is complete. ' +
@@ -569,9 +632,9 @@ const codexPrompt = (label, task, schema, o) => {
 };
 
 // QUOTA FALLBACK: a codex receipt whose failure matches usage/quota/limit re-dispatches the SAME task natively at the role's
-// Claude twin (unflagged->fable, luna->sonnet, terra->opus); the caller owns the re-dispatch, the sonnet wrapper never executes work.
+// Claude twin (luna->sonnet, all else->opus); the caller owns the re-dispatch, the sonnet wrapper never executes work.
 // The roster row carries `scope` from the ORCHESTRATOR so a lane that died before writing still names its territory exactly.
-const twinOf = (m) => (/-terra/.test(m || '') ? 'opus' : /-luna/.test(m || '') ? 'sonnet' : 'fable');
+const twinOf = (m) => (/-luna/.test(m || '') ? 'sonnet' : 'opus'); // fable-free: every codex death quota-falls to opus
 const nativeLane = (task, o) =>
     agent(
         task +
@@ -609,8 +672,34 @@ const chunk = (arr, n) => {
     for (let i = 0; i < arr.length; i += n) o.push(arr.slice(i, i + n));
     return o;
 };
-// Even split: ceil(n/max) segments of near-equal size — no runt tail heavying segment 0 and starving the last.
-const evenChunk = (arr, max) => chunk(arr, Math.ceil(arr.length / (Math.ceil(arr.length / max) || 1)));
+// Dual-ceiling split over {page, lines} rows: segment count from BOTH ceilings (page count AND tonnage), near-even LOC
+// fill in order — no runt tail, and no segment whose pages alone overflow a lane's context window.
+const sizeChunk = (pages) => {
+    const loc = (ps) => ps.reduce((a, s) => a + s.lines, 0);
+    const k = Math.max(Math.ceil(pages.length / UNIT_MAX), Math.ceil(loc(pages) / UNIT_LOC), 1);
+    if (k === 1) return [pages];
+    const target = loc(pages) / k;
+    const out = [];
+    let cur = [];
+    let acc = 0;
+    for (let i = 0; i < pages.length; i++) {
+        const p = pages[i];
+        const splitBefore =
+            cur.length > 0 &&
+            out.length < k - 1 &&
+            pages.length - i >= k - out.length - 1 &&
+            (cur.length >= UNIT_MAX || Math.abs(acc - target) <= Math.abs(acc + p.lines - target));
+        if (splitBefore) {
+            out.push(cur);
+            cur = [];
+            acc = 0;
+        }
+        cur.push(p);
+        acc += p.lines;
+    }
+    if (cur.length) out.push(cur);
+    return out;
+};
 
 // Prompt builders — each task states only its own action; shared laws are composed by name.
 const planPrompt = () =>
@@ -623,10 +712,12 @@ const planPrompt = () =>
             '/<Package>) or a planning sub-folder (<root>/.planning/<Folder>). Resolve the ONE owning package root. Return root ' +
             '(the package root) and folders — one entry per planning sub-folder in scope (a package-root target expands to EVERY ' +
             'sub-folder under its .planning tree, root-level pages pooling as one `_root` entry; explicit sub-folder targets ' +
-            'restrict to exactly those): {folder, pages: repo-relative *.md paths under it}. EXCLUDE ' +
+            'restrict to exactly those): {folder, pages: [{page: repo-relative *.md path, lines: its real line count from one ' +
+            '`wc -l` sweep}]}. EXCLUDE ' +
             'IDEAS.md/TASKLOG.md/README.md/ARCHITECTURE.md and any _*.md campaign document. EMIT `folders` IN DEPENDENCY ORDER — ' +
             'foundations before their consumers, judged from the package README.md/ARCHITECTURE.md composition order; the engine ' +
-            'launches in your emitted order and never re-sorts. Use find/ls; do NOT cd.',
+            'launches in your emitted order and never re-sorts, and the tonnage split rides your counts — a guessed count ' +
+            'corrupts the packing. Use find/ls/wc; do NOT cd.',
     ].join('\n\n');
 
 const flowLensPrompt = (u, reg) =>
@@ -706,25 +797,23 @@ const mergePrompt = (rosterPaths, dossier) =>
             'each drop and its surviving key in the dossier tail). AUTHOR `' +
             dossier +
             '` as markdown: a leading CROSS-UNIT THREADS section, one section per unit for the rest, each item ID-keyed with ' +
-            'its claimKey; a section with nothing carries the checks that proved emptiness, never a bare NONE. THE DOSSIER IS ' +
+            'its claimKey. EVERY cross-unit thread names its LEAD unit — the unit holding the thread\'s primary owner; the ' +
+            'lead unit\'s writer implements the whole thread, so a thread without a lead is unowned work and a defect. A ' +
+            'section with nothing carries the checks that proved emptiness, never a bare NONE. THE DOSSIER IS ' +
             'YOUR SOLE CONTENT ARTIFACT — return ONLY `index` (each unit mapped to the dossier section headers carrying it), ' +
             'coverage, and summary; content lives in the dossier alone, never restated on the wire.',
     ].join('\n\n');
 
-const implementPrompt = (pages, dossier, mergeOk, rosterPaths, unmapped) =>
+const implementPrompt = (u, dossier, mergeOk, unitReports, isUnmapped, reg) =>
     [
         CONTEXT,
-        REG.claude.stance,
+        REG[reg].stance,
         LAW,
         BOUNDARY,
-        OWN_PASS(SCRATCH + '/impl-ownpass.md'),
-        "AUTHORITY — you are the run's ONE writer: full write authority over the ENTIRE project — the target pages, sibling " +
-            'folders, other packages, other languages (at their branch doctrine bar per BOUNDARY LAW), the package index docs ' +
-            '(README.md + ARCHITECTURE.md), IDEAS.md, the central manifests, and the `.api` anchors. No sibling writer runs, so ' +
-            'nothing routes, nothing races, nothing waits: FULLY DRAIN — every finding you confirm and every ripple an edit ' +
-            'exposes is landed in the same pass at its root; `deferred` carries ONLY a row a named blocker genuinely forbids ' +
-            '(the blocker and its owner named), and an empty `deferred` attests the drain closed. Index and manifest rows are ' +
-            'YOURS to apply directly — `indexApplied` receipts each one.',
+        PROSE,
+        RIPPLE,
+        LEDGER('impl-' + fileTag(u.tag), SCOPES),
+        OWN_PASS(SCRATCH + '/impl-ownpass-' + fileTag(u.tag) + '.md'),
         'READ FIRST, IN ORDER — (1) ' +
             L.stackLaw +
             '; (2) `docs/laws/` per LAWS below; (3) the repo `.editorconfig` rules for your language — every error-severity ' +
@@ -733,24 +822,26 @@ const implementPrompt = (pages, dossier, mergeOk, rosterPaths, unmapped) =>
             L.manifest +
             '.',
         LAWS_READ,
-        'TASK: FINALIZE these pages IN PLACE: ' +
-            pages.join(', ') +
+        'TASK: FINALIZE unit ' +
+            u.tag +
+            ' IN PLACE — the pages: ' +
+            u.pages.join(', ') +
             '.\nCONSUMPTION, after your own pass per OWN PASS FIRST: ' +
             (mergeOk
                 ? 'the WORK DOSSIER at `' +
                   dossier +
-                  '` is your consolidated recon — deduped, thread-joined, owner-ordered; read it IN FULL, work it in its own ' +
-                  'order (cross-unit threads first, then per-unit sections), and spot-verify every anchor an edit builds on ' +
+                  '` is the consolidated recon — read YOUR unit section IN FULL plus every CROSS-UNIT THREAD whose LEAD is ' +
+                  'your unit (you implement the whole thread, every end); a thread led elsewhere is not yours — compose its ' +
+                  'landed ends per the ledger law, never re-derive it. Spot-verify every anchor an edit builds on ' +
                   '(re-open MANDATORY — a finding already corrected on disk or whose anchors do not re-confirm is dropped with ' +
                   'its reason in `summary`, never re-fixed).'
-                : 'the merge lane died — its raw map reports are your recon; read every listed report IN FULL from disk, dedupe ' +
-                  'by `claimKey` as you read (the same key across lanes is ONE defect), and order by owner then severity: ' +
-                  JSON.stringify(rosterPaths) +
+                : 'the merge lane died — your unit\'s raw map reports are your recon; read each IN FULL from disk, dedupe by ' +
+                  '`claimKey` as you read, and order by owner then severity: ' +
+                  JSON.stringify(unitReports) +
                   '.') +
-            (unmapped.length
-                ? ' UNMAPPED units (no surviving map lane) get your own cold hostile read FIRST, hunting the finding kinds yourself: ' +
-                  JSON.stringify(unmapped) +
-                  '.'
+            (isUnmapped
+                ? ' This unit is UNMAPPED (no surviving map lane): your own cold hostile read is the recon — hunt the finding ' +
+                  'kinds yourself.'
                 : '') +
             '\nEach item is a SIGNAL, not law: `mechanism`/`owner`/`reject`/`acceptance` are its constraint boundary — honor ' +
             'the owner and rejected forms, but the DESIGN is yours: implement the densest root-level resolution the boundary ' +
@@ -761,12 +852,13 @@ const implementPrompt = (pages, dossier, mergeOk, rosterPaths, unmapped) =>
             'CAPABILITY-COMPLETENESS is mandatory: verify every owner body implements what its names and prose promise — a ' +
             'named-but-omitted capability is a defect closed NOW at the same bar as any finding. Verify members via ' +
             L.verify +
-            ' — never memory. Return the fix-log — `files` every file edited anywhere in the project, `deltas` every moved ' +
-            'symbol/wire as data, both exact. ' +
+            ' — never memory. Return the fix-log — `files` every file edited, `deltas` every moved symbol/wire as data, ' +
+            '`indexRows` the exact index/manifest/IDEAS rows the sweeper applies, `deferred` the out-of-bound and ' +
+            'named-blocker rows, all exact. ' +
             HARVEST_LAW,
     ].join('\n\n');
 
-const critiquePrompt = (u, nav, reg) =>
+const critiquePrompt = (u, implReport, reg) =>
     [
         CONTEXT,
         REG[reg].stance,
@@ -778,12 +870,16 @@ const critiquePrompt = (u, nav, reg) =>
             u.tag +
             ' — the pages: ' +
             u.pages.join(', ') +
-            ' (investigate, do NOT edit; your findings feed the terminal red-team WRITER, so every finding must be actionable ' +
+            ' (investigate, do NOT edit; your findings feed the unit red-team WRITER, so every finding must be actionable ' +
             'at its anchor). OWN VERDICT FIRST: derive your own defect list from the pages on CURRENT disk before consulting ' +
-            'the navigation below — it changes where you look first, never what you conclude. NAVIGATION (facts from the ' +
-            'implementor — locations only, no assessments): ' +
-            JSON.stringify(nav) +
-            '. AUDIT: every finalization-law target on every page (split-brain, differentiation, partial threads, phantoms, ' +
+            'the navigation below — it changes where you look first, never what you conclude. ' +
+            (implReport
+                ? 'NAVIGATION: the unit implement fixlog is ON DISK at `' +
+                  implReport +
+                  '` — read its `files` and `deltas` rows only (locations, where you look first); its verdicts and summaries ' +
+                  "are the author's self-report, not evidence."
+                : 'NAVIGATION: the unit implement fixlog is absent — derive your reading order from the pages alone.') +
+            ' AUDIT: every finalization-law target on every page (split-brain, differentiation, partial threads, phantoms, ' +
             'naive owners, flow, entry sprawl, unleveraged seams, hand-rolled logic, stale references) — the implementor is ' +
             'presumed to have missed things; verify what its deltas claim against disk, check every seam it touched at BOTH ' +
             'ends, and hunt what it never touched. A defect already resolved on CURRENT disk is DROPPED, never reported. ' +
@@ -792,56 +888,102 @@ const critiquePrompt = (u, nav, reg) =>
             '. Return the findings product in the FINDING FORM, findings emitted in page order.',
     ].join('\n\n');
 
-const redteamPrompt = (pages, critPaths, backlog, unmapped) =>
+const rtUnitPrompt = (u, implReport, crit) =>
     [
         CONTEXT,
         REG.claude.stance,
         LAW,
         BOUNDARY,
+        PROSE,
+        RIPPLE,
+        LEDGER('rt-' + fileTag(u.tag), SCOPES),
         LAWS_READ,
         GIT_GROUND,
-        OWN_PASS(SCRATCH + '/rt-ownpass.md'),
-        'CHECKPOINT LEDGER: `' +
-            SCRATCH +
-            '/rt-checkpoint.md` — read it FIRST and skip every tranche it already receipts (an interrupted drain re-enters, ' +
-            'never restarts); append one line per tranche AS EACH COMPLETES. HARVEST FILE: append each `harvest` nomination to `' +
-            SCRATCH +
-            '/rt-harvest.jsonl` (one JSON row per line) the moment it is minted — the doctrine lander sweeps the file, so a ' +
-            'killed pass loses no nomination; your returned `harvest` carries the same rows. Your returned `tranches` lists the ' +
-            'checkpoint receipt line of every tranche fed — a fed tranche absent from that list is unconsumed, and the pass has ' +
-            'failed its mandate.',
-        "TASK: TERMINAL RED-TEAM (WRITER — the run's LAST corrector, nothing follows you but the doctrine lander): full write " +
-            'authority over the entire project. The finalized pages: ' +
-            JSON.stringify(pages) +
-            '. Assume the implementor and the critiques missed things and their claims are wrong until disk proves them; your ' +
-            'own-pass attack artifact precedes every input. TRANCHE ORDER IS EXECUTION ORDER:\n' +
-            '(1) CRITIQUE REPORTS — products ON DISK at deterministic paths (an absent or invalid file means that unit gets ' +
-            'your own cold attack instead — the read-only fan owes you nothing): ' +
-            JSON.stringify(critPaths) +
-            '. Read each present report IN FULL; group findings by `claimKey` then `owner`, blockers first (the same key ' +
-            'across lanes is ONE defect with corroborating evidence). Each finding is a SIGNAL: re-open its anchors before ' +
-            'editing (MANDATORY); honor `mechanism`/`owner`/`reject`/`acceptance` as the constraint boundary and implement the ' +
-            'STRONGEST resolution it admits, never a single-point patch; a finding with a dead anchor, already resolved on ' +
-            'disk, or graded `hypothetical` with no substantive re-derivation is rejected with its reason.\n' +
-            (backlog.length
-                ? '(2) IMPLEMENTOR BACKLOG (named-blocker rows — re-verify each {files, claim} on current disk; no sibling ' +
-                  'writer runs now, so a blocker that has cleared is yours to land): ' +
-                  JSON.stringify(backlog) +
-                  '.\n'
-                : '') +
-            (unmapped.length ? '(2b) UNMAPPED units from the map fan — your own cold read: ' + JSON.stringify(unmapped) + '.\n' : '') +
+        OWN_PASS(SCRATCH + '/rt-ownpass-' + fileTag(u.tag) + '.md'),
+        'TASK: UNIT RED-TEAM (WRITER — the last corrector of unit ' +
+            u.tag +
+            '; only the terminal sweeper follows): full rebuild authority over the unit pages under the ripple bounds. The ' +
+            'pages: ' +
+            u.pages.join(', ') +
+            '. Assume the implementor and the critique missed things and their claims are wrong until disk proves them; your ' +
+            'own-pass attack artifact precedes every input. PRODUCT ORDER IS EXECUTION ORDER:\n' +
+            (crit && crit.ok
+                ? '(1) CRITIQUE REPORT — ON DISK at `' +
+                  crit.report +
+                  '`: read it IN FULL; group findings by `claimKey` then `owner`, blockers first. Each finding is a SIGNAL: ' +
+                  're-open its anchors before editing (MANDATORY); honor `mechanism`/`owner`/`reject`/`acceptance` as the ' +
+                  'constraint boundary and implement the STRONGEST resolution it admits, never a single-point patch; a finding ' +
+                  'with a dead anchor, already resolved on disk, or graded `hypothetical` with no substantive re-derivation is ' +
+                  'rejected with its reason.\n'
+                : '(1) CRITIQUE REPORT: absent — your cold attack is the only review this unit gets.\n') +
+            (implReport
+                ? '(2) IMPLEMENT FIXLOG — ON DISK at `' +
+                  implReport +
+                  '`: read it IN FULL; its verdicts are refutation targets judged against CURRENT disk. Its surviving ' +
+                  '`deferred`, `indexRows`, and `harvest` rows fold into YOUR return, re-verified and deduped — a dropped row ' +
+                  'is a silent loss; an in-unit deferred row whose blocker has cleared is yours to land NOW.\n'
+                : '(2) IMPLEMENT FIXLOG: absent — judge from CURRENT disk alone.\n') +
             '(3) PRE-MORTEM — beyond the reports, on your own authority: COUNTERFACTUAL on the core owners (a counterfactual ' +
             'REBUILDS with the central assumption removed — the chosen owner kind, the hand-enumerated space, the call-site ' +
             'dispatch — and where the rebuilt form is stronger, BUILD IT IN PLACE; "the current shape also works" is never a ' +
             'refutation); LONG-TAIL (empty/singular/plural/stream/malformed/concurrent/cancelled/partial-failure); the diff of ' +
             'the next feature (one row lands with every consumer untouched or loudly broken); then a FULL COLD RE-REVIEW of ' +
             'every finalization-law dimension against CURRENT disk.\n' +
-            '(4) OWN HUNT: hunt PAST every signal list and fix what the fan missed; `beyond` enumerates those fixes, and an ' +
-            'empty `beyond` attests the hunt found nothing, never that it did not run.\n' +
-            'Every ripple an edit exposes is YOURS in the same pass — seam counterparts both ends, consumer sites, index docs, ' +
-            'manifest rows, .api anchors; wire-canonical names stay frozen. Return the fix-log — `remaining` carries ONLY rows ' +
-            'verified still-open and genuinely blocked, each naming its blocker and owner; a rejected finding rides `rejected` ' +
-            'with its disk fact; an empty `remaining` attests the run fully drained. ' +
+            '(4) OWN HUNT: hunt PAST every signal list and fix what the fan missed inside the unit; `beyond` enumerates those ' +
+            'fixes, and an empty `beyond` attests the hunt found nothing, never that it did not run.\n' +
+            'Return the fix-log — `tranches` receipts each product fed; `remaining` carries out-of-bound rows and rows a named ' +
+            'blocker genuinely forbids, each naming its blocker and owner; a rejected finding rides `rejected` with its disk ' +
+            'fact. ' +
+            HARVEST_LAW,
+    ].join('\n\n');
+
+const sweeperPrompt = (backlog, indexRows, unmapped, pages) =>
+    [
+        CONTEXT,
+        REG.codex.stance,
+        LAW,
+        BOUNDARY,
+        PROSE,
+        LAWS_READ,
+        GIT_GROUND,
+        'CHECKPOINT LEDGER: `' +
+            SCRATCH +
+            '/sweep-checkpoint.md` — read it FIRST and skip every tranche it already receipts (an interrupted drain re-enters, ' +
+            'never restarts); append one line per tranche AS EACH COMPLETES. HARVEST FILE: append each `harvest` nomination to `' +
+            SCRATCH +
+            '/rt-harvest.jsonl` (one JSON row per line) the moment it is minted — the doctrine lander sweeps the file, so a ' +
+            'killed pass loses no nomination; your returned `harvest` carries the same rows.',
+        "TASK: TERMINAL SWEEPER (WRITER — the run's LAST corrector, nothing follows you but the doctrine lander): full write " +
+            'authority over the entire project — no sibling writer runs, so the expand-form bound is LIFTED: collapse, rename, ' +
+            'and contract are yours, and every ripple an edit exposes is yours in the same pass. The finalized pages: ' +
+            JSON.stringify(pages) +
+            '. ONE scoped pass, tranche order is execution order:\n' +
+            '(1) DEFERRED ROWS from every unit chain (re-verify each {files, claim} on CURRENT disk — a row disk already ' +
+            'resolves is rejected with its evidence; a cleared blocker is yours to land at the root): ' +
+            JSON.stringify(backlog) +
+            '.\n' +
+            '(2) INDEX ROWS — apply each to its owning doc exactly once, deduped semantically, keeping each doc\'s section ' +
+            "grammar; a central-manifest row hand-edits the grouped manifest at the SYMBOL anchor (never a line number): " +
+            JSON.stringify(indexRows) +
+            '.\n' +
+            (unmapped.length
+                ? '(2b) UNMAPPED units (no surviving map lane — your own cold read over their pages, hunting the finalization-law targets): ' +
+                  JSON.stringify(unmapped) +
+                  '.\n'
+                : '') +
+            '(3) CROSS-UNIT SEAM AUDIT: read every `*-seams.md` ledger under `' +
+            SCRATCH +
+            '/` and verify each SEAM_CHANGED row landed BOTH ends on current disk, each SEAM_CONFLICT resolved to the stronger ' +
+            'form; repair every miss.\n' +
+            '(4) GOVERNANCE: verify the package README.md + ARCHITECTURE.md, IDEAS.md, ' +
+            L.manifest +
+            ', and the `.api` anchors truthfully reflect the finalized corpus; repair drift.\n' +
+            '(5) OWN HUNT over the governance surface and any page the tranches never touched; `beyond` enumerates those ' +
+            'fixes, an empty `beyond` attesting the hunt ran clean.\n' +
+            'Verify members via ' +
+            L.verify +
+            '. Return the fix-log — `tranches` receipts each tranche; `remaining` carries ONLY rows verified still-open and ' +
+            'genuinely blocked, each naming its blocker and owner; `indexRows` returns EMPTY (you applied them). ' +
             HARVEST_LAW,
     ].join('\n\n');
 
@@ -857,8 +999,8 @@ const doctrinePrompt = (rows, critPaths) =>
             JSON.stringify(rows) +
             '\nAlso sweep `' +
             SCRATCH +
-            '/rt-harvest.jsonl` (absent = none) AND the `harvest` array of every critique report at these deterministic paths ' +
-            '(an absent or invalid file skips; no other agent transports these rows): ' +
+            '/rt-harvest.jsonl` (absent = none) AND the `harvest` array of every critique and implement report at these ' +
+            'deterministic paths (an absent or invalid file skips; no other agent transports these rows): ' +
             JSON.stringify(critPaths) +
             ' — dedupe them against NOMINATIONS and adjudicate them identically.\n' +
             'ADJUDICATE each row per the admission bar: cold-read its target surface IN FULL, verify its anchors on CURRENT ' +
@@ -888,17 +1030,24 @@ const plan = (await slot(() => agent(planPrompt(), planOpts))) || (await slot(()
 const ROOT = (plan && plan.root) || TARGETS[0];
 // R6 guard: model-emitted page paths are validated against the resolved root before any lane dispatches on them.
 const FOLDERS = ((plan && plan.folders) || [])
-    .map((f) => ({ folder: f.folder, pages: (f.pages || []).filter((p) => typeof p === 'string' && p.indexOf(ROOT + '/') === 0) }))
+    .map((f) => ({
+        folder: f.folder,
+        pages: (f.pages || [])
+            .filter((p) => p && typeof p.page === 'string' && p.page.indexOf(ROOT + '/') === 0)
+            .map((p) => ({ page: p.page, lines: Math.max(p.lines | 0, 300) })),
+    }))
     .filter((f) => f.folder && f.pages.length);
-const PAGES = FOLDERS.flatMap((f) => f.pages);
-// Unit = the map/critique granularity: one `.planning/<sub>` folder, oversize folders split into ceiling-bounded segments.
+const PAGES = FOLDERS.flatMap((f) => f.pages.map((p) => p.page));
+// Unit = the map/implement/review granularity: one `.planning/<sub>` folder, oversize folders split under the dual
+// (page-count AND tonnage) ceiling so no unit alone overflows a writer or reviewer lane.
 const UNITS = FOLDERS.flatMap((f) => {
-    const segs = f.pages.length > UNIT_MAX ? evenChunk(f.pages, UNIT_MAX) : [f.pages];
-    return segs.map((pages, i) => {
+    const segs = sizeChunk(f.pages);
+    return segs.map((rows, i) => {
         const name = f.folder + (segs.length > 1 ? '.' + (i + 1) : '');
-        return { folder: f.folder, name, tag: ROOT.split('/').pop() + '.' + name, pages, root: ROOT };
+        return { folder: f.folder, name, tag: ROOT.split('/').pop() + '.' + name, pages: rows.map((r) => r.page), rows, root: ROOT };
     });
 });
+const SCOPES = JSON.stringify(UNITS.map((u) => ({ unit: u.tag, pages: u.pages })));
 log('Scope[' + LANG_KEY + ']: ' + UNITS.length + ' unit segment(s), ' + PAGES.length + ' page(s) at ' + ROOT + '; CAP=' + CAP);
 if (!UNITS.length) {
     log('No pages resolved under the targets');
@@ -959,8 +1108,8 @@ const merge = MAP_REPORTS.length
               scope: PAGES,
               hl: { arr: 'index' },
               writes: true,
-              codexEffort: 'medium',
-              calls: 120,
+              codexEffort: 'high',
+              calls: 200,
           }),
       )
     : null;
@@ -971,101 +1120,106 @@ log(
 );
 
 phase('Implement');
-const implFire = (suffix) =>
-    slot(() =>
-        agent(implementPrompt(PAGES, WORK_DOSSIER, MERGE_OK, MAP_REPORTS, UNMAPPED), {
-            label: 'implement' + suffix,
-            phase: 'Implement',
-            model: 'fable',
-            effort: 'high',
-            schema: IMPL_SCHEMA,
-            stallMs: STALL,
-        }),
-    );
-const impl = (await implFire('')) || (await retryLane(() => implFire(':r1')));
-// CHAIN CONTINUATION: a dead implementor never blocks the reviews — the critique fan and the red-team still correct the
-// corpus as it stands on disk; navigation simply arrives empty.
-const nav = impl ? { files: impl.files || [], deltas: impl.deltas || [] } : { files: [], deltas: [] };
-const BACKLOG = (impl && impl.deferred) || [];
-log(
-    'Implement: ' +
-        (impl
-            ? impl.verdict +
-              '; ' +
-              (impl.files || []).length +
-              ' file(s), ' +
-              (impl.indexApplied || []).length +
-              ' index row(s), ' +
-              BACKLOG.length +
-              ' blocked row(s)'
-            : 'DIED after retries — reviews continue against current disk'),
-);
-
 phase('Review');
-// One codex high-effort read-only critique per unit; products at deterministic paths so the red-team survives any dead receipt.
-const critRoster = (
-    await Promise.all(
-        UNITS.map((u) =>
-            slot(() =>
-                recon((reg) => critiquePrompt(u, nav, reg), {
-                    label: 'crit:' + u.tag,
-                    phase: 'Review',
-                    schema: FINDINGS_SCHEMA,
-                    scope: u.pages,
-                    hl: { arr: 'findings', group: 'kind' },
-                    codexEffort: 'high',
-                }),
-            ),
-        ),
-    )
-).filter(Boolean);
+// PER-UNIT PIPELINED CHAINS — implement (sol write lane) -> critique (sol read lane) -> red-team (opus writer), each unit
+// advancing the moment its own prior stage lands; the slot scheduler is the only cross-unit governor, the seam ledgers own
+// coordination, and failure isolates per unit (a dead implement still gets its critique and red-team against current disk).
+const unitReportsOf = (u) => [reportOf('map:flow:' + u.tag), reportOf('map:seam:' + u.tag)];
+const chains = await Promise.all(
+    UNITS.map(async (u) => {
+        const isUnmapped = UNMAPPED.some((x) => x.unit === u.tag);
+        const fix = await slot(() =>
+            recon((reg) => implementPrompt(u, WORK_DOSSIER, MERGE_OK, unitReportsOf(u), isUnmapped, reg), {
+                label: 'impl:' + u.tag,
+                phase: 'Implement',
+                schema: IMPL_SCHEMA,
+                scope: u.pages,
+                hl: { arr: 'files' },
+                writes: true,
+                fix: true,
+            }),
+        ).catch(() => null);
+        const implReport = (fix && fix.ok && fix.report) || '';
+        const crit = await slot(() =>
+            recon((reg) => critiquePrompt(u, implReport, reg), {
+                label: 'crit:' + u.tag,
+                phase: 'Review',
+                schema: FINDINGS_SCHEMA,
+                scope: u.pages,
+                hl: { arr: 'findings', group: 'kind' },
+                codexEffort: 'high',
+            }),
+        ).catch(() => null);
+        const rt = await slot(() =>
+            agent(rtUnitPrompt(u, implReport, crit), {
+                label: 'rt:' + u.tag,
+                phase: 'Review',
+                model: 'opus',
+                effort: 'xhigh',
+                schema: RT_SCHEMA,
+                stallMs: STALL,
+            }),
+        ).catch(() => null);
+        return { unit: u.tag, fix, crit, rt };
+    }),
+);
 const CRIT_PATHS = UNITS.map((u) => reportOf('crit:' + u.tag)); // deterministic — every path checked on disk regardless of receipt
+const IMPL_PATHS = chains.filter((c) => c.fix && c.fix.ok).map((c) => c.fix.report);
+// Red-teams fold their unit's impl deferred/indexRows forward, so aggregation reads rt first and falls back to the impl
+// receipt only for a unit whose rt died (its fixlog rows would otherwise vanish — the sweeper re-reads that fixlog from disk).
+const ORPHAN_IMPL = chains.filter((c) => c.fix && c.fix.ok && !c.rt).map((c) => c.fix.report);
+const BACKLOG = chains.flatMap((c) => (c.rt && c.rt.remaining) || []);
+const INDEX_ROWS = chains.flatMap((c) => (c.rt && c.rt.indexRows) || []);
 log(
-    'Review: ' +
-        critRoster.filter((r) => r.ok).length +
+    'Chains: ' +
+        chains.filter((c) => c.fix && c.fix.ok).length +
         '/' +
-        critRoster.length +
-        ' critique(s) ok, ' +
-        critRoster.filter((r) => r.ok).reduce((a, r) => a + r.entries, 0) +
-        ' finding(s)',
+        UNITS.length +
+        ' implement(s), ' +
+        chains.filter((c) => c.crit && c.crit.ok).length +
+        ' critique(s), ' +
+        chains.filter((c) => c.rt).length +
+        ' red-team(s) landed; ' +
+        BACKLOG.length +
+        ' deferred row(s), ' +
+        INDEX_ROWS.length +
+        ' index row(s)' +
+        (ORPHAN_IMPL.length ? ' — orphaned impl fixlog(s): ' + ORPHAN_IMPL.join(', ') : ''),
 );
 
-const rtFire = (suffix) =>
+// ONE terminal sweeper drains the cross-unit remainder in one scoped pass — deferred rows, index/manifest rows, seam-ledger
+// audit, governance drift, orphaned fixlogs (fed as extra tranche rows via the backlog), and its own hunt.
+const orphanRows = ORPHAN_IMPL.map((p) => ({ files: [p], claim: 'orphaned implement fixlog — read IN FULL from disk; its deferred/indexRows/harvest rows are unconsumed and yours to drain' }));
+const sweepFire = (suffix) =>
     slot(() =>
-        agent(redteamPrompt(PAGES, CRIT_PATHS, BACKLOG, UNMAPPED), {
-            label: 'redteam' + suffix,
+        recon(() => sweeperPrompt(BACKLOG.concat(orphanRows), INDEX_ROWS, UNMAPPED, PAGES), {
+            label: 'sweeper' + suffix,
             phase: 'Review',
-            model: 'fable',
-            effort: 'high',
             schema: RT_SCHEMA,
-            stallMs: STALL,
+            scope: PAGES,
+            hl: { arr: 'remaining' },
+            writes: true,
+            fix: true,
+            calls: 400,
         }),
-    );
-const rt = (await rtFire('')) || (await retryLane(() => rtFire(':a1')));
-log(
-    'Review: red-team ' +
-        (rt
-            ? (rt.files || []).length +
-              ' file(s), ' +
-              (rt.resolved || []).length +
-              ' resolved, ' +
-              (rt.rejected || []).length +
-              ' rejected, ' +
-              (rt.remaining || []).length +
-              ' remaining'
-            : 'DIED after retries — checkpoint and harvest file survive on disk'),
-);
+    ).catch(() => null);
+const sweepOnce = await sweepFire('');
+const sweep = sweepOnce && sweepOnce.ok ? sweepOnce : await retryLane(async () => {
+    const r = await sweepFire(':r1');
+    return r && r.ok ? r : null;
+});
+log('Sweeper: ' + (sweep && sweep.ok ? sweep.entries + ' row(s) remaining — ' + sweep.headline : 'DIED — checkpoint and harvest file survive on disk'));
 
 phase('Close');
-// The lander is the ONLY transport for critique-report harvest arrays and the red-team harvest file — a dead writer loses nothing.
-const HARVEST_ROWS = ((impl && impl.harvest) || []).concat((rt && rt.harvest) || []);
+// The lander transports every harvest channel: inline rt rows, the sweeper/rt harvest file, and the report harvest arrays on disk.
+const HARVEST_ROWS = chains.flatMap((c) => (c.rt && c.rt.harvest) || []);
 const doctrine =
-    HARVEST_ROWS.length || CRIT_PATHS.length || !rt
+    HARVEST_ROWS.length || CRIT_PATHS.length || IMPL_PATHS.length
         ? await slot(() =>
-              agent(doctrinePrompt(HARVEST_ROWS, CRIT_PATHS), {
+              agent(doctrinePrompt(HARVEST_ROWS, CRIT_PATHS.concat(IMPL_PATHS)), {
                   label: 'doctrine',
                   phase: 'Close',
-                  model: 'fable',
+                  model: 'opus',
                   effort: 'high',
                   schema: DOCTRINE_SCHEMA,
                   stallMs: STALL,
@@ -1081,23 +1235,16 @@ return {
     mapped: mapRoster.filter((r) => r.ok).length,
     unmapped: UNMAPPED,
     merged: MERGE_OK,
-    implement: impl && {
-        verdict: impl.verdict,
-        files: (impl.files || []).length,
-        indexApplied: (impl.indexApplied || []).length,
-        collapsed: impl.collapsed,
-        realized: impl.realized,
-        summary: impl.summary,
+    implements: chains.filter((c) => c.fix && c.fix.ok).length,
+    critiques: chains.filter((c) => c.crit && c.crit.ok).length,
+    redteams: chains.filter((c) => c.rt).length,
+    orphanedFixlogs: ORPHAN_IMPL,
+    sweeper: sweep && {
+        ok: !!sweep.ok,
+        report: sweep.report || '',
+        remaining: sweep.entries || 0,
+        headline: sweep.headline || '',
     },
-    critiques: critRoster.filter((r) => r.ok).length,
-    redteam: rt && {
-        files: (rt.files || []).length,
-        resolved: (rt.resolved || []).length,
-        rejected: (rt.rejected || []).length,
-        beyond: (rt.beyond || []).length,
-        summary: rt.summary,
-    },
-    remaining: (rt && rt.remaining) || BACKLOG,
     doctrine: doctrine && {
         nominated: HARVEST_ROWS.length,
         landed: (doctrine.landed || []).length,

@@ -44,9 +44,9 @@ Every root conforms to one structural schema, so an agent predicts any SKILL.md'
 
 ## [04]-[FRONTMATTER]
 
-`name` and `description` form the portable core; every other field is loader policy, absent unless it changes behavior.
+`name` and `description` form the portable core; every other field is loader policy, absent unless it changes behavior. THIS ESTATE CARRIES THE CORE ALONE: `allowed-tools` is inert under the `bypassPermissions` default, `metadata` is not a loader field, and no skill here earns `disable-model-invocation` or `user-invocable`. A field beyond the pair is a defect on sight; the rows below price the others for portability, never as an invitation.
 
-- [PATHS]: `paths` glob patterns bind the listing to work touching matching files — the cure for a monorepo skill whose description otherwise competes everywhere.
+- [PATHS]: `paths` glob patterns bind the listing to work touching matching files — the cure for a monorepo skill whose description otherwise competes everywhere. The failure mode is the load-bearing half: outside its globs the skill is SILENT, so any corpus-wide, repo-agnostic, or judgment skill is broken by a glob that looks harmless.
 - [DISABLE_MODEL_INVOCATION]: `disable-model-invocation: true` removes the description from the listing entirely. This is the mode for side-effect workflows and for zero-cost residency when the operator is the index.
 - [USER_INVOCABLE]: `user-invocable: false` hides the skill from the invocation menu while the description stays listed — background knowledge the model applies but no one runs as a command.
 - [ALLOWED_TOOLS]: `allowed-tools` pre-grants named tool permissions while the skill is active; `disallowed-tools` subtracts from the pool.

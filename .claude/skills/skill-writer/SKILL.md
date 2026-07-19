@@ -1,16 +1,14 @@
 ---
 name: skill-writer
 description: >-
-    Designs, authors, reviews, and repairs skill bundles — SKILL.md roots, trigger descriptions,
-    references, templates, bundled scripts, frontmatter policy — and proves them with trigger and
-    adherence evals. Use when creating a skill, rewriting or auditing an existing bundle, writing
-    or tuning a trigger description, splitting an oversized root, deciding whether material earns
-    a skill or a cheaper owner, pricing how rigid an instruction is allowed to be, measuring
-    trigger and adherence quality, or auditing a skill estate for trigger collisions, listing
-    overflow, and forks. Prose register and the deterministic prose gate belong to the
-    docgen skill; codex-native format and discovery mechanics belong to the codex skill;
-    runnable orchestration scripts belong to workflow-creator; placement across memory files,
-    rules, settings, and hooks belongs to harness-steering.
+    Authors, reviews, and repairs skill bundles — the `SKILL.md` root, the description that wins
+    selection, and the references, templates, examples, and scripts one hop down. Use when
+    creating a skill, auditing or rebuilding one, ruling a fact's tier, pricing instruction
+    rigidity, proving a trigger with evals, or sweeping an installed fleet for colliding triggers,
+    shadowed names, cross-bundle forks, unvalidated artifacts, and listing overflow — "why won't
+    my skill fire", "this one fires on everything", "audit my skills". Prose register and its
+    deterministic gate belong to docgen; where an instruction lives — memory files, rules,
+    settings, hooks — belongs to harness-steering.
 ---
 
 # [SKILL_WRITER]

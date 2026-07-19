@@ -1,13 +1,12 @@
 ---
 name: pr-loop
 description: >-
-    Owns the autonomous PR lifecycle over `gh` and the GitHub GraphQL API — from landed work to a
-    squash-merged PR with no branch remaining: every reviewer (CodeRabbit, Greptile, Macroscope, Codex,
-    Claude, human) awaited on its true completion signal with zero-context watching, every finding
-    collected, triaged, and fixed at the doctrine bar, threads resolved, convergence proven — user out
-    of the loop. Use after landing work on a branch or `main`, or on "ship and drive the PR", "address
-    the PR review feedback", "round-trip reviewer comments", "babysit the PR to merge". Local pre-PR
-    review belongs to code-review.
+    Owns a pull request end to end, unattended: opened from landed work, every reviewer driven
+    to completion (CodeRabbit, Greptile, Macroscope, Codex, Claude, human), their findings fixed,
+    threads resolved, squash-merged with no branch left. Use only where a PR is wanted or open —
+    "ship this as a PR", "address the PR review feedback", "CodeRabbit left comments on the PR",
+    "babysit the PR to merge", "get this merged". Diff review, local or posted as PR comments,
+    belongs to code-review.
 ---
 
 # [PR_LOOP]

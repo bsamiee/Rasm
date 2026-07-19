@@ -32,7 +32,7 @@ A report argues a verdict from evidence; the verdict leads and the evidence desc
 A dashboard answers its headline question in the default state with zero interaction; every control past that point is a lens, never a gate.
 
 - [SPINE]: a stat row (headline numerals with trend deltas) above the fold; the primary chart region; the breakdown tables; the anomaly or exception list last — a healthy dashboard's exception list renders its authored empty state.
-- [MARKS]: chart form, palette, and mark law defer to the dataviz owner; the page contributes the shell, the `--series-*` bindings, and the zero-baseline hairline order.
+- [MARKS]: the page contributes the shell, the `--series-*` bindings, and the zero-baseline hairline order once chart form and palette are settled.
 - [TABLES]: every table carries `<tfoot>` aggregates recomputed from visible rows; numeric columns bind `td.num`; the widest table scrolls inside its own wrapper.
 - [FILTERS]: filter clusters live in `<search>`; an active filter is always visible with its match count; scope filters hide, attention filters dim — and every visible aggregate recomputes under both.
 - [DENSITY]: one screen answers the standing question; a dashboard that needs a tour failed selection — the material wanted a report.

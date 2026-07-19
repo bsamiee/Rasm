@@ -1,11 +1,13 @@
 ---
 name: coding-bash
 description: >-
-    Use for Bash scripts, shell CLIs, entrypoints, CI jobs, cron,
-    text-processing pipelines, ShellCheck remediation, and shell reviews —
-    "write a shell script", "fix this bash", "make a CLI wrapper".
-    Enforces strict mode, dispatch-table routing, fork-minimal primitives,
-    atomic I/O, signal-safe cleanup, and pragmatic functional shell patterns.
+    Authors, hardens, reviews, and debugs Bash and POSIX shell — scripts, CLIs, container
+    and CI entrypoints, text-processing pipelines, bats-core suites, structured logging,
+    and cross-shell portability (macOS bash 3.2, dash, Alpine). Use for any .sh/.bash file,
+    ShellCheck remediation, or a Bash 5.2/5.3 feature gate — "write a shell script",
+    "fix this bash", "make a CLI wrapper", "why does this loop fail", "breaks on spaces in
+    filenames". osascript and JXA automation belongs to applescript; workflow YAML and CI/CD
+    wiring to github-actions.
 ---
 
 # [CODING_BASH]

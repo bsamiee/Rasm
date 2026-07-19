@@ -219,13 +219,21 @@ def load(scan_root: Path, path: Path) -> tuple[Bundle | None, tuple[Row, ...]]:
 
 
 def discriminants(description: str) -> frozenset[str]:
-    return frozenset(
-        itertools.chain(
+    # One concept counts once: backticks, casing, and a bare-versus-spanned spelling of the same
+    # token are notations, not distinct discriminants, and a prefix of a dotted token is the same noun.
+    stripped = CODE_SPAN.sub(" ", description)
+    found = frozenset(
+        token.strip("`").casefold()
+        for token in itertools.chain(
             CODE_SPAN.findall(description),
             QUOTED_SPAN.findall(description),
-            EXTENSION_TOKEN.findall(CODE_SPAN.sub(" ", description)),
-            SCREAMING_TOKEN.findall(CODE_SPAN.sub(" ", description)),
+            EXTENSION_TOKEN.findall(stripped),
+            SCREAMING_TOKEN.findall(stripped),
         )
+        if token.strip("`")
+    )
+    return frozenset(
+        token for token in found if not any(other != token and other.startswith(f"{token}.") for other in found)
     )
 
 

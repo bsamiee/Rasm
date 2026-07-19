@@ -1,16 +1,12 @@
 ---
 name: agy
 description: >-
-    Bounded one-shot Gemini sub-calls through the Antigravity CLI (`agy`): multimodal judgment
-    over screenshots, generated images, UI states, and diagrams, read-only adversarial review
-    lanes that return typed falsifiable findings as a second-model perspective, Nano Banana
-    image generation and edit iteration feeding html-studio and mermaid work, broad
-    synthesis across competing designs, ambiguity reduction into crisp constraints, alternate
-    approaches and counterexample hunts, and redacted log or dataset distillation. Use when a
-    task gains from an external second model, a critique or red-team stage wants an
-    independent Gemini lens, or the request names Gemini, Antigravity, Google Ultra, or Nano
-    Banana. gpt-5.6 offload belongs to the codex skill; delegation across Claude's own
-    surfaces belongs to agent-dispatch.
+    Gemini dispatch through Antigravity: image generation and edit iteration (Nano Banana),
+    visual judgment over images and visual artifacts, screenshots, rendered diagrams, and
+    read-only second-model critique returning taste and quality related findings. Use for
+    "generate an image", "make a mockup", "does this screenshot look right", "second
+    opinion", for competing-design synthesis, ambiguity reduction, counterexample hunts,
+    and redacted log distillation, and on any mention of Gemini, Antigravity, or Nano Banana.
 ---
 
 # [AGY]

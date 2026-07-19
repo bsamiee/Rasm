@@ -74,7 +74,7 @@ Some concepts carry no inspectable relation, and a fence forced onto them decora
 - A discrete cross-product matrix — role by resource, feature by tier — is a table, or `block-beta` when placement itself is the meaning; the decision logic it feeds is a separate dispatch shape.
 - An unordered roster is a list; drawing edges between peers invents relations the material never claimed.
 - A single relation across fewer than three parts is a clause; the root's mark threshold owns this floor.
-- A quantity distribution, trend, or correlation is a chart, owned by the dataviz skill — the quantitative mermaid rows hold only while the artifact must stay a fence.
+- A quantity distribution, trend, or correlation is a chart, not a diagram — the quantitative mermaid rows hold only while the artifact must stay a fence.
 - A narrative whose value is its wording — a decision record, a contract clause — stays prose; a diagram of it launders emphasis as structure.
 
 ## [04]-[COMPOSITE_SUBJECTS]

@@ -1,6 +1,12 @@
 ---
 name: secrets
-description: Estate secret custody and consumption over 1Password and Doppler — op as the permanent local store, Doppler as the runtime backend, scoped CLI reads, directory-scope resolution, the SessionStart pull rail, service-token custody classes, secret-file templating, and the read-only Doppler MCP row. Use when reading or wiring secrets, minting or routing tokens, debugging missing session env keys, rendering secret-bearing config files, or touching op/doppler surfaces. Topology mutation — projects, configs, tokens, scopes — belongs to Parametric_Forge/services/topology.ts and its driver, never to ad-hoc CLI calls or per-repo files.
+description: >-
+    Estate secret custody over 1Password and Doppler — op the permanent local store and
+    SSH-key custodian, Doppler the runtime backend. Use when a secret, token, or env key
+    fails to resolve, a session boots degraded or stale, ssh or git signing cannot reach
+    the op agent key, an MCP row needs a scoped token, or a config file needs secret
+    material rendered or mounted. Minting tokens and creating projects, configs, or
+    scopes is Pulumi topology in Parametric_Forge/services/topology.ts — the pulumi skill.
 ---
 
 # [SECRETS]

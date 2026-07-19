@@ -1,7 +1,7 @@
 export const meta = {
     name: 'rebuild-alt',
     whenToUse:
-        'The fable-light hostile rebuild pass for any libs/ planning corpus: pass targets (file / sub-folder / package root, any number, any language mix); it maps every .planning sub-folder, ideates per package on ONE fable author (per-sub-folder power-idea dossiers plus one package-wide dossier), hostile-rebuilds every page batch concurrently through twin half-scope writer chains at the owning-language doctrine bar, closes with a finder fan, package-fanned fixers, per-package ideas-implementers, and one terminal sweeper, then runs an always-on per-file density pass. Roster: terra recon/map lanes, twin sol implement + critique halves, twin opus redteams, fable ideas, opus census/realize/disposition/doctrine/density-map, sol per-file density fixers.',
+        'The fable-light hostile rebuild pass for any libs/ planning corpus: pass targets (file / sub-folder / package root, any number, any language mix); it maps every .planning sub-folder, ideates per package on ONE fable author (per-sub-folder power-idea dossiers plus one package-wide dossier), hostile-rebuilds every page batch concurrently through twin half-scope writer chains at the owning-language doctrine bar, closes with a finder fan, package-fanned fixers, per-package ideas-implementers, and one terminal sweeper, then runs an always-on per-file density pass. Roster: terra recon/deep-map lanes, sol two-tier .api lanes, twin sol implement + critique halves, twin opus redteams, fable ideas, opus census/realize/disposition/doctrine/density-map, sol per-file density fixers.',
     description:
         'Language-agnostic hostile-rebuild engine over the libs/{csharp,python,typescript} planning corpora. args = a target path, an array of paths, or {targets} — languages mix freely, {root} retargets an isolated checkout, empty = no-op; every page derives doctrine, both .api tiers, casing, and its member-verification rail from its owning package. Plan expands targets to pages in dependency + seam-cohesion order under the owning-package charter. Map fans one deep-map lane and one two-tier .api inventory lane per .planning sub-folder unit — an oversize sub-folder splits into ceiling-bounded segments, so map and batch seams stay congruent — each writing a per-unit dossier the batches reuse. Ideate runs two lanes per package: an opus corrections census (the non-binding fix addendum) and ONE fable ideas author writing one dossier PER .planning sub-folder (folder-grain power ideas — new capability families ultra-stacking both .api tiers) plus one package-wide dossier (broader cross-folder ambitions, each naming its owner pages) — one author, internally coherent, zero duplication between grains. Build packs whole sub-folder units into batches under the packing ceiling, all concurrent under one slot scheduler; per batch a doctrine-bar lens, then ONE LOC-balanced half partition drives twin half-scope chains — sol implement, sol critique, opus redteam per half, each chain folding its own on-disk fixlogs forward — every writer under the own-pass-first input ladder with libs-wide ripple authority under the four bounds and seam-ledger coordination; a half consumes its units\' per-folder ideas dossiers plus the package-wide entries its pages own. Each package chain closes with one opus ideas-realization writer implementing the residual idea pool against the landed corpus, gated entries carded via indexRows. The spine is per-package pipelined; Close is a whole-run barrier. Close: a read-only finder fan plus one governance finder per language, a backlog verifier consolidating every deferred/census/orphan row into one package-keyed pre-verified work list, and an ideas collator statusing every idea entry against disk — then ONE sol fixer PER PACKAGE concurrently drains its package\'s work rows, findings, and package-doc index rows, each chaining into a per-package sol ideas-implementer realizing its unrealized ledger entries; ONE terminal sol sweeper then drains cross-package rows, central-manifest edits, per-fixer remainders, and failed territories in one scoped pass; two concurrent opus terminals follow — an ideas-disposition writer giving every idea entry exactly one outcome (realized on disk, carded into the owning IDEAS.md, or rejected with reason) and a doctrine lander adjudicating pooled harvest nominations. Density is the always-on terminal phase over the landed pages: opus mappers over LOC-bounded file sets write one logic-flow + strata-leverage map per file grounded in the branch and package ARCHITECTURE.md ledgers, then ONE sol fixer per file executes a single ground-up density pass — shape and entry count down through polymorphic collapse, knobs to policy values, single-caller helpers inlined, flat code rebuilt expression-shaped, hand-rolled capability replaced with strata composition, 10x growth absorbed as rows on existing owners, capability never lost — and one sol density closer applies pooled card rows and drains cross-file residue. Stage law lives in the prompt blocks; codex lanes quota-fall to opus, never fable.',
     phases: [
@@ -297,6 +297,22 @@ const HARVEST = {
 
 // Required-but-empty arrays are attestations: forced seamsTouched/beyondMap/indexRows/deltas/deferred/dossierPhantoms
 // make "read fully / exceed the reports / repair both ends / record the backlog" structurally checkable, never wishful prose.
+// One row per ambition entry a writer met — the traceability rung the Close collator and disposition writer read instead
+// of reconstructing realization from disk alone; a claimed-but-unrecorded idea is how an ambition dies silently.
+const IDEAS_WORKED = {
+    type: 'array',
+    items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['idea', 'outcome', 'where'],
+        properties: {
+            idea: S, // the dossier entry slug, verbatim
+            outcome: { type: 'string', enum: ['landed', 'deepened', 'declined', 'unrealized'] },
+            where: S, // landed/deepened: the page anchor carrying it; declined: why the entry does not survive disk
+        },
+    },
+};
+
 const FIXLOG_SCHEMA = {
     type: 'object',
     additionalProperties: false,
@@ -313,6 +329,7 @@ const FIXLOG_SCHEMA = {
         'dossierPhantoms',
         'collapsed',
         'extended',
+        'ideasWorked',
     ],
     properties: {
         files: { type: 'array', items: S },
@@ -327,13 +344,14 @@ const FIXLOG_SCHEMA = {
         indexRows: INDEXROWS,
         harvest: HARVEST,
         dossierPhantoms: { type: 'array', items: S },
+        ideasWorked: IDEAS_WORKED,
     },
 };
 
 const REVIEW_SCHEMA = {
     type: 'object',
     additionalProperties: false,
-    required: ['files', 'verdict', 'summary', 'seamsTouched', 'deltas', 'deferred', 'beyondMap', 'indexRows', 'harvest', 'extended'],
+    required: ['files', 'verdict', 'summary', 'seamsTouched', 'deltas', 'deferred', 'beyondMap', 'indexRows', 'harvest', 'extended', 'ideasWorked'],
     properties: {
         files: { type: 'array', items: S },
         verdict: { type: 'string', enum: ['fixed', 'clean'] },
@@ -345,6 +363,7 @@ const REVIEW_SCHEMA = {
         beyondMap: BEYOND,
         indexRows: INDEXROWS,
         harvest: HARVEST,
+        ideasWorked: IDEAS_WORKED,
     },
 };
 
@@ -729,7 +748,10 @@ const laneLaw = (schema, o) =>
           'approach resists, pick the next-best one and proceed. Return without an applied edit only if the territory genuinely ' +
           'admits none.\n</persistence>\n\n<work_cadence>\nRead the stable law corpus once, first; then work ITEM BY ITEM — ' +
           "derive one item's findings, land its edits, advance. Edits land as derived and never pool toward the end: a batch " +
-          'fully materialized before its first edit forfeits its earliest findings to context compaction.\n</work_cadence>' +
+          'fully materialized before its first edit forfeits its earliest findings to context compaction.\nA [rebuild] page ' +
+          'lands SECTION BY SECTION, one write per top-level section, each section composed whole before it is written — ' +
+          'never a hunk-crawl of twenty-plus micro-patches against one page. Your own written text is authoritative: never ' +
+          're-open a span you authored this turn to re-locate an anchor, and never re-read a page mid-rebuild.\n</work_cadence>' +
           '\n\n<read_discipline>\nA stable input — a doctrine page, dossier, census, catalog, charter — is read ONCE: extract ' +
           'what you need into your plan notes and re-open only the exact line span behind an edit, never the whole file again. ' +
           'Read in large windows (400+ lines per command), never 200-line paging. Your context compacts on a long lane; only ' +
@@ -737,8 +759,8 @@ const laneLaw = (schema, o) =>
           (o.calls || 300) +
           ' tool calls total; at the budget, land what is derived and record every remaining row in the product `deferred` ' +
           'field — an honest remainder beats a thrashing overrun.\n</read_discipline>' +
-          '\n\n<verification>\nAfter editing, re-read each changed file and confirm it is coherent ' +
-          'and nothing it carried was lost. Fix what fails before yielding. Verification is READING: the corpus is markdown ' +
+          '\n\n<verification>\nOnce a page takes its LAST edit, re-read it ONCE end to end and confirm it is coherent ' +
+          'and nothing it carried was lost — one verification pass per page, never between edits. Fix what fails before yielding. Verification is READING: the corpus is markdown ' +
           'design pages — never compile, build, run analyzers, or execute test gates against it; member truth rides the ' +
           'task-named catalog/assay rail only.\n</verification>'
         : '<context_gathering>\nTerritory: the exact files and directories the task names. Do not open files outside it; ' +
@@ -1181,7 +1203,32 @@ const IDEAS = (subFiles, wide) =>
               : '') +
           'An entry marked [NEW_PAGE] or [NEW_FOLDER] is OUT OF SCOPE for every batch writer — never author it, never note ' +
           'it; the package realization writer owns it. An idea disk already realizes, or the doctrine forbids, is dropped; an ' +
-          'idea you decline is not a defect. Ambition and information, never a prescription, a design, or a ceiling.'
+          'idea you decline is not a defect. Ambition and information, never a prescription, a design, or a ceiling. ' +
+          'LEDGER DUTY: every entry you read gets exactly one `ideasWorked` row — `landed` with the page anchor carrying it, ' +
+          '`declined` with what on disk or in doctrine defeats it, or `unrealized` when it survives but your pass did not ' +
+          'reach it. Silence is the one forbidden outcome: an unrecorded entry is indistinguishable downstream from an idea ' +
+          'that never existed, and the terminal disposition can only card what a ledger row names.'
+        : '';
+
+// Critique's ambition rung: an AUDIT charter, never a realization one — the critique proves what the implement claimed and
+// deepens what it landed shallow, while an untouched entry is recorded for the redteam and realization writer, never authored here.
+const IDEAS_AUDIT = (subFiles, wide) =>
+    subFiles.length || wide
+        ? 'IDEAS AUDIT — the implement lane worked the same ambition pool you now read: `' +
+          subFiles.concat(wide ? [wide] : []).join('`, `') +
+          '`. Read every entry owning one of YOUR pages, then grade its realization ON DISK against three outcomes. LANDED AT ' +
+          'STRENGTH: the page carries the capability at the depth the entry names — confirm and move on. LANDED SHALLOW: the ' +
+          'page gestures at the capability with a thin spelling, a single case where the entry names a family, a knob where it ' +
+          'names a dimension, or prose asserting what no shape carries — you REBUILD it to the strongest form the entry points ' +
+          'toward or a stronger one you see, exactly as you repair any conformance defect. ABSENT: no counterpart exists — ' +
+          'record it in your report as an unrealized row naming the entry and its owner page, and author NOTHING; the redteam ' +
+          'and the package realization writer own it. A shallow realization is a QUALITY DEFECT of the same class as a doctrine ' +
+          'violation and is repaired under the same authority, never merely reported. [NEW_PAGE] and [NEW_FOLDER] entries stay ' +
+          'out of scope: never author, never grade, never note. LEDGER DUTY: every entry you grade gets exactly one ' +
+          '`ideasWorked` row — `landed` (the implement realized it at strength, anchor named), `deepened` (you rebuilt a ' +
+          'shallow realization, anchor named), `declined` (disk or doctrine defeats it), or `unrealized` (absent, left for the ' +
+          'realization writer). Your grade is the first independent read of the ambition pool against disk, so an ungraded ' +
+          'entry strands the disposition writer with the implement self-report alone.'
         : '';
 
 const readFirst = (L, pkg, dossiers) =>
@@ -1441,9 +1488,15 @@ const apiLensPrompt = (L, batch, dossier, reg) =>
             REG[reg].apiVerify +
             ' — a capability no page exploits is a named integration gap ROUTED to EVERY page whose concept admits it, never ' +
             'one "best" owner alone. FULL-TIER TRIAGE: you hold the complete two-tier `ls` inventory — every catalog in it ' +
-            'gets a verdict: COMPOSED (a page uses it), EXPANSION (the folder\'s concepts admit it but no fence exploits it — ' +
-            'lands as {catalog, capability} rows routed to the admitting pages), or FOREIGN (one word, no elaboration); a ' +
-            'catalog without a verdict is a skipped read your coverage must report. The famous rails are never the ceiling — ' +
+            'gets TWO independent verdicts, never one: PRESENCE — COMPOSED (a page uses it) or FOREIGN (one word, no ' +
+            'elaboration) — and, for every COMPOSED catalog, DEPTH — SATURATED (the pages exploit the members their concepts ' +
+            'admit) or EXPANSION (admitted depth no fence reaches, landing as {catalog, capability} rows routed to the ' +
+            'admitting pages). COMPOSED NEVER BLOCKS EXPANSION: presence proves one member was called, never that the surface ' +
+            'is exhausted, and the richest rows this lens produces come from catalogs already composed at one member while a ' +
+            'whole family goes unused; a FOREIGN catalog whose concepts the folder admits carries EXPANSION rows too. A ' +
+            'COMPOSED catalog carrying no DEPTH verdict is an incomplete read your coverage must report, and a folder-wide ' +
+            '"EXPANSION rows: none" is a claim you owe per-catalog proof for — name each COMPOSED catalog and the exhausted ' +
+            'family earning its SATURATED verdict, or the claim is a skipped grading pass. The famous rails are never the ceiling — ' +
             'the long tail of both tiers is where unexploited packages hide, and a domain-adjacent folder catalog with zero ' +
             'fence use is the highest-value row this lens produces. SINGLE-CONSUMER EXPANSION: a package with a catalog at ' +
             'ANY tier consumed by only ONE page is expansion pressure on its siblings — name the package, its unexploited ' +
@@ -1466,8 +1519,11 @@ const apiLensPrompt = (L, batch, dossier, reg) =>
             '` — Tier-1: quoted `.api` member blocks with `file:line` anchors for every cited member plus the real `ls` ' +
             'inventories of both tiers; NEGATIVE_SPACE: one row per EXPANSION-verdict catalog — the catalog, the admitting ' +
             'folder concept, and the zero-use evidence — so the unexploited-package sweep is auditable, never implied; ' +
-            'Tier-2: pointer rows (catalog path + one-line scope) for the FOREIGN remainder. FORBIDDEN: ' +
-            'doctrine digests, unanchored claims, prescriptive designs. Return worklist + coverage.',
+            'Tier-2: pointer rows (catalog path + one-line scope) for the FOREIGN remainder. SKELETON — these five headings ' +
+            'verbatim, in this order, no renaming and no additions: `## [01]-[TIER_1_INVENTORIES]`, ' +
+            '`## [02]-[TIER_1_MEMBER_BLOCKS]`, `## [03]-[NEGATIVE_SPACE]`, `## [04]-[TIER_2_FOREIGN]`, ' +
+            '`## [05]-[VERIFICATION]`; downstream lanes reach your rows by heading, so a renamed section reads as an absent ' +
+            'one. FORBIDDEN: doctrine digests, unanchored claims, prescriptive designs. Return worklist + coverage.',
     ].join('\n\n');
 
 const barLensPrompt = (L, batch, reg, pack) =>
@@ -1687,6 +1743,7 @@ const critiquePrompt = (L, batch, dossiers, ideate, scopes, roster, unmapped, im
             LEDGER(lbase || scratchBase(pkgOf(batch[0].page), batch[0].i || 0), scopes),
         ])
         .concat(ideate ? [CORRECTIONS(ideate.fixFiles || [])].filter(Boolean) : [])
+        .concat(ideate ? [IDEAS_AUDIT(ideate.ideaSubFiles || [], ideate.ideaWide || '')].filter(Boolean) : [])
         .concat([
             implReport
                 ? 'NAVIGATION — the implement fixlog is ON DISK at ' +
@@ -1917,6 +1974,17 @@ const ideasCollatorPrompt = (sets, reg) =>
             'form or the doctrine forbids it — anchor the superseding fact). The dossiers are PRE-RUN snapshots; every judgment ' +
             're-derives from disk. Entries stay ambition and information — never a prescription or a ruled design — and the ' +
             'ledger is TOTAL: one row per dossier entry, none dropped.',
+        'WRITER LEDGERS (navigation, never evidence) — the build writers recorded what they met as `ideasWorked` rows in ' +
+            'their fixlogs under `' +
+            SCRATCH +
+            '/`: `jq -s \'[.[].ideasWorked[]?]\' ' +
+            SCRATCH +
+            "/impl-*-report.json " +
+            SCRATCH +
+            '/crit-*-report.json` collates them in one call. A row tells you WHERE to look first and which entries a writer ' +
+            'claims to have declined; it never settles status — a `landed` row over a page that does not carry the capability ' +
+            'is status `unrealized`, and an entry no row mentions is statused from disk exactly like every other. Absent or ' +
+            'malformed ledgers change nothing: disk is the only evidence.',
         REG[reg].selfCheck,
     ].join('\n\n');
 
@@ -2581,9 +2649,9 @@ const runBatch = async (b) => {
             );
             if (!fix || !fix.ok) return { pkg: b.pkg, pages: half, fix, crit: null, rt: null }; // failure isolation: a dead implement skips its half's reviews
             const implReport = fix.report;
-            // Critique: sol codex write lane running the full conformance audit in place over the half. The critique
-            // drops the IDEAS rung — an in-place conformance audit consumes the census, never the ambition worklist;
-            // ambition realization is the implement's rung 4 and the redteam's mandate (G).
+            // Critique: sol codex write lane running the full conformance audit in place over the half. It reads the
+            // ambition pool under an AUDIT charter, not a realization one — grading what the implement landed and
+            // deepening a shallow realization, while an absent entry is recorded for the redteam and realization writer.
             const crit = await slot(() =>
                 recon(
                     (reg) =>
@@ -2591,7 +2659,7 @@ const runBatch = async (b) => {
                             L,
                             half,
                             dossiers,
-                            { fixFiles: ideate.fixFiles, ideaSubFiles: [], ideaWide: '' },
+                            ideate,
                             SCOPES,
                             roster,
                             halfUnmapped,

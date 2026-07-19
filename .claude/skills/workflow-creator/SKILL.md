@@ -1,22 +1,20 @@
 ---
 name: workflow-creator
-allowed-tools: Bash(node ${CLAUDE_PROJECT_DIR}/.claude/skills/workflow-creator/scripts/*)
 description: >-
-    Author runnable workflow scripts for Claude Code's Workflow tool — deterministic
-    multi-agent orchestration files under `.claude/workflows/` that fan out fresh-context
-    subagents through plain JavaScript control flow: the `meta` block, `agent()`,
-    `pipeline()`, `parallel()`, schemas, budgets, resume. Use whenever the user wants to
-    create, write, scaffold, design, fix, or debug a workflow — "make a workflow", "turn
-    this into a workflow", "orchestrate this with subagents deterministically" — when the
-    script format or an erroring run needs explaining, and when a described repeatable
-    multi-step or parallel job wants packaging as a workflow even though the word never
-    appears. Not for merely running an existing workflow or a one-off single-subagent
-    task; whether a workflow is the right execution surface belongs to agent-dispatch.
+    Owns Claude Code workflows end to end — the deterministic multi-agent orchestrators in
+    `.claude/workflows/`: authoring `meta`, `agent()`, `pipeline()`, `parallel()`, and
+    schemas; editing, validating, and dry-running an existing script; launching a run,
+    writing its ledger, and `/workflows` live progress; and recovering one through run IDs,
+    `resumeFromRunId`, the `journal.jsonl` result cache, cross-session transplant, and
+    continuation scripts. Use for "make a workflow", "turn this into a workflow", "run the
+    workflow", "resume it", "why did the run stall", for any edit under `.claude/workflows/`,
+    and when a repeatable multi-step or parallel job wants packaging as a workflow. Whether a
+    workflow beats a subagent, fork, team, or background task belongs to agent-dispatch.
 ---
 
 # [WORKFLOW_CREATOR]
 
-A workflow is a runnable JavaScript orchestrator for Claude Code's `Workflow` tool: the loops, conditionals, and fan-out are plain deterministic code, and only the leaf `agent()` calls spend tokens — each in its own fresh context window. Its deliverable is the file, in `.claude/workflows/<name>.js` (project) or `~/.claude/workflows/` (personal), named by its `meta.name`, never its filename.
+A workflow is a runnable JavaScript orchestrator for Claude Code's `Workflow` tool: the loops, conditionals, and fan-out are plain deterministic code, and only the leaf `agent()` calls spend tokens — each in its own fresh context window. Two deliverables, both owned here: the file, in `.claude/workflows/<name>.js` (project) or `~/.claude/workflows/` (personal), named by its `meta.name` and never its filename; and the run it produces, whose ledger, live progress, resume keys, and recovery route are as much this skill's territory as the script's syntax.
 
 ## [01]-[ROUTING]
 

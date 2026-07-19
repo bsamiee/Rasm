@@ -237,7 +237,7 @@ override func indicesOfObjects(byEvaluatingObjectSpecifier specifier: NSScriptOb
 
 `NSScriptSuiteRegistry` loads `.scriptSuite` declaration dictionaries, registers class and command descriptions, and emits AETE data; runtime registry loading serves plugin-style scriptability, while ordinary bundle resources register automatically.
 
-`NSUserScriptTask` and its `NSUserAppleScriptTask`, `NSUserAutomatorTask`, and `NSUserUnixTask` subclasses execute a user-supplied script out of process from `applicationScriptsDirectory`, which a sandboxed app only reads. Each task instance executes exactly once; `NSUserAppleScriptTask.execute(withAppleEvent:)` takes `nil` for a plain `run` or a fully formed handler-invocation event, and the script runs outside the app process under its own TCC identity.
+`NSUserScriptTask` and its `NSUserAppleScriptTask`, `NSUserAutomatorTask`, and `NSUserUnixTask` subclasses execute a user-supplied script out of process from `applicationScriptsDirectory`, which a sandboxed app only reads. Each task instance executes exactly once; `NSUserAppleScriptTask.execute(withAppleEvent:)` takes `nil` for a plain `run` or a fully formed handler-invocation event, and the script runs outside the app process.
 
 ```swift conceptual
 func runUserHandler(scriptURL: URL, handler: String, argument: String) async throws -> NSAppleEventDescriptor? {

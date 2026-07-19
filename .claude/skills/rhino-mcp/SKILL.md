@@ -1,11 +1,13 @@
 ---
 name: rhino-mcp
-user-invocable: false
 description: >-
-    Drives the McNeel Rhino-MCP-Platform `mcp__rhino-mcp-platform__*` tools for interactive Rhino host work:
-    slot lifecycle, run_csharp/run_python scripting, headless document IO, scene query/selection, viewport
-    capture, and GH2 Grasshopper graph authoring. Use when an agent must explore, script, inspect, or
-    build geometry inside a live Rhino session through MCP.
+    Drives a live Rhino 3D session: host bring-up via `forge-rhino-up` and `rhino-mcp-platform`
+    reconnect, slot lifecycle, RhinoCommon scripting in C# and Python, `.3dm` open/save, scene and
+    selection queries, layer materials, camera framing, cost-bounded viewport capture, and
+    Grasshopper2 canvas authoring. Use when a task must inspect, script, or build geometry inside a
+    running Rhino, when its MCP tools are absent, or when a call silently no-ops — "is Rhino
+    running", "show me the viewport", "what's in the scene", "the Rhino tools aren't connected",
+    "the capture came back empty".
 ---
 
 # [RHINO_MCP]
@@ -75,7 +77,7 @@ Headless, no dialogs. All bound to the slot's doc.
 
 | [INDEX] | [TOOL]               | [INPUT_SCOPE]        | [OUTPUT_SCOPE]           |
 | :-----: | :------------------- | :------------------- | :----------------------- |
-|  [01]   | `get_viewport_image` | viewport capture     | metadata plus JPEG block |
+|  [01]   | `get_viewport_image` | viewport capture     | metadata and JPEG block |
 |  [02]   | `set_camera`         | camera or bbox frame | active viewport camera   |
 |  [03]   | `zoom_to_layer`      | layer path           | layer union bbox zoom    |
 |  [04]   | `zoom_to_object`     | object GUIDs         | object union bbox zoom   |

@@ -85,11 +85,52 @@ A description summarizing the skill's workflow, so the model obeys the descripti
 
 ### [01.7]-[STRUCTURE_ENUMERATION]
 
-- Detection: A description naming the bundle's internal files, reference names, or section labels.
+- Detection: A description naming the bundle's internal files, reference names, section labels, or the doctrine those sections own — a precise noun is still structure when only the body speaks it.
 - Rejected: Covers language.md, runtime.md, and the six root sections from consent through distribution.
+- Rejected: Owns question threading, the push-versus-accept ruling, the axis catalog, and the durable-versus-ephemeral ruling.
 - Accepted: (the deliverable, discriminants, and boundary — internal structure stays invisible to selection.)
-- Reason: No task arrives wearing a filename, so the roster adds zero trigger power and dies on the first rename.
+- Reason: No task arrives wearing a filename or a ruling's name, so the roster adds zero trigger power and dies on the first rename; measured instances reached 45% of a description's budget.
 - Reframe: Delete the enumeration; spend the freed budget on discriminating objects and utterances.
+
+### [01.8]-[UNCLAIMED_SCOPE]
+
+A body capability the description never claims, so the tasks it exists for cannot reach it. The inverse of over-claiming, and invisible — a starved trigger announces itself, an unclaimed capability never fires and never complains.
+
+- Detection: A reference, script, or owned section whose selecting noun appears nowhere in the description; description chars far below the bundle's mass is the cheap first probe. A shipped gate or validator that binds unconditionally yet goes unnamed is the commonest instance.
+- Rejected: Generates Actions workflows and hardens them against injection. (behind it: a shipped `check|pin|run` gate, an error-routing reference, a runner catalog — none reachable)
+- Accepted: Owns Actions workflows and custom actions under `.github/` — authoring, hardening, and the local gate over actionlint, zizmor, and act. Use on "the CI run is failing", "pin these actions", "run the workflow locally".
+- Reason: Selection reads the description alone, so unclaimed scope is dead law however good the body is; a reduction target applied blindly manufactures this defect.
+- Reframe: One discriminant or utterance per unclaimed owned capability, priced against the tail budget. Truth outranks any char target — a description that must grow to cover real scope grows.
+
+### [01.9]-[DISOWNED_SCOPE]
+
+A refusal or narrowing clause that hands away work the bundle uniquely owns. Distinct from `[01.8]`: silence merely fails to invite, a refusal actively repels.
+
+- Detection: Any boundary clause or scope qualifier checked against the body — the refused deliverable resolving inside the bundle is the defect. A first clause narrower than the bundle (`Local review` over a bundle reviewing two corpora) is the same defect in positive voice.
+- Rejected: Owns durable markdown. Not for code-only edits. (behind it: a gate parsing fourteen source-file extensions and a comment-discipline section)
+- Accepted: Owns durable agent-facing prose wherever it lives — markdown files and the comments inside source files.
+- Reason: Boundary clauses get written to sound disciplined; the reflex amputates owned scope, and the first clause is truncation-proof, so a narrow opener is the most expensive place to commit it.
+- Reframe: Confirm the bundle does not own the refused thing before writing any refusal. Where the body owns it, the clause has inverted polarity — flip it into a discriminant instead of deleting it.
+
+### [01.10]-[UNDELIVERED_CLAIM]
+
+A description asserting capability the bundle does not carry. The dominant trigger defect by measured frequency, and the only one where the skill wins selection then fails the task.
+
+- Detection: `rg` every noun of the description against the whole bundle; a term appearing ONLY on the description line is the signature. Three shapes: the body REFUTES the claim (a handler roster the body demotes as non-enforcing, a tier ruled unselectable, a promise the shipped template contradicts); stale residue from a removed feature nobody de-claimed; an invention. A universal quantifier binding a roster — each, every, all — is verified against the roster's weakest member, since one exception makes the clause false.
+- Rejected: Seven interview modes, each terminating in a typed durable page. (three modes land explicitly ephemeral carriers)
+- Accepted: Seven interview modes; durable rulings land as typed pages — decision record, direction set, roadmap brief.
+- Reason: A false claim survives every eval that only checks whether the skill fires, and a removed feature leaves its claim behind by default because nothing forces the frontmatter to be re-read.
+- Reframe: Delete the claim, or restate it at the strength the body actually carries. Every body edit obligates this sweep in the same pass.
+
+### [01.11]-[RESIDENT_SURFACE_RESTATEMENT]
+
+An MCP-fronting or tool-fronting skill restating the surface it fronts, when tool schemas and server instructions are already resident every session.
+
+- Detection: Description content recoverable from the fronted server's own tool list or instruction block; the tool-name glob or a verb roster occupying the first clause. Paraphrase drift against the live schema is the aggravated form.
+- Rejected: Access the Context7 MCP to look up library documentation for React, Vue, Next.js, and Prisma.
+- Accepted: Repairs Context7 lookups that miss — rival `/org/project` IDs ranked, a multi-concept question split into scoped queries, an un-indexed library routed to its repository.
+- Reason: Restating resident context is duplication paid from a shared listing budget, and paraphrasing it invites drift the fronted schema will outlive.
+- Reframe: Claim only the judgment layer — which tool, at what cost, and how to read a failure. Where that layer is empty the honest verdict is deletion or `name-only`, never a polished description over a hollow bundle.
 
 ## [02]-[DISCLOSURE_CLASSES]
 

@@ -1,16 +1,12 @@
 ---
 name: tavily-search
 description: >-
-    Web research through the Tavily CLI as one skill — search (ranked fact-finding with a
-    server-side synthesized answer so raw pages never enter context), research (a cited
-    multi-source report), extract (clean markdown from up to 20 known URLs), map (a site's URL
-    list, no content), and crawl (bulk page content to disk). Default for any current-web
-    question. Triggered by "search for", "look up", "find", "research", "investigate",
-    "compare X vs Y", "what's the latest on", "extract"/"read this page", "map the site"/"find
-    the URL for", and "crawl"/"download the docs"/"get all the pages". Indexed library and
-    framework documentation belongs to context7-mcp; a multi-agent, adversarially-verified
-    report belongs to deep-research.
-allowed-tools: Bash(uvx *), Bash(python3 *), Bash(jq *)
+    Owns live-web retrieval through the Tavily CLI (`tvly`) — search, extract, map, crawl,
+    research — on the cheapest verb that answers: relevance resolved server-side, not
+    post-filtered locally, and bulk page content routed to disk, never the context window.
+    Beats blind single-URL fetching, which ranks and scopes nothing. Any current-web question
+    routes here — "what's the latest on", "compare X vs Y", "read this page", "download the
+    docs", a cited report outliving the turn. Indexed library docs belong to context7-mcp.
 ---
 
 # [TAVILY_SEARCH]

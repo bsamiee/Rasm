@@ -1,6 +1,6 @@
 # [HOSTS]
 
-Every automation host binds handler signature, entitlement domain, and result transport as one policy row a caller resolves before authoring a script.
+Every automation host binds handler signature and result transport as one policy row a caller resolves before authoring a script.
 
 ## [01]-[UTTYPE_SPINE]
 
@@ -83,7 +83,7 @@ end run
 
 ## [07]-[SHORTCUTS_SURFACES]
 
-A global `Allow Running Scripts` switch under Shortcuts Advanced settings gates the privileged bridge actions — Run AppleScript, Run Shell Script, Run JavaScript for Mac Automation, Run JavaScript on Web Page, Run Script Over SSH — executing with full user privileges outside normal action guardrails. TCC for Automation, Files, and Accessibility attaches to the responsible process, so one shortcut earns different prompts and persistence across app launch, CLI invocation, and background-automation contexts; a headless run meeting an unanswered consent prompt blocks rather than fails.
+A global `Allow Running Scripts` switch under Shortcuts Advanced settings gates the privileged bridge actions — Run AppleScript, Run Shell Script, Run JavaScript for Mac Automation, Run JavaScript on Web Page, Run Script Over SSH — executing with full user privileges outside normal action guardrails.
 
 External Shortcuts automation enters through the `shortcuts` CLI or the `Shortcuts Events` scripting dictionary. `tell application "Shortcuts Events" to run shortcut ... with input ...` dispatches in the background without fronting the Shortcuts UI, while `tell application "Shortcuts"` launches the app. `--input-path` and `--output-path` repeat, accept `-` for stdin and stdout, and expand shell globs; `--output-type` takes a UTI inferred from the output filename when omitted.
 
