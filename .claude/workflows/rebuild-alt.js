@@ -1160,6 +1160,8 @@ const LEDGER = (base, scopes) =>
     "another live batch's scope is recorded in `deferred`, never edited): " +
     scopes;
 
+// Polymorphic on input shape: one language row for a package-scoped lane, an array of language keys for the cross-package
+// terminals — only the doc-bloat term forks, so the law itself is authored once.
 const PROSE_COMMENTS = (L) =>
     'PROSE + COMMENTS — apply docs/standards/style-guide.md, information-structure.md, and formatting.md; these pages and this ' +
     'block are the COMPLETE prose law for this lane. Your project instructions (AGENTS.md/CLAUDE.md) route durable markdown to ' +
@@ -1170,8 +1172,17 @@ const PROSE_COMMENTS = (L) =>
     'command, flag, and literal; name the exact member over paraphrased behavior; trimming never reduces technical density. ' +
     'Fences comment for the next agent only: keep the canonical section-divider headers; beyond them zero comments, 1-2 lines ' +
     'only for a truly subtle invariant or boundary; no restating the code, no ' +
-    L.docBloat +
+    (Array.isArray(L) ? L.map((k) => LANG[k].docBloat).join('/') : L.docBloat) +
     ' bloat.';
+
+// Territory bound for the terminal writers: they carry no READ LAW block of their own, so without this a lane editing
+// markdown design pages with no stated prose register goes and loads one — the docgen bundle, measured at four files
+// before a repair landed. Instruction files and skill bundles are never inputs to a corpus writer under any root.
+const SCOPE_BOUND =
+    'OUT OF SCOPE: instruction files (CLAUDE.md, AGENTS.md, `.claude/` config), skill bundles under ANY root ' +
+    '(`.claude/skills/`, `~/.codex/skills/` — the PROSE block above is the complete register law for this lane, and the ' +
+    'docgen bundle is never opened), and the repo-root README. Discovery stays inside the territory this brief names — ' +
+    'never `rg --files` or `tree` from the repo root, and a name this brief states is never searched for on disk.';
 
 const INFO_LAW =
     'You provide INFORMATION, never prescriptions: exact disk anchors, the current shape at each site, seam endpoints both ' +
@@ -2115,6 +2126,8 @@ const pkgFixerPrompt = (L, pkg, pages, roster, unmapped, rows, work, backlog, or
         HUNT,
         CATALOG_APPEND,
         SOLO_LAW,
+        PROSE_COMMENTS(L),
+        SCOPE_BOUND,
         GIT_GROUND,
         'TASK: PACKAGE FIXER for `' +
             pkg +
@@ -2250,6 +2263,8 @@ const sweeperPrompt = (langs, fixerReports, deadPkgs, work, rowsGlobal, backlogG
         HUNT,
         CATALOG_APPEND,
         SOLO_LAW,
+        PROSE_COMMENTS(langs),
+        SCOPE_BOUND,
         GIT_GROUND,
         "TASK: TERMINAL SWEEPER (WRITER — the run's last CROSS-CUTTING corpus agent; the ideas-disposition and doctrine " +
             'terminals follow on disjoint surfaces, then the Density phase rebuilds every landed page one file at a time, ' +
@@ -2478,6 +2493,8 @@ const densityCloserPrompt = (langs, reports) =>
         BAR_LINES(langs),
         CATALOG_APPEND,
         SOLO_LAW,
+        PROSE_COMMENTS(langs),
+        SCOPE_BOUND,
         "TASK: DENSITY CLOSER (WRITER — the run's final agent). The per-file density fixers were single-file territories; " +
             'every cross-file need they met is a typed row in their fixlogs, ON DISK: ' +
             JSON.stringify(reports) +
